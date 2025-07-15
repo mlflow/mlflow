@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
-import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { RunInfoEntity } from '../../../../types';
+import { KeyValueEntity } from '../../../../../common/types';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
@@ -147,7 +148,7 @@ describe('ExperimentViewRunsControlsActionsSelectTags', () => {
     await userEvent.click(screen.getByText('Save'));
 
     // Two runs are selected
-    expect(setRunTagsBulkApi).toBeCalledTimes(2);
+    expect(setRunTagsBulkApi).toHaveBeenCalledTimes(2);
     // Assert the function was called with the correct arguments
     expect(setRunTagsBulkApi).toHaveBeenCalledWith(
       'runUuid1',

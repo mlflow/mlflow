@@ -73,7 +73,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   onCompareRunTableScrollHandler(e: any) {
-    const blocks = this.compareRunViewRef.current.querySelectorAll('.compare-run-table');
+    const blocks = this.compareRunViewRef.current.querySelectorAll('.mlflow-compare-run-table');
     blocks.forEach((_: any, index: any) => {
       const block = blocks[index];
       if (block !== e.target) {
@@ -241,7 +241,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     }
     return (
       <table
-        className="table compare-table compare-run-table"
+        className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
@@ -272,7 +272,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             title="Plot chart"
           >
             {key}
-            <i className="fas fa-chart-line" css={{ paddingLeft: '6px' }} />
+            <i className="fa fa-chart-line" css={{ paddingLeft: '6px' }} />
           </Link>
         );
       },
@@ -290,7 +290,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     }
     return (
       <table
-        className="table compare-table compare-run-table"
+        className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '300px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
@@ -323,7 +323,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     }
     return (
       <table
-        className="table compare-table compare-run-table"
+        className="table mlflow-compare-table mlflow-compare-run-table"
         css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
@@ -384,7 +384,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     ];
     return rows.map(({ key, title, data }) => (
       <tr key={key}>
-        <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
+        <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
           {title}
         </th>
         {data.map(([runUuid, value]) => (
@@ -516,13 +516,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
           })}
         >
           <table
-            className="table compare-table compare-run-table"
+            className="table mlflow-compare-table mlflow-compare-run-table"
             ref={this.runDetailsTableRef}
             onScroll={this.onCompareRunTableScrollHandler}
           >
             <thead>
               <tr>
-                <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
+                <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
                   <FormattedMessage
                     defaultMessage="Run ID:"
                     description="Row title for the run id on the experiment compare runs page"
@@ -546,7 +546,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             </thead>
             <tbody>
               <tr>
-                <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
+                <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
                   <FormattedMessage
                     defaultMessage="Run Name:"
                     description="Row title for the run name on the experiment compare runs page"
@@ -670,7 +670,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
           const rowClass = highlightDiff && hasDiff ? 'diff-row' : undefined;
           return (
             <tr key={k} className={rowClass}>
-              <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
+              <th scope="row" className="head-value mlflow-sticky-header" css={colWidthStyle}>
                 {headerMap(k, values)}
               </th>
               {values.map((value: any, i: any) => {

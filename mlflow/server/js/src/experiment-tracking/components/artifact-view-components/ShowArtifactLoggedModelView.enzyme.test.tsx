@@ -195,8 +195,8 @@ flavors:
     instance = wrapper.instance();
     instance.fetchLoggedModelMetadata = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchLoggedModelMetadata).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchLoggedModelMetadata).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 
   test('should render code snippet with original flavor when no pyfunc flavor', (done) => {

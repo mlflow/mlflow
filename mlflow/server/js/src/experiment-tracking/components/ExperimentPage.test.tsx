@@ -7,6 +7,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { useFetchExperiments } from './experiment-page/hooks/useFetchExperiments';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 jest.mock('../actions', () => ({
   searchDatasetsApi: jest.fn(() => ({ type: 'searchDatasetsApi', payload: Promise.resolve(null) })),
@@ -27,17 +28,21 @@ describe('HomePage', () => {
   };
 
   const renderPage = () => {
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
-      <Provider store={createMockStore(defaultMockState)}>
-        <MemoryRouter>
-          <ExperimentPage />
-        </MemoryRouter>
-      </Provider>,
+      <QueryClientProvider client={queryClient}>
+        <Provider store={createMockStore(defaultMockState)}>
+          <MemoryRouter>
+            <ExperimentPage />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>,
     );
   };
 
-  test('Fetches experiment on page load', () => {
+  test('Fetches experiment on page load', async () => {
     renderPage();
-    expect(useFetchExperiments).toBeCalled();
+    expect(useFetchExperiments).toHaveBeenCalled();
   });
 });

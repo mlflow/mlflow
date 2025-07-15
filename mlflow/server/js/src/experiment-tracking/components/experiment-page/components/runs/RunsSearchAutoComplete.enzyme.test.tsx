@@ -233,7 +233,7 @@ describe('Input', () => {
     // First keydown dismisses autocomplete, second will search
     searchInput.simulate('keydown', { key: 'Enter' });
 
-    expect(props.onSearchFilterChange).toBeCalledWith('test-query');
+    expect(props.onSearchFilterChange).toHaveBeenCalledWith('test-query');
   });
 
   test('should update search facets model and properly clear filters afterwards', () => {
@@ -246,12 +246,12 @@ describe('Input', () => {
 
     expect(getCurrentState()).toMatchObject(expect.objectContaining({ searchFilter: 'test-query' }));
 
-    expect(onClearMock).not.toBeCalled();
+    expect(onClearMock).not.toHaveBeenCalled();
 
     wrapper.find("input[data-test-id='search-box']").simulate('click');
     wrapper.find("button[data-test-id='clear-button']").simulate('click');
 
-    expect(onClearMock).toBeCalled();
+    expect(onClearMock).toHaveBeenCalled();
   });
 
   test('should pop up tooltip when search returns error', () => {

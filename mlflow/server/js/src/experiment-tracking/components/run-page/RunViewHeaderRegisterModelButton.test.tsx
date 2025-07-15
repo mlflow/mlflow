@@ -4,7 +4,7 @@ import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/Tes
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { KeyValueEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
 import { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
