@@ -57,12 +57,13 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             wait_until_ready(f"{url}/health")
             yield url
         finally:
-            # Kill the mlflow server process
-            prc.terminate()
             # Kill the gunicorn processes spawned by mlflow server
             proc = psutil.Process(prc.pid)
             for child in proc.children(recursive=True):
                 child.terminate()
+
+            # Kill the mlflow server process
+            prc.terminate()
 
 
 class AppClient:
