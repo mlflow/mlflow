@@ -108,6 +108,8 @@ function getContentType(filename) {
     case ".whl":
     case ".zip":
       return "application/zip";
+    case ".tar.gz":
+      return "application/gzip";
     case ".jar":
       return "application/java-archive";
     default:

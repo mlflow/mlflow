@@ -23,20 +23,28 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
+      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
 
       - name: Create artifacts file
         run: |
           ARTIFACT_PATHS_FILE=$(mktemp)
           echo "ARTIFACT_PATHS_FILE=$ARTIFACT_PATHS_FILE" >> $GITHUB_ENV
 
-      - name: Build distribution files
+      - name: Build Python package
         id: build-dist
         run: |
           pip install build
           python dev/build.py
           find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
 
-      - name: Build Java distribution
+      - name: Build R package
+        working-directory: mlflow/R/mlflow
+        run: |
+          Rscript -e 'install.packages("devtools")'
+          Rscript -e 'devtools::build()'
+          find $PWD -name "*.tar.gz" >> $ARTIFACT_PATHS_FILE
+
+      - name: Build Java packages
         working-directory: mlflow/java
         run: |
           mvn -B -DskipTests clean package
