@@ -636,6 +636,13 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
 
+#: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
+#: A value of 1.0 means all traces are sampled (default behavior).
+#: A value of 0.5 means 50% of traces are sampled.
+#: A value of 0.0 means no traces are sampled.
+#: (default: ``1.0``)
+MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
+
 #: Whether to writing trace to the MLflow backend from a model running in a Databricks
 #: model serving endpoint. If true, the trace will be written to both the MLflow backend
 #: and the Inference Table.
