@@ -9,13 +9,11 @@ from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
     _disable_telemetry,
-    invoked_from_internal_api,
     is_telemetry_disabled,
+    should_skip_telemetry,
 )
 
 _logger = logging.getLogger(__name__)
-
-F = TypeVar("F", bound=Callable[..., Any])
 
 
 P = ParamSpec("P")
@@ -25,7 +23,7 @@ R = TypeVar("R")
 def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if is_telemetry_disabled() or invoked_from_internal_api(func):
+        if is_telemetry_disabled() or should_skip_telemetry(func):
             return func(*args, **kwargs)
 
         success = True

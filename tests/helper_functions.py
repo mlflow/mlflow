@@ -824,5 +824,5 @@ def avoid_telemetry_tracking():
     """
     Context manager to disable telemetry, this avoids side effects of telemetry on tests.
     """
-    with mock.patch("mlflow.telemetry.track.invoked_from_internal_api", return_value=True):
+    with mock.patch("mlflow.telemetry.track.should_skip_telemetry", return_value=True):
         yield
