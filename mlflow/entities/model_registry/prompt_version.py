@@ -70,13 +70,13 @@ class PromptVersion(_ModelRegistryEntity):
         name: str,
         version: int,
         template: Union[str, list[dict[str, "ContentType"]]],
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
         last_updated_timestamp: Optional[int] = None,
         user_id: Optional[str] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ):
         from mlflow.types.chat import ChatMessage
 
