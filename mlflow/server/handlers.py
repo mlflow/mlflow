@@ -1787,18 +1787,15 @@ def _create_registered_model():
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
 
-    try:
-        dispatch_webhook(
-            event=WebhookEvent.REGISTERED_MODEL_CREATED,
-            payload=RegisteredModelCreatedPayload(
-                name=request_message.name,
-                tags={t.key: t.value for t in request_message.tags},
-                description=request_message.description,
-            ),
-            store=store,
-        )
-    except Exception:
-        _logger.warning("Failed to dispatch webhook for registered model creation", exc_info=True)
+    dispatch_webhook(
+        event=WebhookEvent.REGISTERED_MODEL_CREATED,
+        payload=RegisteredModelCreatedPayload(
+            name=request_message.name,
+            tags={t.key: t.value for t in request_message.tags},
+            description=request_message.description,
+        ),
+        store=store,
+    )
 
     return _wrap_response(response_message)
 
@@ -2082,21 +2079,18 @@ def _create_model_version():
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
     if not is_prompt:
-        try:
-            dispatch_webhook(
-                event=WebhookEvent.MODEL_VERSION_CREATED,
-                payload=ModelVersionCreatedPayload(
-                    name=request_message.name,
-                    version=str(model_version.version),
-                    source=request_message.source,
-                    run_id=request_message.run_id or None,
-                    tags={t.key: t.value for t in request_message.tags},
-                    description=request_message.description or None,
-                ),
-                store=store,
-            )
-        except Exception:
-            _logger.warning("Failed to dispatch webhook for model version creation", exc_info=True)
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_CREATED,
+            payload=ModelVersionCreatedPayload(
+                name=request_message.name,
+                version=str(model_version.version),
+                source=request_message.source,
+                run_id=request_message.run_id or None,
+                tags={t.key: t.value for t in request_message.tags},
+                description=request_message.description or None,
+            ),
+            store=store,
+        )
 
     return _wrap_response(response_message)
 
@@ -2272,19 +2266,16 @@ def _set_model_version_tag():
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
     if not _is_prompt(request_message.name):
-        try:
-            dispatch_webhook(
-                event=WebhookEvent.MODEL_VERSION_TAG_SET,
-                payload=ModelVersionTagSetPayload(
-                    name=request_message.name,
-                    version=request_message.version,
-                    key=request_message.key,
-                    value=request_message.value,
-                ),
-                store=store,
-            )
-        except Exception:
-            _logger.warning("Failed to dispatch webhook for model version tag set", exc_info=True)
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_TAG_SET,
+            payload=ModelVersionTagSetPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+                value=request_message.value,
+            ),
+            store=store,
+        )
 
     return _wrap_response(SetModelVersionTag.Response())
 
@@ -2308,18 +2299,15 @@ def _delete_model_version_tag():
     )
 
     if not _is_prompt(request_message.name):
-        try:
-            dispatch_webhook(
-                event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
-                payload=ModelVersionTagDeletedPayload(
-                    name=request_message.name,
-                    version=request_message.version,
-                    key=request_message.key,
-                ),
-                store=store,
-            )
-        except Exception:
-            _logger.warning("Failed to dispatch webhook for model version tag set", exc_info=True)
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
+            payload=ModelVersionTagDeletedPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+            ),
+            store=store,
+        )
 
     return _wrap_response(DeleteModelVersionTag.Response())
 
@@ -2343,18 +2331,15 @@ def _set_registered_model_alias():
     )
 
     if not _is_prompt(request_message.name):
-        try:
-            dispatch_webhook(
-                event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
-                payload=ModelVersionAliasCreatedPayload(
-                    name=request_message.name,
-                    alias=request_message.alias,
-                    version=request_message.version,
-                ),
-                store=store,
-            )
-        except Exception:
-            _logger.warning("Failed to dispatch webhook for model version alias set", exc_info=True)
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
+            payload=ModelVersionAliasCreatedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+                version=request_message.version,
+            ),
+            store=store,
+        )
 
     return _wrap_response(SetRegisteredModelAlias.Response())
 
@@ -2373,19 +2358,14 @@ def _delete_registered_model_alias():
     store.delete_registered_model_alias(name=request_message.name, alias=request_message.alias)
 
     if not _is_prompt(request_message.name):
-        try:
-            dispatch_webhook(
-                event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
-                payload=ModelVersionAliasDeletedPayload(
-                    name=request_message.name,
-                    alias=request_message.alias,
-                ),
-                store=store,
-            )
-        except Exception:
-            _logger.warning(
-                "Failed to dispatch webhook for model version alias deletion", exc_info=True
-            )
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
+            payload=ModelVersionAliasDeletedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+            ),
+            store=store,
+        )
 
     return _wrap_response(DeleteRegisteredModelAlias.Response())
 
