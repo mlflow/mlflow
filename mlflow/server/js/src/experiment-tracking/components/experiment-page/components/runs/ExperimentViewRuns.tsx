@@ -84,6 +84,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     refreshRuns,
   } = props;
 
+  const isComparingExperiments = experiments.length > 1;
+
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new ExperimentPageViewState());
 
@@ -259,6 +261,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           refreshRuns={refreshRuns}
           uiState={uiState}
           isLoading={isLoadingRuns}
+          isComparingExperiments={isComparingExperiments}
         />
         <div
           ref={ref}
