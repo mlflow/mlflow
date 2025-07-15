@@ -70,7 +70,11 @@ type RegisterModelImplProps = {
   onRegisterFailure?: (reason?: any) => void;
 };
 
-type RegisterModelImplState = any; // used in drop-down list so not many are visible at once
+type RegisterModelImplState = {
+  visible: boolean;
+  confirmLoading: boolean;
+  modelByName: any;
+}; // used in drop-down list so not many are visible at once
 
 /**
  * Component with a set of controls used to register a logged model.

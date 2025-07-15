@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import yaml from 'js-yaml';
 import '../../../common/styles/CodeSnippet.css';
-import { MLMODEL_FILE_NAME, SERVING_INPUT_FILE_NAME } from '../../constants';
+import { MLMODEL_FILE_NAME } from '../../constants';
 import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { SchemaTable } from '../../../model-registry/components/SchemaTable';
 import {
