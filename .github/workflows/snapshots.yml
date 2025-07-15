@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: "0 0 * * *" # Runs daily at midnight UTC
   workflow_dispatch: # Allows manual triggering
-  pull_request: # for testing
+  pull_request: # To test updates
 
 defaults:
   run:
