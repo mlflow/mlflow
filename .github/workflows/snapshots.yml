@@ -24,15 +24,17 @@ jobs:
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
 
-      - name: Install dependencies
+      - name: Create artifacts file
         run: |
-          pip install build
+          ARTIFACT_PATHS_FILE=$(mktemp)
+          echo "ARTIFACT_PATHS_FILE=$ARTIFACT_PATHS_FILE" >> $GITHUB_ENV
 
       - name: Build distribution files
         id: build-dist
         run: |
+          pip install build
           python dev/build.py
-          find $PWD/dist -type f -name "*.whl" >> /tmp/artifact_paths.txt
+          find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
 
       - name: Build Java distribution
         working-directory: mlflow/java
@@ -42,7 +44,8 @@ jobs:
             -exec find {} -name "*.jar" \
               ! -name "*sources.jar" \
               ! -name "*javadoc.jar" \
-              ! -name "original-*.jar" \; >> /tmp/artifact_paths.txt
+              ! -name "original-*.jar" \; >> $ARTIFACT_PATHS_FILE
+
       - name: Upload artifacts to nightly release
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
@@ -51,5 +54,5 @@ jobs:
             await script({
               github,
               context,
-              artifactPathsFile: '/tmp/artifact_paths.txt'
+              artifactPathsFile: process.env.ARTIFACT_PATHS_FILE
             });
