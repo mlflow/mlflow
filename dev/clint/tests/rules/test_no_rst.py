@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules.no_rst import NoRst
 
 
-def test_no_rst(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_no_rst(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -28,6 +28,7 @@ def good(x: int) -> str:
 """
     )
 
+    config = Config(select={NoRst.name})
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NoRst) for v in violations)
