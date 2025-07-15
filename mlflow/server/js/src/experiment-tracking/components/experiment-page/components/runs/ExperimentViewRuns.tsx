@@ -55,7 +55,6 @@ export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   moreRunsAvailable: boolean;
   requestError: ErrorWrapper | Error | null;
   refreshRuns: () => void;
-  isComparingExperiments: boolean;
 }
 
 /**
@@ -83,8 +82,9 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     moreRunsAvailable,
     requestError,
     refreshRuns,
-    isComparingExperiments,
   } = props;
+
+  const isComparingExperiments = experiments.length > 1;
 
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new ExperimentPageViewState());
