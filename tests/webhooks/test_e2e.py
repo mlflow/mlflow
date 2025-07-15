@@ -32,6 +32,7 @@ def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
 def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
     port = get_safe_port()
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    artifact_root = (tmp_path / "artifacts").as_uri()
     with subprocess.Popen(
         [
             sys.executable,
@@ -40,7 +41,7 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             "server",
             f"--port={port}",
             f"--backend-store-uri={backend_store_uri}",
-            f"--default-artifact-root=file://{tmp_path}/artifacts",
+            f"--default-artifact-root={artifact_root}",
         ],
         cwd=tmp_path,
         env=(
