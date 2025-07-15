@@ -8,13 +8,11 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { APILink } from "@site/src/components/APILink";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import { GitBranch, Code2, Database, Settings, Eye, Target, Zap, BarChart3, PlayCircle } from "lucide-react";
+import { GitBranch, Code2, Database, Settings, Eye, Target, Zap, BarChart3, PlayCircle, TrendingUp } from "lucide-react";
 
 # Track Application Versions with External Code Management
 
-The production-ready approach to GenAI versioning: use MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** as a metadata hub that links your git-managed code to traces, evaluations, and configurations. Perfect for teams that want systematic version control without vendor lock-in.
+The production-ready approach to GenAI versioning: use MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** as a metadata hub that links your application versions to traces, evaluations, and configurations. Perfect for teams that want systematic version control without vendor lock-in.
 
 ## Why This Approach Works for Production Teams
 
@@ -22,7 +20,7 @@ The production-ready approach to GenAI versioning: use MLflow's **<APILink fn="m
   {
     icon: GitBranch,
     title: "Keep Code Where It Belongs",
-    description: "Your application code stays in git where your team already works. MLflow tracks metadata and links to specific commits—no code duplication or vendor lock-in."
+    description: "Your application code stays in your development environment. MLflow tracks metadata and configurations—no code duplication or vendor lock-in."
   },
   {
     icon: Database,
@@ -43,11 +41,13 @@ The production-ready approach to GenAI versioning: use MLflow's **<APILink fn="m
 
 ## How MLflow LoggedModel Works as a Metadata Hub
 
+MLflow's LoggedModel acts as a central registry that connects your application code to its runtime behavior. Rather than storing code directly, it maintains references to external code repositories while capturing all the metadata, traces, and evaluation results generated during development and production use.
+
 <ConceptOverview concepts={[
   {
     icon: Code2,
     title: "External Code References",
-    description: "LoggedModel stores git commit hashes and configuration parameters, pointing to your externally managed code rather than duplicating it."
+    description: "LoggedModel stores version identifiers and configuration parameters, pointing to your externally managed code rather than duplicating it."
   },
   {
     icon: Settings,
@@ -61,113 +61,55 @@ The production-ready approach to GenAI versioning: use MLflow's **<APILink fn="m
   }
 ]} />
 
-## Quick Start: Version Your Application in 5 Minutes
+## Prerequisites
 
-Transform your GenAI application into a systematically versioned system with automatic trace linking.
-
-### Prerequisites
-
-Install the required packages:
+Before getting started, ensure you have:
 
 ```bash
-pip install --upgrade "mlflow>=3.1" openai>=1.0.0
+pip install --upgrade "mlflow>=3.1" openai
 ```
 
-:::note
-MLflow includes GitPython as a core dependency, so `mlflow.utils.git_utils` functions work out of the box for git integration.
-:::
+Set your OpenAI API key:
+```bash
+export OPENAI_API_KEY="your-api-key-here"
+```
 
-### Step 1: Environment Setup
+## Basic Version Tracking Example
 
-<Tabs>
-  <TabItem value="oss" label="Open Source MLflow">
-    ```python
-    import os
-    import mlflow
-
-    # Configure MLflow tracking
-    mlflow.set_tracking_uri("http://localhost:5000")  # Optional: use remote server
-    mlflow.set_experiment("my_genai_app_versions")
-
-    # Set LLM provider API key
-    os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-    ```
-
-  </TabItem>
-  <TabItem value="databricks" label="Databricks">
-    ```python
-    import os
-    import mlflow
-
-    # Authentication (only needed outside Databricks notebooks)
-    os.environ["DATABRICKS_HOST"] = "https://your-workspace.databricks.com"
-    os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"
-
-    # Set LLM provider API key
-    os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-
-    # Configure tracking
-    mlflow.set_tracking_uri("http://127.0.0.1:5000")
-    mlflow.set_experiment("my_genai_app_versions")
-    ```
-
-  </TabItem>
-</Tabs>
-
-### Step 2: Create Version-Controlled Application
-
-Link your application to git commits for complete traceability:
+Here's a complete example showing how to version your GenAI application and link traces to specific versions:
 
 ```python
 import mlflow
 import openai
+from datetime import datetime
 
-# Get current git commit using MLflow's built-in utilities
-from mlflow.utils.git_utils import get_git_commit
+# Setup
+mlflow.set_experiment("genai_app_versions")
+mlflow.openai.autolog()  # Enable automatic tracing
 
-git_commit = get_git_commit(".")
-if git_commit:
-    version_id = f"git-{git_commit[:8]}"  # Use short hash
-else:
-    version_id = "local-dev"  # Fallback if not in git repo
+# Create a versioned application
+version = f"v1.0-{datetime.now().strftime('%H%M')}"
+active_model = mlflow.set_active_model(name=f"support_agent-{version}")
 
-# Create versioned application context
-app_name = "customer_support_agent"
-model_name = f"{app_name}-{version_id}"
-
-# Establish active model context - all traces will link here
-active_model = mlflow.set_active_model(name=model_name)
-print(f"✅ Created version: {active_model.name} (ID: {active_model.model_id})")
-
-# Log configuration parameters for this version
-app_config = {
-    "llm": "gpt-4o-mini",
+# Log configuration for this version
+config = {
+    "model": "gpt-4o-mini",
     "temperature": 0.7,
     "max_tokens": 150,
-    "retrieval_strategy": "vector_search_v3",
+    "system_prompt_version": "v1",
 }
-
-mlflow.log_model_params(model_id=active_model.model_id, params=app_config)
-print(f"✅ Logged configuration parameters")
-```
-
-### Step 3: Enable Automatic Trace Linking
-
-All LLM calls now automatically link to your application version:
-
-```python
-# Enable automatic tracing
-mlflow.openai.autolog()
+mlflow.log_model_params(model_id=active_model.model_id, params=config)
 
 
-def support_agent(user_query):
-    """Customer support agent with automatic trace linking."""
+# Your application code
+def support_agent(query):
+    """Customer support agent - traces automatically link to active version."""
     client = openai.OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a helpful customer support agent."},
-            {"role": "user", "content": user_query},
+            {"role": "system", "content": "You are a helpful support agent."},
+            {"role": "user", "content": query},
         ],
         temperature=0.7,
         max_tokens=150,
@@ -175,187 +117,110 @@ def support_agent(user_query):
     return response.choices[0].message.content
 
 
-# Test the agent - traces automatically link to your version
-test_queries = [
-    "How can I track my package?",
-    "What's your return policy?",
-    "I need help with my account login",
-]
+# Test your versioned application
+print(f"✅ Testing version: {active_model.name}")
+response = support_agent("How do I reset my password?")
+print(f"Response: {response}")
+print("✅ Trace automatically linked to version")
 
-print("\n🔍 Testing agent with automatic trace linking:")
-for query in test_queries:
-    response = support_agent(query)
-    print(f"Query: {query}")
-    print(f"Response: {response[:100]}...")
-    print("✅ Trace automatically linked to version\n")
+# View version information
+logged_model = mlflow.get_logged_model(model_id=active_model.model_id)
+print(f"\n📊 Version Details:")
+print(f"  - Model ID: {logged_model.model_id}")
+print(f"  - Configuration: {logged_model.params}")
 ```
 
-**What happens automatically:**
+### What This Gives You
 
-- Every LLM call generates a detailed trace
-- All traces link to your specific git commit
-- Configuration parameters are preserved
-- Version performance can be analyzed systematically
+This simple versioning pattern unlocks powerful capabilities for your GenAI development workflow:
 
-### Step 4: Inspect and Compare Versions
+<ConceptOverview concepts={[
+  {
+    icon: Zap,
+    title: "Automatic Trace Linking",
+    description: "Every LLM call generates a trace linked to your version without any manual intervention."
+  },
+  {
+    icon: Settings,
+    title: "Configuration Tracking",
+    description: "Model parameters and settings are versioned alongside traces for complete reproducibility."
+  },
+  {
+    icon: BarChart3,
+    title: "Easy Comparison",
+    description: "Search and compare performance across different versions with built-in MLflow APIs."
+  },
+  {
+    icon: Target,
+    title: "No Manual Bookkeeping",
+    description: "Set the active model once, everything else is automatic - no tracking spreadsheets or manual logging."
+  }
+]} />
 
-Retrieve version metadata and compare across iterations:
+## Advanced Patterns
+
+### Testing Multiple Versions
+
+Use context managers to test different configurations:
 
 ```python
-# Fetch your LoggedModel version
-logged_model = mlflow.get_logged_model(model_id=active_model.model_id)
+# Test an experimental version
+with mlflow.set_active_model(name="support_agent-v1.1-experiment") as test_model:
+    # Log experimental config
+    mlflow.log_model_params(
+        model_id=test_model.model_id, params={"temperature": 0.3, "max_tokens": 100}
+    )
 
-print(f"\n📊 Version Information:")
-print(f"Model ID: {logged_model.model_id}")
-print(f"Name: {logged_model.name}")
-print(f"Status: {logged_model.status}")
+    # Test experimental version
+    response = support_agent("What are your business hours?")
+    # This trace links to the experimental version
 
-print(f"\n⚙️ Configuration Parameters:")
-for param, value in logged_model.params.items():
-    print(f"  {param}: {value}")
+# Automatically returns to original version context
+```
 
-# Find all versions of your application
-from mlflow import search_logged_models
-from datetime import datetime
+### Compare Version Performance
 
-all_versions = search_logged_models(
-    experiment_ids=[logged_model.experiment_id],
-    filter_string=f"name LIKE '{app_name}%'",
+Find and analyze different versions:
+
+```python
+# Search for all versions of your application
+versions = mlflow.search_logged_models(
+    filter_string="name LIKE 'support_agent%'",
+    order_by=["creation_timestamp DESC"],
     output_format="list",
 )
 
-print(f"\n📈 All Application Versions:")
-for version in all_versions:
-    created = datetime.fromtimestamp(version.creation_timestamp / 1000)
-    print(f"  - {version.name} (Created: {created.strftime('%Y-%m-%d %H:%M')})")
+print("📊 Recent Application Versions:")
+for v in versions[:5]:
+    print(f"  - {v.name}: {v.params.get('temperature', 'N/A')} temp")
 ```
 
-## Advanced Version Management Patterns
+## Key Benefits
 
-### Context Manager for Temporary Versions
+This versioning approach provides complete lifecycle management for your GenAI applications:
 
-Test different configurations without changing your active context:
-
-```python
-# Temporarily switch to a new version for testing
-with mlflow.set_active_model(name=f"{app_name}-experiment-{version_id}") as test_model:
-    # Log experimental parameters
-    experimental_config = {
-        "llm": "gpt-4o-mini",
-        "temperature": 0.3,  # Lower temperature for consistency
-        "max_tokens": 100,  # Shorter responses
-        "system_prompt_version": "v2.1",
-    }
-
-    mlflow.log_model_params(model_id=test_model.model_id, params=experimental_config)
-
-    # Test experimental agent
-    experimental_response = support_agent("How do I reset my password?")
-    print(f"Experimental response: {experimental_response}")
-    # ✅ This trace links to the experimental version
-
-# Back to original version context automatically
-print(f"Returned to original version: {active_model.name}")
-```
-
-### Link Evaluation Results to Versions
-
-Systematically evaluate and compare application versions:
-
-```python
-import pandas as pd
-
-# Prepare evaluation dataset
-eval_data = pd.DataFrame(
-    {"inputs": test_queries, "expected_categories": ["shipping", "returns", "account"]}
-)
-
-# Evaluate current version with automatic linking
-results = mlflow.genai.evaluate(
-    data=eval_data,
-    scorers=[
-        mlflow.metrics.toxicity(),
-        mlflow.metrics.latency(),
-        mlflow.metrics.flesch_kincaid_grade_level(),
-    ],
-    predict_fn=support_agent,
-    model_id=active_model.model_id,  # Links evaluation to this version
-)
-
-print(f"✅ Evaluation results linked to version {active_model.name}")
-print(f"Toxicity score: {results.metrics['toxicity/v1/mean']:.3f}")
-print(f"Average latency: {results.metrics['latency/mean']:.3f}ms")
-```
-
-## Production Integration Patterns
-
-### CI/CD Integration
-
-```python
-# In your CI/CD pipeline
-def create_production_version():
-    """Create a production-ready version with CI metadata."""
-
-    # Get CI environment information (prefer environment vars in CI)
-    ci_commit = (
-        os.environ.get("GITHUB_SHA", "")[:8] if os.environ.get("GITHUB_SHA") else None
-    )
-
-    # Fallback to MLflow's git utilities if not in CI
-    if not ci_commit:
-        from mlflow.utils.git_utils import get_git_commit
-
-        git_commit = get_git_commit(".")
-        ci_commit = git_commit[:8] if git_commit else "unknown"
-
-    ci_branch = os.environ.get("GITHUB_REF_NAME", "unknown")
-    ci_build = os.environ.get("GITHUB_RUN_NUMBER", "unknown")
-
-    # Create production version
-    prod_version = f"prod-{ci_commit}-build-{ci_build}"
-
-    with mlflow.set_active_model(name=prod_version) as prod_model:
-        # Log production configuration
-        prod_config = {
-            "deployment_env": "production",
-            "git_commit": ci_commit,
-            "git_branch": ci_branch,
-            "build_number": ci_build,
-            "llm": "gpt-4o-mini",
-            "temperature": 0.3,
-        }
-
-        mlflow.log_model_params(model_id=prod_model.model_id, params=prod_config)
-
-        # Run production validation tests
-        validation_passed = run_production_tests()
-
-        # Tag for deployment if validation passes
-        if validation_passed:
-            mlflow.set_tag("deployment_ready", "true")
-            print(f"✅ Version {prod_version} ready for deployment")
-
-        return prod_model.model_id
-
-
-# Use in deployment scripts
-def deploy_validated_version():
-    """Deploy the latest validated version."""
-    validated_versions = search_logged_models(
-        filter_string="tags.deployment_ready = 'true'",
-        order_by=["creation_timestamp DESC"],
-        output_format="list",
-    )
-
-    if validated_versions:
-        latest_validated = validated_versions[0]
-        print(f"Deploying version: {latest_validated.name}")
-        # Deploy using model_id: latest_validated.model_id
-    else:
-        raise ValueError("No validated versions found for deployment")
-```
-
-This production-ready approach gives you complete version control with minimal overhead, keeping your code in git while providing comprehensive observability and systematic evaluation capabilities.
+<ConceptOverview concepts={[
+  {
+    icon: Eye,
+    title: "Complete Observability",
+    description: "Every trace is automatically linked to the exact version that generated it, providing full visibility into your application's behavior."
+  },
+  {
+    icon: Target,
+    title: "Easy Debugging",
+    description: "Quickly identify which version produced specific behaviors or errors by searching traces linked to each version."
+  },
+  {
+    icon: TrendingUp,
+    title: "Performance Tracking",
+    description: "Compare latency, quality, and other metrics across versions to make data-driven deployment decisions."
+  },
+  {
+    icon: Zap,
+    title: "Minimal Overhead",
+    description: "Just set the active model once - no manual bookkeeping, no complex setup, no tracking spreadsheets."
+  }
+]} />
 
 ## Next Steps
 
