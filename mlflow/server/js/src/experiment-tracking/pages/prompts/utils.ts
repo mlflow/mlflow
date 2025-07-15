@@ -1,4 +1,4 @@
-import { KeyValueEntity } from '../../types';
+import { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
 import type { RegisteredPrompt, RegisteredPromptVersion } from './types';
 
 export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';

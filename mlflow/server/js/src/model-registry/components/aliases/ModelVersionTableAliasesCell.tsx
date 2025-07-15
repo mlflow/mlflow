@@ -1,5 +1,5 @@
 import { Button, PencilIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { ModelVersionAliasTag } from './ModelVersionAliasTag';
+import { AliasTag } from '../../../common/components/AliasTag';
 import { FormattedMessage } from 'react-intl';
 
 interface ModelVersionTableAliasesCellProps {
@@ -47,7 +47,7 @@ export const ModelVersionTableAliasesCell = ({
       ) : (
         <>
           {aliases.map((alias) => (
-            <ModelVersionAliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
+            <AliasTag value={alias} key={alias} css={{ marginTop: theme.spacing.xs / 2 }} />
           ))}
           <Button
             componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelversiontablealiasescell.tsx_41"
