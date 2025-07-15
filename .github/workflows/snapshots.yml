@@ -30,11 +30,13 @@ jobs:
           ARTIFACT_PATHS_FILE=$(mktemp)
           echo "ARTIFACT_PATHS_FILE=$ARTIFACT_PATHS_FILE" >> $GITHUB_ENV
 
-      - name: Build Python package
+      - name: Build Python packages
         id: build-dist
         run: |
           pip install build
           python dev/build.py
+          find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
+          python dev/build.py --package-type skinny
           find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
 
       - name: Build R package
