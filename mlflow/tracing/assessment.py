@@ -201,11 +201,7 @@ def update_assessment(
     assessment: Assessment,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
-    Updates an existing expectation (ground truth) or feedback in a Trace.
+    Updates an existing expectation (ground truth) in a Trace.
 
     Args:
         trace_id: The ID of the trace.
@@ -249,10 +245,6 @@ def update_assessment(
 @experimental(version="2.21.0")
 def delete_assessment(trace_id: str, assessment_id: str):
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Deletes an assessment associated with a trace.
 
     Args:
@@ -275,10 +267,6 @@ def log_feedback(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Logs feedback to a Trace. This API only takes keyword arguments.
 
     Args:
@@ -356,10 +344,6 @@ def override_feedback(
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Overrides an existing feedback assessment with a new assessment. This API
     logs a new assessment with the `overrides` field set to the provided assessment ID.
     The original assessment will be marked as invalid, but will otherwise be unchanged.
