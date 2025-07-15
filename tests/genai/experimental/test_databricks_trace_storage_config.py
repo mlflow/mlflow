@@ -4,13 +4,13 @@ Tests for TraceArchiveConfiguration entity.
 
 import pytest
 
-from mlflow.entities.trace_archive_configuration import TraceArchiveConfiguration
+from mlflow.genai.experimental.databricks_trace_storage_config import DatabricksTraceDeltaStorageConfig
 from mlflow.exceptions import MlflowException
 
 
-def test_trace_archive_configuration_entity():
+def test_trace_storage_configuration_entity():
     """Test TraceArchiveConfiguration entity creation and conversion."""
-    destination = TraceArchiveConfiguration(
+    destination = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
         events_table_name="catalog.schema.events",
@@ -27,7 +27,7 @@ def test_trace_archive_configuration_entity():
     assert dict_result["events_schema_version"] == "v1"
 
     # Test from_dict conversion
-    reconstructed = TraceArchiveConfiguration.from_dict(dict_result)
+    reconstructed = DatabricksTraceDeltaStorageConfig.from_dict(dict_result)
     assert reconstructed.experiment_id == destination.experiment_id
     assert reconstructed.spans_table_name == destination.spans_table_name
     assert reconstructed.events_table_name == destination.events_table_name
@@ -35,7 +35,7 @@ def test_trace_archive_configuration_entity():
     assert reconstructed.events_schema_version == destination.events_schema_version
 
 
-def test_trace_archive_configuration_from_proto_validation():
+def test_trace_storage_configuration_from_proto_validation():
     """Test that from_proto validates only experiment locations are supported."""
     from mlflow.protos.databricks_trace_server_pb2 import TraceDestination as ProtoTraceDestination
     from mlflow.protos.databricks_trace_server_pb2 import TraceLocation as ProtoTraceLocation
@@ -52,8 +52,7 @@ def test_trace_archive_configuration_from_proto_validation():
     proto_destination.spans_schema_version = "v1"
     proto_destination.events_schema_version = "v1"
     
-    # This should work fine
-    config = TraceArchiveConfiguration.from_proto(proto_destination)
+    config = DatabricksTraceDeltaStorageConfig.from_proto(proto_destination)
     assert config.experiment_id == "12345"
     
     # Test with invalid inference table location
@@ -68,6 +67,5 @@ def test_trace_archive_configuration_from_proto_validation():
     proto_destination_invalid.spans_schema_version = "v1"
     proto_destination_invalid.events_schema_version = "v1"
     
-    # This should raise an exception
     with pytest.raises(MlflowException, match="TraceArchiveConfiguration only supports MLflow experiments"):
-        TraceArchiveConfiguration.from_proto(proto_destination_invalid)
+        DatabricksTraceDeltaStorageConfig.from_proto(proto_destination_invalid)

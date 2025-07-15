@@ -1,4 +1,3 @@
-from mlflow.tracing.archival.databricks import enable_databricks_archival
 from mlflow.tracing.config import configure
 from mlflow.tracing.display import disable_notebook_display, enable_notebook_display
 from mlflow.tracing.provider import disable, enable, reset, set_destination
