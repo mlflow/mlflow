@@ -6,12 +6,22 @@ const path = require("path");
  * @param {Object} params
  * @param {Object} params.github - GitHub API client
  * @param {Object} params.context - GitHub context
- * @param {string[]} params.artifactPaths - Path(s) to artifact file(s)
+ * @param {string} params.artifactPathsFile - Path to the file containing artifact paths
  */
-module.exports = async ({ github, context, artifactPaths }) => {
-  const { owner, repo } = context.repo;
+module.exports = async ({ github, context, artifactPathsFile }) => {
+  if (!fs.existsSync(artifactPathsFile)) {
+    throw new Error(`Artifacts file not found: ${artifactPathsFile}`);
+  }
 
-  // Validate all artifacts exist
+  const artifactPaths = fs
+    .readFileSync(artifactPathsFile, "utf-8")
+    .split("\n")
+    .filter((l) => l.trim() !== "");
+
+  if (artifactPaths.length === 0) {
+    throw new Error(`No artifacts found in ${artifactPathsFile}`);
+  }
+
   for (const artifactPath of artifactPaths) {
     if (!fs.existsSync(artifactPath)) {
       throw new Error(`Artifact not found: ${artifactPath}`);
@@ -19,6 +29,7 @@ module.exports = async ({ github, context, artifactPaths }) => {
   }
 
   // First, try to get existing release
+  const { owner, repo } = context.repo;
   let release;
   let releaseExists = false;
   try {

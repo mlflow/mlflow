@@ -21,6 +21,7 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for tags
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
 
       - name: Install dependencies
@@ -31,9 +32,17 @@ jobs:
         id: build-dist
         run: |
           python dev/build.py
-          wheel_path=$(find dist -type f -name "*.whl")
-          echo "wheel_path=${wheel_path}" >> $GITHUB_OUTPUT
+          find $PWD/dist -type f -name "*.whl" >> /tmp/artifact_paths.txt
 
+      - name: Build Java distribution
+        working-directory: mlflow/java
+        run: |
+          mvn -B -DskipTests clean package
+          find $PWD -name "target" -type d \
+            -exec find {} -name "*.jar" \
+              ! -name "*sources.jar" \
+              ! -name "*javadoc.jar" \
+              ! -name "original-*.jar" \; >> /tmp/artifact_paths.txt
       - name: Upload artifacts to nightly release
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
@@ -42,5 +51,5 @@ jobs:
             await script({
               github,
               context,
-              artifactPaths: ['${{ steps.build-dist.outputs.wheel_path }}']
+              artifactPathsFile: '/tmp/artifact_paths.txt'
             });
