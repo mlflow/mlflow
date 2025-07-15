@@ -1,4 +1,3 @@
-import json
 from unittest import mock
 
 import pytest
@@ -18,7 +17,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.telemetry.client import get_telemetry_client
+
+from tests.helper_functions import validate_telemetry_record
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
@@ -579,48 +579,18 @@ def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(stor
 
 
 def test_log_assessment_sends_telemetry_record(mock_requests, store, tracking_uri):
-    """Test that log_assessment sends telemetry records."""
-
-    client = get_telemetry_client()
     mlflow.log_assessment(trace_id="1234", assessment=Feedback(name="feedback", value=1.0))
-    client.flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.log_assessment.__module__
-    assert data["api_name"] == "log_assessment"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.log_assessment)
 
 
 def test_log_expectation_sends_telemetry_record(mock_requests, store, tracking_uri):
-    """Test that log_expectation sends telemetry records."""
-
-    client = get_telemetry_client()
     mlflow.log_expectation(trace_id="1234", name="expectation", value="MLflow")
-    client.flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.log_expectation.__module__
-    assert data["api_name"] == "log_expectation"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.log_expectation)
 
 
 def test_log_feedback_sends_telemetry_record(mock_requests, store, tracking_uri):
-    """Test that log_feedback sends telemetry records."""
-
-    client = get_telemetry_client()
     mlflow.log_feedback(trace_id="1234", name="feedback", value=1.0)
-    client.flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.log_feedback.__module__
-    assert data["api_name"] == "log_feedback"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.log_feedback)

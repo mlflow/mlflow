@@ -12,9 +12,10 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
+from dataclasses import asdict
 from functools import wraps
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 from unittest import mock
 
 import pytest
@@ -22,6 +23,8 @@ import requests
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import BaseParams
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.os import is_windows
@@ -826,3 +829,24 @@ def avoid_telemetry_tracking():
     """
     with mock.patch("mlflow.telemetry.track.should_skip_telemetry", return_value=True):
         yield
+
+
+def validate_telemetry_record(
+    mock_requests, func, *, idx=0, params=None, status="success"
+) -> dict[str, Any]:
+    """
+    Validate the telemetry record at the given index.
+    """
+    get_telemetry_client().flush()
+
+    record = mock_requests[idx]
+    data = json.loads(record["data"])
+    assert data["api_module"] == func.__module__
+    assert data["api_name"] == func.__qualname__
+    if isinstance(params, BaseParams):
+        assert data["params"] == asdict(params)
+    else:
+        assert data["params"] == params
+    assert data["status"] == status
+    assert data["duration_ms"] is not None
+    return data

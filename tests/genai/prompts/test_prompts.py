@@ -1,11 +1,11 @@
-import json
 import warnings
 from contextlib import contextmanager
 
 import pytest
 
 import mlflow
-from mlflow.telemetry import get_telemetry_client
+
+from tests.helper_functions import validate_telemetry_record
 
 
 @contextmanager
@@ -45,29 +45,13 @@ def test_prompt_api_migration_warning():
 def test_register_prompt_sends_telemetry_record(mock_requests):
     """Test that register_prompt sends telemetry records."""
     mlflow.genai.register_prompt("test_prompt", "test template {{var}}")
-    get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.genai.register_prompt.__module__
-    assert data["api_name"] == "register_prompt"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.genai.register_prompt)
 
 
 def test_load_prompt_sends_telemetry_record(mock_requests):
     """Test that load_prompt sends telemetry records."""
     mlflow.genai.register_prompt("test_prompt_load", "test template")
     mlflow.genai.load_prompt("prompts:/test_prompt_load/1")
-    get_telemetry_client().flush()
 
-    # Two records: one for register, one for load
-    assert len(mock_requests) == 2
-    # Check the load_prompt record (second one)
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.genai.load_prompt.__module__
-    assert data["api_name"] == "load_prompt"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.genai.load_prompt, idx=1)

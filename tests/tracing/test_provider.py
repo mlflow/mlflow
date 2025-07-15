@@ -1,4 +1,3 @@
-import json
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -9,7 +8,6 @@ import mlflow
 import mlflow.tracking._tracking_service
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowTracingException
-from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
@@ -27,6 +25,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces, purge_traces
 
 
@@ -317,27 +316,12 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
 
 
 def test_enable_disable_tracing_sends_telemetry_record(mock_requests):
-    """Test that enable_disable_tracing sends telemetry records."""
     mlflow.tracing.enable()
-    get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.tracing.enable.__module__
-    assert data["api_name"] == "enable"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.tracing.enable)
 
     mlflow.tracing.disable()
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 2
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.tracing.disable.__module__
-    assert data["api_name"] == "disable"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.tracing.disable, idx=1)
 
 
 def test_sampling_ratio(monkeypatch):

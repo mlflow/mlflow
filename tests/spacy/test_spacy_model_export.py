@@ -2,7 +2,6 @@ import json
 import os
 import random
 from collections import namedtuple
-from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -20,7 +19,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -35,6 +33,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     allow_infer_pip_requirements_fallback_if,
     pyfunc_serve_and_score_model,
+    validate_telemetry_record,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -491,17 +490,11 @@ def test_log_model_sends_telemetry_record(mock_requests, spacy_model_with_data):
         spacy_model_with_data.model,
         name="model",
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.spacy.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.spacy.log_model,
+        params=LogModelParams(
             flavor="spacy",
             model=ModelType.MODEL_OBJECT,
             is_pip_requirements_set=False,
@@ -509,6 +502,5 @@ def test_log_model_sends_telemetry_record(mock_requests, spacy_model_with_data):
             is_code_paths_set=False,
             is_params_set=False,
             is_metadata_set=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

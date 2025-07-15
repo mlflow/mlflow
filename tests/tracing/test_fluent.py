@@ -40,6 +40,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import (
     create_test_trace_info,
     get_traces,
@@ -2121,34 +2122,14 @@ def test_start_span_sends_telemetry_record(mock_requests):
     assert len(mock_requests) >= 1
     api_names = [json.loads(record["data"])["api_name"] for record in mock_requests]
     idx = api_names.index("start_span")
-    data = json.loads(mock_requests[idx]["data"])
-    assert data["api_module"] == mlflow.start_span.__module__
-    assert data["api_name"] == "start_span"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.start_span, idx=idx)
 
 
 def test_search_traces_sends_telemetry_record(mock_requests):
     """Test that search_traces sends telemetry records."""
     mlflow.search_traces()
-    client = get_telemetry_client()
-    client.flush()
-
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.search_traces.__module__
-    assert data["api_name"] == "search_traces"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.search_traces)
 
     with pytest.raises(MlflowException, match=r"not found"):
         mlflow.search_traces(run_id="test_run_id")
-    client.flush()
-    assert len(mock_requests) == 2
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.search_traces.__module__
-    assert data["api_name"] == "search_traces"
-    assert data["params"] is None
-    assert data["status"] == "failure"
+    validate_telemetry_record(mock_requests, mlflow.search_traces, idx=1, status="failure")

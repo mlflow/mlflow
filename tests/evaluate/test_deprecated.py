@@ -1,4 +1,3 @@
-import json
 import warnings
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -7,7 +6,8 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.telemetry import get_telemetry_client
+
+from tests.helper_functions import validate_telemetry_record
 
 _TEST_DATA = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 
@@ -60,12 +60,4 @@ def test_deprecated_evaluate_sends_telemetry_record(mock_requests):
             extra_metrics=[mlflow.metrics.latency()],
         )
 
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.evaluate.__module__
-    assert data["api_name"] == "evaluate"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.evaluate)

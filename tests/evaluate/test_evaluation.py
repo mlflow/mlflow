@@ -53,11 +53,11 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import create_test_trace_info, get_traces
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
@@ -2413,13 +2413,4 @@ def test_evaluate_sends_telemetry_record(mock_requests):
 
     evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
 
-    get_telemetry_client().flush()
-
-    # one for mlflow.trace, one for evaluate
-    assert len(mock_requests) == 2
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == evaluate.__module__
-    assert data["api_name"] == "evaluate"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, evaluate, idx=1)

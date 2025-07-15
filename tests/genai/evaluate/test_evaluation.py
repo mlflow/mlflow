@@ -1,4 +1,3 @@
-import json
 import uuid
 from dataclasses import asdict
 from importlib import import_module
@@ -23,6 +22,7 @@ from mlflow.telemetry.schemas import GenaiEvaluateParams
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 _IS_AGENT_SDK_V1 = Version(import_module("databricks.agents").__version__).major >= 1
@@ -400,17 +400,13 @@ def test_evaluate_sends_telemetry_record(mock_requests):
     # are executed in a new thread
     records_count = len(mock_requests)
     assert records_count >= 1
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.genai.evaluate.__module__
-    assert data["api_name"] == "evaluate"
-    assert data["params"] == asdict(
+    expected_params = asdict(
         GenaiEvaluateParams(
             scorers=["CustomScorer"],
             is_predict_fn_set=False,
         )
     )
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)
 
     model = TestModel()
     predict_fn = model.predict
@@ -419,17 +415,10 @@ def test_evaluate_sends_telemetry_record(mock_requests):
         predict_fn=predict_fn,
         scorers=[exact_match],
     )
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) >= records_count + 1
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.genai.evaluate.__module__
-    assert data["api_name"] == "evaluate"
-    assert data["params"] == asdict(
+    expected_params = asdict(
         GenaiEvaluateParams(
             scorers=["CustomScorer"],
             is_predict_fn_set=True,
         )
     )
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)
