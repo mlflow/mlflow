@@ -170,6 +170,15 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
+from mlflow.webhooks.dispatch import dispatch_webhook
+from mlflow.webhooks.types import (
+    ModelVersionAliasCreatedPayload,
+    ModelVersionAliasDeletedPayload,
+    ModelVersionCreatedPayload,
+    ModelVersionTagDeletedPayload,
+    ModelVersionTagSetPayload,
+    RegisteredModelCreatedPayload,
+)
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -1770,12 +1779,24 @@ def _create_registered_model():
             "description": [_assert_string],
         },
     )
-    registered_model = _get_model_registry_store().create_registered_model(
+    store = _get_model_registry_store()
+    registered_model = store.create_registered_model(
         name=request_message.name,
         tags=request_message.tags,
         description=request_message.description,
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
+
+    dispatch_webhook(
+        event=WebhookEvent.REGISTERED_MODEL_CREATED,
+        payload=RegisteredModelCreatedPayload(
+            name=request_message.name,
+            tags={t.key: t.value for t in request_message.tags},
+            description=request_message.description,
+        ),
+        store=store,
+    )
+
     return _wrap_response(response_message)
 
 
@@ -2031,13 +2052,15 @@ def _create_model_version():
             )
 
     # If the model version is a prompt, we don't validate the source
-    if not _is_prompt_request(request_message):
+    is_prompt = _is_prompt_request(request_message)
+    if not is_prompt:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
             _validate_source_run(request_message.source, request_message.run_id)
 
-    model_version = _get_model_registry_store().create_model_version(
+    store = _get_model_registry_store()
+    model_version = store.create_model_version(
         name=request_message.name,
         source=request_message.source,
         run_id=request_message.run_id,
@@ -2046,7 +2069,7 @@ def _create_model_version():
         description=request_message.description,
         model_id=request_message.model_id,
     )
-    if not _is_prompt_request(request_message) and request_message.model_id:
+    if not is_prompt and request_message.model_id:
         tracking_store = _get_tracking_store()
         tracking_store.set_model_versions_tags(
             name=request_message.name,
@@ -2054,11 +2077,31 @@ def _create_model_version():
             model_id=request_message.model_id,
         )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
+
+    if not is_prompt:
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_CREATED,
+            payload=ModelVersionCreatedPayload(
+                name=request_message.name,
+                version=str(model_version.version),
+                source=request_message.source,
+                run_id=request_message.run_id or None,
+                tags={t.key: t.value for t in request_message.tags},
+                description=request_message.description or None,
+            ),
+            store=store,
+        )
+
     return _wrap_response(response_message)
 
 
 def _is_prompt_request(request_message):
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+
+
+def _is_prompt(name: str) -> bool:
+    rm = _get_model_registry_store().get_registered_model(name=name)
+    return rm._is_prompt()
 
 
 @catch_mlflow_exception
@@ -2219,9 +2262,21 @@ def _set_model_version_tag():
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
-    _get_model_registry_store().set_model_version_tag(
-        name=request_message.name, version=request_message.version, tag=tag
-    )
+    store = _get_model_registry_store()
+    store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
+
+    if not _is_prompt(request_message.name):
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_TAG_SET,
+            payload=ModelVersionTagSetPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+                value=request_message.value,
+            ),
+            store=store,
+        )
+
     return _wrap_response(SetModelVersionTag.Response())
 
 
@@ -2236,11 +2291,24 @@ def _delete_model_version_tag():
             "key": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().delete_model_version_tag(
+    store = _get_model_registry_store()
+    store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
+
+    if not _is_prompt(request_message.name):
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
+            payload=ModelVersionTagDeletedPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+            ),
+            store=store,
+        )
+
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
@@ -2255,11 +2323,24 @@ def _set_registered_model_alias():
             "version": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().set_registered_model_alias(
+    store = _get_model_registry_store()
+    store.set_registered_model_alias(
         name=request_message.name,
         alias=request_message.alias,
         version=request_message.version,
     )
+
+    if not _is_prompt(request_message.name):
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
+            payload=ModelVersionAliasCreatedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+                version=request_message.version,
+            ),
+            store=store,
+        )
+
     return _wrap_response(SetRegisteredModelAlias.Response())
 
 
@@ -2273,9 +2354,19 @@ def _delete_registered_model_alias():
             "alias": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().delete_registered_model_alias(
-        name=request_message.name, alias=request_message.alias
-    )
+    store = _get_model_registry_store()
+    store.delete_registered_model_alias(name=request_message.name, alias=request_message.alias)
+
+    if not _is_prompt(request_message.name):
+        dispatch_webhook(
+            event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
+            payload=ModelVersionAliasDeletedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+            ),
+            store=store,
+        )
+
     return _wrap_response(DeleteRegisteredModelAlias.Response())
 
 
