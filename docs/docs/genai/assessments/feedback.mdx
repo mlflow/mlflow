@@ -9,13 +9,19 @@ import WorkflowSteps from "@site/src/components/WorkflowSteps";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import ImageBox from "@site/src/components/ImageBox";
-import { Bot, Code, Users, TrendingUp, Shield, Eye, Database, FileText, Target, Book, MousePointer, Plus, ListCheck, Type, Settings, FileInput, MessageSquare, Search, Edit, Save, MoreVertical } from "lucide-react";
+import { APILink } from "@site/src/components/APILink";
+import { BarChart3, Bot, Code, Users, TrendingUp, Shield, Eye, Database, FileText, Target, Book, MousePointer, Plus, ListCheck, Type, Settings, FileInput, MessageSquare, Search, Edit, Save, MoreVertical } from "lucide-react";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import AddFeedbackImageUrl from '@site/static/images/assessments/add_feedback_ui.png';
+import EditFeedbackImageUrl from '@site/static/images/assessments/edit_feedback_ui.png';
+import AdditionalFeedbackImageUrl from '@site/static/images/assessments/additional_feedback_ui.png';
 
 # Feedback Collection
 
 MLflow Feedback provides a comprehensive system for capturing quality evaluations from multiple sources - whether automated AI judges, programmatic rules, or human reviewers. This systematic approach to feedback collection enables you to understand and improve your GenAI application's performance at scale.
+
+For complete API documentation and implementation details, see the <APILink fn="mlflow.log_feedback" /> reference.
 
 ## What is Feedback?
 
@@ -103,7 +109,7 @@ Collecting feedback on the quality of GenAI applications is critical to a contin
 
 ### Via API
 
-Use the programmatic API when you need to automate feedback collection at scale, integrate with existing systems, or build custom evaluation workflows. The API enables you to collect feedback from all three sources programmatically.
+Use the programmatic <APILink fn="mlflow.log_feedback" /> API when you need to automate feedback collection at scale, integrate with existing systems, or build custom evaluation workflows. The API enables you to collect feedback from all three sources programmatically.
 
 ## Step-by-Step Guides
 
@@ -157,7 +163,7 @@ The MLflow UI provides an intuitive way to add, edit, and manage feedback direct
     }
   ]}
   screenshot={{
-    src: "/images/assessments/add_feedback_ui.png",
+    src: AddFeedbackImageUrl,
     alt: "Add Feedback"
   }}
 />
@@ -197,7 +203,7 @@ To refine evaluations or correct mistakes:
     }
   ]}
   screenshot={{
-    src: "/images/assessments/edit_feedback_ui.png",
+    src: EditFeedbackImageUrl,
     alt: "Edit Feedback"
   }}
 />
@@ -230,7 +236,7 @@ When multiple reviewers want to provide feedback on the same aspect, or when you
     }
   ]}
   screenshot={{
-    src: "/images/assessments/additional_feedback_ui.png",
+    src: AdditionalFeedbackImageUrl,
     alt: "Additional Feedback"
   }}
 />
@@ -593,12 +599,12 @@ mlflow.log_feedback(
     containerHeight={64}
   />
   <TileCard
-    icon={Book}
+    icon={BarChart3}
     iconSize={48}
-    title="Feedback Concepts"
-    description="Deep dive into feedback architecture and schema"
-    href="/genai/tracing/concepts/feedback"
-    linkText="Learn more →"
+    title="LLM Evaluation"
+    description="Learn how to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor/llm-evaluation"
+    linkText="Start evaluating →"
     containerHeight={64}
   />
 </TilesGrid>

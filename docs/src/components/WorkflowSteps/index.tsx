@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LucideIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import styles from './styles.module.css';
+import ImageBox from '../ImageBox';
 
 interface WorkflowStep {
   title: string;
@@ -14,6 +15,7 @@ interface WorkflowStepsProps {
   screenshot?: {
     src: string;
     alt: string;
+    width?: string;
   };
   defaultExpanded?: boolean;
 }
@@ -26,7 +28,7 @@ const WorkflowSteps: React.FC<WorkflowStepsProps> = ({ steps, title, screenshot,
       {title && <h3 className={styles.workflowTitle}>{title}</h3>}
       {screenshot && (
         <div className={styles.screenshotContainer}>
-          <img src={screenshot.src} alt={screenshot.alt} className={styles.screenshotImage} />
+          <ImageBox src={screenshot.src} alt={screenshot.alt} width={screenshot.width || '90%'} />
         </div>
       )}
       <div className={styles.stepsHeader}>

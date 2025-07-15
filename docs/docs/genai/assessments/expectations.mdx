@@ -9,13 +9,17 @@ import WorkflowSteps from "@site/src/components/WorkflowSteps";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus } from "lucide-react";
+import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus, BarChart3 } from "lucide-react";
+import AddExpectationImageUrl from '@site/static/images/assessments/add_expectation_ui.png';
 
 # Ground Truth Expectations
 
 MLflow Expectations provide a systematic way to capture ground truth - the correct or desired outputs that your AI should produce. By establishing these reference points, you create the foundation for meaningful evaluation and continuous improvement of your GenAI applications.
+
+For complete API documentation and implementation details, see the <APILink fn="mlflow.log_expectation" /> reference.
 
 ## What are Expectations?
 
@@ -25,7 +29,7 @@ Unlike [feedback](/genai/assessments/feedback) that evaluates what happened, exp
 
 ## Prerequisites
 
-Before using the Expectations API, ensure you have:
+Before using the <APILink fn="mlflow.log_expectation">Expectations API</APILink>, ensure you have:
 
 - MLflow 3.2.0 or later installed
 - An active MLflow tracking server or local tracking setup
@@ -201,7 +205,7 @@ The MLflow UI provides an intuitive way to add expectations directly to traces. 
     }
   ]}
   screenshot={{
-    src: "/images/assessments/add_expectation_ui.png",
+    src: AddExpectationImageUrl,
     alt: "Add Expectation"
   }}
 />
@@ -210,7 +214,7 @@ The expectation will be immediately attached to the trace, establishing the grou
 
 ### Log Ground Truth via API
 
-Use the programmatic API when you need to automate expectation creation, integrate with existing annotation tools, or build custom ground truth collection workflows.
+Use the programmatic <APILink fn="mlflow.log_expectation" /> API when you need to automate expectation creation, integrate with existing annotation tools, or build custom ground truth collection workflows.
 
 <Tabs>
   <TabItem value="single" label="Single Annotations" default>
@@ -511,12 +515,12 @@ Expectations are most powerful when combined with systematic evaluation:
     containerHeight={64}
   />
   <TileCard
-    icon={Book}
+    icon={BarChart3}
     iconSize={48}
-    title="Expectations Concepts"
-    description="Deep dive into expectations architecture and schema"
-    href="/genai/tracing/concepts/expectations"
-    linkText="Learn more →"
+    title="LLM Evaluation"
+    description="Learn how to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor/llm-evaluation"
+    linkText="Start evaluating →"
     containerHeight={64}
   />
 </TilesGrid>
