@@ -28,6 +28,7 @@ const ShowArtifactTableView = ({
   isLoggedModelsMode,
   loggedModelId,
   experimentId,
+  entityTags,
 }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
@@ -41,7 +42,10 @@ const ShowArtifactTableView = ({
     resetState();
 
     function fetchArtifacts() {
-      fetchArtifactUnified?.({ runUuid, path, isLoggedModelsMode, loggedModelId, experimentId }, getArtifact)
+      fetchArtifactUnified?.(
+        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifact,
+      )
         .then((artifactText: any) => {
           try {
             const result = Papa.parse(artifactText, {
@@ -71,7 +75,7 @@ const ShowArtifactTableView = ({
     }
 
     fetchArtifacts();
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
   function resetState() {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -129,7 +133,7 @@ const ShowArtifactTableView = ({
     );
   } else {
     return (
-      <div className="ShowArtifactPage">
+      <div className="mlflow-ShowArtifactPage">
         <div className="text-area-border-box">{text}</div>
       </div>
     );
