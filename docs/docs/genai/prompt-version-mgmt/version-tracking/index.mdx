@@ -10,6 +10,7 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { APILink } from "@site/src/components/APILink";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import { GitBranch, Database, Shield, TrendingUp, Eye, Code2, Settings, BookOpen, Target, Zap } from "lucide-react";
 
 # Version Tracking for GenAI Applications
@@ -18,7 +19,7 @@ MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** pro
 
 <div style={{margin: '2rem 0', textAlign: 'center'}}>
   <img
-    src="/images/mlflow-3/genai/logged_model_autolog_traces.png"
+    src={useBaseUrl('/images/mlflow-3/genai/logged_model_autolog_traces.png')}
     alt="MLflow UI showing LoggedModel with linked traces for version tracking"
     style={{maxWidth: '100%', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'}}
   />
