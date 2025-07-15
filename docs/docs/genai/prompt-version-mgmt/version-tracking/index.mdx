@@ -5,121 +5,238 @@ last_update:
   date: 2025-05-23
 ---
 
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
 import { APILink } from "@site/src/components/APILink";
+import { GitBranch, Database, Shield, TrendingUp, Eye, Code2, Settings, BookOpen, Target, Zap } from "lucide-react";
 
 # Version Tracking for GenAI Applications
 
-MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** provides a central, versioned representation of your entire GenAI application, including its code, configurations, and associated artifacts like evaluation results and traces. This enables you to effectively manage the lifecycle of complex GenAI systems, ensuring reproducibility, facilitating debugging, and enabling confident deployment of the best-performing application versions.
+MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** provides systematic version control for your entire GenAI application—code, configurations, evaluations, and traces. Stop losing track of what works and start building with confidence through complete application lifecycle management.
 
-This page introduces the core concepts of version tracking with `LoggedModel`. Subsequent pages in this section will detail specific methods for creating, managing, and utilizing these application versions.
+<div style={{margin: '2rem 0', textAlign: 'center'}}>
+  <img
+    src="/images/mlflow-3/genai/logged_model_autolog_traces.png"
+    alt="MLflow UI showing LoggedModel with linked traces for version tracking"
+    style={{maxWidth: '100%', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'}}
+  />
+</div>
 
-## Why Version Your GenAI Application?
+## Why Version Control Matters for GenAI
 
-GenAI applications are composite systems with many moving parts: code (agent logic, tools), configurations (LLM parameters, retrieval settings), and data. Iterating on these components without systematic versioning leads to significant challenges. MLflow `LoggedModel` helps you overcome these by addressing:
+GenAI applications are complex systems with interdependent components. Without systematic versioning, development becomes chaotic and deployments risky.
 
-1.  **Reproducibility**: Ensures you can recreate any previous application state.
-    - **Challenge**: Without versioning, it's hard to know which combination of code and configurations produced a specific result, making it difficult to reproduce successes or failures.
-    - **Solution**: `LoggedModel` captures or links to the exact code (e.g., Git commit hash) and configurations used for a specific version, ensuring you can always reconstruct it.
+<FeatureHighlights features={[
+  {
+    icon: Shield,
+    title: "Eliminate 'It Worked Yesterday' Syndrome",
+    description: "Know exactly which combination of code, prompts, and configurations produced any result. Reproduce successes and debug failures with complete context."
+  },
+  {
+    icon: TrendingUp,
+    title: "Deploy with Data-Driven Confidence",
+    description: "Compare application versions objectively using metrics like quality scores, cost, and latency. Choose the best performer based on evidence, not intuition."
+  },
+  {
+    icon: Eye,
+    title: "Track Every Change's Impact",
+    description: "Link code commits, configuration changes, and evaluation results. When quality drops, pinpoint exactly what changed and when."
+  },
+  {
+    icon: Database,
+    title: "Maintain Production Auditability",
+    description: "Know exactly what version was deployed when. Essential for compliance, incident response, and regulatory requirements."
+  }
+]} />
 
-2.  **Debugging Regressions**: Simplifies pinpointing changes that cause issues.
-    - **Challenge**: When application quality drops, identifying which change (in code, configurations, etc.) caused the regression can be a time-consuming and frustrating process.
-    - **Solution**: By tracking `LoggedModel` versions, you can easily compare a problematic version against a known good version. This involves examining differences in their linked code (via commit hashes), configurations, evaluation results, and traces to isolate the changes that led to the regression.
+## How LoggedModel Powers GenAI Version Control
 
-3.  **Objective Comparison and Deployment**: Enables data-driven decisions for selecting the best version.
-    - **Challenge**: Choosing which application version to deploy can be subjective without a clear way to compare performance based on consistent metrics.
-    - **Solution**: `LoggedModel` versions can be systematically evaluated (e.g., using `mlflow.genai.evaluate()`). This allows you to compare metrics like quality scores, cost, and latency side-by-side, ensuring you deploy the objectively best version.
+MLflow's LoggedModel adapts traditional ML model versioning for GenAI applications. Instead of just tracking model weights, it becomes a comprehensive metadata hub that coordinates all the moving parts of your AI system.
 
-4.  **Auditability and Governance**: Provides a clear record of what was deployed and when.
-    - **Challenge**: For compliance or when investigating production incidents, you need to know the exact state of the application that was running at a specific time.
-    - **Solution**: Each `LoggedModel` version serves as an auditable record, linking to the specific code and configurations, and can be associated with traces from its execution.
+<ConceptOverview concepts={[
+  {
+    icon: GitBranch,
+    title: "Application State Snapshots",
+    description: "Each LoggedModel version captures a complete application state—code references, configurations, dependencies, and performance data in one versioned entity."
+  },
+  {
+    icon: Code2,
+    title: "Flexible Code Management",
+    description: "Link to external git commits for lightweight versioning, or bundle code directly for deployment. Choose the approach that fits your workflow."
+  },
+  {
+    icon: Settings,
+    title: "Automatic Trace Association",
+    description: "When you set an active model context, all subsequent traces automatically link to that version. No manual bookkeeping required."
+  }
+]} />
 
-## How <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> Works for Versioning
+## Start Version Tracking in 5 Minutes
 
-A `LoggedModel` in MLflow is not just for traditional machine learning models; it's adapted to be the core of GenAI application versioning. Each distinct state of your application that you want to evaluate, deploy, or refer back to can be captured as a new version of a `LoggedModel`.
+Transform chaotic GenAI development into systematic version control with just a few lines of code.
 
-**Key Characteristics**:
+### Automatic Version Tracking with Git Integration
 
-- **Central Versioned Entity**: Represents a specific version of your GenAI application or a significant, independently versionable component.
-- **Captures Application State**: A `LoggedModel` version records a particular configuration of code, parameters, and other dependencies.
-- **Flexible Code Management**:
-  - **Metadata Hub (Primary)**: Most commonly, `LoggedModel` links to externally managed code (e.g., via a Git commit hash), acting as a metadata record for that code version along with its associated configurations and MLflow entities (evaluations, traces).
-  - **Packaged Artifacts (Optional)**: For specific deployment needs (like Databricks Model Serving), `LoggedModel` can also bundle the application code and dependencies directly.
-- **Lifecycle Tracking**: The history of `LoggedModel` versions allows you to track the application's evolution, compare performance, and manage its lifecycle from development to production.
-
-## Quick Start Example: Versioning an Agent's Configuration
-
-:::important[MLflow Version Requirement]
-To use the `mlflow.set_active_model()` functionality demonstrated below for version tracking, **MLflow 3 is required.** You can install it using:
-
-```bash
-pip install --upgrade "mlflow>=3.1"
-```
-
-To connect for logging to Databricks-hosted MLflow Tracking, use `pip install --upgrade "mlflow[databricks]>=3.1"` instead.
-:::
-
-Here's how to quickly version your GenAI agent and link its traces, which might be generated during interactive development or [evaluation](/genai/eval-monitor). This example uses `mlflow.set_active_model()` with the current git commit hash to establish a unique version context, ensuring that any generated traces are automatically associated with this specific code version.
+Link your application versions to git commits for complete traceability:
 
 ```python
 import mlflow
 import openai
-import subprocess
+import os
 
-# Configure OpenAI API Key (replace with your actual key)
+# Fix: Added missing import
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"
 
-# Configure MLflow Tracking
-mlflow.set_experiment("my-genai-app")
+# Configure MLflow experiment
+mlflow.set_experiment("customer-support-agent")
 
-# Get current git commit hash
-git_commit = (
-    subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()[:8]
-)
+# Get current git commit using MLflow's built-in utilities
+from mlflow.utils.git_utils import get_git_commit
 
-# Define your application version using the git commit
+git_commit = get_git_commit(".")
+if git_commit:
+    git_commit = git_commit[:8]  # Use short hash
+else:
+    git_commit = "local-dev"  # Fallback if not in git repo
+
+# Create version identifier
 app_name = "customer_support_agent"
-logged_model_name = f"{app_name}-{git_commit}"
+version_name = f"{app_name}-{git_commit}"
 
-# Set the active model context - traces will be linked to this
-mlflow.set_active_model(name=logged_model_name)
+# Set active model context - all traces will link to this version
+mlflow.set_active_model(name=version_name)
 
-# Enable autologging for OpenAI, which automatically logs traces
+# Enable automatic tracing
 mlflow.openai.autolog()
 
-# Define and test your agent code - traces are automatically linked
+# Your application code - now automatically versioned and traced
 client = openai.OpenAI()
-questions = [
+test_questions = [
     "How do I reset my password?",
     "What are your business hours?",
-    "Can I get a refund for my last order?",
-    "Where can I find the user manual for product model number 15869?",
-    "I'm having trouble with the payment page, can you help?",
+    "Can I get a refund for my order?",
 ]
-for question in questions:
+
+for question in test_questions:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": question}],
         temperature=0.7,
         max_tokens=1000,
     )
+    # ✅ Automatically: traced, versioned, and linked to git commit
 ```
 
-In this example:
+**What happens automatically:**
 
-- `mlflow.openai.autolog()` captures traces from OpenAI calls and automatically associates them with the active model context.
-- The git commit hash is used as part of the model name to uniquely identify this version of the application.
-- `mlflow.set_active_model()` establishes that subsequent traces should be linked to this specific version.
-- Any OpenAI calls made after setting the active model will have their traces automatically linked to this `LoggedModel` version.
+- Every LLM call generates a detailed trace
+- All traces link to your specific application version
+- Git commit provides exact code reproducibility
+- Version performance can be compared objectively
 
-This provides a lightweight way to version your application and link traces to specific code commits.
+### Version Management Made Simple
 
-<div className="center-div" style={{ width: "100%" }}>
-  ![The MLflow UI showing the logged model autolog traces
-  lineage](/images/mlflow-3/genai/logged_model_autolog_traces.png)
-</div>
+```python
+# Create a new version for experimentation
+with mlflow.set_active_model(name=f"agent-v2-{new_commit}"):
+    # Test new prompt engineering approach
+    improved_response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful customer support agent. Be concise and actionable.",
+            },
+            {"role": "user", "content": question},
+        ],
+        temperature=0.3,  # Lower temperature for consistency
+        max_tokens=500,  # More focused responses
+    )
+    # ✅ New version automatically tracked with different configurations
+```
 
-## Next Steps
+Context manager automatically handles version switching—clean, explicit, and error-free.
 
-Now that you understand why versioning your GenAI application is crucial and how `LoggedModel` facilitates this, you can explore how to implement it:
+### Compare Versions Systematically
 
-- **[Track Application Versions with MLflow](/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow)**: Learn the primary method for creating and managing `LoggedModel` versions when your application code is managed externally.
+```python
+import pandas as pd
+
+# Evaluate multiple versions against the same test set
+eval_data = pd.DataFrame(
+    {
+        "inputs": test_questions,
+        "expected_categories": ["account", "business_info", "billing"],
+    }
+)
+
+# Version A: Original configuration
+results_v1 = mlflow.evaluate(
+    model_uri=f"models:/{app_name}-{commit_v1}",
+    data=eval_data,
+    extra_metrics=[
+        mlflow.metrics.toxicity(),
+        mlflow.metrics.latency(),
+        mlflow.metrics.flesch_kincaid_grade_level(),
+    ],
+)
+
+# Version B: Improved prompts
+results_v2 = mlflow.evaluate(
+    model_uri=f"models:/{app_name}-{commit_v2}",
+    data=eval_data,
+    extra_metrics=[
+        mlflow.metrics.toxicity(),
+        mlflow.metrics.latency(),
+        mlflow.metrics.flesch_kincaid_grade_level(),
+    ],
+)
+
+# ✅ Side-by-side comparison shows which version performs better
+```
+
+Objective metrics remove guesswork from version selection.
+
+## Prerequisites
+
+Ready to implement systematic version tracking? You'll need:
+
+- **MLflow 3.0+** (`pip install --upgrade "mlflow>=3.1"`)
+- **Git repository** for your application code
+- **Python 3.9+**
+- **LLM API access** (OpenAI, Anthropic, etc.)
+
+:::tip
+For Databricks-hosted MLflow Tracking: `pip install --upgrade "mlflow[databricks]>=3.1"`
+:::
+
+---
+
+## Advanced Version Tracking Capabilities
+
+Once you've mastered basic version tracking, explore these advanced patterns for production GenAI applications.
+
+<TilesGrid>
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Track Application Versions"
+    description="Learn comprehensive patterns for versioning complex GenAI applications with external code management"
+    href="/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow"
+    linkText="Master versioning →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Deployment Strategies"
+    description="Deploy versioned applications with confidence using MLflow's serving capabilities"
+    href="/genai/serving"
+    linkText="Deploy versions →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+Start with the code examples above, then explore the advanced capabilities as your application grows in complexity.
