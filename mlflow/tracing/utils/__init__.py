@@ -258,7 +258,7 @@ def _try_get_prediction_context():
     #     relies on numpy, which is not installed in skinny.
     try:
         from mlflow.pyfunc.context import get_prediction_context
-    except ImportError:
+    except (ImportError, KeyError):
         return
 
     return get_prediction_context()
