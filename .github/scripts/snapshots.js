@@ -6,13 +6,10 @@ const path = require("path");
  * @param {Object} params
  * @param {Object} params.github - GitHub API client
  * @param {Object} params.context - GitHub context
- * @param {string|string[]} params.artifacts - Path(s) to artifact file(s)
+ * @param {string[]} params.artifactPaths - Path(s) to artifact file(s)
  */
-module.exports = async ({ github, context, artifacts }) => {
+module.exports = async ({ github, context, artifactPaths }) => {
   const { owner, repo } = context.repo;
-
-  // Normalize to array
-  const artifactPaths = Array.isArray(artifacts) ? artifacts : [artifacts];
 
   // Validate all artifacts exist
   for (const artifactPath of artifactPaths) {
