@@ -496,7 +496,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             use_single_part_upload = num_chunks == 1
 
             def upload_chunks_func(start_byte):
-                return patch_adls_file_upload(
+                return self._retryable_adls_function(
+                    func=patch_adls_file_upload,
                     artifact_file_path=artifact_file_path,
                     get_credentials=get_credentials,
                     sas_url=credentials.signed_uri,
