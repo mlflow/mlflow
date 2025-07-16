@@ -31,6 +31,10 @@ describe('API', () => {
     });
   });
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   afterAll(async () => {
     await client.deleteExperiment(experimentId);
   });
@@ -736,6 +740,54 @@ describe('API', () => {
       });
 
       tracedFunc();
+    });
+  });
+
+  describe('Exception Safety', () => {
+    it('should return NoOpSpan when OTel tracer fails', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      // Mock the tracer to throw an error
+      const getTracerSpy = jest
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        .spyOn(require('../../src/core/provider'), 'getTracer')
+        .mockImplementation(() => {
+          throw new Error('Tracer creation failed');
+        });
+
+      const span = mlflow.startSpan({ name: 'test-span' });
+
+      expect(span.constructor.name).toBe('NoOpSpan');
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to start span', expect.any(Error));
+
+      consoleSpy.mockRestore();
+      getTracerSpy.mockRestore();
+    });
+
+    it('should fallback to raw args when argument mapping fails', () => {
+      const consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
+
+      // Mock mapArgsToObject to throw an error
+      const mapArgsToObjectSpy = jest
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        .spyOn(require('../../src/core/utils'), 'mapArgsToObject')
+        .mockImplementation(() => {
+          throw new Error('Argument mapping failed');
+        });
+
+      const testFunc = (a: number, b: number) => a + b;
+      const tracedFunc = mlflow.trace(testFunc);
+
+      const result = tracedFunc(5, 10);
+      expect(result).toBe(15);
+
+      expect(consoleDebugSpy).toHaveBeenCalledWith(
+        'Failed to map arguments values to names',
+        expect.any(Error)
+      );
+
+      consoleDebugSpy.mockRestore();
+      mapArgsToObjectSpy.mockRestore();
     });
   });
 
