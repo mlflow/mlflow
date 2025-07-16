@@ -308,29 +308,19 @@ client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
     minVersion: '2.14.3',
     getContent: (baseComponentId) => (
       <>
-        <Typography.Paragraph>
+        <Typography.Paragraph css={{ maxWidth: 800 }}>
           <FormattedMessage
-            defaultMessage={
-              'To manually instrument your own traces, the most convenient method is to use the {code} function decorator. ' +
-              'This will cause the inputs and outputs of the function to be captured in the trace.'
-            }
+            defaultMessage="To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace."
             description="Description of how to log custom code traces using MLflow. This message is followed by a code example."
             values={{
               code: <code>@mlflow.trace</code>,
             }}
           />
         </Typography.Paragraph>
-        <Typography.Paragraph>
+        <Typography.Paragraph css={{ maxWidth: 800 }}>
           <FormattedMessage
-            defaultMessage={
-              'For more complex use cases, MLflow also provides granular APIs that can be used to ' +
-              'control tracing behavior. For more information, please visit the <a>official documentation</a> on ' +
-              'fluent and client APIs for MLflow Tracing.'
-            }
-            description={
-              'Explanation of alternative APIs for custom tracing in MLflow. ' +
-              'The link leads to the MLflow documentation for the user to learn more.'
-            }
+            defaultMessage="For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing."
+            description="Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
             values={{
               a: (text: string) => (
                 <Typography.Link

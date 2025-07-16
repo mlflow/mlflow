@@ -7,7 +7,8 @@
 
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import Utils from './Utils';
-import { KeyValueEntity, RunLoggedArtifactType } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { RunLoggedArtifactType } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { KeyValueEntity } from '../types';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 

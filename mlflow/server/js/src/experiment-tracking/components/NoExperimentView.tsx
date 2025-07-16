@@ -6,7 +6,7 @@ import { ExperimentCliDocUrl } from '../../common/constants';
 function NoExperimentViewImpl() {
   const { theme } = useDesignSystemTheme();
   return (
-    <div className="center">
+    <div className="mlflow-center">
       <img alt="No experiments found." style={{ height: '200px', marginTop: '80px' }} src={noExperiments} />
       <h1 style={{ paddingTop: '10px' }}>No Experiments Exist</h1>
       <h2 css={{ color: theme.colors.textSecondary }}>

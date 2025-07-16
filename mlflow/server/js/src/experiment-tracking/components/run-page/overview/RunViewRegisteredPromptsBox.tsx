@@ -1,9 +1,10 @@
 import { ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import type { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
+
 import { Link } from '../../../../common/utils/RoutingUtils';
 import { usePromptVersionsForRunQuery } from '../../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import Routes from '../../../routes';
 import { parseLinkedPromptsFromRunTags } from '../../../pages/prompts/utils';
-import type { KeyValueEntity } from '../../../types';
 
 export const RunViewRegisteredPromptsBox = ({
   tags,

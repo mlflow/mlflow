@@ -42,6 +42,7 @@ export type MlflowGetRunInput = {
 };
 
 export enum MlflowModelVersionDeploymentJobStateDeploymentJobRunState {
+  APPROVAL = 'APPROVAL',
   DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 'DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED',
   FAILED = 'FAILED',
   NO_VALID_DEPLOYMENT_JOB_FOUND = 'NO_VALID_DEPLOYMENT_JOB_FOUND',

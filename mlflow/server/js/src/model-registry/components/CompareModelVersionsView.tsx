@@ -46,7 +46,7 @@ function CompareTable(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className="compare-table table"
+      className="mlflow-compare-table table"
       css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
@@ -119,11 +119,11 @@ export class CompareModelVersionsViewImpl extends Component<
   };
 
   icons = {
-    plusIcon: <i className="far fa-plus-square-o" />,
-    minusIcon: <i className="far fa-minus-square-o" />,
-    downIcon: <i className="fas fa-caret-down" />,
-    rightIcon: <i className="fas fa-caret-right" />,
-    chartIcon: <i className="fas fa-line-chart padding-left-text" />,
+    plusIcon: <i className="fa fa-plus-square-o" />,
+    minusIcon: <i className="fa fa-minus-square-o" />,
+    downIcon: <i className="fa fa-caret-down" />,
+    rightIcon: <i className="fa fa-caret-right" />,
+    chartIcon: <i className="fa fa-line-chart padding-left-text" />,
   };
 
   onToggleClick = (active: any) => {
@@ -165,14 +165,14 @@ export class CompareModelVersionsViewImpl extends Component<
     return (
       <div
         className="CompareModelVersionsView"
-        // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ '.mlflow-compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
         css={{
           ...styles.compareModelVersionsView,
           ...styles.wrapper(runInfos.length),
         }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div className="responsive-table-container">
+        <div className="mlflow-responsive-table-container">
           <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
@@ -737,7 +737,7 @@ const DEFAULT_COLUMN_WIDTH = 200;
 
 const styles = {
   wrapper: (numRuns: any) => ({
-    '.compare-table': {
+    '.mlflow-compare-table': {
       // 1 extra unit for header column
       minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
     },

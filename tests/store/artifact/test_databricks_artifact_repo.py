@@ -1669,6 +1669,9 @@ def test_upload_trace_data(databricks_artifact_repo_trace, cred_type):
             return_value=([cred_info], None),
         ),
         mock.patch("requests.Session.request", return_value=MockResponse(b"{}")),
+        mock.patch.object(databricks_artifact_repo_trace, "chunk_thread_pool") as mock_thread_pool,
     ):
         trace_data = json.dumps({"spans": [], "request": None, "response": None})
         databricks_artifact_repo_trace.upload_trace_data(trace_data)
+    # Verify that threading is not used in upload_trace_data
+    mock_thread_pool.submit.assert_not_called()

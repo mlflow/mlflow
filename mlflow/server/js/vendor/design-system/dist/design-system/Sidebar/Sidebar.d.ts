@@ -64,6 +64,8 @@ export interface ContentProps extends AnalyticsEventProps<DesignSystemEventProvi
     resizeBoxStyle?: CSSProperties;
     /** Removes side border for cases where Navbar is not used */
     noSideBorder?: boolean;
+    /** Whether to hide the resize handle */
+    hideResizeHandle?: boolean;
 }
 export interface PanelProps {
     /** The panel id */
@@ -101,7 +103,7 @@ export interface PanelBodyProps {
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
 export declare const NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;
-export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, enableCompact, resizeBoxStyle, noSideBorder, componentId, }: ContentProps): JSX.Element;
+export declare const Content: React.ForwardRefExoticComponent<ContentProps & React.RefAttributes<HTMLDivElement>>;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS, componentId }: PanelHeaderProps): JSX.Element;
 export declare function PanelHeaderTitle({ title, dangerouslyAppendEmotionCSS }: PanelHeaderTitleProps): import("@emotion/react/jsx-runtime").JSX.Element;
@@ -109,7 +111,7 @@ export declare function PanelHeaderButtons({ children, dangerouslyAppendEmotionC
 export declare function PanelBody({ children, dangerouslyAppendEmotionCSS }: PanelBodyProps): JSX.Element;
 export declare const Sidebar: {
     ({ position, children, dangerouslyAppendEmotionCSS, ...dataProps }: SidebarProps): JSX.Element;
-    Content: typeof Content;
+    Content: React.ForwardRefExoticComponent<ContentProps & React.RefAttributes<HTMLDivElement>>;
     Nav: typeof Nav;
     NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;
     Panel: typeof Panel;

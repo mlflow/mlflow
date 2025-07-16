@@ -4,7 +4,8 @@ import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets }
 import { pick } from 'lodash';
 import { EXPERIMENT_PAGE_UI_STATE_FIELDS, ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import { ExperimentEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import {
