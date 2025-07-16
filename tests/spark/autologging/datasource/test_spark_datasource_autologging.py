@@ -1,16 +1,16 @@
 import time
 from unittest import mock
 
+import pytest
 from pyspark.sql import Row
 from pyspark.sql.types import IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.spark
 from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
-from mlflow.telemetry.schemas import AutologParams
+from mlflow.telemetry.client import set_telemetry_client
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
-from tests.helper_functions import validate_telemetry_record
 from tests.spark.autologging.utils import _assert_spark_data_logged
 from tests.tracking.integration_test_utils import _init_server
 
@@ -24,6 +24,12 @@ def _get_expected_table_info_row(path, data_format, version=None):
 
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
 #   (it is not reset between tests)
+
+
+@pytest.fixture(autouse=True)
+def disable_telemetry(monkeypatch):
+    monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
+    set_telemetry_client()
 
 
 def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
@@ -280,17 +286,3 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_pat
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog()
-
-
-def test_spark_autolog_sends_telemetry_record(mock_requests):
-    mlflow.spark.autolog()
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.spark.autolog,
-        params=AutologParams(
-            flavor="spark",
-            disable=False,
-            log_traces=False,
-            log_models=False,
-        ),
-    )

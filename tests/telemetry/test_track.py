@@ -187,3 +187,17 @@ def test_trace_sends_telemetry_record(mock_requests):
     mlflow.trace(test_func)
 
     validate_telemetry_record(mock_requests, mlflow.trace, idx=1)
+
+
+def test_spark_autolog_sends_telemetry_record(mock_requests):
+    mlflow.spark.autolog()
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.spark.autolog,
+        params=AutologParams(
+            flavor="spark",
+            disable=False,
+            log_traces=False,
+            log_models=False,
+        ),
+    )
