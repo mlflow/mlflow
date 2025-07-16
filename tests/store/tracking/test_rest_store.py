@@ -973,7 +973,8 @@ def test_set_trace_tag():
         assert res is None
 
 
-def test_log_assessment_feedback():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_log_assessment_feedback(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1030,7 +1031,8 @@ def test_log_assessment_feedback():
         assert res.value == feedback.value
 
 
-def test_log_assessment_expectation():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_log_assessment_expectation(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1086,6 +1088,7 @@ def test_log_assessment_expectation():
         assert res.value == expectation.value
 
 
+@pytest.mark.parametrize("is_databricks", [True, False])
 @pytest.mark.parametrize(
     ("updates", "expected_request_json"),
     [
@@ -1130,7 +1133,7 @@ def test_log_assessment_expectation():
         ),
     ],
 )
-def test_update_assessment(updates, expected_request_json):
+def test_update_assessment(updates, expected_request_json, is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1174,7 +1177,8 @@ def test_update_assessment(updates, expected_request_json):
         assert isinstance(res, Assessment)
 
 
-def test_get_assessment():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_get_assessment(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1222,7 +1226,8 @@ def test_get_assessment():
     assert res.value == "test value"
 
 
-def test_delete_assessment():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_delete_assessment(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
