@@ -2050,6 +2050,24 @@ def test_log_and_detach_prompt(tracking_uri):
     assert "p2" in prompt_names
 
 
+def test_update_webhook(mock_registry_store):
+    """
+    Update webhook no longer supports name change.
+    """
+    expected_return_value = "some expected return value."
+    mock_registry_store.rename_webhook.return_value = expected_return_value
+    expected_return_value_2 = "other expected return value."
+    mock_registry_store.update_webhook.return_value = expected_return_value_2
+    res = MlflowClient(registry_uri="sqlite:///somedb.db").update_webhook(
+        name="orig name", description="new description"
+    )
+    assert expected_return_value_2 == res
+    mock_registry_store.update_webhook.assert_called_once_with(
+        name="orig name", description="new description"
+    )
+    mock_registry_store.rename_webhook.assert_not_called()
+
+
 def test_search_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 

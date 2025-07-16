@@ -14,6 +14,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
@@ -29,6 +30,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
@@ -37,6 +40,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
+    SqlWebhook,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
@@ -1284,3 +1288,269 @@ class SqlAlchemyStore(AbstractStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # CRUD API for Webhooks objects
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        event_trigger: WebhookEventTrigger,
+        key: str,
+        value: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional[dict[str, str]] = None,
+        description: Optional[str] = None,
+    ) -> Webhook:
+        """
+        Create a new Webhook in backend store.
+
+        Args:
+            name: Name of the new webhook. This is expected to be unique in the backend store.
+            url: URL to send the webhook to.
+            event_trigger: EventTrigger object that specifies the event that triggers the webhook.
+            key (optional): Key to filter on for the event trigger.
+            value (optional): Value to filter on for the event trigger.
+            headers (optional): Header to include in the webhook.
+            payload (optional): Payload to include in the webhook.
+            description (optional): Description of the webhook.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.Webhook`
+            created in the backend.
+        """
+        _validate_model_name(name)
+        with self.ManagedSessionMaker() as session:
+            try:
+                creation_time = get_current_time_millis()
+                webhook = SqlWebhook(
+                    name=name,
+                    creation_time=creation_time,
+                    last_updated_time=creation_time,
+                    description=description,
+                    url=url,
+                    event_trigger=event_trigger.value,
+                    key=key,
+                    value=value,
+                    headers=headers,
+                    payload=payload,
+                )
+                session.add(webhook)
+                session.flush()
+                return webhook.to_mlflow_entity()
+            except sqlalchemy.exc.IntegrityError as e:
+                raise MlflowException(
+                    f"Webhook (name={name}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    @classmethod
+    def _get_webhook(cls, session, name: str):
+        _validate_model_name(name)
+        webhooks = session.query(SqlWebhook).filter(SqlWebhook.name == name).all()
+
+        if len(webhooks) == 0:
+            raise MlflowException(f"Webhook with name={name} not found", RESOURCE_DOES_NOT_EXIST)
+        if len(webhooks) > 1:
+            raise MlflowException(
+                f"Expected only 1 webhook with name={name}. Found {len(webhooks)}.",
+                INVALID_STATE,
+            )
+        return webhooks[0]
+
+    def update_webhook(self, name: str, description: str) -> Webhook:
+        """
+        Update description of the Webhook.
+
+        Args:
+            name: Webhook name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            updated_time = get_current_time_millis()
+            sql_webhook.description = description
+            sql_webhook.last_updated_time = updated_time
+            session.add(sql_webhook)
+            session.flush()
+            return sql_webhook.to_mlflow_entity()
+
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
+        """
+        Rename the Webhook.
+
+        Args:
+            name: Webhook name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        _validate_model_renaming(new_name)
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            try:
+                updated_time = get_current_time_millis()
+                sql_webhook.name = new_name
+                sql_webhook.last_updated_time = updated_time
+                session.add(sql_webhook)
+                session.flush()
+                return sql_webhook.to_mlflow_entity()
+            except sqlalchemy.exc.IntegrityError as e:
+                raise MlflowException(
+                    f"Webhook (name={new_name}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    def delete_webhook(self, name: str) -> None:
+        """
+        Delete the Webhook.
+        Backend raises exception if a Webhook with given name does not exist.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            None
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_webhook = self._get_webhook(session, name)
+            session.delete(sql_webhook)
+
+    @classmethod
+    def _get_search_webhooks_filter_query(cls, parsed_filters: list[dict[str, Any]], dialect: str):
+        attribute_filters = []
+        for f in parsed_filters:
+            type_ = f["type"]
+            key = f["key"]
+            comparator = f["comparator"]
+            value = f["value"]
+            if type_ == "attribute":
+                if key != "name":
+                    raise MlflowException(
+                        f"Invalid attribute name: {key}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException(
+                        f"Invalid comparator for attribute: {comparator}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                attr = getattr(SqlWebhook, key)
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+                attribute_filters.append(attr_filter)
+            else:
+                raise MlflowException(
+                    f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
+                )
+
+        return select(SqlWebhook).filter(*attribute_filters)
+
+    @classmethod
+    def _parse_search_webhooks_order_by(cls, order_by_list: Optional[list[str]]):
+        """Sorts a set of webhooks based on their natural ordering and an overriding set
+        of order_bys. webhooks are naturally ordered first by name ascending.
+        """
+        clauses = []
+        observed_order_by_clauses = set()
+        if order_by_list:
+            for order_by_clause in order_by_list:
+                (
+                    attribute_token,
+                    ascending,
+                ) = SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
+                if attribute_token == SqlWebhook.name.key:
+                    field = SqlWebhook.name
+                elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
+                    field = SqlWebhook.last_updated_time
+                else:
+                    raise MlflowException(
+                        f"Invalid order by key '{attribute_token}' specified."
+                        + "Valid keys are "
+                        + f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if field.key in observed_order_by_clauses:
+                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                observed_order_by_clauses.add(field.key)
+                if ascending:
+                    clauses.append(field.asc())
+                else:
+                    clauses.append(field.desc())
+
+        if SqlWebhook.name.key not in observed_order_by_clauses:
+            clauses.append(SqlWebhook.name.asc())
+        return clauses
+
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        Search for Webhooks in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string, defaults to searching all Webhooks.
+            max_results: Maximum number of Webhooks desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+        """
+        if max_results > SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_WEBHOOK_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
+
+        filter_query = self._get_search_webhooks_filter_query(
+            parsed_filters, self.engine.dialect.name
+        )
+
+        parsed_orderby = self._parse_search_webhooks_order_by(order_by)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        # we query for max_results + 1 items to check whether there is another page to return.
+        # this remediates having to make another query which returns no items.
+        max_results_for_query = max_results + 1
+
+        with self.ManagedSessionMaker() as session:
+            query = filter_query.order_by(*parsed_orderby).limit(max_results_for_query)
+            if page_token:
+                query = query.offset(offset)
+            sql_webhooks = session.execute(query).scalars(SqlWebhook).all()
+            next_page_token = self._compute_next_token(
+                max_results_for_query, len(sql_webhooks), offset, max_results
+            )
+            webhook_entities = [webhook.to_mlflow_entity() for webhook in sql_webhooks][
+                :max_results
+            ]
+            return PagedList(webhook_entities, next_page_token)
+
+    def get_webhook(self, name: str) -> Webhook:
+        """
+        Get Webhook instance by name.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        with self.ManagedSessionMaker() as session:
+            return self._get_webhook(session, name).to_mlflow_entity()
