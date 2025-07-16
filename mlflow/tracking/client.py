@@ -40,12 +40,6 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.assessment import (
-    Assessment,
-    Expectation,
-    Feedback,
-)
-from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
@@ -1491,51 +1485,6 @@ class MlflowClient:
                 it will be truncated when stored.
         """
         self._tracing_client.delete_trace_tag(trace_id, key)
-
-    def log_assessment(
-        self,
-        trace_id: str,
-        name: str,
-        source: AssessmentSource,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        span_id: Optional[str] = None,
-    ) -> Assessment:
-        return self._tracing_client.log_assessment(
-            trace_id=trace_id,
-            name=name,
-            source=source,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-            span_id=span_id,
-        )
-
-    def update_assessment(
-        self,
-        trace_id: str,
-        assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Assessment:
-        return self._tracing_client.update_assessment(
-            trace_id=trace_id,
-            assessment_id=assessment_id,
-            name=name,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-        )
-
-    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
-        return self._tracing_client.delete_assessment(trace_id, assessment_id)
 
     def search_experiments(
         self,
