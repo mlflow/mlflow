@@ -23,9 +23,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "Flask<4",
   "alembic<2,!=1.10.0",
@@ -85,7 +85,10 @@ databricks = [
   "botocore",
   "databricks-agents>=1.0.0,<2.0",
 ]
-mlserver = ["mlserver>=1.2.0,!=1.3.1", "mlserver-mlflow>=1.2.0,!=1.3.1"]
+mlserver = [
+  "mlserver>=1.2.0,!=1.3.1,<2.0.0",
+  "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
+]
 gateway = [
   "fastapi<1",
   "uvicorn[standard]<1",

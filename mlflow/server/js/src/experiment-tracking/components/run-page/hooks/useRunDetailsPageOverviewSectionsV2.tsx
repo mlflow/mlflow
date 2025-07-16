@@ -1,7 +1,8 @@
 import { Button, FileIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell, SecondarySections } from '@databricks/web-shared/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { KeyValueEntity, LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import { LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { UseGetRunQueryResponseRunInfo } from './useGetRunQuery';
 import Utils from '../../../../common/utils/Utils';
 import { RunViewTagsBox } from '../overview/RunViewTagsBox';

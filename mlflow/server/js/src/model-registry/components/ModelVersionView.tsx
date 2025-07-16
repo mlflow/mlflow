@@ -6,8 +6,10 @@
  */
 
 import React from 'react';
+import _ from 'lodash';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
+import { TagList } from '../../common/components/TagList';
 import { PromoteModelButton } from './PromoteModelButton';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
@@ -37,10 +39,11 @@ import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { extractArtifactPathFromModelSource } from '../utils/VersionUtils';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
-import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/utils/FeatureUtils';
 import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { KeyValueEntity } from '../../common/types';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
@@ -78,9 +81,14 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     isDeleteModalConfirmLoading: false,
     showDescriptionEditor: false,
     isTagsRequestPending: false,
+    isTagAssignmentModalVisible: false,
+    isSavingTags: false,
+    tagSavingError: undefined,
   };
 
   formRef = React.createRef();
+
+  sharedTaggingUIEnabled = shouldUseSharedTaggingUI();
 
   componentDidMount() {
     const pageTitle = `${this.props.modelName} v${this.props.modelVersion.version} - MLflow Model`;
@@ -131,6 +139,49 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   startEditingDescription = (e: any) => {
     e.stopPropagation();
     this.setState({ showDescriptionEditor: true });
+  };
+
+  getTags = () =>
+    _.sortBy(
+      Utils.getVisibleTagValues(this.props.tags).map(([key, value]) => ({
+        key,
+        name: key,
+        value,
+      })),
+      'name',
+    );
+
+  handleCloseTagAssignmentModal = () => {
+    this.setState({ isTagAssignmentModalVisible: false, tagSavingError: undefined });
+  };
+
+  handleEditTags = () => {
+    this.setState({ isTagAssignmentModalVisible: true, tagSavingError: undefined });
+  };
+
+  handleSaveTags = (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]): Promise<void> => {
+    this.setState({ isSavingTags: true });
+
+    const { modelName } = this.props;
+    const { version } = this.props.modelVersion;
+
+    const newTagsToSet = newTags.map(({ key, value }) =>
+      this.props.setModelVersionTagApi(modelName, version, key, value),
+    );
+
+    const deletedTagsToDelete = deletedTags.map(({ key }) =>
+      this.props.deleteModelVersionTagApi(modelName, version, key),
+    );
+
+    return Promise.all([...newTagsToSet, ...deletedTagsToDelete])
+      .then(() => {
+        this.setState({ isSavingTags: false });
+      })
+      .catch((error: ErrorWrapper | Error) => {
+        const message = error instanceof ErrorWrapper ? error.getMessageField() : error.message;
+
+        this.setState({ isSavingTags: false, tagSavingError: message });
+      });
   };
 
   handleAddTag = (values: any) => {
@@ -419,7 +470,9 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   renderMetadata(modelVersion: any) {
     return (
       // @ts-expect-error TS(2322): Type '{ children: any[]; className: string; }' is ... Remove this comment to see the full error message
-      <Descriptions className="metadata-list">{this.getDescriptions(modelVersion)}</Descriptions>
+      <Descriptions columns={5} className="metadata-list">
+        {this.getDescriptions(modelVersion)}
+      </Descriptions>
     );
   }
 
@@ -433,7 +486,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       return (
         <Alert
           type={type}
-          className={`status-alert status-alert-${type}`}
+          className={`mlflow-status-alert mlflow-status-alert-${type}`}
           message={status_message || defaultMessage}
           // @ts-expect-error TS(2322): Type '{ type: "error" | "info"; className: string;... Remove this comment to see the full error message
           icon={ModelVersionStatusIcons[status]}
@@ -504,6 +557,20 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     return usingNextModelsUI ? <PromoteModelButton modelVersion={modelVersion} /> : null;
   }
 
+  renderTags() {
+    if (!this.sharedTaggingUIEnabled) {
+      return null;
+    }
+
+    return (
+      <Descriptions columns={1} data-testid="model-view-tags">
+        <Descriptions.Item label="Tags">
+          <TagList tags={this.getTags()} onEdit={this.handleEditTags} />
+        </Descriptions.Item>
+      </Descriptions>
+    );
+  }
+
   getPageHeader(title: any, breadcrumbs: any) {
     const menu = [
       {
@@ -557,6 +624,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
 
         {/* Metadata List */}
         {this.renderMetadata(modelVersion)}
+        {this.renderTags()}
 
         {/* New models UI switch */}
         {shouldShowModelsNextUI() && (
@@ -587,28 +655,30 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
             showEditor={showDescriptionEditor}
           />
         </CollapsibleSection>
-        <div data-test-id="tags-section">
-          <CollapsibleSection
-            title={
-              <FormattedMessage
-                defaultMessage="Tags"
-                description="Title text for the tags section on the model versions view page"
+        {!this.sharedTaggingUIEnabled && (
+          <div data-test-id="tags-section">
+            <CollapsibleSection
+              title={
+                <FormattedMessage
+                  defaultMessage="Tags"
+                  description="Title text for the tags section on the model versions view page"
+                />
+              }
+              defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
+              data-test-id="model-version-tags-section"
+            >
+              <EditableTagsTableView
+                // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
+                innerRef={this.formRef}
+                handleAddTag={this.handleAddTag}
+                handleDeleteTag={this.handleDeleteTag}
+                handleSaveEdit={this.handleSaveEdit}
+                tags={tags}
+                isRequestPending={isTagsRequestPending}
               />
-            }
-            defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-            data-test-id="model-version-tags-section"
-          >
-            <EditableTagsTableView
-              // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
-              innerRef={this.formRef}
-              handleAddTag={this.handleAddTag}
-              handleDeleteTag={this.handleDeleteTag}
-              handleSaveEdit={this.handleSaveEdit}
-              tags={tags}
-              isRequestPending={isTagsRequestPending}
-            />
-          </CollapsibleSection>
-        </div>
+            </CollapsibleSection>
+          </div>
+        )}
         <CollapsibleSection
           title={
             <FormattedMessage

@@ -60,7 +60,7 @@ is a non-invertible migration script that increases the cap in existing database
 ## Deletion Behavior
 
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
+from the backend store or artifact store when a Run is deleted. The <APILink fn="mlflow.server.cli" hash="mlflow-gc">mlflow gc</APILink> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
 ## SQLAlchemy Options

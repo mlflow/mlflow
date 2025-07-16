@@ -192,7 +192,7 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
     Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
     Utils.logErrorAndNotifyUser = jest.fn();
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(0);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(0);
     const props = {
       ...minimalProps,
       apis: {},
@@ -212,7 +212,7 @@ describe('ArtifactPage', () => {
     // Wait multiple poll intervals
     jest.advanceTimersByTime(POLL_INTERVAL * 3);
     // We should have only one error call
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(1);
     // Let's change the run uuid now by changing the props
     // sadly, enzyme provides no convenient method to change
     // the deeply nested component props so we need to
@@ -227,7 +227,7 @@ describe('ArtifactPage', () => {
     // Wait another multiple poll intervals
     jest.advanceTimersByTime(POLL_INTERVAL * 5);
     // We should have only one more error call
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(2);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(2);
     jest.clearAllMocks();
   });
   describe('autoselect logged model', () => {

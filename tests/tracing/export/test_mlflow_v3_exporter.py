@@ -297,12 +297,12 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         exporter = MlflowV3SpanExporter()
         exporter.export([otel_span])
 
-        # Wait for any prompt linking threads to complete
-        join_thread_by_name_prefix("link_prompts_from_exporter")
-
         if is_async:
             # For async tests, we need to flush the specific exporter's queue
             exporter._async_queue.flush(terminate=True)
+
+        # Wait for any prompt linking threads to complete
+        join_thread_by_name_prefix("link_prompts_from_exporter")
 
     # Verify that prompt linking was called
     mock_link_prompts.assert_called_once()
@@ -380,12 +380,12 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
         exporter = MlflowV3SpanExporter()
         exporter.export([otel_span])
 
-        # Wait for any prompt linking threads to complete
-        join_thread_by_name_prefix("link_prompts_from_exporter")
-
         if is_async:
             # For async tests, we need to flush the specific exporter's queue
             exporter._async_queue.flush(terminate=True)
+
+        # Wait for any prompt linking threads to complete
+        join_thread_by_name_prefix("link_prompts_from_exporter")
 
     # Verify that prompt linking was NOT called for empty prompts (this is correct behavior)
     mock_link_prompts.assert_not_called()

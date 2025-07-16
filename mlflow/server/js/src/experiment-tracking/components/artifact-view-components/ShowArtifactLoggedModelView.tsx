@@ -25,6 +25,7 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ShowArtifactCodeSnippet } from './ShowArtifactCodeSnippet';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { KeyValueEntity } from '../../../common/types';
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -36,6 +37,7 @@ type OwnProps = {
   artifactRootUri: string;
   registeredModelLink?: string;
   intl: IntlShape;
+  entityTags?: Partial<KeyValueEntity>[];
 };
 
 type State = any;
@@ -369,8 +371,8 @@ mlflow.models.predict(
       );
     } else {
       return (
-        <div className="ShowArtifactPage">
-          <div className="show-artifact-logged-model-view">
+        <div className="mlflow-ShowArtifactPage">
+          <div className="mlflow-show-artifact-logged-model-view">
             <div
               className="artifact-logged-model-view-header"
               style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
@@ -446,13 +448,14 @@ mlflow.models.predict(
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
     const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
-    const { getArtifact, path, runUuid, experimentId } = this.props;
+    const { getArtifact, path, runUuid, experimentId, entityTags } = this.props;
 
     fetchArtifactUnified(
       {
         path: MLModelArtifactPath,
         runUuid,
         experimentId,
+        entityTags,
       },
       getArtifact,
     )

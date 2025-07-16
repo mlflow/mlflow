@@ -188,8 +188,8 @@ def build(package_type: PackageType) -> None:
                 ],
                 "mlserver": [
                     # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1",
+                    "mlserver>=1.2.0,!=1.3.1,<2.0.0",
+                    "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
                 ],
                 "gateway": gateways_requirements,
                 "genai": gateways_requirements,
