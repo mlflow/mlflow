@@ -81,49 +81,52 @@ class TracingSession:
 
     def _enter_impl(self):
         config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
-        if config.log_traces:
-            self.span = mlflow.start_span_no_context(
-                name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
-                span_type=_get_span_type(self.original.__name__),
-                inputs=self.inputs,
-            )
-            if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
-                _log_generativeai_tool_definition(self.instance, self.span)
+        if not config.log_traces:
+            return self
 
-            if _is_genai_model_or_chat(self.instance):
-                _log_genai_tool_definition(self.instance, self.inputs, self.span)
+        self.span = mlflow.start_span_no_context(
+            name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
+            span_type=_get_span_type(self.original.__name__),
+            inputs=self.inputs,
+        )
+        if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
+            _log_generativeai_tool_definition(self.instance, self.span)
 
-            # Attach the span to the current context. This is necessary because single Gemini
-            # SDK call might create multiple child spans.
-            self.token = set_span_in_context(self.span)
+        if _is_genai_model_or_chat(self.instance):
+            _log_genai_tool_definition(self.instance, self.inputs, self.span)
 
+        # Attach the span to the current context. This is necessary because single Gemini
+        # SDK call might create multiple child spans.
+        self.token = set_span_in_context(self.span)
         return self
 
     def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
-        if self.span:
-            # Detach span from the context at first. This must not be interrupted by any exception,
-            # otherwise the span context will leak and pollute other traces created next.
-            detach_span_from_context(self.token)
+        if not self.span:
+            return
 
-            if exc_val:
-                self.span.record_exception(exc_val)
+        # Detach span from the context at first. This must not be interrupted by any exception,
+        # otherwise the span context will leak and pollute other traces created next.
+        detach_span_from_context(self.token)
 
-            result = self.output
-            if (
-                has_generativeai and isinstance(result, generativeai.types.GenerateContentResponse)
-            ) or (has_genai and isinstance(result, genai.types.GenerateContentResponse)):
-                try:
-                    content = _get_keys(self.inputs, ["contents", "content", "message"])
-                    messages = parse_gemini_content_to_mlflow_chat_messages(content)
-                    messages += _parse_outputs(result)
-                    if messages:
-                        set_span_chat_messages(span=self.span, messages=messages)
-                except Exception as e:
-                    _logger.warning(f"Failed to set chat attributes for {self.span}. Error: {e}")
+        if exc_val:
+            self.span.record_exception(exc_val)
 
-            # need to convert the response of generate_content for better visualization
-            outputs = result.to_dict() if hasattr(result, "to_dict") else result
-            self.span.end(outputs=outputs)
+        result = self.output
+        if (
+            has_generativeai and isinstance(result, generativeai.types.GenerateContentResponse)
+        ) or (has_genai and isinstance(result, genai.types.GenerateContentResponse)):
+            try:
+                content = _get_keys(self.inputs, ["contents", "content", "message"])
+                messages = parse_gemini_content_to_mlflow_chat_messages(content)
+                messages += _parse_outputs(result)
+                if messages:
+                    set_span_chat_messages(span=self.span, messages=messages)
+            except Exception as e:
+                _logger.warning(f"Failed to set chat attributes for {self.span}. Error: {e}")
+
+        # need to convert the response of generate_content for better visualization
+        outputs = result.to_dict() if hasattr(result, "to_dict") else result
+        self.span.end(outputs=outputs)
 
 
 def _is_genai_model_or_chat(instance) -> bool:
@@ -144,20 +147,21 @@ def patched_module_call(original, *args, **kwargs):
     This patch creates a span and set input and output of the original function to the span.
     """
     config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
+    if not config.log_traces:
+        return original(*args, **kwargs)
 
-    if config.log_traces:
-        with mlflow.start_span(
-            name=f"{original.__name__}",
-            span_type=_get_span_type(original.__name__),
-        ) as span:
-            inputs = _construct_full_inputs(original, *args, **kwargs)
-            span.set_inputs(inputs)
-            result = original(*args, **kwargs)
-            # need to convert the response of generate_content for better visualization
-            outputs = result.to_dict() if hasattr(result, "to_dict") else result
-            span.set_outputs(outputs)
+    with mlflow.start_span(
+        name=f"{original.__name__}",
+        span_type=_get_span_type(original.__name__),
+    ) as span:
+        inputs = _construct_full_inputs(original, *args, **kwargs)
+        span.set_inputs(inputs)
+        result = original(*args, **kwargs)
+        # need to convert the response of generate_content for better visualization
+        outputs = result.to_dict() if hasattr(result, "to_dict") else result
+        span.set_outputs(outputs)
 
-            return result
+        return result
 
 
 def _get_keys(dic, keys):
