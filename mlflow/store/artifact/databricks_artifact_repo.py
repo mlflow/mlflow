@@ -385,20 +385,23 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             headers = self._extract_headers_from_credentials(credentials.headers)
             num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
 
+            def upload_chunks_func(start_byte):
+                return self._azure_upload_chunk(
+                    credentials=credentials,
+                    headers=headers,
+                    local_file=local_file,
+                    artifact_file_path=artifact_file_path,
+                    start_byte=start_byte,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
+                    get_credentials=get_credentials,
+                )
+
             if is_sync:
                 # Upload chunks synchronously without threading
                 results = {}
                 for index in range(num_chunks):
                     start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                    block_id = self._azure_upload_chunk(
-                        credentials=credentials,
-                        headers=headers,
-                        local_file=local_file,
-                        artifact_file_path=artifact_file_path,
-                        start_byte=start_byte,
-                        size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                        get_credentials=get_credentials,
-                    )
+                    block_id = upload_chunks_func(start_byte)
                     results[index] = block_id
                 uploading_block_list = [results[index] for index in sorted(results)]
             else:
@@ -407,14 +410,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 for index in range(num_chunks):
                     start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                     future = self.chunk_thread_pool.submit(
-                        self._azure_upload_chunk,
-                        credentials=credentials,
-                        headers=headers,
-                        local_file=local_file,
-                        artifact_file_path=artifact_file_path,
-                        start_byte=start_byte,
-                        size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                        get_credentials=get_credentials,
+                        upload_chunks_func,
+                        start_byte,
                     )
                     futures[future] = index
 
@@ -498,39 +495,32 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             use_single_part_upload = num_chunks == 1
 
+            def upload_chunks_func(start_byte):
+                return patch_adls_file_upload(
+                    artifact_file_path=artifact_file_path,
+                    get_credentials=get_credentials,
+                    sas_url=credentials.signed_uri,
+                    local_file=local_file,
+                    start_byte=start_byte,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
+                    position=start_byte,
+                    headers=headers,
+                    is_single=use_single_part_upload,
+                )
+
             if is_sync:
                 # Upload chunks synchronously without threading
                 for index in range(num_chunks):
                     start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                    self._retryable_adls_function(
-                        func=patch_adls_file_upload,
-                        artifact_file_path=artifact_file_path,
-                        get_credentials=get_credentials,
-                        sas_url=credentials.signed_uri,
-                        local_file=local_file,
-                        start_byte=start_byte,
-                        size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                        position=start_byte,
-                        headers=headers,
-                        is_single=use_single_part_upload,
-                    )
+                    upload_chunks_func(start_byte)
             else:
                 # Upload chunks asynchronously with threading
                 futures = {}
                 for index in range(num_chunks):
                     start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                     future = self.chunk_thread_pool.submit(
-                        self._retryable_adls_function,
-                        func=patch_adls_file_upload,
-                        artifact_file_path=artifact_file_path,
-                        get_credentials=get_credentials,
-                        sas_url=credentials.signed_uri,
-                        local_file=local_file,
-                        start_byte=start_byte,
-                        size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                        position=start_byte,
-                        headers=headers,
-                        is_single=use_single_part_upload,
+                        upload_chunks_func,
+                        start_byte,
                     )
                     futures[future] = index
 
