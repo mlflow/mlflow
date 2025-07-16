@@ -40,30 +40,56 @@ module.exports = async ({ github, context, artifactDir }) => {
     }
   }
 
-  // If release exists, delete it (this also deletes the tag)
   if (releaseExists) {
-    console.log("Deleting existing nightly release and tag...");
-    await github.rest.repos.deleteRelease({
+    // Update existing release
+    console.log("Updating existing nightly release...");
+    const { data: updatedRelease } = await github.rest.repos.updateRelease({
       owner,
       repo,
       release_id: release.id,
+      tag_name: "nightly",
+      target_commitish: context.sha,
+      name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
+      body: `This is an automated nightly build of MLflow.\n\n**Last updated:** ${new Date().toUTCString()}\n\n**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
+      prerelease: true,
+      make_latest: "false",
     });
-  }
+    release = updatedRelease;
+    console.log(`Updated existing release: ${release.id}`);
 
-  // Create a new release (this will also create the tag)
-  console.log("Creating new nightly release...");
-  const { data: newRelease } = await github.rest.repos.createRelease({
-    owner,
-    repo,
-    tag_name: "nightly",
-    target_commitish: context.sha, // Use the current commit SHA
-    name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
-    body: `This is an automated nightly build of MLflow.\n\n**Last updated:** ${new Date().toUTCString()}\n\n**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
-    prerelease: true,
-    make_latest: "false",
-  });
-  release = newRelease;
-  console.log(`Created new release: ${release.id}`);
+    // Delete existing assets
+    console.log("Fetching existing assets...");
+    const { data: assets } = await github.rest.repos.listReleaseAssets({
+      owner,
+      repo,
+      release_id: release.id,
+      per_page: 100,
+    });
+
+    for (const asset of assets) {
+      console.log(`Deleting old asset: ${asset.name}`);
+      await github.rest.repos.deleteReleaseAsset({
+        owner,
+        repo,
+        asset_id: asset.id,
+      });
+    }
+  } else {
+    // Create a new release (this will also create the tag)
+    console.log("Creating new nightly release...");
+    const { data: newRelease } = await github.rest.repos.createRelease({
+      owner,
+      repo,
+      tag_name: "nightly",
+      target_commitish: context.sha,
+      name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
+      body: `This is an automated nightly build of MLflow.\n\n**Last updated:** ${new Date().toUTCString()}\n\n**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
+      prerelease: true,
+      make_latest: "false",
+    });
+    release = newRelease;
+    console.log(`Created new release: ${release.id}`);
+  }
 
   // Upload all artifacts
   for (const artifactName of artifactFiles) {
