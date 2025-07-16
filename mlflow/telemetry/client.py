@@ -245,9 +245,6 @@ def set_telemetry_client():
         _MLFLOW_TELEMETRY_CLIENT = None
     else:
         _MLFLOW_TELEMETRY_CLIENT = TelemetryClient()
-        # Activate the client immediately to prevent race conditions
-        # with other threading components (e.g., Spark autologging)
-        _MLFLOW_TELEMETRY_CLIENT.activate()
 
 
 def get_telemetry_client() -> Optional[TelemetryClient]:
