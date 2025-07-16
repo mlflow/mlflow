@@ -1,15 +1,13 @@
 import uuid
-from importlib import import_module
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
 import pytest
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -20,8 +18,6 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
-
-_IS_AGENT_SDK_V1 = Version(import_module("databricks.agents").__version__).major >= 1
 
 
 class TestModel:
@@ -35,7 +31,7 @@ def exact_match(outputs, expectations):
 
 
 @scorer
-def max_length(outputs, expectations):
+def is_concise(outputs, expectations):
     return len(outputs) <= expectations["max_length"]
 
 
@@ -54,7 +50,45 @@ def has_trace(trace):
     return trace is not None
 
 
-@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+def _validate_assessments(traces):
+    """Validate assessments are added to the traces"""
+    for trace in traces:
+        assert len(trace.info.assessments) == 6  # 2 expectations + 4 feedbacks
+        assessments = {a.name: a for a in trace.info.assessments}
+        a_exact_match = assessments["exact_match"]
+        assert isinstance(a_exact_match, Feedback)
+        assert a_exact_match.trace_id == trace.info.trace_id
+        assert isinstance(a_exact_match.value, bool)
+        assert a_exact_match.source.source_type == AssessmentSourceType.CODE
+        # Scorer name is used as source_id
+        assert a_exact_match.source.source_id == "exact_match"
+
+        a_is_concise = assessments["is_concise"]
+        assert isinstance(a_is_concise, Feedback)
+        assert isinstance(a_is_concise.value, bool)
+
+        a_has_trace = assessments["has_trace"]
+        assert isinstance(a_has_trace, Feedback)
+        assert a_has_trace.value is True
+
+        a_relevance = assessments["relevance"]
+        assert isinstance(a_relevance, Feedback)
+        assert a_relevance.value == "yes"
+        assert a_relevance.source.source_id == "gpt"
+        assert a_relevance.source.source_type == "LLM_JUDGE"
+        assert a_relevance.rationale == "The response is relevant to the question"
+
+        a_expected_response = assessments["expected_response"]
+        assert isinstance(a_expected_response, Expectation)
+        assert isinstance(a_expected_response.value, str)
+        assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
+
+        a_max_length = assessments["max_length"]
+        assert isinstance(a_max_length, Expectation)
+        assert isinstance(a_max_length.value, int)
+        assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
+
+
 def test_evaluate_with_static_dataset():
     data = [
         {
@@ -77,12 +111,12 @@ def test_evaluate_with_static_dataset():
 
     result = mlflow.genai.evaluate(
         data=data,
-        scorers=[exact_match, max_length, relevance, has_trace],
+        scorers=[exact_match, is_concise, relevance, has_trace],
     )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 1.0
-    assert metrics["max_length/mean"] == 0.5
+    assert metrics["is_concise/mean"] == 0.5
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
@@ -90,8 +124,23 @@ def test_evaluate_with_static_dataset():
     traces = get_traces()
     assert len(traces) == len(data)
 
+    # Traces should be associated with the eval run
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == len(data)
 
-@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+    # Re-order traces to match with the order of the input data
+    traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
+
+    for i in range(len(traces)):
+        assert len(traces[i].data.spans) == 1
+        span = traces[i].data.spans[0]
+        assert span.name == "root_span"
+        assert span.inputs == data[i]["inputs"]
+        assert span.outputs == data[i]["outputs"]
+
+    _validate_assessments(traces)
+
+
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced):
     model_id = mlflow.set_active_model(name="test-model-id").model_id
@@ -118,13 +167,13 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     result = mlflow.genai.evaluate(
         predict_fn=predict_fn,
         data=data,
-        scorers=[exact_match, max_length, relevance, has_trace],
+        scorers=[exact_match, is_concise, relevance, has_trace],
         model_id=model_id,
     )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0
-    assert metrics["max_length/mean"] == 0.5
+    assert metrics["is_concise/mean"] == 0.5
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
@@ -132,12 +181,29 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     traces = get_traces()
     assert len(traces) == len(data)
 
+    # Traces should be associated with the eval run
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == len(data)
+
+    # Re-order traces to match with the order of the input data
+    traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
+
     # Check if the model_id is set in the traces
     assert traces[0].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
     assert traces[1].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
+    # Validate assessments are added to the traces
+    for i in range(len(traces)):
+        assert len(traces[i].data.spans) == 1
+        span = traces[i].data.spans[0]
+        assert span.name == "predict"
+        assert span.inputs == data[i]["inputs"]
+        assert span.outputs == "I don't know"
 
-@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+    _validate_assessments(traces)
+
+
+@pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
 def test_evaluate_with_traces(pass_full_dataframe):
     questions = ["What is MLflow?", "What is Spark?"]
@@ -200,20 +266,31 @@ def test_evaluate_with_traces(pass_full_dataframe):
     with mock.patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
         result = mlflow.genai.evaluate(
             data=data,
-            scorers=[exact_match, max_length, relevance, has_trace],
+            scorers=[exact_match, is_concise, relevance, has_trace],
         )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0
-    assert metrics["max_length/mean"] == 0.5
+    assert metrics["is_concise/mean"] == 0.5
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
     # Assessments should be added to the traces in-place and no new trace should be created
-    assert len(get_traces()) == len(questions)
+    traces = get_traces()
+    assert len(traces) == len(questions)
+
+    # Traces are associated with the eval run
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == len(questions)
+
+    # Re-order traces to match with the order of the input data
+    traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
+
+    # Validate assessments are added to the traces
+    _validate_assessments(traces)
 
 
-@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+@pytest.mark.skip(reason="TODO: Run test with databricks-agents and tracking URI 'databricks'")
 def test_evaluate_with_managed_dataset():
     class MockDatasetClient:
         def __init__(self):
@@ -276,12 +353,12 @@ def test_evaluate_with_managed_dataset():
         result = mlflow.genai.evaluate(
             data=dataset,
             predict_fn=TestModel().predict,
-            scorers=[exact_match, max_length, relevance, has_trace],
+            scorers=[exact_match, is_concise, relevance, has_trace],
         )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0
-    assert metrics["max_length/mean"] == 0.5
+    assert metrics["is_concise/mean"] == 0.5
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
@@ -291,6 +368,12 @@ def test_evaluate_with_managed_dataset():
     assert run.inputs.dataset_inputs[0].dataset.name == dataset.name
     assert run.inputs.dataset_inputs[0].dataset.digest == dataset.digest
     assert run.inputs.dataset_inputs[0].dataset.source_type == "databricks-uc-table"
+
+    # Traces are associated with the eval run
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == 2
+
+    _validate_assessments(traces)
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")
