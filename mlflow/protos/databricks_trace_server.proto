@@ -24,6 +24,28 @@ service DatabricksTracingServerService {
       }],
     };
   }
+
+  // Create a trace destination for archival.
+  rpc CreateTraceDestination(CreateTraceDestinationRequest) returns (TraceDestination) {
+    option (rpc) = {
+      visibility: PUBLIC_UNDOCUMENTED
+      endpoints: [{
+        method: "POST",
+        path: "/2.0/tracing/trace-destinations",
+      }],
+    };
+  }
+
+  // Get a trace destination.
+  rpc GetTraceDestination(GetTraceDestinationRequest) returns (TraceDestination) {
+    option (rpc) = {
+      visibility: PUBLIC_UNDOCUMENTED
+      endpoints: [{
+        method: "GET",
+        path: "/2.0/tracing/trace-destinations/mlflow-experiments/{trace_location.mlflow_experiment.experiment_id}",
+      }],
+    };
+  }
 }
 
 
@@ -265,4 +287,49 @@ message Span {
     }
     // An optional final status for this span.
     optional Status status = 15;
+}
+
+
+// Request message for CreateTraceDestination RPC
+message CreateTraceDestinationRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[TraceDestination]";
+  
+  // The location of the trace source. Uniquely identifies a TraceDestination
+  optional TraceLocation trace_location = 1 [(validate_required) = true];
+
+  // The UC catalog destination
+  optional string uc_catalog = 2 [(validate_required) = true];
+
+  // The UC schema destination: `uc_catalog.uc_schema`
+  optional string uc_schema = 3 [(validate_required) = true];
+
+  // The UC table prefix to be used by any relevant Delta Tables: `uc_catalog.uc_schema.uc_table_prefix.*`
+  // When omitted, a default prefix will be derived from the trace_location (e.g. mlflow_experiment:12345)
+  optional string uc_table_prefix = 4;
+}
+
+// Request message for GetTraceDestination RPC
+message GetTraceDestinationRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[TraceDestination]";
+  
+  // The location of the source of traces. Uniquely identifies a TraceDestination
+  optional TraceLocation trace_location = 1;
+}
+
+// A TraceDestination contains metadata about where traces for a given trace location are stored/archived
+message TraceDestination {
+  // The location of the trace source. Uniquely identifies a TraceDestination
+  optional TraceLocation trace_location = 1 [(validate_required) = true];
+
+  // The full qualified name of the spans table: `catalog.schema.table`
+  optional string spans_table_name = 2 [(validate_required) = true];
+
+  // The full qualified name of the events table: `catalog.schema.table`
+  optional string events_table_name = 3 [(validate_required) = true];
+
+  // The schema version of the spans table.
+  optional string spans_schema_version = 4;
+
+  // The schema version of the events table.
+  optional string events_schema_version = 5;
 }

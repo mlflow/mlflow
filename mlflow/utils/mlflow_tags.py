@@ -74,6 +74,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
 )
 
+# Tracks the databricks trace storage table name
+MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE = "mlflow.experiment.databricksTraceStorageTable"
+
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
