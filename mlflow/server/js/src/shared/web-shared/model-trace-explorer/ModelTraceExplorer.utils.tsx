@@ -41,7 +41,15 @@ import type {
   ModelTraceEvent,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
-import type { OpenAIResponsesOutputItem } from './chat-utils/openai.types';
+import type {
+  OpenAIResponsesInput,
+  OpenAIResponsesOutputItem,
+  OpenAIResponsesInputMessage,
+  OpenAIResponsesInputText,
+  OpenAIResponsesInputMessageRole,
+  OpenAIResponsesInputFile,
+  OpenAIResponsesInputImage,
+} from './chat-utils/openai.types';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -313,18 +321,7 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
-const getChatMessagesFromSpan = (
-  messagesAttributeValue: any,
-  inputs: any,
-  outputs: any,
-): ModelTraceChatMessage[] | undefined => {
-  // if the `mlflow.chat.messages` attribute is provided
-  // and in the correct format, return it as-is
-  // we allow content type to be content part list for the `mlflow.chat.messages` attribute
-  if (Array.isArray(messagesAttributeValue) && messagesAttributeValue.every(isRawModelTraceChatMessage)) {
-    return compact(messagesAttributeValue.map(prettyPrintChatMessage));
-  }
-
+const getChatMessagesFromSpan = (inputs: any, outputs: any): ModelTraceChatMessage[] | undefined => {
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
@@ -377,11 +374,7 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const chatMessages = getChatMessagesFromSpan(
-    tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']),
-    inputs,
-    outputs,
-  );
+  const chatMessages = getChatMessagesFromSpan(inputs, outputs);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -1011,6 +1004,11 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
       return openAIResponsesOutput;
     }
 
+    const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
+    if (openAIResponsesInput) {
+      return openAIResponsesInput;
+    }
+
     const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
     if (llamaIndexChatResponse) {
       return llamaIndexChatResponse;
@@ -1191,6 +1189,41 @@ export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] |
   }));
 };
 
+const isOpenAIResponsesInputMessage = (obj: any): obj is OpenAIResponsesInputMessage => {
+  if (['user', 'assistant', 'system', 'developer'].includes(obj.role)) {
+    return (
+      typeof obj.content === 'string' ||
+      (Array.isArray(obj.content) &&
+        obj.content.every(
+          (item: unknown) =>
+            item &&
+            typeof item === 'object' &&
+            'type' in item &&
+            typeof item.type === 'string' &&
+            ['input_text', 'input_image', 'input_file'].includes(item.type),
+        ))
+    );
+  }
+
+  return false;
+};
+
+export const isOpenAIResponsesInput = (obj: any): obj is OpenAIResponsesInput => {
+  if (!obj) {
+    return false;
+  }
+
+  if (typeof obj === 'string') {
+    return true;
+  }
+
+  if (isOpenAIResponsesInputMessage(obj)) {
+    return true;
+  }
+
+  return false;
+};
+
 export const isOpenAIResponsesOutputItem = (obj: any): obj is OpenAIResponsesOutputItem => {
   if (!obj) {
     return false;
@@ -1209,6 +1242,57 @@ export const isOpenAIResponsesOutputItem = (obj: any): obj is OpenAIResponsesOut
   }
 
   return false;
+};
+
+const normalizeOpenAIResponsesInputItem = (
+  obj: OpenAIResponsesInputText | OpenAIResponsesInputFile | OpenAIResponsesInputImage,
+  role: OpenAIResponsesInputMessageRole,
+): ModelTraceChatMessage | null => {
+  if ('type' in obj && obj.type === 'input_text') {
+    return prettyPrintChatMessage({
+      type: 'message',
+      content: [{ type: 'text', text: obj.text }],
+      role: role,
+    });
+  }
+
+  if ('type' in obj && obj.type === 'input_image' && obj.image_url) {
+    return prettyPrintChatMessage({
+      type: 'message',
+      content: [{ type: 'image_url', image_url: { url: obj.image_url } }],
+      role: role,
+    });
+  }
+
+  // TODO: file input not supported yet
+  // if ('type' in obj && obj.type === 'input_file') {
+  //   return prettyPrintChatMessage({ type: 'message', content: obj.file_url, role: role });
+  // }
+
+  return null;
+};
+
+const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage): ModelTraceChatMessage[] | null => {
+  if (typeof obj.content === 'string') {
+    const message = prettyPrintChatMessage({ type: 'message', content: obj.content, role: obj.role });
+    return message && [message];
+  } else {
+    return obj.content.map((item) => normalizeOpenAIResponsesInputItem(item, obj.role)).filter((item) => item !== null);
+  }
+};
+
+export const normalizeOpenAIResponsesInput = (obj: any): ModelTraceChatMessage[] | null => {
+  if (typeof obj === 'string') {
+    const message = prettyPrintChatMessage({ type: 'message', content: obj, role: 'user' });
+    return message && [message];
+  }
+
+  const messages = obj.messages ?? obj.input;
+  if (Array.isArray(messages) && messages.every(isOpenAIResponsesInputMessage)) {
+    return messages.flatMap(normalizeOpenAIResponsesInputMessage).filter((message) => message !== null);
+  }
+
+  return null;
 };
 
 export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
@@ -1247,18 +1331,20 @@ export const normalizeOpenAIResponsesOutput = (obj: any): ModelTraceChatMessage[
     return null;
   }
 
+  const output = obj.output;
+
   // list of output items
-  if (Array.isArray(obj) && obj.length > 0 && obj.every(isOpenAIResponsesOutputItem)) {
-    return compact(obj.map(normalizeOpenAIResponsesOutputItem));
+  if (Array.isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
+    return compact(output.map(normalizeOpenAIResponsesOutputItem));
   }
 
   // list of output chunks
   if (
-    Array.isArray(obj) &&
-    obj.length > 0 &&
-    obj.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
+    Array.isArray(output) &&
+    output.length > 0 &&
+    output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
-    return compact(obj.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
+    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
   }
 
   return null;
