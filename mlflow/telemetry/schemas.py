@@ -1,7 +1,6 @@
 import json
 import platform
 import sys
-import time
 import uuid
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -68,7 +67,7 @@ class GenaiEvaluateParams(BaseParams):
 class APIRecord:
     api_module: str
     api_name: str
-    timestamp_ns: int = time.time_ns()
+    timestamp_ns: int
     params: Optional[BaseParams] = None
     status: APIStatus = APIStatus.UNKNOWN
     duration_ms: Optional[int] = None

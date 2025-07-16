@@ -77,6 +77,7 @@ def _generate_telemetry_record(
         return APIRecord(
             api_module=func.__module__,
             api_name=func.__qualname__,
+            timestamp_ns=time.time_ns(),
             params=record_params,
             status=APIStatus.SUCCESS if success else APIStatus.FAILURE,
             duration_ms=duration_ms,
