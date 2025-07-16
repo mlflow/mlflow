@@ -15,6 +15,7 @@ from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookEvent
 
 from tests.helper_functions import get_safe_port
+from tests.webhooks.app import WEBHOOK_SECRET
 
 
 def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
@@ -303,3 +304,80 @@ def test_model_version_alias_deleted(mlflow_client: MlflowClient, app_client: Ap
         "name": registered_model.name,
         "alias": "test_alias",
     }
+
+
+def test_webhook_with_secret(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook with secret that matches the one in app.py
+    mlflow_client.create_webhook(
+        name="secure_webhook",
+        url=app_client.get_url("/secure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        secret=WEBHOOK_SECRET,
+    )
+
+    registered_model = mlflow_client.create_registered_model(
+        name="test_hmac_model",
+        description="Testing HMAC signature",
+        tags={"env": "test"},
+    )
+
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/secure-webhook"
+    assert logs[0]["payload"] == {
+        "name": registered_model.name,
+        "description": registered_model.description,
+        "tags": registered_model.tags,
+    }
+    assert logs[0]["status_code"] == 200
+    # HTTP headers are case-insensitive and FastAPI normalizes them to lowercase
+    assert "x-mlflow-signature" in logs[0]["headers"]
+    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+
+
+def test_webhook_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook with wrong secret that doesn't match the one in app.py
+    mlflow_client.create_webhook(
+        name="wrong_secret_webhook",
+        url=app_client.get_url("/secure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        secret="wrong-secret",  # This doesn't match WEBHOOK_SECRET in app.py
+    )
+
+    # This should fail at the webhook endpoint due to signature mismatch
+    # But MLflow will still create the registered model
+    mlflow_client.create_registered_model(
+        name="test_wrong_hmac",
+        description="Testing wrong HMAC signature",
+    )
+
+    # The webhook request should have failed, but error should be logged
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/secure-webhook"
+    assert logs[0]["error"] == "Invalid signature"
+    assert logs[0]["status_code"] == 401
+
+
+def test_webhook_without_secret_to_secure_endpoint(
+    mlflow_client: MlflowClient, app_client: AppClient
+) -> None:
+    # Create webhook without secret pointing to secure endpoint
+    mlflow_client.create_webhook(
+        name="no_secret_to_secure",
+        url=app_client.get_url("/secure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        # No secret provided
+    )
+
+    mlflow_client.create_registered_model(
+        name="test_no_secret_to_secure",
+        description="Testing no secret to secure endpoint",
+    )
+
+    # The webhook request should fail due to missing signature, but error should be logged
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/secure-webhook"
+    assert logs[0]["error"] == "Missing signature header"
+    assert logs[0]["status_code"] == 400
