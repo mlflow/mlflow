@@ -22,6 +22,14 @@ from mlflow.protos.databricks_trace_server_pb2 import (
 )
 
 
+def _create_mock_databricks_agents():
+    """Helper function to create a properly mocked databricks.agents module."""
+    mock_module = Mock()
+    mock_module.__spec__ = Mock()
+    mock_module.__spec__.name = "databricks.agents"
+    return mock_module
+
+
 def _create_trace_destination_proto(
     experiment_id: str = "12345",
     spans_table_name: str = "catalog.schema.spans",
@@ -58,7 +66,7 @@ def test_create_trace_destination_api_failures(mock_call_endpoint, error_type, e
     """Test various API failure scenarios."""
     mock_call_endpoint.side_effect = Exception(error_type)
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         with pytest.raises(MlflowException, match=expected_match):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
@@ -72,7 +80,7 @@ def test_malformed_api_response(mock_call_endpoint):
     # Missing events_table_name intentionally
     mock_call_endpoint.return_value = mock_response
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
@@ -183,7 +191,6 @@ def test_both_unsupported_schema_versions():
         _validate_schema_versions("invalid", "also_invalid")
 
 
-@patch("sys.modules", {"databricks.agents": Mock()})
 @patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
 @patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
@@ -202,11 +209,11 @@ def test_backend_returns_unsupported_spans_schema(
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
-    with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
+        with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
+            enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
-@patch("sys.modules", {"databricks.agents": Mock()})
 @patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
 @patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
@@ -225,8 +232,9 @@ def test_backend_returns_unsupported_events_schema(
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
-    with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
+        with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
+            enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
 # Experiment tag setting tests
@@ -249,7 +257,7 @@ def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mo
     mock_client_instance.set_experiment_tag.side_effect = Exception("Permission denied")
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
@@ -273,7 +281,7 @@ def test_successful_experiment_tag_setting(
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         result = enable_databricks_trace_archival("12345", "catalog", "schema")
 
     # Verify call_endpoint was called with correct arguments
@@ -327,7 +335,7 @@ def test_successful_archival_with_default_prefix(
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         result = enable_databricks_trace_archival("12345", "catalog", "schema")
 
     # Verify call_endpoint was called with correct arguments
@@ -388,7 +396,7 @@ def test_successful_archival_with_custom_prefix(
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
         result = enable_databricks_trace_archival(
             "12345", "catalog", "schema", table_prefix="custom"
         )
