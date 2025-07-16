@@ -45,13 +45,8 @@ def _is_in_databricks() -> bool:
     if version is not None:
         return True
 
-    # check if in model serving environment
-    if (
-        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
-        or "false"
-    ).lower() == "true":
-        return True
+    # enable for databricks serving environment since it's a standalone environment
+    # and we can track tracing events
 
     return False
 
