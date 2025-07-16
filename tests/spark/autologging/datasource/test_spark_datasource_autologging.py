@@ -7,8 +7,10 @@ from pyspark.sql.types import IntegerType, StructField, StructType
 import mlflow
 import mlflow.spark
 from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
+from tests.helper_functions import validate_telemetry_record
 from tests.spark.autologging.utils import _assert_spark_data_logged
 from tests.tracking.integration_test_utils import _init_server
 
@@ -278,3 +280,17 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_pat
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog()
+
+
+def test_spark_autolog_sends_telemetry_record(mock_requests):
+    mlflow.spark.autolog()
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.spark.autolog,
+        params=AutologParams(
+            flavor="spark",
+            disable=False,
+            log_traces=False,
+            log_models=False,
+        ),
+    )

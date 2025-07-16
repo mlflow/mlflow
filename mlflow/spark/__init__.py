@@ -1149,6 +1149,7 @@ class _PyFuncModelWrapper:
         return [x.prediction for x in prediction_df.collect()]
 
 
+@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):
     """
