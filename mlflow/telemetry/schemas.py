@@ -1,6 +1,7 @@
 import json
 import platform
 import sys
+import time
 import uuid
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -67,12 +68,14 @@ class GenaiEvaluateParams(BaseParams):
 class APIRecord:
     api_module: str
     api_name: str
+    timestamp_ns: int = time.time_ns()
     params: Optional[BaseParams] = None
     status: APIStatus = APIStatus.UNKNOWN
     duration_ms: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "timestamp_ns": self.timestamp_ns,
             "api_module": self.api_module,
             "api_name": self.api_name,
             # dump params to string so we can parse them easily in ETL pipeline
