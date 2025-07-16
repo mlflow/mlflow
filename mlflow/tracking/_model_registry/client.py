@@ -14,7 +14,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -857,3 +857,19 @@ class ModelRegistryClient:
             None
         """
         self.store.delete_webhook(webhook_id)
+
+    def test_webhook(
+        self, webhook_id: str, event: Optional[WebhookEvent] = None
+    ) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test payload.
+
+        Args:
+            webhook_id: The ID of the webhook to test.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.WebhookTestResult` indicating success/failure and
+            response details.
+        """
+        return self.store.test_webhook(webhook_id, event)

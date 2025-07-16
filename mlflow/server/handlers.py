@@ -171,7 +171,7 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
-from mlflow.webhooks.dispatch import dispatch_webhook
+from mlflow.webhooks.dispatch import dispatch_webhook, test_webhook
 from mlflow.webhooks.types import (
     ModelVersionAliasCreatedPayload,
     ModelVersionAliasDeletedPayload,
@@ -2488,14 +2488,16 @@ def _delete_webhook(webhook_id: str):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _test_webhook(webhook_id: str):
-    request_message = _get_request_message(
-        TestWebhook(),
-        schema={"event": [_assert_string]},
+    request_message = _get_request_message(TestWebhook())
+    event = (
+        WebhookEvent.from_proto(request_message.event)
+        if request_message.HasField("event")
+        else None
     )
-    event = WebhookEvent(request_message.event) if request_message.event else None
-    test_result = _get_model_registry_store().test_webhook(webhook_id=webhook_id, event=event)
-    response_message = TestWebhook.Response()
-    response_message.result.CopyFrom(test_result.to_proto())
+    store = _get_model_registry_store()
+    webhook = store.get_webhook(webhook_id=webhook_id)
+    test_result = test_webhook(webhook=webhook, event=event)
+    response_message = TestWebhook.Response(result=test_result.to_proto())
     return _wrap_response(response_message)
 
 

@@ -6,7 +6,7 @@ from typing import Optional
 
 import requests
 
-from mlflow.entities.webhook import WebhookEvent, WebhookTestResult
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
 from mlflow.webhooks.types import WebhookPayload
@@ -93,22 +93,17 @@ def dispatch_webhook(
         )
 
 
-def test_webhook(
-    webhook_id: str, store: AbstractStore, event: Optional[WebhookEvent] = None
-) -> WebhookTestResult:
+def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> WebhookTestResult:
     """Test a webhook by sending a test payload.
 
     Args:
-        webhook_id: The ID of the webhook to test
-        store: The model registry store to retrieve webhook details
+        webhook: The webhook object to test
         event: Optional event type to test. If not specified, uses the first event from webhook.
 
     Returns:
         WebhookTestResult indicating success/failure and response details
     """
     try:
-        webhook = store.get_webhook(webhook_id)
-
         # Use provided event or the first event type for testing
         test_event = event or webhook.events[0]
 
@@ -138,10 +133,7 @@ def test_webhook(
 
             test_payload = ModelVersionAliasDeletedPayload.example()
         else:
-            # Default to MODEL_VERSION_CREATED payload
-            from mlflow.webhooks.types import ModelVersionCreatedPayload
-
-            test_payload = ModelVersionCreatedPayload.example()
+            raise ValueError(f"Unknown event type: {test_event}")
 
         return _send_webhook_request(webhook.url, test_payload, webhook.secret)
     except Exception as e:

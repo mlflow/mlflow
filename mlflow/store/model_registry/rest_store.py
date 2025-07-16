@@ -32,6 +32,7 @@ from mlflow.protos.webhooks_pb2 import (
     DeleteWebhook,
     GetWebhook,
     ListWebhooks,
+    TestWebhook,
     UpdateWebhook,
     WebhookService,
 )
@@ -582,6 +583,6 @@ class RestStore(BaseRestStore):
         Returns:
             WebhookTestResult indicating success/failure and response details
         """
-        from mlflow.webhooks.dispatch import test_webhook
-
-        return test_webhook(webhook_id, self, event)
+        req_body = message_to_json(TestWebhook(event=event.to_proto() if event else None))
+        response_proto = self._call_webhook_endpoint(TestWebhook, req_body, webhook_id=webhook_id)
+        return WebhookTestResult.from_proto(response_proto.result)
