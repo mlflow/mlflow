@@ -373,4 +373,6 @@ def mock_requests():
         patch("mlflow.telemetry.utils._is_ci_env", return_value=False),
         patch("requests.post", side_effect=mock_post),
     ):
+        # set telemetry client again to ensure it's not None
+        set_telemetry_client()
         yield captured_records
