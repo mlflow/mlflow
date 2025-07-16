@@ -8,7 +8,7 @@ import click
 @click.command()
 @click.option("--with-r", "with_r", is_flag=True, default=False, help="Build R documentation")
 @click.option(
-    "--with-ts", "with_ts", is_flag=True, default=False, help="Build TypeScript documentation"
+    "--with-ts", "with_ts", is_flag=True, default=True, help="Build TypeScript documentation"
 )
 def main(with_r, with_ts):
     try:
