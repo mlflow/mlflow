@@ -141,7 +141,11 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
-        if is_prompt_supported_registry(self.registry_uri):
+        # Add prompt filter for prompt-supported registries that also support filter_string
+        # Unity Catalog supports prompts but not filter_string parameter
+        if is_prompt_supported_registry(self.registry_uri) and not (
+            self.registry_uri or ""
+        ).startswith("databricks-uc"):
             # Adjust filter string to include or exclude prompts
             filter_string = add_prompt_filter_string(filter_string, False)
 
