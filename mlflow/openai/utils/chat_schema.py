@@ -28,6 +28,7 @@ _RESPONSE_API_BUILT_IN_TOOLS = {
     "file_search",
     "computer_use_preview",
     "web_search_preview",
+    "image_generation",
 }
 
 
@@ -196,6 +197,34 @@ def _parse_response_item(
     elif item_type == "reasoning":
         summary = item["summary"][0]["text"] if item["summary"] else None
         return [ChatMessage(role="assistant", content=summary)]
+
+    elif item_type == "image_generation_call":
+        output_format = item.get("output_format")
+        image_base64 = item.get("result")
+
+        if output_format == "jpeg":
+            url = "data:image/jpeg;base64," + image_base64
+
+        elif output_format == "png":
+            url = "data:image/png;base64," + image_base64
+
+        elif output_format == "webp":
+            url = "data:image/webp;base64," + image_base64
+
+        else:
+            raise MlflowException(f"Unknown image output format: {output_format}")
+
+        return [
+            ChatMessage(
+                role="tool",
+                content=[
+                    ImageContentPart(
+                        image_url=ImageUrl(url=url),
+                        type="image_url",
+                    ),
+                ],
+            )
+        ]
 
     raise MlflowException(f"Unknown output type: {type(item)}")
 
