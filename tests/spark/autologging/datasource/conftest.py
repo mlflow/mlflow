@@ -26,7 +26,7 @@ def disable_pyspark_pin_thread(monkeypatch_module: pytest.MonkeyPatch):
     monkeypatch_module.setenv("PYSPARK_PIN_THREAD", "false")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def spark_session():
     with _get_or_create_spark_session() as session:
         yield session
