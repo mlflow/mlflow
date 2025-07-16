@@ -25,8 +25,8 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 
 | Package                                                    | NPM                                                                                                                                         | Description                                                |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [mlflow-tracing](./packages/typescript/core)               | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing)               | The core tracing functionality and manual instrumentation. |
-| [mlflow-openai](./packages/typescript/integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI.               |
+| [mlflow-tracing](./core)               | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing)               | The core tracing functionality and manual instrumentation. |
+| [mlflow-openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI.               |
 
 ## Installation
 
