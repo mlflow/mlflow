@@ -1,6 +1,6 @@
 import React, { type ComponentType, useMemo } from 'react';
-import type { Components, Options } from 'react-markdown-10';
-import ReactMarkdown from 'react-markdown-10';
+import type { Components, Options, UrlTransform } from 'react-markdown-10';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown-10';
 import remarkGfm from 'remark-gfm-4';
 
 import { TableCell, Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -10,13 +10,20 @@ import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
 import { TableRenderer, VirtualizedTableCell, VirtualizedTableRow } from './TableRenderer';
 import type { ReactMarkdownComponent, ReactMarkdownComponents, ReactMarkdownProps } from './types';
 
+const urlTransform: UrlTransform = (value) => {
+  if (value.startsWith('data:image/png') || value.startsWith('data:image/jpeg')) {
+    return value;
+  }
+  return defaultUrlTransform(value);
+};
+
 export const GenAIMarkdownRenderer = (props: { children: string; components?: ExtendedComponents }) => {
   const components: Components = useMemo(
     () => getMarkdownComponents({ extensions: props.components }),
     [props.components],
   );
   return (
-    <ReactMarkdown components={components} remarkPlugins={RemarkPlugins}>
+    <ReactMarkdown components={components} remarkPlugins={RemarkPlugins} urlTransform={urlTransform}>
       {props.children}
     </ReactMarkdown>
   );
