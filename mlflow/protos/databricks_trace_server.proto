@@ -333,5 +333,3 @@ message TraceDestination {
   // The schema version of the events table.
   optional string events_schema_version = 5;
 }
-
-

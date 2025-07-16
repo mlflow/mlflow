@@ -318,6 +318,10 @@ fpr = "fpr"                        # false positive rate
 gam = "gam"                        # generalized additive models
 ser = "ser"                        # serialization
 yhat = "yhat"                      # ŷ
+tpe = "tpe"                        # Tree-structured Parzen Estimator
+typ = "typ"                        # variable name abbreviation
+metris = "metrics"                 # typo of "metrics"
+loosing = "losing"                 # typo of "losing"
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
 

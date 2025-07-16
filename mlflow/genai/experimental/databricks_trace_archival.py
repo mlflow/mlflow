@@ -2,24 +2,28 @@
 Trace archival functionality for MLflow that enables archiving traces to Delta tables.
 """
 
+import importlib.util
 import logging
 
-import mlflow
-from mlflow.genai.experimental.databricks_trace_storage_config import DatabricksTraceDeltaStorageConfig
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.genai.experimental.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
-    TraceLocation as ProtoTraceLocation,
+)
+from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
 )
+from mlflow.protos.databricks_trace_server_pb2 import (
+    TraceLocation as ProtoTraceLocation,
+)
+from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
-from mlflow.utils.rest_utils import call_endpoint
-from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import call_endpoint
 
 _logger = logging.getLogger(__name__)
 
@@ -31,41 +35,44 @@ TRACE_SNAPSHOT_OTEL_EVENT_NAME = "genai.trace.snapshot"
 ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME = "genai.assessments.snapshot"
 TAGS_SNAPSHOT_OTEL_EVENT_NAME = "genai.tags.snapshot"
 
+
 def _validate_schema_versions(spans_version: str, events_version: str) -> None:
     """
     Validate that both spans and events tables use supported schema versions.
-    
+
     Args:
         spans_version: Schema version of the spans table
         events_version: Schema version of the events table
-        
+
     Raises:
         MlflowException: If either table uses an unsupported schema version
-    """        
+    """
     if spans_version != SUPPORTED_SCHEMA_VERSION:
         raise MlflowException(
             f"Unsupported spans table schema version: {spans_version}. "
             f"Only {SUPPORTED_SCHEMA_VERSION} is supported for GenAI trace views."
         )
-    
+
     if events_version != SUPPORTED_SCHEMA_VERSION:
         raise MlflowException(
             f"Unsupported events table schema version: {events_version}. "
             f"Only {SUPPORTED_SCHEMA_VERSION} is supported for GenAI trace views."
         )
-    
-    _logger.debug(f"Schema version validation passed: spans={spans_version}, events={events_version}")
+
+    _logger.debug(
+        f"Schema version validation passed: spans={spans_version}, events={events_version}"
+    )
 
 
 def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str) -> None:
     """
     Create a logical view for GenAI trace data that combines spans and events tables.
-    
+
     Args:
         view_name: The name of the final view to create (e.g., 'catalog.schema.trace_logs_12345')
         spans_table: The name of the table containing raw spans data
         events_table: The name of the table containing raw events data
-        
+
     Raises:
         MlflowException: If view creation fails
     """
@@ -73,8 +80,9 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
         spark = _get_active_spark_session()
         if spark is None:
             from pyspark.sql import SparkSession
+
             spark = SparkSession.builder.getOrCreate()
-            
+
         query = f"""
             CREATE OR REPLACE VIEW {view_name} AS
               WITH trace_snapshots AS (
@@ -114,7 +122,9 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                         'span_id', span_id,
                         'trace_id', trace_id,
                         'parent_id', parent_span_id,
-                        'start_time', TIMESTAMP_MILLIS(CAST(start_time_unix_nano / 1000000 AS BIGINT)),
+                        'start_time', TIMESTAMP_MILLIS(
+                            CAST(start_time_unix_nano / 1000000 AS BIGINT)
+                        ),
                         'end_time', TIMESTAMP_MILLIS(CAST(end_time_unix_nano / 1000000 AS BIGINT)),
                         'status_code', GET_JSON_OBJECT(status, '$.code'),
                         'status_message', GET_JSON_OBJECT(status, '$.message'),
@@ -127,7 +137,13 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                             events,
                             e -> NAMED_STRUCT(
                               'name', GET_JSON_OBJECT(e, '$.name'),
-                              'timestamp', TIMESTAMP_MILLIS(CAST(CAST(GET_JSON_OBJECT(e, '$.time_unix_nano') AS BIGINT) / 1000000 AS BIGINT)),
+                              'timestamp', TIMESTAMP_MILLIS(
+                                  CAST(
+                                      CAST(GET_JSON_OBJECT(e, '$.time_unix_nano') AS BIGINT)
+                                      / 1000000
+                                      AS BIGINT
+                                  )
+                              ),
                               'attributes', GET_JSON_OBJECT(e, '$.attributes')
                             )
                           )
@@ -164,7 +180,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                           )
                       ) AS assessments
                   FROM (
-                      SELECT 
+                      SELECT
                           trace_id,
                           body
                       FROM {events_table}
@@ -190,7 +206,8 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                   WHERE event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
                   QUALIFY ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
                 )
-                -- 5. Main query - join the trace metadata with associated tags, assessments and spans
+                -- 5. Main query - join the trace metadata with associated tags,
+                -- assessments and spans
                 SELECT
                   ts.trace_data.trace_id,
                   ts.trace_data.client_request_id,
@@ -209,49 +226,53 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                   LEFT JOIN assessments_agg aa ON ts.trace_id = aa.trace_id
                   LEFT JOIN spans_agg sa ON ts.trace_id = sa.trace_id;
             """
-        
+
         spark.sql(query)
         _logger.info(f"Successfully created trace archival view: {view_name}")
-        
+
     except Exception as e:
         raise MlflowException(f"Failed to create trace archival view {view_name}") from e
 
 
-def _do_enable_databricks_archival(experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs") -> str:
+def _do_enable_databricks_archival(
+    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
+) -> str:
     """
     Enable trace archival by orchestrating the full archival enablement process.
-    
+
     Args:
         experiment_id: The MLflow experiment ID to enable archival for
         catalog: The Unity Catalog catalog name where tables will be created
         schema: The Unity Catalog schema name where tables will be created
         table_prefix: Prefix for the archival view name
-    
+
     Returns:
         The name of the created trace archival view
-        
+
     Raises:
         MlflowException: If any step of the archival process fails
     """
     trace_archival_location = f"{catalog}.{schema}.{table_prefix}_{experiment_id}"
-    
+
     try:
         # 1. Create proto request directly (internal implementation detail)
         proto_trace_location = ProtoTraceLocation()
         proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
         proto_trace_location.mlflow_experiment.experiment_id = experiment_id
-        
+
         proto_request = CreateTraceDestinationRequest(
             trace_location=proto_trace_location,
             uc_catalog=catalog,
             uc_schema=schema,
-            uc_table_prefix=table_prefix
+            uc_table_prefix=table_prefix,
         )
-        
+
         # 2. Call the trace server CreateTraceDestination API
         request_body = message_to_json(proto_request)
-        
-        _logger.info(f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}")
+
+        _logger.info(
+            f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}"
+        )
         trace_archive_config_proto = call_endpoint(
             host_creds=get_databricks_host_creds(),
             endpoint="/api/2.0/tracing/trace-destinations",
@@ -259,72 +280,95 @@ def _do_enable_databricks_archival(experiment_id: str, catalog: str, schema: str
             json_body=request_body,
             response_proto=ProtoTraceDestination(),
         )
-        trace_archive_config = DatabricksTraceDeltaStorageConfig.from_proto(trace_archive_config_proto)
-        
-        _logger.debug(f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
-                    f"Events table: {trace_archive_config.events_table_name}, "
-                    f"Spans schema version: {trace_archive_config.spans_schema_version}, "
-                    f"Events schema version: {trace_archive_config.events_schema_version}")
-        
+        trace_archive_config = DatabricksTraceDeltaStorageConfig.from_proto(
+            trace_archive_config_proto
+        )
+
+        _logger.debug(
+            f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
+            f"Events table: {trace_archive_config.events_table_name}, "
+            f"Spans schema version: {trace_archive_config.spans_schema_version}, "
+            f"Events schema version: {trace_archive_config.events_schema_version}"
+        )
+
         # 3. Validate schema versions before proceeding
-        _validate_schema_versions(trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version)
-        
+        _validate_schema_versions(
+            trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
+        )
+
         # 4 Create the logical view
         _logger.info(f"Creating trace archival at: {trace_archival_location}")
-        _create_genai_trace_view(trace_archival_location, trace_archive_config.spans_table_name, trace_archive_config.events_table_name)
-        
+        _create_genai_trace_view(
+            trace_archival_location,
+            trace_archive_config.spans_table_name,
+            trace_archive_config.events_table_name,
+        )
+
         # 5. Set experiment tag to track the archival location
         from mlflow.tracking import MlflowClient
-        MlflowClient().set_experiment_tag(experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location)
-        
-        _logger.info(f"Trace archival to Databricks enabled successfully for experiment {experiment_id} with target archival available at: {trace_archival_location}")
-        
+
+        MlflowClient().set_experiment_tag(
+            experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location
+        )
+
+        _logger.info(
+            f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "
+            f"with target archival available at: {trace_archival_location}"
+        )
+
         return trace_archival_location
-        
+
     except Exception as e:
-        _logger.error(f"Failed to enable trace archival for experiment {experiment_id}: {str(e)}")
+        _logger.error(f"Failed to enable trace archival for experiment {experiment_id}: {e!s}")
         raise MlflowException(
-            f"Failed to enable trace archival for experiment {experiment_id}: {str(e)}"
+            f"Failed to enable trace archival for experiment {experiment_id}: {e!s}"
         ) from e
 
 
-@experimental
-def enable_databricks_trace_archival(experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs") -> str:
+@experimental(version="3.2.0")
+def enable_databricks_trace_archival(
+    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
+) -> str:
     """
     Enable trace archival for an MLflow experiment by creating Delta tables and views.
-    
+
     This function sets up the infrastructure needed to archive traces from an MLflow experiment
     to Unity Catalog Delta tables. It:
     1. Calls the Databricks trace server to create trace destination metadata
-    2. Creates a logical view that combines the raw otel spans and events tables created by trace server
+    2. Creates a logical view that combines the raw otel spans and events tables
+       created by trace server
     3. Sets an experiment tag indicating where the archival data is stored
-    
-    TODO: move this orchestration to the mlflow backend once this feature graduates from private preview
+
+    TODO: move this orchestration to the mlflow backend once this feature
+    graduates from private preview
 
     Args:
         experiment_id: The MLflow experiment ID to enable archival for.
         catalog: The Unity Catalog catalog name where tables will be created.
         schema: The Unity Catalog schema name where tables will be created.
-        
+        table_prefix: The prefix for the archival table and view names. Defaults to "trace_logs".
+
     Returns:
         The name of the created trace archival view in the format:
         "{catalog}.{schema}.{table_prefix}_{experiment_id}"
-        
+
     Raises:
         MlflowException: If the trace destination creation fails, table creation fails,
             or experiment tag setting fails.
-            
+
     Example:
         >>> import mlflow.tracing
-        >>> view_name = mlflow.tracing.enable_databricks_archival("12345", "my_catalog", "my_schema", "my_prefix")
+        >>> view_name = mlflow.tracing.enable_databricks_archival(
+        ...     "12345", "my_catalog", "my_schema", "my_prefix"
+        ... )
         >>> print(view_name)
         my_catalog.my_schema.my_prefix_12345
     """
 
-    try:
-        import databricks.agents
-    except ImportError as e:
-        raise ImportError("The `mlflow[databricks]` package is required to use databricks trace archival." 
-                          "Please install it with `pip install mlflow[databricks]`.") from e
-    
+    if importlib.util.find_spec("databricks.agents") is None:
+        raise ImportError(
+            "The `mlflow[databricks]` package is required to use databricks trace archival."
+            "Please install it with `pip install mlflow[databricks]`."
+        )
+
     return _do_enable_databricks_archival(experiment_id, catalog, schema, table_prefix)

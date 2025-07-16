@@ -9,7 +9,6 @@ __all__ = [
     "enable",
     "disable_notebook_display",
     "enable_notebook_display",
-    "enable_databricks_archival",
     "set_span_chat_messages",
     "set_span_chat_tools",
     "set_destination",

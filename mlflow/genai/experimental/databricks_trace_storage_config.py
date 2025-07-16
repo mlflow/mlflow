@@ -7,16 +7,19 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_trace_server_pb2 import TraceDestination as ProtoTraceDestination
 from mlflow.utils.annotations import experimental
 
-@experimental
+
+@experimental(version="3.2.0")
 @dataclass
 class DatabricksTraceDeltaStorageConfig(_MlflowObject):
     """Information about where traces are stored/archived in Databricks.
 
     Args:
         experiment_id: The ID of the MLflow experiment where traces are archived.
-        spans_table_name: The full qualified name of the open telemetry compatible spans table in the format
+        spans_table_name: The full qualified name of the open telemetry compatible
+            spans table in the format
             `catalog.schema.table`.
-        events_table_name: The full qualified name of the open telemetry compatible events table in the format
+        events_table_name: The full qualified name of the open telemetry compatible
+            events table in the format
             `catalog.schema.table`.
         spans_schema_version: The schema version of the open telemetry compatible spans table.
         events_schema_version: The schema version of the open telemetry compatible events table.
@@ -58,20 +61,20 @@ class DatabricksTraceDeltaStorageConfig(_MlflowObject):
     def from_proto(cls, proto: ProtoTraceDestination) -> "DatabricksTraceDeltaStorageConfig":
         """Create a TraceArchiveConfiguration object from a protobuf message."""
         from mlflow.protos.databricks_trace_server_pb2 import TraceLocation as ProtoTraceLocation
-        
+
         # Validate that this is an experiment location
         if proto.trace_location.type != ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT:
             raise MlflowException(
                 f"TraceArchiveConfiguration only supports MLflow experiments, "
                 f"but got location type: {proto.trace_location.type}"
             )
-        
+
         if not proto.trace_location.mlflow_experiment:
             raise MlflowException(
                 "TraceArchiveConfiguration requires an MLflow experiment location, "
                 "but mlflow_experiment is None"
             )
-        
+
         return cls(
             experiment_id=proto.trace_location.mlflow_experiment.experiment_id,
             spans_table_name=proto.spans_table_name,
