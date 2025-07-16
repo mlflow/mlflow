@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from opentelemetry.trace import NoOpTracer
 
@@ -10,6 +10,9 @@ from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracking.client import MlflowClient
+
+if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvalItem
 
 _logger = logging.getLogger(__name__)
 
@@ -209,3 +212,18 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             f"Failed to clean up extra traces generated during evaluation. The "
             f"result page might not show the correct list of traces. Error: {e}"
         )
+
+
+def create_minimal_trace(eval_item: "EvalItem") -> Trace:
+    """
+    Create a minimal trace object with a single span, based on given inputs/outputs.
+    """
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
+    # Set the context so that the trace is logged synchronously
+    context = Context(request_id=eval_item.request_id, is_evaluate=True)
+    with set_prediction_context(context):
+        with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:
+            root_span.set_inputs(eval_item.inputs)
+            root_span.set_outputs(eval_item.outputs)
+        return mlflow.get_trace(root_span.trace_id)

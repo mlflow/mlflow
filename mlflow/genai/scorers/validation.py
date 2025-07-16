@@ -99,7 +99,7 @@ def valid_data_for_builtin_scorers(
 
     Args:
         data: The data to validate. This must be a pandas DataFrame converted to
-            the legacy evaluation set schema via `_convert_to_legacy_eval_set`.
+            the legacy evaluation set schema via `_convert_to_eval_set`.
         builtin_scorers: The list of builtin scorers to validate the data for.
         predict_fn: The predict function to validate the data for.
     """

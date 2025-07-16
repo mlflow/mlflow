@@ -12,7 +12,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
+from mlflow.genai.evaluation.utils import _convert_to_eval_set
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
@@ -197,7 +197,7 @@ def get_test_traces(type=Literal["pandas", "list"]):
 @pytest.mark.parametrize("input_type", ["list", "pandas"])
 def test_convert_to_legacy_eval_traces(input_type):
     sample_data = get_test_traces(type=input_type)
-    data = _convert_to_legacy_eval_set(sample_data)
+    data = _convert_to_eval_set(sample_data)
 
     assert "trace" in data.columns
 
@@ -215,10 +215,10 @@ def test_convert_to_legacy_eval_traces(input_type):
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
-def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
+def test_convert_to_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
 
-    transformed_data = _convert_to_legacy_eval_set(sample_data)
+    transformed_data = _convert_to_eval_set(sample_data)
 
     assert "request" in transformed_data.columns
     assert "response" in transformed_data.columns
@@ -234,7 +234,7 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
         ]
     )
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
-        _convert_to_legacy_eval_set(df)
+        _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
     df = spark.createDataFrame(
@@ -250,7 +250,7 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
         ]
     )
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
-        _convert_to_legacy_eval_set(df)
+        _convert_to_eval_set(df)
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
