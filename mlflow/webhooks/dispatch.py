@@ -7,6 +7,7 @@ import requests
 
 from mlflow.entities.webhook import WebhookEvent
 from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
 from mlflow.webhooks.types import WebhookPayload
 
 _logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def _dispatch_webhook_impl(
             # Add HMAC signature if secret is configured
             if webhook.secret:
                 signature = _generate_hmac_signature(webhook.secret, payload_bytes)
-                headers["X-MLflow-Signature"] = signature
+                headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
             requests.post(webhook.url, data=payload_bytes, headers=headers)
 

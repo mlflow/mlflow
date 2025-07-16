@@ -8,6 +8,8 @@ import fastapi
 import uvicorn
 from fastapi import HTTPException, Request
 
+from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
+
 LOG_FILE = Path("logs.jsonl")
 
 app = fastapi.FastAPI()
@@ -68,7 +70,7 @@ def verify_signature(payload: bytes, signature: str) -> bool:
 @app.post("/secure-webhook")
 async def secure_webhook(request: Request):
     body = await request.body()
-    signature = request.headers.get("X-MLflow-Signature")
+    signature = request.headers.get(WEBHOOK_SIGNATURE_HEADER)
 
     if not signature:
         error_data = {

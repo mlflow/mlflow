@@ -3,6 +3,7 @@
 This module provides webhook functionality for MLflow model registry events.
 """
 
+from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
 from mlflow.webhooks.types import (
     ModelVersionAliasCreatedPayload,
     ModelVersionAliasDeletedPayload,
@@ -21,4 +22,5 @@ __all__ = [
     "ModelVersionAliasCreatedPayload",
     "ModelVersionAliasDeletedPayload",
     "WebhookPayload",
+    "WEBHOOK_SIGNATURE_HEADER",
 ]
