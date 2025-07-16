@@ -217,3 +217,11 @@ try:
     _dataset_source_registry.register(UCVolumeDatasetSource)
 except ImportError:
     pass
+try:
+    from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
+        DatabricksEvaluationDatasetSource,
+    )
+
+    _dataset_source_registry.register(DatabricksEvaluationDatasetSource)
+except ImportError:
+    pass
