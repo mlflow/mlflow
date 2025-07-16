@@ -10,6 +10,11 @@ import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
 import { TableRenderer, VirtualizedTableCell, VirtualizedTableRow } from './TableRenderer';
 import type { ReactMarkdownComponent, ReactMarkdownComponents, ReactMarkdownProps } from './types';
 
+/**
+ * NOTE: react-markdown sanitizes urls by default, including `data:` urls, with the `urlTransform` prop, documented here: https://github.com/remarkjs/react-markdown?tab=readme-ov-file#defaulturltransformurl
+ * It uses `micromark-util-sanitize-uri` package under the hood to escape urls and prevent injection: https://github.com/micromark/micromark/tree/main/packages/micromark-util-sanitize-uri#readme
+ * We can allow jpeg and png data urls, and use the default transformer for everything else.
+ */
 const urlTransform: UrlTransform = (value) => {
   if (value.startsWith('data:image/png') || value.startsWith('data:image/jpeg')) {
     return value;
