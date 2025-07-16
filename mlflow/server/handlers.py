@@ -143,6 +143,7 @@ from mlflow.protos.webhooks_pb2 import (
     DeleteWebhook,
     GetWebhook,
     ListWebhooks,
+    TestWebhook,
     UpdateWebhook,
     WebhookService,
 )
@@ -2484,6 +2485,20 @@ def _delete_webhook(webhook_id: str):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _test_webhook(webhook_id: str):
+    request_message = _get_request_message(
+        TestWebhook(),
+        schema={"event": [_assert_string]},
+    )
+    event = WebhookEvent(request_message.event) if request_message.event else None
+    test_result = _get_model_registry_store().test_webhook(webhook_id=webhook_id, event=event)
+    response_message = TestWebhook.Response()
+    response_message.result.CopyFrom(test_result.to_proto())
+    return _wrap_response(response_message)
+
+
 # MLflow Artifacts APIs
 
 
@@ -3341,6 +3356,7 @@ HANDLERS = {
     GetWebhook: _get_webhook,
     UpdateWebhook: _update_webhook,
     DeleteWebhook: _delete_webhook,
+    TestWebhook: _test_webhook,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,

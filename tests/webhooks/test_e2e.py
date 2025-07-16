@@ -381,3 +381,143 @@ def test_webhook_without_secret_to_secure_endpoint(
     assert logs[0]["endpoint"] == "/secure-webhook"
     assert logs[0]["error"] == "Missing signature header"
     assert logs[0]["status_code"] == 400
+
+
+def test_webhook_test_insecure_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook for testing
+    webhook = mlflow_client.create_webhook(
+        name="test_webhook",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+
+    # Test the webhook
+    result = mlflow_client.test_webhook(webhook.webhook_id)
+
+    # Check that the test was successful
+    assert result.success is True
+    assert result.response_status == 200
+    assert result.error_message is None
+
+    # Check that the test payload was received
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/insecure-webhook"
+    assert logs[0]["payload"] == {
+        "name": "example_model",
+        "version": "1",
+        "source": "runs:/abcd1234abcd5678/model",
+        "run_id": "abcd1234abcd5678",
+        "tags": {"example_key": "example_value"},
+        "description": "An example model version",
+    }
+
+
+def test_webhook_test_secure_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook with secret for testing
+    webhook = mlflow_client.create_webhook(
+        name="test_secure_webhook",
+        url=app_client.get_url("/secure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        secret=WEBHOOK_SECRET,
+    )
+
+    # Test the webhook
+    result = mlflow_client.test_webhook(webhook.webhook_id)
+
+    # Check that the test was successful
+    assert result.success is True
+    assert result.response_status == 200
+    assert result.error_message is None
+
+    # Check that the test payload was received with proper signature
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/secure-webhook"
+    assert logs[0]["payload"] == {
+        "name": "example_model",
+        "tags": {"example_key": "example_value"},
+        "description": "An example registered model",
+    }
+    assert logs[0]["status_code"] == 200
+    assert "x-mlflow-signature" in logs[0]["headers"]
+    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+
+
+def test_webhook_test_with_specific_event(
+    mlflow_client: MlflowClient, app_client: AppClient
+) -> None:
+    # Create webhook that supports multiple events
+    webhook = mlflow_client.create_webhook(
+        name="multi_event_webhook",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[
+            WebhookEvent.REGISTERED_MODEL_CREATED,
+            WebhookEvent.MODEL_VERSION_CREATED,
+            WebhookEvent.MODEL_VERSION_TAG_SET,
+        ],
+    )
+
+    # Test with a specific event (not the first one)
+    result = mlflow_client.test_webhook(
+        webhook.webhook_id, event=WebhookEvent.MODEL_VERSION_TAG_SET
+    )
+
+    # Check that the test was successful
+    assert result.success is True
+    assert result.response_status == 200
+    assert result.error_message is None
+
+    # Check that the correct payload was sent
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/insecure-webhook"
+    assert logs[0]["payload"] == {
+        "name": "example_model",
+        "version": "1",
+        "key": "example_key",
+        "value": "example_value",
+    }
+
+
+def test_webhook_test_failed_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook pointing to non-existent endpoint
+    webhook = mlflow_client.create_webhook(
+        name="failed_webhook",
+        url=app_client.get_url("/nonexistent-endpoint"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+    )
+
+    # Test the webhook
+    result = mlflow_client.test_webhook(webhook.webhook_id)
+
+    # Check that the test failed
+    assert result.success is False
+    assert result.response_status == 404
+    assert result.error_message is None  # No error message for HTTP errors
+    assert result.response_body is not None  # Should contain error response
+
+
+def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    # Create webhook with wrong secret
+    webhook = mlflow_client.create_webhook(
+        name="wrong_secret_test_webhook",
+        url=app_client.get_url("/secure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        secret="wrong-secret",
+    )
+
+    # Test the webhook
+    result = mlflow_client.test_webhook(webhook.webhook_id)
+
+    # Check that the test failed due to wrong signature
+    assert result.success is False
+    assert result.response_status == 401
+    assert result.error_message is None
+
+    # Check that error was logged
+    logs = app_client.get_logs()
+    assert len(logs) == 1
+    assert logs[0]["endpoint"] == "/secure-webhook"
+    assert logs[0]["error"] == "Invalid signature"
+    assert logs[0]["status_code"] == 401
