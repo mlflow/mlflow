@@ -50,14 +50,14 @@ def has_trace(trace):
     return trace is not None
 
 
-def _validate_assessment(traces):
+def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
-    for i in range(len(traces)):
-        assert len(traces[i].info.assessments) == 6  # 2 expectations + 4 feedbacks
-        assessments = {a.name: a for a in traces[i].info.assessments}
+    for trace in traces:
+        assert len(trace.info.assessments) == 6  # 2 expectations + 4 feedbacks
+        assessments = {a.name: a for a in trace.info.assessments}
         a_exact_match = assessments["exact_match"]
         assert isinstance(a_exact_match, Feedback)
-        assert a_exact_match.trace_id == traces[i].info.trace_id
+        assert a_exact_match.trace_id == trace.info.trace_id
         assert isinstance(a_exact_match.value, bool)
         assert a_exact_match.source.source_type == AssessmentSourceType.CODE
         # Scorer name is used as source_id
@@ -138,7 +138,7 @@ def test_evaluate_with_static_dataset():
         assert span.inputs == data[i]["inputs"]
         assert span.outputs == data[i]["outputs"]
 
-    _validate_assessment(traces)
+    _validate_assessments(traces)
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
@@ -200,7 +200,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
         assert span.inputs == data[i]["inputs"]
         assert span.outputs == "I don't know"
 
-    _validate_assessment(traces)
+    _validate_assessments(traces)
 
 
 @pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
@@ -287,7 +287,7 @@ def test_evaluate_with_traces(pass_full_dataframe):
     traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
 
     # Validate assessments are added to the traces
-    _validate_assessment(traces)
+    _validate_assessments(traces)
 
 
 @pytest.mark.skip(reason="TODO: Run test with databricks-agents and tracking URI 'databricks'")
@@ -373,7 +373,7 @@ def test_evaluate_with_managed_dataset():
     traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
     assert len(traces) == 2
 
-    _validate_assessment(traces)
+    _validate_assessments(traces)
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")
