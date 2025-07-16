@@ -25,26 +25,26 @@ jobs:
       - uses: ./.github/actions/setup-node
       - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
 
-      - name: Create artifacts file
+      - name: Create artifacts directory
         run: |
-          ARTIFACT_PATHS_FILE=$(mktemp)
-          echo "ARTIFACT_PATHS_FILE=$ARTIFACT_PATHS_FILE" >> $GITHUB_ENV
+          ARTIFACT_DIR=$(mktemp -d)
+          echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> $GITHUB_ENV
 
       - name: Build Python packages
         id: build-dist
         run: |
           pip install build
           python dev/build.py
-          find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
+          find $PWD/dist -type f -name "*.whl" -exec cp {} $ARTIFACT_DIR/ \;
           python dev/build.py --package-type skinny
-          find $PWD/dist -type f -name "*.whl" >> $ARTIFACT_PATHS_FILE
+          find $PWD/dist -type f -name "*.whl" -exec cp {} $ARTIFACT_DIR/ \;
 
       - name: Build R package
         working-directory: mlflow/R/mlflow
         run: |
           Rscript -e 'install.packages("devtools")'
           Rscript -e 'devtools::build()'
-          find $PWD -name "*.tar.gz" >> $ARTIFACT_PATHS_FILE
+          find $PWD -name "*.tar.gz" -exec cp {} $ARTIFACT_DIR/ \;
 
       - name: Build Java packages
         working-directory: mlflow/java
@@ -54,7 +54,8 @@ jobs:
             -exec find {} -name "*.jar" \
               ! -name "*sources.jar" \
               ! -name "*javadoc.jar" \
-              ! -name "original-*.jar" \; >> $ARTIFACT_PATHS_FILE
+              ! -name "original-*.jar" \
+              -exec cp {} $ARTIFACT_DIR/ \;
 
       - name: Upload artifacts to nightly release
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -64,5 +65,5 @@ jobs:
             await script({
               github,
               context,
-              artifactPathsFile: process.env.ARTIFACT_PATHS_FILE
+              artifactDir: process.env.ARTIFACT_DIR
             });
