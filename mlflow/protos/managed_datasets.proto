@@ -1,0 +1,191 @@
+// This file contains the proto definitions for interfacing with managed datasets
+// and their respective CRUD operations. Managed datasets are used for storing
+// evaluation records (inputs and expectations) for GenAI applications.
+syntax = "proto2";
+
+package mlflow.managed_datasets;
+
+import "databricks.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// Managed Dataset. Represents a collection of evaluation records (inputs and expectations)
+// for GenAI model evaluation and training. Provides capabilities to merge records from
+// various sources including traces, human annotations, and documents.
+message ManagedDataset {
+  // Unique identifier for the dataset.
+  optional string dataset_id = 1;
+
+  // Human readable name that identifies the dataset.
+  optional string name = 2;
+
+  // Source information for the dataset, e.g. table name, file path, or trace ID.
+  optional string source = 3;
+
+  // The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+  optional string source_type = 4;
+
+  // The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, 
+  // MLflow TensorSpec JSON for an ndarray, or another schema format.
+  optional string schema = 5;
+
+  // The profile of the dataset containing summary statistics and metadata.
+  optional string profile = 6;
+
+  // String digest (hash) of the dataset provided by the caller that uniquely identifies
+  // the dataset content within datasets of the same name.
+  optional string digest = 7;
+
+  // Unix timestamp of when the dataset was created in milliseconds.
+  optional google.protobuf.Timestamp created_time = 8;
+
+  // Unix timestamp of when the dataset was last updated in milliseconds.
+  optional google.protobuf.Timestamp last_update_time = 9;
+
+  // User who created the dataset.
+  optional string created_by = 10;
+
+  // User who last updated the dataset.
+  optional string last_updated_by = 11;
+
+  // List of experiment IDs associated with this dataset.
+  repeated string experiment_ids = 12;
+}
+
+// Dataset Record. Represents a single evaluation record within a managed dataset,
+// containing inputs, expected outputs, and metadata for evaluation.
+message DatasetRecord {
+  // Unique identifier for the dataset record.
+  optional string dataset_record_id = 1;
+
+  // The dataset ID this record belongs to.
+  optional string dataset_id = 2;
+
+  // Input values for the evaluation record (e.g., questions, prompts, context).
+  repeated InputValue inputs = 3;
+
+  // Expected outputs/answers for the given inputs, used for evaluation scoring.
+  map<string, ExpectationValue> expectations = 4;
+
+  // User-defined tags for categorizing and filtering records.
+  map<string, string> tags = 5;
+
+  // Source information indicating how this record was created.
+  optional DatasetRecordSource source = 6;
+
+  // Unix timestamp of when the record was created in milliseconds.
+  optional google.protobuf.Timestamp created_time = 7;
+
+  // Unix timestamp of when the record was last updated in milliseconds.
+  optional google.protobuf.Timestamp last_update_time = 8;
+
+  // User who created the record.
+  optional string created_by = 9;
+
+  // User who last updated the record.
+  optional string last_updated_by = 10;
+}
+
+// Input Value. Represents a single input field within a dataset record.
+message InputValue {
+  // The key/name of the input field (e.g., "question", "context", "prompt").
+  optional string key = 1;
+
+  // The value of the input field, stored as a protobuf Value for type flexibility.
+  optional google.protobuf.Value value = 2;
+}
+
+// Expectation Value. Represents an expected output for evaluation scoring.
+message ExpectationValue {
+  // The expected output value, stored as a protobuf Value for type flexibility.
+  optional google.protobuf.Value value = 1;
+}
+
+// Human Source. Records that were manually created or annotated by humans.
+message HumanSource {
+  // Identifier for the human annotator (e.g., username, email, user_id).
+  optional string user_id = 1;
+}
+
+// Document Source. Records derived from processing documents or knowledge bases.
+message DocumentSource {
+  // URI or identifier of the source document.
+  optional string doc_uri = 1;
+
+  // Optional document content or excerpt for reference.
+  optional string content = 2;
+}
+
+// Trace Source. Records derived from MLflow traces, typically from model inference
+// or evaluation runs that can be converted into evaluation datasets.
+message TraceSource {
+  // ID of the trace from which this record was derived.
+  optional string trace_id = 1;
+
+  // Optional: specific span ID within the trace that generated this record.
+  optional string span_id = 2;
+}
+
+// Dataset Record Source. Union type indicating the origin of a dataset record.
+message DatasetRecordSource {
+  oneof source_type {
+    HumanSource human = 1;
+    DocumentSource document = 2;
+    TraceSource trace = 3;
+  }
+}
+
+// Request/Response messages for managed dataset operations
+
+// Create Managed Dataset
+message CreateManagedDataset {
+  // Human readable name that identifies the dataset.
+  optional string name = 1 [(validate_required) = true];
+
+  // List of experiment IDs to associate with this dataset.
+  repeated string experiment_ids = 2;
+
+  // Optional: The type of the dataset source (e.g., 'trace', 'human', 'document').
+  optional string source_type = 3;
+
+  // Optional: Source information for the dataset.
+  optional string source = 4;
+
+  // Optional: String digest (hash) that uniquely identifies the dataset content.
+  optional string digest = 5;
+
+  // Optional: The schema of the dataset in JSON format.
+  optional string schema = 6;
+
+  // Optional: The profile containing summary statistics and metadata.
+  optional string profile = 7;
+
+  message Response {
+    // The newly created managed dataset.
+    optional ManagedDataset dataset = 1;
+  }
+}
+
+// Get Managed Dataset
+message GetManagedDataset {
+  // Unique identifier for the dataset to retrieve.
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The requested managed dataset.
+    optional ManagedDataset dataset = 1;
+  }
+}
+
+// Delete Managed Dataset  
+message DeleteManagedDataset {
+  // Unique identifier for the dataset to delete.
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  message Response {
+    // Empty response indicating successful deletion.
+  }
+}

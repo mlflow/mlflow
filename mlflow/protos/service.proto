@@ -8,6 +8,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
+import "managed_datasets.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -807,6 +808,60 @@ service MlflowService {
       ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Search Traces V3",
+    };
+  }
+
+  // Managed Dataset operations
+
+  // Create a managed dataset for storing evaluation records (inputs and expectations).
+  // Managed datasets support merging records from various sources including traces,
+  // human annotations, and documents for GenAI model evaluation.
+  //
+  // Throws ``INVALID_PARAMETER_VALUE`` if the dataset name is invalid.
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if a dataset with the given name already exists.
+  //
+  rpc createManagedDataset(managed_datasets.CreateManagedDataset) returns (managed_datasets.CreateManagedDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Managed Dataset",
+    };
+  }
+
+  // Get metadata for a managed dataset by its unique identifier.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if no dataset with the specified ID exists.
+  //
+  rpc getManagedDataset(managed_datasets.GetManagedDataset) returns (managed_datasets.GetManagedDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/datasets/{dataset_id}"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Managed Dataset",
+    };
+  }
+
+  // Delete a managed dataset and all associated records.
+  // This operation is irreversible and will remove all dataset content from storage.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if no dataset with the specified ID exists.
+  //
+  rpc deleteManagedDataset(managed_datasets.DeleteManagedDataset) returns (managed_datasets.DeleteManagedDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/datasets/{dataset_id}"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Managed Dataset",
     };
   }
 }
