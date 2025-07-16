@@ -367,5 +367,10 @@ def mock_requests():
         }
         return mock_response
 
-    with patch("requests.post", side_effect=mock_post):
+    with (
+        # patch this so we can run telemetry tests, but avoid
+        # tracking other tests in CI
+        patch("mlflow.telemetry.utils._is_ci_env", return_value=False),
+        patch("requests.post", side_effect=mock_post),
+    ):
         yield captured_records

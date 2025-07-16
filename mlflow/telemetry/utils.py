@@ -7,11 +7,61 @@ from contextvars import ContextVar
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 
 
-# TODO: add check for CI  and mlflow dev versions,
-# and other scenarios where telemetry should be disabled
+def _is_ci_env() -> bool:
+    """
+    Check if the current environment is a CI environment.
+    If so, we should not track telemetry.
+    """
+    env_vars = {
+        "PYTEST_CURRENT_TEST",  # https://docs.pytest.org/en/stable/example/simple.html#pytest-current-test-environment-variable
+        "GITHUB_ACTIONS",  # https://docs.github.com/en/actions/reference/variables-reference?utm_source=chatgpt.com#default-environment-variables
+        "CI",  # set by many CI providers
+        "CIRCLECI",  # https://circleci.com/docs/variables/#built-in-environment-variables
+        "GITLAB_CI",  # https://docs.gitlab.com/ci/variables/predefined_variables/#predefined-variables
+        "JENKINS_URL",  # https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#using-environment-variables
+        "TRAVIS",  # https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
+        "TF_BUILD",  # https://learn.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml#system-variables
+        "BITBUCKET_BUILD_NUMBER",  # https://support.atlassian.com/bitbucket-cloud/docs/variables-and-secrets/
+        "CODEBUILD_BUILD_ARN",  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
+        "BUILDKITE",  # https://buildkite.com/docs/pipelines/configure/environment-variables
+        # TODO: add runbot env var
+    }
+    if any(os.environ.get(var, "false").lower() == "true" for var in env_vars):
+        return True
+    return False
+
+
+# NB: implement the function here to avoid unnecessary imports inside databricks_utils
+def _is_in_databricks() -> bool:
+    _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
+
+    # check if in databricks runtime
+    version = os.environ.get("DATABRICKS_RUNTIME_VERSION")
+    if version is None and os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
+        # In Databricks DCS cluster, it doesn't have DATABRICKS_RUNTIME_VERSION
+        # environment variable, we have to read version from the version file.
+        with open(_DATABRICKS_VERSION_FILE_PATH) as f:
+            version = f.read().strip()
+    if version is not None:
+        return True
+
+    # check if in model serving environment
+    if (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    ).lower() == "true":
+        return True
+
+    return False
+
+
 def is_telemetry_disabled() -> bool:
     return (
-        MLFLOW_DISABLE_TELEMETRY.get() or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
+        MLFLOW_DISABLE_TELEMETRY.get()
+        or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
+        or _is_ci_env()
+        or _is_in_databricks()
     )
 
 
