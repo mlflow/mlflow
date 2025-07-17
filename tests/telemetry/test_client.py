@@ -106,7 +106,7 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     # add some buffer for processing time
     assert end_time - start_time < 2
     # remaining records are processed directly
-    assert len(mock_requests) == 100
+    assert len(mock_requests) == 101  # 100 records + 1 imports record
 
     assert not telemetry_client.is_active
 
@@ -149,7 +149,8 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client.flush(terminate=True)
 
     # No records should be sent
-    assert len(mock_requests) == 0
+    # 1 imports record is sent when terminating
+    assert len(mock_requests) == 1
 
 
 def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requests):

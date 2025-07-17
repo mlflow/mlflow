@@ -1,5 +1,6 @@
 import atexit
 import logging
+import sys
 import threading
 import time
 import uuid
@@ -16,7 +17,7 @@ from mlflow.telemetry.constant import (
     MAX_WORKERS,
     TELEMETRY_URL,
 )
-from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
+from mlflow.telemetry.schemas import APIRecord, APIStatus, Imports, TelemetryInfo
 from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -190,8 +191,10 @@ class TelemetryClient:
 
             # process pending records directly before exiting
             with self._batch_lock, suppress_logs_in_thread():
-                if self._pending_records:
-                    self._process_records(self._pending_records)
+                # Add imports record when terminating
+                imports_record = self._generate_imports_record()
+                self._pending_records.append(imports_record)
+                self._process_records(self._pending_records)
                 self._pending_records = []
 
             # Wait for threads to finish with a timeout
@@ -223,6 +226,27 @@ class TelemetryClient:
             from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
             self.info["backend_store_scheme"] = _get_tracking_scheme()
+
+    def _generate_imports_record(self) -> APIRecord:
+        """
+        Generate the imports record.
+        This function should only be called when terminating to avoid
+        recording imports info in every API call.
+        """
+        start_time = time.time()
+        imports = Imports()
+        for field in imports.__dataclass_fields__:
+            if field in sys.modules:
+                setattr(imports, field, True)
+        duration_ms = int((time.time() - start_time) * 1000)
+        return APIRecord(
+            api_module="mlflow.telemetry",
+            api_name="imports",
+            timestamp_ns=time.time_ns(),
+            params=imports,
+            status=APIStatus.SUCCESS,
+            duration_ms=duration_ms,
+        )
 
 
 _MLFLOW_TELEMETRY_CLIENT = None

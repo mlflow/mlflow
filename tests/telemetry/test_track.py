@@ -1,3 +1,4 @@
+import json
 import time
 from unittest.mock import patch
 
@@ -184,3 +185,19 @@ def test_trace_sends_telemetry_record(mock_requests):
     mlflow.trace(test_func)
 
     validate_telemetry_record(mock_requests, mlflow.trace)
+
+
+def test_imports_record(mock_requests):
+    @track_api_usage
+    def test_func():
+        import sklearn  # noqa: F401
+
+    test_func()
+    get_telemetry_client().flush(terminate=True)
+    imports_record = mock_requests[-1]["data"]
+    assert imports_record["api_module"] == "mlflow.telemetry"
+    assert imports_record["api_name"] == "imports"
+    assert imports_record["status"] == "success"
+    params = json.loads(imports_record["params"])
+    assert params["sklearn"] is True
+    assert params["zenml"] is False

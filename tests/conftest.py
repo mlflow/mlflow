@@ -368,4 +368,5 @@ def mock_requests():
         return mock_response
 
     with patch("requests.post", side_effect=mock_post):
+        set_telemetry_client()
         yield captured_records

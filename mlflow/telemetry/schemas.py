@@ -84,6 +84,135 @@ class APIRecord:
         }
 
 
+@dataclass
+class Imports(BaseParams):
+    # Classic ML
+    anomalib: bool = False
+    autogluon: bool = False
+    autokeras: bool = False
+    catboost: bool = False
+    composer: bool = False
+    dask: bool = False
+    datasets: bool = False
+    deepchecks: bool = False
+    deepctr: bool = False
+    diviner: bool = False
+    evaluate: bool = False
+    h2o: bool = False
+    joblib: bool = False
+    lightgbm: bool = False
+    merlin: bool = False
+    onnx: bool = False
+    optuna: bool = False
+    paddle: bool = False
+    prefect: bool = False
+    prefect_ray: bool = False
+    prophet: bool = False
+    pycaret: bool = False
+    ray: bool = False
+    recbole: bool = False
+    sacred: bool = False
+    shap: bool = False
+    sklearn: bool = False
+    spark: bool = False
+    sparseml: bool = False
+    statsmodels: bool = False
+    xgboost: bool = False
+    zenml: bool = False
+
+    # Deep Learning
+    accelerate: bool = False
+    albumentations: bool = False
+    allennlp: bool = False
+    catalyst: bool = False
+    colossalai: bool = False
+    curated_transformers: bool = False  # curated-transformers
+    deepchem: bool = False
+    detectron2: bool = False
+    diffusers: bool = False
+    dgl: bool = False
+    elegy: bool = False
+    fairseq: bool = False
+    fastai: bool = False
+    flair: bool = False
+    flash: bool = False
+    flax: bool = False
+    huggingface_hub: bool = False
+    ignite: bool = False
+    jax: bool = False
+    jina: bool = False
+    keras: bool = False
+    keras_core: bool = False  # keras-core
+    keras_cv: bool = False
+    kornia: bool = False
+    lightning: bool = False
+    lightning_fabric: bool = False  # lightning-fabric
+    mmcls: bool = False
+    mmcv: bool = False
+    mmdet: bool = False
+    mmengine: bool = False
+    mmocr: bool = False
+    mmseg: bool = False
+    monai: bool = False
+    nanodet: bool = False
+    optimum: bool = False
+    orjson: bool = False
+    paddlenlp: bool = False
+    paddleocr: bool = False
+    paddleseg: bool = False
+    peft: bool = False
+    ppdet: bool = False
+    pytorch_lightning: bool = False
+    pytorchvideo: bool = False
+    segmentation_models_pytorch: bool = False
+    sentence_transformers: bool = False
+    simpletransformers: bool = False
+    skorch: bool = False
+    spacy: bool = False
+    stability_sdk: bool = False
+    syft: bool = False
+    tensorflow: bool = False
+    timm: bool = False
+    torch: bool = False
+    torch_geometric: bool = False
+    torchdrug: bool = False
+    torchtext: bool = False
+    torchvision: bool = False
+    transformers: bool = False
+    trl: bool = False
+    trlx: bool = False
+    TTS: bool = False
+
+    # Generative AI
+    ag2: bool = False
+    agno: bool = False
+    anthropic: bool = False
+    autogen: bool = False
+    bedrock: bool = False
+    chromadb: bool = False
+    cohere: bool = False
+    crewai: bool = False
+    dspy: bool = False
+    gemini: bool = False
+    groq: bool = False
+    johnsnowlabs: bool = False
+    langchain: bool = False
+    langflow: bool = False
+    langgraph: bool = False
+    litellm: bool = False
+    llama_index: bool = False
+    metaflow: bool = False
+    mistral: bool = False
+    openai: bool = False
+    pinecone: bool = False  # pinecone-client
+    promptflow: bool = False
+    promptlayer: bool = False
+    pydantic_ai: bool = False
+    semantic_kernel: bool = False  # semantic-kernel
+    smolagents: bool = False
+    weaviate: bool = False  # weaviate-client
+
+
 class SourceSDK(str, Enum):
     MLFLOW_TRACING = "mlflow-tracing"
     MLFLOW = "mlflow"
