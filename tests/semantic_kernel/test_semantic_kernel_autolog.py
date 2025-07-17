@@ -63,6 +63,13 @@ async def test_sk_invoke_simple(mock_openai):
     assert SpanAttributeKey.REQUEST_ID in root_span.attributes
     assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
 
+    # Verify output is valid JSON (improved formatting)
+    output = root_span.get_attribute(SpanAttributeKey.OUTPUTS)
+    try:
+        json.loads(output)
+    except json.JSONDecodeError:
+        pytest.fail("Root span output should be valid JSON")
+
     assert child_span is not None
     assert child_span.name == "chat.completions gpt-4o-mini"
     assert "gen_ai.operation.name" in child_span.attributes

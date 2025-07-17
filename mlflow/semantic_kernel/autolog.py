@@ -156,6 +156,30 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
         return None
 
 
+def _serialize_semantic_kernel_result(result: Any) -> str:
+    """Convert Semantic Kernel result to JSON-serializable format."""
+    try:
+        if hasattr(result, "value") and result.value is not None:
+            if isinstance(result.value, list):
+                return json.dumps(
+                    [
+                        item.to_dict() if hasattr(item, "to_dict") else str(item)
+                        for item in result.value
+                    ]
+                )
+            elif hasattr(result.value, "to_dict"):
+                return json.dumps(result.value.to_dict())
+            else:
+                return json.dumps(str(result.value))
+        elif hasattr(result, "to_dict"):
+            return json.dumps(result.to_dict())
+        else:
+            return json.dumps(str(result))
+    except Exception as e:
+        _logger.warning(f"Failed to serialize result: {e}")
+        return json.dumps(str(result))
+
+
 def _get_span_type(span: OTelSpan) -> str:
     span_type = None
 
@@ -263,11 +287,11 @@ async def _trace_wrapper(original, *args, **kwargs):
     try:
         result = await original(*args, **kwargs)
         if span and span.is_recording():
-            span.set_attribute(SpanAttributeKey.OUTPUTS, str(result))
+            span.set_attribute(SpanAttributeKey.OUTPUTS, _serialize_semantic_kernel_result(result))
         return result
     except Exception as e:
         if span and span.is_recording():
-            span.set_attribute(SpanAttributeKey.OUTPUTS, f"Error: {e!s}")
+            span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps(f"Error: {e!s}"))
         raise
 
 
