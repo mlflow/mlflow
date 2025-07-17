@@ -517,4 +517,4 @@ def test_export_sends_telemetry_record(mock_requests, mock_databricks_serving_wi
         exporter = _get_trace_exporter()
         assert isinstance(exporter, InferenceTableSpanExporter)
     assert len(_TRACE_BUFFER) == 1
-    validate_telemetry_record(mock_requests, InferenceTableSpanExporter.export, idx=1)
+    validate_telemetry_record(mock_requests, InferenceTableSpanExporter.export, search_index=True)

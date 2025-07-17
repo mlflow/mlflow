@@ -2126,4 +2126,4 @@ def test_search_traces_sends_telemetry_record(mock_requests):
 
     with pytest.raises(MlflowException, match=r"not found"):
         mlflow.search_traces(run_id="test_run_id")
-    validate_telemetry_record(mock_requests, mlflow.search_traces, idx=1, status="failure")
+    validate_telemetry_record(mock_requests, mlflow.search_traces, status="failure")

@@ -60,4 +60,4 @@ def test_disable_telemetry_multiple_threads(mock_requests):
     get_telemetry_client().flush()
     assert len(mock_requests) == 5
     for i in range(len(mock_requests)):
-        validate_telemetry_record(mock_requests, test_func, idx=i)
+        assert mock_requests[i]["data"]["api_name"] == test_func.__qualname__

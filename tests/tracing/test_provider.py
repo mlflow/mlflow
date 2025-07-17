@@ -321,7 +321,7 @@ def test_enable_disable_tracing_sends_telemetry_record(mock_requests):
     validate_telemetry_record(mock_requests, mlflow.tracing.enable)
 
     mlflow.tracing.disable()
-    validate_telemetry_record(mock_requests, mlflow.tracing.disable, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.tracing.disable)
 
 
 def test_sampling_ratio(monkeypatch):

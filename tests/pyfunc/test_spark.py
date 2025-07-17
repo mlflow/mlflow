@@ -1769,5 +1769,5 @@ def test_spark_udf_sends_telemetry_record(spark, mock_requests):
     validate_telemetry_record(
         mock_requests,
         mlflow.pyfunc.spark_udf,
-        idx=1,
+        search_index=True,
     )

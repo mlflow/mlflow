@@ -2705,7 +2705,6 @@ def test_log_model_sends_telemetry_record(mock_requests):
     validate_telemetry_record(
         mock_requests,
         mlflow.pyfunc.log_model,
-        idx=1,
         params=(
             LogModelParams(
                 flavor="pyfunc",

@@ -183,4 +183,4 @@ def test_trace_sends_telemetry_record(mock_requests):
 
     mlflow.trace(test_func)
 
-    validate_telemetry_record(mock_requests, mlflow.trace, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.trace)
