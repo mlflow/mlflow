@@ -4,7 +4,9 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 from pydantic import BaseModel
 
@@ -47,6 +49,9 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 _logger = logging.getLogger(__name__)
 
@@ -569,6 +574,9 @@ def register_prompt(
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
 
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
+
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -636,6 +644,7 @@ def register_prompt(
     return MlflowClient().register_prompt(
         name=name,
         template=template,
+        response_format=response_format,
         commit_message=commit_message,
         tags=tags,
         response_format=response_format,

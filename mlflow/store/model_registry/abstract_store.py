@@ -3,7 +3,9 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 from pydantic import BaseModel
 
@@ -37,6 +39,9 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 
 @developer_stable

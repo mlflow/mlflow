@@ -20,6 +20,9 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
+
 # Alias type
 PromptVersionTag = ModelVersionTag
 

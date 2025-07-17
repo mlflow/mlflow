@@ -32,6 +32,10 @@ from mlflow.utils.arguments_utils import _get_arg_names
 _logger = logging.getLogger(__name__)
 
 
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
+
+
 class ModelRegistryClient:
     """
     Client of an MLflow Model Registry Server that creates and manages registered

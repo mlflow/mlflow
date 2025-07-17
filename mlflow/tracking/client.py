@@ -125,6 +125,8 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
+    from mlflow.types.chat import ContentType
+
 
 _logger = logging.getLogger(__name__)
 
@@ -549,6 +551,7 @@ class MlflowClient:
             prompt_version = registry_client.create_prompt_version(
                 name=name,
                 template=template,
+                response_format=response_format,
                 description=commit_message,
                 tags=tags or {},
                 response_format=response_format,
