@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install build twine
+          pip install build setuptools twine wheel
 
       - name: Build distribution files
         id: build-dist
