@@ -58,16 +58,6 @@
     <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
     <url>http://github.com/mlflow/mlflow/tree/master</url>
   </scm>
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-    <repository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
-    </repository>
-  </distributionManagement>
 
   <properties>
     <mlflow-version>3.1.3-SNAPSHOT</mlflow-version>
