@@ -1,8 +1,8 @@
+import importlib.metadata
 import os
 import platform
 
 import click
-import importlib_metadata
 import yaml
 from packaging.requirements import Requirement
 
@@ -105,16 +105,16 @@ def doctor(mask_envs=False):
         )
 
     try:
-        requires = importlib_metadata.requires("mlflow")
-    except importlib_metadata.PackageNotFoundError:
-        requires = importlib_metadata.requires("mlflow-skinny")
+        requires = importlib.metadata.requires("mlflow")
+    except importlib.metadata.PackageNotFoundError:
+        requires = importlib.metadata.requires("mlflow-skinny")
 
     mlflow_dependencies = {}
     for req in requires:
         req = Requirement(req)
         try:
-            dist = importlib_metadata.distribution(req.name)
-        except importlib_metadata.PackageNotFoundError:
+            dist = importlib.metadata.distribution(req.name)
+        except importlib.metadata.PackageNotFoundError:
             continue
         else:
             mlflow_dependencies[req.name] = dist.version

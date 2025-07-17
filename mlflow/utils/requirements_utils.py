@@ -17,7 +17,6 @@ from pathlib import Path
 from threading import Timer
 from typing import NamedTuple, Optional
 
-import importlib_metadata
 from packaging.requirements import Requirement
 from packaging.version import InvalidVersion, Version
 
@@ -271,7 +270,7 @@ def _run_command(cmd, timeout_seconds, env=None):
 
 def _get_installed_version(package: str, module: Optional[str] = None) -> str:
     """
-    Obtains the installed package version using `importlib_metadata.version`. If it fails, use
+    Obtains the installed package version using `importlib.metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
     if package == "mlflow":
@@ -280,9 +279,9 @@ def _get_installed_version(package: str, module: Optional[str] = None) -> str:
         return mlflow.__version__
 
     try:
-        version = importlib_metadata.version(package)
-    except importlib_metadata.PackageNotFoundError:
-        # Note `importlib_metadata.version(package)` is not necessarily equal to
+        version = importlib.metadata.version(package)
+    except importlib.metadata.PackageNotFoundError:
+        # Note `importlib.metadata.version(package)` is not necessarily equal to
         # `__import__(package).__version__`. See the example for pytorch below.
         #
         # Example
@@ -290,7 +289,7 @@ def _get_installed_version(package: str, module: Optional[str] = None) -> str:
         # $ pip install torch==1.9.0
         # $ python -c "import torch; print(torch.__version__)"
         # 1.9.0+cu102
-        # $ python -c "import importlib_metadata; print(importlib_metadata.version('torch'))"
+        # $ python -c "import importlib.metadata; print(importlib.metadata.version('torch'))"
         # 1.9.0
         version = __import__(module or package).__version__
 
@@ -442,10 +441,10 @@ _PACKAGES_TO_MODULES = None
 def _init_modules_to_packages_map():
     global _MODULES_TO_PACKAGES
     if _MODULES_TO_PACKAGES is None:
-        # Note `importlib_metadata.packages_distributions` only captures packages installed into
+        # Note `importlib.metadata.packages_distributions` only captures packages installed into
         # Python's site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
-        _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+        _MODULES_TO_PACKAGES = importlib.metadata.packages_distributions()
 
         # Add mapping for MLflow extras
         _MODULES_TO_PACKAGES.update(MLFLOW_MODULES_TO_PACKAGES)

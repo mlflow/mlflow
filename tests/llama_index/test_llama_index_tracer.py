@@ -1,12 +1,12 @@
 import asyncio
 import base64
+import importlib.metadata
 import inspect
 import random
 from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import ANY
 
-import importlib_metadata
 import llama_index.core
 import openai
 import pytest
@@ -32,8 +32,8 @@ from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
-llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+llama_core_version = Version(importlib.metadata.version("llama-index-core"))
+llama_oai_version = Version(importlib.metadata.version("llama-index-llms-openai"))
 
 
 @pytest.fixture(autouse=True)

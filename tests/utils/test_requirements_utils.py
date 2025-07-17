@@ -1,11 +1,11 @@
 import importlib
+import importlib.metadata
 import os
 import sys
 from importlib.metadata import version
 from unittest import mock
 
 import cloudpickle
-import importlib_metadata
 import pytest
 
 import mlflow
@@ -242,8 +242,8 @@ def test_get_installed_version(tmp_path, monkeypatch):
     not_found_package = tmp_path.joinpath("not_found.py")
     not_found_package.write_text("__version__ = '1.2.3'")
     monkeypatch.syspath_prepend(str(tmp_path))
-    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
-        importlib_metadata.version("not_found")
+    with pytest.raises(importlib.metadata.PackageNotFoundError, match=r".+"):
+        importlib.metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
 
 
@@ -263,8 +263,8 @@ def test_get_pinned_requirement(tmp_path, monkeypatch):
     not_found_package = tmp_path.joinpath("not_found.py")
     not_found_package.write_text("__version__ = '1.2.3'")
     monkeypatch.syspath_prepend(str(tmp_path))
-    with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
-        importlib_metadata.version("not_found")
+    with pytest.raises(importlib.metadata.PackageNotFoundError, match=r".+"):
+        importlib.metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
 
 
@@ -290,7 +290,7 @@ def test_infer_requirements_excludes_mlflow():
         return_value=["mlflow", "pytest"],
     ):
         mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
-        assert mlflow_package in importlib_metadata.packages_distributions()["mlflow"]
+        assert mlflow_package in importlib.metadata.packages_distributions()["mlflow"]
         assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
 
 
@@ -359,7 +359,7 @@ def test_infer_pip_requirements_scopes_databricks_imports():
             return_value="1.0",
         ),
         mock.patch(
-            "importlib_metadata.packages_distributions",
+            "importlib.metadata.packages_distributions",
             return_value={
                 "databricks": [
                     "databricks-automl-runtime",

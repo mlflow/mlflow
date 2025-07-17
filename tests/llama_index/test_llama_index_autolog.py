@@ -1,6 +1,6 @@
+import importlib.metadata
 from unittest import mock
 
-import importlib_metadata
 import pytest
 from llama_index.core.chat_engine.types import ChatMode
 from llama_index.core.instrumentation import get_dispatcher
@@ -14,7 +14,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
+llama_core_version = Version(importlib.metadata.version("llama-index-core"))
 
 
 def test_autolog_enable_tracing(multi_index):

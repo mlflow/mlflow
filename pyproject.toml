@@ -38,7 +38,6 @@ dependencies = [
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",

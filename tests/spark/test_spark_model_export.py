@@ -723,7 +723,7 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     expected_mlflow_version = _mlflow_major_version_string()
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
-        with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
+        with mock.patch("importlib.metadata.version", return_value=unsuffixed_version + dev_suffix):
             with mlflow.start_run():
                 model_info = mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             _assert_pip_requirements(
@@ -731,7 +731,7 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
             )
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
-        with mock.patch("importlib_metadata.version", return_value=unaffected_version):
+        with mock.patch("importlib.metadata.version", return_value=unaffected_version):
             pip_deps = _get_pip_deps(mlflow.spark.get_default_conda_env())
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
 
