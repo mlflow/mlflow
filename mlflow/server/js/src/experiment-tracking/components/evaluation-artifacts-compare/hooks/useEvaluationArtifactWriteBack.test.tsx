@@ -128,7 +128,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(uploadArtifactApi).toBeCalledWith('run_1', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
+    expect(uploadArtifactApi).toHaveBeenCalledWith('run_1', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
       columns: ['question', 'answer'],
       data: [
         ['new_question', 'new_answer'],
@@ -136,7 +136,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       ],
     });
 
-    expect(uploadArtifactApi).toBeCalledWith('run_2', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
+    expect(uploadArtifactApi).toHaveBeenCalledWith('run_2', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
       columns: ['question', 'answer'],
       data: [['new_question', 'new_answer']],
     });
@@ -196,7 +196,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(Utils.logErrorAndNotifyUser).toBeCalledWith(
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringMatching(/Cannot find existing prompt engineering artifact for run run_1/),
       }),
@@ -213,6 +213,6 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
 
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
-    expect(discardPendingEvaluationData).toBeCalledWith();
+    expect(discardPendingEvaluationData).toHaveBeenCalledWith();
   });
 });

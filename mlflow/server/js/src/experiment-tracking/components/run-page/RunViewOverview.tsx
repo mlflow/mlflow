@@ -32,7 +32,8 @@ import type {
   UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './hooks/useGetRunQuery';
-import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import type { MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
@@ -56,6 +57,7 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
   loggedModelsV3 = [],
   isLoadingLoggedModels = false,
+  loggedModelsError,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
@@ -69,6 +71,7 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
   loggedModelsV3?: LoggedModelProto[];
   isLoadingLoggedModels?: boolean;
+  loggedModelsError?: Error;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
@@ -87,7 +90,9 @@ export const RunViewOverview = ({
   // - `shouldDisplayContentsOfLoggedModelsBox` determines if the contents of the "logged models"
   //   section should be displayed. It is hidden if there are no logged models to display.
   const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0 || loggedModelsV3?.length > 0;
-  const loggedModelsV3RegisteredModels = useExperimentLoggedModelRegisteredVersions({ loggedModels: loggedModelsV3 });
+  const { modelVersions: loggedModelsV3RegisteredModels } = useExperimentLoggedModelRegisteredVersions({
+    loggedModels: loggedModelsV3,
+  });
 
   /**
    * We have to query multiple sources for registered model versions (logged models API, models API, UC)
@@ -273,14 +278,21 @@ export const RunViewOverview = ({
           { display: 'flex', gap: theme.spacing.lg, overflow: 'hidden' },
         ]}
       >
-        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} />
+        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} loggedModels={loggedModelsV3} />
         {renderParams()}
       </div>
       {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
         <>
           <Spacer />
           <div css={{ minHeight: 360, maxHeight: 760, overflow: 'hidden', display: 'flex' }}>
-            <RunViewLoggedModelsTable inputs={runInputs} outputs={runOutputs} runInfo={runInfo} />
+            <RunViewLoggedModelsTable
+              loggedModelsV3={loggedModelsV3}
+              isLoadingLoggedModels={isLoadingLoggedModels}
+              inputs={runInputs}
+              outputs={runOutputs}
+              runInfo={runInfo}
+              loggedModelsError={loggedModelsError}
+            />
           </div>
         </>
       )}

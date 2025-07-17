@@ -31,6 +31,13 @@ export type RunsGroupByConfig = {
   }[];
 };
 
+export const isGroupedBy = (groupBy: RunsGroupByConfig | null, mode: RunGroupingMode, groupByData: string) => {
+  if (!groupBy) {
+    return false;
+  }
+  return groupBy.groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
+};
+
 /**
  * Serializes row grouping configuration into persistable key.
  * E.g. {mode: "tags", groupByData: "some_tag", aggregateFunction: "min"} -> "tags.some_tag.min"

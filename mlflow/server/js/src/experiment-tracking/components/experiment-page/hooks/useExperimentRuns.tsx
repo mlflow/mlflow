@@ -232,4 +232,5 @@ const createEmptyRunsResult = () => ({
   runInfos: [],
   runUuidsMatchingFilter: [],
   tagsList: [],
+  inputsOutputsList: [],
 });

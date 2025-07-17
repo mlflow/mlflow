@@ -45,7 +45,7 @@ describe('ShowArtifactTableView', () => {
     wrapper = mountWithIntl(<ShowArtifactTableView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('.text-area-border-box').length).toBe(1);
       expect(wrapper.find('.text-area-border-box').text()).toBe(fileContents);
       done();

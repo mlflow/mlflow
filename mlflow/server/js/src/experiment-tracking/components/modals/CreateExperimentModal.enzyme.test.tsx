@@ -46,7 +46,7 @@ describe('CreateExperimentModal', () => {
       artifactLocation: 'artifactLoc',
     });
 
-    expect(navigate).toBeCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
+    expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
   });
   test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
@@ -64,6 +64,6 @@ describe('CreateExperimentModal', () => {
     });
     await Promise.all(testPromises);
 
-    expect(navigate).not.toBeCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

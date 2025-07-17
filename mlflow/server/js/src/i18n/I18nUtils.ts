@@ -8,6 +8,7 @@
 import { createIntlCache, createIntl, IntlShape } from 'react-intl';
 import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 import { useEffect, useState } from 'react';
+import Utils from '../common/utils/Utils';
 
 const FALLBACK_LOCALES: Record<string, string> = {
   es: 'es-ES',

@@ -3,6 +3,7 @@ This file contains unit tests for the new Gemini Python SDK
 https://github.com/googleapis/python-genai
 """
 
+import asyncio
 import base64
 import importlib.metadata
 from unittest.mock import patch
@@ -65,8 +66,17 @@ _CHAT_MESSAGES = [
 ]
 
 
-def _generate_content(self, model, contents, config):
-    return _DUMMY_GENERATE_CONTENT_RESPONSE
+def _dummy_generate_content(is_async: bool):
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return _DUMMY_GENERATE_CONTENT_RESPONSE
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return _DUMMY_GENERATE_CONTENT_RESPONSE
+
+    return _generate_content
 
 
 def send_message(self, content):
@@ -110,25 +120,61 @@ def cleanup():
     mlflow.gemini.autolog(disable=True)
 
 
-def test_generate_content_enable_disable_autolog():
-    with patch("google.genai.models.Models._generate_content", new=_generate_content):
+@pytest.fixture(params=[True, False], ids=["async", "sync"])
+def is_async(request):
+    return request.param
+
+
+def _call_generate_content(
+    is_async: bool, contents: str, model: str = "gemini-1.5-flash", config=None
+):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+        return asyncio.run(
+            client.aio.models.generate_content(model=model, contents=contents, config=config)
+        )
+    else:
+        return client.models.generate_content(model=model, contents=contents, config=config)
+
+
+def _create_chat_and_send_message(is_async: bool, message: str):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+        chat = client.aio.chats.create(model="gemini-1.5-flash")
+        return asyncio.run(chat.send_message(message))
+    else:
+        chat = client.chats.create(model="gemini-1.5-flash")
+        return chat.send_message(message)
+
+
+def test_generate_content_enable_disable_autolog(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with (
+        patch(
+            f"google.genai.models.{cls}._generate_content", new=_dummy_generate_content(is_async)
+        ),
+    ):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
-        client.models.generate_content(model="gemini-1.5-flash", contents="test content")
+        _call_generate_content(is_async, "test content")
 
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
         assert len(traces[0].data.spans) == 2
+
         span = traces[0].data.spans[0]
-        assert span.name == "Models.generate_content"
+        assert span.name == f"{cls}.generate_content"
         assert span.span_type == SpanType.LLM
-        assert span.inputs == {"contents": "test content", "model": "gemini-1.5-flash"}
+        assert span.inputs == {
+            "contents": "test content",
+            "model": "gemini-1.5-flash",
+            "config": None,
+        }
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
         assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         span1 = traces[0].data.spans[1]
-        assert span1.name == "Models._generate_content"
+        assert span1.name == f"{cls}._generate_content"
         assert span1.span_type == SpanType.LLM
         assert span1.inputs == {
             "contents": "test content",
@@ -139,23 +185,29 @@ def test_generate_content_enable_disable_autolog():
         assert span1.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
-        client = genai.Client(api_key="dummy")
-        client.models.generate_content(model="gemini-1.5-flash", contents="test content")
+        _call_generate_content(is_async, "test content")
 
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
 
 
-def test_generate_content_tracing_with_error():
-    with patch(
-        "google.genai.models.Models._generate_content", side_effect=Exception("dummy error")
-    ):
+def test_generate_content_tracing_with_error(is_async):
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            raise Exception("dummy error")
+    else:
+
+        def _generate_content(self, model, contents, config):
+            raise Exception("dummy error")
+
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
 
         with pytest.raises(Exception, match="dummy error"):
-            client.models.generate_content(model="gemini-1.5-flash", contents="test content")
+            _call_generate_content(is_async, "test content")
 
     traces = get_traces()
     assert len(traces) == 1
@@ -174,10 +226,12 @@ def test_generate_content_image_autolog():
         genai.types.Part.from_bytes(mime_type="image/jpeg", data=image),
         "Caption this image",
     ]
-    with patch("google.genai.models.Models._generate_content", new=_generate_content):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content", new=_dummy_generate_content(is_async)
+    ):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
-        client.models.generate_content(model="gemini-1.5-flash", contents=request)
+        _call_generate_content(is_async, request)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -185,7 +239,7 @@ def test_generate_content_image_autolog():
     assert len(traces[0].data.spans) == 2
 
     span = traces[0].data.spans[0]
-    assert span.name == "Models.generate_content"
+    assert span.name == f"{cls}.generate_content"
     assert span.span_type == SpanType.LLM
     assert span.inputs["model"] == "gemini-1.5-flash"
     extra = {"display_name": None} if google_gemini_version >= Version("1.15.0") else {}
@@ -211,7 +265,7 @@ def test_generate_content_image_autolog():
     ]
 
     span1 = traces[0].data.spans[1]
-    assert span1.name == "Models._generate_content"
+    assert span1.name == f"{cls}._generate_content"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert span1.inputs["model"] == "gemini-1.5-flash"
@@ -224,7 +278,7 @@ def test_generate_content_image_autolog():
     assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
 
 
-def test_generate_content_tool_calling_autolog():
+def test_generate_content_tool_calling_autolog(is_async):
     tool_call_content = {
         "parts": [
             {
@@ -260,13 +314,21 @@ def test_generate_content_tool_calling_autolog():
         },
     ]
 
-    def _generate_content(self, model, contents, config):
-        return response
+    if is_async:
 
-    with patch("google.genai.models.Models._generate_content", new=_generate_content):
+        async def _generate_content(self, model, contents, config):
+            return response
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return response
+
+    cls = "AsyncModels" if is_async else "Models"
+
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
-        client.models.generate_content(
+        _call_generate_content(
+            is_async,
             model="gemini-1.5-flash",
             contents="I have 57 cats, each owns 44 mittens, how many mittens is that in total?",
             config=genai.types.GenerateContentConfig(
@@ -281,7 +343,7 @@ def test_generate_content_tool_calling_autolog():
     assert len(traces[0].data.spans) == 2
 
     span = traces[0].data.spans[0]
-    assert span.name == "Models.generate_content"
+    assert span.name == f"{cls}.generate_content"
     assert span.span_type == SpanType.LLM
     assert (
         span.inputs["contents"]
@@ -291,7 +353,7 @@ def test_generate_content_tool_calling_autolog():
     assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
     span1 = traces[0].data.spans[1]
-    assert span1.name == "Models._generate_content"
+    assert span1.name == f"{cls}._generate_content"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert (
@@ -302,7 +364,7 @@ def test_generate_content_tool_calling_autolog():
     assert span1.get_attribute("mlflow.chat.messages") == chat_messages
 
 
-def test_generate_content_tool_calling_chat_history_autolog():
+def test_generate_content_tool_calling_chat_history_autolog(is_async):
     question_content = genai.types.Content(
         **{
             "parts": [
@@ -391,13 +453,21 @@ def test_generate_content_tool_calling_chat_history_autolog():
         },
     ]
 
-    def _generate_content(self, model, contents, config):
-        return response
+    cls = "AsyncModels" if is_async else "Models"
 
-    with patch("google.genai.models.Models._generate_content", new=_generate_content):
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return response
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return response
+
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
-        client.models.generate_content(
+        _call_generate_content(
+            is_async,
             model="gemini-1.5-flash",
             contents=[question_content, tool_call_content, tool_response_content],
             config=genai.types.GenerateContentConfig(
@@ -412,7 +482,7 @@ def test_generate_content_tool_calling_chat_history_autolog():
     assert len(traces[0].data.spans) == 2
 
     span = traces[0].data.spans[0]
-    assert span.name == "Models.generate_content"
+    assert span.name == f"{cls}.generate_content"
     assert span.span_type == SpanType.LLM
     assert span.inputs["contents"] == [
         question_content.dict(),
@@ -424,7 +494,7 @@ def test_generate_content_tool_calling_chat_history_autolog():
     assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
     span1 = traces[0].data.spans[1]
-    assert span1.name == "Models._generate_content"
+    assert span1.name == f"{cls}._generate_content"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert span1.inputs["contents"] == [
@@ -437,27 +507,27 @@ def test_generate_content_tool_calling_chat_history_autolog():
     assert span1.get_attribute("mlflow.chat.messages") == chat_messages
 
 
-def test_chat_session_autolog():
-    with patch("google.genai.models.Models._generate_content", new=_generate_content):
+def test_chat_session_autolog(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content", new=_dummy_generate_content(is_async)
+    ):
         mlflow.gemini.autolog()
-        client = genai.Client(api_key="dummy")
-        chat = client.chats.create(model="gemini-1.5-flash")
-        chat.send_message("test content")
+        _create_chat_and_send_message(is_async, "test content")
 
         traces = get_traces()
         assert len(traces) == 1
         assert traces[0].info.status == "OK"
         assert len(traces[0].data.spans) == 3
         span = traces[0].data.spans[0]
-        assert span.name == "Chat.send_message"
+        assert span.name == "AsyncChat.send_message" if is_async else "Chat.send_message"
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
         assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
-        chat = client.chats.create(model="gemini-1.5-flash")
-        chat.send_message("test content")
+        _create_chat_and_send_message(is_async, "test content")
 
         # No new trace should be created
         traces = get_traces()
