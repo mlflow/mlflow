@@ -1,6 +1,7 @@
 import pytest
 
 import mlflow
+import mlflow.telemetry.utils
 from mlflow.telemetry.client import set_telemetry_client
 
 
