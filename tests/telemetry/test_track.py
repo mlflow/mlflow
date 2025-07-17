@@ -1,7 +1,4 @@
-import json
 import time
-from dataclasses import asdict
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -19,10 +16,6 @@ from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
 from tests.helper_functions import validate_telemetry_record
-
-
-def extract_record(data: str) -> dict[str, Any]:
-    return json.loads(data["data"])
 
 
 def test_track_api_usage(mock_requests):
@@ -46,14 +39,16 @@ def test_track_api_usage(mock_requests):
     get_telemetry_client().flush()
 
     assert len(mock_requests) == 2
-    succeed_record = extract_record(mock_requests[0])
+    succeed_record = mock_requests[0]["data"]
+    assert succeed_record["schema_version"] == 1
     assert succeed_record["api_module"] == succeed_func.__module__
     assert succeed_record["api_name"] == succeed_func.__qualname__
     assert succeed_record["status"] == APIStatus.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
-    fail_record = extract_record(mock_requests[1])
+    fail_record = mock_requests[1]["data"]
+    assert fail_record["schema_version"] == 1
     assert fail_record["api_module"] == fail_func.__module__
     assert fail_record["api_name"] == fail_func.__qualname__
     assert fail_record["status"] == APIStatus.FAILURE.value
@@ -115,7 +110,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
 
     get_telemetry_client().flush()
     assert len(mock_requests) == 1
-    record = extract_record(mock_requests[0])
+    record = mock_requests[0]["data"]
     assert record["api_module"] == test_func.__module__
     assert record["api_name"] == test_func.__qualname__
 
@@ -131,6 +126,7 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
 
     with patch("mlflow.telemetry.track.should_skip_telemetry", return_value=True):
         test_func()
+        get_telemetry_client().flush()
         assert len(mock_requests) == 0
 
     # mlflow.sklearn.autolog internally calls mlflow.sklearn.log_model
@@ -143,17 +139,18 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
 
     get_telemetry_client().flush()
     assert len(mock_requests) == 1
-    record = extract_record(mock_requests[0])
+    record = mock_requests[0]["data"]
     assert record["api_module"] == "mlflow.sklearn"
     assert record["api_name"] == "autolog"
     assert record["status"] == APIStatus.SUCCESS.value
-    assert record["params"] == asdict(
-        AutologParams(
+    assert (
+        record["params"]
+        == AutologParams(
             flavor="sklearn",
             disable=False,
             log_traces=False,
             log_models=True,
-        )
+        ).to_json()
     )
     assert record["duration_ms"] > 0
 

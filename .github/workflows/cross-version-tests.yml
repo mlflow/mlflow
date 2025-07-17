@@ -168,7 +168,7 @@ jobs:
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
-            pip install packages/tracing
+            pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else
@@ -239,7 +239,7 @@ jobs:
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
-            pip install packages/tracing
+            pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else

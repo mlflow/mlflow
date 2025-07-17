@@ -36,6 +36,8 @@ wheels/
 *.egg
 MANIFEST
 node_modules
+yarn-error.log
+package-lock.json
 .docusaurus
 *-ipynb.mdx
 docs/src/api_modules.json

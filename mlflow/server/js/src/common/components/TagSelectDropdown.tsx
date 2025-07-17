@@ -4,7 +4,7 @@ import { Control, useController } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { PlusIcon, LegacySelect, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import { KeyValueEntity } from '../types';
 
 /**
  * Will show an extra row at the bottom of the dropdown menu to create a new tag when

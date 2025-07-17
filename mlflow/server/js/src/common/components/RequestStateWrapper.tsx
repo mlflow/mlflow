@@ -6,7 +6,6 @@
  */
 
 import React, { Component } from 'react';
-import './RequestStateWrapper.css';
 import { connect } from 'react-redux';
 import { getApis } from '../../experiment-tracking/reducers/Reducers';
 import { Spinner } from './Spinner';

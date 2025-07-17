@@ -6,11 +6,7 @@ import { Link } from '../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../routes';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY } from '../../hooks/useExperimentPageViewMode';
-import {
-  isExperimentLoggedModelsUIEnabled,
-  shouldEnableTracingUI,
-  shouldUseRenamedUnifiedTracesTab,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseRenamedUnifiedTracesTab } from '../../../../../common/utils/FeatureUtils';
 import { ExperimentPageTabName } from '../../../../constants';
 
 export interface ExperimentViewRunsModeSwitchProps {
@@ -93,28 +89,24 @@ export const ExperimentViewRunsModeSwitchV2 = ({ experimentId = '', activeTab }:
             />
           </Link>
         </NavigationMenu.Item>
-        {isExperimentLoggedModelsUIEnabled() && (
-          <NavigationMenu.Item key="MODELS" active={activeTab === ExperimentPageTabName.Models}>
-            <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
-              <FormattedMessage
-                defaultMessage="Models"
-                description="A button navigating to logged models table on the experiment page"
-              />
-              <PreviewBadge />
-            </Link>
-          </NavigationMenu.Item>
-        )}
+        <NavigationMenu.Item key="MODELS" active={activeTab === ExperimentPageTabName.Models}>
+          <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
+            <FormattedMessage
+              defaultMessage="Models"
+              description="A button navigating to logged models table on the experiment page"
+            />
+            <PreviewBadge />
+          </Link>
+        </NavigationMenu.Item>
         <NavigationMenu.Item key="ARTIFACT">{evaluationTabLink}</NavigationMenu.Item>
-        {shouldEnableTracingUI() && (
-          <NavigationMenu.Item key="TRACES">
-            <Link to={getLinkToMode('TRACES')}>
-              <FormattedMessage
-                defaultMessage="Traces"
-                description="A button enabling traces mode on the experiment page"
-              />
-            </Link>
-          </NavigationMenu.Item>
-        )}
+        <NavigationMenu.Item key="TRACES">
+          <Link to={getLinkToMode('TRACES')}>
+            <FormattedMessage
+              defaultMessage="Traces"
+              description="A button enabling traces mode on the experiment page"
+            />
+          </Link>
+        </NavigationMenu.Item>
       </NavigationMenu.List>
     </NavigationMenu.Root>
   );

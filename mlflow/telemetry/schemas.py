@@ -1,9 +1,10 @@
+import json
 import platform
 import sys
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
@@ -32,6 +33,9 @@ class BaseParams:
     """
     Base class for params that are logged to telemetry.
     """
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
 
 
 @dataclass
@@ -63,9 +67,21 @@ class GenaiEvaluateParams(BaseParams):
 class APIRecord:
     api_module: str
     api_name: str
+    timestamp_ns: int
     params: Optional[BaseParams] = None
-    status: APIStatus = APIStatus.UNKNOWN.value
+    status: APIStatus = APIStatus.UNKNOWN
     duration_ms: Optional[int] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "timestamp_ns": self.timestamp_ns,
+            "api_module": self.api_module,
+            "api_name": self.api_name,
+            # dump params to string so we can parse them easily in ETL pipeline
+            "params": self.params.to_json() if self.params else None,
+            "status": self.status.value,
+            "duration_ms": self.duration_ms,
+        }
 
 
 class SourceSDK(str, Enum):
@@ -86,8 +102,9 @@ def get_source_sdk() -> SourceSDK:
 @dataclass
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
-    mlflow_version: str = VERSION
     source_sdk: str = get_source_sdk().value
+    mlflow_version: str = VERSION
+    schema_version: int = 1
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )

@@ -44,7 +44,7 @@ ${codespacesBadge}
 # mlflow
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
 # mlflow-skinny
-pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=skinny
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=libs/skinny
 \`\`\`
 
 For Databricks, use the following command:

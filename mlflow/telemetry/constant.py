@@ -1,6 +1,7 @@
-# TODO: update this url with a custom domain
-TELEMETRY_URL = "https://twqhrx9tai.execute-api.us-west-2.amazonaws.com/test/telemetry"
-BATCH_SIZE = 512
+# TODO: Switch to production URL before release
+TELEMETRY_URL = "https://api.mlflow-telemetry.io/test/log"
+# NB: Kinesis PutRecords API has a limit of 500 records per request
+BATCH_SIZE = 500
 BATCH_TIME_INTERVAL_SECONDS = 30
 MAX_QUEUE_SIZE = 1000
 MAX_WORKERS = 1

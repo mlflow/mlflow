@@ -12,7 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { KeyValueEntity } from '../types';
+import { KeyValueEntity } from '../../common/types';
 import { throttle, values } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -169,8 +169,12 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   const intl = useIntl();
   const [filter, setFilter] = useState('');
   const autoExpandedRowsList = useRef<Record<string, boolean>>({});
-  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
-    useExperimentTrackingDetailsPageLayoutStyles();
+  const {
+    detailsPageTableStyles,
+    detailsPageNoEntriesStyles,
+    detailsPageNoResultsWrapperStyles,
+    usingUnifiedDetailsLayout,
+  } = useExperimentTrackingDetailsPageLayoutStyles();
   const paramsValues = useMemo(() => values(params), [params]);
 
   const paramsList = useMemo(
@@ -329,7 +333,14 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   };
 
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      css={{
+        flex: usingUnifiedDetailsLayout ? '0 0 auto' : 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <Typography.Title level={4}>
         <FormattedMessage
           defaultMessage="Parameters ({length})"

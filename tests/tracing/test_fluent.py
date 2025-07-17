@@ -24,7 +24,6 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
@@ -2117,12 +2116,7 @@ def test_start_span_sends_telemetry_record(mock_requests):
     """Test that start_span sends telemetry records."""
     with mlflow.start_span("test"):
         pass
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) >= 1
-    api_names = [json.loads(record["data"])["api_name"] for record in mock_requests]
-    idx = api_names.index("start_span")
-    validate_telemetry_record(mock_requests, mlflow.start_span, idx=idx)
+    validate_telemetry_record(mock_requests, mlflow.start_span, search_index=True)
 
 
 def test_search_traces_sends_telemetry_record(mock_requests):

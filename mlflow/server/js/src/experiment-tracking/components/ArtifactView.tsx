@@ -48,9 +48,9 @@ import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { MlflowService } from '../sdk/MlflowService';
+import { KeyValueEntity } from '../../common/types';
 
 const { Text } = Typography;
 
@@ -69,6 +69,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   modelVersions?: any[];
   intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
+  entityTags?: Partial<KeyValueEntity>[];
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -118,8 +119,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const activeNodeRealPath = this.getActiveNodeRealPath();
 
     return (
-      <div className="artifact-info-left">
-        <div className="artifact-info-path">
+      <div className="mlflow-artifact-info-left">
+        <div className="mlflow-artifact-info-path">
           <label>
             <FormattedMessage
               defaultMessage="Full Path:"
@@ -128,12 +129,12 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             />
           </label>{' '}
           {/* @ts-expect-error TS(2322): Type '{ children: string; className: string; ellip... Remove this comment to see the full error message */}
-          <Text className="artifact-info-text" ellipsis copyable>
+          <Text className="mlflow-artifact-info-text" ellipsis copyable>
             {activeNodeRealPath}
           </Text>
         </div>
         {node.fileInfo.is_dir === false ? (
-          <div className="artifact-info-size">
+          <div className="mlflow-artifact-info-size">
             <label>
               <FormattedMessage
                 defaultMessage="Size:"
@@ -317,7 +318,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   ) => {
     const { id, loading } = dataNode;
 
-    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+    const usingLoggedModels = this.props.isLoggedModelsMode;
 
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
@@ -325,7 +326,13 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     if (loading && !this.state.requestedNodeIds.has(id)) {
       // Call relevant API based on the mode we are in
       if (usingLoggedModels && this.props.loggedModelId) {
-        this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, id);
+        this.props.listArtifactsLoggedModelApi(
+          this.props.loggedModelId,
+          id,
+          this.props.experimentId,
+          undefined,
+          this.props.entityTags,
+        );
       } else {
         this.props.listArtifactsApi(this.props.runUuid, id);
       }
@@ -482,7 +489,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 
     return (
       <div
-        className="artifact-view"
+        className="mlflow-artifact-view"
         css={{
           flex: this.props.useAutoHeight ? 1 : 'unset',
           height: this.props.useAutoHeight ? 'auto' : undefined,
@@ -505,7 +512,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             onToggleTreebeard={this.onToggleTreebeard}
           />
         </div>
-        <div className="artifact-right">
+        <div className="mlflow-artifact-right">
           {this.props.isFallbackToLoggedModelArtifacts && this.props.loggedModelId && (
             <FallbackToLoggedModelArtifactsInfo loggedModelId={this.props.loggedModelId} />
           )}
@@ -522,6 +529,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
+            entityTags={this.props.entityTags}
           />
         </div>
       </div>
@@ -570,7 +578,7 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
       <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
         <span className="model-name">{name}</span>
         <span>,&nbsp;v{version}&nbsp;</span>
-        <i className="fas fa-external-link-o" />
+        <i className="fa fa-external-link-o" />
       </Link>
     </LegacyTooltip>
   );

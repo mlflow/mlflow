@@ -344,7 +344,7 @@ def reset_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
-        client._wait_for_consumer_threads(terminate=True)
+        client.flush(terminate=True)
 
 
 @pytest.fixture

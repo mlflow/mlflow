@@ -59,6 +59,13 @@
   margin: 0;
 }
 
+/* Dark mode styles */
+[data-theme='dark'] .conceptCard {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Responsive design */
 @media (min-width: 768px) {
   .conceptGrid {
@@ -69,6 +76,7 @@
 
 @media (min-width: 1024px) {
   .conceptGrid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 2rem;
   }
 

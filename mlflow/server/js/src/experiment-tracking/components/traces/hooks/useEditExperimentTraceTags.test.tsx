@@ -59,12 +59,58 @@ describe('useEditExperimentTraceTag', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     // We expect one new tag to be added
-    expect(MlflowService.setExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.setExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
 
     // We expect one existing tag to be deleted
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'existing-tag');
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'existing-tag');
+  });
+
+  test('it should properly add tag with key and value with v3 apis', async () => {
+    // Mock the service functions
+    jest.spyOn(MlflowService, 'setExperimentTraceTagV3').mockImplementation(() => Promise.resolve({}));
+    jest.spyOn(MlflowService, 'deleteExperimentTraceTagV3').mockImplementation(() => Promise.resolve({}));
+
+    // Mock v2 apis to throw an error
+    jest.spyOn(MlflowService, 'setExperimentTraceTag').mockImplementation(() => {
+      throw new Error('Should not be called');
+    });
+    jest.spyOn(MlflowService, 'deleteExperimentTraceTag').mockImplementation(() => {
+      throw new Error('Should not be called');
+    });
+
+    // Render the component
+    renderTestComponent(mockTraceInfo, true);
+
+    // Click on the trigger button
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
+
+    // Expect the modal to be shown
+    expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
+
+    // Fill out the form
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('combobox'));
+    await userEvent.type(within(screen.getByRole('dialog')).getByRole('combobox'), 'newtag');
+    await userEvent.click(screen.getByText(/Add tag "newtag"/));
+    await userEvent.type(screen.getByLabelText('Value'), 'newvalue');
+
+    // Add the tag
+    await userEvent.click(screen.getByLabelText('Add tag'));
+
+    // Remove the existing tag
+    await userEvent.click(within(screen.getByRole('status', { name: 'existing-tag' })).getByRole('button'));
+
+    // Finally, save the tags
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
+
+    // We expect one new tag to be added
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
+
+    // We expect one existing tag to be deleted
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'existing-tag');
   });
 
   test('it should properly add tag with key and value with v3 apis', async () => {

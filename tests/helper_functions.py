@@ -12,7 +12,6 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
-from dataclasses import asdict
 from functools import wraps
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -832,19 +831,23 @@ def avoid_telemetry_tracking():
 
 
 def validate_telemetry_record(
-    mock_requests, func, *, idx=0, params=None, status="success"
+    mock_requests, func, *, idx=0, params=None, status="success", search_index=False
 ) -> dict[str, Any]:
     """
     Validate the telemetry record at the given index.
     """
     get_telemetry_client().flush()
 
+    if search_index:
+        api_names = [record["data"]["api_name"] for record in mock_requests]
+        idx = api_names.index(func.__qualname__)
+
     record = mock_requests[idx]
-    data = json.loads(record["data"])
+    data = record["data"]
     assert data["api_module"] == func.__module__
     assert data["api_name"] == func.__qualname__
     if isinstance(params, BaseParams):
-        assert data["params"] == asdict(params)
+        assert data["params"] == params.to_json()
     else:
         assert data["params"] == params
     assert data["status"] == status

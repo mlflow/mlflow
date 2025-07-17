@@ -75,7 +75,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
 decorators.Loading = ({ style }: DecoratorStyle) => {
   return (
     <div style={style}>
-      <img alt="" className="loading-spinner" src={spinner} />
+      <img alt="" className="mlflow-loading-spinner" src={spinner} />
       <FormattedMessage
         defaultMessage="loading..."
         description="Loading spinner text to show that the artifact loading is in progress"
@@ -125,6 +125,8 @@ const getTreebeardStyle = (theme: Theme) => ({
           left: '50%',
           margin: '-12px 0 0 -4px',
           height: '14px',
+          display: 'flex',
+          alignItems: 'end',
         },
         height: 7,
         width: 7,
