@@ -469,3 +469,89 @@ export interface ExpectationAssessment extends AssessmentBase {
 }
 
 export type Assessment = FeedbackAssessment | ExpectationAssessment;
+
+export type GeminiChatInput = {
+  contents: string | GeminiContent[];
+};
+
+export type GeminiChatOutput = {
+  candidates: GeminiCandidate[];
+  // propmtFeedback: GeminiPropmptFeedback;
+  // usageMetadata: GeminiUsageMetadata;
+  modelVersion: string;
+  responseId: string;
+};
+
+export type GeminiCandidate = {
+  content: GeminiContent;
+  finishReason:
+    | 'FINISH_REASON_UNSPECIFIED'
+    | 'STOP'
+    | 'MAX_TOKENS'
+    | 'SAFETY'
+    | 'RECITATION'
+    | 'LANGUAGE'
+    | 'OTHER'
+    | 'BLOCKLIST'
+    | 'PROHIBITED_CONTENT'
+    | 'SPII'
+    | 'MALFORMED_FUNCTION_CAL'
+    | 'IMAGE_SAFETY'
+    | 'UNEXPECTED_TOOL_CAL';
+  // safetyRatings: GeminiSafetyRating[]
+  // citationMetadata: GeminiCitationMetadata
+  // tokenCount: number
+  // groundingAttributions: GeminiGroundingAttribution[]
+  // groundingMetadata: GeminiGroundingMetadata
+  // avgLogprobs: number
+  // logprobsResult: GeminiLogprobsResult
+  // urlContextMetadata: GeminiUrlContextMetadata
+  // index: number
+};
+
+export type GeminiContent = {
+  role: 'user' | 'model';
+  parts: GeminiContentPart[];
+};
+
+export type GeminiContentPart = { text: string };
+// | { inlineData: GeminiBlob }
+// | { functionCall: GeminiFunctionCall }
+// | { functionResponse: GeminiFunctionResponse }
+// | { fileData: GeminiFileData }
+// | { executableCode: GeminiExecutableCode }
+// | { codeExecutionResult: GeminiCodeExecutionResult };
+
+// type GeminiBlob = {
+//   mimeType: string;
+//   data: string;
+// };
+
+// type GeminiFunctionCall = {
+//   id: string;
+//   name: string;
+//   args: Record<string, string>;
+// };
+
+// type GeminiFunctionResponse = {
+//   id: string;
+//   name: string;
+//   response: Record<string, string>;
+//   willContinue: boolean;
+//   scheduling: 'SCHEDULING_UNSPECIFIED' | 'SILENT' | 'WHEN_IDLE' | 'INTERRUPT';
+// };
+
+// type GeminiFileData = {
+//   mimeType: string;
+//   fileUri: string;
+// };
+
+// type GeminiExecutableCode = {
+//   language: 'LANGUAGE_UNSPECIFIED' | 'PYTHON';
+//   code: string;
+// };
+
+// type GeminiCodeExecutionResult = {
+//   outcome: 'OUTCOME_UNSPECIFIED' | 'OUTCOME_OK' | 'OUTCOME_FAILED' | 'OUTCOME_DEADLINE_EXCEEDED';
+//   output: string;
+// };

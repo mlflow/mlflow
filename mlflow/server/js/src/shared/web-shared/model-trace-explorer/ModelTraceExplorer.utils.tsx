@@ -39,6 +39,9 @@ import type {
   Assessment,
   RetrieverDocument,
   ModelTraceEvent,
+  GeminiContent,
+  GeminiContentPart,
+  GeminiCandidate,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import type {
@@ -970,6 +973,8 @@ export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatRespons
  *   7. LlamaIndex chat responses
  *   8. DSPy chat inputs
  *   8. DSPy chat outputs
+ *   9. Gemini inputs
+ *  10. Gemini outputs
  */
 export const normalizeConversation = (input: any): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -1024,6 +1029,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const dspyChatOutput = normalizeDspyChatOutput(input);
     if (dspyChatOutput) {
       return dspyChatOutput;
+    }
+
+    const geminiChatInput = normalizeGeminiChatInput(input);
+    if (geminiChatInput) {
+      return geminiChatInput;
+    }
+
+    const geminiChatOutput = normalizeGeminiChatOutput(input);
+    if (geminiChatOutput) {
+      return geminiChatOutput;
     }
 
     return null;
@@ -1383,6 +1398,86 @@ export const normalizeDspyChatOutput = (obj: any): ModelTraceChatMessage[] | nul
   if ('answer' in obj) {
     const message = prettyPrintChatMessage({ type: 'message', content: obj.answer, role: 'assistant' });
     return message && [message];
+  }
+
+  return null;
+};
+
+const isGeminiContentPart = (obj: any): obj is GeminiContentPart => {
+  if ('text' in obj && typeof obj.text === 'string') {
+    return true;
+  }
+
+  return false;
+};
+
+const isGeminiContent = (obj: unknown): obj is GeminiContent => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'role' in obj &&
+    typeof obj.role === 'string' &&
+    ['user', 'model'].includes(obj.role) &&
+    'parts' in obj &&
+    Array.isArray(obj.parts) &&
+    obj.parts.every(isGeminiContentPart)
+  );
+};
+
+const isGeminiCandidate = (obj: unknown): obj is GeminiCandidate => {
+  return typeof obj === 'object' && obj !== null && 'content' in obj && isGeminiContent(obj.content);
+};
+
+export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (!obj) {
+    return null;
+  }
+
+  if (typeof obj === 'object' && 'contents' in obj) {
+    if (typeof obj.contents === 'string') {
+      const message = prettyPrintChatMessage({ type: 'message', content: obj.contents, role: 'user' });
+      return message && [message];
+    }
+
+    if (Array.isArray(obj.contents) && obj.contents.every(isGeminiContent)) {
+      return obj.contents
+        .map((item) => {
+          const role = item.role === 'model' ? 'assistant' : item.role;
+          return prettyPrintChatMessage({
+            type: 'message',
+            content: item.parts.map((part) => ({ type: 'text', text: part.text })),
+            role,
+          });
+        })
+        .filter((item) => item !== null);
+    }
+  }
+
+  return null;
+};
+
+export const normalizeGeminiChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (!obj) {
+    return null;
+  }
+
+  if (
+    typeof obj === 'object' &&
+    'candidates' in obj &&
+    Array.isArray(obj.candidates) &&
+    obj.candidates.every(isGeminiCandidate)
+  ) {
+    return obj.candidates
+      .flatMap((item) => item.content)
+      .map((item) => {
+        const role = item.role === 'model' ? 'assistant' : item.role;
+        return prettyPrintChatMessage({
+          type: 'message',
+          content: item.parts.map((part) => ({ type: 'text', text: part.text })),
+          role,
+        });
+      })
+      .filter((item) => item !== null);
   }
 
   return null;
