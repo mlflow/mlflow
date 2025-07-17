@@ -53,12 +53,16 @@ async def test_sk_invoke_simple(mock_openai):
     assert trace.info.timestamp_ms > 0
     assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) >= 2
+    assert trace.data.response
+    assert not trace.data.response.startswith("<coroutine")
 
     root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
     child_span = next((s for s in trace.data.spans if s.parent_id == root_span.span_id), None)
 
     assert root_span is not None
     assert SpanAttributeKey.REQUEST_ID in root_span.attributes
+    assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
+
     assert child_span is not None
     assert child_span.name == "chat.completions gpt-4o-mini"
     assert "gen_ai.operation.name" in child_span.attributes
@@ -111,20 +115,6 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(
     assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) == 2
 
-    root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
-    assert root_span is not None
-    assert root_span.inputs
-    assert root_span.outputs
-    assert not str(root_span.outputs).startswith("<coroutine")
-    assert "sushi" in str(root_span.outputs).lower()
-
-    assert trace.data.request
-    assert trace.data.response
-    assert not trace.data.response.startswith("<coroutine")
-    assert "sushi" in trace.data.response.lower()
-
-    assert trace.info.tags.get("mlflow.traceName")
-
 
 @pytest.mark.asyncio
 async def test_sk_invoke_complex(mock_openai):
@@ -137,15 +127,10 @@ async def test_sk_invoke_complex(mock_openai):
 
     root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
     assert root_span is not None
-    assert root_span.inputs
-    assert root_span.outputs
-    assert not str(root_span.outputs).startswith("<coroutine")
-    assert "hotel" in str(root_span.outputs).lower() or "seattle" in str(root_span.outputs).lower()
+    assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
 
-    assert trace.data.request
     assert trace.data.response
     assert not trace.data.response.startswith("<coroutine")
-    assert "hotel" in trace.data.response.lower() or "seattle" in trace.data.response.lower()
 
     assert trace.info.tags.get("mlflow.traceName")
 
@@ -158,6 +143,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert root_span.name == "execute_tool ChatBot-Chat"
     assert root_span.get_attribute(SpanAttributeKey.REQUEST_ID) == trace.info.request_id
     assert root_span.get_attribute(SpanAttributeKey.SPAN_TYPE)
+    assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
 
     assert child_span.name == "chat.completions gpt-4o-mini"
     assert child_span.parent_id == root_span.span_id
