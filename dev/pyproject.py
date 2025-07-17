@@ -148,7 +148,6 @@ def build(package_type: PackageType) -> None:
                 "Intended Audience :: Information Technology",
                 "Topic :: Scientific/Engineering :: Artificial Intelligence",
                 "Topic :: Software Development :: Libraries :: Python Modules",
-                "License :: OSI Approved :: Apache Software License",
                 "Operating System :: OS Independent",
                 f"Programming Language :: Python :: {python_version}",
             ],
