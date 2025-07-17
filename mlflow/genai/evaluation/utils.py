@@ -239,7 +239,6 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         }
         return scorer.run(**merged)
 
-    # Create the metric instance
     metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
