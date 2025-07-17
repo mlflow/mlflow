@@ -24,39 +24,46 @@ def _is_ci_env() -> bool:
         "BITBUCKET_BUILD_NUMBER",  # https://support.atlassian.com/bitbucket-cloud/docs/variables-and-secrets/
         "CODEBUILD_BUILD_ARN",  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
         "BUILDKITE",  # https://buildkite.com/docs/pipelines/configure/environment-variables
-        # TODO: add runbot env var
+        # runbots
+        "RUNBOT_HOST_URL",
+        "RUNBOT_BUILD_NAME",
+        "RUNBOT_WORKER_ID",
     }
-    if any(os.environ.get(var, "false").lower() == "true" for var in env_vars):
-        return True
+    # For most of the cases, the env var existing means we are in CI
+    for var in env_vars:
+        if var in os.environ:
+            return True
     return False
 
 
 # NB: implement the function here to avoid unnecessary imports inside databricks_utils
 def _is_in_databricks() -> bool:
-    _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
-
     # check if in databricks runtime
     version = os.environ.get("DATABRICKS_RUNTIME_VERSION")
-    if version is None and os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
-        # In Databricks DCS cluster, it doesn't have DATABRICKS_RUNTIME_VERSION
-        # environment variable, we have to read version from the version file.
-        with open(_DATABRICKS_VERSION_FILE_PATH) as f:
-            version = f.read().strip()
+    if version is None and os.path.exists("/databricks/DBR_VERSION"):
+        return True
     if version is not None:
         return True
 
-    # enable for databricks serving environment since it's a standalone environment
-    # and we can track tracing events
+    # check if in databricks model serving environment
+    if (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    ).lower() == "true":
+        return True
 
     return False
+
+
+_IS_IN_DISABLED_ENV = _is_ci_env() or _is_in_databricks()
 
 
 def is_telemetry_disabled() -> bool:
     return (
         MLFLOW_DISABLE_TELEMETRY.get()
         or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
-        or _is_ci_env()
-        or _is_in_databricks()
+        or _IS_IN_DISABLED_ENV
     )
 
 

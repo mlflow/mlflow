@@ -15,11 +15,9 @@ from mlflow.tracing.export.inference_table import (
     _initialize_trace_buffer,
     pop_trace,
 )
-from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 _OTEL_TRACE_ID = 12345
@@ -503,18 +501,3 @@ def _register_span_and_trace(
         trace_info.client_request_id = client_request_id
         trace_manager.register_trace(span._span.context.trace_id, trace_info)
     trace_manager.register_span(span)
-
-
-def test_export_sends_telemetry_record(mock_requests, mock_databricks_serving_with_tracing_env):
-    @mlflow.trace
-    def foo():
-        pass
-
-    with mock.patch(
-        "mlflow.tracing.processor.inference_table.maybe_get_request_id", side_effect=["123"]
-    ):
-        foo()
-        exporter = _get_trace_exporter()
-        assert isinstance(exporter, InferenceTableSpanExporter)
-    assert len(_TRACE_BUFFER) == 1
-    validate_telemetry_record(mock_requests, InferenceTableSpanExporter.export, idx=1)
