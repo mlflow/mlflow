@@ -131,6 +131,13 @@ jobs:
 
           docker run --rm python:3.10 bash -c "pip install uv && uv pip install --system $URL && python -c 'import mlflow; print(mlflow.__version__)'"
 
+      - name: Test dev/install-skinny.sh
+        if: github.event_name == 'pull_request'
+        env:
+          PIP_DRY_RUN: "1"
+        run: |
+          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
+
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
