@@ -348,8 +348,11 @@ def reset_telemetry_client():
 
 
 @pytest.fixture
-def mock_requests():
+def mock_requests(monkeypatch):
     """Fixture to mock requests.post and capture telemetry records."""
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+
     captured_records = []
 
     def mock_post(url, json=None, **kwargs):
@@ -367,12 +370,7 @@ def mock_requests():
         }
         return mock_response
 
-    with (
-        # patch this so we can run telemetry tests, but avoid
-        # tracking other tests in CI
-        patch("mlflow.telemetry.utils._is_ci_env", return_value=False),
-        patch("requests.post", side_effect=mock_post),
-    ):
+    with patch("requests.post", side_effect=mock_post):
         # set telemetry client again to ensure it's not None
         set_telemetry_client()
         yield captured_records

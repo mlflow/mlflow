@@ -5,9 +5,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
+from mlflow.version import VERSION
 
 
-def _is_ci_env() -> bool:
+def _is_ci_env_or_testing() -> bool:
     """
     Check if the current environment is a CI environment.
     If so, we should not track telemetry.
@@ -39,10 +40,9 @@ def _is_ci_env() -> bool:
 # NB: implement the function here to avoid unnecessary imports inside databricks_utils
 def _is_in_databricks() -> bool:
     # check if in databricks runtime
-    version = os.environ.get("DATABRICKS_RUNTIME_VERSION")
-    if version is None and os.path.exists("/databricks/DBR_VERSION"):
+    if "DATABRICKS_RUNTIME_VERSION" in os.environ:
         return True
-    if version is not None:
+    if os.path.exists("/databricks/DBR_VERSION"):
         return True
 
     # check if in databricks model serving environment
@@ -56,12 +56,18 @@ def _is_in_databricks() -> bool:
     return False
 
 
+_IS_MLFLOW_DEV_VERSION = VERSION.endswith(".dev0")
+_IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
+_IS_IN_DATABRICKS = _is_in_databricks()
+
+
 def is_telemetry_disabled() -> bool:
     return (
         MLFLOW_DISABLE_TELEMETRY.get()
         or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
-        or _is_ci_env()
-        or _is_in_databricks()
+        or _IS_IN_CI_ENV_OR_TESTING
+        or _IS_IN_DATABRICKS
+        or _IS_MLFLOW_DEV_VERSION
     )
 
 

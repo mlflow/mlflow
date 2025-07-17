@@ -1,14 +1,13 @@
-from unittest.mock import patch
-
 import pytest
 
+import mlflow
 from mlflow.telemetry.client import set_telemetry_client
 
 
 @pytest.fixture(autouse=True)
-def mock_is_ci_env():
+def mock_is_ci_env(monkeypatch):
     # patch this so we can run telemetry tests, but avoid
     # tracking other tests in CI
-    with patch("mlflow.telemetry.utils._is_ci_env", return_value=False):
-        set_telemetry_client()
-        yield
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+    set_telemetry_client()
