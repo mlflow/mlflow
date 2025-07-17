@@ -21,12 +21,10 @@ R = TypeVar("R")
 
 
 def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
-    if is_telemetry_disabled():
-        return func
-
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if should_skip_telemetry(func):
+        # Check if telemetry is disabled at execution time, not decoration time
+        if is_telemetry_disabled() or should_skip_telemetry(func):
             return func(*args, **kwargs)
 
         success = True
