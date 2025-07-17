@@ -32,7 +32,7 @@ def _send_webhook_request(
     url: str,
     payload: WebhookPayload,
     secret: Optional[str] = None,
-) -> WebhookTestResult:
+) -> requests.Response:
     """Send a webhook request to the specified URL.
 
     Args:
@@ -41,29 +41,17 @@ def _send_webhook_request(
         secret: Optional secret for HMAC signature
 
     Returns:
-        WebhookTestResult indicating success/failure and response details
+        requests.Response object from the webhook request
     """
-    try:
-        payload_bytes = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+    payload_bytes = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
 
-        # Add HMAC signature if secret is configured
-        if secret:
-            signature = _generate_hmac_signature(secret, payload_bytes)
-            headers[WEBHOOK_SIGNATURE_HEADER] = signature
+    # Add HMAC signature if secret is configured
+    if secret:
+        signature = _generate_hmac_signature(secret, payload_bytes)
+        headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
-        response = requests.post(url, data=payload_bytes, headers=headers, timeout=30)
-
-        return WebhookTestResult(
-            success=response.status_code < 400,
-            response_status=response.status_code,
-            response_body=response.text[:1000] if response.text else None,  # Truncate response
-        )
-    except Exception as e:
-        return WebhookTestResult(
-            success=False,
-            error_message=str(e)[:500],  # Truncate error message
-        )
+    return requests.post(url, data=payload_bytes, headers=headers, timeout=30)
 
 
 def _dispatch_webhook_impl(
@@ -75,7 +63,13 @@ def _dispatch_webhook_impl(
     # TODO: Make this non-blocking
     for webhook in store.list_webhooks():
         if event in webhook.events:
-            _send_webhook_request(webhook.url, payload, webhook.secret)
+            try:
+                _send_webhook_request(webhook.url, payload, webhook.secret)
+            except Exception as e:
+                _logger.error(
+                    f"Failed to send webhook to {webhook.url} for event {event}: {e}",
+                    exc_info=True,
+                )
 
 
 def dispatch_webhook(
@@ -135,7 +129,12 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
         else:
             raise ValueError(f"Unknown event type: {test_event}")
 
-        return _send_webhook_request(webhook.url, test_payload, webhook.secret)
+        response = _send_webhook_request(webhook.url, test_payload, webhook.secret)
+        return WebhookTestResult(
+            success=response.status_code < 400,
+            response_status=response.status_code,
+            response_body=response.text[:1000] if response.text else None,  # Truncate response
+        )
     except Exception as e:
         return WebhookTestResult(
             success=False,
