@@ -1181,17 +1181,21 @@ def test_pyfunc_decorator_sends_telemetry_record(mock_requests):
     def predict(model_input: list[str]) -> list[str]:
         return model_input
 
-    # Check first telemetry record (_infer_schema_from_list_type_hint)
+    # _infer_schema_from_list_type_hint
     validate_telemetry_record(
         mock_requests,
         _infer_schema_from_list_type_hint,
     )
 
-    # Check second telemetry record (pyfunc decorator)
+    @pyfunc
+    def predict(model_input: list[str]) -> list[str]:
+        return model_input
+
+    # pyfunc decorator
     validate_telemetry_record(
         mock_requests,
         pyfunc,
-        idx=1,
+        search_index=True,
     )
 
 
@@ -1209,4 +1213,5 @@ def test_type_hints_sends_telemetry_record(mock_requests):
     model.predict(["x", "y", "z"])
     get_telemetry_client().flush()
     # running the predict function doesn't generate new telemetry record
+    # flush generates a new record for imports
     assert len(mock_requests) == 1

@@ -16,7 +16,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import Safety
-from mlflow.telemetry import get_telemetry_client
 from mlflow.telemetry.schemas import GenaiEvaluateParams
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -393,17 +392,13 @@ def test_evaluate_sends_telemetry_record(mock_requests):
         data=eval_data,
         scorers=[exact_match],
     )
-    get_telemetry_client().flush()
-
-    # there may be more records for functions used inside eval where the functions
-    # are executed in a new thread
-    records_count = len(mock_requests)
-    assert records_count >= 1
     expected_params = GenaiEvaluateParams(
         scorers=["CustomScorer"],
         is_predict_fn_set=False,
     ).to_json()
-    validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)
+    validate_telemetry_record(
+        mock_requests, mlflow.genai.evaluate, params=expected_params, search_index=True
+    )
 
     model = TestModel()
     predict_fn = model.predict
@@ -416,4 +411,6 @@ def test_evaluate_sends_telemetry_record(mock_requests):
         scorers=["CustomScorer"],
         is_predict_fn_set=True,
     ).to_json()
-    validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)
+    validate_telemetry_record(
+        mock_requests, mlflow.genai.evaluate, params=expected_params, search_index=True
+    )

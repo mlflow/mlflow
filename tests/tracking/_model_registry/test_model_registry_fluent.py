@@ -1083,5 +1083,5 @@ def test_load_prompt_sends_telemetry_record(mock_requests):
     mlflow.tracking._model_registry.fluent.register_prompt("test_prompt_load", "test template")
     mlflow.tracking._model_registry.fluent.load_prompt("test_prompt_load", version=1)
     validate_telemetry_record(
-        mock_requests, mlflow.tracking._model_registry.fluent.load_prompt, idx=1
+        mock_requests, mlflow.tracking._model_registry.fluent.load_prompt, search_index=True
     )

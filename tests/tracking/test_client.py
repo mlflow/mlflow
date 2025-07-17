@@ -2409,7 +2409,7 @@ def test_load_prompt_sends_telemetry_record(mock_requests, tracking_uri):
     client.register_prompt("test_prompt_load", "test template")
     client.load_prompt("test_prompt_load", version=1)
 
-    validate_telemetry_record(mock_requests, client.load_prompt, idx=1)
+    validate_telemetry_record(mock_requests, client.load_prompt, search_index=True)
 
 
 def test_start_span_sends_telemetry_record(mock_requests, tracking_uri):
@@ -2422,7 +2422,7 @@ def test_start_span_sends_telemetry_record(mock_requests, tracking_uri):
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
-    validate_telemetry_record(mock_requests, client.start_span, idx=1)
+    validate_telemetry_record(mock_requests, client.start_span, search_index=True)
 
 
 def test_log_model_params_sends_telemetry_record(mock_requests, tracking_uri):
@@ -2435,7 +2435,7 @@ def test_log_model_params_sends_telemetry_record(mock_requests, tracking_uri):
         params={"param1": "value1"},
     )
 
-    validate_telemetry_record(mock_requests, client.log_model_params, idx=1)
+    validate_telemetry_record(mock_requests, client.log_model_params, search_index=True)
 
 
 def test_set_logged_model_tags_sends_telemetry_record(mock_requests, tracking_uri):
@@ -2445,7 +2445,7 @@ def test_set_logged_model_tags_sends_telemetry_record(mock_requests, tracking_ur
     model = mlflow.initialize_logged_model(name="test_model")
     client.set_logged_model_tags(model_id=model.model_id, tags={"tag1": "value1"})
 
-    validate_telemetry_record(mock_requests, client.set_logged_model_tags, idx=1)
+    validate_telemetry_record(mock_requests, client.set_logged_model_tags, search_index=True)
 
 
 def test_start_trace_sends_telemetry_record(mock_requests, tracking_uri):

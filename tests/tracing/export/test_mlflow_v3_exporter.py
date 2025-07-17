@@ -489,4 +489,4 @@ def test_export_sends_telemetry_record(mock_requests, is_async, monkeypatch):
     assert isinstance(exporter, MlflowV3SpanExporter)
     if is_async:
         exporter._async_queue.flush(terminate=True)
-    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, idx=-1)
+    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, search_index=True)

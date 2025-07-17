@@ -831,7 +831,7 @@ def avoid_telemetry_tracking():
 
 
 def validate_telemetry_record(
-    mock_requests, func, *, idx=0, params=None, status="success", search_index=False
+    mock_requests, func, *, params=None, status="success", search_index=False
 ) -> dict[str, Any]:
     """
     Validate the telemetry record at the given index.
@@ -841,6 +841,8 @@ def validate_telemetry_record(
     if search_index:
         api_names = [record["data"]["api_name"] for record in mock_requests]
         idx = api_names.index(func.__qualname__)
+    else:
+        idx = 0
 
     record = mock_requests[idx]
     data = record["data"]
@@ -852,4 +854,5 @@ def validate_telemetry_record(
         assert data["params"] == params
     assert data["status"] == status
     assert data["duration_ms"] is not None
+    mock_requests.clear()
     return data

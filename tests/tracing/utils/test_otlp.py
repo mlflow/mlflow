@@ -144,4 +144,4 @@ def test_export_sends_telemetry_record(mock_requests, otel_collector, monkeypatc
     # processor is OtelSpanProcessor, exporter is OTLPSpanExporter
     assert isinstance(exporter, OTLPSpanExporter)
 
-    validate_telemetry_record(mock_requests, OtelSpanProcessor.on_end, idx=-1)
+    validate_telemetry_record(mock_requests, OtelSpanProcessor.on_end, search_index=True)

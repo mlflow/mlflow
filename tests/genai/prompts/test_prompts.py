@@ -54,4 +54,4 @@ def test_load_prompt_sends_telemetry_record(mock_requests):
     mlflow.genai.register_prompt("test_prompt_load", "test template")
     mlflow.genai.load_prompt("prompts:/test_prompt_load/1")
 
-    validate_telemetry_record(mock_requests, mlflow.genai.load_prompt, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.genai.load_prompt, search_index=True)

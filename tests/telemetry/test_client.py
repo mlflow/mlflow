@@ -40,10 +40,6 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client.add_record(record)
     telemetry_client.flush()
 
-    # Verify record was sent
-    assert len(mock_requests) == 1
-
-    # Check the received data structure
     received_record = mock_requests[0]
     assert "data" in received_record
     assert "partition-key" in received_record
@@ -106,9 +102,9 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client.flush(terminate=True)
     end_time = time.time()
 
-    # 1 second for consumer threads, 1 second for batch checker thread
+    # 1 second for consumer threads
     # add some buffer for processing time
-    assert end_time - start_time < 3
+    assert end_time - start_time < 2
     # remaining records are processed directly
     assert len(mock_requests) == 100
 
@@ -149,7 +145,8 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     )
     telemetry_client.add_record(record)
 
-    telemetry_client.flush()
+    # we need to terminate since the threads are stopped
+    telemetry_client.flush(terminate=True)
 
     # No records should be sent
     assert len(mock_requests) == 0
