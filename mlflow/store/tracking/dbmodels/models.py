@@ -1,3 +1,5 @@
+import json
+
 import sqlalchemy as sa
 from sqlalchemy import (
     BigInteger,
@@ -16,9 +18,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
     Dataset,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     InputTag,
     Metric,
     Param,
@@ -38,7 +45,9 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
+from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
 
@@ -714,7 +723,7 @@ class SqlTraceInfo(Base):
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
-            assessments=[],  # Implement this once we support assessments in OSS
+            assessments=[a.to_mlflow_entity() for a in self.assessments],
         )
 
 
@@ -777,6 +786,197 @@ class SqlTraceMetadata(Base):
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
     )
+
+
+class SqlAssessments(Base):
+    __tablename__ = "assessments"
+
+    assessment_id = Column(String(50), nullable=False)
+    """
+    Assessment ID: `String` (limit 50 characters). *Primary Key* for ``assessments`` table.
+    """
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID that a given assessment belongs to. *Foreign Key* into ``trace_info`` table.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Assessment Name: `String` (limit of 250 characters).
+    """
+    assessment_type = Column(String(50), nullable=False)
+    """
+    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    """
+    value = Column(Text, nullable=False)
+    """
+    The assessment's value data stored as JSON: `Text` for the actual value content.
+    """
+    error = Column(Text, nullable=True)
+    """
+    AssessmentError stored as JSON: `Text` for error information (feedback only).
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    The assessment's creation timestamp: `BigInteger`.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    The update time of an assessment if the assessment has been updated: `BigInteger`.
+    """
+    source_type = Column(String(50), nullable=False)
+    """
+    Assessment source type: `String` (limit 50 characters). e.g., "HUMAN", "CODE", "LLM_JUDGE".
+    """
+    source_id = Column(String(250), nullable=True)
+    """
+    Assessment source ID: `String` (limit 250 characters). e.g., "evaluator@company.com".
+    """
+    run_id = Column(String(32), nullable=True)
+    """
+    Run ID associated with the assessment if generated due to a run event:
+    `String` (limit of 32 characters).
+    """
+    span_id = Column(String(50), nullable=True)
+    """
+    Span ID if the assessment is applied to a Span within a Trace:
+    `String` (limit of 50 characters).
+    """
+    rationale = Column(Text, nullable=True)
+    """
+    Justification for the assessment: `Text` for longer explanations.
+    """
+    overrides = Column(String(50), nullable=True)
+    """
+    Overridden assessment_id if an assessment is intended to update and replace an existing
+    assessment: `String` (limit of 50 characters).
+    """
+    valid = Column(Boolean, nullable=False, default=True)
+    """
+    Indicator for whether an assessment has been marked as invalid: `Boolean`. Defaults to True.
+    """
+    assessment_metadata = Column(Text, nullable=True)
+    """
+    Assessment metadata stored as JSON: `Text` for complex metadata structures.
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("assessments", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("assessment_id", name="assessments_pkey"),
+        Index(f"index_{__tablename__}_trace_id_created_timestamp", "trace_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_run_id_created_timestamp", "run_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
+        Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
+    )
+
+    def to_mlflow_entity(self) -> Assessment:
+        """Convert SqlAssessments to Assessment object."""
+        value_str = self.value
+        error_str = self.error
+        assessment_metadata_str = self.assessment_metadata
+        assessment_type_value = self.assessment_type
+
+        parsed_value = json.loads(value_str)
+        parsed_error = None
+        if error_str is not None:
+            error_dict = json.loads(error_str)
+            parsed_error = AssessmentError.from_dictionary(error_dict)
+
+        parsed_metadata = None
+        if assessment_metadata_str is not None:
+            parsed_metadata = json.loads(assessment_metadata_str)
+
+        source = AssessmentSource(source_type=self.source_type, source_id=self.source_id)
+
+        if assessment_type_value == "feedback":
+            assessment = Feedback(
+                name=self.name,
+                value=parsed_value,
+                error=parsed_error,
+                source=source,
+                trace_id=self.trace_id,
+                rationale=self.rationale,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+                overrides=self.overrides,
+                valid=self.valid,
+            )
+        elif assessment_type_value == "expectation":
+            assessment = Expectation(
+                name=self.name,
+                value=parsed_value,
+                source=source,
+                trace_id=self.trace_id,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
+        else:
+            raise ValueError(f"Unknown assessment type: {assessment_type_value}")
+
+        assessment.run_id = self.run_id
+        assessment.assessment_id = self.assessment_id
+
+        return assessment
+
+    @classmethod
+    def from_mlflow_entity(cls, assessment: Assessment):
+        if assessment.assessment_id is None:
+            assessment.assessment_id = generate_assessment_id()
+
+        current_timestamp = get_current_time_millis()
+
+        if assessment.feedback is not None:
+            assessment_type = "feedback"
+            value_json = json.dumps(assessment.feedback.value)
+            error_json = (
+                json.dumps(assessment.feedback.error.to_dictionary())
+                if assessment.feedback.error
+                else None
+            )
+        elif assessment.expectation is not None:
+            assessment_type = "expectation"
+            value_json = json.dumps(assessment.expectation.value)
+            error_json = None
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Assessment must have either feedback or expectation value"
+            )
+
+        metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
+
+        return SqlAssessments(
+            assessment_id=assessment.assessment_id,
+            trace_id=assessment.trace_id,
+            name=assessment.name,
+            assessment_type=assessment_type,
+            value=value_json,
+            error=error_json,
+            created_timestamp=assessment.create_time_ms or current_timestamp,
+            last_updated_timestamp=assessment.last_update_time_ms or current_timestamp,
+            source_type=assessment.source.source_type,
+            source_id=assessment.source.source_id,
+            run_id=assessment.run_id,
+            span_id=assessment.span_id,
+            rationale=assessment.rationale,
+            overrides=assessment.overrides,
+            valid=True,
+            assessment_metadata=metadata_json,
+        )
+
+    def __repr__(self):
+        return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
 
 
 class SqlLoggedModel(Base):
