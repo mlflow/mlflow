@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 import os
@@ -255,14 +256,35 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
 def _trace_wrapper(original, *args, **kwargs):
     from mlflow.tracing.constant import SpanAttributeKey
 
-    span = get_current_span()
-    if span and span.is_recording():
-        span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
-        span.set_attribute(SpanAttributeKey.INPUTS, str(args))
-    result = original(*args, **kwargs)
-    if span and span.is_recording():
-        span.set_attribute(SpanAttributeKey.OUTPUTS, str(result))
-    return result
+    if inspect.iscoroutinefunction(original):
+
+        async def async_trace_wrapper():
+            span = get_current_span()
+            if span and span.is_recording():
+                span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
+                span.set_attribute(SpanAttributeKey.INPUTS, str(args))
+
+            try:
+                result = await original(*args, **kwargs)
+                if span and span.is_recording():
+                    span.set_attribute(SpanAttributeKey.OUTPUTS, str(result))
+                return result
+            except Exception as e:
+                if span and span.is_recording():
+                    span.set_attribute(SpanAttributeKey.OUTPUTS, f"Error: {e!s}")
+                raise
+
+        return async_trace_wrapper()
+    else:
+        span = get_current_span()
+        if span and span.is_recording():
+            span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
+            span.set_attribute(SpanAttributeKey.INPUTS, str(args))
+
+        result = original(*args, **kwargs)
+        if span and span.is_recording():
+            span.set_attribute(SpanAttributeKey.OUTPUTS, str(result))
+        return result
 
 
 def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) -> None:

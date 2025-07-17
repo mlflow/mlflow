@@ -113,6 +113,8 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(
 
     assert trace.data.request
     assert trace.data.response
+    assert isinstance(trace.data.response, str)
+    assert "FunctionResult" in trace.data.response or len(trace.data.response) > 0
     assert trace.info.tags.get("mlflow.traceName")
 
 
@@ -127,6 +129,8 @@ async def test_sk_invoke_complex(mock_openai):
 
     assert trace.data.request
     assert trace.data.response
+    assert isinstance(trace.data.response, str)
+    assert "FunctionResult" in trace.data.response or len(trace.data.response) > 0
     assert trace.info.tags.get("mlflow.traceName")
 
     spans = trace.data.spans
