@@ -1,7 +1,7 @@
 """Add webhooks and webhook_events tables
 
 Revision ID: 1a0cddfcaa16
-Revises: cbc13b556ace
+Revises: 770bee3ae1dd
 Create Date: 2025-07-07 23:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from mlflow.store.model_registry.dbmodels.models import SqlWebhook, SqlWebhookEv
 
 # revision identifiers, used by Alembic.
 revision = "1a0cddfcaa16"
-down_revision = "cbc13b556ace"
+down_revision = "770bee3ae1dd"
 branch_labels = None
 depends_on = None
 
