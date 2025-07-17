@@ -21,12 +21,8 @@ import type {
   ModelTraceSpan,
   ModelTraceSpanNode,
   ModelTraceChatMessage,
-  LangchainChatGeneration,
-  LangchainBaseMessage,
   ModelTraceChatResponse,
   ModelTraceChatInput,
-  LlamaIndexChatResponse,
-  LangchainToolCallMessage,
   ModelTraceToolCall,
   ModelTraceChatTool,
   ModelTraceChatToolParamProperty,
@@ -39,23 +35,23 @@ import type {
   Assessment,
   RetrieverDocument,
   ModelTraceEvent,
-  GeminiContent,
-  GeminiContentPart,
-  GeminiCandidate,
-  AnthropicMessageParam,
-  AnthropicContentBlockParam,
-  ModelTraceContentParts,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
-import type {
-  OpenAIResponsesInput,
-  OpenAIResponsesOutputItem,
-  OpenAIResponsesInputMessage,
-  OpenAIResponsesInputText,
-  OpenAIResponsesInputMessageRole,
-  OpenAIResponsesInputFile,
-  OpenAIResponsesInputImage,
-} from './chat-utils/openai.types';
+import {
+  normalizeAnthropicChatInput,
+  normalizeAnthropicChatOutput,
+  normalizeGeminiChatInput,
+  normalizeGeminiChatOutput,
+  normalizeOpenAIChatInput,
+  normalizeOpenAIChatResponse,
+  normalizeOpenAIResponsesInput,
+  normalizeOpenAIResponsesOutput,
+  normalizeLangchainChatInput,
+  normalizeLangchainChatResult,
+  normalizeLlamaIndexChatResponse,
+  normalizeDspyChatInput,
+  normalizeDspyChatOutput,
+} from './normalizers';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -729,75 +725,6 @@ export const getSpanExceptionCount = (span: ModelTraceSpanNode | ModelTraceSpan)
   return getSpanExceptionEvents(span).length;
 };
 
-export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessage): ModelTraceChatMessage | null => {
-  let role: ModelTraceChatMessage['role'];
-  switch (message.type) {
-    case 'user':
-    case 'human':
-      role = 'user';
-      break;
-    case 'assistant':
-    case 'ai':
-      role = 'assistant';
-      break;
-    case 'system':
-      role = 'system';
-      break;
-    case 'tool':
-      role = 'tool';
-      break;
-    case 'function':
-      role = 'function';
-      break;
-    default:
-      return null;
-  }
-
-  const normalizedMessage: ModelTraceChatMessage = {
-    content: message.content,
-    role,
-  };
-
-  const toolCalls = message.tool_calls;
-  const toolCallsFromKwargs = message.additional_kwargs?.tool_calls;
-
-  // attempt to parse tool calls from the top-level field,
-  // otherwise fall back to the additional_kwargs field if it exists
-  if (
-    !isNil(toolCalls) &&
-    Array.isArray(toolCalls) &&
-    toolCalls.length > 0 &&
-    toolCalls.every(isLangchainToolCallMessage)
-  ) {
-    // compact for typing. the coercion should not fail since we
-    // check that the type is correct in the if condition above
-    normalizedMessage.tool_calls = compact(toolCalls.map(normalizeLangchainToolCall));
-  } else if (
-    !isNil(toolCallsFromKwargs) &&
-    Array.isArray(toolCallsFromKwargs) &&
-    toolCallsFromKwargs.length > 0 &&
-    toolCallsFromKwargs.every(isModelTraceToolCall)
-  ) {
-    normalizedMessage.tool_calls = toolCallsFromKwargs.map(prettyPrintToolCall);
-  }
-
-  if (!isNil(message.tool_call_id)) {
-    normalizedMessage.tool_call_id = message.tool_call_id;
-  }
-
-  return normalizedMessage;
-};
-
-export const normalizeLangchainToolCall = (toolCall: LangchainToolCallMessage): ModelTraceToolCall | null => {
-  return {
-    id: toolCall.id,
-    function: {
-      arguments: JSON.stringify(toolCall.args, null, 2),
-      name: toolCall.name,
-    },
-  };
-};
-
 export const isModelTraceChatToolParamProperty = (obj: any): obj is ModelTraceChatToolParamProperty => {
   if (isNil(obj)) {
     return false;
@@ -935,32 +862,6 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
   return obj && isModelTraceChoices(obj.choices);
 };
 
-export const isLangchainBaseMessage = (obj: any): obj is LangchainBaseMessage => {
-  if (!obj) {
-    return false;
-  }
-
-  // it's okay if it's undefined / null, but if present it must be a string
-  if (!isNil(obj.content) && !isString(obj.content)) {
-    return false;
-  }
-
-  // tool call validation is handled by the normalization function
-  return ['human', 'user', 'assistant', 'ai', 'system', 'tool', 'function'].includes(obj.type);
-};
-
-export const isLangchainToolCallMessage = (obj: any): obj is LangchainToolCallMessage => {
-  return obj && isString(obj.name) && has(obj, 'args') && isString(obj.id);
-};
-
-export const isLangchainChatGeneration = (obj: any): obj is LangchainChatGeneration => {
-  return obj && isLangchainBaseMessage(obj.message);
-};
-
-export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatResponse => {
-  return obj && isModelTraceChatMessage(obj.message);
-};
-
 /**
  * Attempt to normalize a conversation, return null in case the format is unrecognized
  * TODO: move all chat parsing logic to the chat-utils folder to avoid cluttering this
@@ -978,6 +879,8 @@ export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatRespons
  *   8. DSPy chat outputs
  *   9. Gemini inputs
  *  10. Gemini outputs
+ *  11. Anthropic inputs
+ *  12. Anthropic outputs
  */
 export const normalizeConversation = (input: any): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -1060,83 +963,6 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
   }
 };
 
-// normalize langchain chat input format
-export const normalizeLangchainChatInput = (obj: any): ModelTraceChatMessage[] | null => {
-  // it could be a list of list of messages
-  if (
-    Array.isArray(obj) &&
-    obj.length === 1 &&
-    Array.isArray(obj[0]) &&
-    obj[0].length > 0 &&
-    obj[0].every(isLangchainBaseMessage)
-  ) {
-    const messages = obj[0].map(langchainMessageToModelTraceMessage);
-    // if we couldn't convert all the messages, then consider the input invalid
-    if (messages.some((message) => message === null)) {
-      return null;
-    }
-
-    return messages as ModelTraceChatMessage[];
-  }
-
-  // it could also be an object with the `messages` key
-  if (Array.isArray(obj?.messages) && obj.messages.length > 0 && obj.messages.every(isLangchainBaseMessage)) {
-    const messages = obj.messages.map(langchainMessageToModelTraceMessage);
-
-    if (messages.some((message: ModelTraceChatMessage[] | null) => message === null)) {
-      return null;
-    }
-
-    return messages as ModelTraceChatMessage[];
-  }
-
-  return null;
-};
-
-const isLangchainChatGenerations = (obj: any): obj is LangchainChatGeneration[][] => {
-  if (!Array.isArray(obj) || obj.length < 1) {
-    return false;
-  }
-
-  if (!Array.isArray(obj[0]) || obj[0].length < 1) {
-    return false;
-  }
-
-  // langchain chat generations are a list of lists of messages
-  return obj[0].every(isLangchainChatGeneration);
-};
-
-const getMessagesFromLangchainChatGenerations = (
-  generations: LangchainChatGeneration[],
-): ModelTraceChatMessage[] | null => {
-  const messages = generations.map((generation: LangchainChatGeneration) =>
-    langchainMessageToModelTraceMessage(generation.message),
-  );
-
-  if (messages.some((message) => message === null)) {
-    return null;
-  }
-
-  return messages as ModelTraceChatMessage[];
-};
-
-// detect if an object is a langchain ChatResult, and normalize it to a list of messages
-export const normalizeLangchainChatResult = (obj: any): ModelTraceChatMessage[] | null => {
-  if (isLangchainChatGenerations(obj)) {
-    return getMessagesFromLangchainChatGenerations(obj[0]);
-  }
-
-  if (
-    !Array.isArray(obj?.generations) ||
-    !(obj.generations.length > 0) ||
-    !obj.generations[0].every(isLangchainChatGeneration)
-  ) {
-    return null;
-  }
-
-  return getMessagesFromLangchainChatGenerations(obj.generations[0]);
-};
-
 export const prettyPrintToolCall = (toolCall: ModelTraceToolCall): ModelTraceToolCall => {
   // add some spacing to the arguments for better readability
   let args = toolCall.function?.arguments;
@@ -1194,412 +1020,4 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
   };
-};
-
-// normalize the OpenAI chat input format (object with 'messages' or 'input' key)
-export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  const messages = obj.messages ?? obj.input;
-  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isRawModelTraceChatMessage)) {
-    return null;
-  }
-
-  return compact(messages.map(prettyPrintChatMessage));
-};
-
-// normalize the OpenAI chat response format (object with 'choices' key)
-export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
-  if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
-  }
-
-  if (!isModelTraceChatResponse(obj)) {
-    return null;
-  }
-
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
-};
-
-const isOpenAIResponsesInputMessage = (obj: any): obj is OpenAIResponsesInputMessage => {
-  if (['user', 'assistant', 'system', 'developer'].includes(obj.role)) {
-    return (
-      typeof obj.content === 'string' ||
-      (Array.isArray(obj.content) &&
-        obj.content.every(
-          (item: unknown) =>
-            item &&
-            typeof item === 'object' &&
-            'type' in item &&
-            typeof item.type === 'string' &&
-            ['input_text', 'input_image', 'input_file'].includes(item.type),
-        ))
-    );
-  }
-
-  return false;
-};
-
-export const isOpenAIResponsesInput = (obj: any): obj is OpenAIResponsesInput => {
-  if (!obj) {
-    return false;
-  }
-
-  if (typeof obj === 'string') {
-    return true;
-  }
-
-  if (isOpenAIResponsesInputMessage(obj)) {
-    return true;
-  }
-
-  return false;
-};
-
-export const isOpenAIResponsesOutputItem = (obj: any): obj is OpenAIResponsesOutputItem => {
-  if (!obj) {
-    return false;
-  }
-
-  if (obj.type === 'message') {
-    return isRawModelTraceChatMessage(obj);
-  }
-
-  if (obj.type === 'function_call') {
-    return isString(obj.call_id) && isString(obj.name) && isString(obj.arguments);
-  }
-
-  if (obj.type === 'function_call_output') {
-    return isString(obj.call_id) && isString(obj.output);
-  }
-
-  return false;
-};
-
-const normalizeOpenAIResponsesInputItem = (
-  obj: OpenAIResponsesInputText | OpenAIResponsesInputFile | OpenAIResponsesInputImage,
-  role: OpenAIResponsesInputMessageRole,
-): ModelTraceChatMessage | null => {
-  if ('type' in obj && obj.type === 'input_text') {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'text', text: obj.text }],
-      role: role,
-    });
-  }
-
-  if ('type' in obj && obj.type === 'input_image' && obj.image_url) {
-    return prettyPrintChatMessage({
-      type: 'message',
-      content: [{ type: 'image_url', image_url: { url: obj.image_url } }],
-      role: role,
-    });
-  }
-
-  // TODO: file input not supported yet
-  // if ('type' in obj && obj.type === 'input_file') {
-  //   return prettyPrintChatMessage({ type: 'message', content: obj.file_url, role: role });
-  // }
-
-  return null;
-};
-
-const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage): ModelTraceChatMessage[] | null => {
-  if (typeof obj.content === 'string') {
-    const message = prettyPrintChatMessage({ type: 'message', content: obj.content, role: obj.role });
-    return message && [message];
-  } else {
-    return obj.content.map((item) => normalizeOpenAIResponsesInputItem(item, obj.role)).filter((item) => item !== null);
-  }
-};
-
-export const normalizeOpenAIResponsesInput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (typeof obj === 'string') {
-    const message = prettyPrintChatMessage({ type: 'message', content: obj, role: 'user' });
-    return message && [message];
-  }
-
-  const messages = obj.messages ?? obj.input;
-  if (Array.isArray(messages) && messages.every(isOpenAIResponsesInputMessage)) {
-    return messages.flatMap(normalizeOpenAIResponsesInputMessage).filter((message) => message !== null);
-  }
-
-  return null;
-};
-
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
-  if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
-  }
-
-  if (obj.type === 'function_call') {
-    return {
-      role: 'assistant',
-      tool_calls: [
-        prettyPrintToolCall({
-          id: obj.call_id,
-          function: {
-            arguments: obj.arguments,
-            name: obj.name,
-          },
-        }),
-      ],
-    };
-  }
-
-  if (obj.type === 'function_call_output') {
-    return {
-      role: 'tool',
-      tool_call_id: obj.call_id,
-      content: obj.output,
-    };
-  }
-
-  return null;
-};
-
-export const normalizeOpenAIResponsesOutput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  const output = obj.output;
-
-  // list of output items
-  if (Array.isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem));
-  }
-
-  // list of output chunks
-  if (
-    Array.isArray(output) &&
-    output.length > 0 &&
-    output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
-  ) {
-    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
-  }
-
-  return null;
-};
-
-export const normalizeLlamaIndexChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!isLlamaIndexChatResponse(obj)) {
-    return null;
-  }
-
-  return [obj.message];
-};
-
-export const normalizeDspyChatInput = (obj: any): ModelTraceChatMessage[] | null => {
-  if ('question' in obj) {
-    const message = prettyPrintChatMessage({ type: 'message', content: obj.question, role: 'user' });
-    return message && [message];
-  }
-
-  return null;
-};
-
-export const normalizeDspyChatOutput = (obj: any): ModelTraceChatMessage[] | null => {
-  if ('answer' in obj) {
-    const message = prettyPrintChatMessage({ type: 'message', content: obj.answer, role: 'assistant' });
-    return message && [message];
-  }
-
-  return null;
-};
-
-const isGeminiContentPart = (obj: any): obj is GeminiContentPart => {
-  if ('text' in obj && typeof obj.text === 'string') {
-    return true;
-  }
-
-  return false;
-};
-
-const isGeminiContent = (obj: unknown): obj is GeminiContent => {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'role' in obj &&
-    typeof obj.role === 'string' &&
-    ['user', 'model'].includes(obj.role) &&
-    'parts' in obj &&
-    Array.isArray(obj.parts) &&
-    obj.parts.every(isGeminiContentPart)
-  );
-};
-
-const isGeminiCandidate = (obj: unknown): obj is GeminiCandidate => {
-  return typeof obj === 'object' && obj !== null && 'content' in obj && isGeminiContent(obj.content);
-};
-
-export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  if (typeof obj === 'object' && 'contents' in obj) {
-    if (typeof obj.contents === 'string') {
-      const message = prettyPrintChatMessage({ type: 'message', content: obj.contents, role: 'user' });
-      return message && [message];
-    }
-
-    if (Array.isArray(obj.contents) && obj.contents.every(isGeminiContent)) {
-      return obj.contents
-        .map((item) => {
-          const role = item.role === 'model' ? 'assistant' : item.role;
-          return prettyPrintChatMessage({
-            type: 'message',
-            content: item.parts.map((part) => ({ type: 'text', text: part.text })),
-            role,
-          });
-        })
-        .filter((item) => item !== null);
-    }
-  }
-
-  return null;
-};
-
-export const normalizeGeminiChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  if (
-    typeof obj === 'object' &&
-    'candidates' in obj &&
-    Array.isArray(obj.candidates) &&
-    obj.candidates.every(isGeminiCandidate)
-  ) {
-    return obj.candidates
-      .flatMap((item) => item.content)
-      .map((item) => {
-        const role = item.role === 'model' ? 'assistant' : item.role;
-        return prettyPrintChatMessage({
-          type: 'message',
-          content: item.parts.map((part) => ({ type: 'text', text: part.text })),
-          role,
-        });
-      })
-      .filter((item) => item !== null);
-  }
-
-  return null;
-};
-
-const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBlockParam => {
-  const isObject = typeof obj === 'object' && obj !== null;
-  if (!isObject) {
-    return false;
-  }
-
-  if ('type' in obj) {
-    if (obj.type === 'text' && 'text' in obj && typeof obj.text === 'string') {
-      return true;
-    }
-
-    if (
-      obj.type === 'image' &&
-      'source' in obj &&
-      typeof obj.source === 'object' &&
-      obj.source !== null &&
-      'type' in obj.source
-    ) {
-      if (
-        obj.source.type === 'base64' &&
-        'media_type' in obj.source &&
-        typeof obj.source.media_type === 'string' &&
-        ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(obj.source.media_type) &&
-        'data' in obj.source &&
-        typeof obj.source.data === 'string'
-      ) {
-        return true;
-      }
-
-      if (obj.source.type === 'url' && 'url' in obj.source && typeof obj.source.url === 'string') {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-const isAnthropicMessageParam = (obj: unknown): obj is AnthropicMessageParam => {
-  const isObject = typeof obj === 'object' && obj !== null;
-  if (!isObject) {
-    return false;
-  }
-
-  const hasRole = 'role' in obj && typeof obj.role === 'string' && ['user', 'assistant'].includes(obj.role);
-  const hasContent =
-    'content' in obj &&
-    (typeof obj.content === 'string' ||
-      (Array.isArray(obj.content) && obj.content.every(isAnthropicContentBlockParam)));
-
-  return hasRole && hasContent;
-};
-
-export const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): ModelTraceContentParts => {
-  return item.type === 'text'
-    ? { type: 'text', text: item.text }
-    : item.source.type === 'url'
-    ? { type: 'image_url', image_url: { url: item.source.url } }
-    : {
-        type: 'image_url',
-        image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
-      };
-};
-
-export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  if (
-    typeof obj === 'object' &&
-    'messages' in obj &&
-    Array.isArray(obj.messages) &&
-    obj.messages.every(isAnthropicMessageParam)
-  ) {
-    return obj.messages
-      .map((message) =>
-        prettyPrintChatMessage({
-          type: 'message',
-          content:
-            typeof message.content === 'string'
-              ? message.content
-              : message.content.map(normalizeAnthropicContentBlockParam),
-          role: message.role,
-        }),
-      )
-      .filter((item) => item !== null);
-  }
-
-  return null;
-};
-
-export const normalizeAnthropicChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  if (typeof obj === 'object' && 'type' in obj && obj.type === 'message' && isAnthropicMessageParam(obj)) {
-    const message = prettyPrintChatMessage({
-      type: 'message',
-      content: typeof obj.content === 'string' ? obj.content : obj.content.map(normalizeAnthropicContentBlockParam),
-      role: obj.role,
-    });
-    return message && [message];
-  }
-
-  return null;
 };
