@@ -29,16 +29,14 @@ def _generate_hmac_signature(secret: str, payload_bytes: bytes) -> str:
 
 
 def _send_webhook_request(
-    url: str,
+    webhook: Webhook,
     payload: WebhookPayload,
-    secret: Optional[str] = None,
 ) -> requests.Response:
     """Send a webhook request to the specified URL.
 
     Args:
-        url: The webhook URL to send the request to
+        webhook: The webhook object containing the URL and secret
         payload: The payload to send
-        secret: Optional secret for HMAC signature
 
     Returns:
         requests.Response object from the webhook request
@@ -47,11 +45,11 @@ def _send_webhook_request(
     headers = {"Content-Type": "application/json"}
 
     # Add HMAC signature if secret is configured
-    if secret:
-        signature = _generate_hmac_signature(secret, payload_bytes)
+    if webhook.secret:
+        signature = _generate_hmac_signature(webhook.secret, payload_bytes)
         headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
-    return requests.post(url, data=payload_bytes, headers=headers, timeout=30)
+    return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=30)
 
 
 def _dispatch_webhook_impl(
@@ -64,7 +62,7 @@ def _dispatch_webhook_impl(
     for webhook in store.list_webhooks():
         if event in webhook.events:
             try:
-                _send_webhook_request(webhook.url, payload, webhook.secret)
+                _send_webhook_request(webhook, payload)
             except Exception as e:
                 _logger.error(
                     f"Failed to send webhook to {webhook.url} for event {event}: {e}",
