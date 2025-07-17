@@ -340,7 +340,7 @@ def reset_active_model_context():
 
 
 @pytest.fixture(autouse=True)
-def reset_telemetry_client():
+def terminate_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
