@@ -9,7 +9,7 @@ import requests
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
-from mlflow.webhooks.types import WebhookPayload
+from mlflow.webhooks.types import WebhookPayload, get_example_payload_for_event
 
 _logger = logging.getLogger(__name__)
 
@@ -85,35 +85,6 @@ def dispatch_webhook(
         )
 
 
-def _get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
-    if event == WebhookEvent.REGISTERED_MODEL_CREATED:
-        from mlflow.webhooks.types import RegisteredModelCreatedPayload
-
-        return RegisteredModelCreatedPayload.example()
-    elif event == WebhookEvent.MODEL_VERSION_CREATED:
-        from mlflow.webhooks.types import ModelVersionCreatedPayload
-
-        return ModelVersionCreatedPayload.example()
-    elif event == WebhookEvent.MODEL_VERSION_TAG_SET:
-        from mlflow.webhooks.types import ModelVersionTagSetPayload
-
-        return ModelVersionTagSetPayload.example()
-    elif event == WebhookEvent.MODEL_VERSION_TAG_DELETED:
-        from mlflow.webhooks.types import ModelVersionTagDeletedPayload
-
-        return ModelVersionTagDeletedPayload.example()
-    elif event == WebhookEvent.MODEL_VERSION_ALIAS_CREATED:
-        from mlflow.webhooks.types import ModelVersionAliasCreatedPayload
-
-        return ModelVersionAliasCreatedPayload.example()
-    elif event == WebhookEvent.MODEL_VERSION_ALIAS_DELETED:
-        from mlflow.webhooks.types import ModelVersionAliasDeletedPayload
-
-        return ModelVersionAliasDeletedPayload.example()
-    else:
-        raise ValueError(f"Unknown event type: {event}")
-
-
 def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> WebhookTestResult:
     """Test a webhook by sending a test payload.
 
@@ -127,7 +98,7 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
     # Use provided event or the first event type for testing
     test_event = event or webhook.events[0]
     try:
-        test_payload = _get_example_payload_for_event(test_event)
+        test_payload = get_example_payload_for_event(test_event)
         response = _send_webhook_request(webhook=webhook, payload=test_payload)
         return WebhookTestResult(
             success=response.status_code < 400,

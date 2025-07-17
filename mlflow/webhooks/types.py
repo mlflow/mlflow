@@ -6,6 +6,8 @@ that are sent when various model registry events occur.
 
 from typing import Optional, TypeAlias, TypedDict
 
+from mlflow.entities.webhook import WebhookEvent
+
 
 class RegisteredModelCreatedPayload(TypedDict):
     """Payload sent when a new registered model is created."""
@@ -117,3 +119,31 @@ WebhookPayload: TypeAlias = (
     | ModelVersionAliasCreatedPayload
     | ModelVersionAliasDeletedPayload
 )
+
+# Mapping of event types to their corresponding payload classes
+EVENT_TO_PAYLOAD_CLASS = {
+    WebhookEvent.REGISTERED_MODEL_CREATED: RegisteredModelCreatedPayload,
+    WebhookEvent.MODEL_VERSION_CREATED: ModelVersionCreatedPayload,
+    WebhookEvent.MODEL_VERSION_TAG_SET: ModelVersionTagSetPayload,
+    WebhookEvent.MODEL_VERSION_TAG_DELETED: ModelVersionTagDeletedPayload,
+    WebhookEvent.MODEL_VERSION_ALIAS_CREATED: ModelVersionAliasCreatedPayload,
+    WebhookEvent.MODEL_VERSION_ALIAS_DELETED: ModelVersionAliasDeletedPayload,
+}
+
+
+def get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
+    """Get an example payload for the given webhook event type.
+
+    Args:
+        event: The webhook event type
+
+    Returns:
+        Example payload for the event type
+
+    Raises:
+        ValueError: If the event type is unknown
+    """
+    if payload_class := EVENT_TO_PAYLOAD_CLASS.get(event):
+        return payload_class.example()
+
+    raise ValueError(f"Unknown event type: {event}")
