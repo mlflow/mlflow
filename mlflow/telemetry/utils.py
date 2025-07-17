@@ -56,14 +56,12 @@ def _is_in_databricks() -> bool:
     return False
 
 
-_IS_IN_DISABLED_ENV = _is_ci_env() or _is_in_databricks()
-
-
 def is_telemetry_disabled() -> bool:
     return (
         MLFLOW_DISABLE_TELEMETRY.get()
         or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
-        or _IS_IN_DISABLED_ENV
+        or _is_ci_env()
+        or _is_in_databricks()
     )
 
 
