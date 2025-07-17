@@ -128,7 +128,7 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
     test_event = event or webhook.events[0]
     try:
         test_payload = _get_example_payload_for_event(test_event)
-        response = _send_webhook_request(webhook.url, test_payload, webhook.secret)
+        response = _send_webhook_request(webhook=webhook, payload=test_payload)
         return WebhookTestResult(
             success=response.status_code < 400,
             response_status=response.status_code,
