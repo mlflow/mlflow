@@ -37,15 +37,6 @@
     </pluginRepository>
   </pluginRepositories>
 
-  <mirrors>
-    <mirror>
-      <id>google-maven-central</id>
-      <name>Google Maven Central</name>
-      <url>https://maven-central.storage-download.googleapis.com/repos/central/data</url>
-      <mirrorOf>central</mirrorOf>
-    </mirror>
-  </mirrors>
-
   <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
        publish pom-only packages to Maven -->
   <licenses>
