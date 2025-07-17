@@ -2355,7 +2355,10 @@ def test_log_batch_link_to_active_model(tracking_uri):
     logged_model = mlflow.get_logged_model(model_id=model.model_id)
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
-    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+    assert {m.key: m.value for m in logged_model.metrics} == {
+        "metric1": 1,
+        "metric2": 2,
+    }
 
 
 def test_load_prompt_with_alias_uri(tracking_uri):
@@ -2383,3 +2386,336 @@ def test_load_prompt_with_alias_uri(tracking_uri):
         MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
     ):
         client.load_prompt("prompts:/alias_prompt@production")
+
+
+def test_create_prompt_chat_format_client_integration():
+    """Test client-level integration with chat prompts."""
+    chat_template = [
+        {"role": "system", "content": "You are a {{style}} assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+
+    response_format = {"type": "string"}
+
+    # Use client to create prompt
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_chat_client",
+        template=chat_template,
+        response_format=response_format,
+        commit_message="Test chat prompt via client",
+    )
+
+    assert prompt.template == chat_template
+    assert prompt.response_format == response_format
+
+    # Load via client
+    loaded_prompt = client.get_prompt_version("test_chat_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+    assert loaded_prompt.response_format == response_format
+
+
+def test_link_chat_prompt_version_to_run():
+    """Test linking chat prompts to runs via client."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_chat_link", template=chat_template)
+
+    # Create run and link prompt
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_chat_link"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_create_prompt_with_pydantic_response_format_client():
+    """Test client-level integration with Pydantic response format."""
+    from pydantic import BaseModel
+
+    class ResponseSchema(BaseModel):
+        answer: str
+        confidence: float
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_pydantic_client",
+        template="What is {{question}}?",
+        response_format=ResponseSchema,
+        commit_message="Test Pydantic response format via client",
+    )
+
+    assert prompt.response_format == ResponseSchema.model_json_schema()
+    assert prompt.commit_message == "Test Pydantic response format via client"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_pydantic_client", 1)
+    assert loaded_prompt.response_format == ResponseSchema.model_json_schema()
+
+
+def test_create_prompt_with_dict_response_format_client():
+    """Test client-level integration with dictionary response format."""
+    response_format = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_dict_response_client",
+        template="Analyze this: {{text}}",
+        response_format=response_format,
+        tags={"analysis_type": "text"},
+    )
+
+    assert prompt.response_format == response_format
+    assert prompt.tags["analysis_type"] == "text"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_dict_response_client", 1)
+    assert loaded_prompt.response_format == response_format
+
+
+def test_create_prompt_text_backward_compatibility_client():
+    """Test that text prompt creation continues to work via client."""
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_text_backward_client",
+        template="Hello {{name}}!",
+        commit_message="Test backward compatibility via client",
+    )
+
+    assert prompt.is_text_prompt
+    assert prompt.template == "Hello {{name}}!"
+    assert prompt.commit_message == "Test backward compatibility via client"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_text_backward_client", 1)
+    assert loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == "Hello {{name}}!"
+
+
+def test_create_prompt_complex_chat_template_client():
+    """Test client-level integration with complex chat templates."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_complex_chat_client",
+        template=chat_template,
+        tags={"complexity": "high"},
+    )
+
+    assert prompt.template == chat_template
+    assert prompt.tags["complexity"] == "high"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_complex_chat_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_none_response_format_client():
+    """Test client-level integration with None response format."""
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_none_response_client",
+        template="Hello {{name}}!",
+        response_format=None,
+    )
+
+    assert prompt.response_format is None
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_none_response_client", 1)
+    assert loaded_prompt.response_format is None
+
+
+def test_create_prompt_with_empty_chat_template_client():
+    """Test client-level integration with empty chat template list."""
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_empty_chat_client", template=[])
+
+    assert prompt.is_text_prompt
+    assert prompt.template == "[]"  # Empty list serialized as string
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_empty_chat_client", 1)
+    assert loaded_prompt.is_text_prompt
+
+
+def test_create_prompt_with_single_message_chat_client():
+    """Test client-level integration with single message chat template."""
+    chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_single_message_client", template=chat_template)
+
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_single_message_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_multiple_variables_in_chat_client():
+    """Test client-level integration with multiple variables in chat messages."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_multiple_variables_client", template=chat_template)
+
+    expected_variables = {"style", "name", "greeting", "question", "topic"}
+    assert prompt.variables == expected_variables
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_multiple_variables_client", 1)
+    assert loaded_prompt.variables == expected_variables
+
+
+def test_create_prompt_with_mixed_content_types_client():
+    """Test client-level integration with mixed content types in chat messages."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+        {"role": "assistant", "content": "Hi there! How can I help you today?"},
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_mixed_content_client", template=chat_template)
+
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_mixed_content_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_nested_variables_client():
+    """Test client-level integration with nested variable names."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{user.preferences.style}} assistant.",
+        },
+        {
+            "role": "user",
+            "content": "Hello {{user.name}}! {{user.preferences.greeting}}",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_nested_variables_client", template=chat_template)
+
+    expected_variables = {
+        "user.preferences.style",
+        "user.name",
+        "user.preferences.greeting",
+    }
+    assert prompt.variables == expected_variables
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_nested_variables_client", 1)
+    assert loaded_prompt.variables == expected_variables
+
+
+def test_link_prompt_with_response_format_to_run():
+    """Test linking prompts with response format to runs via client."""
+    response_format = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+    }
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_response_link",
+        template="What is {{question}}?",
+        response_format=response_format,
+    )
+
+    # Create run and link prompt
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_response_link"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_link_multiple_prompt_types_to_run():
+    """Test linking both text and chat prompts to the same run via client."""
+    client = MlflowClient()
+
+    # Create text prompt
+    text_prompt = client.register_prompt(name="test_text_link", template="Hello {{name}}!")
+
+    # Create chat prompt
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+    chat_prompt = client.register_prompt(name="test_chat_link_multiple", template=chat_template)
+
+    # Create run and link both prompts
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, text_prompt)
+    client.link_prompt_version_to_run(run.info.run_id, chat_prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+
+    expected_prompts = [
+        {"name": "test_text_link", "version": "1"},
+        {"name": "test_chat_link_multiple", "version": "1"},
+    ]
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in linked_prompts

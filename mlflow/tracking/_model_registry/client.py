@@ -5,7 +5,9 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 from mlflow.entities.model_registry import (
     ModelVersionTag,
@@ -28,6 +30,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, uti
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
+
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 
 class ModelRegistryClient:
@@ -536,7 +542,8 @@ class ModelRegistryClient:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, "ContentType"]]],
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
@@ -548,14 +555,22 @@ class ModelRegistryClient:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text for this version.
+            template: The prompt template content for this version. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
             description: Optional description of this version.
             tags: Optional dictionary of version tags.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, description, tags)
+        return self.store.create_prompt_version(name, template, response_format, description, tags)
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """

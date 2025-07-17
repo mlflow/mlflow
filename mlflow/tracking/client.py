@@ -20,6 +20,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import yaml
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities import (
@@ -40,12 +41,6 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.assessment import (
-    Assessment,
-    Expectation,
-    Feedback,
-)
-from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
@@ -56,6 +51,10 @@ from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
@@ -125,6 +124,8 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
+
+    from mlflow.types.chat import ContentType
 
 
 _logger = logging.getLogger(__name__)
@@ -443,7 +444,8 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, "ContentType"]]],
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
@@ -451,7 +453,7 @@ class MlflowClient:
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
         A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name
-        and template text at minimum. With MLflow Prompt Registry, you can create, manage,
+        and template content at minimum. With MLflow Prompt Registry, you can create, manage,
         and version control prompts with the MLflow's robust model tracking framework.
 
         If there is no registered prompt with the given name, a new prompt will be created.
@@ -462,18 +464,30 @@ class MlflowClient:
         .. code-block:: python
 
             from mlflow import MlflowClient
+            from pydantic import BaseModel
 
             # Your prompt registry URI
             client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
-            # Register a new prompt
+            # Register a text prompt
             client.register_prompt(
-                name="my_prompt",
+                name="greeting_prompt",
                 template="Respond to the user's message as a {{style}} AI.",
+                response_format={"type": "string", "description": "A friendly response"},
+            )
+
+            # Register a chat prompt with multiple messages
+            client.register_prompt(
+                name="assistant_prompt",
+                template=[
+                    {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                    {"role": "user", "content": "{{question}}"},
+                ],
+                response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
             )
 
             # Load the prompt from the registry
-            prompt = client.load_prompt("my_prompt")
+            prompt = client.load_prompt("greeting_prompt")
 
             # Use the prompt in your application
             import openai
@@ -489,7 +503,7 @@ class MlflowClient:
 
             # Update the prompt with a new version
             prompt = client.register_prompt(
-                name="my_prompt",
+                name="greeting_prompt",
                 template="Respond to the user's message as a {{style}} AI. {{greeting}}",
                 commit_message="Add a greeting to the prompt.",
                 tags={"author": "Bob"},
@@ -497,9 +511,17 @@ class MlflowClient:
 
         Args:
             name: The name of the prompt.
-            template: The template text of the prompt. It can contain variables enclosed in
-                double curly braces, e.g. {{variable}}, which will be replaced with actual values
-                by the `format` method.
+            template: The template content of the prompt. Can be either:
+
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
             tags: A dictionary of tags associated with the **prompt version**.
@@ -529,6 +551,7 @@ class MlflowClient:
             prompt_version = registry_client.create_prompt_version(
                 name=name,
                 template=template,
+                response_format=response_format,
                 description=commit_message,
                 tags=tags or {},
             )
@@ -564,7 +587,21 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
-        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        tags.update({IS_PROMPT_TAG_KEY: "true"})
+        if isinstance(template, list):
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT})
+            tags.update({PROMPT_TEXT_TAG_KEY: json.dumps(template)})
+        else:
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
+            tags.update({PROMPT_TEXT_TAG_KEY: template})
+        if response_format:
+            tags.update(
+                {
+                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
+                }
+            )
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -1491,51 +1528,6 @@ class MlflowClient:
                 it will be truncated when stored.
         """
         self._tracing_client.delete_trace_tag(trace_id, key)
-
-    def log_assessment(
-        self,
-        trace_id: str,
-        name: str,
-        source: AssessmentSource,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        span_id: Optional[str] = None,
-    ) -> Assessment:
-        return self._tracing_client.log_assessment(
-            trace_id=trace_id,
-            name=name,
-            source=source,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-            span_id=span_id,
-        )
-
-    def update_assessment(
-        self,
-        trace_id: str,
-        assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Assessment:
-        return self._tracing_client.update_assessment(
-            trace_id=trace_id,
-            assessment_id=assessment_id,
-            name=name,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-        )
-
-    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
-        return self._tracing_client.delete_assessment(trace_id, assessment_id)
 
     def search_experiments(
         self,

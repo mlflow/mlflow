@@ -426,3 +426,103 @@ def test_get_model_version_by_alias(mock_store):
     mock_store.get_model_version_by_alias.assert_called_once()
     assert result.name == "Model 1"
     assert result.aliases == ["test_alias"]
+
+
+def test_search_registered_models_excludes_chat_prompts(mock_store):
+    """Test that search_registered_models excludes chat prompts correctly."""
+    # This test ensures the prompt filter logic works with new prompt types
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
+    )
+
+    client = newModelRegistryClient()
+    client.search_registered_models(filter_string="test filter")
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"test filter AND {prompt_filter}",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_excludes_text_prompts(mock_store):
+    """Test that search_registered_models excludes text prompts correctly."""
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    client.search_registered_models()
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        prompt_filter, SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
+
+
+def test_search_registered_models_excludes_prompts_with_response_format(mock_store):
+    """Test that search_registered_models excludes prompts with response format."""
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    client.search_registered_models(filter_string="name='test'")
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"name='test' AND {prompt_filter}",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_preserves_existing_prompt_filter(mock_store):
+    """Test that search_registered_models preserves existing prompt filter."""
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    # Test with existing prompt filter
+    client.search_registered_models(filter_string="tag.`mlflow.prompt.is_prompt` != 'true'")
+
+    # Should not add duplicate filter
+    mock_store.search_registered_models.assert_called_with(
+        "tag.`mlflow.prompt.is_prompt` != 'true'",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_with_complex_filter(mock_store):
+    """Test that search_registered_models works with complex filter strings."""
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    complex_filter = "name LIKE 'test%' AND tag.environment = 'prod'"
+    client.search_registered_models(filter_string=complex_filter)
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    expected_filter = f"{complex_filter} AND {prompt_filter}"
+    mock_store.search_registered_models.assert_called_with(
+        expected_filter, SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
+
+
+def test_search_registered_models_with_pagination(mock_store):
+    """Test that search_registered_models works with pagination parameters."""
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1")], "next_token"
+    )
+
+    client = newModelRegistryClient()
+    client.search_registered_models(
+        filter_string="name='test'",
+        max_results=10,
+        order_by=["name"],
+        page_token="prev_token",
+    )
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"name='test' AND {prompt_filter}", 10, ["name"], "prev_token"
+    )
