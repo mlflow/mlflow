@@ -2386,7 +2386,7 @@ def test_clear_active_model_sends_telemetry_record(mock_requests):
     """Test that clear_active_model sends telemetry records."""
     mlflow.set_active_model(name="test_model")
     mlflow.clear_active_model()
-    validate_telemetry_record(mock_requests, mlflow.clear_active_model, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.clear_active_model, search_index=True)
 
 
 def test_initialize_logged_model_sends_telemetry_record(mock_requests):
@@ -2407,7 +2407,7 @@ def test_log_model_params_sends_telemetry_record(mock_requests):
     model = mlflow.initialize_logged_model(name="test_model")
     mlflow.log_model_params(model_id=model.model_id, params={"param1": "value1"})
 
-    validate_telemetry_record(mock_requests, mlflow.log_model_params, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.log_model_params, search_index=True)
 
 
 def test_set_logged_model_tags_sends_telemetry_record(mock_requests):
@@ -2415,4 +2415,4 @@ def test_set_logged_model_tags_sends_telemetry_record(mock_requests):
     model = mlflow.initialize_logged_model(name="test_model")
     mlflow.set_logged_model_tags(model_id=model.model_id, tags={"tag1": "value1"})
 
-    validate_telemetry_record(mock_requests, mlflow.set_logged_model_tags, idx=1)
+    validate_telemetry_record(mock_requests, mlflow.set_logged_model_tags, search_index=True)

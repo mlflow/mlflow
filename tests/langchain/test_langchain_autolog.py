@@ -1254,4 +1254,4 @@ def test_autolog_sends_telemetry_record(mock_requests):
     model = create_openai_runnable(temperature=0.9)
     model.invoke({"product": "MLflow"})
 
-    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, idx=1)
+    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, search_index=True)

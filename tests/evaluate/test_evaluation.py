@@ -2413,4 +2413,4 @@ def test_evaluate_sends_telemetry_record(mock_requests):
 
     evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
 
-    validate_telemetry_record(mock_requests, evaluate, idx=1)
+    validate_telemetry_record(mock_requests, evaluate, search_index=True)
