@@ -41,6 +41,7 @@ export type EntitySearchAutoCompleteCompleteProps = {
   placeholder?: string;
   useQuickFilter?: boolean;
   defaultActiveFirstOption?: boolean;
+  className?: string;
 };
 
 /**
@@ -56,6 +57,7 @@ export const EntitySearchAutoComplete = ({
   placeholder,
   useQuickFilter,
   defaultActiveFirstOption = true,
+  className,
 }: EntitySearchAutoCompleteCompleteProps) => {
   const { theme, getPrefixedClassName } = useDesignSystemTheme();
 
@@ -219,6 +221,7 @@ export const EntitySearchAutoComplete = ({
           width: 'auto',
         },
       }}
+      className={className}
     >
       <AutoComplete
         dropdownMatchSelectWidth={560}

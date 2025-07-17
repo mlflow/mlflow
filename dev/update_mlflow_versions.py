@@ -14,8 +14,9 @@ _PYTHON_VERSION_FILES = [
 
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
-    Path("skinny/pyproject.toml"),
     Path("pyproject.release.toml"),
+    Path("libs/skinny/pyproject.toml"),
+    Path("libs/tracing/pyproject.toml"),
 ]
 
 _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")

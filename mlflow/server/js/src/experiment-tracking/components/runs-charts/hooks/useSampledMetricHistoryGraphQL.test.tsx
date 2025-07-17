@@ -108,7 +108,7 @@ describe('useSampledMetricHistoryGraphQL', () => {
     const { result } = renderTestHook(['test-run-uuid-1']);
 
     await waitFor(() => {
-      expect(Utils.displayGlobalErrorNotification).toBeCalledWith('Requested resource does not exist');
+      expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledWith('Requested resource does not exist');
     });
 
     expect(result.current.apiError).toEqual(expect.objectContaining({ code: 'RESOURCE_DOES_NOT_EXIST' }));

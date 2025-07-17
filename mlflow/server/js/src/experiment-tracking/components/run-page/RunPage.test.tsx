@@ -12,8 +12,8 @@ import userEvent from '@testing-library/user-event';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import {
-  isExperimentLoggedModelsUIEnabled,
   shouldEnableGraphQLRunDetailsPage,
+  shouldUseGetLoggedModelsBatchAPI,
 } from '../../../common/utils/FeatureUtils';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
@@ -22,12 +22,14 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import Utils from '../../../common/utils/Utils';
 
+jest.setTimeout(90000); // Higher timeout due to integration testing and tables
+
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableGraphQLRunDetailsPage: jest.fn(),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => false),
   isModelsInUCEnabled: jest.fn(),
   isRegisterUCModelFromUIEnabled: jest.fn(),
+  shouldUseGetLoggedModelsBatchAPI: jest.fn(),
 }));
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
@@ -118,9 +120,9 @@ describe('RunPage (legacy redux + REST API)', () => {
       expect(screen.getByText('Run page loading')).toBeInTheDocument();
     });
 
-    expect(getRunApi).toBeCalledWith(testRunUuid);
-    expect(getExperimentApi).toBeCalledWith(testExperimentId);
-    expect(searchModelVersionsApi).toBeCalledWith({ run_id: testRunUuid });
+    expect(getRunApi).toHaveBeenCalledWith(testRunUuid);
+    expect(getExperimentApi).toHaveBeenCalledWith(testExperimentId);
+    expect(searchModelVersionsApi).toHaveBeenCalledWith({ run_id: testRunUuid });
   });
 
   const entitiesWithMockRun = {
@@ -142,9 +144,9 @@ describe('RunPage (legacy redux + REST API)', () => {
       expect(screen.getByRole('heading', { name: /Test run Name/ })).toBeInTheDocument();
     });
 
-    expect(getRunApi).not.toBeCalled();
-    expect(getExperimentApi).not.toBeCalled();
-    expect(searchModelVersionsApi).toBeCalled();
+    expect(getRunApi).not.toHaveBeenCalled();
+    expect(getExperimentApi).not.toHaveBeenCalled();
+    expect(searchModelVersionsApi).toHaveBeenCalled();
   });
 
   test('Attempt to rename the run', async () => {
@@ -160,7 +162,7 @@ describe('RunPage (legacy redux + REST API)', () => {
     await userEvent.type(screen.getByTestId('rename-modal-input'), 'brand_new_run_name');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(updateRunApi).toBeCalledWith('test-run-uuid', 'brand_new_run_name', expect.anything());
+    expect(updateRunApi).toHaveBeenCalledWith('test-run-uuid', 'brand_new_run_name', expect.anything());
   });
 
   test('Display 404 page in case of missing run', async () => {
@@ -259,7 +261,10 @@ describe('RunPage (GraphQL API)', () => {
                     },
                   ],
                 },
-                outputs: null,
+                outputs: {
+                  __typename: 'MlflowRunOutputs',
+                  modelOutputs: [{ __typename: 'MlflowModelOutput', modelId: 'test-model-id', step: '1' }],
+                },
                 modelVersions: [],
               },
             },
