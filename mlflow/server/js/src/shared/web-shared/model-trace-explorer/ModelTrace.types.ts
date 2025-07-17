@@ -307,7 +307,10 @@ type ModelTraceAudioContentPart = {
   input_audio: ModelTraceInputAudio;
 };
 
-type ModelTraceContentParts = ModelTraceTextContentPart | ModelTraceImageContentPart | ModelTraceAudioContentPart;
+export type ModelTraceContentParts =
+  | ModelTraceTextContentPart
+  | ModelTraceImageContentPart
+  | ModelTraceAudioContentPart;
 
 export type ModelTraceContentType = string | ModelTraceContentParts[];
 
@@ -555,3 +558,65 @@ export type GeminiContentPart = { text: string };
 //   outcome: 'OUTCOME_UNSPECIFIED' | 'OUTCOME_OK' | 'OUTCOME_FAILED' | 'OUTCOME_DEADLINE_EXCEEDED';
 //   output: string;
 // };
+
+export type AnthropicMessagesInput = {
+  messages: AnthropicMessageParam[];
+};
+
+export type AnthropicMessagesOutput = {
+  id: string;
+  content: AnthropicContentBlock[];
+  role: 'assistant';
+  type: 'message';
+  // model: Model;
+  // stop_reason: StopReason | null;
+  // stop_sequence: string | null;
+  // usage: Usage;
+};
+
+type AnthropicContentBlock = AnthropicTextBlock;
+// | ThinkingBlock
+// | RedactedThinkingBlock
+// | ToolUseBlock
+// | ServerToolUseBlock
+// | WebSearchToolResultBlock;
+
+export type AnthropicMessageParam = {
+  content: string | AnthropicContentBlockParam[];
+  role: 'user' | 'assistant';
+};
+
+export type AnthropicContentBlockParam = AnthropicTextBlockParam | AnthropicImageBlockParam;
+// | DocumentBlockParam
+// | ThinkingBlockParam
+// | RedactedThinkingBlockParam
+// | ToolUseBlockParam
+// | ToolResultBlockParam
+// | ServerToolUseBlockParam
+// | WebSearchToolResultBlockParam;
+
+type AnthropicTextBlockParam = {
+  text: string;
+  type: 'text';
+};
+
+type AnthropicTextBlock = {
+  text: string;
+  type: 'text';
+};
+
+type AnthropicImageBlockParam = {
+  source: AnthropicBase64ImageSource | AnthropicURLImageSource;
+  type: 'image';
+};
+
+type AnthropicBase64ImageSource = {
+  type: 'base64';
+  data: string;
+  media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+};
+
+type AnthropicURLImageSource = {
+  type: 'url';
+  url: string;
+};
