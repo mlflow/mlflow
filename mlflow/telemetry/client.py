@@ -1,8 +1,8 @@
 import atexit
-import json
 import logging
 import threading
 import time
+import uuid
 from dataclasses import asdict
 from queue import Empty, Full, Queue
 from typing import Optional
@@ -18,7 +18,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
 from mlflow.telemetry.utils import is_telemetry_disabled
-from mlflow.utils.logging_utils import suppress_logs_in_thread
+from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -36,14 +36,14 @@ class TelemetryClient:
         self._is_active = False
         self._atexit_callback_registered = False
 
-        # Track consumer threads
-        self._consumer_threads = []
-
         self._batch_size = BATCH_SIZE
         self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
         self._pending_records: list[APIRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
+
+        # consumer threads for sending records
+        self._consumer_threads = []
 
     def add_record(self, record: APIRecord):
         """
@@ -59,12 +59,9 @@ class TelemetryClient:
         with self._batch_lock:
             self._pending_records.append(record)
 
-            should_send = (
-                len(self._pending_records) >= self._batch_size
-                or (time.time() - self._last_batch_time) >= self._batch_time_interval
-            )
-
-            if should_send:
+            # Only send immediately if we've reached the batch size,
+            # time-based sending is handled by the batch checker thread
+            if len(self._pending_records) >= self._batch_size:
                 self._send_batch()
 
     def _send_batch(self):
@@ -72,7 +69,6 @@ class TelemetryClient:
         if not self._pending_records:
             return
 
-        # Create a copy of the current batch and clear the pending list
         self._last_batch_time = time.time()
 
         try:
@@ -85,15 +81,17 @@ class TelemetryClient:
     def _process_records(self, records: list[APIRecord]):
         """Process a batch of telemetry records."""
         try:
-            telemetry_info = self._get_telemetry_info()
+            self._update_backend_store()
             records = [
                 {
-                    "data": json.dumps(telemetry_info | asdict(record)),
-                    # TODO: update partition key
-                    "partition-key": "test",
+                    "data": self.info | record.to_dict(),
+                    # use random uuid as partition key to make sure records are
+                    # distributed evenly across shards
+                    "partition-key": uuid.uuid4().hex,
                 }
                 for record in records
             ]
+            # TODO: add retry logic
             response = requests.post(
                 self.telemetry_url,
                 json={"records": records},
@@ -114,12 +112,18 @@ class TelemetryClient:
         """Individual consumer that processes records from the queue."""
         # suppress logs in the consumer thread to avoid emitting any irrelevant
         # logs during telemetry collection.
-        suppress_logs_in_thread.set(True)
+        should_suppress_logs_in_thread.set(True)
 
         while not self._is_stopped:
             try:
                 records = self._queue.get(timeout=1)
             except Empty:
+                # check if batch time interval has passed and send data if needed
+                if time.time() - self._last_batch_time >= self._batch_time_interval:
+                    self._last_batch_time = time.time()
+                    with self._batch_lock:
+                        if self._pending_records:
+                            self._send_batch()
                 continue
 
             self._process_records(records)
@@ -179,19 +183,30 @@ class TelemetryClient:
         if not self.is_active:
             return
 
-        # Send any pending records before flushing
-        with self._batch_lock:
-            if self._pending_records:
-                self._send_batch()
-
         if terminate:
             # Full shutdown for termination - signal stop and exit immediately
             self._is_stopped = True
             self.is_active = False
-            _logger.debug(
-                f"Telemetry shutdown complete, dropping {self._queue.qsize()} pending records"
+
+            # process pending records directly before exiting
+            with self._batch_lock, suppress_logs_in_thread():
+                if self._pending_records:
+                    self._process_records(self._pending_records)
+                self._pending_records = []
+
+            # Wait for threads to finish with a timeout
+            avg_timeout_per_thread = (
+                1 / len(self._consumer_threads) if self._consumer_threads else 0
             )
+            for thread in self._consumer_threads:
+                if thread.is_alive():
+                    thread.join(timeout=avg_timeout_per_thread)
+
         else:
+            # Send any pending records before flushing
+            with self._batch_lock:
+                if self._pending_records:
+                    self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
                 self._queue.join()
@@ -203,33 +218,11 @@ class TelemetryClient:
         Backend store might be changed after mlflow is imported, we should use this
         method to update the backend store info at sending telemetry step.
         """
-        # import here to avoid circular import
-        from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
-
-        self.info["backend_store_scheme"] = _get_tracking_scheme()
-
-    # NB: this function should only be called inside consumer thread, to
-    # avoid emitting any logs to the main thread
-    def _get_telemetry_info(self) -> dict[str, str]:
         if not IS_TRACING_SDK_ONLY:
-            self._update_backend_store()
-        return self.info
+            # import here to avoid circular import
+            from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-    def _wait_for_consumer_threads(self, terminate: bool = False) -> None:
-        """
-        Wait for telemetry threads to finish to avoid race conditions in tests.
-
-        Args:
-            terminate: If True, terminates the threads after flushing.
-        """
-        # Flush the telemetry client to ensure all pending records are processed
-        self.flush(terminate=terminate)
-
-        if terminate:
-            # Wait for threads to finish -- consumer threads will be terminated
-            for thread in self._consumer_threads:
-                if thread.is_alive():
-                    thread.join(timeout=1)
+            self.info["backend_store_scheme"] = _get_tracking_scheme()
 
 
 _MLFLOW_TELEMETRY_CLIENT = None

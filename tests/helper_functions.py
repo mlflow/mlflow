@@ -12,7 +12,6 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
-from dataclasses import asdict
 from functools import wraps
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -840,11 +839,11 @@ def validate_telemetry_record(
     get_telemetry_client().flush()
 
     record = mock_requests[idx]
-    data = json.loads(record["data"])
+    data = record["data"]
     assert data["api_module"] == func.__module__
     assert data["api_name"] == func.__qualname__
     if isinstance(params, BaseParams):
-        assert data["params"] == asdict(params)
+        assert data["params"] == params.to_json()
     else:
         assert data["params"] == params
     assert data["status"] == status
