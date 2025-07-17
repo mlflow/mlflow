@@ -51,7 +51,7 @@ import {
   normalizeLlamaIndexChatResponse,
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
-} from './normalizers';
+} from './chat-utils';
 
 export const getCurrentUser = () => {
   return 'User';
