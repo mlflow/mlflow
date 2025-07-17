@@ -1,3 +1,4 @@
+import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
 import { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
@@ -64,35 +65,28 @@ type AnthropicURLImageSource = {
 };
 
 const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBlockParam => {
-  const isObject = typeof obj === 'object' && obj !== null;
-  if (!isObject) {
+  if (isNil(obj)) {
     return false;
   }
 
-  if ('type' in obj) {
-    if (obj.type === 'text' && 'text' in obj && typeof obj.text === 'string') {
+  if (has(obj, 'type')) {
+    if (obj.type === 'text' && has(obj, 'text') && isString(obj.text)) {
       return true;
     }
 
-    if (
-      obj.type === 'image' &&
-      'source' in obj &&
-      typeof obj.source === 'object' &&
-      obj.source !== null &&
-      'type' in obj.source
-    ) {
+    if (obj.type === 'image' && has(obj, 'source') && has(obj.source, 'type')) {
       if (
         obj.source.type === 'base64' &&
-        'media_type' in obj.source &&
-        typeof obj.source.media_type === 'string' &&
+        has(obj.source, 'media_type') &&
+        isString(obj.source.media_type) &&
         ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(obj.source.media_type) &&
-        'data' in obj.source &&
-        typeof obj.source.data === 'string'
+        has(obj.source, 'data') &&
+        isString(obj.source.data)
       ) {
         return true;
       }
 
-      if (obj.source.type === 'url' && 'url' in obj.source && typeof obj.source.url === 'string') {
+      if (obj.source.type === 'url' && has(obj.source, 'url') && isString(obj.source.url)) {
         return true;
       }
     }
@@ -101,44 +95,47 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
 };
 
 const isAnthropicMessageParam = (obj: unknown): obj is AnthropicMessageParam => {
-  const isObject = typeof obj === 'object' && obj !== null;
-  if (!isObject) {
+  if (!isObject(obj)) {
     return false;
   }
 
-  const hasRole = 'role' in obj && typeof obj.role === 'string' && ['user', 'assistant'].includes(obj.role);
+  const hasRole = has(obj, 'role') && isString(obj.role) && ['user', 'assistant'].includes(obj.role);
   const hasContent =
     'content' in obj &&
-    (typeof obj.content === 'string' ||
-      (Array.isArray(obj.content) && obj.content.every(isAnthropicContentBlockParam)));
+    (isString(obj.content) || (isArray(obj.content) && obj.content.every(isAnthropicContentBlockParam)));
 
   return hasRole && hasContent;
 };
 
 const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): ModelTraceContentParts => {
-  return item.type === 'text'
-    ? { type: 'text', text: item.text }
-    : item.source.type === 'url'
-    ? { type: 'image_url', image_url: { url: item.source.url } }
-    : {
-        type: 'image_url',
-        image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
-      };
+  switch (item.type) {
+    case 'text': {
+      return { type: 'text', text: item.text };
+    }
+    case 'image': {
+      switch (item.source.type) {
+        case 'base64': {
+          return {
+            type: 'image_url',
+            image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
+          };
+        }
+        case 'url': {
+          return { type: 'image_url', image_url: { url: item.source.url } };
+        }
+      }
+    }
+  }
 };
 
 export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
+  if (!isObject(obj)) {
     return null;
   }
 
-  if (
-    typeof obj === 'object' &&
-    'messages' in obj &&
-    Array.isArray(obj.messages) &&
-    obj.messages.every(isAnthropicMessageParam)
-  ) {
-    return obj.messages
-      .map((message) =>
+  if ('messages' in obj && isArray(obj.messages) && obj.messages.every(isAnthropicMessageParam)) {
+    return compact(
+      obj.messages.map((message) =>
         prettyPrintChatMessage({
           type: 'message',
           content:
@@ -147,19 +144,19 @@ export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage
               : message.content.map(normalizeAnthropicContentBlockParam),
           role: message.role,
         }),
-      )
-      .filter((item) => item !== null);
+      ),
+    );
   }
 
   return null;
 };
 
 export const normalizeAnthropicChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (!obj) {
+  if (!isObject(obj)) {
     return null;
   }
 
-  if (typeof obj === 'object' && 'type' in obj && obj.type === 'message' && isAnthropicMessageParam(obj)) {
+  if (has(obj, 'type') && obj.type === 'message' && isAnthropicMessageParam(obj)) {
     const message = prettyPrintChatMessage({
       type: 'message',
       content: typeof obj.content === 'string' ? obj.content : obj.content.map(normalizeAnthropicContentBlockParam),

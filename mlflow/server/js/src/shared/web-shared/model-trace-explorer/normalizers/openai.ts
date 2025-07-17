@@ -1,4 +1,4 @@
-import { compact, isString } from 'lodash';
+import { compact, get, has, isArray, isNil, isObject, isString } from 'lodash';
 import { ModelTraceChatMessage } from '../ModelTrace.types';
 import {
   isModelTraceChatResponse,
@@ -50,18 +50,13 @@ export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] |
   }));
 };
 
-const isOpenAIResponsesInputMessage = (obj: any): obj is OpenAIResponsesInputMessage => {
-  if (['user', 'assistant', 'system', 'developer'].includes(obj.role)) {
+const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInputMessage => {
+  if (has(obj, 'role') && has(obj, 'content') && ['user', 'assistant', 'system', 'developer'].includes(obj.role)) {
     return (
-      typeof obj.content === 'string' ||
-      (Array.isArray(obj.content) &&
+      isString(obj.content) ||
+      (isArray(obj.content) &&
         obj.content.every(
-          (item: unknown) =>
-            item &&
-            typeof item === 'object' &&
-            'type' in item &&
-            typeof item.type === 'string' &&
-            ['input_text', 'input_image', 'input_file'].includes(item.type),
+          (item: unknown) => has(item, 'type') && ['input_text', 'input_image', 'input_file'].includes(item.type),
         ))
     );
   }
@@ -69,37 +64,25 @@ const isOpenAIResponsesInputMessage = (obj: any): obj is OpenAIResponsesInputMes
   return false;
 };
 
-export const isOpenAIResponsesInput = (obj: any): obj is OpenAIResponsesInput => {
-  if (!obj) {
-    return false;
-  }
-
-  if (typeof obj === 'string') {
-    return true;
-  }
-
-  if (isOpenAIResponsesInputMessage(obj)) {
-    return true;
-  }
-
-  return false;
+export const isOpenAIResponsesInput = (obj: unknown): obj is OpenAIResponsesInput => {
+  return isString(obj) || isOpenAIResponsesInputMessage(obj);
 };
 
-export const isOpenAIResponsesOutputItem = (obj: any): obj is OpenAIResponsesOutputItem => {
-  if (!obj) {
+export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponsesOutputItem => {
+  if (!isObject(obj)) {
     return false;
   }
 
-  if (obj.type === 'message') {
+  if (get(obj, 'type') === 'message') {
     return isRawModelTraceChatMessage(obj);
   }
 
-  if (obj.type === 'function_call') {
-    return isString(obj.call_id) && isString(obj.name) && isString(obj.arguments);
+  if (get(obj, 'type') === 'function_call') {
+    return isString(get(obj, 'call_id')) && isString(get(obj, 'name')) && isString(get(obj, 'arguments'));
   }
 
-  if (obj.type === 'function_call_output') {
-    return isString(obj.call_id) && isString(obj.output);
+  if (get(obj, 'type') === 'function_call_output') {
+    return isString(get(obj, 'call_id')) && isString(get(obj, 'output'));
   }
 
   return false;
@@ -109,18 +92,20 @@ const normalizeOpenAIResponsesInputItem = (
   obj: OpenAIResponsesInputText | OpenAIResponsesInputFile | OpenAIResponsesInputImage,
   role: OpenAIResponsesInputMessageRole,
 ): ModelTraceChatMessage | null => {
-  if ('type' in obj && obj.type === 'input_text') {
+  const text = get(obj, 'text');
+  if (get(obj, 'type') === 'input_text' && isString(text)) {
     return prettyPrintChatMessage({
       type: 'message',
-      content: [{ type: 'text', text: obj.text }],
+      content: [{ type: 'text', text }],
       role: role,
     });
   }
 
-  if ('type' in obj && obj.type === 'input_image' && obj.image_url) {
+  const imageUrl = get(obj, 'image_url');
+  if (get(obj, 'type') === 'input_image' && isString(imageUrl)) {
     return prettyPrintChatMessage({
       type: 'message',
-      content: [{ type: 'image_url', image_url: { url: obj.image_url } }],
+      content: [{ type: 'image_url', image_url: { url: imageUrl } }],
       role: role,
     });
   }
@@ -134,7 +119,7 @@ const normalizeOpenAIResponsesInputItem = (
 };
 
 const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage): ModelTraceChatMessage[] | null => {
-  if (typeof obj.content === 'string') {
+  if (isString(obj.content)) {
     const message = prettyPrintChatMessage({ type: 'message', content: obj.content, role: obj.role });
     return message && [message];
   } else {
@@ -142,15 +127,15 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
   }
 };
 
-export const normalizeOpenAIResponsesInput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (typeof obj === 'string') {
+export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (isString(obj)) {
     const message = prettyPrintChatMessage({ type: 'message', content: obj, role: 'user' });
     return message && [message];
   }
 
-  const messages = obj.messages ?? obj.input;
-  if (Array.isArray(messages) && messages.every(isOpenAIResponsesInputMessage)) {
-    return messages.flatMap(normalizeOpenAIResponsesInputMessage).filter((message) => message !== null);
+  const messages: unknown = get(obj, 'messages') ?? get(obj, 'input');
+  if (isArray(messages) && messages.every(isOpenAIResponsesInputMessage)) {
+    return compact(messages.flatMap(normalizeOpenAIResponsesInputMessage));
   }
 
   return null;
@@ -187,21 +172,21 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
   return null;
 };
 
-export const normalizeOpenAIResponsesOutput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!obj) {
+export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (isNil(obj)) {
     return null;
   }
 
-  const output = obj.output;
+  const output: unknown = get(obj, 'output');
 
   // list of output items
-  if (Array.isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
+  if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
     return compact(output.map(normalizeOpenAIResponsesOutputItem));
   }
 
   // list of output chunks
   if (
-    Array.isArray(output) &&
+    isArray(output) &&
     output.length > 0 &&
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
