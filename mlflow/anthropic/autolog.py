@@ -6,8 +6,6 @@ import mlflow.anthropic
 from mlflow.anthropic.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
@@ -76,13 +74,10 @@ class TracingSession:
     def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
         if self.span:
             if exc_val:
-                self.span.add_event(SpanEvent.from_exception(exc_val))
-                status = SpanStatusCode.ERROR
-            else:
-                status = SpanStatusCode.OK
+                self.span.record_exception(exc_val)
 
             _set_chat_message_attribute(self.span, self.inputs, self.output)
-            self.span.end(status=status, outputs=self.output)
+            self.span.end(outputs=self.output)
 
 
 def _get_span_type(task_name: str) -> str:
