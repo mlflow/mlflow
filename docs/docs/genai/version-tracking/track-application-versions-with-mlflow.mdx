@@ -95,6 +95,7 @@ mlflow.openai.autolog()
 # Set up OpenAI client
 client = openai.OpenAI()
 
+
 # Use the trace decorator to capture the application's entry point
 @mlflow.trace
 def my_app(input: str):
@@ -110,6 +111,7 @@ def my_app(input: str):
         max_tokens=150,
     )
     return response.choices[0].message.content
+
 
 # Test the application
 result = my_app(input="What is MLflow?")
@@ -150,7 +152,9 @@ logged_model_name = f"{app_name}-{version_identifier}"
 
 # Set the active model context
 active_model_info = mlflow.set_active_model(name=logged_model_name)
-print(f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'")
+print(
+    f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
+)
 ```
 
 ## Step 3: (Optional) Record parameters
@@ -188,7 +192,9 @@ To simulate a change without committing, add the following lines to manually cre
 ```python
 # Set the active model context
 active_model_info = mlflow.set_active_model(name="new-name-set-manually")
-print(f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'")
+print(
+    f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
+)
 
 app_params = {
     "llm": "gpt-4o",
@@ -264,6 +270,7 @@ import subprocess
 import hashlib
 import os
 
+
 def get_current_git_hash():
     """
     Get a deterministic hash representing the current git state.
@@ -274,7 +281,9 @@ def get_current_git_hash():
         # Get the git repository root
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=True
+            capture_output=True,
+            text=True,
+            check=True,
         )
         git_root = result.stdout.strip()
 
@@ -314,24 +323,30 @@ def get_current_git_hash():
         # 3. Get all untracked/modified files from status
         result = subprocess.run(
             ["git", "status", "--porcelain", "-uall"],
-            capture_output=True, text=True, check=True
+            capture_output=True,
+            text=True,
+            check=True,
         )
 
         # Parse status output to handle all file states
-        status_lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+        status_lines = (
+            result.stdout.strip().split("\n") if result.stdout.strip() else []
+        )
         file_contents = []
 
         for line in status_lines:
             if len(line) >= 3:
                 status_code = line[:2]
-                filepath = line[3:]  # Don't strip - filepath starts exactly at position 3
+                filepath = line[
+                    3:
+                ]  # Don't strip - filepath starts exactly at position 3
 
                 # For any modified or untracked file, include its current content
-                if '?' in status_code or 'M' in status_code or 'A' in status_code:
+                if "?" in status_code or "M" in status_code or "A" in status_code:
                     try:
                         # Use absolute path relative to git root
                         abs_filepath = os.path.join(git_root, filepath)
-                        with open(abs_filepath, 'rb') as f:
+                        with open(abs_filepath, "rb") as f:
                             # Read as binary to avoid encoding issues
                             content = f.read()
                             # Create a hash of the file content
