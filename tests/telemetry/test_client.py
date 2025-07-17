@@ -222,12 +222,12 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
+    telemetry_client.add_record(record)
 
     telemetry_client.flush()
 
-    # Verify partition key
-    received_record = mock_requests[0]
-    assert received_record["partition-key"] == telemetry_client.info["session_id"]
+    # Verify partition key is random
+    assert mock_requests[0]["partition-key"] != mock_requests[1]["partition-key"]
 
 
 def test_max_workers_setup(telemetry_client: TelemetryClient):

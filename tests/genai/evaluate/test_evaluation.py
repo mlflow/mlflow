@@ -1,4 +1,3 @@
-import json
 import uuid
 from importlib import import_module
 from typing import Any
@@ -400,12 +399,10 @@ def test_evaluate_sends_telemetry_record(mock_requests):
     # are executed in a new thread
     records_count = len(mock_requests)
     assert records_count >= 1
-    expected_params = json.dumps(
-        GenaiEvaluateParams(
-            scorers=["CustomScorer"],
-            is_predict_fn_set=False,
-        ).to_dict()
-    )
+    expected_params = GenaiEvaluateParams(
+        scorers=["CustomScorer"],
+        is_predict_fn_set=False,
+    ).to_json()
     validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)
 
     model = TestModel()
@@ -415,10 +412,8 @@ def test_evaluate_sends_telemetry_record(mock_requests):
         predict_fn=predict_fn,
         scorers=[exact_match],
     )
-    expected_params = json.dumps(
-        GenaiEvaluateParams(
-            scorers=["CustomScorer"],
-            is_predict_fn_set=True,
-        ).to_dict()
-    )
+    expected_params = GenaiEvaluateParams(
+        scorers=["CustomScorer"],
+        is_predict_fn_set=True,
+    ).to_json()
     validate_telemetry_record(mock_requests, mlflow.genai.evaluate, idx=-1, params=expected_params)

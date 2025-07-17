@@ -34,8 +34,8 @@ class BaseParams:
     Base class for params that are logged to telemetry.
     """
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
 
 
 @dataclass
@@ -78,7 +78,7 @@ class APIRecord:
             "api_module": self.api_module,
             "api_name": self.api_name,
             # dump params to string so we can parse them easily in ETL pipeline
-            "params": json.dumps(self.params.to_dict()) if self.params else None,
+            "params": self.params.to_json() if self.params else None,
             "status": self.status.value,
             "duration_ms": self.duration_ms,
         }
@@ -99,21 +99,12 @@ def get_source_sdk() -> SourceSDK:
         return SourceSDK.MLFLOW
 
 
-class TelemetrySchemaVersion(str, Enum):
-    """
-    Telemetry schema version used to track current telemetry schema version.
-    Add new enum value when the schema is evolved.
-    """
-
-    V1 = "v1"
-
-
 @dataclass
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
     source_sdk: str = get_source_sdk().value
     version: str = VERSION
-    schema_version: str = TelemetrySchemaVersion.V1.value
+    schema_version: int = 1
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )

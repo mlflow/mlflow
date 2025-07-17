@@ -2,6 +2,7 @@ import atexit
 import logging
 import threading
 import time
+import uuid
 from dataclasses import asdict
 from queue import Empty, Full, Queue
 from typing import Optional
@@ -43,8 +44,6 @@ class TelemetryClient:
 
         # consumer threads for sending records
         self._consumer_threads = []
-        # background thread for periodic batch checking
-        self._batch_checker_thread = None
 
     def add_record(self, record: APIRecord):
         """
@@ -86,9 +85,9 @@ class TelemetryClient:
             records = [
                 {
                     "data": self.info | record.to_dict(),
-                    # use session_id as partition key to preserve ordering but
-                    # also make sure distribute records evenly across shards
-                    "partition-key": self.info["session_id"],
+                    # use random uuid as partition key to make sure records are
+                    # distributed evenly across shards
+                    "partition-key": uuid.uuid4().hex,
                 }
                 for record in records
             ]
@@ -119,30 +118,16 @@ class TelemetryClient:
             try:
                 records = self._queue.get(timeout=1)
             except Empty:
+                # check if batch time interval has passed and send data if needed
+                if time.time() - self._last_batch_time >= self._batch_time_interval:
+                    with self._batch_lock:
+                        if self._pending_records:
+                            self._send_batch()
+                    self._last_batch_time = time.time()
                 continue
 
             self._process_records(records)
             self._queue.task_done()
-
-    def _batch_checker(self) -> None:
-        """Background thread that periodically checks if pending records should be sent."""
-        suppress_logs_in_thread.set(True)
-        sleep_interval = 1
-        while not self._is_stopped:
-            try:
-                # Sleep for the batch time interval, but check _is_stopped periodically
-                # to allow for quicker shutdown response
-                elapsed = 0
-                while not self._is_stopped and elapsed < self._batch_time_interval:
-                    time.sleep(min(sleep_interval, self._batch_time_interval - elapsed))
-                    elapsed += sleep_interval
-
-                # Check if there are pending records to send
-                with self._batch_lock:
-                    if self._pending_records:
-                        self._send_batch()
-            except Exception as e:
-                _logger.debug(f"Error in batch checker thread: {e}", exc_info=True)
 
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
@@ -181,14 +166,6 @@ class TelemetryClient:
                 consumer_thread.start()
                 self._consumer_threads.append(consumer_thread)
 
-            # Start the batch checker thread
-            self._batch_checker_thread = threading.Thread(
-                target=self._batch_checker,
-                name="MLflowTelemetryBatchChecker",
-                daemon=True,
-            )
-            self._batch_checker_thread.start()
-
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
         _logger.debug(
@@ -225,8 +202,6 @@ class TelemetryClient:
                 if thread.is_alive():
                     thread.join(timeout=avg_timeout_per_thread)
 
-            if self._batch_checker_thread and self._batch_checker_thread.is_alive():
-                self._batch_checker_thread.join(timeout=1)
         else:
             # Send any pending records before flushing
             with self._batch_lock:

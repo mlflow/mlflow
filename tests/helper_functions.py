@@ -843,7 +843,7 @@ def validate_telemetry_record(
     assert data["api_module"] == func.__module__
     assert data["api_name"] == func.__qualname__
     if isinstance(params, BaseParams):
-        assert data["params"] == json.dumps(params.to_dict())
+        assert data["params"] == params.to_json()
     else:
         assert data["params"] == params
     assert data["status"] == status

@@ -1,4 +1,3 @@
-import json
 import time
 from unittest.mock import patch
 
@@ -12,7 +11,7 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIStatus, AutologParams, TelemetrySchemaVersion
+from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
@@ -41,7 +40,7 @@ def test_track_api_usage(mock_requests):
 
     assert len(mock_requests) == 2
     succeed_record = mock_requests[0]["data"]
-    assert succeed_record["schema_version"] == TelemetrySchemaVersion.V1.value
+    assert succeed_record["schema_version"] == 1
     assert succeed_record["api_module"] == succeed_func.__module__
     assert succeed_record["api_name"] == succeed_func.__qualname__
     assert succeed_record["status"] == APIStatus.SUCCESS.value
@@ -49,7 +48,7 @@ def test_track_api_usage(mock_requests):
     assert succeed_record["duration_ms"] > 0
 
     fail_record = mock_requests[1]["data"]
-    assert fail_record["schema_version"] == TelemetrySchemaVersion.V1.value
+    assert fail_record["schema_version"] == 1
     assert fail_record["api_module"] == fail_func.__module__
     assert fail_record["api_name"] == fail_func.__qualname__
     assert fail_record["status"] == APIStatus.FAILURE.value
@@ -144,13 +143,14 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
     assert record["api_module"] == "mlflow.sklearn"
     assert record["api_name"] == "autolog"
     assert record["status"] == APIStatus.SUCCESS.value
-    assert record["params"] == json.dumps(
-        AutologParams(
+    assert (
+        record["params"]
+        == AutologParams(
             flavor="sklearn",
             disable=False,
             log_traces=False,
             log_models=True,
-        ).to_dict()
+        ).to_json()
     )
     assert record["duration_ms"] > 0
 
