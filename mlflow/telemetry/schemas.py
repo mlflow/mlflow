@@ -103,7 +103,7 @@ def get_source_sdk() -> SourceSDK:
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
     source_sdk: str = get_source_sdk().value
-    version: str = VERSION
+    sdk_version: str = VERSION
     schema_version: int = 1
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"

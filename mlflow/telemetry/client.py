@@ -18,7 +18,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
 from mlflow.telemetry.utils import is_telemetry_disabled
-from mlflow.utils.logging_utils import _temp_suppress_logs_in_thread, suppress_logs_in_thread
+from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class TelemetryClient:
         """Individual consumer that processes records from the queue."""
         # suppress logs in the consumer thread to avoid emitting any irrelevant
         # logs during telemetry collection.
-        suppress_logs_in_thread.set(True)
+        should_suppress_logs_in_thread.set(True)
 
         while not self._is_stopped:
             try:
@@ -120,10 +120,10 @@ class TelemetryClient:
             except Empty:
                 # check if batch time interval has passed and send data if needed
                 if time.time() - self._last_batch_time >= self._batch_time_interval:
+                    self._last_batch_time = time.time()
                     with self._batch_lock:
                         if self._pending_records:
                             self._send_batch()
-                    self._last_batch_time = time.time()
                 continue
 
             self._process_records(records)
@@ -189,7 +189,7 @@ class TelemetryClient:
             self.is_active = False
 
             # process pending records directly before exiting
-            with self._batch_lock, _temp_suppress_logs_in_thread():
+            with self._batch_lock, suppress_logs_in_thread():
                 if self._pending_records:
                     self._process_records(self._pending_records)
                 self._pending_records = []

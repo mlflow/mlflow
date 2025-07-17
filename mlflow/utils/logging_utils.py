@@ -102,12 +102,12 @@ class MlflowFormatter(logging.Formatter):
 
 # Thread-local variable to suppress logs in the certain thread, used
 # in telemetry client to suppress logs in the consumer thread
-suppress_logs_in_thread = ThreadLocalVariable(default_factory=lambda: False)
+should_suppress_logs_in_thread = ThreadLocalVariable(default_factory=lambda: False)
 
 
 class SuppressLogFilter(logging.Filter):
     def filter(self, record):
-        if suppress_logs_in_thread.get():
+        if should_suppress_logs_in_thread.get():
             return False
         return super().filter(record)
 
@@ -188,13 +188,13 @@ def _debug(s: str) -> None:
 
 
 @contextlib.contextmanager
-def _temp_suppress_logs_in_thread():
+def suppress_logs_in_thread():
     """
     Context manager to suppress logs in the current thread.
     """
-    original_value = suppress_logs_in_thread.get()
+    original_value = should_suppress_logs_in_thread.get()
     try:
-        suppress_logs_in_thread.set(True)
+        should_suppress_logs_in_thread.set(True)
         yield
     finally:
-        suppress_logs_in_thread.set(original_value)
+        should_suppress_logs_in_thread.set(original_value)
