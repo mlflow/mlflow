@@ -111,10 +111,18 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(
     assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) == 2
 
+    root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
+    assert root_span is not None
+    assert root_span.inputs
+    assert root_span.outputs
+    assert not str(root_span.outputs).startswith("<coroutine")
+    assert "sushi" in str(root_span.outputs).lower()
+
     assert trace.data.request
     assert trace.data.response
-    assert isinstance(trace.data.response, str)
-    assert "FunctionResult" in trace.data.response or len(trace.data.response) > 0
+    assert not trace.data.response.startswith("<coroutine")
+    assert "sushi" in trace.data.response.lower()
+
     assert trace.info.tags.get("mlflow.traceName")
 
 
@@ -127,10 +135,18 @@ async def test_sk_invoke_complex(mock_openai):
     assert len(traces) == 1
     trace = traces[0]
 
+    root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
+    assert root_span is not None
+    assert root_span.inputs
+    assert root_span.outputs
+    assert not str(root_span.outputs).startswith("<coroutine")
+    assert "hotel" in str(root_span.outputs).lower() or "seattle" in str(root_span.outputs).lower()
+
     assert trace.data.request
     assert trace.data.response
-    assert isinstance(trace.data.response, str)
-    assert "FunctionResult" in trace.data.response or len(trace.data.response) > 0
+    assert not trace.data.response.startswith("<coroutine")
+    assert "hotel" in trace.data.response.lower() or "seattle" in trace.data.response.lower()
+
     assert trace.info.tags.get("mlflow.traceName")
 
     spans = trace.data.spans
