@@ -968,6 +968,8 @@ export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatRespons
  *   5. OpenAI Responses inputs
  *   6. OpenAI Responses output
  *   7. LlamaIndex chat responses
+ *   8. DSPy chat inputs
+ *   8. DSPy chat outputs
  */
 export const normalizeConversation = (input: any): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -1012,6 +1014,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
     if (llamaIndexChatResponse) {
       return llamaIndexChatResponse;
+    }
+
+    const dspyChatInput = normalizeDspyChatInput(input);
+    if (dspyChatInput) {
+      return dspyChatInput;
+    }
+
+    const dspyChatOutput = normalizeDspyChatOutput(input);
+    if (dspyChatOutput) {
+      return dspyChatOutput;
     }
 
     return null;
@@ -1356,4 +1368,22 @@ export const normalizeLlamaIndexChatResponse = (obj: any): ModelTraceChatMessage
   }
 
   return [obj.message];
+};
+
+export const normalizeDspyChatInput = (obj: any): ModelTraceChatMessage[] | null => {
+  if ('question' in obj) {
+    const message = prettyPrintChatMessage({ type: 'message', content: obj.question, role: 'user' });
+    return message && [message];
+  }
+
+  return null;
+};
+
+export const normalizeDspyChatOutput = (obj: any): ModelTraceChatMessage[] | null => {
+  if ('answer' in obj) {
+    const message = prettyPrintChatMessage({ type: 'message', content: obj.answer, role: 'assistant' });
+    return message && [message];
+  }
+
+  return null;
 };
