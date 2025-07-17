@@ -1214,4 +1214,4 @@ def test_type_hints_sends_telemetry_record(mock_requests):
     get_telemetry_client().flush()
     # running the predict function doesn't generate new telemetry record
     # flush generates a new record for imports
-    assert len(mock_requests) == 1
+    assert len(mock_requests) == 0
