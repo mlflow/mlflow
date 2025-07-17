@@ -87,6 +87,35 @@ def dispatch_webhook(
         )
 
 
+def _get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
+    if event == WebhookEvent.REGISTERED_MODEL_CREATED:
+        from mlflow.webhooks.types import RegisteredModelCreatedPayload
+
+        return RegisteredModelCreatedPayload.example()
+    elif event == WebhookEvent.MODEL_VERSION_CREATED:
+        from mlflow.webhooks.types import ModelVersionCreatedPayload
+
+        return ModelVersionCreatedPayload.example()
+    elif event == WebhookEvent.MODEL_VERSION_TAG_SET:
+        from mlflow.webhooks.types import ModelVersionTagSetPayload
+
+        return ModelVersionTagSetPayload.example()
+    elif event == WebhookEvent.MODEL_VERSION_TAG_DELETED:
+        from mlflow.webhooks.types import ModelVersionTagDeletedPayload
+
+        return ModelVersionTagDeletedPayload.example()
+    elif event == WebhookEvent.MODEL_VERSION_ALIAS_CREATED:
+        from mlflow.webhooks.types import ModelVersionAliasCreatedPayload
+
+        return ModelVersionAliasCreatedPayload.example()
+    elif event == WebhookEvent.MODEL_VERSION_ALIAS_DELETED:
+        from mlflow.webhooks.types import ModelVersionAliasDeletedPayload
+
+        return ModelVersionAliasDeletedPayload.example()
+    else:
+        raise ValueError(f"Unknown event type: {event}")
+
+
 def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> WebhookTestResult:
     """Test a webhook by sending a test payload.
 
@@ -97,46 +126,18 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
     Returns:
         WebhookTestResult indicating success/failure and response details
     """
+    # Use provided event or the first event type for testing
+    test_event = event or webhook.events[0]
     try:
-        # Use provided event or the first event type for testing
-        test_event = event or webhook.events[0]
-
-        # Generate example payload based on the event type
-        if test_event == WebhookEvent.REGISTERED_MODEL_CREATED:
-            from mlflow.webhooks.types import RegisteredModelCreatedPayload
-
-            test_payload = RegisteredModelCreatedPayload.example()
-        elif test_event == WebhookEvent.MODEL_VERSION_CREATED:
-            from mlflow.webhooks.types import ModelVersionCreatedPayload
-
-            test_payload = ModelVersionCreatedPayload.example()
-        elif test_event == WebhookEvent.MODEL_VERSION_TAG_SET:
-            from mlflow.webhooks.types import ModelVersionTagSetPayload
-
-            test_payload = ModelVersionTagSetPayload.example()
-        elif test_event == WebhookEvent.MODEL_VERSION_TAG_DELETED:
-            from mlflow.webhooks.types import ModelVersionTagDeletedPayload
-
-            test_payload = ModelVersionTagDeletedPayload.example()
-        elif test_event == WebhookEvent.MODEL_VERSION_ALIAS_CREATED:
-            from mlflow.webhooks.types import ModelVersionAliasCreatedPayload
-
-            test_payload = ModelVersionAliasCreatedPayload.example()
-        elif test_event == WebhookEvent.MODEL_VERSION_ALIAS_DELETED:
-            from mlflow.webhooks.types import ModelVersionAliasDeletedPayload
-
-            test_payload = ModelVersionAliasDeletedPayload.example()
-        else:
-            raise ValueError(f"Unknown event type: {test_event}")
-
+        test_payload = _get_example_payload_for_event(test_event)
         response = _send_webhook_request(webhook.url, test_payload, webhook.secret)
         return WebhookTestResult(
             success=response.status_code < 400,
             response_status=response.status_code,
-            response_body=response.text[:1000] if response.text else None,  # Truncate response
+            response_body=response.text,
         )
     except Exception as e:
         return WebhookTestResult(
             success=False,
-            error_message=f"Failed to test webhook: {str(e)[:500]}",
+            error_message=f"Failed to test webhook: {e!r}",
         )
