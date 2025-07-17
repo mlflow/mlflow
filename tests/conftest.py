@@ -14,6 +14,7 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
+import mlflow.telemetry.utils
 from mlflow.telemetry.client import TELEMETRY_URL, get_telemetry_client, set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
@@ -339,17 +340,19 @@ def reset_active_model_context():
 
 
 @pytest.fixture(autouse=True)
-def reset_telemetry_client():
+def terminate_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
         client.flush(terminate=True)
-    set_telemetry_client()
 
 
 @pytest.fixture
-def mock_requests():
+def mock_requests(monkeypatch):
     """Fixture to mock requests.post and capture telemetry records."""
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+
     captured_records = []
 
     def mock_post(url, json=None, **kwargs):
@@ -368,4 +371,6 @@ def mock_requests():
         return mock_response
 
     with patch("requests.post", side_effect=mock_post):
+        # set telemetry client again to ensure it's not None
+        set_telemetry_client()
         yield captured_records

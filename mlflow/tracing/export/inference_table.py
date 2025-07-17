@@ -12,7 +12,6 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
@@ -67,7 +66,6 @@ class InferenceTableSpanExporter(SpanExporter):
             self._client = TracingClient("databricks")
             self._async_queue = AsyncTraceExportQueue()
 
-    @track_api_usage
     def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to Inference Table via the TTLCache buffer.
