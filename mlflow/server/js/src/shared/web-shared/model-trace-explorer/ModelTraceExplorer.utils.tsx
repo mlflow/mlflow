@@ -1131,8 +1131,8 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
           case 'output_text':
             return part.text;
           case 'image_url':
-            // raw encoded image content is not displayed in the UI
-            return '[image]';
+            const url = part?.image_url?.url;
+            return url ? `![image provided in the input](${url})` : '[image]';
           case 'input_audio':
             // raw encoded audio content is not displayed in the UI
             return '[audio]';
