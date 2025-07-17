@@ -10,7 +10,7 @@ from mlflow.telemetry.utils import (
 from tests.helper_functions import validate_telemetry_record
 
 
-def test_is_telemetry_disabled(monkeypatch, mock_requests):
+def test_is_telemetry_disabled(monkeypatch):
     assert is_telemetry_disabled() is False
 
     with monkeypatch.context() as m:
