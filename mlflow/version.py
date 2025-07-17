@@ -25,3 +25,5 @@ IS_TRACING_SDK_ONLY = not any(_is_package_installed(pkg) for pkg in ["mlflow", "
 
 # A flag to indicate whether the environment only has the mlflow-skinny package
 IS_MLFLOW_SKINNY = _is_package_installed("mlflow-skinny") and not _is_package_installed("mlflow")
+
+IS_FULL_MLFLOW = _is_package_installed("mlflow")
