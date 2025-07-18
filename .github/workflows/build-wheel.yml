@@ -127,7 +127,7 @@ jobs:
           uv run --isolated --no-project --with $URL python -I -c 'import mlflow; print(mlflow.__version__)'
 
       - name: Test dev/install-skinny.sh
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.type == 'skinny'
         env:
           PIP_DRY_RUN: "1"
         run: |
