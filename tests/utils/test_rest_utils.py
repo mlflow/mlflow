@@ -8,10 +8,7 @@ import pytest
 import requests
 
 from mlflow.deployments.databricks import DatabricksDeploymentClient
-from mlflow.environment_variables import (
-    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
-    MLFLOW_HTTP_REQUEST_TIMEOUT,
-)
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
@@ -31,6 +28,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     http_request_safe,
 )
+
 from tests import helper_functions
 
 
@@ -856,7 +854,7 @@ def test_timeout_parameter_propagation_with_timeout():
 
 
 def test_timeout_parameter_propagation_without_timeout():
-    """Test timeout parameter propagation from http_request to get_workspace_client without timeout."""
+    """Test timeout param propagation from http_request to get_workspace_client without timeout."""
 
     with (
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
@@ -887,7 +885,7 @@ def test_timeout_parameter_propagation_without_timeout():
 
 
 def test_deployment_client_timeout_propagation(monkeypatch):
-    """Test that DatabricksDeploymentClient propagates MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT to workspace client."""
+    """Test deployment client propagates timeout to workspace client."""
 
     with (
         mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
