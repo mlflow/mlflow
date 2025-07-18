@@ -51,10 +51,7 @@ class RegisteredModelParser(TelemetryParser):
 class CreateRunParser(TelemetryParser):
     @classmethod
     def extract_params(cls, arguments: dict[str, Any]) -> Optional[CreateRunParams]:
-        imports = []
-        for package in PACKAGES_TO_CHECK_IMPORT:
-            if package in sys.modules:
-                imports.append(package)
+        imports = [pkg for pkg in PACKAGES_TO_CHECK_IMPORT if pkg in sys.modules]
         return CreateRunParams(imports=imports)
 
 

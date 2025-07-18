@@ -37,6 +37,9 @@ class RegisteredModelParams(BaseParams):
 
 @dataclass
 class CreateRunParams(BaseParams):
+    # Capture the set of currently imported packages at run creation time to
+    # understand how MLflow is used together with other libraries. Collecting
+    # this data at run creation ensures accuracy and completeness.
     imports: list[str]
 
 
