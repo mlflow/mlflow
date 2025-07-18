@@ -1,6 +1,5 @@
 import functools
 import inspect
-import logging
 import time
 from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
@@ -8,13 +7,8 @@ from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
-    _disable_telemetry,
     is_telemetry_disabled,
-    should_skip_telemetry,
 )
-
-_logger = logging.getLogger(__name__)
-
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -23,16 +17,13 @@ R = TypeVar("R")
 def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        # Check if telemetry is disabled at execution time, not decoration time
-        if is_telemetry_disabled() or should_skip_telemetry(func):
+        if is_telemetry_disabled():
             return func(*args, **kwargs)
 
         success = True
         start_time = time.time()
         try:
-            # disable telemetry for nested API calls
-            with _disable_telemetry():
-                return func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception:
             success = False
             raise
@@ -44,8 +35,8 @@ def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
                     record := _generate_telemetry_record(func, args, kwargs, success, duration_ms)
                 ):
                     client.add_record(record)
-            except Exception as e:
-                _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
+            except Exception:
+                pass
 
     return wrapper
 
@@ -71,7 +62,7 @@ def _generate_telemetry_record(
             del arguments["cls"]
 
         parser = API_PARSER_MAPPING.get(func.__name__)
-        record_params = parser.extract_params(func, arguments) if parser else None
+        record_params = parser.extract_params(arguments) if parser else None
         return APIRecord(
             api_module=func.__module__,
             api_name=func.__qualname__,
@@ -81,7 +72,4 @@ def _generate_telemetry_record(
             duration_ms=duration_ms,
         )
     except Exception:
-        _logger.debug(
-            f"Failed to generate telemetry record for function {func.__name__}",
-            exc_info=True,
-        )
+        pass

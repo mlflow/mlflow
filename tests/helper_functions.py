@@ -821,17 +821,8 @@ def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
     return logged_models[0] if len(logged_models) >= 1 else None
 
 
-@contextmanager
-def avoid_telemetry_tracking():
-    """
-    Context manager to disable telemetry, this avoids side effects of telemetry on tests.
-    """
-    with mock.patch("mlflow.telemetry.track.should_skip_telemetry", return_value=True):
-        yield
-
-
 def validate_telemetry_record(
-    mock_requests, func, *, params=None, status="success", search_index=False
+    mock_requests, func, params=None, *, status="success", search_index=False
 ) -> dict[str, Any]:
     """
     Validate the telemetry record at the given index.

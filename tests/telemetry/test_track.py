@@ -13,8 +13,6 @@ from mlflow.telemetry.schemas import APIStatus
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
-from tests.helper_functions import validate_telemetry_record
-
 
 def test_track_api_usage(mock_requests):
     assert len(mock_requests) == 0
@@ -116,19 +114,3 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     test_func()
     # no new record should be added
     assert len(mock_requests) == 1
-
-
-def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
-    @track_api_usage
-    def test_func_1():
-        test_func_2()
-
-    def test_func_2():
-        test_func_3()
-
-    @track_api_usage
-    def test_func_3():
-        pass
-
-    test_func_1()
-    validate_telemetry_record(mock_requests, test_func_1)

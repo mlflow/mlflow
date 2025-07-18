@@ -26,6 +26,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -61,6 +62,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
+    @track_api_usage
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
@@ -205,6 +207,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
+    @track_api_usage
     def create_model_version(
         self,
         name,
@@ -456,6 +459,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
+    @track_api_usage
     def create_prompt(
         self,
         name: str,

@@ -5,7 +5,7 @@ import time
 import pytest
 
 from mlflow.telemetry.client import MAX_QUEUE_SIZE, MAX_WORKERS, TelemetryClient
-from mlflow.telemetry.schemas import APIRecord, APIStatus, LogModelParams, ModelType
+from mlflow.telemetry.schemas import APIRecord, APIStatus
 
 
 @pytest.fixture
@@ -33,7 +33,6 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
 
     # Add record and wait for processing
@@ -61,7 +60,6 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
             api_name=f"test_api_{i}",
             timestamp_ns=time.time_ns(),
             status=APIStatus.SUCCESS,
-            params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
         )
         telemetry_client.add_record(record)
 
@@ -77,7 +75,6 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
 
@@ -93,7 +90,6 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
             api_name="test_api",
             timestamp_ns=time.time_ns(),
             status=APIStatus.SUCCESS,
-            params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
         )
         telemetry_client.add_record(record)
     assert len(mock_requests) == 0
@@ -121,7 +117,6 @@ def test_error_handling(mock_requests, telemetry_client):
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
 
@@ -141,7 +136,6 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
 
@@ -162,7 +156,6 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
                 api_name=f"thread_{thread_id}_api_{i}",
                 timestamp_ns=time.time_ns(),
                 status=APIStatus.SUCCESS,
-                params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
             )
             telemetry_client.add_record(record)
             time.sleep(0.1)
@@ -191,7 +184,6 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
 
@@ -216,7 +208,6 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
     telemetry_client.add_record(record)
@@ -265,7 +256,6 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, telemetry_cli
         api_name="test_api",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record)
 
@@ -298,7 +288,6 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, telemetry_clien
             api_name=f"test_api_{i}",
             timestamp_ns=time.time_ns(),
             status=APIStatus.SUCCESS,
-            params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
         )
         telemetry_client.add_record(record)
 
@@ -330,7 +319,6 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
         api_name="test_api_1",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record1)
 
@@ -343,7 +331,6 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
         api_name="test_api_2",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record2)
 
@@ -360,7 +347,6 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
         api_name="test_api_3",
         timestamp_ns=time.time_ns(),
         status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
     )
     telemetry_client.add_record(record3)
     assert len(mock_requests) == 2
