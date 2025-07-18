@@ -3,7 +3,9 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -17,6 +19,10 @@ from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
@@ -32,6 +38,9 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 
 @developer_stable
@@ -680,7 +689,8 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, "ContentType"]]],
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
@@ -692,7 +702,15 @@ class AbstractStore:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text.
+            template: The prompt template content. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
             description: Optional description of the prompt version.
             tags: Optional dictionary of version tags.
 
@@ -702,8 +720,25 @@ class AbstractStore:
         # Create version tags including template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
+        if isinstance(template, str):
+            version_tags.append(ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template))
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT))
+        else:
+            version_tags.append(
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=json.dumps(template))
+            )
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_CHAT))
+        if response_format:
+            version_tags.append(
+                ModelVersionTag(
+                    key=RESPONSE_FORMAT_TAG_KEY,
+                    value=json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
+                )
+            )
+
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
 

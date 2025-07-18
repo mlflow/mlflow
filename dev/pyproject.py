@@ -138,9 +138,8 @@ def build(package_type: PackageType) -> None:
                 "MLflow is an open source platform for the complete machine learning lifecycle"
             ),
             "readme": "README_SKINNY.md" if package_type == PackageType.SKINNY else "README.md",
-            "license": {
-                "file": "LICENSE.txt",
-            },
+            "license": "Apache-2.0",
+            "license-files": ["LICENSE.txt"],
             "keywords": ["mlflow", "ai", "databricks"],
             "classifiers": [
                 "Development Status :: 5 - Production/Stable",
@@ -150,7 +149,6 @@ def build(package_type: PackageType) -> None:
                 "Intended Audience :: Information Technology",
                 "Topic :: Scientific/Engineering :: Artificial Intelligence",
                 "Topic :: Software Development :: Libraries :: Python Modules",
-                "License :: OSI Approved :: Apache Software License",
                 "Operating System :: OS Independent",
                 f"Programming Language :: Python :: {python_version}",
             ],

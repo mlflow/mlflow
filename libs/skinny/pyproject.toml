@@ -10,6 +10,8 @@ name = "mlflow-skinny"
 version = "3.1.3.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
 keywords = ["mlflow", "ai", "databricks"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -19,7 +21,6 @@ classifiers = [
   "Intended Audience :: Information Technology",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Libraries :: Python Modules",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.10",
 ]
@@ -46,9 +47,6 @@ dependencies = [
 [[project.maintainers]]
 name = "Databricks"
 email = "mlflow-oss-maintainers@googlegroups.com"
-
-[project.license]
-file = "LICENSE.txt"
 
 [project.optional-dependencies]
 extras = [

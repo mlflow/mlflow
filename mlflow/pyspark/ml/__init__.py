@@ -1,7 +1,7 @@
+import importlib.resources
 import json
 import logging
 import os
-import sys
 import traceback
 import weakref
 from collections import OrderedDict, defaultdict, namedtuple
@@ -96,17 +96,10 @@ def _read_log_model_allowlist():
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
-    if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files  # clint: disable=lazy-builtin-import
-
-        with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
-            builtin_allowlist_file = file.as_posix()
-    else:
-        from importlib.resources import path  # clint: disable=lazy-builtin-import
-
-        with path(__name__, "log_model_allowlist.txt") as file:
-            builtin_allowlist_file = file.as_posix()
+    with importlib.resources.as_file(
+        importlib.resources.files(__name__).joinpath("log_model_allowlist.txt")
+    ) as file:
+        builtin_allowlist_file = file.as_posix()
     spark_session = _get_active_spark_session()
     if not spark_session:
         _logger.info(
