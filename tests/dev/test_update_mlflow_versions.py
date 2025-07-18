@@ -21,7 +21,7 @@ _JAVA_FILES = {}
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {
         6: "  <version>{new_version}</version>",
-        73: "    <mlflow-version>{new_version}</mlflow-version>",
+        65: "    <mlflow-version>{new_version}</mlflow-version>",
     },
     "mlflow/java/client/pom.xml": {
         8: "    <version>{new_version}</version>",
@@ -50,7 +50,7 @@ _PYPROJECT_TOML_FILES = {
     },
     "pyproject.release.toml": {
         12: 'version = "{new_version}"',
-        31: '  "mlflow-skinny=={new_version}",',
+        30: '  "mlflow-skinny=={new_version}",',
     },
     "libs/skinny/pyproject.toml": {
         10: 'version = "{new_version}"',

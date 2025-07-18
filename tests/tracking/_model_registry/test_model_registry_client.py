@@ -32,8 +32,8 @@ def mock_store():
         yield mock_store
 
 
-def newModelRegistryClient():
-    return ModelRegistryClient("uri:/fake", "uri:/fake")
+def newModelRegistryClient(registry_uri="uri:/fake"):
+    return ModelRegistryClient(registry_uri, "uri:/fake")
 
 
 def _model_version(
@@ -152,6 +152,40 @@ def test_search_registered_models(mock_store):
     mock_store.search_registered_models.assert_called_with(prompt_filter, 5, None, None)
     assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
     assert result.token == "page 2 token"
+
+
+def test_search_registered_models_unity_catalog_no_prompt_filter(mock_store):
+    """Test that Unity Catalog doesn't get automatic prompt filter added"""
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
+    )
+
+    result = newModelRegistryClient(
+        "databricks-uc://scope:key@workspace"
+    ).search_registered_models()
+
+    mock_store.search_registered_models.assert_called_with(
+        None,  # No filter at all
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+    assert len(result) == 2
+    assert result.token == ""
+
+
+def test_search_registered_models_non_unity_catalog_with_prompt_filter(mock_store):
+    """Test that non-Unity Catalog registries that support prompts get prompt filter added"""
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+
+    newModelRegistryClient("sqlite:///path/to/db").search_registered_models(
+        filter_string="test filter"
+    )
+
+    mock_store.search_registered_models.assert_called_with(
+        f"test filter AND {prompt_filter}", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
 
 
 def test_get_registered_model_details(mock_store):
