@@ -28,6 +28,7 @@ build_tsdoc() {
         --searchInComments \
         --navigation \
         --excludeNotDocumented false \
+        --customJs "$(cd "$(dirname "$0")" && pwd)/typedoc-analytics.js" \
         src/index.ts
 
     popd
