@@ -4,6 +4,7 @@ Trace archival functionality for MLflow that enables archiving traces to Delta t
 
 import importlib.util
 import logging
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_storage_config import (
@@ -11,6 +12,7 @@ from mlflow.genai.experimental.databricks_trace_storage_config import (
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
+    GetTraceDestinationRequest,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
@@ -232,6 +234,91 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
 
     except Exception as e:
         raise MlflowException(f"Failed to create trace archival view {view_name}") from e
+
+
+@experimental(version="3.2.0")
+def get_databricks_trace_storage_config(
+    experiment_id: str,
+) -> Optional[DatabricksTraceDeltaStorageConfig]:
+    """
+    Get the trace storage configuration for an experiment if archival is enabled.
+
+    This function checks if trace archival is configured for the given experiment by calling
+    the GetTraceDestination API. If archival is enabled, it returns the configuration including
+    table names and schema versions. If not configured, it returns None.
+
+    Args:
+        experiment_id: The MLflow experiment ID to check for trace archival configuration.
+
+    Returns:
+        DatabricksTraceDeltaStorageConfig if archival is enabled for the experiment,
+        None if archival is not configured.
+
+    Raises:
+        MlflowException: If there's an error calling the API (other than 404/not found).
+
+    Example:
+        >>> config = get_databricks_trace_storage_config("12345")
+        >>> if config:
+        ...     print(f"Spans table: {config.spans_table_name}")
+        ...     print(f"Events table: {config.events_table_name}")
+        ... else:
+        ...     print("Trace archival not configured for this experiment")
+    """
+    if importlib.util.find_spec("databricks.agents") is None:
+        return None
+
+    try:
+        # Create proto request with experiment ID
+        proto_trace_location = ProtoTraceLocation()
+        proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto_trace_location.mlflow_experiment.experiment_id = experiment_id
+
+        proto_request = GetTraceDestinationRequest(
+            trace_location=proto_trace_location,
+        )
+
+        # Call the GetTraceDestination API
+        request_body = message_to_json(proto_request)
+
+        _logger.debug(f"Checking trace archival configuration for experiment {experiment_id}")
+
+        trace_destination_proto = call_endpoint(
+            host_creds=get_databricks_host_creds(),
+            endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
+            method="GET",
+            json_body=request_body,
+            response_proto=ProtoTraceDestination(),
+        )
+
+        # Convert to our config object
+        config = DatabricksTraceDeltaStorageConfig.from_proto(trace_destination_proto)
+
+        _logger.debug(
+            f"Found trace archival configuration for experiment {experiment_id}: "
+            f"spans={config.spans_table_name}, events={config.events_table_name}"
+        )
+
+        return config
+
+    except MlflowException as e:
+        # Check if this is a 404 (not configured) vs other error
+        if "404" in str(e) or "not found" in str(e).lower():
+            _logger.debug(f"No trace archival configuration found for experiment {experiment_id}")
+            return None
+        else:
+            _logger.error(
+                f"Error checking trace archival configuration for experiment {experiment_id}: {e}"
+            )
+            raise
+    except Exception as e:
+        _logger.error(
+            f"Unexpected error checking trace archival configuration for experiment "
+            f"{experiment_id}: {e}"
+        )
+        raise MlflowException(
+            f"Failed to check trace archival configuration for experiment {experiment_id}: {e}"
+        ) from e
 
 
 def _do_enable_databricks_archival(

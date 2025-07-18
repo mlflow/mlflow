@@ -9,6 +9,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.genai.experimental.databricks_delta_archiver import DatabricksTraceDeltaArchiver
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -37,6 +38,9 @@ class MlflowV3SpanExporter(SpanExporter):
 
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
+
+        # Dual export to Databricks Delta table
+        self._delta_archiver = DatabricksTraceDeltaArchiver()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -84,12 +88,15 @@ class MlflowV3SpanExporter(SpanExporter):
         Steps:
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
+        3. If enabled, export to Databricks Delta table
         """
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
+                # Optionally archive to a Databricks Delta table
+                self._delta_archiver.archive(trace)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
