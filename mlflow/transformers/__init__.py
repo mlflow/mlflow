@@ -12,11 +12,13 @@ import importlib
 import json
 import logging
 import os
+import warnings
 import pathlib
 import re
 import shutil
 import string
 import sys
+import warnings
 from collections import namedtuple
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -1680,6 +1682,10 @@ def _try_import_conversational_pipeline():
 
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
+    .. deprecated:: 2.12.0
+        This function is deprecated and will be removed in a future release. Please use the
+        `input_example` argument when logging a model to infer the model signature automatically.
+
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
@@ -1700,6 +1706,14 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
 
     from mlflow.transformers import signature
 
+    warnings.warn(
+        "mlflow.transformers.generate_signature_output is deprecated and will be removed "
+        "in a future release. "
+        "Please use the input_example argument when logging a model "
+        "to infer the model signature automatically.",
+        category=DeprecationWarning,
+    )
+    
     if not isinstance(pipeline, transformers.Pipeline):
         raise MlflowException(
             f"The pipeline type submitted is not a valid transformers Pipeline. "

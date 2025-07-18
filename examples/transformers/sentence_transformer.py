@@ -14,9 +14,14 @@ sentence_transformer_pipeline = pipeline(task=task, model=model, tokenizer=token
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=sentence_transformer_pipeline,
-        name="sentence_transformer",
+        artifact_path="sentence_transformer",
         framework="pt",
         torch_dtype=torch.bfloat16,
+        input_example=[
+            "He said that he's sinking all of his investment budget into coconuts.",
+            "No matter how deep you dig, there's going to be a point when it just gets too hot.",
+            "She said that there isn't a noticeable difference between a 10 year and a 15 year whisky.",
+        ],
     )
 
 loaded = mlflow.transformers.load_model(model_info.model_uri, return_type="components")
