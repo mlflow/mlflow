@@ -469,6 +469,8 @@ def test_responses_agent_trace(input, outputs, expected_chat_messages, expected_
 
     if expected_chat_tools is not None:
         assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
+    else:
+        assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
 
     list(model.predict_stream(ResponsesAgentRequest(**input)))
 
@@ -483,7 +485,5 @@ def test_responses_agent_trace(input, outputs, expected_chat_messages, expected_
     if expected_chat_tools is not None:
         assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
 
-    # Verify that output_reducer was applied to predict_stream
-    # The exact format depends on the ResponsesAgentResponse.model_dump() implementation
     assert "output" in spans[0].outputs
-    assert spans[0].outputs["output"] == list(outputs["output"])
+    assert spans[0].outputs["output"] == outputs["output"]
