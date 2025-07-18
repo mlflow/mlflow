@@ -820,3 +820,129 @@ def test_databricks_sdk_retry_backoff_calculation():
     actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
     assert actual_sleep_times == expected_sleep_times
     assert call_count == 4  # Initial + 3 retries
+
+
+@mock.patch("mlflow.utils.rest_utils.get_workspace_client")
+def test_http_request_with_timeout_parameter(mock_get_workspace_client):
+    """Test that timeout parameter is correctly passed to get_workspace_client."""
+    host_creds = MlflowHostCreds("http://my-host", use_databricks_sdk=True)
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.api_client.do.return_value = {"contents": mock.MagicMock()}
+    mock_get_workspace_client.return_value = mock_workspace_client
+    
+    # Test with timeout parameter
+    http_request(host_creds, "/my/endpoint", "GET", timeout=300)
+    
+    # Verify get_workspace_client was called with timeout parameter
+    mock_get_workspace_client.assert_called_once_with(
+        False,  # use_secret_scope_token
+        "http://my-host",  # host
+        None,  # token
+        None,  # databricks_auth_profile
+        retry_timeout_seconds=None,
+        timeout=300,
+    )
+
+
+@mock.patch("mlflow.utils.rest_utils.get_workspace_client")
+def test_http_request_without_timeout_parameter(mock_get_workspace_client):
+    """Test that get_workspace_client is called with timeout=None when not specified."""
+    host_creds = MlflowHostCreds("http://my-host", use_databricks_sdk=True)
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.api_client.do.return_value = {"contents": mock.MagicMock()}
+    mock_get_workspace_client.return_value = mock_workspace_client
+    
+    # Test without timeout parameter
+    http_request(host_creds, "/my/endpoint", "GET")
+    
+    # Verify get_workspace_client was called with timeout=None
+    mock_get_workspace_client.assert_called_once_with(
+        False,  # use_secret_scope_token
+        "http://my-host",  # host
+        None,  # token
+        None,  # databricks_auth_profile
+        retry_timeout_seconds=None,
+        timeout=None,
+    )
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("databricks.sdk.config.Config")
+def test_get_workspace_client_with_timeout(mock_config, mock_workspace_client):
+    """Test that timeout parameter sets http_timeout_seconds in Config kwargs."""
+    from mlflow.utils.rest_utils import get_workspace_client
+    
+    # Test with timeout parameter
+    get_workspace_client(
+        use_secret_scope_token=True,
+        host="http://my-host",
+        token="my-token",
+        databricks_auth_profile=None,
+        retry_timeout_seconds=None,
+        timeout=300,
+    )
+    
+    # Verify Config was called with http_timeout_seconds
+    expected_kwargs = {
+        "host": "http://my-host",
+        "token": "my-token",
+        "http_timeout_seconds": 300,
+    }
+    mock_config.assert_called_once_with(
+        **expected_kwargs,
+        retry_timeout_seconds=mock.ANY,
+    )
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("databricks.sdk.config.Config")
+def test_get_workspace_client_without_timeout(mock_config, mock_workspace_client):
+    """Test that no http_timeout_seconds is set when timeout is None."""
+    from mlflow.utils.rest_utils import get_workspace_client
+    
+    # Test without timeout parameter
+    get_workspace_client(
+        use_secret_scope_token=True,
+        host="http://my-host",
+        token="my-token",
+        databricks_auth_profile=None,
+        retry_timeout_seconds=None,
+        timeout=None,
+    )
+    
+    # Verify Config was called without http_timeout_seconds
+    expected_kwargs = {
+        "host": "http://my-host",
+        "token": "my-token",
+    }
+    mock_config.assert_called_once_with(
+        **expected_kwargs,
+        retry_timeout_seconds=mock.ANY,
+    )
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("databricks.sdk.config.Config")
+def test_get_workspace_client_with_profile_and_timeout(mock_config, mock_workspace_client):
+    """Test timeout parameter with profile authentication."""
+    from mlflow.utils.rest_utils import get_workspace_client
+    
+    # Test with profile and timeout
+    get_workspace_client(
+        use_secret_scope_token=False,
+        host="http://my-host",
+        token=None,
+        databricks_auth_profile="my-profile",
+        retry_timeout_seconds=None,
+        timeout=180,
+    )
+    
+    # Verify Config was called with profile and http_timeout_seconds
+    expected_kwargs = {
+        "profile": "my-profile",
+        "http_timeout_seconds": 180,
+    }
+    mock_config.assert_called_once_with(
+        **expected_kwargs,
+        retry_timeout_seconds=mock.ANY,
+    )
