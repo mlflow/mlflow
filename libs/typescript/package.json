@@ -20,5 +20,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.0"
   }
 }

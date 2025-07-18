@@ -9,20 +9,36 @@ import { SpanStatusCode } from './entities/span_status';
 
 /*
  * Options for starting a span
- *
- * @param name The name of the span.
- * @param spanType The type of the span.
- * @param inputs The inputs of the span.
- * @param attributes The attributes of the span.
- * @param startTimeNs The start time of the span in nanoseconds. If not provided, the current time will be used.
- * @param parent The parent span object.
  */
 export interface SpanOptions {
+  /**
+   * The name of the span.
+   */
   name: string;
+
+  /**
+   * The type of the span, e.g., `LLM`, `TOOL`, `RETRIEVER`, etc.
+   */
   spanType?: SpanType;
+
+  /**
+   * The inputs of the span.
+   */
   inputs?: any;
+
+  /**
+   * The attributes of the span.
+   */
   attributes?: Record<string, any>;
+
+  /**
+   * The start time of the span in nanoseconds. If not provided, the current time will be used.
+   */
   startTimeNs?: number;
+
+  /**
+   * The parent span object. If not provided, the span is considered a root span.
+   */
   parent?: LiveSpan;
 }
 
@@ -31,14 +47,43 @@ export interface SpanOptions {
  */
 export interface TraceOptions
   extends Omit<SpanOptions, 'parent' | 'startTimeNs' | 'inputs' | 'name'> {
+  /**
+   * The name of the span.
+   */
   name?: string;
 }
 
 /**
  * Start a new span with the given name and span type.
  *
- * This function does NOT attach the created span to the current context.
+ * This function does NOT attach the created span to the current context. To create
+ * nested spans, you need to set the parent span explicitly in the `parent` field.
  * The span must be ended by calling `end` method on the returned Span object.
+ *
+ * @param options Optional span options (name, spanType, inputs, attributes, startTimeNs, parent)
+ * @returns The created span object.
+ *
+ * @example
+ * ```typescript
+ * const span = startSpan({
+ *   name: 'my_span',
+ *   spanType: 'LLM',
+ *   inputs: {
+ *     prompt: 'Hello, world!'
+ *   }
+ * });
+ *
+ * // Do something
+ *
+ * // End the span
+ * span.end({
+ *   status: 'OK',
+ *   outputs: {
+ *     response: 'Hello, world!'
+ *   }
+ * });
+ * ```
+ *
  */
 export function startSpan(options: SpanOptions): LiveSpan {
   try {
@@ -83,8 +128,8 @@ export function startSpan(options: SpanOptions): LiveSpan {
  * parent-child relationships between spans.
  *
  * This function supports two usage patterns:
- * 1. Inline: withSpan((span) => { ... }) - span properties set within the callback
- * 2. Options: withSpan((span) => { ... }, { name: 'test', ... }) - span properties set via options object
+ * 1. Inline: `withSpan((span) => { ... })` - span properties set within the callback
+ * 2. Options: `withSpan((span) => { ... }, { name: 'test', ... })` - span properties set via options object
  *
  * @param callback The callback function to execute within the span context
  * @param options Optional span options (name, spanType, inputs, attributes, startTimeNs)
