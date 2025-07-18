@@ -28,10 +28,10 @@ def test_create_logged_model(mock_requests):
     func = TrackingServiceClient.create_logged_model
 
     mlflow.create_external_model(name="model")
-    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="custom"))
+    validate_telemetry_record(mock_requests, func)
 
     mlflow.initialize_logged_model(name="model", tags={"key": "value"})
-    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="custom"))
+    validate_telemetry_record(mock_requests, func)
 
     mlflow.pyfunc.log_model(
         name="model",

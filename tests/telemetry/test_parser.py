@@ -24,16 +24,9 @@ from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
             {
                 "flavor": None,
             },
-            LoggedModelParams(
-                flavor="custom",
-            ),
+            None,
         ),
-        (
-            {},
-            LoggedModelParams(
-                flavor="custom",
-            ),
-        ),
+        ({}, None),
     ],
 )
 def test_logged_model_parser(arguments, expected_params):
