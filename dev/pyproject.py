@@ -125,7 +125,7 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools>=77.0.0"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {

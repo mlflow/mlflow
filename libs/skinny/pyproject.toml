@@ -2,7 +2,7 @@
 # This file defines the package metadata of `mlflow-skinny`.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
