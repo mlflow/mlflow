@@ -791,6 +791,121 @@ describe('API', () => {
     });
   });
 
+  describe('trace wrapper with class methods', () => {
+    class TestClass {
+      private value = 42;
+
+      // Regular method
+      multiply(x: number): number {
+        return this.value * x;
+      }
+
+      // Async method
+      async asyncMultiply(x: number): Promise<number> {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return this.value * x;
+      }
+
+      // Static method
+      static staticAdd(a: number, b: number): number {
+        return a + b;
+      }
+    }
+
+    class DecoratedTestClass {
+      private value = 42;
+
+      // Regular method with decorator
+      @mlflow.trace()
+      multiply(x: number): number {
+        return this.value * x;
+      }
+
+      // Async method with decorator
+      @mlflow.trace({ name: 'async_multiply_decorated', spanType: SpanType.TOOL })
+      async asyncMultiply(x: number): Promise<number> {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return this.value * x;
+      }
+
+      // Static method with decorator
+      @mlflow.trace({ name: 'static_add_decorated', spanType: SpanType.TOOL })
+      static staticAdd(a: number, b: number): number {
+        return a + b;
+      }
+    }
+
+    it('should trace a class method using decorator syntax', async () => {
+      const testInstance = new DecoratedTestClass();
+
+      const result = testInstance.multiply(5);
+      expect(result).toBe(210); // 42 * 5
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('multiply');
+      expect(loggedSpan.spanType).toBe(SpanType.UNKNOWN);
+      expect(loggedSpan.inputs).toEqual({ x: 5 });
+      expect(loggedSpan.outputs).toEqual(210);
+    });
+
+    it('should trace an async class method using decorator syntax', async () => {
+      const testInstance = new DecoratedTestClass();
+
+      const result = await testInstance.asyncMultiply(3);
+      expect(result).toBe(126); // 42 * 3
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('async_multiply_decorated');
+      expect(loggedSpan.spanType).toBe(SpanType.TOOL);
+      expect(loggedSpan.inputs).toEqual({ x: 3 });
+      expect(loggedSpan.outputs).toEqual(126);
+    });
+
+    it('should trace a static method using decorator syntax', async () => {
+      const result = DecoratedTestClass.staticAdd(10, 20);
+      expect(result).toBe(30);
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('static_add_decorated');
+      expect(loggedSpan.spanType).toBe(SpanType.TOOL);
+      expect(loggedSpan.inputs).toEqual({ a: 10, b: 20 });
+      expect(loggedSpan.outputs).toEqual(30);
+    });
+
+    it('should work with bound methods using function syntax', async () => {
+      const testInstance = new TestClass();
+      const tracedMethod = mlflow.trace(testInstance.multiply.bind(testInstance), {
+        name: 'bound_multiply_method',
+        spanType: SpanType.TOOL
+      });
+
+      const result = tracedMethod(7);
+      expect(result).toBe(294); // 42 * 7
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('bound_multiply_method');
+      expect(loggedSpan.spanType).toBe(SpanType.TOOL);
+      expect(loggedSpan.inputs).toEqual({ args: [7] }); // Bound functions lose parameter names
+      expect(loggedSpan.outputs).toEqual(294);
+    });
+  });
+
   describe('updateCurrentTrace', () => {
     it('should warn when called outside of a trace context', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
