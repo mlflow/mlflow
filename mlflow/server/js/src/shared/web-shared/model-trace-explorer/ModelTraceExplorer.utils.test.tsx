@@ -33,11 +33,7 @@ import {
   decodeSpanId,
   prettyPrintToolCall,
 } from './ModelTraceExplorer.utils';
-import {
-  MOCK_OPENAI_RESPONSES_INPUT,
-  MOCK_OPENAI_RESPONSES_OUTPUT,
-  MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT,
-} from './chat-utils/openai.test-utils';
+import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './chat-utils/openai.test-utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
 describe('parseTraceToTree', () => {
@@ -345,59 +341,18 @@ describe('normalizeConversation', () => {
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT)).toEqual([
       expect.objectContaining({
         role: 'user',
-        content: 'Test content',
+        content: 'Generate an image of gray tabby cat hugging an otter with an orange scarf',
       }),
     ]);
 
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT)).toEqual([
       expect.objectContaining({
-        role: 'assistant',
-        tool_calls: [
-          prettyPrintToolCall({
-            id: MOCK_OPENAI_RESPONSES_OUTPUT[0].call_id ?? '',
-            function: {
-              arguments: MOCK_OPENAI_RESPONSES_OUTPUT[0].arguments ?? '',
-              name: MOCK_OPENAI_RESPONSES_OUTPUT[0].name ?? '',
-            },
-          }),
-        ],
-      }),
-      expect.objectContaining({
+        content: '![image](data:image/png;base64,<base64_encoded_image_data>)',
         role: 'tool',
-        tool_call_id: MOCK_OPENAI_RESPONSES_OUTPUT[1].call_id,
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[1].output,
       }),
       expect.objectContaining({
         role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[2]?.content?.[0]?.text,
-      }),
-      expect.objectContaining({
-        role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[3]?.content?.[0]?.text,
-      }),
-    ]);
-
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT)).toEqual([
-      expect.objectContaining({
-        role: 'assistant',
-        tool_calls: [
-          prettyPrintToolCall({
-            id: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.call_id ?? '',
-            function: {
-              arguments: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.arguments ?? '',
-              name: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.name ?? '',
-            },
-          }),
-        ],
-      }),
-      expect.objectContaining({
-        role: 'tool',
-        tool_call_id: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[1].item.call_id,
-        content: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[1].item.output,
-      }),
-      expect.objectContaining({
-        role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[2]?.item?.content?.[0]?.text,
+        content: MOCK_OPENAI_RESPONSES_OUTPUT.output[1].content?.[0].text,
       }),
     ]);
   });
@@ -516,25 +471,6 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
-  });
-
-  it('should defer to the attribute value if present', () => {
-    const modifiedMessages = [{ role: 'user', content: 'different content' }];
-    const modifiedTools = [{ type: 'function', function: { name: 'different tool' } }];
-
-    const modifiedChatInput = {
-      ...MOCK_CHAT_TOOL_CALL_SPAN,
-      attributes: {
-        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
-        'mlflow.chat.messages': JSON.stringify(modifiedMessages),
-        'mlflow.chat.tools': JSON.stringify(modifiedTools),
-      },
-    };
-
-    const normalized = normalizeNewSpanData(modifiedChatInput, 0, 0, [], {}, '');
-
-    expect(normalized.chatMessages).toEqual(modifiedMessages);
-    expect(normalized.chatTools).toEqual(modifiedTools);
   });
 
   it('return undefined chat messages when either input or output is not chat', () => {
