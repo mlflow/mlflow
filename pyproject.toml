@@ -4,7 +4,7 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools>=77.0.0"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]

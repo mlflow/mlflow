@@ -125,7 +125,9 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools>=77.0.0"],
+            # `setuptools>=77.0.3` is required for the new license metadata format:
+            # https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license-and-license-files
+            "requires": ["setuptools>=77.0.3"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
