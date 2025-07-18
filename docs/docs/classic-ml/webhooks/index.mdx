@@ -169,11 +169,42 @@ You can also test specific event types:
 from mlflow.entities.webhook import WebhookEvent
 
 result = client.test_webhook(
-    webhook.webhook_id, event=WebhookEvent.MODEL_VERSION_CREATED
+    webhook.webhook_id,
+    event=WebhookEvent.MODEL_VERSION_CREATED,
 )
 ```
 
 When you call `test_webhook()`, MLflow sends the example payloads shown in the table above to your webhook URL. These test payloads have the same structure as real event payloads.
+
+### Testing Multi-Event Webhooks
+
+If your webhook is subscribed to multiple events, `test_webhook()` behavior depends on whether you specify an event:
+
+- **Without specifying an event**: MLflow uses the **first event** from the webhook's event list
+- **With a specific event**: MLflow uses the specified event (must be in the webhook's event list)
+
+```python
+# Create webhook with multiple events
+webhook = client.create_webhook(
+    name="multi-event-webhook",
+    url="https://your-domain.com/webhook",
+    events=[
+        WebhookEvent.REGISTERED_MODEL_CREATED,
+        WebhookEvent.MODEL_VERSION_CREATED,
+        WebhookEvent.MODEL_VERSION_TAG_SET,
+    ],
+    secret="your-secret-key",
+)
+
+# Test with first event (REGISTERED_MODEL_CREATED)
+result = client.test_webhook(webhook.webhook_id)
+
+# Test with specific event
+result = client.test_webhook(
+    webhook.webhook_id,
+    event=WebhookEvent.MODEL_VERSION_TAG_SET,
+)
+```
 
 ## Webhook Management
 
