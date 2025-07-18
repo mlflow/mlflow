@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence
 
 if TYPE_CHECKING:
     pass
@@ -12,12 +12,16 @@ if TYPE_CHECKING:
 from cachetools import TTLCache
 from ingest_api_sdk import TableProperties
 
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
-from mlflow.genai.experimental.databricks_trace_archiver_utils import (
+from mlflow.environment_variables import (
+    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
+)
+from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     create_archival_ingest_sdk,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -29,6 +33,35 @@ TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 m
 
 
 @experimental(version="3.2.0")
+class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter):
+    """
+    An exporter implementation that extends the standard MLflow V3 span export functionality
+    to additionally archive traces to Databricks Delta tables when databricks-agents is available.
+
+    This exporter provides the same core functionality as MlflowV3SpanExporter but with
+    additional Databricks Delta archiving capabilities for long-term trace storage and analysis.
+    """
+
+    def __init__(self, tracking_uri: Optional[str] = None):
+        super().__init__(tracking_uri)
+
+        # Delta archiver for Databricks archiving functionality
+        self._delta_archiver = DatabricksTraceDeltaArchiver()
+
+    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
+        """
+        Handles exporting a trace via the MlflowV3SpanExporter with additional archiving to
+        Databricks Delta tables.
+        """
+        # Call parent implementation for existing MlflowV3SpanExporter functionality
+        super()._log_trace(trace, prompts)
+
+        try:
+            self._delta_archiver.archive(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
+
+
 class DatabricksTraceDeltaArchiver:
     """
     An exporter implementation that sends OpenTelemetry spans to Databricks Delta tables
