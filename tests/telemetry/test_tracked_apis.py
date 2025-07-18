@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import pytest
 import sklearn.neighbors as knn
@@ -58,11 +60,21 @@ def test_create_run(mock_requests, mlflow_client):
     exp_id = mlflow.create_experiment(name="test_experiment")
     with mlflow.start_run(experiment_id=exp_id):
         validate_telemetry_record(
-            mock_requests, TrackingServiceClient.create_run, search_index=True
+            mock_requests, TrackingServiceClient.create_run, search_index=True, check_params=False
         )
 
     mlflow_client.create_run(experiment_id=exp_id)
-    validate_telemetry_record(mock_requests, TrackingServiceClient.create_run)
+    validate_telemetry_record(mock_requests, TrackingServiceClient.create_run, check_params=False)
+
+
+def test_create_run_with_imports(mock_requests):
+    import lightgbm  # noqa: F401
+
+    with mlflow.start_run():
+        data = validate_telemetry_record(
+            mock_requests, TrackingServiceClient.create_run, check_params=False
+        )
+        assert "lightgbm" in json.loads(data["params"])["imports"]
 
 
 def test_create_registered_model(mock_requests, mlflow_client):

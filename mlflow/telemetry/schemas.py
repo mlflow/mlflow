@@ -36,6 +36,11 @@ class RegisteredModelParams(BaseParams):
 
 
 @dataclass
+class CreateRunParams(BaseParams):
+    imports: list[str]
+
+
+@dataclass
 class APIRecord:
     api_module: str
     api_name: str
