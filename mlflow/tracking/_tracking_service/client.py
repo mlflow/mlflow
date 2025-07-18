@@ -833,6 +833,8 @@ class TrackingServiceClient:
         tags: Optional[dict[str, str]] = None,
         params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
+        # This parameter is only used for telemetry purposes, and
+        # does not affect the logged model.
         flavor: Optional[str] = None,
     ) -> LoggedModel:
         return self.store.create_logged_model(

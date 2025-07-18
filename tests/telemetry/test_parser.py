@@ -9,9 +9,15 @@ from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
     ("arguments", "expected_params"),
     [
         (
-            {"flavor": "pyfunc"},
+            {"flavor": "mlflow.pyfunc"},
             LoggedModelParams(
                 flavor="pyfunc",
+            ),
+        ),
+        (
+            {"flavor": "sklearn"},
+            LoggedModelParams(
+                flavor="sklearn",
             ),
         ),
         (

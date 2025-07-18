@@ -26,7 +26,8 @@ class TelemetryParser(ABC):
 class LoggedModelParser(TelemetryParser):
     @classmethod
     def extract_params(cls, arguments: dict[str, Any]) -> Optional[LoggedModelParams]:
-        flavor = arguments.get("flavor") or "custom"
+        flavor = arguments.get("flavor")
+        flavor = flavor.replace("mlflow.", "") if flavor else "custom"
         return LoggedModelParams(flavor=flavor)
 
 

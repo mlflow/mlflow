@@ -37,13 +37,13 @@ def test_create_logged_model(mock_requests):
         name="model",
         python_model=TestModel(),
     )
-    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="mlflow.pyfunc"))
+    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="pyfunc"))
 
     mlflow.sklearn.log_model(
         knn.KNeighborsClassifier(),
         name="model",
     )
-    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="mlflow.sklearn"))
+    validate_telemetry_record(mock_requests, func, LoggedModelParams(flavor="sklearn"))
 
 
 def test_create_experiment(mock_requests, mlflow_client):
