@@ -199,8 +199,9 @@ class DatabricksTraceDeltaArchiver:
         for span in trace.data.spans:
             delta_proto = DeltaProtoSpan()
 
-            # Direct field mapping - MLflow spans already have string IDs
-            delta_proto.trace_id = trace.info.request_id
+            # Use raw OpenTelemetry trace ID instead of the one from the trace
+            # (without "tr-" prefix) for full OTel compliance
+            delta_proto.trace_id = span._trace_id
             delta_proto.span_id = span.span_id or str(uuid.uuid4())
             delta_proto.parent_span_id = span.parent_id or ""
             delta_proto.trace_state = ""
