@@ -40,7 +40,10 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
@@ -57,6 +60,7 @@ from mlflow.utils.virtualenv import (
 _logger = logging.getLogger(__name__)
 
 
+# spellchecker: off
 def _env_type_to_env_manager(env_typ):
     if env_typ == env_type.CONDA:
         return _EnvManager.CONDA
@@ -64,6 +68,9 @@ def _env_type_to_env_manager(env_typ):
         return _EnvManager.VIRTUALENV
     elif env_typ == env_type.DOCKER:
         return _EnvManager.LOCAL
+
+
+# spellchecker: on
 
 
 class LocalBackend(AbstractBackend):
@@ -133,10 +140,8 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif env_manager == _EnvManager.VIRTUALENV:
-            tracking.MlflowClient().set_tag(
-                active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
-            )
+        elif env_manager in {_EnvManager.VIRTUALENV, _EnvManager.UV}:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, env_manager)
             command_separator = " && "
             if project.env_type == env_type.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
