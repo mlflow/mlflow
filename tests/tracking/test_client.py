@@ -65,7 +65,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
-from tests.helper_functions import avoid_telemetry_tracking
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
 
@@ -404,10 +403,9 @@ def tracking_uri(request, tmp_path, monkeypatch):
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
-    with avoid_telemetry_tracking():
-        mlflow.tracing.disable()
-        mlflow.set_tracking_uri(tracking_uri)
-        mlflow.tracing.enable()
+    mlflow.tracing.disable()
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.tracing.enable()
 
     yield tracking_uri
 

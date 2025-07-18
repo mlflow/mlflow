@@ -15,19 +15,6 @@ class APIStatus(str, Enum):
     FAILURE = "failure"
 
 
-class ModelType(str, Enum):
-    MODEL_PATH = "model_path"
-    MODEL_OBJECT = "model_object"
-    PYTHON_FUNCTION = "python_function"
-    PYTHON_MODEL = "python_model"
-    CHAT_MODEL = "chat_model"
-    CHAT_AGENT = "chat_agent"
-    RESPONSES_AGENT = "responses_agent"
-    # pyfunc log_model can accept either python_model or loader_module,
-    # we set model type to LOADER_MODULE if loader_module is specified
-    LOADER_MODULE = "loader_module"
-
-
 @dataclass
 class BaseParams:
     """
@@ -39,28 +26,13 @@ class BaseParams:
 
 
 @dataclass
-class LogModelParams(BaseParams):
+class LoggedModelParams(BaseParams):
     flavor: str
-    model: ModelType
-    is_pip_requirements_set: bool = False
-    is_extra_pip_requirements_set: bool = False
-    is_code_paths_set: bool = False
-    is_params_set: bool = False
-    is_metadata_set: bool = False
 
 
 @dataclass
-class AutologParams(BaseParams):
-    flavor: str
-    disable: bool
-    log_traces: bool
-    log_models: bool
-
-
-@dataclass
-class GenaiEvaluateParams(BaseParams):
-    scorers: list[str]
-    is_predict_fn_set: bool = False
+class RegisteredModelParams(BaseParams):
+    is_prompt: bool
 
 
 @dataclass

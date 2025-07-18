@@ -1,32 +1,21 @@
-import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import Any, Optional
 
 from mlflow.telemetry.schemas import (
-    AutologParams,
     BaseParams,
-    GenaiEvaluateParams,
-    LogModelParams,
-    ModelType,
+    LoggedModelParams,
+    RegisteredModelParams,
 )
-
-if TYPE_CHECKING:
-    from mlflow.genai.scorers import Scorer
-
-_logger = logging.getLogger(__name__)
 
 
 class TelemetryParser(ABC):
     @classmethod
     @abstractmethod
-    def extract_params(
-        cls, func: Callable[..., Any], arguments: dict[str, Any]
-    ) -> Optional[BaseParams]:
+    def extract_params(cls, arguments: dict[str, Any]) -> Optional[BaseParams]:
         """
         Extract the parameters from the function call.
 
         Args:
-            func: The function.
             arguments: The arguments passed to the function.
 
         Returns:
@@ -34,121 +23,29 @@ class TelemetryParser(ABC):
         """
 
 
-def _parse_flavor_from_module_name(module_name: str) -> Optional[str]:
-    if module_name.startswith("mlflow."):
-        return module_name.split(".")[1]
-
-
-class LogModelParser(TelemetryParser):
+class LoggedModelParser(TelemetryParser):
     @classmethod
-    def extract_params(
-        cls, func: Callable[..., Any], arguments: dict[str, Any]
-    ) -> Optional[LogModelParams]:
-        flavor = _parse_flavor_from_module_name(func.__module__)
-        if flavor is None:
-            _logger.debug(f"Failed to extract log model params for function {func.__name__}")
-            return
+    def extract_params(cls, arguments: dict[str, Any]) -> Optional[LoggedModelParams]:
+        if flavor := arguments.get("flavor"):
+            return LoggedModelParams(flavor=flavor.removeprefix("mlflow."))
+        return None
 
-        model_type = cls.parse_model_type(flavor, arguments)
-        record_params = {"flavor": flavor, "model": model_type.value}
-        for param in [
-            "pip_requirements",
-            "extra_pip_requirements",
-            "code_paths",
-            "params",
-            "metadata",
-        ]:
-            record_params[f"is_{param}_set"] = arguments.get(param) is not None
 
-        return LogModelParams(**record_params)
-
+class RegisteredModelParser(TelemetryParser):
     @classmethod
-    def parse_model_type(cls, flavor: str, arguments: dict[str, Any]) -> ModelType:
-        if flavor == "pyfunc":
-            model = arguments.get("python_model")
-            # either python_model or loader_module must be specified
-            if model is None and arguments.get("loader_module"):
-                return ModelType.LOADER_MODULE
-
-            try:
-                from mlflow.pyfunc.model import ResponsesAgent
-            except ImportError:
-                pass
-            else:
-                if isinstance(model, ResponsesAgent):
-                    return ModelType.RESPONSES_AGENT
-
-            try:
-                from mlflow.pyfunc.model import ChatAgent, ChatModel, PythonModel
-            except ImportError:
-                pass
-            else:
-                if isinstance(model, ChatModel):
-                    return ModelType.CHAT_MODEL
-                elif isinstance(model, ChatAgent):
-                    return ModelType.CHAT_AGENT
-                # This check should be at the end because it's the most generic model type
-                elif isinstance(model, PythonModel):
-                    return ModelType.PYTHON_MODEL
-
-            return ModelType.PYTHON_FUNCTION if callable(model) else ModelType.MODEL_OBJECT
-        else:
-            # model parameter is the first positional argument
-            model = next(iter(arguments.values()), None)
-            return ModelType.MODEL_PATH if isinstance(model, str) else ModelType.MODEL_OBJECT
-
-
-class AutologParser(TelemetryParser):
-    @classmethod
-    def extract_params(
-        cls, func: Callable[..., Any], arguments: dict[str, Any]
-    ) -> Optional[AutologParams]:
-        # autolog functions decorated with @autologging_integration have integration_name attribute
-        flavor = getattr(func, "integration_name", _parse_flavor_from_module_name(func.__module__))
-        if flavor is None:
-            _logger.debug(f"Failed to extract autolog params for function {func.__name__}")
-            return
-        record_params = {"flavor": flavor}
-        for param in ["disable", "log_traces", "log_models"]:
-            record_params[param] = arguments.get(param, False) or False
-        return AutologParams(**record_params)
-
-
-class GenaiEvaluateParser(TelemetryParser):
-    @classmethod
-    def extract_params(
-        cls, func: Callable[..., Any], arguments: dict[str, Any]
-    ) -> Optional[GenaiEvaluateParams]:
+    def extract_params(cls, arguments: dict[str, Any]) -> Optional[RegisteredModelParams]:
+        tags = arguments.get("tags") or {}
+        is_prompt = False
         try:
-            from mlflow.genai.evaluation import evaluate
-        except ImportError:
-            return None
-        if func.__module__ != evaluate.__module__:
-            return None
-
-        scorers = arguments.get("scorers", [])
-        scorers = [cls.sanitize_scorer_name(scorer) for scorer in scorers]
-        is_predict_fn_set = arguments.get("predict_fn") is not None
-        return GenaiEvaluateParams(scorers=scorers, is_predict_fn_set=is_predict_fn_set)
-
-    @classmethod
-    def sanitize_scorer_name(cls, scorer: "Scorer") -> str:
-        """
-        Sanitize the scorer name to remove user-customized scorers.
-        """
-        try:
-            from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+            from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
         except ImportError:
             pass
         else:
-            if isinstance(scorer, BuiltInScorer):
-                return scorer.name
-
-        return "CustomScorer"
+            is_prompt = tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+        return RegisteredModelParams(is_prompt=is_prompt)
 
 
 API_PARSER_MAPPING: dict[str, TelemetryParser] = {
-    "log_model": LogModelParser,
-    "autolog": AutologParser,
-    "evaluate": GenaiEvaluateParser,
+    "create_logged_model": LoggedModelParser,
+    "create_registered_model": RegisteredModelParser,
 }

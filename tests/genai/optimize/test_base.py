@@ -14,16 +14,13 @@ from mlflow.genai.scorers import scorer
 from mlflow.tracking import MlflowClient
 from mlflow.tracking._model_registry.fluent import register_prompt
 
-from tests.helper_functions import avoid_telemetry_tracking
-
 
 @pytest.fixture
 def sample_prompt():
-    with avoid_telemetry_tracking():
-        return register_prompt(
-            name="test_translation_prompt",
-            template="Translate the following text to {{language}}: {{input_text}}",
-        )
+    return register_prompt(
+        name="test_translation_prompt",
+        template="Translate the following text to {{language}}: {{input_text}}",
+    )
 
 
 @pytest.fixture
