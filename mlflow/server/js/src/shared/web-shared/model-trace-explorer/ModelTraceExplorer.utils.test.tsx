@@ -35,6 +35,7 @@ import {
 } from './ModelTraceExplorer.utils';
 import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './chat-utils/openai.test-utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -356,6 +357,22 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
+});
+
+it('should handle anthropic input and outputs', () => {
+  expect(normalizeConversation(MOCK_ANTHROPIC_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/describe this image/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/this is a close-up macro photograph of an ant/i),
+      role: 'assistant',
+    }),
+  ]);
 });
 
 describe('isModelTraceChatTool', () => {
