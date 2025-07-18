@@ -1174,7 +1174,7 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
-                    flavor=flavor.__name__,
+                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
