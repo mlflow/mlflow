@@ -10,7 +10,7 @@ def test_track_api_usage_topmost_check(index: SymbolIndex, tmp_path: Path) -> No
     tmp_file = tmp_path / "file.py"
     tmp_file.write_text(
         """
-
+from mlflow.telemetry.track import track_api_usage
 
 # Valid: @track_api_usage is the topmost decorator
 
