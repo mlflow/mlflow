@@ -85,6 +85,11 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
     return isString(get(obj, 'call_id')) && isString(get(obj, 'output'));
   }
 
+  if (get(obj, 'type') === 'image_generation_call') {
+    const outputFormat = get(obj, 'output_format');
+    return isString(get(obj, 'result')) && isString(outputFormat) && ['png', 'jpeg', 'webp'].includes(outputFormat);
+  }
+
   return false;
 };
 
@@ -128,12 +133,14 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
 };
 
 export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (isString(obj)) {
-    const message = prettyPrintChatMessage({ type: 'message', content: obj, role: 'user' });
+  const input: unknown = get(obj, 'input');
+
+  if (isString(input)) {
+    const message = prettyPrintChatMessage({ type: 'message', content: input, role: 'user' });
     return message && [message];
   }
 
-  const messages: unknown = get(obj, 'messages') ?? get(obj, 'input');
+  const messages: unknown = get(input, 'messages') ?? get(input, 'input');
   if (isArray(messages) && messages.every(isOpenAIResponsesInputMessage)) {
     return compact(messages.flatMap(normalizeOpenAIResponsesInputMessage));
   }
@@ -167,6 +174,14 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
       tool_call_id: obj.call_id,
       content: obj.output,
     };
+  }
+
+  if (obj.type === 'image_generation_call') {
+    return prettyPrintChatMessage({
+      type: 'message',
+      content: [{ type: 'image_url', image_url: { url: `data:image/${obj.output_format};base64,${obj.result}` } }],
+      role: 'tool',
+    });
   }
 
   return null;

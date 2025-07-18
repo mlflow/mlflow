@@ -14,6 +14,14 @@ export type OpenAIResponsesFunctionCall = {
   id: string;
 };
 
+export type OpenAIResponsesImageGenerationCall = {
+  type: 'image_generation_call';
+  id: string;
+  result: string | null;
+  status: string;
+  output_format: 'png' | 'jpeg' | 'webp';
+};
+
 export type OpenAIResponsesInputText = {
   text: string;
   type: 'input_text';
@@ -73,6 +81,7 @@ export type OpenAIResponsesInput =
 export type OpenAIResponsesOutputItem =
   | RawModelTraceChatMessage
   | OpenAIResponsesFunctionCall
+  | OpenAIResponsesImageGenerationCall
   | OpenAIResponsesFunctionCallOutput;
 
 export type OpenAIResponsesStreamingOutputChunk = {
