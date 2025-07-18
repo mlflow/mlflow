@@ -13,10 +13,9 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import load_serving_example
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
-from tests.helper_functions import pyfunc_serve_and_score_model, validate_telemetry_record
+from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.openai.conftest import is_v1
 
 
@@ -616,27 +615,3 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
-
-
-def test_log_model_sends_telemetry_record(mock_requests):
-    mlflow.openai.log_model(
-        "gpt-4o-mini",
-        "chat.completions",
-        name="model",
-        temperature=0.9,
-        messages=[{"role": "system", "content": "You are an MLflow expert."}],
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.openai.log_model,
-        params=LogModelParams(
-            flavor="openai",
-            model=ModelType.MODEL_PATH,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        ),
-    )

@@ -10,8 +10,6 @@ from google.protobuf.json_format import ParseDict
 
 import mlflow
 
-from tests.helper_functions import validate_telemetry_record
-
 
 def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
     """Join thread by name prefix to avoid time.sleep in tests."""
@@ -474,19 +472,3 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     mock_logger.warning.assert_called()
     warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
     assert any("Prompt linking failed" in msg for msg in warning_calls)
-
-
-@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-def test_export_sends_telemetry_record(mock_requests, is_async, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
-
-    @mlflow.trace
-    def foo():
-        pass
-
-    foo()
-    exporter = _get_trace_exporter()
-    assert isinstance(exporter, MlflowV3SpanExporter)
-    if is_async:
-        exporter._async_queue.flush(terminate=True)
-    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, search_index=True)

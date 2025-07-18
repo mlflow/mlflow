@@ -23,7 +23,6 @@ from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -37,7 +36,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 
 TEST_DIR = "tests"
@@ -737,25 +735,3 @@ def test_model_log_with_metadata(onnx_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
-
-
-def test_log_model_sends_telemetry_record(mock_requests, onnx_model):
-    mlflow.onnx.log_model(
-        onnx_model,
-        name="model",
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.onnx.log_model,
-        params=LogModelParams(
-            flavor="onnx",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
-        ),
-    )

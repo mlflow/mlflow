@@ -8,10 +8,8 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 
@@ -207,18 +205,3 @@ def test_litellm_tracing_disable(is_in_databricks):
     _wait_if_not_in_databricks()
     # no additional trace should be created
     assert len(get_traces()) == 1
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.litellm.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.litellm.autolog,
-        params=AutologParams(
-            flavor="litellm",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        ),
-    )

@@ -14,10 +14,8 @@ from pydantic import BaseModel
 
 import mlflow.mistral
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 DUMMY_CHAT_COMPLETION_REQUEST = {
@@ -308,18 +306,3 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
         TokenUsageKey.OUTPUT_TOKENS: 19,
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.mistral.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.mistral.autolog,
-        params=AutologParams(
-            flavor="mistral",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        ),
-    )

@@ -31,7 +31,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.model import METADATA_FILES
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.transformers import (
     _CARD_DATA_FILE_NAME,
@@ -62,7 +61,6 @@ from tests.helper_functions import (
     flaky,
     pyfunc_scoring_endpoint,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.transformers.helper import CHAT_TEMPLATE, IS_NEW_FEATURE_EXTRACTION_API
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
@@ -3884,23 +3882,3 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
         mock_validate_input.assert_not_called()
     else:
         mock_validate_input.assert_called_once()
-
-
-def test_log_model_sends_telemetry_record(mock_requests, small_qa_pipeline):
-    mlflow.transformers.log_model(
-        small_qa_pipeline,
-        name="model",
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.transformers.log_model,
-        params=LogModelParams(
-            flavor="transformers",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        ),
-    )

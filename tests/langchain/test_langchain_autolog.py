@@ -55,10 +55,8 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
 from tests.tracing.helper import (
@@ -1231,27 +1229,3 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     assert len(traces) == 1
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-
-    mlflow.langchain.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.langchain.autolog,
-        params=(
-            AutologParams(
-                flavor="langchain",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )
-
-    model = create_openai_runnable(temperature=0.9)
-    model.invoke({"product": "MLflow"})
-
-    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, search_index=True)

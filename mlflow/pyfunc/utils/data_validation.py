@@ -10,7 +10,6 @@ from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
 )
-from mlflow.telemetry.track import track_api_usage
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _convert_data_to_type_hint,
@@ -35,7 +34,6 @@ class FuncInfo(NamedTuple):
     input_param_name: str
 
 
-@track_api_usage
 def pyfunc(func):
     """
     A decorator that forces data validation against type hint of the input data

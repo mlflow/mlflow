@@ -12,7 +12,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.loaders.chat_agent import _ChatAgentPyfuncWrapper
 from mlflow.pyfunc.model import ChatAgent
-from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
@@ -30,7 +29,6 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 from tests.helper_functions import (
     expect_status_code,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.tracing.helper import get_traces
 
@@ -432,27 +430,3 @@ def test_chat_agent_predict_with_params(tmp_path):
     responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
     for i, resp in enumerate(responses[:-1]):
         assert resp["delta"]["content"] == f"message {i}"
-
-
-def test_log_model_sends_telemetry_record(mock_requests):
-    mlflow.pyfunc.log_model(
-        python_model=SimpleChatAgent(),
-        name="model",
-        input_example={"messages": [{"role": "user", "content": "Hello!"}]},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pyfunc.log_model,
-        params=(
-            LogModelParams(
-                flavor="pyfunc",
-                model=ModelType.CHAT_AGENT,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=False,
-                is_metadata_set=False,
-            )
-        ),
-    )

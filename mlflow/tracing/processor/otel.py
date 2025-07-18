@@ -9,7 +9,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -66,7 +65,6 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
         super().on_start(span, parent_context)
 
-    @track_api_usage
     def on_end(self, span: OTelReadableSpan):
         # Pops the trace entry from the in-memory trace manager to avoid memory leak
         if span._parent is None:

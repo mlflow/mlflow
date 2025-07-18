@@ -5,7 +5,6 @@ from threading import Thread
 
 from packaging.version import Version
 
-from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -18,7 +17,6 @@ FLAVOR_NAME = "litellm"
 _logger = logging.getLogger(__name__)
 
 
-@track_api_usage
 @experimental(version="2.19.0")
 def autolog(
     log_traces: bool = True,

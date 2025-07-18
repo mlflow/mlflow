@@ -36,7 +36,6 @@ from mlflow.sklearn.utils import (
     _log_child_runs_info,
     _log_estimator_content,
 )
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
@@ -47,8 +46,6 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
-
-from tests.helper_functions import validate_telemetry_record
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -1851,25 +1848,3 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.sklearn.autolog(log_models=True, disable=False)
-
-    with mlflow.start_run():
-        model = sklearn.linear_model.LogisticRegression()
-        X, y = get_iris()
-        model.fit(X, y)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.sklearn.autolog,
-        params=(
-            AutologParams(
-                flavor="sklearn",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
-    )

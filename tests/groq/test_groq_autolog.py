@@ -15,10 +15,8 @@ from groq.types.chat.chat_completion import (
 
 import mlflow.groq
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 DUMMY_CHAT_COMPLETION_REQUEST = {
@@ -360,18 +358,3 @@ def test_audio_translation_autolog():
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.groq.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.groq.autolog,
-        params=AutologParams(
-            flavor="groq",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        ),
-    )

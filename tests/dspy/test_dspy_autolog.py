@@ -18,11 +18,9 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
 
 if not IS_TRACING_SDK_ONLY:
@@ -976,20 +974,3 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     assert len(traces) == 1
     model_id = json.loads(traces[0].data.request)["args"][0]
     assert model_id == traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.dspy.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.dspy.autolog,
-        params=(
-            AutologParams(
-                flavor="dspy",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

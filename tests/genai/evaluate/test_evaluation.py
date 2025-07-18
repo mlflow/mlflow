@@ -16,11 +16,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import Safety
-from mlflow.telemetry.schemas import GenaiEvaluateParams
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 _IS_AGENT_SDK_V1 = Version(import_module("databricks.agents").__version__).major >= 1
@@ -376,41 +374,3 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe):
 
     # Harness should run without an error
     mlflow.genai.evaluate(data=traces, scorers=[Safety()])
-
-
-def test_evaluate_sends_telemetry_record(mock_requests):
-    """Test that evaluate sends telemetry records."""
-    eval_data = [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "outputs": "MLflow is a tool for ML",
-            "expectations": {"expected_response": "MLflow is a tool for ML"},
-        }
-    ]
-
-    mlflow.genai.evaluate(
-        data=eval_data,
-        scorers=[exact_match],
-    )
-    expected_params = GenaiEvaluateParams(
-        scorers=["CustomScorer"],
-        is_predict_fn_set=False,
-    ).to_json()
-    validate_telemetry_record(
-        mock_requests, mlflow.genai.evaluate, params=expected_params, search_index=True
-    )
-
-    model = TestModel()
-    predict_fn = model.predict
-    mlflow.genai.evaluate(
-        data=eval_data,
-        predict_fn=predict_fn,
-        scorers=[exact_match],
-    )
-    expected_params = GenaiEvaluateParams(
-        scorers=["CustomScorer"],
-        is_predict_fn_set=True,
-    ).to_json()
-    validate_telemetry_record(
-        mock_requests, mlflow.genai.evaluate, params=expected_params, search_index=True
-    )

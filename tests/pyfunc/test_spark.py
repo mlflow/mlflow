@@ -61,7 +61,6 @@ from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
-from tests.helper_functions import validate_telemetry_record
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
@@ -1745,29 +1744,3 @@ def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
 
     res = spark_df.withColumn("res", udf("input_col")).toPandas()
     assert res["res"][0] == numpy_type(value)
-
-
-def test_spark_udf_sends_telemetry_record(spark, mock_requests):
-    """Test that spark_udf sends telemetry records."""
-
-    class TestModel(PythonModel):
-        def predict(self, context, model_input, params=None):
-            return [1] * len(model_input)
-
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            name="model",
-            python_model=TestModel(),
-        )
-
-    # Create the UDF - this should track the API usage
-    mlflow.pyfunc.spark_udf(
-        spark,
-        model_info.model_uri,
-        result_type="integer",
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pyfunc.spark_udf,
-        search_index=True,
-    )

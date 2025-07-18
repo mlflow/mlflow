@@ -23,7 +23,6 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 import mlflow
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowException, MlflowTracingException
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
@@ -329,7 +328,6 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
 
 
-@track_api_usage
 @raise_as_trace_exception
 def disable():
     """
@@ -371,7 +369,6 @@ def disable():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
 
 
-@track_api_usage
 @raise_as_trace_exception
 def enable():
     """

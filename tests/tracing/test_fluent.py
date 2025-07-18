@@ -39,7 +39,6 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import (
     create_test_trace_info,
     get_traces,
@@ -2110,20 +2109,3 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         assert actual_filter_string == expected_filter_string, (
             f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
         )
-
-
-def test_start_span_sends_telemetry_record(mock_requests):
-    """Test that start_span sends telemetry records."""
-    with mlflow.start_span("test"):
-        pass
-    validate_telemetry_record(mock_requests, mlflow.start_span, search_index=True)
-
-
-def test_search_traces_sends_telemetry_record(mock_requests):
-    """Test that search_traces sends telemetry records."""
-    mlflow.search_traces()
-    validate_telemetry_record(mock_requests, mlflow.search_traces)
-
-    with pytest.raises(MlflowException, match=r"not found"):
-        mlflow.search_traces(run_id="test_run_id")
-    validate_telemetry_record(mock_requests, mlflow.search_traces, status="failure")

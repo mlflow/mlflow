@@ -1,6 +1,5 @@
 import logging
 
-from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -9,7 +8,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "bedrock"
 
 
-@track_api_usage
 @experimental(version="2.20.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(

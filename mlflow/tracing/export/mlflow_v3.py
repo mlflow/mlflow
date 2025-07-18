@@ -9,7 +9,6 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -39,7 +38,6 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
-    @track_api_usage
     def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to the destination.

@@ -6,9 +6,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 _DUMMY_INPUT = "Explain quantum mechanics in simple terms."
@@ -200,18 +198,3 @@ def test_tool_autolog():
         assert span_3.outputs is not None
 
     clear_autolog_state()
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.smolagents.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.smolagents.autolog,
-        params=AutologParams(
-            flavor="smolagents",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        ),
-    )

@@ -1,11 +1,9 @@
-from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
 FLAVOR_NAME = "ag2"
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 def autolog(
     log_traces: bool = True,

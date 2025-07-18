@@ -52,7 +52,6 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
@@ -72,7 +71,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.tracing.helper import get_traces
 
@@ -2663,57 +2661,3 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     assert "mlflow==" in contents
     assert "openai==1.82.0" in contents
     assert "httpx==" in contents
-
-
-def test_log_model_sends_telemetry_record(mock_requests):
-    class TestModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
-            return model_input
-
-    # python model
-    mlflow.pyfunc.log_model(
-        python_model=TestModel(),
-        name="model",
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pyfunc.log_model,
-        params=(
-            LogModelParams(
-                flavor="pyfunc",
-                model=ModelType.PYTHON_MODEL,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
-    )
-
-    # python function
-    def predict(model_input):
-        return model_input
-
-    mlflow.pyfunc.log_model(
-        python_model=predict,
-        name="model",
-        input_example=["a", "b", "c"],
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pyfunc.log_model,
-        params=(
-            LogModelParams(
-                flavor="pyfunc",
-                model=ModelType.PYTHON_FUNCTION,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=False,
-                is_metadata_set=False,
-            )
-        ),
-    )

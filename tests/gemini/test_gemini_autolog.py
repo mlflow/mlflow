@@ -14,9 +14,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 google_gemini_version = Version(importlib.metadata.version("google.genai"))
@@ -581,20 +579,3 @@ def test_embed_content_autolog():
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.gemini.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.gemini.autolog,
-        params=(
-            AutologParams(
-                flavor="gemini",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

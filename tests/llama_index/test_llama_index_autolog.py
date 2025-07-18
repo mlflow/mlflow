@@ -10,10 +10,8 @@ from llama_index.llms.openai import OpenAI
 from packaging.version import Version
 
 import mlflow
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
@@ -374,20 +372,3 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.llama_index.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.llama_index.autolog,
-        params=(
-            AutologParams(
-                flavor="llama_index",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

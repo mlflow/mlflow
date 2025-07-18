@@ -42,7 +42,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.sklearn import _SklearnTrainingSession
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -222,7 +221,6 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
@@ -446,7 +444,6 @@ def _wrapped_xgboost_model_predict_proba_fn(model, validate_features=True):
     return predict_proba_fn
 
 
-@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     importance_types=None,

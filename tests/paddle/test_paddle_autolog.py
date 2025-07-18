@@ -3,9 +3,6 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.telemetry.schemas import AutologParams
-
-from tests.helper_functions import validate_telemetry_record
 
 NUM_EPOCHS = 6
 
@@ -131,18 +128,3 @@ def test_extra_tags_paddle_autolog():
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "paddle_autolog"
     assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "paddle"
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.paddle.autolog(log_models=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.paddle.autolog,
-        params=AutologParams(
-            flavor="paddle",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        ),
-    )

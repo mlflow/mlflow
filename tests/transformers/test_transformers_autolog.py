@@ -24,9 +24,6 @@ from transformers import (
 )
 
 import mlflow
-from mlflow.telemetry.schemas import AutologParams
-
-from tests.helper_functions import validate_telemetry_record
 
 
 @pytest.fixture
@@ -579,20 +576,3 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     runs = client.search_runs([exp.experiment_id])
 
     assert len(runs) == 1
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.transformers.autolog(log_models=True, log_datasets=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.transformers.autolog,
-        params=(
-            AutologParams(
-                flavor="transformers",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
-    )

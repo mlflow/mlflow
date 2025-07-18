@@ -7,10 +7,8 @@ from autogen_ext.models.replay import ReplayChatCompletionClient
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 _SYSTEM_MESSAGE = "You are a helpful assistant."
@@ -367,20 +365,3 @@ async def test_autolog_multi_modal():
         "output_tokens": 1,
         "total_tokens": 15,
     }
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.autogen.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.autogen.autolog,
-        params=(
-            AutologParams(
-                flavor="autogen",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

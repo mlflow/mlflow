@@ -32,11 +32,10 @@ from mlflow.llama_index.pyfunc_wrapper import (
 )
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
-from tests.helper_functions import pyfunc_scoring_endpoint, validate_telemetry_record
+from tests.helper_functions import pyfunc_scoring_endpoint
 
 _EMBEDDING_DIM = 1536
 _TEST_QUERY = "Spell llamaindex"
@@ -591,32 +590,3 @@ async def test_save_load_workflow_as_code():
         )
         assert response.status_code == 200, response.text
         assert response.json()["predictions"] == batch_result
-
-
-@pytest.mark.skipif(
-    Version(llama_index.core.__version__) < Version("0.11.0"),
-    reason="Workflow was introduced in 0.11.0",
-)
-def test_log_model_sends_telemetry_record(mock_requests):
-    index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
-    mlflow.llama_index.log_model(
-        index_code_path,
-        name="model",
-        input_example={"topic": "pirates"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.llama_index.log_model,
-        params=(
-            LogModelParams(
-                flavor="llama_index",
-                model=ModelType.MODEL_PATH,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=False,
-                is_metadata_set=False,
-            )
-        ),
-    )

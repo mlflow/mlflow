@@ -45,7 +45,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
@@ -2125,7 +2124,6 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 def initialize_logged_model(
     name: Optional[str] = None,
@@ -2181,7 +2179,6 @@ def _use_logged_model(model: LoggedModel) -> Generator[LoggedModel, None, None]:
         finalize_logged_model(model.model_id, LoggedModelStatus.READY)
 
 
-@track_api_usage
 def create_external_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2290,7 +2287,6 @@ def _create_logged_model(
     )
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
     """
@@ -2632,7 +2628,6 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
-@track_api_usage
 def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
     """
     Set tags on the specified logged model.
@@ -3022,7 +3017,6 @@ def _get_experiment_id() -> Optional[str]:
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
-@track_api_usage
 @autologging_integration("mlflow")
 def autolog(
     log_input_examples: bool = False,
@@ -3396,7 +3390,8 @@ class ActiveModel(LoggedModel):
 # active model ID. MLflow internally should NEVER call this function directly,
 # since we need to differentiate between user and system set active model IDs.
 # For MLflow internal usage, use `_set_active_model` instead.
-@track_api_usage
+
+
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     """
     Set the active model with the specified name or model ID, and it will be used for linking
@@ -3549,7 +3544,6 @@ def _get_active_model_id_global() -> Optional[str]:
     _logger.debug("No active model ID found in any thread.")
 
 
-@track_api_usage
 def clear_active_model() -> None:
     """
     Clear the active model. This will clear the active model previously set by

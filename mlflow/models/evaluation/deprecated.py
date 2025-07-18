@@ -3,11 +3,9 @@ import warnings
 
 import mlflow
 from mlflow.models.evaluation import evaluate as model_evaluate
-from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.uri import is_databricks_uri
 
 
-@track_api_usage
 @functools.wraps(model_evaluate)
 def evaluate(*args, **kwargs):
     tracking_uri = mlflow.get_tracking_uri()

@@ -7,9 +7,7 @@ from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
 from mlflow import MlflowClient
-from mlflow.telemetry.schemas import AutologParams
 
-from tests.helper_functions import validate_telemetry_record
 from tests.statsmodels.model_fixtures import (
     arma_model,
     failing_logit_model,
@@ -238,18 +236,3 @@ def test_autolog_registering_model():
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.statsmodels.autolog(log_models=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.statsmodels.autolog,
-        params=AutologParams(
-            flavor="statsmodels",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        ),
-    )

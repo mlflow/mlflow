@@ -7,7 +7,6 @@ import logging
 from mlflow.smolagents.autolog import (
     patched_class_call,
 )
-from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -16,7 +15,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "smolagents"
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
