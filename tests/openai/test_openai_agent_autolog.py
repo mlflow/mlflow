@@ -157,38 +157,6 @@ async def test_autolog_agent():
     assert spans[5].parent_id == spans[4].span_id
 
     # Validate chat attributes
-    assert spans[2].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Handoff to the appropriate agent based on the language of the request.",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "user",
-            "content": "Hola.  ¿Como estás?",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "refusal": None,
-            "tool_calls": [
-                {
-                    "id": "123",
-                    "function": {
-                        "name": "transfer_to_spanish_agent",
-                        "arguments": "{}",
-                    },
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-    ]
     assert spans[2].attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {
             "function": {
@@ -203,62 +171,6 @@ async def test_autolog_agent():
                 "strict": False,
             },
             "type": "function",
-        },
-    ]
-
-    if Version(agents.__version__) >= Version("0.0.18"):
-        tool_content = '{"assistant": "Spanish Agent"}'
-    else:
-        tool_content = "{'assistant': 'Spanish Agent'}"
-    assert spans[5].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "You only speak Spanish",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "user",
-            "content": "Hola.  ¿Como estás?",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "refusal": None,
-            "tool_calls": [
-                {
-                    "id": "123",
-                    "function": {
-                        "name": "transfer_to_spanish_agent",
-                        "arguments": "{}",
-                    },
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-        {
-            "role": "tool",
-            "content": tool_content,
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": "123",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
-                    "type": "text",
-                }
-            ],
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
         },
     ]
     assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes

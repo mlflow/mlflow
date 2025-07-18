@@ -469,7 +469,6 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
     if expected_chat_tools is not None:
         assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
@@ -483,4 +482,3 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict_stream"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages

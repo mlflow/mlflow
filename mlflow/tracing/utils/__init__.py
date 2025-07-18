@@ -351,66 +351,6 @@ def maybe_set_prediction_context(context: Optional["Context"]):
         yield
 
 
-def set_span_chat_messages(
-    span: LiveSpan,
-    messages: list[Union[dict[str, Any], ChatMessage]],
-    append=False,
-):
-    """
-    Set the `mlflow.chat.messages` attribute on the specified span. This
-    attribute is used in the UI, and also by downstream applications that
-    consume trace data, such as MLflow evaluate.
-
-    Args:
-        span: The LiveSpan to add the attribute to
-        messages: A list of standardized chat messages (refer to the
-                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
-                 for details)
-        append: If True, the messages will be appended to the existing messages. Otherwise,
-                the attribute will be overwritten entirely. Default is False.
-                This is useful when you want to record messages incrementally, e.g., log
-                input messages first, and then log output messages later.
-
-    Example:
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-        from mlflow.tracing import set_span_chat_messages
-
-
-        @mlflow.trace
-        def f():
-            messages = [{"role": "user", "content": "hello"}]
-            span = mlflow.get_current_active_span()
-            set_span_chat_messages(span, messages)
-            return 0
-
-
-        f()
-    """
-    from mlflow.types.chat import ChatMessage
-
-    sanitized_messages = []
-    for message in messages:
-        if isinstance(message, dict):
-            ChatMessage.validate_compat(message)
-            sanitized_messages.append(message)
-        elif isinstance(message, ChatMessage):
-            # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
-            #   some fields are only present in either the request or response (e.g., tool_call_id).
-            #   Those fields should not be recorded unless set explicitly, so we set
-            #   exclude_unset=True here to avoid recording unset fields.
-            sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
-
-    if append:
-        existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
-        sanitized_messages = existing_messages + sanitized_messages
-
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
-
-
 def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     """
     Set the `mlflow.chat.tools` attribute on the specified span. This
