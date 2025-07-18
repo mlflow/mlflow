@@ -28,14 +28,14 @@ class PackageType(Enum):
 """
         if self is PackageType.RELEASE:
             return f"""{WARNING}
-# This file defines the package metadata of `mlflow`. `mlflow-skinny` is included in the
-# requirements to prevent a version mismatch between `mlflow` and `mlflow-skinny`.
-# This file will replace `pyproject.toml` when releasing a new version.
+# This file defines the package metadata of `mlflow`. `mlflow-skinny` and `mlflow-tracing
+# is included in the requirements to prevent a version mismatch between `mlflow` and those
+# child packages. This file will replace `pyproject.toml` when releasing a new version.
 """
         if self is PackageType.DEV:
             return f"""{WARNING}
 # This file defines the package metadata of `mlflow` **during development**. To install `mlflow`
-# from the source code, `mlflow-skinny` is NOT included in the requirements.
+# from the source code, `mlflow-skinny` and `mlflow-tracing` are NOT included in the requirements.
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 """
         raise ValueError(f"Unreachable: {self}")
@@ -109,7 +109,10 @@ def build(package_type: PackageType) -> None:
     if package_type is PackageType.SKINNY:
         dependencies = sorted(skinny_requirements)
     elif package_type is PackageType.RELEASE:
-        dependencies = [f"mlflow-skinny=={package_version}"] + sorted(core_requirements)
+        dependencies = [
+            f"mlflow-skinny=={package_version}",
+            f"mlflow-tracing=={package_version}",
+        ] + sorted(core_requirements)
     else:
         dependencies = sorted(core_requirements + skinny_requirements)
 
