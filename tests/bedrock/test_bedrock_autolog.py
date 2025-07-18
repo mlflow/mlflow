@@ -11,10 +11,8 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 _IS_CONVERSE_API_AVAILABLE = Version(boto3.__version__) >= Version("1.35")
@@ -903,18 +901,3 @@ def _generate_tool_use_chunks_if_present(content, chunk_size=10):
                 }
             }
         yield {"contentBlockStop": {}}
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.bedrock.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.bedrock.autolog,
-        params=AutologParams(
-            flavor="bedrock",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        ),
-    )

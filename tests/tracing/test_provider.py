@@ -25,7 +25,6 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces, purge_traces
 
 
@@ -313,15 +312,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
-
-
-def test_enable_disable_tracing_sends_telemetry_record(mock_requests):
-    mlflow.tracing.enable()
-
-    validate_telemetry_record(mock_requests, mlflow.tracing.enable)
-
-    mlflow.tracing.disable()
-    validate_telemetry_record(mock_requests, mlflow.tracing.disable)
 
 
 def test_sampling_ratio(monkeypatch):

@@ -18,12 +18,9 @@ import mlflow.xgboost
 from mlflow import MlflowClient
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
-
-from tests.helper_functions import validate_telemetry_record
 
 mpl.use("Agg")
 
@@ -790,21 +787,4 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
                 "targets": None,
             }
         }
-    )
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.xgboost.autolog(log_models=True, log_datasets=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.xgboost.autolog,
-        params=(
-            AutologParams(
-                flavor="xgboost",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
     )

@@ -32,7 +32,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -48,7 +47,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.store._unity_catalog.conftest import (
     configure_client_for_uc,  # noqa: F401
@@ -899,28 +897,4 @@ def test_get_raw_model(sklearn_knn_model):
     np.testing.assert_array_equal(
         raw_model.predict(sklearn_knn_model.inference_data),
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
-    )
-
-
-def test_log_model_sends_telemetry_record(mock_requests, sklearn_knn_model):
-    mlflow.sklearn.log_model(
-        sklearn_knn_model.model,
-        name="model",
-        input_example=sklearn_knn_model.inference_data,
-        params={"param1": "value1"},
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.sklearn.log_model,
-        params=(
-            LogModelParams(
-                flavor="sklearn",
-                model=ModelType.MODEL_OBJECT,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
     )

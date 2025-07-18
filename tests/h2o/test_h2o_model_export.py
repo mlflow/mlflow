@@ -19,7 +19,6 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -33,7 +32,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -393,28 +391,3 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == h2o_iris_model_signature
-
-
-def test_log_model_sends_telemetry_record(mock_requests, h2o_iris_model):
-    mlflow.h2o.log_model(
-        h2o_iris_model.model,
-        name="model",
-        input_example=h2o_iris_model.inference_data.as_data_frame().head(3),
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.h2o.log_model,
-        params=(
-            LogModelParams(
-                flavor="h2o",
-                model=ModelType.MODEL_OBJECT,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
-    )

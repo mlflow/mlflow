@@ -9,10 +9,8 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
@@ -1043,20 +1041,3 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.crewai.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.crewai.autolog,
-        params=(
-            AutologParams(
-                flavor="crewai",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

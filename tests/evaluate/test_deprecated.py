@@ -7,8 +7,6 @@ import pytest
 
 import mlflow
 
-from tests.helper_functions import validate_telemetry_record
-
 _TEST_DATA = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 
 
@@ -48,16 +46,3 @@ def test_models_evaluate_does_not_warn(tracking_uri):
                 model=lambda x: x["x"] * 2,
                 extra_metrics=[mlflow.metrics.latency()],
             )
-
-
-def test_deprecated_evaluate_sends_telemetry_record(mock_requests):
-    """Test that deprecated evaluate sends telemetry records."""
-    # Use non-databricks tracking URI to avoid deprecation warning
-    with patch("mlflow.get_tracking_uri", return_value="sqlite://"):
-        mlflow.evaluate(
-            data=_TEST_DATA,
-            model=lambda x: x["x"] * 2,
-            extra_metrics=[mlflow.metrics.latency()],
-        )
-
-    validate_telemetry_record(mock_requests, mlflow.evaluate)

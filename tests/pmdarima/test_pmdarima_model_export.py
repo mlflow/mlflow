@@ -16,7 +16,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -31,7 +30,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.prophet.test_prophet_model_export import DataGeneration
 
@@ -476,27 +474,5 @@ def test_model_log_with_signature_inference(auto_arima_model):
                 ColSpec(name="yhat_lower", type=DataType.double),
                 ColSpec(name="yhat_upper", type=DataType.double),
             ]
-        ),
-    )
-
-
-def test_log_model_sends_telemetry_record(mock_requests, auto_arima_model):
-    mlflow.pmdarima.log_model(
-        auto_arima_model,
-        name="model",
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pmdarima.log_model,
-        params=LogModelParams(
-            flavor="pmdarima",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
         ),
     )

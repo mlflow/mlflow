@@ -5,10 +5,7 @@ import pytest
 import mlflow
 from mlflow.keras.utils import get_model_signature
 from mlflow.models import ModelSignature
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.types import Schema, TensorSpec
-
-from tests.helper_functions import validate_telemetry_record
 
 
 def _get_keras_model():
@@ -118,28 +115,3 @@ def test_save_model_with_signature():
 
     # Clean up the global policy.
     keras.mixed_precision.set_dtype_policy("float32")
-
-
-def test_log_model_sends_telemetry_record(mock_requests, keras_model_context):
-    mlflow.keras.log_model(
-        keras_model_context.model,
-        name="model",
-        input_example=keras_model_context.inference_data,
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.keras.log_model,
-        params=(
-            LogModelParams(
-                flavor="keras",
-                model=ModelType.MODEL_OBJECT,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
-    )

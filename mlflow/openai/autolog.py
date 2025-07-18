@@ -15,7 +15,6 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -34,7 +33,6 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 _logger = logging.getLogger(__name__)
 
 
-@track_api_usage
 @experimental(version="2.14.0")
 def autolog(
     disable=False,

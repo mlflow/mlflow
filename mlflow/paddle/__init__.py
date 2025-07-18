@@ -23,7 +23,6 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -324,7 +323,6 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         return model
 
 
-@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
@@ -498,7 +496,6 @@ def _contains_pdparams(path):
     return any(".pdparams" in file for file in file_list)
 
 
-@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,

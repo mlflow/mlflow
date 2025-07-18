@@ -33,7 +33,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -48,7 +47,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     score_model_in_sagemaker_docker_container,
-    validate_telemetry_record,
 )
 from tests.pyfunc.test_spark import get_spark_session, score_model_as_udf
 from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
@@ -1032,24 +1030,3 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
     ).toPandas()
     preds = pyfunc_model.predict(infer_data)
     assert spark_model_estimator.predictions == preds
-
-
-def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
-    with mlflow.start_run():
-        mlflow.spark.log_model(
-            spark_model_iris.model,
-            "model",
-        )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.spark.log_model,
-        params=LogModelParams(
-            flavor="spark",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        ),
-    )

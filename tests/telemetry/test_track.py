@@ -1,8 +1,6 @@
 import time
-from unittest.mock import patch
 
 import pytest
-import sklearn
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
@@ -11,7 +9,7 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIStatus, AutologParams
+from mlflow.telemetry.schemas import APIStatus
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
@@ -120,41 +118,6 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     assert len(mock_requests) == 1
 
 
-def test_track_api_usage_do_not_track_internal_api(mock_requests):
-    def test_func():
-        mlflow.sklearn.autolog()
-
-    with patch("mlflow.telemetry.track.should_skip_telemetry", return_value=True):
-        test_func()
-        get_telemetry_client().flush()
-        assert len(mock_requests) == 0
-
-    # mlflow.sklearn.autolog internally calls mlflow.sklearn.log_model
-    mlflow.sklearn.autolog()
-
-    iris = sklearn.datasets.load_iris()
-    sklearn.cluster.KMeans().fit(iris.data[:, :2], iris.target)
-
-    assert mlflow.last_logged_model() is not None
-
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 1
-    record = mock_requests[0]["data"]
-    assert record["api_module"] == "mlflow.sklearn"
-    assert record["api_name"] == "autolog"
-    assert record["status"] == APIStatus.SUCCESS.value
-    assert (
-        record["params"]
-        == AutologParams(
-            flavor="sklearn",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        ).to_json()
-    )
-    assert record["duration_ms"] > 0
-
-
 def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
     @track_api_usage
     def test_func_1():
@@ -169,18 +132,3 @@ def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
 
     test_func_1()
     validate_telemetry_record(mock_requests, test_func_1)
-
-
-def test_trace_sends_telemetry_record(mock_requests):
-    @mlflow.trace
-    def test():
-        pass
-
-    validate_telemetry_record(mock_requests, mlflow.trace)
-
-    def test_func():
-        pass
-
-    mlflow.trace(test_func)
-
-    validate_telemetry_record(mock_requests, mlflow.trace)

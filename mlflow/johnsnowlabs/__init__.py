@@ -70,7 +70,6 @@ from mlflow.spark import (
     _should_use_mlflowdbfs,
 )
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -190,7 +189,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,

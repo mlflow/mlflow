@@ -10,7 +10,6 @@ from mlflow.autogen.chat import (
     log_tools,
 )
 from mlflow.entities import SpanType
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages
 from mlflow.utils.annotations import experimental
@@ -24,7 +23,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "autogen"
 
 
-@track_api_usage
 @experimental(version="2.16.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(

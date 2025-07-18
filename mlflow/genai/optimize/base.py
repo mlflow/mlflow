@@ -18,7 +18,6 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.prompts import load_prompt
 from mlflow.genai.scorers import Scorer
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking.fluent import log_params, log_table, start_run
 from mlflow.utils.annotations import experimental
 
@@ -31,7 +30,6 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 _logger = logging.getLogger(__name__)
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 def optimize_prompt(
     *,

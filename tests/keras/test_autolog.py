@@ -7,12 +7,9 @@ import pytest
 
 import mlflow
 from mlflow.models import Model
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
-
-from tests.helper_functions import validate_telemetry_record
 
 
 @pytest.fixture(autouse=True)
@@ -231,22 +228,3 @@ def test_keras_autolog_log_datasets(log_datasets, log_models):
             assert mlflow.last_logged_model() is not None
     else:
         assert len(run_inputs.model_inputs) == 0
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.keras.autolog(
-        log_models=True, log_datasets=True, log_input_examples=False, disable=False
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.keras.autolog,
-        params=(
-            AutologParams(
-                flavor="keras",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
-    )

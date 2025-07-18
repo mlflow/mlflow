@@ -24,8 +24,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 
-from tests.helper_functions import validate_telemetry_record
-
 
 def join_thread_by_name_prefix(prefix: str):
     """Join any thread whose name starts with the given prefix."""
@@ -1088,22 +1086,6 @@ def test_load_prompt_caching_with_different_parameters():
 
         # Cache should work - either same count or only one additional call
         assert call_count_after_fourth <= call_count_after_third + 1
-
-
-def test_register_prompt_sends_telemetry_record(mock_requests):
-    """Test that register_prompt sends telemetry records."""
-    mlflow.tracking._model_registry.fluent.register_prompt("test_prompt", "test template {{var}}")
-
-    validate_telemetry_record(mock_requests, mlflow.tracking._model_registry.fluent.register_prompt)
-
-
-def test_load_prompt_sends_telemetry_record(mock_requests):
-    """Test that load_prompt sends telemetry records."""
-    mlflow.tracking._model_registry.fluent.register_prompt("test_prompt_load", "test template")
-    mlflow.tracking._model_registry.fluent.load_prompt("test_prompt_load", version=1)
-    validate_telemetry_record(
-        mock_requests, mlflow.tracking._model_registry.fluent.load_prompt, search_index=True
-    )
 
 
 def test_register_prompt_chat_format_integration():

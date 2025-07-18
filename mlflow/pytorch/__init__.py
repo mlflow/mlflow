@@ -33,7 +33,6 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -134,7 +133,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
@@ -862,7 +860,6 @@ def load_state_dict(state_dict_uri, **kwargs):
     return torch.load(state_dict_path, **kwargs)
 
 
-@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,

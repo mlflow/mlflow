@@ -30,15 +30,14 @@ from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import TypeFromExample, _infer_schema_from_list_type_hint
+from mlflow.types.type_hints import TypeFromExample
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.pydantic_utils import model_dump_compat
 
-from tests.helper_functions import pyfunc_serve_and_score_model, validate_telemetry_record
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 @pytest.fixture(scope="module")
@@ -1174,44 +1173,3 @@ def test_load_context_type_hint():
     new_data = ["New", "Data"]
     prediction = pyfunc_model.predict(new_data)
     assert prediction == new_data
-
-
-def test_pyfunc_decorator_sends_telemetry_record(mock_requests):
-    @pyfunc
-    def predict(model_input: list[str]) -> list[str]:
-        return model_input
-
-    # _infer_schema_from_list_type_hint
-    validate_telemetry_record(
-        mock_requests,
-        _infer_schema_from_list_type_hint,
-    )
-
-    @pyfunc
-    def predict(model_input: list[str]) -> list[str]:
-        return model_input
-
-    # pyfunc decorator
-    validate_telemetry_record(
-        mock_requests,
-        pyfunc,
-        search_index=True,
-    )
-
-
-def test_type_hints_sends_telemetry_record(mock_requests):
-    class TestModel(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: list[str]) -> list[str]:
-            return model_input
-
-    validate_telemetry_record(
-        mock_requests,
-        _infer_schema_from_list_type_hint,
-    )
-
-    model = TestModel()
-    model.predict(["x", "y", "z"])
-    get_telemetry_client().flush()
-    # running the predict function doesn't generate new telemetry record
-    # flush generates a new record for imports
-    assert len(mock_requests) == 0

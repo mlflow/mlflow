@@ -19,7 +19,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -33,7 +32,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     allow_infer_pip_requirements_fallback_if,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -483,24 +481,3 @@ def test_model_log_with_metadata(spacy_model_with_data):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
-
-
-def test_log_model_sends_telemetry_record(mock_requests, spacy_model_with_data):
-    mlflow.spacy.log_model(
-        spacy_model_with_data.model,
-        name="model",
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.spacy.log_model,
-        params=LogModelParams(
-            flavor="spacy",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        ),
-    )

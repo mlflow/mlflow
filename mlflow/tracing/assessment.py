@@ -10,7 +10,6 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
-from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
@@ -30,7 +29,6 @@ def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     return TracingClient().get_assessment(trace_id, assessment_id)
 
 
-@track_api_usage
 @experimental(version="2.21.0")
 def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     """
@@ -131,7 +129,6 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@track_api_usage
 @experimental(version="3.0.0")
 def log_expectation(
     *,
@@ -257,7 +254,6 @@ def delete_assessment(trace_id: str, assessment_id: str):
     return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
-@track_api_usage
 @experimental(version="2.21.0")
 def log_feedback(
     *,

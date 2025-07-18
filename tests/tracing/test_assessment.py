@@ -13,8 +13,6 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 
-from tests.helper_functions import validate_telemetry_record
-
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
     source_type=AssessmentSourceType.HUMAN,
     source_id="bob@example.com",
@@ -639,21 +637,3 @@ def test_log_feedback_ai_judge_deprecation_warning(trace_id, source_type):
     assert assessment.name == "quality"
     assert assessment.feedback.value == 0.8
     assert assessment.rationale == "AI evaluation"
-
-
-def test_log_assessment_sends_telemetry_record(mock_requests, trace_id):
-    mlflow.log_assessment(trace_id=trace_id, assessment=Feedback(name="feedback", value=1.0))
-
-    validate_telemetry_record(mock_requests, mlflow.log_assessment, search_index=True)
-
-
-def test_log_expectation_sends_telemetry_record(mock_requests, trace_id):
-    mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
-
-    validate_telemetry_record(mock_requests, mlflow.log_expectation, search_index=True)
-
-
-def test_log_feedback_sends_telemetry_record(mock_requests, trace_id):
-    mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
-
-    validate_telemetry_record(mock_requests, mlflow.log_feedback, search_index=True)

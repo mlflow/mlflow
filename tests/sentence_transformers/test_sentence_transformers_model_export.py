@@ -20,7 +20,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.utils.environment import _mlflow_conda_env
 
 from tests.helper_functions import (
@@ -29,7 +28,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 
 
@@ -594,24 +592,3 @@ def test_model_pyfunc_with_dict_input(basic_model, model_path):
     assert len(emb_multiple_input["data"]) == 3
     assert emb_multiple_input["data"][0]["embedding"].shape == (embedding_dim,)
     assert emb_multiple_input["usage"]["prompt_tokens"] == 19
-
-
-def test_log_model_sends_telemetry_record(mock_requests, basic_model):
-    mlflow.sentence_transformers.log_model(
-        basic_model,
-        name="model",
-        input_example=SENTENCES,
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.sentence_transformers.log_model,
-        params=LogModelParams(
-            flavor="sentence_transformers",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        ),
-    )

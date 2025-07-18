@@ -57,7 +57,6 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import create_test_trace_info, get_traces
 from tests.utils.test_file_utils import spark_session  # noqa: F401
 
@@ -2393,24 +2392,3 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
         assert len(traces) == 5
         assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     # TODO: test registered ModelVersion's model_id works after it's supported
-
-
-def test_evaluate_sends_telemetry_record(mock_requests):
-    """Test that evaluate sends telemetry records."""
-    eval_data = pd.DataFrame(
-        {
-            "inputs": [
-                "What is MLflow?",
-                "What is Spark?",
-            ],
-            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-        }
-    )
-
-    @mlflow.trace
-    def model(inputs):
-        return inputs
-
-    evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
-
-    validate_telemetry_record(mock_requests, evaluate, search_index=True)

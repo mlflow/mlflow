@@ -1,10 +1,7 @@
 import json
 
 import mlflow
-from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
-
-from tests.helper_functions import validate_telemetry_record
 
 
 def test_langgraph_save_as_code():
@@ -79,28 +76,4 @@ def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert len(pyfunc_model.predict(input_example, params)[0]["messages"]) == len(
         result["messages"]
-    )
-
-
-def test_log_model_sends_telemetry_record(mock_requests):
-    mlflow.langchain.log_model(
-        "tests/langgraph/sample_code/langgraph_prebuilt.py",
-        name="langgraph",
-        input_example={"messages": [{"role": "user", "content": "what is the weather in sf?"}]},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.langchain.log_model,
-        params=(
-            LogModelParams(
-                flavor="langchain",
-                model=ModelType.MODEL_PATH,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=False,
-                is_metadata_set=False,
-            )
-        ),
     )

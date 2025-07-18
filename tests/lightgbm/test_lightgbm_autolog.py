@@ -18,11 +18,8 @@ import mlflow.lightgbm
 from mlflow import MlflowClient
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
-
-from tests.helper_functions import validate_telemetry_record
 
 mpl.use("Agg")
 
@@ -815,20 +812,3 @@ def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.name == "my_valid_set"
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.lightgbm.autolog(log_models=True, log_datasets=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.lightgbm.autolog,
-        params=(
-            AutologParams(
-                flavor="lightgbm",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
-    )

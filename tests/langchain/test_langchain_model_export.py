@@ -97,14 +97,12 @@ from mlflow.models.resources import (
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import (
     _compare_logged_code_paths,
     pyfunc_serve_and_score_model,
-    validate_telemetry_record,
 )
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 
@@ -3716,31 +3714,3 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         trace_info = mock_start_trace.call_args[0][0]
         assert trace_info.client_request_id == request_id
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Feature not existing",
-)
-def test_log_model_sends_telemetry_record(mock_requests):
-    mlflow.langchain.log_model(
-        os.path.abspath("tests/langchain/sample_code/workflow.py"),
-        name="model",
-        params={"param1": "value1"},
-        input_example={"messages": [{"role": "user", "content": "What is MLflow?"}]},
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.langchain.log_model,
-        params=(
-            LogModelParams(
-                flavor="langchain",
-                model=ModelType.MODEL_PATH,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
-    )

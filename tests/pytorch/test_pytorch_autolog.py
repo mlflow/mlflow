@@ -16,10 +16,7 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.file_utils import TempDir
-
-from tests.helper_functions import validate_telemetry_record
 
 NUM_EPOCHS = 20
 
@@ -755,21 +752,4 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
             "epoch"
         ]
         == 2
-    )
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.pytorch.autolog(log_models=True, log_datasets=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pytorch.autolog,
-        params=(
-            AutologParams(
-                flavor="pytorch",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
-        ),
     )

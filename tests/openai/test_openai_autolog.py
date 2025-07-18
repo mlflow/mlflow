@@ -11,7 +11,6 @@ import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
-from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
@@ -19,7 +18,6 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 
-from tests.helper_functions import validate_telemetry_record
 from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -836,20 +834,3 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
-
-
-def test_autolog_sends_telemetry_record(mock_requests):
-    mlflow.openai.autolog(log_traces=True, disable=False)
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.openai.autolog,
-        params=(
-            AutologParams(
-                flavor="openai",
-                disable=False,
-                log_traces=True,
-                log_models=False,
-            )
-        ),
-    )

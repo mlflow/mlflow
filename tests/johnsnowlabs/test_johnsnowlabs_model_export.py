@@ -21,7 +21,6 @@ from mlflow.utils.file_utils import TempDir
 
 from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
-    validate_telemetry_record,
 )
 
 MODEL_CACHE_FOLDER = None
@@ -664,7 +663,6 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #     def mock_get_dbutils():
 #         import inspect
 
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 
 #
 #         # _get_dbutils is called during run creation and model logging; to avoid breaking run
@@ -748,28 +746,3 @@ from mlflow.telemetry.schemas import LogModelParams, ModelType
 #
 #     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
 #     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
-
-
-def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
-    mlflow.johnsnowlabs.log_model(
-        spark_model_iris.model,
-        name="model",
-        input_example=spark_model_iris.inference_data,
-        params={"param1": "value1"},
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.johnsnowlabs.log_model,
-        params=(
-            LogModelParams(
-                flavor="johnsnowlabs",
-                model=ModelType.MODEL_OBJECT,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=False,
-                is_params_set=True,
-                is_metadata_set=False,
-            )
-        ),
-    )

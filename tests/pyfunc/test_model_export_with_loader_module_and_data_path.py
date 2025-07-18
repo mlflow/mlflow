@@ -17,13 +17,12 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import _assert_pip_requirements, validate_telemetry_record
+from tests.helper_functions import _assert_pip_requirements
 
 
 def _load_pyfunc(path):
@@ -348,32 +347,3 @@ def test_streamable_model_save_load(tmp_path, model_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert list(stream_result) == ["test1", "test2"]
-
-
-def test_log_model_sends_telemetry_record(mock_requests, sklearn_knn_model, tmp_path):
-    sk_model_path = os.path.join(tmp_path, "knn.pkl")
-    with open(sk_model_path, "wb") as f:
-        pickle.dump(sklearn_knn_model, f)
-
-    mlflow.pyfunc.log_model(
-        name="model",
-        data_path=sk_model_path,
-        loader_module=__name__,
-        code_paths=[__file__],
-    )
-
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pyfunc.log_model,
-        params=(
-            LogModelParams(
-                flavor="pyfunc",
-                model=ModelType.LOADER_MODULE,
-                is_pip_requirements_set=False,
-                is_extra_pip_requirements_set=False,
-                is_code_paths_set=True,
-                is_params_set=False,
-                is_metadata_set=False,
-            )
-        ),
-    )

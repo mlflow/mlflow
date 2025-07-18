@@ -25,7 +25,6 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
@@ -41,7 +40,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_array_almost_equal,
     assert_register_model_called_with_local_model_path,
-    validate_telemetry_record,
 )
 
 _logger = logging.getLogger(__name__)
@@ -1203,27 +1201,3 @@ def test_passing_params_to_model(data):
         np.testing.assert_array_almost_equal(
             pyfunc_model.predict(x, {"y": 2}), model(x, 2), decimal=4
         )
-
-
-def test_log_model_sends_telemetry_record(mock_requests, data):
-    model = get_sequential_model()
-    train_model(model=model, data=data)
-
-    mlflow.pytorch.log_model(
-        model,
-        name="model",
-        params={"param1": "value1"},
-    )
-    validate_telemetry_record(
-        mock_requests,
-        mlflow.pytorch.log_model,
-        params=LogModelParams(
-            flavor="pytorch",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
-        ),
-    )
