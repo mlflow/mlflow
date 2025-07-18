@@ -21,5 +21,5 @@ git fetch origin "$REF"
 git config advice.detachedHead false
 git checkout FETCH_HEAD
 OPTIONS=$(if pip freeze | grep -q "mlflow-skinny @"; then echo "--force-reinstall --no-deps"; fi)
-pip install $OPTIONS ./libs/skinny
+pip install -v $OPTIONS ./libs/skinny
 rm -rf $TEMP_DIR
