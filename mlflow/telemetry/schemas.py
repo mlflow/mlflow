@@ -27,7 +27,7 @@ class BaseParams:
 
 @dataclass
 class LoggedModelParams(BaseParams):
-    flavor: Optional[str] = None
+    flavor: str
 
 
 @dataclass
