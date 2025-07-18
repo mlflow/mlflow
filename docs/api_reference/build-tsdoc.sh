@@ -10,6 +10,9 @@ build_tsdoc() {
 
     echo "Building TypeDoc for $package_name..."
 
+    # Store the absolute path to the analytics file before changing directories
+    local analytics_js_path="$(cd "$(dirname "$0")" && pwd)/typedoc-analytics.js"
+
     pushd "$package_path"
 
     # Skip npm install since we're using yarn workspaces
@@ -28,7 +31,7 @@ build_tsdoc() {
         --searchInComments \
         --navigation \
         --excludeNotDocumented false \
-        --customJs "$(cd "$(dirname "$0")" && pwd)/typedoc-analytics.js" \
+        --customJs "$analytics_js_path" \
         src/index.ts
 
     popd
