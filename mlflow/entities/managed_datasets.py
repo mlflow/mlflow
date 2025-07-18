@@ -625,7 +625,6 @@ class ManagedDataset(_MlflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    # Properties matching Databricks interface
     @property
     def dataset_id(self) -> str:
         """Unique identifier for the dataset."""
@@ -695,8 +694,6 @@ class ManagedDataset(_MlflowObject):
     def to_df(self) -> "pd.DataFrame":
         """
         Convert the dataset records to a pandas DataFrame for analysis.
-        
-        This method matches the Databricks interface and is cached for performance.
         """
         try:
             import pandas as pd
@@ -869,6 +866,10 @@ class ManagedDataset(_MlflowObject):
         
         dataset.experiment_ids.extend(self.experiment_ids)
         
+        # Add all records for bulk operations
+        for record in self.records:
+            dataset.records.append(record.to_proto())
+        
         # Set timestamps (convert from milliseconds)
         if self.created_time:
             dataset.created_time.FromMilliseconds(self.created_time)
@@ -888,6 +889,11 @@ class ManagedDataset(_MlflowObject):
         if proto.HasField("last_update_time"):
             last_update_time = proto.last_update_time.ToMilliseconds()
         
+        # Convert records from protobuf
+        records = []
+        for record_proto in proto.records:
+            records.append(DatasetRecord.from_proto(record_proto))
+        
         return cls(
             dataset_id=proto.dataset_id,
             name=proto.name,
@@ -901,6 +907,7 @@ class ManagedDataset(_MlflowObject):
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
             experiment_ids=list(proto.experiment_ids),
+            records=records,
         )
 
     def to_dict(self) -> Dict[str, Any]:

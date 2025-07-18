@@ -53,6 +53,10 @@ message ManagedDataset {
 
   // List of experiment IDs associated with this dataset.
   repeated string experiment_ids = 12;
+
+  // Collection of all dataset records. This allows bulk operations and matches
+  // the OSS FileStore architecture where entire datasets are stored as single files.
+  repeated DatasetRecord records = 13;
 }
 
 // Dataset Record. Represents a single evaluation record within a managed dataset,
@@ -163,8 +167,11 @@ message CreateManagedDataset {
   // Optional: The profile containing summary statistics and metadata.
   optional string profile = 7;
 
+  // Optional: Initial dataset records to include in the new dataset.
+  repeated DatasetRecord records = 8;
+
   message Response {
-    // The newly created managed dataset.
+    // The newly created managed dataset with all records included.
     optional ManagedDataset dataset = 1;
   }
 }
@@ -175,7 +182,7 @@ message GetManagedDataset {
   optional string dataset_id = 1 [(validate_required) = true];
 
   message Response {
-    // The requested managed dataset.
+    // The requested managed dataset with all records included.
     optional ManagedDataset dataset = 1;
   }
 }
@@ -187,5 +194,23 @@ message DeleteManagedDataset {
 
   message Response {
     // Empty response indicating successful deletion.
+  }
+}
+
+// Update Managed Dataset (bulk record operations)
+message UpdateManagedDataset {
+  // Unique identifier for the dataset to update.
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  // Optional: Updated profile containing summary statistics and metadata.
+  optional string profile = 2;
+
+  // Optional: Complete replacement of all dataset records.
+  // If provided, this replaces all existing records in the dataset.
+  repeated DatasetRecord records = 3;
+
+  message Response {
+    // The updated managed dataset with all records included.
+    optional ManagedDataset dataset = 1;
   }
 }
