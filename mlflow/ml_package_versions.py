@@ -109,6 +109,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.18.0"
         }
     },
+    "semantic_kernel": {
+        "package_info": {
+            "pip_release": "semantic-kernel"
+        },
+        "autologging": {
+            "minimum": "1.34.0",
+            "maximum": "1.34.0"
+        }
+    },
     "spacy": {
         "package_info": {
             "pip_release": "spacy"
@@ -429,6 +438,7 @@ FLAVOR_TO_MODULE_NAME = {
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
     "lightgbm": "lightgbm",
+    "semantic_kernel": "semantic_kernel",
     "statsmodels": "statsmodels",
     "spark": "pyspark",
     "paddle": "paddle",

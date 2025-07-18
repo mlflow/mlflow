@@ -219,6 +219,22 @@ onnx:
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
+semantic_kernel:
+  package_info:
+    pip_release: "semantic-kernel"
+    install_dev: |
+      pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
+
+  autologging:
+    minimum: "1.34.0"
+    maximum: "1.34.0"
+    python:
+      ">= 1.34.0": "3.10"
+    requirements:
+      ">= 1.34.0": ["pydantic>=2.0,<2.12", "openai"]
+    run: |
+      pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
+
 spacy:
   package_info:
     pip_release: "spacy"
