@@ -39,6 +39,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.managed_datasets import ManagedDataset
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -189,6 +190,7 @@ class FileStore(AbstractStore):
     TAGS_FOLDER_NAME = "tags"
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
+    MANAGED_DATASETS_FOLDER_NAME = "managed_datasets"
     INPUTS_FOLDER_NAME = "inputs"
     OUTPUTS_FOLDER_NAME = "outputs"
     META_DATA_FILE_NAME = "meta.yaml"
@@ -204,6 +206,7 @@ class FileStore(AbstractStore):
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
         DATASETS_FOLDER_NAME,
+        MANAGED_DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
         MODELS_FOLDER_NAME,
     ]
@@ -2724,3 +2727,151 @@ class FileStore(AbstractStore):
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return TraceInfoV2.from_v3(trace_info)
+
+    def create_managed_dataset(
+        self,
+        name: str,
+        experiment_ids: list[str],
+        source_type: Optional[str] = None,
+        source: Optional[str] = None,
+        digest: Optional[str] = None,
+        schema: Optional[str] = None,
+        profile: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> ManagedDataset:
+        """
+        Create a new managed dataset for GenAI evaluation records.
+
+        Args:
+            name: Human readable name that identifies the dataset.
+            experiment_ids: List of experiment IDs to associate with this dataset.
+            source_type: Optional type of the dataset source (e.g., 'trace', 'human', 'document').
+            source: Optional source information for the dataset.
+            digest: Optional string digest (hash) that uniquely identifies the dataset content.
+            schema: Optional schema of the dataset in JSON format.
+            profile: Optional profile containing summary statistics and metadata.
+            created_by: Optional user who created the dataset.
+
+        Returns:
+            The created ManagedDataset object.
+        """
+        # Create the managed dataset entity
+        managed_dataset = ManagedDataset.create_new(
+            name=name,
+            experiment_ids=experiment_ids,
+            source_type=source_type,
+            source=source,
+            digest=digest,
+            schema=schema,
+            profile=profile,
+            created_by=created_by,
+        )
+        
+        # Get the primary experiment directory (use first experiment ID)
+        primary_experiment_id = experiment_ids[0] if experiment_ids else "0"
+        _validate_experiment_id(primary_experiment_id)
+        experiment_dir = self._get_experiment_path(
+            primary_experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        
+        # Create managed datasets directory structure
+        mkdir(experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME)
+        managed_datasets_dir = os.path.join(experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME)
+        mkdir(managed_datasets_dir, managed_dataset.dataset_id)
+        dataset_dir = os.path.join(managed_datasets_dir, managed_dataset.dataset_id)
+        
+        # Save the managed dataset entity to JSON file
+        dataset_file_path = os.path.join(dataset_dir, "dataset.json")
+        with open(dataset_file_path, "w") as f:
+            json.dump(managed_dataset.to_dict(), f, indent=2)
+        
+        return managed_dataset
+
+    def get_managed_dataset(self, dataset_id: str) -> ManagedDataset:
+        """
+        Fetch the managed dataset with the specified ID.
+
+        Args:
+            dataset_id: Unique identifier for the dataset to retrieve.
+
+        Returns:
+            The ManagedDataset object if it exists, otherwise raises an exception.
+        """
+        # Search across all experiments for the dataset
+        all_experiments = self.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        
+        for experiment in all_experiments:
+            experiment_dir = self._get_experiment_path(
+                experiment.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=False
+            )
+            
+            managed_datasets_dir = os.path.join(experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME)
+            dataset_dir = os.path.join(managed_datasets_dir, dataset_id)
+            dataset_file_path = os.path.join(dataset_dir, "dataset.json")
+            
+            if os.path.exists(dataset_file_path):
+                try:
+                    with open(dataset_file_path, "r") as f:
+                        dataset_dict = json.load(f)
+                    return ManagedDataset.from_dict(dataset_dict)
+                except Exception as e:
+                    raise MlflowException(
+                        f"Failed to load managed dataset {dataset_id}: {str(e)}",
+                        INTERNAL_ERROR,
+                    )
+        
+        raise MlflowException(
+            f"Managed dataset with ID '{dataset_id}' not found",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    def delete_managed_dataset(self, dataset_id: str) -> None:
+        """
+        Delete the managed dataset with the specified ID.
+
+        Args:
+            dataset_id: Unique identifier for the dataset to delete.
+        """
+        # Search across all experiments for the dataset
+        all_experiments = self.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        
+        for experiment in all_experiments:
+            experiment_dir = self._get_experiment_path(
+                experiment.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=False
+            )
+            
+            managed_datasets_dir = os.path.join(experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME)
+            dataset_dir = os.path.join(managed_datasets_dir, dataset_id)
+            
+            if os.path.exists(dataset_dir):
+                try:
+                    shutil.rmtree(dataset_dir)
+                    return
+                except Exception as e:
+                    raise MlflowException(
+                        f"Failed to delete managed dataset {dataset_id}: {str(e)}",
+                        INTERNAL_ERROR,
+                    )
+        
+        raise MlflowException(
+            f"Managed dataset with ID '{dataset_id}' not found",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    def _get_managed_dataset_artifact_dir(self, experiment_id: str, dataset_id: str) -> str:
+        """
+        Get the artifact directory for a managed dataset.
+        
+        Args:
+            experiment_id: The experiment ID.
+            dataset_id: The dataset ID.
+            
+        Returns:
+            The artifact directory URI for the managed dataset.
+        """
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            FileStore.MANAGED_DATASETS_FOLDER_NAME,
+            dataset_id,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        )

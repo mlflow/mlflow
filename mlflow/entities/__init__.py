@@ -13,15 +13,17 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
-from mlflow.entities.dataset_record import DatasetRecord, ExpectationValue, InputValue
-from mlflow.entities.dataset_source import (
+from mlflow.entities.dataset_summary import _DatasetSummary
+from mlflow.entities.managed_datasets import (
+    DatasetRecord,
     DatasetRecordSource,
     DocumentSource,
+    ExpectationValue,
     HumanSource,
+    InputValue,
+    ManagedDataset,
     TraceSource,
 )
-from mlflow.entities.dataset_summary import _DatasetSummary
-from mlflow.entities.managed_dataset import ManagedDataset
 from mlflow.entities.document import Document
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
