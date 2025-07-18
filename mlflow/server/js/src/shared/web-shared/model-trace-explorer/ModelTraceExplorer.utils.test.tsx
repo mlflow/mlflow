@@ -37,6 +37,9 @@ import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './cha
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
 import { MOCK_GEMINI_INPUT, MOCK_GEMINI_OUTPUT } from './chat-utils/gemini.test-utils';
+import { MOCK_DSPY_INPUT, MOCK_DSPY_OUTPUT } from './chat-utils/dspy.test-utils';
+import { MOCK_LANGCHAIN_INPUT, MOCK_LANGCHAIN_OUTPUT } from './chat-utils/langchain.test-utils';
+import { MOCK_LLAMAINDEX_INPUT, MOCK_LLAMAINDEX_OUTPUT } from './chat-utils/llamaindex.test-utils';
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -306,11 +309,21 @@ describe('normalizeConversation', () => {
     ]);
   });
 
-  it('handles a LlamaIndex chat output', () => {
-    expect(normalizeConversation(MOCK_LLAMA_INDEX_CHAT_OUTPUT)).toEqual([
+  it('handles a LlamaIndex chat', () => {
+    expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT)).toEqual([
+      expect.objectContaining({
+        role: 'system',
+        content: expect.stringMatching(/you are an expert q&a system/i),
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringMatching(/what was the first program the author wrote/i),
+      }),
+    ]);
+    expect(normalizeConversation(MOCK_LLAMAINDEX_OUTPUT)).toEqual([
       expect.objectContaining({
         role: 'assistant',
-        content: 'Test',
+        content: expect.stringMatching(/the first program the author wrote was/i),
       }),
     ]);
   });
@@ -387,6 +400,38 @@ it('should handle gemini input and outputs', () => {
   expect(normalizeConversation(MOCK_GEMINI_OUTPUT)).toEqual([
     expect.objectContaining({
       content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle dspy input and outputs', () => {
+  expect(normalizeConversation(MOCK_DSPY_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/what is the capital of france/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_DSPY_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/capital of france is paris/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle langchain input and outputs', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/can I just set everyone's access to sudo/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_LANGCHAIN_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/oh, for crying out loud, no! that's just asking for a disaster/i),
       role: 'assistant',
     }),
   ]);

@@ -52,6 +52,7 @@ import {
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
 } from './chat-utils';
+import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -897,6 +898,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
       return langchainChatInput;
     }
 
+    const llamaIndexChatInput = normalizeLlamaIndexChatInput(input);
+    if (llamaIndexChatInput) {
+      return llamaIndexChatInput;
+    }
+
+    const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
+    if (llamaIndexChatResponse) {
+      return llamaIndexChatResponse;
+    }
+
     const openAIChatInput = normalizeOpenAIChatInput(input);
     if (openAIChatInput) {
       return openAIChatInput;
@@ -920,11 +931,6 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
     if (openAIResponsesInput) {
       return openAIResponsesInput;
-    }
-
-    const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
-    if (llamaIndexChatResponse) {
-      return llamaIndexChatResponse;
     }
 
     const dspyChatInput = normalizeDspyChatInput(input);
