@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import json
 import logging
 import threading
@@ -285,6 +286,7 @@ class IngestStreamFactory:
     # Class-level singleton registry: table_name -> factory instance
     _instances: dict[str, "IngestStreamFactory"] = {}
     _instances_lock = threading.Lock()
+    _atexit_registered = False
 
     @classmethod
     def get_instance(cls, table_properties: TableProperties) -> "IngestStreamFactory":
@@ -303,6 +305,12 @@ class IngestStreamFactory:
                 # Double-checked locking pattern
                 if table_name not in cls._instances:
                     cls._instances[table_name] = cls(table_properties)
+
+                    # Register atexit handler to ensure that all streams are properly closed
+                    if not cls._atexit_registered:
+                        atexit.register(cls.reset)
+                        cls._atexit_registered = True
+                        _logger.debug("Registered atexit handler for IngestStreamFactory cleanup")
         return cls._instances[table_name]
 
     def __init__(self, table_properties: TableProperties):

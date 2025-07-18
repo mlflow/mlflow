@@ -47,7 +47,6 @@ def create_archival_ingest_sdk():
     # Create and return configured SDK instance
     _logger.debug(
         f"Creating IngestApiSdk with ingest URL: {ingest_url}, workspace URL: {workspace_url} "
-        f"and token: {token}"
     )
     return IngestApiSdk(ingest_url, workspace_url, token)
 
