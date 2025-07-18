@@ -802,7 +802,7 @@ describe('API', () => {
 
       // Async method
       async asyncMultiply(x: number): Promise<number> {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return this.value * x;
       }
 
@@ -824,7 +824,7 @@ describe('API', () => {
       // Async method with decorator
       @mlflow.trace({ name: 'async_multiply_decorated', spanType: SpanType.TOOL })
       async asyncMultiply(x: number): Promise<number> {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return this.value * x;
       }
 

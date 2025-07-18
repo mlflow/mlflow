@@ -254,16 +254,16 @@ export function trace<T extends (...args: any[]) => any>(
 ): T | MethodDecorator {
   // Check if this is being used as a decorator (no function provided, or options provided)
   if (typeof funcOrOptions !== 'function') {
-    const decoratorOptions = funcOrOptions as TraceOptions | undefined;
-    
+    const decoratorOptions = funcOrOptions;
+
     // Return a method decorator
     return function (_target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-      const originalMethod = descriptor.value;
-      
+      const originalMethod = descriptor.value as T;
+
       if (typeof originalMethod !== 'function') {
         throw new Error('@trace decorator can only be applied to methods');
       }
-      
+
       // Create the traced method wrapper
       descriptor.value = function (this: any, ...args: any[]) {
         let inputs: any;
@@ -281,21 +281,17 @@ export function trace<T extends (...args: any[]) => any>(
           inputs: inputs
         };
 
-        // The key insight: preserve the original `this` context
-        const originalThis = this;
-        
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return withSpan((_span) => {
           // Call the original method with the preserved `this` context
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return originalMethod.apply(originalThis, args);
-        }, spanOptions);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          return originalMethod.apply(this, args);
+        }, spanOptions) as ReturnType<T>;
       };
-      
+
       // Preserve the original method's properties
       Object.defineProperty(descriptor.value, 'length', { value: originalMethod.length });
       Object.defineProperty(descriptor.value, 'name', { value: originalMethod.name });
-      
+
       return descriptor;
     };
   } else {
