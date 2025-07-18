@@ -15,6 +15,7 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
   AUDIO_EXTENSIONS,
+  VIDEO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -34,6 +35,8 @@ import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
+import { KeyValueEntity } from '../../../common/types';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -46,18 +49,20 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
+  entityTags?: Partial<KeyValueEntity>[];
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId } = this.props;
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } = this.props;
       const commonArtifactProps = {
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
         experimentId,
+        entityTags,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -106,6 +111,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <LazyShowArtifactPdfView {...commonArtifactProps} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactAudioView {...commonArtifactProps} />;
+        } else if (VIDEO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactVideoView {...commonArtifactProps} />;
         }
       }
     }
@@ -131,7 +138,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, video, geojson files"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }

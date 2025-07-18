@@ -36,55 +36,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Overview 🌟',
-      className: 'sidebar-top-level-category',
-      collapsed: false,
-      items: [
-        {
-          type: 'doc',
-          id: 'overview/key-challenges',
-          label: 'Key Challenges',
-        },
-        {
-          type: 'doc',
-          id: 'overview/why-mlflow',
-          label: 'Why use MLflow',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'overview/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'Developer Workflow 👉',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase1-build-improve',
-          label: 'Building & Iterating',
-        },
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase2-systematically-test',
-          label: 'Evaluate & Test',
-        },
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase3-monitor',
-          label: 'Monitor in Production',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'developer-workflow/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'Getting Started 🚀',
+      label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -102,25 +54,9 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate your GenAI App',
         },
         {
-          type: 'category',
+          type: 'link',
+          href: '/genai/tracing/quickstart/python-openai',
           label: 'Tracing',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/index',
-              label: 'Overview',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-ide',
-              label: 'Tracing a GenAI App (IDE)',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-notebook',
-              label: 'Tracing a GenAI App (Notebook)',
-            },
-          ],
         },
       ],
       link: {
@@ -130,13 +66,24 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Tracing (Observability) 🔎',
+      label: 'Tracing (Observability)',
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'tracing/quickstart',
+          type: 'category',
           label: 'Quickstart',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/python-openai',
+              label: 'Getting Started (Python)',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/typescript-openai',
+              label: 'Getting Started (TS/JS)',
+            },
+          ],
         },
         {
           type: 'category',
@@ -194,22 +141,25 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'tracing/concepts/trace-instrumentation',
+              id: 'tracing/concepts/trace',
+              label: 'Trace',
             },
             {
               type: 'doc',
-              id: 'tracing/data-model',
-              label: 'Tracing Data Model',
+              id: 'tracing/concepts/span',
+              label: 'Span',
             },
             {
               type: 'doc',
-              id: 'tracing/concepts/trace/feedback',
+              id: 'tracing/concepts/feedback',
+              label: 'Feedback',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/concepts/expectations',
+              label: 'Expectations',
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/concepts/trace-instrumentation',
-          },
         },
         {
           type: 'category',
@@ -237,17 +187,17 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/quality-with-traces',
-              label: 'Using Traces for Quality Improvement',
-            },
-            {
-              type: 'doc',
               id: 'tracing/observe-with-traces/delete-traces',
             },
             {
               type: 'doc',
               id: 'tracing/search-traces',
               label: 'Searching for Traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/masking',
+              label: 'Redacting Sensitive Data',
             },
           ],
         },
@@ -293,9 +243,19 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluate & Monitor 📊',
+      label: 'Evaluate & Monitor',
       className: 'sidebar-top-level-category',
       items: [
+        {
+          type: 'doc',
+          id: 'assessments/feedback',
+          label: 'Feedback Collection',
+        },
+        {
+          type: 'doc',
+          id: 'assessments/expectations',
+          label: 'Ground Truth Expectations',
+        },
         {
           type: 'doc',
           id: 'eval-monitor/llm-evaluation',
@@ -336,9 +296,9 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt and Version Management 🔨',
+      label: 'Prompt and Version Management',
       className: 'sidebar-top-level-category',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
@@ -558,10 +518,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'prompt-version-mgmt/prompt-registry/log-with-model',
             },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-deployed-apps',
-            },
           ],
           link: {
             type: 'doc',
@@ -581,7 +537,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Application Serving ⛵',
+      label: 'Model Serving',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -602,7 +558,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Governance 🛡️',
+      label: 'Governance',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -611,18 +567,43 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/index',
-              label: 'Getting Started with AI Gateway',
+              id: 'governance/ai-gateway/setup',
+              label: 'Setup',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step1-create-deployments/index',
-              label: 'Setup the AI Gateway',
+              id: 'governance/ai-gateway/configuration',
+              label: 'Configuration',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step2-query-deployments/index',
-              label: 'Use the AI Gateway',
+              id: 'governance/ai-gateway/usage',
+              label: 'Usage',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/integration',
+              label: 'Integration',
+            },
+            {
+              type: 'category',
+              label: 'Guides',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step1-create-deployments/index',
+                  label: 'Setup the AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step2-query-deployments/index',
+                  label: 'Use the AI Gateway',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'governance/ai-gateway/guides/index',
+              },
             },
           ],
           link: {
@@ -643,7 +624,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Data Model 🧩',
+      label: 'Data Model',
       className: 'sidebar-top-level-category',
       items: [
         {

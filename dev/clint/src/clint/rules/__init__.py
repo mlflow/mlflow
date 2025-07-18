@@ -16,6 +16,7 @@ from clint.rules.lazy_module import LazyModule
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 from clint.rules.markdown_link import MarkdownLink
 from clint.rules.missing_docstring_param import MissingDocstringParam
+from clint.rules.missing_notebook_h1_header import MissingNotebookH1Header
 from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.multi_assign import MultiAssign
 from clint.rules.no_rst import NoRst
@@ -33,7 +34,11 @@ from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 from clint.rules.use_sys_executable import UseSysExecutable
 
+ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
+
+
 __all__ = [
+    "ALL_RULES",
     "Rule",
     "DoNotDisable",
     "DocstringParamOrder",
@@ -52,6 +57,7 @@ __all__ = [
     "LogModelArtifactPath",
     "MarkdownLink",
     "MissingDocstringParam",
+    "MissingNotebookH1Header",
     "MlflowClassName",
     "NoRst",
     "OsEnvironDeleteInTest",

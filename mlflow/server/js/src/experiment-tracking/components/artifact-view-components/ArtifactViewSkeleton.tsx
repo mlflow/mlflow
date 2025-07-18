@@ -52,7 +52,7 @@ export const ArtifactViewBrowserSkeleton = () => {
 export const ArtifactViewSkeleton = (divProps: React.HTMLAttributes<HTMLDivElement>) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div data-testid="artifact-view-skeleton" css={{ margin: theme.spacing.md }} {...divProps}>
+    <div data-testid="mlflow-artifact-view-skeleton" css={{ margin: theme.spacing.md }} {...divProps}>
       <SkeletonLines count={9} />
     </div>
   );

@@ -10,7 +10,7 @@ export declare const getComboboxContentWrapperStyles: (theme: Theme, { maxHeight
     useNewShadows: boolean;
     useNewBorderColors: boolean;
 }) => SerializedStyles;
-export declare const COMBOBOX_MENU_ITEM_PADDING: number[];
+export declare const getComboboxMenuItemPadding: (theme: Theme) => number[];
 export declare const getComboboxOptionItemWrapperStyles: (theme: Theme) => SerializedStyles;
 interface getComboboxOptionLabelStylesProps {
     theme: Theme;
@@ -18,8 +18,10 @@ interface getComboboxOptionLabelStylesProps {
     textOverflowMode?: 'ellipsis' | 'multiline';
     contentWidth?: DialogComboboxContextType['contentWidth'];
     hasHintColumn?: boolean;
+    hasIcon?: boolean;
+    hasDisabledReason?: boolean;
 }
-export declare const getComboboxOptionLabelStyles: ({ theme, dangerouslyHideCheck, textOverflowMode, contentWidth, hasHintColumn, }: getComboboxOptionLabelStylesProps) => SerializedStyles;
+export declare const getComboboxOptionLabelStyles: ({ theme, dangerouslyHideCheck, textOverflowMode, contentWidth, hasHintColumn, hasIcon, hasDisabledReason, }: getComboboxOptionLabelStylesProps) => SerializedStyles;
 export declare const getInfoIconStyles: (theme: Theme) => SerializedStyles;
 export declare const getCheckboxStyles: (theme: Theme, textOverflowMode: "ellipsis" | "multiline") => SerializedStyles;
 export declare const getFooterStyles: (theme: Theme) => SerializedStyles;

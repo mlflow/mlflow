@@ -7,7 +7,7 @@ sidebar_label: DeepSeek
 
 ![Deepseek Tracing via autolog](/images/llms/deepseek/deepseek-tracing-agent.png)
 
-[MLflow Tracing](../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
+[MLflow Tracing](../../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
 
 ```python
 import mlflow
@@ -75,7 +75,7 @@ The above example should generate a trace in the `DeepSeek` experiment in the ML
 
 ## Streaming and Async Support
 
-MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
+MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](../openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
 
 ## Advanced Example: Function Calling Agent
 

@@ -1,6 +1,6 @@
 import { keyBy } from 'lodash';
 import { renderWithIntl, fastFillInput, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { KeyValueEntity } from '../types';
+import { KeyValueEntity } from '../../common/types';
 import { DetailsOverviewParamsTable } from './DetailsOverviewParamsTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import userEvent from '@testing-library/user-event';

@@ -115,7 +115,18 @@ const checkMaintainerAccess = async (context, github) => {
   const { runId } = context;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
 
-  if (!pr.data.maintainer_can_modify) {
+  // Skip maintainer access check for copilot bot PRs
+  // Copilot bot creates PRs that are owned by the repository and don't need the same permission model
+  if (
+    pr.data.user?.type?.toLowerCase() === "bot" &&
+    pr.data.user?.login?.toLowerCase() === "copilot"
+  ) {
+    console.log(`Skipping maintainer access check for copilot bot PR #${pull_number}`);
+    return;
+  }
+
+  const isForkPR = pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+  if (isForkPR && !pr.data.maintainer_can_modify) {
     const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
 
     await github.rest.issues.createComment({

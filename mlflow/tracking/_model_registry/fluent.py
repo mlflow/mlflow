@@ -4,7 +4,9 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
@@ -45,6 +47,9 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 _logger = logging.getLogger(__name__)
 
@@ -532,7 +537,8 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
+    template: Union[str, list[dict[str, "ContentType"]]],
+    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
@@ -540,7 +546,7 @@ def register_prompt(
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
     A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
-    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    template content at minimum. With MLflow Prompt Registry, you can create, manage, and
     version control prompts with the MLflow's robust model tracking framework.
 
     If there is no registered prompt with the given name, a new prompt will be created.
@@ -549,9 +555,11 @@ def register_prompt(
 
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
+        template: The template content of the prompt. Can be either:
+            - A string containing text with variables enclosed in double curly braces,
+              e.g. {{variable}}, which will be replaced with actual values by the `format` method.
+            - A list of dictionaries representing chat messages, where each message has
+              'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
 
             .. note::
 
@@ -563,6 +571,9 @@ def register_prompt(
 
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
+
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
 
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
@@ -578,15 +589,27 @@ def register_prompt(
     .. code-block:: python
 
         import mlflow
+        from pydantic import BaseModel
 
-        # Register a new prompt
+        # Register a text prompt
         mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI.",
+            response_format={"type": "string", "description": "A friendly response"},
+        )
+
+        # Register a chat prompt with multiple messages
+        mlflow.register_prompt(
+            name="assistant_prompt",
+            template=[
+                {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                {"role": "user", "content": "{{question}}"},
+            ],
+            response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
         )
 
         # Load the prompt from the registry
-        prompt = mlflow.load_prompt("my_prompt")
+        prompt = mlflow.load_prompt("greeting_prompt")
 
         # Use the prompt in your application
         import openai
@@ -602,7 +625,7 @@ def register_prompt(
 
         # Update the prompt with a new version
         prompt = mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
             tags={"author": "Bob"},
@@ -617,6 +640,7 @@ def register_prompt(
     return MlflowClient().register_prompt(
         name=name,
         template=template,
+        response_format=response_format,
         commit_message=commit_message,
         tags=tags,
     )

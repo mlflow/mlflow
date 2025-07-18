@@ -409,21 +409,20 @@ class TracingClient:
         Returns:
             The Assessment object.
         """
-        if not is_databricks_uri(self.tracking_uri):
-            raise MlflowException(
-                "This API is currently only available for Databricks Managed MLflow. This "
-                "will be available in the open-source version of MLflow in a future release."
-            )
 
         return self.store.get_assessment(trace_id, assessment_id)
 
     def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
-        if not is_databricks_uri(self.tracking_uri):
-            raise MlflowException(
-                "This API is currently only available for Databricks Managed MLflow. This "
-                "will be available in the open-source version of MLflow in a future release."
-            )
+        """
+        Log an assessment to a trace.
 
+        Args:
+            trace_id: The ID of the trace.
+            assessment: The assessment object to log.
+
+        Returns:
+            The logged Assessment object.
+        """
         assessment.trace_id = trace_id
 
         if trace_id is None or trace_id == NO_OP_SPAN_TRACE_ID:
@@ -443,7 +442,6 @@ class TracingClient:
                     )
                 trace.info.assessments.append(assessment)
             return assessment
-
         return self.store.create_assessment(assessment)
 
     def update_assessment(
@@ -460,11 +458,6 @@ class TracingClient:
             assessment_id: The ID of the feedback assessment to update.
             assessment: The updated assessment.
         """
-        if not is_databricks_uri(self.tracking_uri):
-            raise MlflowException(
-                "This API is currently only available for Databricks Managed MLflow. This "
-                "will be available in the open-source version of MLflow in a future release."
-            )
 
         return self.store.update_assessment(
             trace_id=trace_id,
@@ -484,11 +477,6 @@ class TracingClient:
             trace_id: The ID of the trace.
             assessment_id: The ID of the assessment to delete.
         """
-        if not is_databricks_uri(self.tracking_uri):
-            raise MlflowException(
-                "This API is currently only available for Databricks Managed MLflow. This "
-                "will be available in the open-source version of MLflow in a future release."
-            )
 
         self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 

@@ -100,6 +100,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
 
     return (
         df.rename(columns=column_mapping)
+        .pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
@@ -135,6 +136,19 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
                 f"Failed to parse `{col}` column. Error: {e}\nHint: {msg}"
             )
 
+    return df
+
+
+def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
+    """
+    Deserialize the `trace` column from the dataframe if it is a string.
+
+    Since MLflow 3.2.0, mlflow.search_traces() returns a pandas DataFrame with a `trace`
+    column that is a trace json representation rather than the Trace object itself. This
+    function deserializes the `trace` column into a Trace object.
+    """
+    if "trace" in df.columns:
+        df["trace"] = df["trace"].apply(lambda t: Trace.from_json(t) if isinstance(t, str) else t)
     return df
 
 
@@ -187,6 +201,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "Please install it with `pip install databricks-agents`."
         )
 
+    from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
     from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
@@ -224,7 +239,12 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         }
         return scorer.run(**merged)
 
-    return metric(
+    metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
     )
+
+    # Add attribute to indicate if this is a built-in scorer
+    metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)
+
+    return metric_instance

@@ -37,6 +37,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -311,13 +312,13 @@ class RestStore(AbstractStore):
         Create a new trace using the V2 API format. This is a fallback for the case where the
         client is v3 but the tracking server does not support v3 yet(<= 3.2.0).
         """
-        trace_info_v2 = self.start_trace(
+        trace_info_v2 = self.deprecated_start_trace_v2(
             experiment_id=trace_info.experiment_id,
             timestamp_ms=trace_info.request_time,
             request_metadata=trace_info.trace_metadata,
             tags=trace_info.tags,
         )
-        self.end_trace(
+        self.deprecated_end_trace_v2(
             request_id=trace_info_v2.request_id,
             timestamp_ms=trace_info.request_time + trace_info.execution_duration,
             status=trace_info.status,
@@ -653,6 +654,17 @@ class RestStore(AbstractStore):
             SetExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetExperimentTag, req_body)
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String ID of the experiment
+            key: String name of the tag to be deleted
+        """
+        req_body = message_to_json(DeleteExperimentTag(experiment_id=experiment_id, key=key))
+        self._call_endpoint(DeleteExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):
         """

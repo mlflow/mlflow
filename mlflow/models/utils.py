@@ -21,6 +21,7 @@ import pydantic
 
 import mlflow
 from mlflow.entities import LoggedModel
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
@@ -1257,10 +1258,17 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = f"Model is missing inputs {missing_cols}."
-            if extra_cols:
-                message += f" Note that there were extra inputs: {extra_cols}"
+            # If the user has set MLFLOW_DISABLE_SCHEMA_DETAILS to true, we raise a generic error
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Input schema validation failed. Mismatched or missing input(s)."
+                if extra_cols:
+                    message += " Note that there were extra inputs provided."
+            else:
+                message = f"Model is missing inputs {missing_cols}."
+                if extra_cols:
+                    message += f" Note that there were extra inputs: {extra_cols}."
             raise MlflowException(message)
+
         if extra_cols:
             _logger.warning(
                 "Found extra inputs in the model input that are not defined in the model "
