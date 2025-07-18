@@ -3,10 +3,9 @@ from unittest import mock
 
 import openai
 import pytest
-from packaging.version import Version
 
 try:
-    import agents
+    import agents  # noqa: F401
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 

@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -34,7 +34,7 @@ SPANS_COLUMN_NAME = "spans"
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
-    from mlflow.types.chat import ChatMessage, ChatTool
+    from mlflow.types.chat import ChatTool
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:

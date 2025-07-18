@@ -280,12 +280,13 @@ async def test_responses_stream_autolog(client):
     span = traces[0].data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.outputs["id"] == "responses-123"
+    # "logprobs" is only returned from certain version of OpenAI SDK
+    span.outputs["output"][0]["content"].pop("logprobs", None)
     assert span.outputs["output"][0]["content"] == [
         {
             "text": "Dummy output",
             "annotations": None,
             "type": "output_text",
-            "logprobs": None,
         }
     ]
     assert span.attributes["model"] == "gpt-4o"
