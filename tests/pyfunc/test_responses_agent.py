@@ -290,9 +290,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return {"output": [{"type": "message", "content": [{"type": "output_text"}]}]}
 
-        def predict_stream(self, request: ResponsesAgentRequest):
-            pass
-
     model = BadResponsesAgent()
     with pytest.raises(
         MlflowException, match="Failed to save ResponsesAgent. Ensure your model's predict"
@@ -445,16 +442,14 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
         ),
     ],
 )
-def test_responses_agent_trace(
-    tmp_path, input, outputs, expected_chat_messages, expected_chat_tools
-):
+def test_responses_agent_trace(input, outputs, expected_chat_messages, expected_chat_tools):
     class TracedResponsesAgent(ResponsesAgent):
-        @mlflow.trace(span_type=SpanType.AGENT)
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
 
-        @mlflow.trace(span_type=SpanType.AGENT)
-        def predict_stream(self, request: ResponsesAgentRequest):
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             for item in outputs["output"]:
                 yield ResponsesAgentStreamEvent(
                     type="response.output_item.done",
@@ -469,12 +464,11 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
+    assert spans[0].span_type == SpanType.AGENT
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
     if expected_chat_tools is not None:
         assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
-    else:
-        assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
 
     list(model.predict_stream(ResponsesAgentRequest(**input)))
 
@@ -483,4 +477,13 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict_stream"
+    assert spans[0].span_type == SpanType.AGENT
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
+
+    if expected_chat_tools is not None:
+        assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
+
+    # Verify that output_reducer was applied to predict_stream
+    # The exact format depends on the ResponsesAgentResponse.model_dump() implementation
+    assert "output" in spans[0].outputs
+    assert spans[0].outputs["output"] == list(outputs["output"])
