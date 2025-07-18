@@ -305,13 +305,23 @@ if __name__ == "__main__":
    pip install fastapi uvicorn
    ```
 
-2. **Start the webhook receiver:**
+2. **Set up MLflow server with webhook encryption:**
+
+   ```bash
+   # Generate a secure encryption key for webhook secrets
+   export MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+   # Start MLflow server with webhook support
+   mlflow server --host 0.0.0.0 --port 5000
+   ```
+
+3. **Start the webhook receiver:**
 
    ```bash
    python webhook_receiver.py
    ```
 
-3. **Configure MLflow webhook:**
+4. **Configure MLflow webhook:**
 
    ```python
    from mlflow import MlflowClient
@@ -328,7 +338,7 @@ if __name__ == "__main__":
    )
    ```
 
-4. **Test the webhook:**
+5. **Test the webhook:**
 
    ```python
    # Test webhook connectivity
