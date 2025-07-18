@@ -35,7 +35,7 @@ build_tsdoc() {
 }
 
 # Base paths
-TYPESCRIPT_BASE="../../packages/typescript"
+TYPESCRIPT_BASE="../../libs/typescript"
 DOCS_OUTPUT_BASE="build/html/typescript_api"
 
 # First ensure yarn dependencies are installed at workspace root
