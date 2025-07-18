@@ -36,6 +36,7 @@ import {
 import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './chat-utils/openai.test-utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
+import { MOCK_GEMINI_INPUT, MOCK_GEMINI_OUTPUT } from './chat-utils/gemini.test-utils';
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -370,6 +371,22 @@ it('should handle anthropic input and outputs', () => {
   expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT)).toEqual([
     expect.objectContaining({
       content: expect.stringMatching(/this is a close-up macro photograph of an ant/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle gemini input and outputs', () => {
+  expect(normalizeConversation(MOCK_GEMINI_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/explain how ai works/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_GEMINI_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
       role: 'assistant',
     }),
   ]);
