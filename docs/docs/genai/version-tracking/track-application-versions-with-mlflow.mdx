@@ -213,9 +213,11 @@ print(result)
 ## Step 5: View traces linked to the LoggedModel
 
 ### Use the UI
+
 Go to the MLflow Experiment UI. In the **Traces** tab, you can see the version of the app that generated each trace. In the **Versions** tab, you can see each LoggedModel alongside its parameters and linked traces.
 
 ### Use the SDK
+
 You can use `search_traces()` to query for traces from a LoggedModel:
 
 ```python
@@ -257,7 +259,6 @@ if logged_model.tags:
     for tag_key, tag_value in logged_model.tags.items():
         print(f"{tag_key}: {tag_value}")
 ```
-
 
 ## Helper function to compute a unique hash for any file change
 

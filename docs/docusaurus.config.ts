@@ -543,7 +543,10 @@ const config: Config = {
           },
           {
             to: '/genai/prompt-registry/optimize-prompts',
-            from: ['/genai/prompt-version-mgmt/optimize-prompts', '/genai/prompt-version-mgmt/prompt-registry/optimize-prompts'],
+            from: [
+              '/genai/prompt-version-mgmt/optimize-prompts',
+              '/genai/prompt-version-mgmt/prompt-registry/optimize-prompts',
+            ],
           },
           {
             to: '/genai/prompt-registry/create-and-edit-prompts',
