@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -32,6 +32,7 @@ from mlflow.protos.webhooks_pb2 import (
     DeleteWebhook,
     GetWebhook,
     ListWebhooks,
+    TestWebhook,
     UpdateWebhook,
     WebhookService,
 )
@@ -568,3 +569,20 @@ class RestStore(BaseRestStore):
 
     def delete_webhook(self, webhook_id: str) -> None:
         self._call_webhook_endpoint(DeleteWebhook, webhook_id=webhook_id)
+
+    def test_webhook(
+        self, webhook_id: str, event: Optional[WebhookEvent] = None
+    ) -> WebhookTestResult:
+        """
+        Test the webhook by sending a test event to the specified URL.
+
+        Args:
+            webhook_id: The ID of the webhook to test.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
+
+        Returns:
+            WebhookTestResult indicating success/failure and response details
+        """
+        req_body = message_to_json(TestWebhook(event=event.to_proto() if event else None))
+        response_proto = self._call_webhook_endpoint(TestWebhook, req_body, webhook_id=webhook_id)
+        return WebhookTestResult.from_proto(response_proto.result)

@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -1175,3 +1175,18 @@ class AbstractStore:
             None
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
+
+    def test_webhook(
+        self, webhook_id: str, event: Optional[WebhookEvent] = None
+    ) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test event to the specified URL.
+
+        Args:
+            webhook_id: Webhook ID.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
+
+        Returns:
+            WebhookTestResult indicating success/failure and response details
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")

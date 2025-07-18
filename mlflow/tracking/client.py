@@ -44,7 +44,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -6014,3 +6014,18 @@ class MlflowClient:
             None
         """
         self._get_registry_client().delete_webhook(webhook_id)
+
+    def test_webhook(
+        self, webhook_id: str, event: Optional[WebhookEvent] = None
+    ) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test payload.
+
+        Args:
+            webhook_id: Webhook ID to test.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
+
+        Returns:
+            WebhookTestResult indicating success/failure and response details.
+        """
+        return self._get_registry_client().test_webhook(webhook_id, event)
