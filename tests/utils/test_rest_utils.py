@@ -880,3 +880,46 @@ def test_timeout_parameter_propagation_without_timeout(mock_config, mock_workspa
         **expected_kwargs,
         retry_timeout_seconds=mock.ANY,
     )
+
+
+@mock.patch("mlflow.utils.rest_utils.get_workspace_client")
+@mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
+def test_deployment_client_timeout_propagation(
+    mock_get_databricks_host_creds, mock_get_workspace_client
+):
+    """Test that DatabricksDeploymentClient propagates MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT to workspace client."""
+    from mlflow.deployments.databricks import DatabricksDeploymentClient
+    from mlflow.environment_variables import MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    # Mock the host creds to use Databricks SDK
+    mock_host_creds = MlflowHostCreds("http://my-host", use_databricks_sdk=True)
+    mock_get_databricks_host_creds.return_value = mock_host_creds
+
+    # Mock workspace client and its response
+    mock_workspace_client_instance = mock.MagicMock()
+    mock_workspace_client_instance.api_client.do.return_value = {"contents": mock.MagicMock()}
+    mock_get_workspace_client.return_value = mock_workspace_client_instance
+
+    # Create deployment client and call predict
+    client = DatabricksDeploymentClient("databricks")
+
+    # Set the environment variable to a custom value
+    original_timeout = MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
+    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.set(300)
+
+    try:
+        client.predict(endpoint="test-endpoint", inputs={"test": "data"})
+
+        # Verify get_workspace_client was called with the deployment predict timeout
+        mock_get_workspace_client.assert_called_once_with(
+            False,  # use_secret_scope_token
+            "http://my-host",  # host
+            None,  # token
+            None,  # databricks_auth_profile
+            retry_timeout_seconds=None,
+            timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
+        )
+    finally:
+        # Restore original timeout
+        MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.set(original_timeout)
