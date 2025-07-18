@@ -13,7 +13,6 @@ from mlflow.entities import (
     LoggedModelTag,
     ViewType,
 )
-from mlflow.entities.managed_datasets import ManagedDataset
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -894,54 +893,3 @@ class AbstractStore:
             model_id: ID of the model to delete.
         """
         raise NotImplementedError(self.__class__.__name__)
-
-    @abstractmethod
-    def create_managed_dataset(
-        self,
-        name: str,
-        experiment_ids: list[str],
-        source_type: Optional[str] = None,
-        source: Optional[str] = None,
-        digest: Optional[str] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
-    ) -> ManagedDataset:
-        """
-        Create a new managed dataset for GenAI evaluation records.
-
-        Args:
-            name: Human readable name that identifies the dataset.
-            experiment_ids: List of experiment IDs to associate with this dataset.
-            source_type: Optional type of the dataset source (e.g., 'trace', 'human', 'document').
-            source: Optional source information for the dataset.
-            digest: Optional string digest (hash) that uniquely identifies the dataset content.
-            schema: Optional schema of the dataset in JSON format.
-            profile: Optional profile containing summary statistics and metadata.
-            created_by: Optional user who created the dataset.
-
-        Returns:
-            The created :py:class:`ManagedDataset <mlflow.entities.managed_datasets.ManagedDataset>` object.
-        """
-
-    @abstractmethod
-    def get_managed_dataset(self, dataset_id: str) -> ManagedDataset:
-        """
-        Fetch the managed dataset with the specified ID.
-
-        Args:
-            dataset_id: Unique identifier for the dataset to retrieve.
-
-        Returns:
-            The :py:class:`ManagedDataset <mlflow.entities.managed_datasets.ManagedDataset>` object 
-            if it exists, otherwise raises an exception.
-        """
-
-    @abstractmethod
-    def delete_managed_dataset(self, dataset_id: str) -> None:
-        """
-        Delete the managed dataset with the specified ID.
-
-        Args:
-            dataset_id: Unique identifier for the dataset to delete.
-        """
