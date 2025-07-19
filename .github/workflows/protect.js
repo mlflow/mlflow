@@ -34,7 +34,7 @@ module.exports = async ({ github, context }) => {
         owner,
         repo,
         ref,
-        filter: 'latest',
+        filter: "latest",
       })
     ).filter(({ name }) => name !== "protect");
 
