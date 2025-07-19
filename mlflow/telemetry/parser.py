@@ -36,7 +36,7 @@ class LoggedModelParser(TelemetryParser):
 
 class RegisteredModelParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, arguments: dict[str, Any]) -> Optional[RegisteredModelParams]:
+    def extract_params(cls, arguments: dict[str, Any]) -> RegisteredModelParams:
         tags = arguments.get("tags") or {}
         is_prompt = False
         try:
@@ -50,7 +50,7 @@ class RegisteredModelParser(TelemetryParser):
 
 class CreateRunParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, arguments: dict[str, Any]) -> Optional[CreateRunParams]:
+    def extract_params(cls, arguments: dict[str, Any]) -> CreateRunParams:
         imports = [pkg for pkg in PACKAGES_TO_CHECK_IMPORT if pkg in sys.modules]
         return CreateRunParams(imports=imports)
 
