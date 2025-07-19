@@ -3,9 +3,8 @@ import math
 import os
 import random
 import signal
-from collections import namedtuple
 from io import StringIO
-from typing import Any
+from typing import Any, NamedTuple
 
 import keras
 import numpy as np
@@ -48,7 +47,9 @@ else:
     from keras.optimizers import SGD
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 def build_and_save_sklearn_model(model_path):
