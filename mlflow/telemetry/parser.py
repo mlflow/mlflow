@@ -1,8 +1,11 @@
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+from mlflow.telemetry.constant import PACKAGES_TO_CHECK_IMPORT
 from mlflow.telemetry.schemas import (
     BaseParams,
+    CreateRunParams,
     LoggedModelParams,
     RegisteredModelParams,
 )
@@ -33,7 +36,7 @@ class LoggedModelParser(TelemetryParser):
 
 class RegisteredModelParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, arguments: dict[str, Any]) -> Optional[RegisteredModelParams]:
+    def extract_params(cls, arguments: dict[str, Any]) -> RegisteredModelParams:
         tags = arguments.get("tags") or {}
         is_prompt = False
         try:
@@ -45,7 +48,15 @@ class RegisteredModelParser(TelemetryParser):
         return RegisteredModelParams(is_prompt=is_prompt)
 
 
+class CreateRunParser(TelemetryParser):
+    @classmethod
+    def extract_params(cls, arguments: dict[str, Any]) -> CreateRunParams:
+        imports = [pkg for pkg in PACKAGES_TO_CHECK_IMPORT if pkg in sys.modules]
+        return CreateRunParams(imports=imports)
+
+
 API_PARSER_MAPPING: dict[str, TelemetryParser] = {
     "create_logged_model": LoggedModelParser,
     "create_registered_model": RegisteredModelParser,
+    "create_run": CreateRunParser,
 }
