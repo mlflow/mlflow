@@ -24,6 +24,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
+    _is_uri_sanitized,
     _resolve_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
@@ -40,6 +41,14 @@ from tests.tracing.helper import get_tracer_tracking_uri
 # and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
+
+
+def test_is_uri_sanitized():
+    assert None is _is_uri_sanitized(None)
+    assert None is _is_uri_sanitized("/tmp/my_tracking")
+
+    with pytest.raises(ValueError, match="Special character"):
+        _is_uri_sanitized("'  AND'")
 
 
 def test_get_store_file_store(tmp_path, monkeypatch):
