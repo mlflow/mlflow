@@ -80,7 +80,7 @@ module.exports = async ({ github, context }) => {
         state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
     }));
 
-    return [...runs, ...statuses];
+    return [...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const start = new Date();
