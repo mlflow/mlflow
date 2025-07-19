@@ -1,6 +1,7 @@
 import os
 import random
 import re
+import sys
 from typing import Optional
 
 import requests
@@ -106,11 +107,14 @@ def _get_config() -> Optional[TelemetryConfig]:
             ):
                 return None
 
-            rollout_percentage = config.get("rollout_percentage", 100)
-            if random.randint(0, 100) > rollout_percentage:
+            if get_source_sdk().value in config.get("disable_sdks", []):
                 return None
 
-            if get_source_sdk().value in config.get("disable_sdks", []):
+            if sys.platform in config.get("disable_os", []):
+                return None
+
+            rollout_percentage = config.get("rollout_percentage", 100)
+            if random.randint(0, 100) > rollout_percentage:
                 return None
 
             return TelemetryConfig(

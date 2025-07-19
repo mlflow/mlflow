@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from mlflow.telemetry.constant import BASE_URL
 from mlflow.telemetry.schemas import SourceSDK, TelemetryConfig
 from mlflow.telemetry.utils import (
@@ -7,6 +9,7 @@ from mlflow.telemetry.utils import (
     _get_config_url,
     is_telemetry_disabled,
 )
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 
@@ -154,3 +157,75 @@ def test_get_config():
                 telemetry_url="http://localhost:9999",
                 disable_api_map={},
             )
+
+
+@pytest.mark.skipif(is_windows(), reason="This test only passes on non-Windows")
+def test_get_config_disable_non_windows():
+    with mock.patch("requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "telemetry_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["linux", "darwin"],
+                }
+            ),
+        )
+        assert _get_config() is None
+
+    with mock.patch("requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "telemetry_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["win32"],
+                }
+            ),
+        )
+        assert _get_config() == TelemetryConfig(
+            telemetry_url="http://localhost:9999",
+            disable_api_map={},
+        )
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+def test_get_config_windows():
+    with mock.patch("requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "telemetry_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["win32"],
+                }
+            ),
+        )
+        assert _get_config() is None
+
+    with mock.patch("requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "telemetry_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["linux", "darwin"],
+                }
+            ),
+        )
+        assert _get_config() == TelemetryConfig(
+            telemetry_url="http://localhost:9999",
+            disable_api_map={},
+        )
