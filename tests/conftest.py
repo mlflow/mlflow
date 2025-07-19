@@ -7,7 +7,6 @@ import tempfile
 import time
 import uuid
 from unittest import mock
-from unittest.mock import Mock, patch
 
 import pytest
 import requests
@@ -15,7 +14,6 @@ from opentelemetry import trace as trace_api
 
 import mlflow
 import mlflow.telemetry.utils
-from mlflow.telemetry.client import TELEMETRY_URL, get_telemetry_client, set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -336,40 +334,3 @@ def mock_is_in_databricks(request):
 def reset_active_model_context():
     yield
     clear_active_model()
-
-
-@pytest.fixture(autouse=True)
-def terminate_telemetry_client():
-    yield
-    client = get_telemetry_client()
-    if client:
-        client.flush(terminate=True)
-
-
-@pytest.fixture
-def mock_requests(monkeypatch):
-    """Fixture to mock requests.post and capture telemetry records."""
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
-
-    captured_records = []
-
-    def mock_post(url, json=None, **kwargs):
-        if url != TELEMETRY_URL:
-            mock_response = Mock()
-            mock_response.status_code = 404
-            return mock_response
-        if json and "records" in json:
-            captured_records.extend(json["records"])
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "status": "success",
-            "count": len(json.get("records", [])) if json else 0,
-        }
-        return mock_response
-
-    with patch("requests.post", side_effect=mock_post):
-        # set telemetry client again to ensure it's not None
-        set_telemetry_client()
-        yield captured_records
