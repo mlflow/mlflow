@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.environment_variables import _MLFLOW_TESTING
@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 # Token key constants for different provider formats
-INPUT_TOKEN_KEYS = [
+INPUT_TOKEN_KEYS: Sequence[str] = [
     "input_tokens",
     "inputTokens",
     "prompt_tokens",
@@ -17,7 +17,7 @@ INPUT_TOKEN_KEYS = [
     "prompt_token_count",
 ]
 
-OUTPUT_TOKEN_KEYS = [
+OUTPUT_TOKEN_KEYS: Sequence[str] = [
     "output_tokens",
     "outputTokens",
     "completion_tokens",
@@ -25,33 +25,28 @@ OUTPUT_TOKEN_KEYS = [
     "generation_token_count",
 ]
 
-TOTAL_TOKEN_KEYS = [
+TOTAL_TOKEN_KEYS: Sequence[str] = [
     "total_tokens",
     "totalTokens",
 ]
 
 
-def _pick(d: dict[str, Any], *names: str) -> Optional[int]:
-    """
-    Pick the first available value from a dictionary using multiple possible key names.
+def _extract_token_value_by_keys(d: dict[str, Any], names: Sequence[str]) -> Optional[int]:
+    """Extracts the first integer value from a dictionary using a sequence of possible key names.
 
     Args:
-        d: Dictionary to search in
-        *names: Variable number of key names to try in order
+        d: The dictionary to search for token values.
+        names: A sequence of key names to try in order.
 
     Returns:
-        The first integer value found for any of the provided keys, or None if none exist
+        The first integer value found for any of the provided keys, or None if none exist.
 
     Example:
         >>> usage = {"input_tokens": 10, "output_tokens": 5}
-        >>> _pick(usage, "input_tokens", "inputTokens", "prompt_tokens")
+        >>> _extract_token_value_by_keys(usage, ["input_tokens", "inputTokens", "prompt_tokens"])
         10
-        >>> _pick(usage, "total_tokens", "totalTokens")
+        >>> _extract_token_value_by_keys(usage, ["total_tokens", "totalTokens"])
         None
-        >>> _pick(usage, "input_tokens", "inputTokens")  # where input_tokens = "10"
-        None  # Returns None for string values
-        >>> _pick(usage, "input_tokens", "inputTokens")  # where input_tokens = 10.5
-        None  # Returns None for float values
     """
     return next((d[name] for name in names if name in d and isinstance(d[name], int)), None)
 
@@ -91,52 +86,91 @@ def skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def build_token_usage_dict(
-    *,
-    raw_usage: Optional[dict[str, int]] = None,
-    input_tokens: Optional[int] = None,
-    output_tokens: Optional[int] = None,
-    total_tokens: Optional[int] = None,
+def parse_token_usage_from_response(
+    raw_usage: dict[str, Any], require_full_usage: bool = True
 ) -> Optional[dict[str, int]]:
-    """Return a standardized token-usage dictionary.
-
-    The returned dict uses mlflow.tracing.constant.TokenUsageKey entries
-    (input_tokens, output_tokens, total_tokens).
+    """
+    Parses token usage information from a provider-specific response dictionary and
+    standardizes it into a dictionary with MLflow's canonical token usage keys.
 
     Args:
-        raw_usage: Provider-specific usage dictionary. Keys that are automatically recognized:
-            - input_tokens / inputTokens
-            - prompt_tokens / promptTokens (mapped to input)
-            - output_tokens / outputTokens
-            - completion_tokens / completionTokens (mapped to output)
-            - total_tokens / totalTokens
-        input_tokens: Explicit input token count. Overrides what is found in raw_usage.
-        output_tokens: Explicit output token count. Overrides what is found in raw_usage.
-        total_tokens: Explicit total token count. Overrides what is found in raw_usage.
+        raw_usage:
+            The provider-specific usage dictionary. This function will attempt to extract
+            token usage values using a variety of possible key names, including:
+                - input_tokens / inputTokens: Input token count
+                - prompt_tokens / promptTokens: Also mapped as input token count
+                - output_tokens / outputTokens: Output token count
+                - completion_tokens / completionTokens: Also mapped as output token count
+                - total_tokens / totalTokens: Total token count (input + output)
+        require_full_usage:
+            If True, the function will only return a result if both input and output token
+            counts are present (i.e., a "complete" usage record). If False, the function
+            will return a dictionary with whatever token usage data is available, which is
+            useful for streaming or partial responses.
 
     Returns:
-        A dict with keys from TokenUsageKey if both input and output can be determined,
-        otherwise None.
+        A dictionary with standardized token usage keys (from TokenUsageKey), or None if
+        required data is missing. If require_full_usage=True, returns None unless both input
+        and output tokens are present. If require_full_usage=False, returns a dictionary with
+        any available token usage data, or None if none is found.
+
+    Example:
+        >>> parse_token_usage_from_response({"inputTokens": 10, "completionTokens": 15})
+        {'input_tokens': 10, 'output_tokens': 15, 'total_tokens': 25}
     """
+    if require_full_usage:
+        # In "require_full_usage" mode, only return a result if both input and output
+        # tokens are present.
 
-    if raw_usage:
-        input_tokens = (
-            input_tokens if input_tokens is not None else _pick(raw_usage, *INPUT_TOKEN_KEYS)
-        )
-        output_tokens = (
-            output_tokens if output_tokens is not None else _pick(raw_usage, *OUTPUT_TOKEN_KEYS)
-        )
-        total_tokens = (
-            total_tokens if total_tokens is not None else _pick(raw_usage, *TOTAL_TOKEN_KEYS)
-        )
-
-    # Need at least input & output to build a meaningful dict
-    return (
-        {
-            TokenUsageKey.INPUT_TOKENS: input_tokens,
-            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-            TokenUsageKey.TOTAL_TOKENS: total_tokens or (input_tokens + output_tokens),
+        # First, extract all possible token values from the raw usage dictionary
+        # using the known key sets.
+        token_values = {
+            TokenUsageKey.INPUT_TOKENS: _extract_token_value_by_keys(raw_usage, INPUT_TOKEN_KEYS),
+            TokenUsageKey.OUTPUT_TOKENS: _extract_token_value_by_keys(raw_usage, OUTPUT_TOKEN_KEYS),
+            TokenUsageKey.TOTAL_TOKENS: _extract_token_value_by_keys(raw_usage, TOTAL_TOKEN_KEYS),
         }
-        if (input_tokens is not None and output_tokens is not None)
-        else None
-    )
+
+        # Remove any keys where the value is None (i.e., not found in the response).
+        token_usage_dict = {
+            token_key: token_value
+            for token_key, token_value in token_values.items()
+            if token_value is not None
+        }
+
+        # If either input or output tokens are missing, return None (incomplete usage).
+        if (
+            TokenUsageKey.INPUT_TOKENS not in token_usage_dict
+            or TokenUsageKey.OUTPUT_TOKENS not in token_usage_dict
+        ):
+            return None
+
+        # If total tokens are not provided, calculate as input + output.
+        if TokenUsageKey.TOTAL_TOKENS not in token_usage_dict:
+            token_usage_dict[TokenUsageKey.TOTAL_TOKENS] = (
+                token_usage_dict[TokenUsageKey.INPUT_TOKENS]
+                + token_usage_dict[TokenUsageKey.OUTPUT_TOKENS]
+            )
+
+        return token_usage_dict
+    else:
+        # In "partial" mode (for streaming or incomplete responses), extract whatever
+        # token usage data is available.
+        token_usage_dict = {}
+
+        # Try to extract input token count (prompt tokens).
+        input_tokens = _extract_token_value_by_keys(raw_usage, INPUT_TOKEN_KEYS)
+        if input_tokens is not None:
+            token_usage_dict[TokenUsageKey.INPUT_TOKENS] = input_tokens
+
+        # Try to extract output token count (completion tokens).
+        output_tokens = _extract_token_value_by_keys(raw_usage, OUTPUT_TOKEN_KEYS)
+        if output_tokens is not None:
+            token_usage_dict[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        # Try to extract total token count.
+        total_tokens = _extract_token_value_by_keys(raw_usage, TOTAL_TOKEN_KEYS)
+        if total_tokens is not None:
+            token_usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        # If no token usage data was found, return None. Otherwise, return the partial dictionary.
+        return token_usage_dict if token_usage_dict else None

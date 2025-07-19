@@ -11,7 +11,7 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
-from mlflow.bedrock.utils import _pick
+from mlflow.bedrock import utils
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -1341,5 +1341,83 @@ def test_bedrock_autolog_stream_token_usage_edge_cases(test_case):
         ),
     ],
 )
-def test_pick_key_mapping_and_type(usage_dict, keys, expected):
-    assert _pick(usage_dict, *keys) == expected
+def test_extract_token_value_by_keys_mapping_and_type(usage_dict, keys, expected):
+    assert utils._extract_token_value_by_keys(usage_dict, keys) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw_usage", "require_full_usage", "expected"),
+    [
+        # require_full_usage=True cases
+        # Complete usage with all fields
+        (
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            True,
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        ),
+        # Complete usage without total (should calculate)
+        (
+            {"input_tokens": 10, "output_tokens": 5},
+            True,
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        ),
+        # Alternative key names
+        (
+            {"inputTokens": 8, "completionTokens": 12},
+            True,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
+        # Missing input tokens (incomplete)
+        ({"output_tokens": 5, "total_tokens": 15}, True, None),
+        # Missing output tokens (incomplete)
+        ({"input_tokens": 10, "total_tokens": 15}, True, None),
+        # Empty usage dict
+        ({}, True, None),
+        # Non-integer values (should be ignored)
+        ({"input_tokens": "10", "output_tokens": 5.5}, True, None),
+        # require_full_usage=False cases
+        # Partial usage - input only
+        (
+            {"input_tokens": 10},
+            False,
+            {"input_tokens": 10},
+        ),
+        # Partial usage - output only
+        (
+            {"output_tokens": 5},
+            False,
+            {"output_tokens": 5},
+        ),
+        # Partial usage - total only
+        (
+            {"total_tokens": 15},
+            False,
+            {"total_tokens": 15},
+        ),
+        # Multiple partial fields
+        (
+            {"input_tokens": 10, "total_tokens": 15},
+            False,
+            {"input_tokens": 10, "total_tokens": 15},
+        ),
+        # Complete usage in partial mode
+        (
+            {"input_tokens": 10, "output_tokens": 5},
+            False,
+            {"input_tokens": 10, "output_tokens": 5},
+        ),
+        # Empty usage dict in partial mode
+        ({}, False, None),
+        # Non-integer values in partial mode
+        ({"input_tokens": "10", "output_tokens": 5.5}, False, None),
+        # Mixed valid and invalid values in partial mode
+        (
+            {"input_tokens": 10, "output_tokens": "invalid", "total_tokens": 25},
+            False,
+            {"input_tokens": 10, "total_tokens": 25},
+        ),
+    ],
+)
+def test_parse_token_usage_from_response(raw_usage, require_full_usage, expected):
+    result = utils.parse_token_usage_from_response(raw_usage, require_full_usage)
+    assert result == expected

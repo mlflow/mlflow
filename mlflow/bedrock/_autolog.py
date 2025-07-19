@@ -10,7 +10,7 @@ import mlflow
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
-from mlflow.bedrock.utils import build_token_usage_dict, skip_if_trace_disabled
+from mlflow.bedrock.utils import parse_token_usage_from_response, skip_if_trace_disabled
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -65,7 +65,7 @@ def _parse_usage_from_response(
 ) -> Optional[dict[str, int]]:
     """Return a standardized token-usage dict for any Bedrock provider.
 
-    This wrapper delegates to :func:`mlflow.bedrock.utils.build_token_usage_dict`,
+    This wrapper delegates to :func:`mlflow.bedrock.utils.parse_token_usage_from_response`,
     which understands every provider key-schema. If *response_body* is a dict and contains
     a ``usage`` field, we pass that sub-dict; otherwise, we pass the whole response_body.
     If *response_body* is not a dict, returns None.
@@ -78,11 +78,10 @@ def _parse_usage_from_response(
         'total_tokens', or None if the response body cannot be parsed.
     """
 
-    return (
-        build_token_usage_dict(raw_usage=response_body.get("usage", response_body))
-        if isinstance(response_body, dict)
-        else None
-    )
+    if isinstance(response_body, dict):
+        usage_data = response_body.get("usage", response_body)
+        return parse_token_usage_from_response(usage_data, require_full_usage=True)
+    return None
 
 
 @skip_if_trace_disabled
