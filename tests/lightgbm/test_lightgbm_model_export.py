@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import NamedTuple
 from unittest import mock
 
 import lightgbm as lgb
@@ -40,7 +40,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("lightgbm") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
+
+class ModelWithData(NamedTuple):
+    model: lgb.Booster
+    inference_dataframe: pd.DataFrame
 
 
 @pytest.fixture(scope="module")

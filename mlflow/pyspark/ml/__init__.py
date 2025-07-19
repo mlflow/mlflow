@@ -4,8 +4,9 @@ import logging
 import os
 import traceback
 import weakref
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
 from itertools import zip_longest
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -211,10 +212,10 @@ def _should_log_hierarchy(estimator):
     )
 
 
-_AutologgingEstimatorMetadata = namedtuple(
-    "_AutologgingEstimatorMetadata",
-    ["hierarchy", "uid_to_indexed_name_map", "param_search_estimators"],
-)
+class _AutologgingEstimatorMetadata(NamedTuple):
+    hierarchy: dict[str, Any]
+    uid_to_indexed_name_map: dict[str, str]
+    param_search_estimators: list[Any]
 
 
 def _traverse_stage(stage):
