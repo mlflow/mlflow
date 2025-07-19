@@ -116,11 +116,13 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install .
+          # used for telemetry tests
+          pip install lightgbm
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
@@ -453,6 +455,8 @@ jobs:
           pip install -r requirements/test-requirements.txt
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+          # used for telemetry tests
+          pip install lightgbm
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

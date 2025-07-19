@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
@@ -59,6 +60,7 @@ class TracingClient:
     def store(self):
         return _get_store(self.tracking_uri)
 
+    @track_api_usage
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a new trace in the backend.
@@ -412,6 +414,7 @@ class TracingClient:
 
         return self.store.get_assessment(trace_id, assessment_id)
 
+    @track_api_usage
     def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         """
         Log an assessment to a trace.
