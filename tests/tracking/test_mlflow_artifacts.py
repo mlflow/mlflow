@@ -4,7 +4,7 @@ import pathlib
 import subprocess
 import tempfile
 from io import BytesIO
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import pytest
 import requests

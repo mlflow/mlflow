@@ -573,12 +573,6 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
     return pd.DataFrame(per_class_metrics_list)
 
 
-class _Curve(NamedTuple):
-    plot_fn: Callable[..., Any]
-    plot_fn_args: dict[str, Any]
-    auc: float
-
-
 def _gen_classifier_curve(
     is_binomial,
     y,
