@@ -13,7 +13,6 @@ from mlflow.genai.experimental.databricks_trace_archival import (
     _create_genai_trace_view,
     _validate_schema_versions,
     enable_databricks_trace_archival,
-    get_databricks_trace_storage_config,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
@@ -432,65 +431,3 @@ def test_successful_archival_with_custom_prefix(
         "catalog.schema.custom_12345",  # tag value (custom archival location)
     )
     assert result == "catalog.schema.custom_12345"
-
-
-# Tests for get_databricks_trace_storage_config
-
-
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
-def test_get_databricks_trace_storage_config_success(mock_get_creds, mock_call_endpoint):
-    """Test successful retrieval of trace storage configuration."""
-    # Create expected proto response
-    proto_response = _create_trace_destination_proto(
-        experiment_id="12345",
-        spans_table_name="catalog.schema.spans_12345",
-        events_table_name="catalog.schema.events_12345",
-    )
-    mock_call_endpoint.return_value = proto_response
-
-    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
-        config = get_databricks_trace_storage_config("12345")
-
-    assert config is not None
-    assert config.experiment_id == "12345"
-    assert config.spans_table_name == "catalog.schema.spans_12345"
-    assert config.events_table_name == "catalog.schema.events_12345"
-    assert config.spans_schema_version == SUPPORTED_SCHEMA_VERSION
-    assert config.events_schema_version == SUPPORTED_SCHEMA_VERSION
-
-    # Verify API call
-    mock_call_endpoint.assert_called_once()
-    call_args = mock_call_endpoint.call_args
-    assert (
-        call_args.kwargs["endpoint"]
-        == "/api/2.0/tracing/trace-destinations/mlflow-experiments/12345"
-    )
-    assert call_args.kwargs["method"] == "GET"
-
-
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-def test_get_databricks_trace_storage_config_not_found(mock_call_endpoint):
-    """Test when trace archival is not configured (404 response)."""
-    mock_call_endpoint.side_effect = MlflowException("404 Not Found")
-
-    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
-        config = get_databricks_trace_storage_config("12345")
-
-    assert config is None
-
-
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-def test_get_databricks_trace_storage_config_api_error(mock_call_endpoint):
-    """Test error handling for non-404 API errors."""
-    mock_call_endpoint.side_effect = MlflowException("500 Internal Server Error")
-
-    with patch("sys.modules", {"databricks.agents": _create_mock_databricks_agents()}):
-        with pytest.raises(MlflowException, match="500 Internal Server Error"):
-            get_databricks_trace_storage_config("12345")
-
-
-def test_get_databricks_trace_storage_config_no_databricks_agents():
-    """Test that function returns None when databricks.agents is not available."""
-    config = get_databricks_trace_storage_config("12345")
-    assert config is None

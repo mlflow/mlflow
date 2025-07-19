@@ -9,6 +9,24 @@ import logging
 import re
 from typing import Optional
 
+from mlflow.exceptions import MlflowException
+from mlflow.genai.experimental.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
+from mlflow.protos.databricks_trace_server_pb2 import (
+    CreateTraceDestinationRequest,
+    GetTraceDestinationRequest,
+)
+from mlflow.protos.databricks_trace_server_pb2 import (
+    TraceDestination as ProtoTraceDestination,
+)
+from mlflow.protos.databricks_trace_server_pb2 import (
+    TraceLocation as ProtoTraceLocation,
+)
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import call_endpoint
+
 _logger = logging.getLogger(__name__)
 
 
@@ -257,3 +275,130 @@ def _resolve_archival_token() -> str:
             raise MlflowException(
                 f"Failed to resolve authentication token for delta archival: {e}"
             ) from e
+
+
+class DatabricksTraceServerClient:
+    """
+    Client for interacting with Databricks Trace Server APIs.
+
+    This client provides methods to create and retrieve trace destinations
+    for archiving MLflow traces to Databricks Delta tables.
+    """
+
+    def __init__(self, host_creds=None):
+        """Initialize the client with optional host credentials."""
+        self._host_creds = host_creds or get_databricks_host_creds()
+
+    def create_trace_destination(
+        self, experiment_id: str, catalog: str, schema: str, table_prefix: Optional[str] = None
+    ) -> DatabricksTraceDeltaStorageConfig:
+        """
+        Create a trace destination for archiving traces from an MLflow experiment.
+
+        Args:
+            experiment_id: The MLflow experiment ID
+            catalog: The Unity Catalog catalog name
+            schema: The Unity Catalog schema name
+            table_prefix: Optional table prefix (defaults to server-generated)
+
+        Returns:
+            DatabricksTraceDeltaStorageConfig with the created destination info
+
+        Raises:
+            MlflowException: If creation fails (including ALREADY_EXISTS)
+        """
+        # Create proto request
+        proto_trace_location = ProtoTraceLocation()
+        proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto_trace_location.mlflow_experiment.experiment_id = experiment_id
+
+        proto_request = CreateTraceDestinationRequest(
+            trace_location=proto_trace_location,
+            uc_catalog=catalog,
+            uc_schema=schema,
+        )
+        if table_prefix:
+            proto_request.uc_table_prefix = table_prefix
+
+        # Call the trace server API
+        request_body = message_to_json(proto_request)
+
+        response_proto = call_endpoint(
+            host_creds=self._host_creds,
+            endpoint="/api/2.0/tracing/trace-destinations",
+            method="POST",
+            json_body=request_body,
+            response_proto=ProtoTraceDestination(),
+        )
+
+        # Convert response to config
+        return self._proto_to_config(response_proto)
+
+    def get_trace_destination(
+        self, experiment_id: str
+    ) -> Optional[DatabricksTraceDeltaStorageConfig]:
+        """
+        Get the trace destination configuration for an experiment.
+
+        Args:
+            experiment_id: The MLflow experiment ID
+
+        Returns:
+            DatabricksTraceDeltaStorageConfig if destination exists, None otherwise
+
+        Raises:
+            MlflowException: If there's an error (other than 404)
+        """
+        try:
+            # Create proto request
+            proto_trace_location = ProtoTraceLocation()
+            proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+            proto_trace_location.mlflow_experiment.experiment_id = experiment_id
+
+            proto_request = GetTraceDestinationRequest(
+                trace_location=proto_trace_location,
+            )
+
+            # Call the trace server API
+            request_body = message_to_json(proto_request)
+
+            response_proto = call_endpoint(
+                host_creds=self._host_creds,
+                endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
+                method="GET",
+                json_body=request_body,
+                response_proto=ProtoTraceDestination(),
+            )
+
+            # Convert response to config
+            return self._proto_to_config(response_proto)
+
+        except MlflowException as e:
+            # Check if this is a 404 (not configured) vs other error
+            if "404" in str(e) or "not found" in str(e).lower():
+                return None
+            else:
+                raise
+
+    def _proto_to_config(self, proto: ProtoTraceDestination) -> DatabricksTraceDeltaStorageConfig:
+        """Convert a TraceDestination proto to DatabricksTraceDeltaStorageConfig."""
+        # Validate that this is an experiment location
+        if proto.trace_location.type != ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT:
+            raise MlflowException(
+                f"TraceDestination only supports MLflow experiments, "
+                f"but got location type: {proto.trace_location.type}"
+            )
+
+        if not proto.trace_location.mlflow_experiment:
+            raise MlflowException(
+                "TraceDestination requires an MLflow experiment location, "
+                "but mlflow_experiment is None"
+            )
+
+        return DatabricksTraceDeltaStorageConfig(
+            experiment_id=proto.trace_location.mlflow_experiment.experiment_id,
+            spans_table_name=proto.spans_table_name,
+            events_table_name=proto.events_table_name,
+            spans_schema_version=proto.spans_schema_version,
+            events_schema_version=proto.events_schema_version,
+        )

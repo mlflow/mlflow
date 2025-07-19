@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
 )
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+    DatabricksTraceServerClient,
     create_archival_ingest_sdk,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
@@ -133,11 +134,7 @@ class DatabricksTraceDeltaArchiver:
         """
         with self._config_cache_lock:
             if experiment_id not in self._config_cache:
-                from mlflow.genai.experimental.databricks_trace_archival import (
-                    get_databricks_trace_storage_config,
-                )
-
-                config = get_databricks_trace_storage_config(experiment_id)
+                config = DatabricksTraceServerClient().get_trace_destination(experiment_id)
                 self._config_cache[experiment_id] = config
                 _logger.debug(f"Cached config for experiment {experiment_id}: {config is not None}")
             return self._config_cache[experiment_id]
