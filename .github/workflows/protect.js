@@ -39,9 +39,10 @@ module.exports = async ({ github, context }) => {
 
     const latestRuns = {};
     for (const run of checkRuns) {
-      const { name } = run;
-      if (!latestRuns[name] || new Date(run.started_at) > new Date(latestRuns[name].started_at)) {
-        latestRuns[name] = run;
+      const { name, check_suite } = run;
+      const key = `${name}-${check_suite.id}`;
+      if (!latestRuns[key] || new Date(run.started_at) > new Date(latestRuns[key].started_at)) {
+        latestRuns[key] = run;
       }
     }
     const runs = Object.values(latestRuns).map(({ name, status, conclusion }) => ({
