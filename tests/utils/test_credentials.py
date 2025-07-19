@@ -69,6 +69,8 @@ mlflow_tracking_password = password
         ("username", None),
         (None, "password"),
         (None, None),
+        ("username", "7<{=.=@&{8[.0_+$|`}16\%2"),
+        (None, "7<{=.=@&{8[.0_+$|`}16\%2"),
     ],
 )
 def test_read_mlflow_creds_env(username, password, monkeypatch):
