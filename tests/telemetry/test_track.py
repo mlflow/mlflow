@@ -73,6 +73,7 @@ def test_backend_store_info(tmp_path):
 
     with _use_tracking_uri(tmp_path):
         succeed_func()
+        telemetry_client = get_telemetry_client()
         telemetry_client.flush()
     assert telemetry_client.info["backend_store_scheme"] == "file"
 
