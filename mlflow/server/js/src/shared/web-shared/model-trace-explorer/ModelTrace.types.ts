@@ -307,7 +307,10 @@ type ModelTraceAudioContentPart = {
   input_audio: ModelTraceInputAudio;
 };
 
-type ModelTraceContentParts = ModelTraceTextContentPart | ModelTraceImageContentPart | ModelTraceAudioContentPart;
+export type ModelTraceContentParts =
+  | ModelTraceTextContentPart
+  | ModelTraceImageContentPart
+  | ModelTraceAudioContentPart;
 
 export type ModelTraceContentType = string | ModelTraceContentParts[];
 
@@ -362,37 +365,8 @@ export type ModelTraceChatResponse = {
   }[];
 };
 
-export type LlamaIndexChatResponse = {
-  message: ModelTraceChatMessage;
-};
-
 export type ModelTraceChatInput = {
   messages: RawModelTraceChatMessage[];
-};
-
-// it has other fields, but we only care about these for now
-export type LangchainBaseMessage = {
-  content?: string;
-  type: 'human' | 'user' | 'assistant' | 'ai' | 'system' | 'tool' | 'function';
-  tool_calls?: LangchainToolCallMessage[];
-  tool_call_id?: string;
-  additional_kwargs?: {
-    // some langchain models have tool_calls specified in additional_kwargs in
-    // OpenAI format. this appears to be a bug, but we should still try to handle it
-    tool_calls?: ModelTraceToolCall[];
-  };
-};
-
-export type LangchainToolCallMessage = {
-  name: string;
-  // an object with the arguments to the tool call.
-  // should be stringified before display.
-  args: any;
-  id: string;
-};
-
-export type LangchainChatGeneration = {
-  message: LangchainBaseMessage;
 };
 
 export type AssessmentSourceType = 'SOURCE_TYPE_UNSPECIFIED' | 'HUMAN' | 'LLM_JUDGE' | 'CODE';
