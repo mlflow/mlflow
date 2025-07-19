@@ -4,14 +4,21 @@ import time
 
 import pytest
 
-from mlflow.telemetry.client import MAX_QUEUE_SIZE, MAX_WORKERS, TelemetryClient
+from mlflow.telemetry.client import (
+    MAX_QUEUE_SIZE,
+    MAX_WORKERS,
+    TelemetryClient,
+    get_telemetry_client,
+    set_telemetry_client,
+)
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 
 
 @pytest.fixture
 def telemetry_client():
     """Fixture to provide a telemetry client."""
-    client = TelemetryClient()
+    set_telemetry_client()
+    client = get_telemetry_client()
     yield client
     # Cleanup
     client.flush(terminate=True)
@@ -109,7 +116,7 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
 
 def test_error_handling(mock_requests, telemetry_client):
     """Test that client handles server errors gracefully."""
-    telemetry_client.telemetry_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
+    telemetry_client.config.telemetry_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
 
     # Add a record - should not crash
     record = APIRecord(
@@ -355,3 +362,12 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
     # Verify all records were sent
     api_names = {req["data"]["api_name"] for req in mock_requests}
     assert api_names == {"test_api_1", "test_api_2", "test_api_3"}
+
+
+def test_set_telemetry_client_non_blocking():
+    start_time = time.time()
+    set_telemetry_client()
+    assert time.time() - start_time < 1
+    time.sleep(1.1)
+    assert get_telemetry_client() is not None
+    assert not any(thread.name.startswith("GetTelemetryConfig") for thread in threading.enumerate())

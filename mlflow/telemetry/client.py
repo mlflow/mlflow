@@ -1,5 +1,4 @@
 import atexit
-import logging
 import threading
 import time
 import uuid
@@ -14,20 +13,17 @@ from mlflow.telemetry.constant import (
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
-    TELEMETRY_URL,
 )
-from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
-from mlflow.telemetry.utils import is_telemetry_disabled
+from mlflow.telemetry.schemas import APIRecord, TelemetryConfig, TelemetryInfo
+from mlflow.telemetry.utils import _get_config, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-_logger = logging.getLogger(__name__)
-
 
 class TelemetryClient:
-    def __init__(self):
+    def __init__(self, config: TelemetryConfig):
         self.info = asdict(TelemetryInfo())
-        self.telemetry_url = TELEMETRY_URL
+        self.config = config
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -53,7 +49,6 @@ class TelemetryClient:
             self.activate()
 
         if self._is_stopped:
-            _logger.debug("Telemetry is stopped, skipping adding record")
             return
 
         with self._batch_lock:
@@ -76,7 +71,7 @@ class TelemetryClient:
             self._pending_records = []
         except Full:
             # TODO: record this case
-            _logger.debug("Telemetry queue is full, skipping sending data.")
+            pass
 
     def _process_records(self, records: list[APIRecord]):
         """Process a batch of telemetry records."""
@@ -93,20 +88,15 @@ class TelemetryClient:
             ]
             # TODO: add retry logic
             response = requests.post(
-                self.telemetry_url,
+                self.config.telemetry_url,
                 json={"records": records},
                 headers={"Content-Type": "application/json"},
+                timeout=3,
             )
             if response.status_code != 200:
-                _logger.debug(
-                    f"Failed to send telemetry records. Status code: {response.status_code}, "
-                    f"Response: {response.text}"
-                )
-        except Exception as e:
-            _logger.debug(
-                f"Failed to process telemetry records. Error: {e}.",
-                exc_info=True,
-            )
+                pass
+        except Exception:
+            pass
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
@@ -168,9 +158,6 @@ class TelemetryClient:
 
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
-        _logger.debug(
-            "Flushing the async telemetry queue before program exit. This may take a while..."
-        )
         self.flush(terminate=True)
 
     def flush(self, terminate=False) -> None:
@@ -210,8 +197,8 @@ class TelemetryClient:
             # For non-terminating flush, just wait for queue to empty
             try:
                 self._queue.join()
-            except Exception as e:
-                _logger.debug(f"Error waiting for queue to drain: {e}")
+            except Exception:
+                pass
 
     def _update_backend_store(self):
         """
@@ -232,12 +219,19 @@ def set_telemetry_client():
     global _MLFLOW_TELEMETRY_CLIENT
 
     if is_telemetry_disabled():
-        _logger.debug("MLflow Telemetry is disabled")
         # set to None again so this function can be used to
         # re-initialize the telemetry client
         _MLFLOW_TELEMETRY_CLIENT = None
     else:
-        _MLFLOW_TELEMETRY_CLIENT = TelemetryClient()
+
+        def _init():
+            global _MLFLOW_TELEMETRY_CLIENT
+
+            if config := _get_config():
+                _MLFLOW_TELEMETRY_CLIENT = TelemetryClient(config=config)
+
+        thread = threading.Thread(target=_init, name="GetTelemetryConfig", daemon=True)
+        thread.start()
 
 
 def get_telemetry_client() -> Optional[TelemetryClient]:

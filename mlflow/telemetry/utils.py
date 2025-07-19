@@ -1,6 +1,13 @@
 import os
+import random
+import re
+from typing import Optional
+
+import requests
 
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
+from mlflow.telemetry.constant import BASE_URL
+from mlflow.telemetry.schemas import TelemetryConfig, get_source_sdk
 from mlflow.version import VERSION
 
 
@@ -65,3 +72,52 @@ def is_telemetry_disabled() -> bool:
         or _IS_IN_DATABRICKS
         or _IS_MLFLOW_DEV_VERSION
     )
+
+
+def _get_config_url(version: str) -> Optional[str]:
+    """
+    Get the config URL for the given MLflow version.
+    """
+    pattern = r"^(\d+)\.(\d+)\.(\d+)(\.rc\d+)?$"
+
+    if re.match(pattern, version):
+        return f"{BASE_URL}/config/{version}"
+
+    if version.endswith(".dev0"):
+        return f"{BASE_URL}/dev/config/{version}"
+
+    return None
+
+
+def _get_config() -> Optional[TelemetryConfig]:
+    """
+    Get the config for the given MLflow version.
+    """
+    if config_url := _get_config_url(VERSION):
+        try:
+            response = requests.get(config_url, timeout=1)
+            if response.status_code != 200:
+                return None
+            config = response.json()
+            if (
+                config.get("mlflow_version") != VERSION
+                or config.get("disable_telemetry") is True
+                or config.get("telemetry_url") is None
+            ):
+                return None
+
+            rollout_percentage = config.get("rollout_percentage", 100)
+            if random.randint(0, 100) > rollout_percentage:
+                return None
+
+            if get_source_sdk().value in config.get("disable_sdks", []):
+                return None
+
+            return TelemetryConfig(
+                telemetry_url=config["telemetry_url"],
+                disable_api_map=config.get("disable_api_map", {}),
+            )
+        except Exception:
+            return None
+
+    return None
