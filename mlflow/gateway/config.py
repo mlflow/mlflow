@@ -211,8 +211,8 @@ class AWSRole(AWSBaseConfig):
 
 
 class AWSIdAndKey(AWSBaseConfig):
-    aws_access_key_id: str
-    aws_secret_access_key: str
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
 
 
