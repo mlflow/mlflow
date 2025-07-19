@@ -841,6 +841,39 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
 
+#: Specifies whether to enable Databricks delta archival for traces
+#: When set to True, traces will be exported to both MLflow V3 and TraceServer in parallel.
+#: (default: ``False``)
+MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", False
+)
+
+#: TODO: temporary flag for local e2e testing, will remove once auth is fully migrated to
+#: databricks-sdk
+#: Specifies the personal access token for authentication for Databricks delta archival
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN = _EnvironmentVariable(
+    "MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", str, None
+)
+
+#: TODO: temporary flag for local e2e testing, will remove once auth is fully migrated to
+#: databricks-sdk
+#: Specifies the URL of the ingest API for the Databricks delta archival
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL = _EnvironmentVariable(
+    "MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", str, None
+)
+
+#: TODO: temporary flag for local e2e testing, will remove once automatic workspace
+#: resolution is fully supported
+#: Specifies the URL of the Databricks workspace for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL = _EnvironmentVariable(
+    "MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", str, None
+)
+
 #: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
 #: a source that does not match the specified regular expression.
 #: (default: ``None``).

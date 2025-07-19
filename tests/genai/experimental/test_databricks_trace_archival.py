@@ -22,6 +22,14 @@ from mlflow.protos.databricks_trace_server_pb2 import (
 )
 
 
+def _create_mock_databricks_agents():
+    """Helper function to create a mock databricks.agents module with proper __spec__."""
+    mock_module = Mock()
+    mock_module.__spec__ = Mock()
+    mock_module.__spec__.name = "databricks.agents"
+    return mock_module
+
+
 def _create_trace_destination_proto(
     experiment_id: str = "12345",
     spans_table_name: str = "catalog.schema.spans",
