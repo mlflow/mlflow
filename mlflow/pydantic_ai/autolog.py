@@ -5,6 +5,7 @@ from typing import Any
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ def _get_agent_attributes(instance):
 
 
 def _get_model_attributes(instance):
-    model = {}
+    model = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     for key, value in instance.__dict__.items():
         if value is None:
             continue

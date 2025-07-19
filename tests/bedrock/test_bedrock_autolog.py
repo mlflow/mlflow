@@ -742,8 +742,8 @@ def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expect
     assert span.name == "BedrockRuntime.converse"
     assert span.inputs is not None  # request with bytes is stringified and not recoverable
     assert span.outputs == response
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "bedrock.converse"
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
@@ -765,9 +765,6 @@ def test_bedrock_autolog_converse_error():
     assert span.inputs == _CONVERSE_REQUEST
     assert span.outputs is None
     assert len(span.events) == 1
-    assert (
-        span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == _CONVERSE_EXPECTED_CHAT_ATTRIBUTE[:1]
-    )
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
@@ -796,16 +793,6 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
 
     span = traces[0].data.spans[0]
     assert span.name == "BedrockRuntime.converse"
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": [{"text": "What you can see in this video?", "type": "text"}],
-        },
-        {
-            "role": "assistant",
-            "content": [{"text": "Hello! How can I help you today?", "type": "text"}],
-        },
-    ]
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
@@ -855,7 +842,6 @@ def test_bedrock_autolog_converse_stream(
     assert span.name == "BedrockRuntime.converse_stream"
     assert span.inputs == _request
     assert span.outputs == expected_response
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
     assert len(span.events) > 0
     assert span.events[0].name == "messageStart"

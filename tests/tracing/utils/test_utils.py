@@ -9,7 +9,7 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
-from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
@@ -104,97 +104,6 @@ def test_maybe_get_request_id():
 
     with set_prediction_context(Context(request_id="non_eval", is_evaluate=False)):
         assert maybe_get_request_id(is_evaluate=True) is None
-
-
-def test_set_span_chat_messages_and_tools():
-    messages = [
-        {
-            "role": "system",
-            "content": "please use the provided tool to answer the user's questions",
-        },
-        {"role": "user", "content": "what is 1 + 1?"},
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "123",
-                    "function": {"arguments": '{"a": 1,"b": 2}', "name": "add"},
-                    "type": "function",
-                }
-            ],
-        },
-    ]
-
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "add",
-                "description": "Add two numbers",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "a": {"type": "number"},
-                        "b": {"type": "number"},
-                    },
-                    "required": ["a", "b"],
-                },
-            },
-        }
-    ]
-
-    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
-    def dummy_call(messages, tools):
-        span = mlflow.get_current_active_span()
-        set_span_chat_messages(span, messages)
-        set_span_chat_tools(span, tools)
-        return None
-
-    dummy_call(messages, tools)
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    span = trace.data.spans[0]
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
-    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
-
-
-def test_set_span_chat_messages_append():
-    messages = [
-        {"role": "system", "content": "you are a confident bot"},
-        {"role": "user", "content": "what is 1 + 1?"},
-    ]
-    additional_messages = [{"role": "assistant", "content": "it is definitely 5"}]
-
-    # Append messages
-    with mlflow.start_span(name="foo") as span:
-        set_span_chat_messages(span, messages)
-        set_span_chat_messages(span, additional_messages, append=True)
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    span = trace.data.spans[0]
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages + additional_messages
-
-    # Overwrite messages
-    with mlflow.start_span(name="bar") as span:
-        set_span_chat_messages(span, messages)
-        set_span_chat_messages(span, additional_messages, append=False)
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    span = trace.data.spans[0]
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == additional_messages
-
-
-def test_set_chat_messages_validation():
-    messages = [{"invalid_field": "user", "content": "hello"}]
-
-    @mlflow.trace(span_type=SpanType.CHAT_MODEL)
-    def dummy_call(messages):
-        span = mlflow.get_current_active_span()
-        set_span_chat_messages(span, messages)
-        return None
-
-    with pytest.raises(ValidationError, match="validation error for ChatMessage"):
-        dummy_call(messages)
 
 
 def test_set_chat_tools_validation():

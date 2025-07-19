@@ -87,10 +87,6 @@ def test_trace_llm_complete(is_async):
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
 
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hello"},
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
         TokenUsageKey.OUTPUT_TOKENS: 7,
@@ -143,11 +139,6 @@ def test_trace_llm_complete_stream():
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
-    # When an error occurs, only input message should be captured
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"content": "Hello world", "role": "assistant"},
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -229,16 +220,6 @@ def test_trace_llm_chat(is_async):
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Hello",
-        },
-        {
-            "role": "assistant",
-            "content": '[{"role": "system", "content": "Hello"}]',
-        },
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -303,7 +284,7 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     message = ChatMessage(
         role="user", blocks=[TextBlock(text="What is in the image?"), image_block]
     )
-    response = llm.chat([message])
+    llm.chat([message])
 
     traces = get_traces()
     assert len(traces) == 1
@@ -312,22 +293,6 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "What is in the image?",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": expected_image_url,
-                },
-            ],
-        },
-        {"role": "assistant", "content": response.message.content},
-    ]
 
 
 def test_trace_llm_chat_stream():
@@ -395,16 +360,6 @@ def test_trace_llm_chat_stream():
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Hello",
-        },
-        {
-            "role": "assistant",
-            "content": "Hello world",
-        },
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -442,10 +397,6 @@ def test_trace_llm_error(monkeypatch, is_stream):
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
-    # When an error occurs, only input message should be captured
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {"role": "system", "content": "Hello"},
-    ]
 
 
 @pytest.mark.parametrize("is_async", [True, False])
@@ -531,9 +482,6 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     assert spans[0].inputs == {"str_or_query_bundle": "Hello"}
     assert spans[0].outputs == response
 
-    llm_span = next(s for s in spans if s.span_type == SpanType.CHAT_MODEL)
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
-
 
 def test_trace_agent():
     # Mock LLM to return deterministic responses and let the agent use a tool
@@ -602,39 +550,6 @@ def test_trace_agent():
     # Validate the chat messages and tool calls are captured in LLM span attributes
     llm_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
     assert len(llm_spans) == 2
-
-    expected_full_messages = [
-        {
-            "role": "user",
-            "content": "What is 1 + 2?",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "test",
-                    "type": "function",
-                    "function": {
-                        "name": "add",
-                        "arguments": '{"a": 1, "b": 2}',
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": "3",
-            "tool_call_id": "test",
-        },
-        {
-            "role": "assistant",
-            "content": "The result is 3",
-        },
-    ]
-    assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages[:2]
-    assert llm_spans[1].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages
-
     assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "function": {
@@ -686,10 +601,6 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]
     assert root_span.inputs == {"message": "Hello"}
-
-    # Validate the chat messages are captured in LLM span attributes
-    llm_span = next(s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL)
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
 
 
 @skip_when_testing_trace_sdk

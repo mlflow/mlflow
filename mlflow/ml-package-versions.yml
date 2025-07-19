@@ -537,7 +537,7 @@ openai:
         ]
       "< 1.55.3": ["httpx<0.28.0"]
     run: |
-      pytest tests/openai tests/openai/test_openai_model_export.py
+      pytest tests/openai --ignore-glob="*autolog.py"
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for openai. Reducing the number of testing only for every 10 version.
     test_every_n_versions: 10
@@ -558,7 +558,7 @@ openai:
       "< 1.55.3": ["httpx<0.28.0"]
       ">= 1.66.2": ["openai-agents"]
     run: |
-      pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
+      pytest tests/openai/*_autolog.py
     test_every_n_versions: 10
     test_tracing_sdk: true
 
