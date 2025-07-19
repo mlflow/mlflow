@@ -46,8 +46,8 @@ module.exports = async ({ github, context }) => {
         latestRuns[key] = run;
       }
     }
-    const runs = Object.values(latestRuns).map(({ name, status, conclusion }) => ({
-      name,
+    const runs = Object.values(latestRuns).map(({ name, status, conclusion, check_suite }) => ({
+      name: `${name} / ${check_suite.id}`,
       status:
         status !== "completed"
           ? STATE.pending
