@@ -120,14 +120,34 @@ def _get_docker_image_uri(repository_uri, work_dir):
     return repository_uri + version_string
 
 
+def _get_paths_to_ignore(work_dir):
+    """Parse the .dockerignore file."""
+    patterns = []
+    path = os.path.join(work_dir, ".dockerignore")
+    if not os.path.exists(path):
+        return patterns
+    with open(path) as f:
+        for line in f:
+            clean_line = line.strip()
+            # Ignore comments
+            if clean_line.startswith("#"):
+                continue
+            # Trailing slashes are not part of directory names
+            if clean_line[-1] == "/":
+                clean_line = clean_line[:-1]
+            patterns += [clean_line]
+    return patterns
+
+
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
     """
+    ignore_func = shutil.ignore_patterns(*_get_paths_to_ignore(work_dir))
     directory = tempfile.mkdtemp()
     try:
         dst_path = os.path.join(directory, "mlflow-project-contents")
-        shutil.copytree(src=work_dir, dst=dst_path)
+        shutil.copytree(src=work_dir, dst=dst_path, ignore=ignore_func)
         with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
             handle.write(dockerfile_contents)
         _, result_path = tempfile.mkstemp()
