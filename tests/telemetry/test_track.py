@@ -2,7 +2,6 @@ import time
 
 import pytest
 
-import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.client import (
     TelemetryClient,
@@ -12,6 +11,10 @@ from mlflow.telemetry.client import (
 from mlflow.telemetry.schemas import APIStatus
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
+from mlflow.version import IS_TRACING_SDK_ONLY
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 
 def test_track_api_usage(mock_requests):
@@ -61,15 +64,16 @@ def test_backend_store_info(tmp_path):
     def succeed_func():
         return True
 
-    succeed_func()
-    get_telemetry_client().flush()
-
-    telemetry_client = get_telemetry_client()
+    sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
+    with _use_tracking_uri(sqlite_uri):
+        succeed_func()
+        telemetry_client = get_telemetry_client()
+        telemetry_client.flush()
     assert telemetry_client.info["backend_store_scheme"] == "sqlite"
 
-    mlflow.set_tracking_uri(tmp_path)
-    succeed_func()
-    get_telemetry_client().flush()
+    with _use_tracking_uri(tmp_path):
+        succeed_func()
+        telemetry_client.flush()
     assert telemetry_client.info["backend_store_scheme"] == "file"
 
 
