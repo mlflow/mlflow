@@ -615,3 +615,103 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
+
+
+def test_chat_multimodal_content(tmp_path):
+    """Test that multimodal messages with text and image content are handled correctly."""
+    # Create a mock base64 image data (1x1 red pixel PNG)
+    image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+    # Test logging a model with multimodal content
+    mlflow.openai.save_model(
+        model="gpt-4-vision-preview",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analyze this image and describe what you see."},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}",
+                            "detail": "low",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    # Verify the model can be loaded
+    model = mlflow.pyfunc.load_model(tmp_path)
+
+    # Test prediction with the loaded model
+    # Since multimodal content doesn't have variables, it should accept any input
+    data = pd.DataFrame({"col": ["dummy"]})
+    predictions = model.predict(data)
+
+    # Verify the prediction returns the expected multimodal message structure
+    assert len(predictions) == 1
+    parsed_pred = json.loads(predictions[0])
+    # The model may add an additional message for the input, so check the first message
+    assert len(parsed_pred) >= 1
+    multimodal_message = parsed_pred[0]
+    assert multimodal_message["role"] == "user"
+    assert isinstance(multimodal_message["content"], list)
+    assert len(multimodal_message["content"]) == 2
+    assert multimodal_message["content"][0]["type"] == "text"
+    assert (
+        multimodal_message["content"][0]["text"] == "Analyze this image and describe what you see."
+    )
+    assert multimodal_message["content"][1]["type"] == "image_url"
+    assert "base64" in multimodal_message["content"][1]["image_url"]["url"]
+
+
+def test_chat_multimodal_content_with_variables(tmp_path):
+    """Test multimodal messages with variables in the text content."""
+    # Create a mock base64 image data
+    image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+    # Test logging a model with multimodal content that includes variables
+    mlflow.openai.save_model(
+        model="gpt-4-vision-preview",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analyze this {object} and describe what you see."},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}",
+                            "detail": "low",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    # Verify the model can be loaded
+    model = mlflow.pyfunc.load_model(tmp_path)
+
+    # Test prediction with variable substitution
+    data = pd.DataFrame({"object": ["image", "picture"]})
+    predictions = model.predict(data)
+
+    # Verify predictions
+    assert len(predictions) == 2
+
+    # Check first prediction
+    parsed_pred1 = json.loads(predictions[0])
+    assert parsed_pred1[0]["content"][0]["text"] == "Analyze this image and describe what you see."
+
+    # Check second prediction
+    parsed_pred2 = json.loads(predictions[1])
+    assert (
+        parsed_pred2[0]["content"][0]["text"] == "Analyze this picture and describe what you see."
+    )

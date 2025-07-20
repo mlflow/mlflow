@@ -193,8 +193,22 @@ def _log_secrets_yaml(local_model_dir, scope):
 
 
 def _parse_format_fields(s) -> set[str]:
-    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
-    return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
+    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
+
+    For multimodal content (list), recursively extracts fields from text content.
+    """
+    if isinstance(s, str):
+        return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
+    elif isinstance(s, list):
+        # Handle multimodal content
+        fields = set()
+        for item in s:
+            if isinstance(item, dict):
+                if item.get("type") == "text" and "text" in item:
+                    fields.update(_parse_format_fields(item["text"]))
+        return fields
+    else:
+        return set()
 
 
 def _get_input_schema(task, content):
@@ -605,13 +619,35 @@ class _ContentFormatter:
 
     def format_chat(self, **params):
         format_args = {v: params[v] for v in self.variables}
-        return [
-            {
-                "role": message.get("role").format(**format_args),
-                "content": message.get("content").format(**format_args),
-            }
-            for message in self.template
-        ]
+        formatted_messages = []
+        for message in self.template:
+            formatted_message = {"role": message.get("role")}
+
+            # Format role if it's a string
+            if isinstance(formatted_message["role"], str):
+                formatted_message["role"] = formatted_message["role"].format(**format_args)
+
+            # Handle content - could be string or list (multimodal)
+            content = message.get("content")
+            if isinstance(content, str):
+                formatted_message["content"] = content.format(**format_args)
+            elif isinstance(content, list):
+                # Handle multimodal content
+                formatted_content = []
+                for item in content:
+                    if isinstance(item, dict):
+                        formatted_item = item.copy()
+                        if item.get("type") == "text" and "text" in item:
+                            formatted_item["text"] = item["text"].format(**format_args)
+                        formatted_content.append(formatted_item)
+                    else:
+                        formatted_content.append(item)
+                formatted_message["content"] = formatted_content
+            else:
+                formatted_message["content"] = content
+
+            formatted_messages.append(formatted_message)
+        return formatted_messages
 
 
 def _first_string_column(pdf):
