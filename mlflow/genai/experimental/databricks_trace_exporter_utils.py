@@ -79,6 +79,8 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
     If MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL environment variable is set,
     it will be used as an override and returned immediately.
 
+    TODO: This resolution logic should be part of the ingest_api_sdk and not in the client code here
+
     AWS Patterns:
     - Dev: *.dev.databricks.com → <workspace_id>.ingest.dev.cloud.databricks.com
     - Staging: *.staging.cloud.databricks.com → <workspace_id>.ingest.staging.cloud.databricks.com
@@ -244,6 +246,8 @@ def _resolve_archival_token() -> str:
         >>> token = resolve_archival_token()
         >>> print(token[:10] + "...")  # Don't log full token
         dapi1234567...
+
+    TODO: The token override is a stop gap until proper auth to ingestion is implemented.
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN
     from mlflow.exceptions import MlflowException
