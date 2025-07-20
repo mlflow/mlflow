@@ -192,7 +192,7 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(content) -> set[str]:
+def _parse_format_fields(content: Union[str, list[Any], dict[str, Any], Any]) -> set[str]:
     """Recursively parse format fields from content of various types.
 
     Extracts template variable names (e.g., {variable}) from content that can be
@@ -687,7 +687,9 @@ class _ContentFormatter:
         """
         format_args = {v: params[v] for v in self.variables}
 
-        def format_value(value):
+        def format_value(
+            value: Union[str, list[Any], dict[str, Any], Any],
+        ) -> Union[str, list[Any], dict[str, Any], Any]:
             """Recursively format a value with template variable substitution.
 
             Args:
