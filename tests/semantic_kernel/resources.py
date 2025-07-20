@@ -83,3 +83,20 @@ async def _create_and_invoke_chat_agent(mock_openai):
         instructions="You are a master at all things sushi. But, you are not very smart.",
     )
     return await agent.get_response(messages="How do I make sushi?")
+
+
+async def _create_and_invoke_kernel_streaming(mock_openai):
+    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+    kernel = Kernel()
+    kernel.add_service(
+        OpenAIChatCompletion(
+            service_id="chat-gpt",
+            ai_model_id="gpt-4o-mini",
+            async_client=openai_client,
+        )
+    )
+
+    result = []
+    async for chunk in kernel.invoke_prompt_stream("Tell me a joke"):
+        result.append(chunk)
+    return result

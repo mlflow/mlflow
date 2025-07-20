@@ -19,6 +19,7 @@ from opentelemetry.trace import (
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
 from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
+from semantic_kernel.functions.function_result import FunctionResult
 from semantic_kernel.utils.telemetry.model_diagnostics import (
     gen_ai_attributes as model_gen_ai_attributes,
 )
@@ -159,22 +160,49 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
 def _serialize_semantic_kernel_result(result: Any) -> str:
     """Convert Semantic Kernel result to JSON-serializable format."""
     try:
-        if hasattr(result, "value") and result.value is not None:
-            if isinstance(result.value, list):
-                return json.dumps(
-                    [
-                        item.to_dict() if hasattr(item, "to_dict") else str(item)
-                        for item in result.value
-                    ]
-                )
-            elif hasattr(result.value, "to_dict"):
-                return json.dumps(result.value.to_dict())
-            else:
-                return json.dumps(str(result.value))
-        elif hasattr(result, "to_dict"):
+        if result is None:
+            return json.dumps(None)
+
+        # FunctionResult - extract value and serialize recursively
+        if isinstance(result, FunctionResult):
+            if result.value is None:
+                return json.dumps(None)
+            return _serialize_semantic_kernel_result(result.value)
+
+        # List of ChatMessageContent - format for MLflow
+        if isinstance(result, list) and result and isinstance(result[0], ChatMessageContent):
+            return json.dumps(
+                [
+                    {
+                        "message": msg.to_dict(),
+                        "finish_reason": getattr(msg, "finish_reason", None)
+                        and msg.finish_reason.value,
+                    }
+                    for msg in result
+                ]
+            )
+
+        # Single ChatMessageContent
+        if isinstance(result, ChatMessageContent):
+            return json.dumps(
+                {
+                    "message": result.to_dict(),
+                    "finish_reason": getattr(result, "finish_reason", None)
+                    and result.finish_reason.value,
+                }
+            )
+
+        # Objects with to_dict() method
+        if hasattr(result, "to_dict"):
             return json.dumps(result.to_dict())
-        else:
-            return json.dumps(str(result))
+
+        # Numpy arrays
+        if hasattr(result, "tolist"):
+            return json.dumps(result.tolist())
+
+        # Default JSON serialization
+        return json.dumps(result)
+
     except Exception as e:
         _logger.warning(f"Failed to serialize result: {e}")
         return json.dumps(str(result))
@@ -282,7 +310,22 @@ async def _trace_wrapper(original, *args, **kwargs):
     span = get_current_span()
     if span and span.is_recording():
         span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
-        span.set_attribute(SpanAttributeKey.INPUTS, str(args))
+
+        # Better input serialization
+        serialized_args = []
+        for arg in args:
+            if hasattr(arg, "__class__"):
+                serialized_args.append(arg.__class__.__name__)
+            else:
+                serialized_args.append(str(arg))
+
+        input_dict = {"function": original.__qualname__}
+        if args:
+            input_dict["args"] = serialized_args
+        if kwargs:
+            input_dict["kwargs"] = {k: str(v) for k, v in kwargs.items()}
+
+        span.set_attribute(SpanAttributeKey.INPUTS, json.dumps(input_dict))
 
     try:
         result = await original(*args, **kwargs)
@@ -291,7 +334,7 @@ async def _trace_wrapper(original, *args, **kwargs):
         return result
     except Exception as e:
         if span and span.is_recording():
-            span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps(f"Error: {e!s}"))
+            span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps({"error": str(e)}))
         raise
 
 
@@ -308,4 +351,15 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
     with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
         t.info.status = TraceStatus.ERROR
 
+    return original(*args, **kwargs)
+
+
+def _streaming_not_supported_wrapper(original, *args, **kwargs):
+    """Wrapper for streaming methods that logs streaming is not supported for inputs/outputs
+    parsing.
+    """
+    _logger.debug(
+        f"Streaming method '{original.__qualname__}' called. "
+        "Note: Streaming responses are not currently captured in MLflow traces."
+    )
     return original(*args, **kwargs)

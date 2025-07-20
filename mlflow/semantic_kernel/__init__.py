@@ -2,6 +2,7 @@ from mlflow.semantic_kernel.autolog import (
     _semantic_kernel_chat_completion_error_wrapper,
     _semantic_kernel_chat_completion_input_wrapper,
     _semantic_kernel_chat_completion_response_wrapper,
+    _streaming_not_supported_wrapper,
     _trace_wrapper,
     setup_semantic_kernel_tracing,
 )
@@ -44,6 +45,18 @@ def autolog(
         )
         from semantic_kernel.kernel import Kernel
 
+        # Separate streaming and non-streaming methods
+        streaming_methods = [
+            "get_streaming_chat_message_content",
+            "get_streaming_chat_message_contents",
+            "_inner_get_streaming_chat_message_contents",
+            "get_streaming_text_content",
+            "get_streaming_text_contents",
+            "_inner_get_streaming_text_contents",
+            "invoke_stream",
+            "invoke_prompt_stream",
+        ]
+
         entry_point_patches = [
             (
                 ChatCompletionClientBase,
@@ -74,7 +87,11 @@ def autolog(
         for cls, methods in entry_point_patches:
             for method in methods:
                 if hasattr(cls, method):
-                    safe_patch(FLAVOR_NAME, cls, method, _trace_wrapper)
+                    # Use streaming wrapper for streaming methods
+                    if method in streaming_methods:
+                        safe_patch(FLAVOR_NAME, cls, method, _streaming_not_supported_wrapper)
+                    else:
+                        safe_patch(FLAVOR_NAME, cls, method, _trace_wrapper)
 
     except ImportError:
         pass

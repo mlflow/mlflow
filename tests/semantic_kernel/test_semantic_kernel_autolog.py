@@ -28,6 +28,7 @@ from tests.semantic_kernel.resources import (
     _create_and_invoke_chat_agent,
     _create_and_invoke_kernel_complex,
     _create_and_invoke_kernel_simple,
+    _create_and_invoke_kernel_streaming,
 )
 from tests.tracing.helper import get_traces
 
@@ -56,6 +57,21 @@ async def test_sk_invoke_simple(mock_openai):
     assert trace.data.response
     assert not trace.data.response.startswith("<coroutine")
 
+    assert "mlflow.traceInputs" in trace.info.trace_metadata
+    assert "mlflow.traceOutputs" in trace.info.trace_metadata
+
+    trace_inputs_str = trace.info.trace_metadata["mlflow.traceInputs"]
+    trace_outputs_str = trace.info.trace_metadata["mlflow.traceOutputs"]
+
+    assert len(trace_inputs_str) > 0
+    assert len(trace_outputs_str) > 0
+
+    assert "ChatCompletionClientBase.get_chat_message_contents" in trace_inputs_str
+    assert "Is sushi" in trace_inputs_str
+
+    assert "assistant" in trace_outputs_str
+    assert "message" in trace_outputs_str
+
     root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
     child_span = next((s for s in trace.data.spans if s.parent_id == root_span.span_id), None)
 
@@ -63,10 +79,10 @@ async def test_sk_invoke_simple(mock_openai):
     assert SpanAttributeKey.REQUEST_ID in root_span.attributes
     assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
 
-    # Verify output is valid JSON (improved formatting)
     output = root_span.get_attribute(SpanAttributeKey.OUTPUTS)
     try:
-        json.loads(output)
+        parsed_output = json.loads(output)
+        assert isinstance(parsed_output, (str, list, dict))
     except json.JSONDecodeError:
         pytest.fail("Root span output should be valid JSON")
 
@@ -346,3 +362,52 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         assert child_span.get_attribute(SpanAttributeKey.OUTPUTS)
 
     assert len(unique_messages) == n
+
+
+@pytest.mark.asyncio
+async def test_sk_streaming_methods(mock_openai):
+    mlflow.semantic_kernel.autolog()
+
+    _ = await _create_and_invoke_kernel_streaming(mock_openai)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    spans = trace.data.spans
+
+    assert len(spans) >= 1
+    streaming_span = next((s for s in spans if "streaming" in s.name.lower()), None)
+    assert streaming_span
+
+
+@pytest.mark.asyncio
+async def test_sk_output_serialization():
+    from semantic_kernel.contents.chat_message_content import ChatMessageContent
+
+    from mlflow.semantic_kernel.autolog import _serialize_semantic_kernel_result
+
+    chat_msg = ChatMessageContent(role="assistant", content="Hello")
+    result = _serialize_semantic_kernel_result(chat_msg)
+    parsed = json.loads(result)
+    assert parsed["message"]["content"] == "Hello"
+
+    msgs = [ChatMessageContent(role="assistant", content=f"Message {i}") for i in range(2)]
+    result = _serialize_semantic_kernel_result(msgs)
+    parsed = json.loads(result)
+    assert len(parsed) == 2
+    assert parsed[0]["message"]["content"] == "Message 0"
+
+    result = _serialize_semantic_kernel_result(None)
+    assert json.loads(result) is None
+
+    result = _serialize_semantic_kernel_result("plain string")
+    assert json.loads(result) == "plain string"
+
+    result = _serialize_semantic_kernel_result([1, 2, 3])
+    assert json.loads(result) == [1, 2, 3]
+
+    import numpy as np
+
+    arr = np.array([1.0, 2.0, 3.0])
+    result = _serialize_semantic_kernel_result(arr)
+    assert json.loads(result) == [1.0, 2.0, 3.0]
