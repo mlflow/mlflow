@@ -232,6 +232,7 @@ def set_telemetry_client():
 
         thread = threading.Thread(target=_init, name="GetTelemetryConfig", daemon=True)
         thread.start()
+        thread.join(timeout=3)
 
 
 def get_telemetry_client() -> Optional[TelemetryClient]:
