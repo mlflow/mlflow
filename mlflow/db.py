@@ -24,4 +24,12 @@ def upgrade(url):
     import mlflow.store.db.utils
 
     engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
-    mlflow.store.db.utils._upgrade_db(engine)
+    
+    # Check if the database has been initialized with the base schema
+    if mlflow.store.db.utils._all_tables_exist(engine):
+        # Database already has tables, just run any pending migrations
+        mlflow.store.db.utils._upgrade_db(engine)
+    else:
+        # Database is fresh or missing core tables, initialize it properly
+        # This will create the initial schema and run all migrations
+        mlflow.store.db.utils._initialize_tables(engine)
