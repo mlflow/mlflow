@@ -43,8 +43,8 @@ jobs:
         working-directory: mlflow/R/mlflow
         run: |
           Rscript -e 'install.packages("devtools")'
-          Rscript -e 'devtools::build()'
-          find $PWD -name "*.tar.gz" -exec cp {} $ARTIFACT_DIR/ \;
+          Rscript -e 'devtools::build(path = ".")'
+          find $PWD -name "*.tar.gz" -type f -exec cp {} $ARTIFACT_DIR/ \;
 
       - name: Build Java packages
         working-directory: mlflow/java
