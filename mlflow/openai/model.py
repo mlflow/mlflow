@@ -193,7 +193,31 @@ def _log_secrets_yaml(local_model_dir, scope):
 
 
 def _parse_format_fields(content) -> set[str]:
-    """Parses format fields from content (string, list, or dict)."""
+    """Recursively parse format fields from content of various types.
+
+    Extracts template variable names (e.g., {variable}) from content that can be
+    a string, list, dictionary, or other types. This function handles multimodal
+    content structures used in OpenAI chat completions.
+
+    Args:
+        content: The content to parse. Can be:
+            - str: A string potentially containing format fields like "Hello {name}"
+            - list: A list of items (e.g., multimodal content with text and images)
+            - dict: A dictionary with values to parse recursively
+            - other: Any other type (returns empty set)
+
+    Returns:
+        A set of format field names found in the content. For example,
+        "Hello {name}, your {item} is ready" returns {"name", "item"}.
+
+    Examples:
+        >>> _parse_format_fields("Hello {name}")
+        {'name'}
+        >>> _parse_format_fields([{"type": "text", "text": "Hello {user}"}])
+        {'user'}
+        >>> _parse_format_fields({"message": "Welcome {name}", "data": "{value}"})
+        {'name', 'value'}
+    """
     if isinstance(content, str):
         return {fn for _, fn, _, _ in Formatter().parse(content) if fn is not None}
     elif isinstance(content, list):
@@ -624,10 +648,55 @@ class _ContentFormatter:
         return self.template.format(**{v: params[v] for v in self.variables})
 
     def format_chat(self, **params):
+        """Format chat completion messages with parameter substitution.
+
+        Formats chat messages by recursively substituting template variables with
+        provided parameter values. Handles both simple string-based content and
+        complex multimodal content structures (lists and dictionaries).
+
+        Args:
+            **params: Template variable values to substitute. Keys should match
+                the variable names found in the template (e.g., 'name', 'content').
+
+        Returns:
+            A list of formatted message dictionaries, each containing 'role' and
+            'content' keys with template variables substituted.
+
+        Examples:
+            >>> formatter = _ContentFormatter(
+            ...     "chat.completions", [{"role": "user", "content": "Hello {name}"}]
+            ... )
+            >>> formatter.format_chat(name="Alice")
+            [{"role": "user", "content": "Hello Alice"}]
+
+            >>> # Multimodal content
+            >>> formatter = _ContentFormatter(
+            ...     "chat.completions",
+            ...     [
+            ...         {
+            ...             "role": "user",
+            ...             "content": [
+            ...                 {"type": "text", "text": "Analyze {item}"},
+            ...                 {"type": "image_url", "image_url": {"url": "{image}"}},
+            ...             ],
+            ...         }
+            ...     ],
+            ... )
+            >>> formatter.format_chat(item="this image", image="data:image/png;base64,...")
+            [{"role": "user", "content": [...]}]  # With substituted values
+        """
         format_args = {v: params[v] for v in self.variables}
 
         def format_value(value):
-            """Recursively format a value (string, list, dict, or other)."""
+            """Recursively format a value with template variable substitution.
+
+            Args:
+                value: The value to format. Can be string, list, dict, or other type.
+
+            Returns:
+                The formatted value with template variables substituted. Non-string
+                types are processed recursively to handle nested structures.
+            """
             if isinstance(value, str):
                 return value.format(**format_args)
             elif isinstance(value, list):

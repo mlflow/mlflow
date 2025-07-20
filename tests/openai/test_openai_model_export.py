@@ -618,7 +618,21 @@ def test_inference_params_overlap(tmp_path):
 
 
 def test_multimodal_messages(tmp_path):
-    """Test that multimodal messages (text + image) work correctly."""
+    """Test multimodal OpenAI messages with template variables.
+
+    Verifies that MLflow correctly handles OpenAI chat completion messages
+    containing both text and image content (multimodal) with template variables
+    for dynamic content substitution.
+
+    Args:
+        tmp_path: Pytest fixture providing a temporary directory path.
+
+    Tests:
+        - Model saving with multimodal content and template variables
+        - Correct signature inference from multimodal templates
+        - Model loading and prediction with multimodal data
+        - Template variable substitution in complex nested structures
+    """
     # Test multimodal content with variable placeholders
     mlflow.openai.save_model(
         model="gpt-4o-mini",
@@ -685,7 +699,21 @@ def test_multimodal_messages(tmp_path):
 
 
 def test_multimodal_messages_no_variables(tmp_path):
-    """Test that multimodal messages without variables work correctly."""
+    """Test that multimodal messages without variables work correctly.
+
+    Verifies that MLflow correctly handles OpenAI multimodal messages that contain
+    no template variables, ensuring the default content parameter is added and
+    the model can process additional user input alongside static multimodal content.
+
+    Args:
+        tmp_path: Pytest fixture providing a temporary directory path.
+
+    Tests:
+        - Model saving with static multimodal content (no template variables)
+        - Default signature inference when no variables are found
+        - Model loading and prediction with additional user content
+        - Proper message composition with both static and dynamic content
+    """
     mlflow.openai.save_model(
         model="gpt-4o-mini",
         task=chat_completions(),
