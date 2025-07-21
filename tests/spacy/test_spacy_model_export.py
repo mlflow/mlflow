@@ -1,8 +1,8 @@
 import json
 import os
 import random
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pandas as pd
@@ -38,7 +38,11 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("spacy") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
+
 
 spacy_version = Version(spacy.__version__)
 IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0")

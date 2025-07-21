@@ -144,6 +144,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/concepts/feedback',
               label: 'Feedback',
             },
+            {
+              type: 'doc',
+              id: 'tracing/concepts/expectations',
+              label: 'Expectations',
+            },
           ],
         },
         {
@@ -169,11 +174,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'tracing/attach-tags/index',
               label: 'Trace Tagging',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quality-with-traces',
-              label: 'Using Traces for Quality Improvement',
             },
             {
               type: 'doc',
@@ -236,6 +236,16 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Evaluate & Monitor',
       className: 'sidebar-top-level-category',
       items: [
+        {
+          type: 'doc',
+          id: 'assessments/feedback',
+          label: 'Feedback Collection',
+        },
+        {
+          type: 'doc',
+          id: 'assessments/expectations',
+          label: 'Ground Truth Expectations',
+        },
         {
           type: 'doc',
           id: 'eval-monitor/llm-evaluation',

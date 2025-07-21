@@ -88,17 +88,14 @@ async def test_autolog_assistant_agent(disable):
             {"content": "1+1", "source": "user", "type": "UserMessage"},
         ]
         assert span.outputs["content"] == "2"
-        assert span.get_attribute("mlflow.chat.messages") == [
-            {"role": "system", "content": _SYSTEM_MESSAGE},
-            {"role": "user", "content": "1+1"},
-            {"role": "assistant", "content": "2"},
-        ]
 
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 6,
             "output_tokens": 1,
             "total_tokens": 7,
         }
+
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "autogen"
 
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
@@ -243,20 +240,6 @@ async def test_autolog_tool_agent():
     assert span.outputs["content"] == [
         {"id": "1", "arguments": '{"number": 1}', "name": "increment_number"}
     ]
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {"role": "system", "content": _SYSTEM_MESSAGE},
-        {"role": "user", "content": "1+1"},
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "1",
-                    "type": "function",
-                    "function": {"name": "increment_number", "arguments": '{"number": 1}'},
-                }
-            ],
-        },
-    ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 6,
@@ -348,11 +331,6 @@ async def test_autolog_multi_modal():
         {"content": f"{user_message}\n<image>", "source": "user", "type": "UserMessage"},
     ]
     assert span.outputs["content"] == "2"
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {"role": "system", "content": _SYSTEM_MESSAGE},
-        {"role": "user", "content": f"{user_message}\n<image>"},
-        {"role": "assistant", "content": "2"},
-    ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 14,
