@@ -871,6 +871,11 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     # Only apply trace decorator if the function is not already traced with mlflow.trace
                     if getattr(attr, "__mlflow_traced__", False):
                         # Function is already traced with mlflow.trace, use it as is
+                        mlflow.pyfunc._logger.warning(
+                            f"You have manually traced {attr_name} with @mlflow.trace, but this is "
+                            "unnecessary with ResponsesAgent subclasses. You can remove the "
+                            "@mlflow.trace decorator and it will be automatically traced."
+                        )
                         traced_attr = attr
                     else:
                         # Apply trace decorator first
