@@ -26,6 +26,9 @@ python -m pip install sqlalchemy alembic numpy
 # unintended libraries.
 pytest tests/test_skinny_client_omits_data_science_libs.py
 
+# Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
+python -m pip install numpy
+
 pytest \
   tests/test_runs.py \
   tests/tracking/test_client.py \
