@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from types import MappingProxyType
-from typing import Optional
+from typing import Any, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -18,6 +18,7 @@ from opentelemetry.trace import (
 )
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
+from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
 from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
     are_sensitive_events_enabled,
 )
@@ -30,6 +31,8 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.semantic_kernel.tracing_utils import (
     _get_span_type,
     _set_token_usage,
+    _get_live_span_from_otel_span_id,
+    _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN
 )
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -38,21 +41,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
 
-# NB: Use global variable instead of the instance variable of the processor, because sometimes
-# multiple span processor instances can be created and we need to share the same map.
-_OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
-
-
-def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
-    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
-        return span_and_token[0]
-    else:
-        _logger.warning(
-            f"Live span not found for OTel span ID: {otel_span_id}. "
-            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-            "additional attributes. "
-        )
-        return None
+# NB: The global variable and lookup function are imported from tracing_utils
 
 
 def _set_logging_env_variables():
@@ -126,6 +115,7 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         parent_st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(parent_span_id)
         parent_span = parent_st[0] if parent_st else None
 
+
         mlflow_span = start_span_no_context(
             name=span.name,
             parent_span=parent_span,
@@ -173,7 +163,7 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
 
         if mlflow_span := _get_live_span_from_otel_span_id(otel_span_id):
             mlflow_span.set_span_type(SpanType.CHAT_MODEL)
-            mlflow_span.set_inputs(json.dumps(prompt_value_with_message))
+            mlflow_span.set_inputs(prompt_value_with_message)
         else:
             _logger.debug(
                 "Span is not found or recording. Skipping registering chat "
@@ -201,14 +191,19 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
             return original(*args, **kwargs)
 
         if are_sensitive_events_enabled():
-            messages = []
+            full_responses = []
             for completion in completions:
-                if isinstance(completion, ChatMessageContent):
-                    messages.append({"role": completion.role.value, "content": completion.content})
+                full_response: dict[str, Any] =  completion.to_dict()
 
-            output_dict = {"messages": messages}
-            mlflow_span.set_outputs(json.dumps(output_dict))
-            mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, json.dumps(output_dict))
+                if isinstance(completion, ChatMessageContent):
+                    full_response["finish_reason"] = completion.finish_reason.value
+                if isinstance(completion, StreamingContentMixin):
+                    full_response["index"] = completion.choice_index
+
+                full_responses.append(full_response)
+
+            mlflow_span.set_outputs({ "messages": full_responses })
+            mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, full_responses)
 
     except Exception as e:
         _logger.warning(f"Failed to set outputs attribute: {e}")
@@ -221,10 +216,13 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
     otel_span_id = current_span.get_span_context().span_id
     mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
 
-    mlflow_span.add_event(SpanEvent.from_exception(error))
-    mlflow_span.set_status(SpanStatusCode.ERROR)
+    if mlflow_span:
+        mlflow_span.add_event(SpanEvent.from_exception(error))
+        mlflow_span.set_status(SpanStatusCode.ERROR)
 
-    with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
-        t.info.status = TraceStatus.ERROR
+        with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
+            t.info.status = TraceStatus.ERROR
+    else:
+        _logger.debug("Span is not found or recording. Skipping error handling.")
 
     return original(*args, **kwargs)
