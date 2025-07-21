@@ -121,7 +121,7 @@ MLflow Tracing Typescript SDK currently supports automatic tracing for the follo
 
 ## Manual Tracing
 
-### Tracing a function.
+### Tracing a function with the `trace` API
 
 The `trace` API is useful when you want to trace a function.
 
@@ -210,7 +210,30 @@ The trace will look like this:
   - multiply (a=9, b=0.5)
 ```
 
-### Tracing a block of code
+### Tracing a class method with the `@trace` API
+
+TypeScript version 5.0+ supports decorators. MLflow Tracing support this syntax to trace class methods easily. MLflow will automatically creates a span that captures:
+
+- Input arguments
+- Return value
+- Exception information if thrown
+- Latency
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+    generateText(prompt: string) {
+        return "It's sunny in Seattle!";
+    }
+}
+
+const myClass = new MyClass();
+myClass.generateText("What's the weather like in Seattle?");
+```
+
+### Tracing a block of code with the `withSpan` API
 
 The `withSpan` API is useful when you want to trace a block of code, not a function.
 
