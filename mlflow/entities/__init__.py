@@ -26,6 +26,16 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.managed_datasets import (
+    DatasetRecord,
+    DatasetRecordSource,
+    DocumentSource,
+    ExpectationValue,
+    HumanSource,
+    InputValue,
+    ManagedDataset,
+    TraceSource,
+)
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import Prompt
 from mlflow.entities.param import Param
@@ -70,6 +80,14 @@ __all__ = [
     "Dataset",
     "InputTag",
     "DatasetInput",
+    "DatasetRecord",
+    "DatasetRecordSource",
+    "DocumentSource",
+    "ExpectationValue",
+    "HumanSource",
+    "InputValue",
+    "ManagedDataset",
+    "TraceSource",
     "RunInputs",
     "RunOutputs",
     "Span",
