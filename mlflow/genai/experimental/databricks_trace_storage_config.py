@@ -42,3 +42,30 @@ class DatabricksTraceDeltaStorageConfig(_MlflowObject):
     def from_dict(cls, d: dict[str, Any]) -> "DatabricksTraceDeltaStorageConfig":
         """Create a TraceArchiveConfiguration object from a dictionary."""
         return cls(**d)
+
+    @classmethod
+    def from_proto(cls, proto) -> "DatabricksTraceDeltaStorageConfig":
+        """Create a DatabricksTraceDeltaStorageConfig object from a proto TraceDestination."""
+        from mlflow.exceptions import MlflowException
+        from mlflow.protos.databricks_trace_server_pb2 import TraceLocation as ProtoTraceLocation
+
+        # Validate that this is an experiment location
+        if proto.trace_location.type != ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT:
+            raise MlflowException(
+                f"TraceArchiveConfiguration only supports MLflow experiments, "
+                f"but got location type: {proto.trace_location.type}"
+            )
+
+        if not proto.trace_location.mlflow_experiment:
+            raise MlflowException(
+                "TraceArchiveConfiguration requires an MLflow experiment location, "
+                "but mlflow_experiment is None"
+            )
+
+        return cls(
+            experiment_id=proto.trace_location.mlflow_experiment.experiment_id,
+            spans_table_name=proto.spans_table_name,
+            events_table_name=proto.events_table_name,
+            spans_schema_version=proto.spans_schema_version,
+            events_schema_version=proto.events_schema_version,
+        )

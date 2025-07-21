@@ -2,7 +2,6 @@
 Tests for MLflow tracing databricks archival functionality.
 """
 
-import json
 from unittest.mock import Mock, patch
 
 import pytest
@@ -61,26 +60,45 @@ def _create_trace_destination_proto(
         ("Network error", "Failed to enable trace archival"),
     ],
 )
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-def test_create_trace_destination_api_failures(mock_call_endpoint, error_type, expected_match):
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracking.MlflowClient")
+def test_create_trace_destination_api_failures(
+    mock_mlflow_client, mock_trace_client, error_type, expected_match
+):
     """Test various API failure scenarios."""
-    mock_call_endpoint.side_effect = Exception(error_type)
+    # Mock trace client to raise exception
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.side_effect = Exception(error_type)
+    mock_trace_client.return_value = mock_trace_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    # Mock successful MLflow client operations
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match=expected_match):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-def test_malformed_api_response(mock_call_endpoint):
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracking.MlflowClient")
+def test_malformed_api_response(mock_mlflow_client, mock_trace_client):
     """Test handling of malformed API responses."""
-    # Mock response missing required fields
-    mock_response = Mock()
-    mock_response.spans_table_name = "catalog.schema.spans"
+    # Mock trace client to return malformed config (missing events_table_name)
+    mock_config = Mock()
+    mock_config.spans_table_name = "catalog.schema.spans"
     # Missing events_table_name intentionally
-    mock_call_endpoint.return_value = mock_response
+    del mock_config.events_table_name  # Make sure it doesn't have this attribute
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful MLflow client operations
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
@@ -191,22 +209,33 @@ def test_both_unsupported_schema_versions():
         _validate_schema_versions("invalid", "also_invalid")
 
 
-@patch("sys.modules", {"databricks.agents": Mock()})
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
+@patch("importlib.util.find_spec", return_value=Mock())
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_spans_schema(
-    mock_mlflow_client, mock_create_view, mock_get_creds, mock_call_endpoint
+    mock_mlflow_client, mock_create_view, mock_trace_client, mock_find_spec
 ):
     """Test end-to-end failure when backend returns unsupported spans schema version."""
-    # Create proto response with unsupported spans schema version
-    proto_response = _create_trace_destination_proto()
-    proto_response.spans_schema_version = "v2"  # Unsupported version
-    proto_response.events_schema_version = SUPPORTED_SCHEMA_VERSION
-    mock_call_endpoint.return_value = proto_response
+    # Create config with unsupported spans schema version
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
 
-    # Mock successful client operations
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.spans",
+        events_table_name="catalog.schema.events",
+        spans_schema_version="v2",  # Unsupported version
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful MLflow client operations
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
@@ -214,22 +243,33 @@ def test_backend_returns_unsupported_spans_schema(
         enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
-@patch("sys.modules", {"databricks.agents": Mock()})
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
+@patch("importlib.util.find_spec", return_value=Mock())
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_events_schema(
-    mock_mlflow_client, mock_create_view, mock_get_creds, mock_call_endpoint
+    mock_mlflow_client, mock_create_view, mock_trace_client, mock_find_spec
 ):
     """Test end-to-end failure when backend returns unsupported events schema version."""
-    # Create proto response with unsupported events schema version
-    proto_response = _create_trace_destination_proto()
-    proto_response.spans_schema_version = SUPPORTED_SCHEMA_VERSION
-    proto_response.events_schema_version = "v0"  # Unsupported version
-    mock_call_endpoint.return_value = proto_response
+    # Create config with unsupported events schema version
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
 
-    # Mock successful client operations
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.spans",
+        events_table_name="catalog.schema.events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version="v0",  # Unsupported version
+    )
+
+    # Mock trace client to return config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful MLflow client operations
     mock_client_instance = Mock()
     mock_mlflow_client.return_value = mock_client_instance
 
@@ -240,14 +280,28 @@ def test_backend_returns_unsupported_events_schema(
 # Experiment tag setting tests
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
-def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mock_call_endpoint):
+def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mock_trace_client):
     """Test experiment tag setting failure."""
+    # Create a valid config
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
 
-    proto_response = _create_trace_destination_proto()
-    mock_call_endpoint.return_value = proto_response
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.spans",
+        events_table_name="catalog.schema.events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return valid config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
 
     # Mock view creation to succeed
     mock_create_view.return_value = None
@@ -257,50 +311,54 @@ def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mo
     mock_client_instance.set_experiment_tag.side_effect = Exception("Permission denied")
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.tracking.MlflowClient")
-def test_successful_experiment_tag_setting(
-    mock_mlflow_client, mock_create_view, mock_get_creds, mock_call_endpoint
-):
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view, mock_trace_client):
     """Test successful experiment tag setting."""
+    # Create a valid config
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
 
-    proto_response = _create_trace_destination_proto()
-    mock_call_endpoint.return_value = proto_response
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.spans",
+        events_table_name="catalog.schema.events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return valid config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
 
     # Mock successful view creation
     mock_create_view.return_value = None
 
     # Mock successful client operations
     mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}  # No existing archival tag
+    mock_client_instance.get_experiment.return_value = mock_experiment
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("importlib.util.find_spec", return_value=Mock()):
         result = enable_databricks_trace_archival("12345", "catalog", "schema")
 
-    # Verify call_endpoint was called with correct arguments
-    mock_call_endpoint.assert_called_once()
-    call_args = mock_call_endpoint.call_args
-
-    # Validate call_endpoint arguments
-    assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/trace-destinations"
-    assert call_args.kwargs["method"] == "POST"
-    assert call_args.kwargs["host_creds"] == mock_get_creds.return_value
-
-    # Validate JSON body contains properly serialized protobuf
-
-    json_body = call_args.kwargs["json_body"]
-    assert isinstance(json_body, str)  # Should be JSON string, not dict
-    parsed_body = json.loads(json_body)  # Should parse without error
-    assert parsed_body["uc_catalog"] == "catalog"
-    assert parsed_body["uc_schema"] == "schema"
-    assert parsed_body["uc_table_prefix"] == "trace_logs"
+    # Verify trace client was called with correct arguments
+    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
+        experiment_id="12345",
+        catalog="catalog",
+        schema="schema",
+        table_prefix="trace_logs",
+    )
 
     # Validate set_experiment_tag was called with correct parameters
     from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
@@ -316,50 +374,49 @@ def test_successful_experiment_tag_setting(
 # Successful archival integration tests
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.tracking.MlflowClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_successful_archival_with_default_prefix(
-    mock_mlflow_client, mock_create_view, mock_get_creds, mock_call_endpoint
+    mock_mlflow_client, mock_create_view, mock_trace_client
 ):
     """Test successful end-to-end archival with default table prefix."""
+    # Create a valid config
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
 
-    proto_response = _create_trace_destination_proto(
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
         spans_table_name="catalog.schema.experiment_12345_spans",
         events_table_name="catalog.schema.experiment_12345_events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
-    mock_call_endpoint.return_value = proto_response
+
+    # Mock trace client to return valid config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
 
     # Mock successful client operations
     mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}  # No existing archival tag
+    mock_client_instance.get_experiment.return_value = mock_experiment
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("importlib.util.find_spec", return_value=Mock()):
         result = enable_databricks_trace_archival("12345", "catalog", "schema")
 
-    # Verify call_endpoint was called with correct arguments
-    mock_call_endpoint.assert_called_once()
-    call_args = mock_call_endpoint.call_args
+    # Verify trace client was called with correct arguments
+    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
+        experiment_id="12345",
+        catalog="catalog",
+        schema="schema",
+        table_prefix="trace_logs",
+    )
 
-    # Validate arguments to call_endpoint
-    assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/trace-destinations"
-    assert call_args.kwargs["method"] == "POST"
-    assert call_args.kwargs["host_creds"] == mock_get_creds.return_value
-    assert isinstance(call_args.kwargs["response_proto"], type(proto_response))
-
-    # Validate JSON body contains properly serialized protobuf
-
-    json_body = call_args.kwargs["json_body"]
-    assert isinstance(json_body, str)  # Should be JSON string, not dict
-    parsed_body = json.loads(json_body)  # Should parse without error
-
-    # Validate protobuf fields in JSON
-    assert parsed_body["uc_catalog"] == "catalog"
-    assert parsed_body["uc_schema"] == "schema"
-    assert parsed_body["uc_table_prefix"] == "trace_logs"
-    assert parsed_body["trace_location"]["type"] == "MLFLOW_EXPERIMENT"
-    assert parsed_body["trace_location"]["mlflow_experiment"]["experiment_id"] == "12345"
     mock_create_view.assert_called_once_with(
         "catalog.schema.trace_logs_12345",
         "catalog.schema.experiment_12345_spans",
@@ -377,43 +434,50 @@ def test_successful_archival_with_default_prefix(
     assert result == "catalog.schema.trace_logs_12345"
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.call_endpoint")
-@patch("mlflow.genai.experimental.databricks_trace_archival.get_databricks_host_creds")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.tracking.MlflowClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_successful_archival_with_custom_prefix(
-    mock_mlflow_client, mock_create_view, mock_get_creds, mock_call_endpoint
+    mock_mlflow_client, mock_create_view, mock_trace_client
 ):
     """Test successful archival with custom table prefix."""
-    # Create proper protobuf response
-    proto_response = _create_trace_destination_proto(
+    # Create a valid config
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
+
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
         spans_table_name="catalog.schema.custom_12345_spans",
         events_table_name="catalog.schema.custom_12345_events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
-    mock_call_endpoint.return_value = proto_response
+
+    # Mock trace client to return valid config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
 
     # Mock successful client operations
     mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}  # No existing archival tag
+    mock_client_instance.get_experiment.return_value = mock_experiment
     mock_mlflow_client.return_value = mock_client_instance
 
-    with patch("sys.modules", {"databricks.agents": Mock()}):
+    with patch("importlib.util.find_spec", return_value=Mock()):
         result = enable_databricks_trace_archival(
             "12345", "catalog", "schema", table_prefix="custom"
         )
 
-    # Verify call_endpoint was called with correct arguments for custom prefix
-    mock_call_endpoint.assert_called_once()
-    call_args = mock_call_endpoint.call_args
-
-    # Validate JSON body for custom prefix
-
-    json_body = call_args.kwargs["json_body"]
-    parsed_body = json.loads(json_body)
-    assert parsed_body["uc_catalog"] == "catalog"
-    assert parsed_body["uc_schema"] == "schema"
-    assert parsed_body["trace_location"]["type"] == "MLFLOW_EXPERIMENT"
-    assert parsed_body["trace_location"]["mlflow_experiment"]["experiment_id"] == "12345"
-    assert parsed_body["uc_table_prefix"] == "custom"  # Should use custom prefix
+    # Verify trace client was called with correct arguments for custom prefix
+    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
+        experiment_id="12345",
+        catalog="catalog",
+        schema="schema",
+        table_prefix="custom",
+    )
 
     # Verify custom prefix was used
     mock_create_view.assert_called_once_with(
