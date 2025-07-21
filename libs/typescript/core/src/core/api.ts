@@ -250,32 +250,105 @@ function createAndRegisterMlflowSpan(
 }
 
 /**
- * Create a traced version of a function.
+ * Create a traced version of a function or decorator for tracing class methods.
  *
- * When the function is called, the span will automatically capture:
+ * When used as a function wrapper, the span will automatically capture:
  * - The function inputs
  * - The function outputs
  * - The function name as the span name
  * - The function execution time
  * - Any exception thrown by the function
  *
- * @param func The function to trace
+ * When used as a decorator, it preserves the `this` context for class methods.
+ *
+ * @param func The function to trace (when used as function wrapper)
  * @param options Optional trace options including name, spanType, and attributes
- * @returns The traced function
+ * @returns The traced function or method decorator
  *
  * @example
- * // With no options (uses function name as span name)
+ * // Function wrapper with no options
  * const tracedFunc = trace(myFunc);
  *
  * @example
- * // With options
+ * // Function wrapper with options
  * const tracedFunc = trace(myFunc, { name: 'custom_span_name', spanType: 'LLM' });
-
+ *
  * @example
- * // Inline declaration
- * const myFunc = trace(async (a: number, b: number) => a + b, { spanType: 'TOOL' });
+ * // Decorator with no options
+ * class MyService {
+ *   @trace()
+ *   async processData(data: any) {
+ *     return processedData;
+ *   }
+ * }
+ *
+ * @example
+ * // Decorator with options
+ * class MyService {
+ *   @trace({ name: 'custom_span', spanType: SpanType.LLM })
+ *   async generateText(prompt: string) {
+ *     return generatedText;
+ *   }
+ * }
  */
-export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T {
+export function trace(options?: TraceOptions): MethodDecorator;
+export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T;
+export function trace<T extends (...args: any[]) => any>(
+  funcOrOptions?: T | TraceOptions,
+  options?: TraceOptions
+): T | MethodDecorator {
+  // Check if this is being used as a decorator (no function provided, or options provided)
+  if (typeof funcOrOptions !== 'function') {
+    const decoratorOptions = funcOrOptions;
+
+    // Return a method decorator
+    return function (_target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
+      const originalMethod = descriptor.value as T;
+
+      if (typeof originalMethod !== 'function') {
+        throw new Error('@trace decorator can only be applied to methods');
+      }
+
+      // Create the traced method wrapper
+      descriptor.value = function (this: any, ...args: any[]) {
+        let inputs: any;
+        try {
+          inputs = mapArgsToObject(originalMethod, args);
+        } catch (error) {
+          console.debug('Failed to map arguments values to names', error);
+          inputs = args;
+        }
+
+        const spanOptions: Omit<SpanOptions, 'parent'> = {
+          name: decoratorOptions?.name || originalMethod.name || String(propertyKey),
+          spanType: decoratorOptions?.spanType,
+          attributes: decoratorOptions?.attributes,
+          inputs
+        };
+
+        return withSpan((_span) => {
+          // Call the original method with the preserved `this` context
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          return originalMethod.apply(this, args);
+        }, spanOptions) as ReturnType<T>;
+      };
+
+      // Preserve the original method's properties
+      Object.defineProperty(descriptor.value, 'length', { value: originalMethod.length });
+      Object.defineProperty(descriptor.value, 'name', { value: originalMethod.name });
+
+      return descriptor;
+    };
+  } else {
+    // This is the function-based usage (existing behavior)
+    return traceFunction(funcOrOptions, options);
+  }
+}
+
+/**
+ * Internal function to handle function-based tracing (non-decorator usage)
+ */
+function traceFunction<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T {
   // Create a wrapper function that preserves the original function's properties
   const wrapper = function (this: any, ...args: Parameters<T>): ReturnType<T> {
     let inputs: any;
