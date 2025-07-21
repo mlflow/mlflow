@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
+from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
 from semantic_kernel.functions.function_result import FunctionResult
 from semantic_kernel.utils.telemetry.model_diagnostics import (
     gen_ai_attributes as model_gen_ai_attributes,
@@ -20,7 +21,24 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
+# NB: Use global variable instead of the instance variable of the processor, because sometimes
+# multiple span processor instances can be created and we need to share the same map.
+_OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
+
+
 _logger = logging.getLogger(__name__)
+
+def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
+    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
+        return span_and_token[0]
+    else:
+        _logger.warning(
+            f"Live span not found for OTel span ID: {otel_span_id}. "
+            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
+            "additional attributes. "
+        )
+        return None
+
 
 
 def _parse_chat_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -96,9 +114,15 @@ def _serialize_chat_output(result: Any) -> str:
         if isinstance(result, ChatMessageContent):
             result = [result]
         if isinstance(result, list) and result and isinstance(result[0], ChatMessageContent):
-            return json.dumps(
-                {"messages": [{"role": msg.role.value, "content": msg.content} for msg in result]}
-            )
+            full_responses = []
+            for completion in result:
+                full_response: dict[str, Any] = completion.to_dict()
+
+                if isinstance(completion, ChatMessageContent):
+                    full_response["finish_reason"] = completion.finish_reason.value
+                print("full_response", full_response)
+                full_responses.append(full_response)
+            return { "messages": full_responses }
         return json.dumps(None)
     except Exception as e:
         _logger.warning(f"Failed to serialize chat result: {e}")
@@ -127,7 +151,7 @@ def _serialize_kernel_output(result: Any) -> str:
             return json.dumps(None)
         if isinstance(result, FunctionResult):
             return _serialize_kernel_output(result.value)
-        return json.dumps(result)
+        return result
     except Exception as e:
         _logger.warning(f"Failed to serialize kernel result: {e}")
         return json.dumps(str(result))
@@ -145,6 +169,8 @@ def _get_span_type(span: OTelSpan) -> str:
             CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
             TEXT_COMPLETION_OPERATION: SpanType.LLM,
             TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
+            # added from https://github.com/microsoft/semantic-kernel/blob/79d3dde556e4cdc482d83c9f5f0a459c5cc79a48/python/semantic_kernel/utils/telemetry/model_diagnostics/function_tracer.py#L24
+            "execute_tool": SpanType.TOOL,
         }
         span_type = span_map.get(operation)
 
@@ -178,6 +204,12 @@ def _set_span_inputs(
     span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
     parsed_inputs = parser(args, kwargs) if parser else {}
 
+    otel_span_id = span.get_span_context().span_id
+    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+
+    if not mlflow_span:
+        return
+
     if not parsed_inputs:
         parsed_inputs = {"function": original.__qualname__}
         if args[1:]:  # Skip self
@@ -185,7 +217,7 @@ def _set_span_inputs(
         if kwargs:
             parsed_inputs["kwargs"] = {k: str(v) for k, v in kwargs.items()}
 
-    span.set_attribute(SpanAttributeKey.INPUTS, json.dumps(parsed_inputs))
+    mlflow_span.set_inputs(parsed_inputs)
 
 
 def _set_span_outputs(
@@ -201,18 +233,23 @@ def _set_span_outputs(
     if error:
         span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps({"error": str(error)}))
         return
+    
+    otel_span_id = span.get_span_context().span_id
+    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
 
-    output_str = serializer(result) if serializer else json.dumps(str(result) if result else None)
-    span.set_attribute(SpanAttributeKey.OUTPUTS, output_str)
+    if not mlflow_span:
+        return
+
+    output_str = serializer(result)
+    mlflow_span.set_outputs(output_str)
 
     # Set CHAT_MESSAGES for chat outputs (as array format for backward compatibility)
-    if serializer == _serialize_chat_output and output_str != "null":
+    if serializer == _serialize_chat_output and output_str != None:
         try:
             output_dict = json.loads(output_str)
             if "messages" in output_dict:
-                span.set_attribute(
-                    SpanAttributeKey.CHAT_MESSAGES, json.dumps(output_dict["messages"])
-                )
+                mlflow_span.set_attribute(
+                    SpanAttributeKey.CHAT_MESSAGES, output_dict["messages"])
         except Exception:
             pass
 

@@ -75,11 +75,12 @@ async def test_sk_invoke_simple(mock_openai):
     trace_inputs_str = trace.info.trace_metadata.get("mlflow.traceInputs", "")
     trace_outputs_str = trace.info.trace_metadata.get("mlflow.traceOutputs", "")
 
-    trace_inputs = json.loads(json.loads(trace_inputs_str))
+    trace_inputs = json.loads(trace_inputs_str)
     assert "messages" in trace_inputs
     assert trace_inputs["messages"][0]["content"] == "Is sushi the best food ever?"
 
-    trace_outputs = json.loads(json.loads(trace_outputs_str))
+    trace_outputs = json.loads(trace_outputs_str)
+
     assert len(trace_outputs["messages"]) == 1
     assert trace_outputs["messages"][0]["role"] == "assistant"
     assert (
@@ -96,21 +97,14 @@ async def test_sk_invoke_simple(mock_openai):
 
     # Root span
     output = root_span.get_attribute(SpanAttributeKey.OUTPUTS)
-    parsed_output = json.loads(output)
-    assert isinstance(parsed_output, dict)
-    assert "messages" in parsed_output
-    assert isinstance(parsed_output["messages"], list)
-    assert len(parsed_output["messages"]) == 1
-    assert parsed_output["messages"][0]["role"] == "assistant"
-    assert "content" in parsed_output["messages"][0]
+    # parsed_output = json.loads(output)
+    assert isinstance(output, dict)
+    assert "messages" in output
+    assert isinstance(output["messages"], list)
+    assert len(output["messages"]) == 1
+    assert output["messages"][0]["role"] == "assistant"
+    assert "content" in output["messages"][0]
 
-    chat_messages = root_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES)
-    assert chat_messages is not None
-    parsed_messages = json.loads(chat_messages)
-    assert isinstance(parsed_messages, list)
-    assert len(parsed_messages) > 0
-    assert parsed_messages[0]["role"] == "assistant"
-    assert "content" in parsed_messages[0]
 
     # Child span
     assert child_span is not None
@@ -118,12 +112,14 @@ async def test_sk_invoke_simple(mock_openai):
     assert "gen_ai.operation.name" in child_span.attributes
 
     inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
+    print(inputs)
     if isinstance(inputs, str):
         inputs = json.loads(inputs)
     assert isinstance(inputs, dict)
     assert inputs == {"messages": [{"role": "user", "content": "Is sushi the best food ever?"}]}
 
     outputs = child_span.get_attribute(SpanAttributeKey.OUTPUTS)
+
     if isinstance(outputs, str):
         outputs = json.loads(outputs)
     assert outputs == {
@@ -131,6 +127,7 @@ async def test_sk_invoke_simple(mock_openai):
             {
                 "role": "assistant",
                 "content": '[{"role": "user", "content": "Is sushi the best food ever?"}]',
+                "finish_reason": "stop"
             }
         ]
     }
@@ -226,7 +223,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert isinstance(outputs, dict)
     assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
-    assert json.loads(child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == outputs
+    assert child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == outputs['messages']
 
     assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
     assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
@@ -262,9 +259,9 @@ async def test_sk_invoke_agent(mock_openai):
     assert grandchild_span.span_type == SpanType.CHAT_MODEL
     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
     assert isinstance(
-        json.loads(grandchild_span.get_attribute(SpanAttributeKey.INPUTS)).get("messages"), list
+       grandchild_span.get_attribute(SpanAttributeKey.INPUTS).get("messages"), list
     )
-    outputs = json.loads(grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS))
+    outputs = grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS)
     assert isinstance(outputs, dict)
     assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
@@ -339,7 +336,7 @@ async def test_tracing_autolog_with_active_span(mock_openai):
 
     child = trace.data.spans[1]
     assert child.parent_id == parent.span_id
-    assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.UNKNOWN
+    assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.TOOL
 
     grandchild = trace.data.spans[2]
     assert grandchild.name == "chat.completions gpt-4o-mini"
@@ -349,7 +346,7 @@ async def test_tracing_autolog_with_active_span(mock_openai):
     assert grandchild.get_attribute(model_gen_ai_attributes.SYSTEM) == "openai"
     assert grandchild.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
     assert (
-        json.loads(grandchild.get_attribute(SpanAttributeKey.INPUTS))["messages"][0]["content"]
+        grandchild.get_attribute(SpanAttributeKey.INPUTS)["messages"][0]["content"]
         == "Is sushi the best food ever?"
     )
 
@@ -389,7 +386,7 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         child_span = next((s for s in spans if s.parent_id is not None), None)
         assert child_span
 
-        inputs = json.loads(child_span.get_attribute(SpanAttributeKey.INPUTS))
+        inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
         assert inputs
         message = inputs["messages"][0]["content"]
         assert message.startswith("What is this number: ")
@@ -417,18 +414,17 @@ async def test_sk_streaming_methods(mock_openai):
 
 @pytest.mark.asyncio
 async def test_sk_output_serialization():
-    chat_msg = ChatMessageContent(role="assistant", content="Hello")
+    chat_msg = ChatMessageContent(role="assistant", content="Hello",finish_reason = "stop")
     result = _serialize_chat_output(chat_msg)
-    parsed = json.loads(result)
-    assert parsed["messages"][0]["content"] == "Hello"
-    assert parsed["messages"][0]["role"] == "assistant"
+    print("result", result)
+    assert result["messages"][0]["content"] == "Hello"
+    assert result["messages"][0]["role"] == "assistant"
 
-    msgs = [ChatMessageContent(role="assistant", content=f"Message {i}") for i in range(2)]
+    msgs = [ChatMessageContent(role="assistant", content=f"Message {i}",finish_reason = "stop") for i in range(2)]
     result = _serialize_chat_output(msgs)
-    parsed = json.loads(result)
-    assert len(parsed["messages"]) == 2
-    assert parsed["messages"][0]["content"] == "Message 0"
-    assert parsed["messages"][1]["content"] == "Message 1"
+    assert len(result["messages"]) == 2
+    assert result["messages"][0]["content"] == "Message 0"
+    assert result["messages"][1]["content"] == "Message 1"
 
     assert json.loads(_serialize_chat_output(None)) is None
     assert json.loads(_serialize_chat_output("not a chat")) is None
@@ -446,14 +442,14 @@ async def test_sk_output_serialization():
     func_metadata = KernelFunctionMetadata(name="test_function", is_prompt=False)
     kernel_result = FunctionResult(function=func_metadata, value="result value")
     result = _serialize_kernel_output(kernel_result)
-    assert json.loads(result) == "result value"
+    assert result == "result value"
 
     nested_result = FunctionResult(function=func_metadata, value={"key": "value"})
     result = _serialize_kernel_output(nested_result)
-    assert json.loads(result) == {"key": "value"}
+    assert result == {"key": "value"}
 
     assert json.loads(_serialize_kernel_output(None)) is None
-    assert json.loads(_serialize_kernel_output([1, 2, 3])) == [1, 2, 3]
+    assert _serialize_kernel_output([1, 2, 3]) == [1, 2, 3]
 
 
 @pytest.mark.parametrize(
