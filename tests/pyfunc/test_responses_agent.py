@@ -5,7 +5,6 @@ from typing import Generator
 import pytest
 
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
