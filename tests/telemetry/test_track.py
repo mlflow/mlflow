@@ -60,21 +60,15 @@ def test_track_api_usage(mock_requests):
 
 
 def test_backend_store_info(tmp_path):
-    @track_api_usage
-    def succeed_func():
-        return True
+    telemetry_client = get_telemetry_client()
 
     sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
     with _use_tracking_uri(sqlite_uri):
-        succeed_func()
-        telemetry_client = get_telemetry_client()
-        telemetry_client.flush()
+        telemetry_client._update_backend_store()
     assert telemetry_client.info["backend_store_scheme"] == "sqlite"
 
     with _use_tracking_uri(tmp_path):
-        succeed_func()
-        telemetry_client = get_telemetry_client()
-        telemetry_client.flush()
+        telemetry_client._update_backend_store()
     assert telemetry_client.info["backend_store_scheme"] == "file"
 
 

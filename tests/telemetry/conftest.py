@@ -1,3 +1,4 @@
+import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -47,7 +48,7 @@ def enable_telemetry(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_requests_get(request, monkeypatch):
+def mock_requests_get(request):
     """Fixture to mock requests.get and capture telemetry records."""
     if request.node.get_closest_marker("no_mock_requests_get"):
         return
@@ -67,3 +68,7 @@ def mock_requests_get(request, monkeypatch):
             ),
         )
         set_telemetry_client()
+        client = get_telemetry_client()
+        # ensure config is fetched before the test
+        while not client._is_config_fetched:
+            time.sleep(0.1)
