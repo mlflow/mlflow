@@ -1,10 +1,30 @@
+from semantic_kernel.connectors.ai.chat_completion_client_base import (
+    ChatCompletionClientBase,
+)
+from semantic_kernel.connectors.ai.embedding_generator_base import EmbeddingGeneratorBase
+from semantic_kernel.connectors.ai.text_completion_client_base import (
+    TextCompletionClientBase,
+)
+from semantic_kernel.kernel import Kernel
+from semantic_kernel.utils.telemetry.model_diagnostics import decorators
+
 from mlflow.semantic_kernel.autolog import (
     _semantic_kernel_chat_completion_error_wrapper,
     _semantic_kernel_chat_completion_input_wrapper,
     _semantic_kernel_chat_completion_response_wrapper,
-    _streaming_not_supported_wrapper,
-    _trace_wrapper,
     setup_semantic_kernel_tracing,
+)
+from mlflow.semantic_kernel.tracing_utils import (
+    _create_trace_wrapper,
+    _parse_chat_inputs,
+    _parse_embedding_inputs,
+    _parse_kernel_invoke_inputs,
+    _parse_kernel_invoke_prompt_inputs,
+    _parse_text_inputs,
+    _serialize_chat_output,
+    _serialize_kernel_output,
+    _serialize_text_output,
+    _streaming_not_supported_wrapper,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -33,68 +53,105 @@ def autolog(
 
     setup_semantic_kernel_tracing()
 
-    from semantic_kernel.utils.telemetry.model_diagnostics import decorators
+    streaming_methods = [
+        "get_streaming_chat_message_content",
+        "get_streaming_chat_message_contents",
+        "_inner_get_streaming_chat_message_contents",
+        "get_streaming_text_content",
+        "get_streaming_text_contents",
+        "_inner_get_streaming_text_contents",
+        "invoke_stream",
+        "invoke_prompt_stream",
+    ]
 
-    try:
-        from semantic_kernel.connectors.ai.chat_completion_client_base import (
+    # Method to parser mapping
+    method_parsers = {
+        # Chat completion methods
+        "get_chat_message_content": _parse_chat_inputs,
+        "get_chat_message_contents": _parse_chat_inputs,
+        "get_streaming_chat_message_content": _parse_chat_inputs,
+        "get_streaming_chat_message_contents": _parse_chat_inputs,
+        "_inner_get_chat_message_contents": _parse_chat_inputs,
+        "_inner_get_streaming_chat_message_contents": _parse_chat_inputs,
+        # Text completion methods
+        "get_text_content": _parse_text_inputs,
+        "get_text_contents": _parse_text_inputs,
+        "get_streaming_text_content": _parse_text_inputs,
+        "get_streaming_text_contents": _parse_text_inputs,
+        "_inner_get_text_contents": _parse_text_inputs,
+        "_inner_get_streaming_text_contents": _parse_text_inputs,
+        # Embedding methods
+        "generate_embeddings": _parse_embedding_inputs,
+        "generate_raw_embeddings": _parse_embedding_inputs,
+        # Kernel methods
+        "invoke": _parse_kernel_invoke_inputs,
+        "invoke_stream": _parse_kernel_invoke_inputs,
+        "invoke_prompt": _parse_kernel_invoke_prompt_inputs,
+        "invoke_prompt_stream": _parse_kernel_invoke_prompt_inputs,
+    }
+
+    # Method to serializer mapping
+    method_serializers = {
+        # Chat completion methods
+        "get_chat_message_content": _serialize_chat_output,
+        "get_chat_message_contents": _serialize_chat_output,
+        "get_streaming_chat_message_content": _serialize_chat_output,
+        "get_streaming_chat_message_contents": _serialize_chat_output,
+        "_inner_get_chat_message_contents": _serialize_chat_output,
+        "_inner_get_streaming_chat_message_contents": _serialize_chat_output,
+        # Text completion methods
+        "get_text_content": _serialize_text_output,
+        "get_text_contents": _serialize_text_output,
+        "get_streaming_text_content": _serialize_text_output,
+        "get_streaming_text_contents": _serialize_text_output,
+        "_inner_get_text_contents": _serialize_text_output,
+        "_inner_get_streaming_text_contents": _serialize_text_output,
+        # Kernel methods
+        "invoke": _serialize_kernel_output,
+        "invoke_stream": _serialize_kernel_output,
+        "invoke_prompt": _serialize_kernel_output,
+        "invoke_prompt_stream": _serialize_kernel_output,
+        # Note: Embedding methods excluded as they don't generate traces
+    }
+
+    entry_point_patches = [
+        (
             ChatCompletionClientBase,
-        )
-        from semantic_kernel.connectors.ai.embedding_generator_base import EmbeddingGeneratorBase
-        from semantic_kernel.connectors.ai.text_completion_client_base import (
+            [
+                "get_chat_message_content",
+                "get_chat_message_contents",
+                "get_streaming_chat_message_content",
+                "get_streaming_chat_message_contents",
+                "_inner_get_chat_message_contents",
+                "_inner_get_streaming_chat_message_contents",
+            ],
+        ),
+        (
             TextCompletionClientBase,
-        )
-        from semantic_kernel.kernel import Kernel
+            [
+                "get_text_content",
+                "get_text_contents",
+                "get_streaming_text_content",
+                "get_streaming_text_contents",
+                "_inner_get_text_contents",
+                "_inner_get_streaming_text_contents",
+            ],
+        ),
+        (EmbeddingGeneratorBase, ["generate_embeddings", "generate_raw_embeddings"]),
+        (Kernel, ["invoke", "invoke_stream", "invoke_prompt", "invoke_prompt_stream"]),
+    ]
 
-        # Separate streaming and non-streaming methods
-        streaming_methods = [
-            "get_streaming_chat_message_content",
-            "get_streaming_chat_message_contents",
-            "_inner_get_streaming_chat_message_contents",
-            "get_streaming_text_content",
-            "get_streaming_text_contents",
-            "_inner_get_streaming_text_contents",
-            "invoke_stream",
-            "invoke_prompt_stream",
-        ]
-
-        entry_point_patches = [
-            (
-                ChatCompletionClientBase,
-                [
-                    "get_chat_message_content",
-                    "get_chat_message_contents",
-                    "get_streaming_chat_message_content",
-                    "get_streaming_chat_message_contents",
-                    "_inner_get_chat_message_contents",
-                    "_inner_get_streaming_chat_message_contents",
-                ],
-            ),
-            (
-                TextCompletionClientBase,
-                [
-                    "get_text_content",
-                    "get_text_contents",
-                    "get_streaming_text_content",
-                    "get_streaming_text_contents",
-                    "_inner_get_text_contents",
-                    "_inner_get_streaming_text_contents",
-                ],
-            ),
-            (EmbeddingGeneratorBase, ["generate_embeddings", "generate_raw_embeddings"]),
-            (Kernel, ["invoke", "invoke_stream", "invoke_prompt", "invoke_prompt_stream"]),
-        ]
-
-        for cls, methods in entry_point_patches:
-            for method in methods:
-                if hasattr(cls, method):
-                    # Use streaming wrapper for streaming methods
-                    if method in streaming_methods:
-                        safe_patch(FLAVOR_NAME, cls, method, _streaming_not_supported_wrapper)
-                    else:
-                        safe_patch(FLAVOR_NAME, cls, method, _trace_wrapper)
-
-    except ImportError:
-        pass
+    for cls, methods in entry_point_patches:
+        for method in methods:
+            if hasattr(cls, method):
+                # Use streaming wrapper for streaming methods
+                if method in streaming_methods:
+                    safe_patch(FLAVOR_NAME, cls, method, _streaming_not_supported_wrapper)
+                else:
+                    # Create wrapper with the appropriate parser and serializer
+                    parser = method_parsers.get(method)
+                    serializer = method_serializers.get(method)
+                    safe_patch(FLAVOR_NAME, cls, method, _create_trace_wrapper(parser, serializer))
 
     patches = [
         ("_set_completion_input", _semantic_kernel_chat_completion_input_wrapper),

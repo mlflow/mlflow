@@ -1,7 +1,11 @@
 import openai
 from semantic_kernel import Kernel
 from semantic_kernel.agents import ChatCompletionAgent
-from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_kernel.connectors.ai.open_ai import (
+    OpenAIChatCompletion,
+    OpenAITextCompletion,
+    OpenAITextEmbedding,
+)
 from semantic_kernel.contents import ChatHistory
 from semantic_kernel.functions import KernelArguments
 
@@ -25,7 +29,6 @@ async def _create_and_invoke_kernel_simple(mock_openai):
 
 
 async def _create_and_invoke_kernel_complex(mock_openai):
-    # Set up kernel + OpenAI service
     openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
     kernel = Kernel()
     kernel.add_service(
@@ -49,7 +52,6 @@ async def _create_and_invoke_kernel_complex(mock_openai):
         prompt_execution_settings=settings,
     )
 
-    # Prepare input
     chat_history = ChatHistory(
         system_message=(
             "You are a chat bot named Mosscap, dedicated to figuring out what people need."
@@ -100,3 +102,78 @@ async def _create_and_invoke_kernel_streaming(mock_openai):
     async for chunk in kernel.invoke_prompt_stream("Tell me a joke"):
         result.append(chunk)
     return result
+
+
+async def _create_and_invoke_text_completion(mock_openai):
+    """Test text completion methods - parser extracts {"prompt": "..."}"""
+    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+    kernel = Kernel()
+    kernel.add_service(
+        OpenAITextCompletion(
+            service_id="text-davinci",
+            ai_model_id="text-davinci-003",
+            async_client=openai_client,
+        )
+    )
+    text_service = kernel.get_service("text-davinci")
+    settings = kernel.get_prompt_execution_settings_from_service_id("text-davinci")
+    return await text_service.get_text_content("Complete this: The sky is", settings)
+
+
+async def _create_and_invoke_embeddings(mock_openai):
+    """Test embedding methods - parser extracts {"texts": [...]}"""
+    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+    embedding_service = OpenAITextEmbedding(
+        service_id="embedding",
+        ai_model_id="text-embedding-ada-002",
+        async_client=openai_client,
+    )
+    texts = ["Hello world", "Semantic kernel", "MLflow tracing"]
+    return await embedding_service.generate_embeddings(texts)
+
+
+async def _create_and_invoke_chat_completion_direct(mock_openai):
+    """Test direct chat completion - parser extracts {"messages": [...]}"""
+    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+    kernel = Kernel()
+    kernel.add_service(
+        OpenAIChatCompletion(
+            service_id="chat",
+            ai_model_id="gpt-4o-mini",
+            async_client=openai_client,
+        )
+    )
+
+    chat_history = ChatHistory()
+    chat_history.add_user_message("What is semantic kernel?")
+    chat_history.add_assistant_message("Semantic Kernel is an AI orchestration framework.")
+    chat_history.add_user_message("Tell me more about it.")
+
+    chat_service = kernel.get_service("chat")
+    settings = kernel.get_prompt_execution_settings_from_service_id("chat")
+    return await chat_service.get_chat_message_content(chat_history, settings)
+
+
+async def _create_and_invoke_kernel_function(mock_openai):
+    """
+    Test kernel.invoke with function - parser extracts
+    {"function_name": "...", "plugin_name": "..."}
+    """
+    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+    kernel = Kernel()
+    kernel.add_service(
+        OpenAIChatCompletion(
+            service_id="chat",
+            ai_model_id="gpt-4o-mini",
+            async_client=openai_client,
+        )
+    )
+
+    kernel.add_function(
+        plugin_name="TimePlugin",
+        function_name="GetCurrentTime",
+        prompt="What time is it? Please provide a mock time.",
+        template_format="semantic-kernel",
+    )
+
+    return await kernel.invoke(function_name="GetCurrentTime", plugin_name="TimePlugin")

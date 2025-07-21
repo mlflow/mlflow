@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from types import MappingProxyType
-from typing import Any, Optional
+from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -18,16 +18,7 @@ from opentelemetry.trace import (
 )
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
-from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
-from semantic_kernel.functions.function_result import FunctionResult
-from semantic_kernel.utils.telemetry.model_diagnostics import (
-    gen_ai_attributes as model_gen_ai_attributes,
-)
 from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
-    CHAT_COMPLETION_OPERATION,
-    CHAT_STREAMING_COMPLETION_OPERATION,
-    TEXT_COMPLETION_OPERATION,
-    TEXT_STREAMING_COMPLETION_OPERATION,
     are_sensitive_events_enabled,
 )
 
@@ -36,10 +27,11 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import (
-    SpanAttributeKey,
-    TokenUsageKey,
+from mlflow.semantic_kernel.tracing_utils import (
+    _get_span_type,
+    _set_token_usage,
 )
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -51,14 +43,32 @@ _logger = logging.getLogger(__name__)
 _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
 
 
+def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
+    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
+        return span_and_token[0]
+    else:
+        _logger.warning(
+            f"Live span not found for OTel span ID: {otel_span_id}. "
+            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
+            "additional attributes. "
+        )
+        return None
+
+
 def _set_logging_env_variables():
     # NB: these environment variables are required to enable the telemetry for
     # genai fields in Semantic Kernel, which are currently marked as experimental.
     # https://learn.microsoft.com/en-us/semantic-kernel/concepts/enterprise-readiness/observability/telemetry-with-console
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS"] = "true"
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE"] = "true"
+    genai_diagnostics_keys = [
+        "SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS",
+        "SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE",
+    ]
+    for key in genai_diagnostics_keys:
+        if os.environ.get(key) != "true":
+            _logger.info(f"Setting {key} from '{os.environ.get(key)}' to 'true'")
+        os.environ[key] = "true"
 
-    # Reset the diagnostics module which is initialized at import time
+    # NB: Reset the diagnostics module which is initialized at import time
     from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
         MODEL_DIAGNOSTICS_SETTINGS,
     )
@@ -82,6 +92,7 @@ def setup_semantic_kernel_tracing():
     # which prevent us from updating the span processor setup for the tracer.
     # Therefore, `mlflow.semantic_kernel.autolog()` should always be called before running the
     # Semantic Kernel program.
+
     provider = get_tracer_provider()
     sk_processor = SemanticKernelSpanProcessor()
     if isinstance(provider, (NoOpTracerProvider, ProxyTracerProvider)):
@@ -118,7 +129,7 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         mlflow_span = start_span_no_context(
             name=span.name,
             parent_span=parent_span,
-            attributes=span.attributes,
+            attributes=dict(span.attributes) if span.attributes else None,
         )
         token = set_span_in_context(mlflow_span)
         _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN[otel_span_id] = (mlflow_span, token)
@@ -138,107 +149,14 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         mlflow_span.set_attributes(attributes)
         _set_token_usage(mlflow_span, attributes)
 
-        if mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
+        if not mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
             mlflow_span.set_span_type(_get_span_type(span))
 
         detach_span_from_context(token)
         mlflow_span.end()
 
 
-def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
-    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
-        return span_and_token[0]
-    else:
-        _logger.warning(
-            f"Live span not found for OTel span ID: {otel_span_id}. "
-            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-            "additional attributes. "
-        )
-        return None
-
-
-def _serialize_semantic_kernel_result(result: Any) -> str:
-    """Convert Semantic Kernel result to JSON-serializable format."""
-    try:
-        if result is None:
-            return json.dumps(None)
-
-        # FunctionResult - extract value and serialize recursively
-        if isinstance(result, FunctionResult):
-            if result.value is None:
-                return json.dumps(None)
-            return _serialize_semantic_kernel_result(result.value)
-
-        # List of ChatMessageContent - format for MLflow
-        if isinstance(result, list) and result and isinstance(result[0], ChatMessageContent):
-            return json.dumps(
-                [
-                    {
-                        "message": msg.to_dict(),
-                        "finish_reason": getattr(msg, "finish_reason", None)
-                        and msg.finish_reason.value,
-                    }
-                    for msg in result
-                ]
-            )
-
-        # Single ChatMessageContent
-        if isinstance(result, ChatMessageContent):
-            return json.dumps(
-                {
-                    "message": result.to_dict(),
-                    "finish_reason": getattr(result, "finish_reason", None)
-                    and result.finish_reason.value,
-                }
-            )
-
-        # Objects with to_dict() method
-        if hasattr(result, "to_dict"):
-            return json.dumps(result.to_dict())
-
-        # Numpy arrays
-        if hasattr(result, "tolist"):
-            return json.dumps(result.tolist())
-
-        # Default JSON serialization
-        return json.dumps(result)
-
-    except Exception as e:
-        _logger.warning(f"Failed to serialize result: {e}")
-        return json.dumps(str(result))
-
-
-def _get_span_type(span: OTelSpan) -> str:
-    span_type = None
-
-    if hasattr(span, "attributes") and (
-        operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
-    ):
-        span_map = {
-            CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            TEXT_COMPLETION_OPERATION: SpanType.LLM,
-            TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
-        }
-        span_type = span_map.get(operation)
-
-    return span_type or SpanType.UNKNOWN
-
-
-def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
-    if value := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.INPUT_TOKENS, value)
-    if value := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.OUTPUT_TOKENS, value)
-
-    if (input_tokens := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)) and (
-        output_tokens := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
-    ):
-        mlflow_span.set_attribute(TokenUsageKey.TOTAL_TOKENS, input_tokens + output_tokens)
-
-
 def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
-    # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         prompt = args[1] if len(args) > 1 else kwargs.get("prompt")
 
@@ -269,7 +187,6 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
 
 
 def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs) -> None:
-    # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
         completions = (args[1] if len(args) > 1 else kwargs.get("completions")) or []
@@ -284,58 +201,17 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
             return original(*args, **kwargs)
 
         if are_sensitive_events_enabled():
-            full_responses = []
+            messages = []
             for completion in completions:
-                full_response: dict[str, Any] = {
-                    "message": completion.to_dict(),
-                }
-
                 if isinstance(completion, ChatMessageContent):
-                    full_response["finish_reason"] = completion.finish_reason.value
-                if isinstance(completion, StreamingContentMixin):
-                    full_response["index"] = completion.choice_index
+                    messages.append({"role": completion.role.value, "content": completion.content})
 
-                full_responses.append(full_response)
-
-            mlflow_span.set_outputs(json.dumps(full_responses))
-            mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, json.dumps(full_responses))
+            output_dict = {"messages": messages}
+            mlflow_span.set_outputs(json.dumps(output_dict))
+            mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, json.dumps(output_dict))
 
     except Exception as e:
         _logger.warning(f"Failed to set outputs attribute: {e}")
-
-
-async def _trace_wrapper(original, *args, **kwargs):
-    from mlflow.tracing.constant import SpanAttributeKey
-
-    span = get_current_span()
-    if span and span.is_recording():
-        span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
-
-        # Better input serialization
-        serialized_args = []
-        for arg in args:
-            if hasattr(arg, "__class__"):
-                serialized_args.append(arg.__class__.__name__)
-            else:
-                serialized_args.append(str(arg))
-
-        input_dict = {"function": original.__qualname__}
-        if args:
-            input_dict["args"] = serialized_args
-        if kwargs:
-            input_dict["kwargs"] = {k: str(v) for k, v in kwargs.items()}
-
-        span.set_attribute(SpanAttributeKey.INPUTS, json.dumps(input_dict))
-
-    try:
-        result = await original(*args, **kwargs)
-        if span and span.is_recording():
-            span.set_attribute(SpanAttributeKey.OUTPUTS, _serialize_semantic_kernel_result(result))
-        return result
-    except Exception as e:
-        if span and span.is_recording():
-            span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps({"error": str(e)}))
-        raise
 
 
 def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) -> None:
@@ -351,15 +227,4 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
     with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
         t.info.status = TraceStatus.ERROR
 
-    return original(*args, **kwargs)
-
-
-def _streaming_not_supported_wrapper(original, *args, **kwargs):
-    """Wrapper for streaming methods that logs streaming is not supported for inputs/outputs
-    parsing.
-    """
-    _logger.debug(
-        f"Streaming method '{original.__qualname__}' called. "
-        "Note: Streaming responses are not currently captured in MLflow traces."
-    )
     return original(*args, **kwargs)
