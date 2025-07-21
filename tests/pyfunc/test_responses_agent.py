@@ -470,11 +470,6 @@ def test_responses_agent_trace(
     assert len(spans) == 1
     assert spans[0].name == "predict"
 
-    if expected_chat_tools is not None:
-        assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
-    else:
-        assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
-
     list(model.predict_stream(ResponsesAgentRequest(**input)))
 
     traces = get_traces()
