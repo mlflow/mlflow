@@ -868,14 +868,19 @@ if IS_PYDANTIC_V2_OR_NEWER:
             for attr_name in ("predict", "predict_stream"):
                 attr = cls.__dict__.get(attr_name)
                 if callable(attr):
-                    # Apply trace decorator first
-                    if attr_name == "predict_stream":
-                        traced_attr = mlflow.trace(
-                            span_type=SpanType.AGENT,
-                            output_reducer=cls.responses_agent_output_reducer,
-                        )(attr)
+                    # Only apply trace decorator if the function is not already traced with mlflow.trace
+                    if getattr(attr, "__mlflow_traced__", False):
+                        # Function is already traced with mlflow.trace, use it as is
+                        traced_attr = attr
                     else:
-                        traced_attr = mlflow.trace(span_type=SpanType.AGENT)(attr)
+                        # Apply trace decorator first
+                        if attr_name == "predict_stream":
+                            traced_attr = mlflow.trace(
+                                span_type=SpanType.AGENT,
+                                output_reducer=cls.responses_agent_output_reducer,
+                            )(attr)
+                        else:
+                            traced_attr = mlflow.trace(span_type=SpanType.AGENT)(attr)
 
                     # Then wrap with pydantic wrapper
                     wrapped_attr = wrap_non_list_predict_pydantic(

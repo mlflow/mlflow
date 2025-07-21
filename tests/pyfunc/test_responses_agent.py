@@ -1,3 +1,4 @@
+import functools
 import pathlib
 import pickle
 from typing import Generator
@@ -7,7 +8,7 @@ import pytest
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
     pytest.skip(
@@ -297,7 +298,7 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("input", "outputs", "expected_chat_messages", "expected_chat_tools"),
+    ("input", "outputs"),
     [
         # 1. Normal text input output
         (
@@ -410,3 +411,94 @@ def test_responses_agent_trace(input, outputs):
 
     assert "output" in spans[0].outputs
     assert spans[0].outputs["output"] == outputs["output"]
+
+
+def test_responses_agent_custom_trace_configurations():
+    """Test that custom trace configurations are preserved when functions are already traced."""
+
+    # Agent with custom span names and attributes
+    class CustomTracedAgent(ResponsesAgent):
+        @mlflow.trace(
+            name="custom_predict", span_type=SpanType.AGENT, attributes={"custom": "value"}
+        )
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+        @mlflow.trace(
+            name="custom_predict_stream",
+            span_type=SpanType.AGENT,
+            attributes={"stream": "true"},
+            output_reducer=ResponsesAgent.responses_agent_output_reducer,
+        )
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+    purge_traces()
+
+    agent = CustomTracedAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces_predict = get_traces()
+    assert len(traces_predict) == 1
+    spans_predict = traces_predict[0].data.spans
+    assert len(spans_predict) == 1
+    assert spans_predict[0].name == "custom_predict"
+    assert spans_predict[0].span_type == SpanType.AGENT
+    assert spans_predict[0].attributes.get("custom") == "value"
+
+    purge_traces()
+    list(agent.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
+
+    traces_stream = get_traces()
+    assert len(traces_stream) == 1
+    spans_stream = traces_stream[0].data.spans
+    assert len(spans_stream) == 1
+    assert spans_stream[0].name == "custom_predict_stream"
+    assert spans_stream[0].span_type == SpanType.AGENT
+    assert spans_stream[0].attributes.get("stream") == "true"
+
+
+def test_responses_agent_non_mlflow_decorators():
+    """Test that the implementation correctly distinguishes MLflow tracing from other decorators."""
+
+    # Create a custom decorator to test with
+    def custom_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    class MixedDecoratedAgent(ResponsesAgent):
+        @custom_decorator
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+        # Just a regular method (no decorator) to test that it gets auto-traced
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+    # Both methods should get auto-traced since they don't have __mlflow_traced__
+    agent = MixedDecoratedAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces_mixed_predict = get_traces()
+    assert len(traces_mixed_predict) == 1
+    spans_mixed_predict = traces_mixed_predict[0].data.spans
+    assert len(spans_mixed_predict) == 1
+    assert spans_mixed_predict[0].name == "predict"
+    assert spans_mixed_predict[0].span_type == SpanType.AGENT
+
+    purge_traces()
+    list(agent.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
+
+    traces_mixed_stream = get_traces()
+    assert len(traces_mixed_stream) == 1
+    spans_mixed_stream = traces_mixed_stream[0].data.spans
+    assert len(spans_mixed_stream) == 1
+    assert spans_mixed_stream[0].name == "predict_stream"
+    assert spans_mixed_stream[0].span_type == SpanType.AGENT
