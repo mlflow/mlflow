@@ -9,11 +9,9 @@ import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Tracing txtai
+# Tracing Semantic Kernel
 
-# TODO
-
-### ![Semantic Kernel Tracing via autolog](/images/llms/tracing/TODO.png)
+### ![Semantic Kernel Tracing via autolog](/images/llms/tracing/semantic_kernel_trace_inputs_outputs.png)
 
 [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) is a lightweight, open-source SDK that functions as AI middleware, enabling you to integrate AI models into your C#, Python, or Java codebase via a uniform API layer. By abstracting model interactions, it lets you swap in new models without rewriting your application logic.
 
@@ -62,23 +60,109 @@ openai_client = openai.AsyncOpenAI()
 # Create a Semantic Kernel instance and register the OpenAI chat completion service
 kernel = Kernel()
 kernel.add_service(
-  OpenAIChatCompletion(
-    service_id="chat-gpt",
-    ai_model_id="gpt-4o-mini",
-    async_client=openai_client,
-  )
+    OpenAIChatCompletion(
+        service_id="chat-gpt",
+        ai_model_id="gpt-4o-mini",
+        async_client=openai_client,
+    )
 )
+
 
 # Define an async function that invokes your prompt
 async def run_query() -> FunctionResult:
-  return await kernel.invoke_prompt("Is sushi the best food ever?")
+    return await kernel.invoke_prompt("Is sushi the best food ever?")
+
 
 with mlflow.start_run(run_name="semantic_kernel simple example"):
-  answer = await run_query()
-  print("AI says:", answer)
+    answer = await run_query()
+    print("AI says:", answer)
 ```
 
-### ![Semantic Kernel Chat Completion Tracing via autolog](/images/llms/tracing/TODO.png)
+### ![Semantic Kernel Chat Completion Tracing via autolog](/images/llms/tracing/semantic_kernel_trace_attributes.png)
+
+  </TabItem>
+  <TabItem value="complex" label="Complex Example">
+
+This example demonstrates a more advanced use case with chat history, custom settings, and kernel functions.
+
+```python
+import asyncio
+import openai
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_kernel.contents import ChatHistory
+from semantic_kernel.functions import KernelArguments
+
+# Create a Semantic Kernel instance
+kernel = Kernel()
+
+# Create an OpenAI client
+openai_client = openai.AsyncOpenAI()
+
+# Add the OpenAI chat completion service
+kernel.add_service(
+    OpenAIChatCompletion(
+        service_id="chat-gpt",
+        ai_model_id="gpt-4o-mini",
+        async_client=openai_client,
+    )
+)
+
+# Configure custom settings
+settings = kernel.get_prompt_execution_settings_from_service_id("chat-gpt")
+settings.max_tokens = 100
+settings.temperature = 0.7
+settings.top_p = 0.8
+
+# Create a kernel function with a plugin
+chat_function = kernel.add_function(
+    plugin_name="ChatBot",
+    function_name="Chat",
+    prompt="{{$chat_history}}{{$user_input}}",
+    template_format="semantic-kernel",
+    prompt_execution_settings=settings,
+)
+
+# Create a chat history with system message
+chat_history = ChatHistory(
+    system_message=(
+        "You are a chat bot named Mosscap, dedicated to figuring out what people need."
+    )
+)
+
+# Add conversation history
+chat_history.add_user_message("Hi there, who are you?")
+chat_history.add_assistant_message(
+    "I am Mosscap, a chat bot. I'm trying to figure out what people need."
+)
+
+# Define the new user input
+user_input = "I want to find a hotel in Seattle with free wifi and a pool."
+
+
+# Run the example with MLflow tracing
+async def run_complex_example():
+    with mlflow.start_run(run_name="semantic_kernel complex example"):
+        result = await kernel.invoke(
+            chat_function,
+            KernelArguments(
+                user_input=user_input,
+                chat_history=chat_history,
+            ),
+        )
+        print(f"Response: {result}")
+        return result
+
+
+# Execute the async function
+await run_complex_example()
+```
+
+This example showcases:
+- **Chat History**: Maintains conversation context with system messages
+- **Custom Settings**: Configure temperature, max_tokens, and top_p for fine-tuned responses
+- **Kernel Functions**: Use plugins and functions for organized prompt management
+- **Template Variables**: Leverage Semantic Kernel's templating system with `{{$chat_history}}` and `{{$user_input}}`
 
   </TabItem>
 </Tabs>
