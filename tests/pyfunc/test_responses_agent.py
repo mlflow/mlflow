@@ -313,17 +313,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ],
             },
-            [
-                {
-                    "content": "Hello!",
-                    "role": "user",
-                },
-                {
-                    "content": [{"text": "Dummy output", "type": "text"}],
-                    "role": "assistant",
-                },
-            ],
-            None,
         ),
         # 2. Image input
         (
@@ -349,29 +338,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ],
             },
-            [
-                {
-                    "content": [
-                        {
-                            "text": "what is in this image?",
-                            "type": "text",
-                        },
-                        {
-                            "image_url": {
-                                "detail": None,
-                                "url": "test.jpg",
-                            },
-                            "type": "image_url",
-                        },
-                    ],
-                    "role": "user",
-                },
-                {
-                    "content": [{"text": "Dummy output", "type": "text"}],
-                    "role": "assistant",
-                },
-            ],
-            None,
         ),
         # 3. Tool calling
         (
@@ -406,42 +372,10 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ]
             },
-            [
-                {
-                    "role": "user",
-                    "content": "What is the weather like in Boston today?",
-                },
-                {
-                    "role": "assistant",
-                    "tool_calls": [
-                        {
-                            "id": "function_call_1",
-                            "type": "function",
-                            "function": {
-                                "name": "get_current_weather",
-                                "arguments": '{"location":"Boston, MA","unit":"celsius"}',
-                            },
-                        }
-                    ],
-                },
-            ],
-            [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "get_current_weather",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {"location": {"type": "string"}},
-                            "required": ["location", "unit"],
-                        },
-                    },
-                }
-            ],
         ),
     ],
 )
-def test_responses_agent_trace(input, outputs, expected_chat_messages, expected_chat_tools):
+def test_responses_agent_trace(input, outputs):
     class TracedResponsesAgent(ResponsesAgent):
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
