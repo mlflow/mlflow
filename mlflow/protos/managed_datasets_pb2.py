@@ -17,11 +17,10 @@ if Version(google.protobuf.__version__).major >= 5:
 
 
   from . import databricks_pb2 as databricks__pb2
-  from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16managed_datasets.proto\x12\x17mlflow.managed_datasets\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0eManagedDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12\x13\n\x0bsource_type\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x30\n\x0c\x63reated_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\x12\x37\n\x07records\x18\r \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\"\xe3\x04\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.mlflow.managed_datasets.InputValue\x12N\n\x0c\x65xpectations\x18\x04 \x03(\x0b\x32\x38.mlflow.managed_datasets.DatasetRecord.ExpectationsEntry\x12>\n\x04tags\x18\x05 \x03(\x0b\x32\x30.mlflow.managed_datasets.DatasetRecord.TagsEntry\x12<\n\x06source\x18\x06 \x01(\x0b\x32,.mlflow.managed_datasets.DatasetRecordSource\x12\x30\n\x0c\x63reated_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x1a^\n\x11\x45xpectationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).mlflow.managed_datasets.ExpectationValue:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"@\n\nInputValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"9\n\x10\x45xpectationValue\x12%\n\x05value\x18\x01 \x01(\x0b\x32\x16.google.protobuf.Value\"\x1e\n\x0bHumanSource\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"2\n\x0e\x44ocumentSource\x12\x0f\n\x07\x64oc_uri\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"0\n\x0bTraceSource\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x0f\n\x07span_id\x18\x02 \x01(\t\"\xcf\x01\n\x13\x44\x61tasetRecordSource\x12\x35\n\x05human\x18\x01 \x01(\x0b\x32$.mlflow.managed_datasets.HumanSourceH\x00\x12;\n\x08\x64ocument\x18\x02 \x01(\x0b\x32\'.mlflow.managed_datasets.DocumentSourceH\x00\x12\x35\n\x05trace\x18\x03 \x01(\x0b\x32$.mlflow.managed_datasets.TraceSourceH\x00\x42\r\n\x0bsource_type\"\x97\x02\n\x14\x43reateManagedDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x13\n\x0bsource_type\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06\x64igest\x18\x05 \x01(\t\x12\x0e\n\x06schema\x18\x06 \x01(\t\x12\x0f\n\x07profile\x18\x07 \x01(\t\x12\x37\n\x07records\x18\x08 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"s\n\x11GetManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"<\n\x14\x44\x65leteManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xc0\x01\n\x14UpdateManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07profile\x18\x02 \x01(\t\x12\x37\n\x07records\x18\x03 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDatasetB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16managed_datasets.proto\x12\x17mlflow.managed_datasets\x1a\x10\x64\x61tabricks.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0eManagedDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12\x13\n\x0bsource_type\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x30\n\x0c\x63reated_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\x12\x37\n\x07records\x18\r \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\"\xe3\x04\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.mlflow.managed_datasets.InputValue\x12N\n\x0c\x65xpectations\x18\x04 \x03(\x0b\x32\x38.mlflow.managed_datasets.DatasetRecord.ExpectationsEntry\x12>\n\x04tags\x18\x05 \x03(\x0b\x32\x30.mlflow.managed_datasets.DatasetRecord.TagsEntry\x12<\n\x06source\x18\x06 \x01(\x0b\x32,.mlflow.managed_datasets.DatasetRecordSource\x12\x30\n\x0c\x63reated_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x1a^\n\x11\x45xpectationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).mlflow.managed_datasets.ExpectationValue:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"(\n\nInputValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"!\n\x10\x45xpectationValue\x12\r\n\x05value\x18\x01 \x01(\t\"\x1e\n\x0bHumanSource\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"2\n\x0e\x44ocumentSource\x12\x0f\n\x07\x64oc_uri\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"0\n\x0bTraceSource\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x0f\n\x07span_id\x18\x02 \x01(\t\"\xcf\x01\n\x13\x44\x61tasetRecordSource\x12\x35\n\x05human\x18\x01 \x01(\x0b\x32$.mlflow.managed_datasets.HumanSourceH\x00\x12;\n\x08\x64ocument\x18\x02 \x01(\x0b\x32\'.mlflow.managed_datasets.DocumentSourceH\x00\x12\x35\n\x05trace\x18\x03 \x01(\x0b\x32$.mlflow.managed_datasets.TraceSourceH\x00\x42\r\n\x0bsource_type\"\x97\x02\n\x14\x43reateManagedDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x13\n\x0bsource_type\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06\x64igest\x18\x05 \x01(\t\x12\x0e\n\x06schema\x18\x06 \x01(\t\x12\x0f\n\x07profile\x18\x07 \x01(\t\x12\x37\n\x07records\x18\x08 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"s\n\x11GetManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"<\n\x14\x44\x65leteManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xc0\x01\n\x14UpdateManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07profile\x18\x02 \x01(\t\x12\x37\n\x07records\x18\x03 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDatasetB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,42 +40,42 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DELETEMANAGEDDATASET'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
     _globals['_UPDATEMANAGEDDATASET'].fields_by_name['dataset_id']._loaded_options = None
     _globals['_UPDATEMANAGEDDATASET'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
-    _globals['_MANAGEDDATASET']._serialized_start=133
-    _globals['_MANAGEDDATASET']._serialized_end=499
-    _globals['_DATASETRECORD']._serialized_start=502
-    _globals['_DATASETRECORD']._serialized_end=1113
-    _globals['_DATASETRECORD_EXPECTATIONSENTRY']._serialized_start=974
-    _globals['_DATASETRECORD_EXPECTATIONSENTRY']._serialized_end=1068
-    _globals['_DATASETRECORD_TAGSENTRY']._serialized_start=1070
-    _globals['_DATASETRECORD_TAGSENTRY']._serialized_end=1113
-    _globals['_INPUTVALUE']._serialized_start=1115
-    _globals['_INPUTVALUE']._serialized_end=1179
-    _globals['_EXPECTATIONVALUE']._serialized_start=1181
-    _globals['_EXPECTATIONVALUE']._serialized_end=1238
-    _globals['_HUMANSOURCE']._serialized_start=1240
-    _globals['_HUMANSOURCE']._serialized_end=1270
-    _globals['_DOCUMENTSOURCE']._serialized_start=1272
-    _globals['_DOCUMENTSOURCE']._serialized_end=1322
-    _globals['_TRACESOURCE']._serialized_start=1324
-    _globals['_TRACESOURCE']._serialized_end=1372
-    _globals['_DATASETRECORDSOURCE']._serialized_start=1375
-    _globals['_DATASETRECORDSOURCE']._serialized_end=1582
-    _globals['_CREATEMANAGEDDATASET']._serialized_start=1585
-    _globals['_CREATEMANAGEDDATASET']._serialized_end=1864
-    _globals['_CREATEMANAGEDDATASET_RESPONSE']._serialized_start=1796
-    _globals['_CREATEMANAGEDDATASET_RESPONSE']._serialized_end=1864
-    _globals['_GETMANAGEDDATASET']._serialized_start=1866
-    _globals['_GETMANAGEDDATASET']._serialized_end=1981
-    _globals['_GETMANAGEDDATASET_RESPONSE']._serialized_start=1796
-    _globals['_GETMANAGEDDATASET_RESPONSE']._serialized_end=1864
-    _globals['_DELETEMANAGEDDATASET']._serialized_start=1983
-    _globals['_DELETEMANAGEDDATASET']._serialized_end=2043
-    _globals['_DELETEMANAGEDDATASET_RESPONSE']._serialized_start=1796
-    _globals['_DELETEMANAGEDDATASET_RESPONSE']._serialized_end=1806
-    _globals['_UPDATEMANAGEDDATASET']._serialized_start=2046
-    _globals['_UPDATEMANAGEDDATASET']._serialized_end=2238
-    _globals['_UPDATEMANAGEDDATASET_RESPONSE']._serialized_start=1796
-    _globals['_UPDATEMANAGEDDATASET_RESPONSE']._serialized_end=1864
+    _globals['_MANAGEDDATASET']._serialized_start=103
+    _globals['_MANAGEDDATASET']._serialized_end=469
+    _globals['_DATASETRECORD']._serialized_start=472
+    _globals['_DATASETRECORD']._serialized_end=1083
+    _globals['_DATASETRECORD_EXPECTATIONSENTRY']._serialized_start=944
+    _globals['_DATASETRECORD_EXPECTATIONSENTRY']._serialized_end=1038
+    _globals['_DATASETRECORD_TAGSENTRY']._serialized_start=1040
+    _globals['_DATASETRECORD_TAGSENTRY']._serialized_end=1083
+    _globals['_INPUTVALUE']._serialized_start=1085
+    _globals['_INPUTVALUE']._serialized_end=1125
+    _globals['_EXPECTATIONVALUE']._serialized_start=1127
+    _globals['_EXPECTATIONVALUE']._serialized_end=1160
+    _globals['_HUMANSOURCE']._serialized_start=1162
+    _globals['_HUMANSOURCE']._serialized_end=1192
+    _globals['_DOCUMENTSOURCE']._serialized_start=1194
+    _globals['_DOCUMENTSOURCE']._serialized_end=1244
+    _globals['_TRACESOURCE']._serialized_start=1246
+    _globals['_TRACESOURCE']._serialized_end=1294
+    _globals['_DATASETRECORDSOURCE']._serialized_start=1297
+    _globals['_DATASETRECORDSOURCE']._serialized_end=1504
+    _globals['_CREATEMANAGEDDATASET']._serialized_start=1507
+    _globals['_CREATEMANAGEDDATASET']._serialized_end=1786
+    _globals['_CREATEMANAGEDDATASET_RESPONSE']._serialized_start=1718
+    _globals['_CREATEMANAGEDDATASET_RESPONSE']._serialized_end=1786
+    _globals['_GETMANAGEDDATASET']._serialized_start=1788
+    _globals['_GETMANAGEDDATASET']._serialized_end=1903
+    _globals['_GETMANAGEDDATASET_RESPONSE']._serialized_start=1718
+    _globals['_GETMANAGEDDATASET_RESPONSE']._serialized_end=1786
+    _globals['_DELETEMANAGEDDATASET']._serialized_start=1905
+    _globals['_DELETEMANAGEDDATASET']._serialized_end=1965
+    _globals['_DELETEMANAGEDDATASET_RESPONSE']._serialized_start=1718
+    _globals['_DELETEMANAGEDDATASET_RESPONSE']._serialized_end=1728
+    _globals['_UPDATEMANAGEDDATASET']._serialized_start=1968
+    _globals['_UPDATEMANAGEDDATASET']._serialized_end=2160
+    _globals['_UPDATEMANAGEDDATASET_RESPONSE']._serialized_start=1718
+    _globals['_UPDATEMANAGEDDATASET_RESPONSE']._serialized_end=1786
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -95,11 +94,10 @@ else:
 
 
   from . import databricks_pb2 as databricks__pb2
-  from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16managed_datasets.proto\x12\x17mlflow.managed_datasets\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0eManagedDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12\x13\n\x0bsource_type\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x30\n\x0c\x63reated_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\x12\x37\n\x07records\x18\r \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\"\xe3\x04\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.mlflow.managed_datasets.InputValue\x12N\n\x0c\x65xpectations\x18\x04 \x03(\x0b\x32\x38.mlflow.managed_datasets.DatasetRecord.ExpectationsEntry\x12>\n\x04tags\x18\x05 \x03(\x0b\x32\x30.mlflow.managed_datasets.DatasetRecord.TagsEntry\x12<\n\x06source\x18\x06 \x01(\x0b\x32,.mlflow.managed_datasets.DatasetRecordSource\x12\x30\n\x0c\x63reated_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x1a^\n\x11\x45xpectationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).mlflow.managed_datasets.ExpectationValue:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"@\n\nInputValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"9\n\x10\x45xpectationValue\x12%\n\x05value\x18\x01 \x01(\x0b\x32\x16.google.protobuf.Value\"\x1e\n\x0bHumanSource\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"2\n\x0e\x44ocumentSource\x12\x0f\n\x07\x64oc_uri\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"0\n\x0bTraceSource\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x0f\n\x07span_id\x18\x02 \x01(\t\"\xcf\x01\n\x13\x44\x61tasetRecordSource\x12\x35\n\x05human\x18\x01 \x01(\x0b\x32$.mlflow.managed_datasets.HumanSourceH\x00\x12;\n\x08\x64ocument\x18\x02 \x01(\x0b\x32\'.mlflow.managed_datasets.DocumentSourceH\x00\x12\x35\n\x05trace\x18\x03 \x01(\x0b\x32$.mlflow.managed_datasets.TraceSourceH\x00\x42\r\n\x0bsource_type\"\x97\x02\n\x14\x43reateManagedDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x13\n\x0bsource_type\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06\x64igest\x18\x05 \x01(\t\x12\x0e\n\x06schema\x18\x06 \x01(\t\x12\x0f\n\x07profile\x18\x07 \x01(\t\x12\x37\n\x07records\x18\x08 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"s\n\x11GetManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"<\n\x14\x44\x65leteManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xc0\x01\n\x14UpdateManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07profile\x18\x02 \x01(\t\x12\x37\n\x07records\x18\x03 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDatasetB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16managed_datasets.proto\x12\x17mlflow.managed_datasets\x1a\x10\x64\x61tabricks.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0eManagedDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12\x13\n\x0bsource_type\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x30\n\x0c\x63reated_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\x12\x37\n\x07records\x18\r \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\"\xe3\x04\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x33\n\x06inputs\x18\x03 \x03(\x0b\x32#.mlflow.managed_datasets.InputValue\x12N\n\x0c\x65xpectations\x18\x04 \x03(\x0b\x32\x38.mlflow.managed_datasets.DatasetRecord.ExpectationsEntry\x12>\n\x04tags\x18\x05 \x03(\x0b\x32\x30.mlflow.managed_datasets.DatasetRecord.TagsEntry\x12<\n\x06source\x18\x06 \x01(\x0b\x32,.mlflow.managed_datasets.DatasetRecordSource\x12\x30\n\x0c\x63reated_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x1a^\n\x11\x45xpectationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32).mlflow.managed_datasets.ExpectationValue:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"(\n\nInputValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"!\n\x10\x45xpectationValue\x12\r\n\x05value\x18\x01 \x01(\t\"\x1e\n\x0bHumanSource\x12\x0f\n\x07user_id\x18\x01 \x01(\t\"2\n\x0e\x44ocumentSource\x12\x0f\n\x07\x64oc_uri\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"0\n\x0bTraceSource\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x0f\n\x07span_id\x18\x02 \x01(\t\"\xcf\x01\n\x13\x44\x61tasetRecordSource\x12\x35\n\x05human\x18\x01 \x01(\x0b\x32$.mlflow.managed_datasets.HumanSourceH\x00\x12;\n\x08\x64ocument\x18\x02 \x01(\x0b\x32\'.mlflow.managed_datasets.DocumentSourceH\x00\x12\x35\n\x05trace\x18\x03 \x01(\x0b\x32$.mlflow.managed_datasets.TraceSourceH\x00\x42\r\n\x0bsource_type\"\x97\x02\n\x14\x43reateManagedDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x13\n\x0bsource_type\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06\x64igest\x18\x05 \x01(\t\x12\x0e\n\x06schema\x18\x06 \x01(\t\x12\x0f\n\x07profile\x18\x07 \x01(\t\x12\x37\n\x07records\x18\x08 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"s\n\x11GetManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDataset\"<\n\x14\x44\x65leteManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xc0\x01\n\x14UpdateManagedDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07profile\x18\x02 \x01(\t\x12\x37\n\x07records\x18\x03 \x03(\x0b\x32&.mlflow.managed_datasets.DatasetRecord\x1a\x44\n\x08Response\x12\x38\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\'.mlflow.managed_datasets.ManagedDatasetB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
 
 
@@ -269,41 +267,41 @@ else:
     _DELETEMANAGEDDATASET.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
     _UPDATEMANAGEDDATASET.fields_by_name['dataset_id']._options = None
     _UPDATEMANAGEDDATASET.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
-    _MANAGEDDATASET._serialized_start=133
-    _MANAGEDDATASET._serialized_end=499
-    _DATASETRECORD._serialized_start=502
-    _DATASETRECORD._serialized_end=1113
-    _DATASETRECORD_EXPECTATIONSENTRY._serialized_start=974
-    _DATASETRECORD_EXPECTATIONSENTRY._serialized_end=1068
-    _DATASETRECORD_TAGSENTRY._serialized_start=1070
-    _DATASETRECORD_TAGSENTRY._serialized_end=1113
-    _INPUTVALUE._serialized_start=1115
-    _INPUTVALUE._serialized_end=1179
-    _EXPECTATIONVALUE._serialized_start=1181
-    _EXPECTATIONVALUE._serialized_end=1238
-    _HUMANSOURCE._serialized_start=1240
-    _HUMANSOURCE._serialized_end=1270
-    _DOCUMENTSOURCE._serialized_start=1272
-    _DOCUMENTSOURCE._serialized_end=1322
-    _TRACESOURCE._serialized_start=1324
-    _TRACESOURCE._serialized_end=1372
-    _DATASETRECORDSOURCE._serialized_start=1375
-    _DATASETRECORDSOURCE._serialized_end=1582
-    _CREATEMANAGEDDATASET._serialized_start=1585
-    _CREATEMANAGEDDATASET._serialized_end=1864
-    _CREATEMANAGEDDATASET_RESPONSE._serialized_start=1796
-    _CREATEMANAGEDDATASET_RESPONSE._serialized_end=1864
-    _GETMANAGEDDATASET._serialized_start=1866
-    _GETMANAGEDDATASET._serialized_end=1981
-    _GETMANAGEDDATASET_RESPONSE._serialized_start=1796
-    _GETMANAGEDDATASET_RESPONSE._serialized_end=1864
-    _DELETEMANAGEDDATASET._serialized_start=1983
-    _DELETEMANAGEDDATASET._serialized_end=2043
-    _DELETEMANAGEDDATASET_RESPONSE._serialized_start=1796
-    _DELETEMANAGEDDATASET_RESPONSE._serialized_end=1806
-    _UPDATEMANAGEDDATASET._serialized_start=2046
-    _UPDATEMANAGEDDATASET._serialized_end=2238
-    _UPDATEMANAGEDDATASET_RESPONSE._serialized_start=1796
-    _UPDATEMANAGEDDATASET_RESPONSE._serialized_end=1864
+    _MANAGEDDATASET._serialized_start=103
+    _MANAGEDDATASET._serialized_end=469
+    _DATASETRECORD._serialized_start=472
+    _DATASETRECORD._serialized_end=1083
+    _DATASETRECORD_EXPECTATIONSENTRY._serialized_start=944
+    _DATASETRECORD_EXPECTATIONSENTRY._serialized_end=1038
+    _DATASETRECORD_TAGSENTRY._serialized_start=1040
+    _DATASETRECORD_TAGSENTRY._serialized_end=1083
+    _INPUTVALUE._serialized_start=1085
+    _INPUTVALUE._serialized_end=1125
+    _EXPECTATIONVALUE._serialized_start=1127
+    _EXPECTATIONVALUE._serialized_end=1160
+    _HUMANSOURCE._serialized_start=1162
+    _HUMANSOURCE._serialized_end=1192
+    _DOCUMENTSOURCE._serialized_start=1194
+    _DOCUMENTSOURCE._serialized_end=1244
+    _TRACESOURCE._serialized_start=1246
+    _TRACESOURCE._serialized_end=1294
+    _DATASETRECORDSOURCE._serialized_start=1297
+    _DATASETRECORDSOURCE._serialized_end=1504
+    _CREATEMANAGEDDATASET._serialized_start=1507
+    _CREATEMANAGEDDATASET._serialized_end=1786
+    _CREATEMANAGEDDATASET_RESPONSE._serialized_start=1718
+    _CREATEMANAGEDDATASET_RESPONSE._serialized_end=1786
+    _GETMANAGEDDATASET._serialized_start=1788
+    _GETMANAGEDDATASET._serialized_end=1903
+    _GETMANAGEDDATASET_RESPONSE._serialized_start=1718
+    _GETMANAGEDDATASET_RESPONSE._serialized_end=1786
+    _DELETEMANAGEDDATASET._serialized_start=1905
+    _DELETEMANAGEDDATASET._serialized_end=1965
+    _DELETEMANAGEDDATASET_RESPONSE._serialized_start=1718
+    _DELETEMANAGEDDATASET_RESPONSE._serialized_end=1728
+    _UPDATEMANAGEDDATASET._serialized_start=1968
+    _UPDATEMANAGEDDATASET._serialized_end=2160
+    _UPDATEMANAGEDDATASET_RESPONSE._serialized_start=1718
+    _UPDATEMANAGEDDATASET_RESPONSE._serialized_end=1786
   # @@protoc_insertion_point(module_scope)
 

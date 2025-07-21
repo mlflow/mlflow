@@ -1,12 +1,11 @@
 // This file contains the proto definitions for interfacing with managed datasets
 // and their respective CRUD operations. Managed datasets are used for storing
-// evaluation records (inputs and expectations) for GenAI applications.
+// evaluation records (inputs and expectations) for GenAI evaluation purposes.
 syntax = "proto2";
 
 package mlflow.managed_datasets;
 
 import "databricks.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -25,7 +24,7 @@ message ManagedDataset {
   // Source information for the dataset, e.g. table name, file path, or trace ID.
   optional string source = 3;
 
-  // The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+  // The type of the dataset source, e.g. 'trace', 'human', 'document'.
   optional string source_type = 4;
 
   // The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, 
@@ -54,8 +53,7 @@ message ManagedDataset {
   // List of experiment IDs associated with this dataset.
   repeated string experiment_ids = 12;
 
-  // Collection of all dataset records. This allows bulk operations and matches
-  // the OSS FileStore architecture where entire datasets are stored as single files.
+  // Collection of all dataset records.
   repeated DatasetRecord records = 13;
 }
 
@@ -98,14 +96,14 @@ message InputValue {
   // The key/name of the input field (e.g., "question", "context", "prompt").
   optional string key = 1;
 
-  // The value of the input field, stored as a protobuf Value for type flexibility.
-  optional google.protobuf.Value value = 2;
+  // The value of the input field, stored as a string for simplicity and compatibility.
+  optional string value = 2;
 }
 
 // Expectation Value. Represents an expected output for evaluation scoring.
 message ExpectationValue {
-  // The expected output value, stored as a protobuf Value for type flexibility.
-  optional google.protobuf.Value value = 1;
+  // The expected output value, stored as a string for simplicity and compatibility.
+  optional string value = 1;
 }
 
 // Human Source. Records that were manually created or annotated by humans.

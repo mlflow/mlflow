@@ -107,7 +107,7 @@ public final class ManagedDatasets {
 
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -116,7 +116,7 @@ public final class ManagedDatasets {
     boolean hasSourceType();
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -125,7 +125,7 @@ public final class ManagedDatasets {
     java.lang.String getSourceType();
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -382,8 +382,7 @@ public final class ManagedDatasets {
 
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -392,8 +391,7 @@ public final class ManagedDatasets {
         getRecordsList();
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -401,8 +399,7 @@ public final class ManagedDatasets {
     org.mlflow.api.proto.ManagedDatasets.DatasetRecord getRecords(int index);
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -410,8 +407,7 @@ public final class ManagedDatasets {
     int getRecordsCount();
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -420,8 +416,7 @@ public final class ManagedDatasets {
         getRecordsOrBuilderList();
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -813,7 +808,7 @@ public final class ManagedDatasets {
     private volatile java.lang.Object sourceType_;
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -825,7 +820,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -848,7 +843,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+     * The type of the dataset source, e.g. 'trace', 'human', 'document'.
      * </pre>
      *
      * <code>optional string source_type = 4;</code>
@@ -1306,8 +1301,7 @@ public final class ManagedDatasets {
     private java.util.List<org.mlflow.api.proto.ManagedDatasets.DatasetRecord> records_;
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -1318,8 +1312,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -1331,8 +1324,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -1343,8 +1335,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -1355,8 +1346,7 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * Collection of all dataset records. This allows bulk operations and matches
-     * the OSS FileStore architecture where entire datasets are stored as single files.
+     * Collection of all dataset records.
      * </pre>
      *
      * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -2380,7 +2370,7 @@ public final class ManagedDatasets {
       private java.lang.Object sourceType_ = "";
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -2391,7 +2381,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -2413,7 +2403,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -2434,7 +2424,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -2453,7 +2443,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -2467,7 +2457,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'.
+       * The type of the dataset source, e.g. 'trace', 'human', 'document'.
        * </pre>
        *
        * <code>optional string source_type = 4;</code>
@@ -3508,8 +3498,7 @@ public final class ManagedDatasets {
 
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3523,8 +3512,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3538,8 +3526,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3553,8 +3540,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3575,8 +3561,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3594,8 +3579,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3615,8 +3599,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3637,8 +3620,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3656,8 +3638,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3675,8 +3656,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3695,8 +3675,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3713,8 +3692,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3731,8 +3709,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3743,8 +3720,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3758,8 +3734,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3774,8 +3749,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3786,8 +3760,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -3799,8 +3772,7 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * Collection of all dataset records. This allows bulk operations and matches
-       * the OSS FileStore architecture where entire datasets are stored as single files.
+       * Collection of all dataset records.
        * </pre>
        *
        * <code>repeated .mlflow.managed_datasets.DatasetRecord records = 13;</code>
@@ -7293,30 +7265,32 @@ public final class ManagedDatasets {
 
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
      * @return The value.
      */
-    com.google.protobuf.Value getValue();
+    java.lang.String getValue();
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
+     * @return The bytes for value.
      */
-    com.google.protobuf.ValueOrBuilder getValueOrBuilder();
+    com.google.protobuf.ByteString
+        getValueBytes();
   }
   /**
    * <pre>
@@ -7336,6 +7310,7 @@ public final class ManagedDatasets {
     }
     private InputValue() {
       key_ = "";
+      value_ = "";
     }
 
     @java.lang.Override
@@ -7376,16 +7351,9 @@ public final class ManagedDatasets {
               break;
             }
             case 18: {
-              com.google.protobuf.Value.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000002) != 0)) {
-                subBuilder = value_.toBuilder();
-              }
-              value_ = input.readMessage(com.google.protobuf.Value.parser(), extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom(value_);
-                value_ = subBuilder.buildPartial();
-              }
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
+              value_ = bs;
               break;
             }
             default: {
@@ -7482,13 +7450,13 @@ public final class ManagedDatasets {
     }
 
     public static final int VALUE_FIELD_NUMBER = 2;
-    private com.google.protobuf.Value value_;
+    private volatile java.lang.Object value_;
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
      * @return Whether the value field is set.
      */
     @java.lang.Override
@@ -7497,26 +7465,48 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
      * @return The value.
      */
     @java.lang.Override
-    public com.google.protobuf.Value getValue() {
-      return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          value_ = s;
+        }
+        return s;
+      }
     }
     /**
      * <pre>
-     * The value of the input field, stored as a protobuf Value for type flexibility.
+     * The value of the input field, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 2;</code>
+     * <code>optional string value = 2;</code>
+     * @return The bytes for value.
      */
     @java.lang.Override
-    public com.google.protobuf.ValueOrBuilder getValueOrBuilder() {
-      return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
+    public com.google.protobuf.ByteString
+        getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     private byte memoizedIsInitialized = -1;
@@ -7537,7 +7527,7 @@ public final class ManagedDatasets {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        output.writeMessage(2, getValue());
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
       }
       unknownFields.writeTo(output);
     }
@@ -7552,8 +7542,7 @@ public final class ManagedDatasets {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, getValue());
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -7731,7 +7720,6 @@ public final class ManagedDatasets {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getValueFieldBuilder();
         }
       }
       @java.lang.Override
@@ -7739,11 +7727,7 @@ public final class ManagedDatasets {
         super.clear();
         key_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        if (valueBuilder_ == null) {
-          value_ = null;
-        } else {
-          valueBuilder_.clear();
-        }
+        value_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
@@ -7778,13 +7762,9 @@ public final class ManagedDatasets {
         }
         result.key_ = key_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
-          if (valueBuilder_ == null) {
-            result.value_ = value_;
-          } else {
-            result.value_ = valueBuilder_.build();
-          }
           to_bitField0_ |= 0x00000002;
         }
+        result.value_ = value_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -7840,7 +7820,9 @@ public final class ManagedDatasets {
           onChanged();
         }
         if (other.hasValue()) {
-          mergeValue(other.getValue());
+          bitField0_ |= 0x00000002;
+          value_ = other.value_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -7980,15 +7962,13 @@ public final class ManagedDatasets {
         return this;
       }
 
-      private com.google.protobuf.Value value_;
-      private com.google.protobuf.SingleFieldBuilderV3<
-          com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder> valueBuilder_;
+      private java.lang.Object value_ = "";
       /**
        * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
+       * The value of the input field, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 2;</code>
+       * <code>optional string value = 2;</code>
        * @return Whether the value field is set.
        */
       public boolean hasValue() {
@@ -7996,144 +7976,98 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
+       * The value of the input field, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 2;</code>
+       * <code>optional string value = 2;</code>
        * @return The value.
        */
-      public com.google.protobuf.Value getValue() {
-        if (valueBuilder_ == null) {
-          return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
-        } else {
-          return valueBuilder_.getMessage();
-        }
-      }
-      /**
-       * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 2;</code>
-       */
-      public Builder setValue(com.google.protobuf.Value value) {
-        if (valueBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
           }
-          value_ = value;
-          onChanged();
+          return s;
         } else {
-          valueBuilder_.setMessage(value);
+          return (java.lang.String) ref;
         }
-        bitField0_ |= 0x00000002;
-        return this;
       }
       /**
        * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
+       * The value of the input field, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 2;</code>
+       * <code>optional string value = 2;</code>
+       * @return The bytes for value.
+       */
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The value of the input field, stored as a string for simplicity and compatibility.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @param value The value to set.
+       * @return This builder for chaining.
        */
       public Builder setValue(
-          com.google.protobuf.Value.Builder builderForValue) {
-        if (valueBuilder_ == null) {
-          value_ = builderForValue.build();
-          onChanged();
-        } else {
-          valueBuilder_.setMessage(builderForValue.build());
-        }
-        bitField0_ |= 0x00000002;
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        value_ = value;
+        onChanged();
         return this;
       }
       /**
        * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
+       * The value of the input field, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 2;</code>
-       */
-      public Builder mergeValue(com.google.protobuf.Value value) {
-        if (valueBuilder_ == null) {
-          if (((bitField0_ & 0x00000002) != 0) &&
-              value_ != null &&
-              value_ != com.google.protobuf.Value.getDefaultInstance()) {
-            value_ =
-              com.google.protobuf.Value.newBuilder(value_).mergeFrom(value).buildPartial();
-          } else {
-            value_ = value;
-          }
-          onChanged();
-        } else {
-          valueBuilder_.mergeFrom(value);
-        }
-        bitField0_ |= 0x00000002;
-        return this;
-      }
-      /**
-       * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 2;</code>
+       * <code>optional string value = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearValue() {
-        if (valueBuilder_ == null) {
-          value_ = null;
-          onChanged();
-        } else {
-          valueBuilder_.clear();
-        }
         bitField0_ = (bitField0_ & ~0x00000002);
+        value_ = getDefaultInstance().getValue();
+        onChanged();
         return this;
       }
       /**
        * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
+       * The value of the input field, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 2;</code>
+       * <code>optional string value = 2;</code>
+       * @param value The bytes for value to set.
+       * @return This builder for chaining.
        */
-      public com.google.protobuf.Value.Builder getValueBuilder() {
-        bitField0_ |= 0x00000002;
+      public Builder setValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        value_ = value;
         onChanged();
-        return getValueFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 2;</code>
-       */
-      public com.google.protobuf.ValueOrBuilder getValueOrBuilder() {
-        if (valueBuilder_ != null) {
-          return valueBuilder_.getMessageOrBuilder();
-        } else {
-          return value_ == null ?
-              com.google.protobuf.Value.getDefaultInstance() : value_;
-        }
-      }
-      /**
-       * <pre>
-       * The value of the input field, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 2;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder> 
-          getValueFieldBuilder() {
-        if (valueBuilder_ == null) {
-          valueBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder>(
-                  getValue(),
-                  getParentForChildren(),
-                  isClean());
-          value_ = null;
-        }
-        return valueBuilder_;
+        return this;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -8194,30 +8128,32 @@ public final class ManagedDatasets {
 
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
      * @return The value.
      */
-    com.google.protobuf.Value getValue();
+    java.lang.String getValue();
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
+     * @return The bytes for value.
      */
-    com.google.protobuf.ValueOrBuilder getValueOrBuilder();
+    com.google.protobuf.ByteString
+        getValueBytes();
   }
   /**
    * <pre>
@@ -8236,6 +8172,7 @@ public final class ManagedDatasets {
       super(builder);
     }
     private ExpectationValue() {
+      value_ = "";
     }
 
     @java.lang.Override
@@ -8270,16 +8207,9 @@ public final class ManagedDatasets {
               done = true;
               break;
             case 10: {
-              com.google.protobuf.Value.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000001) != 0)) {
-                subBuilder = value_.toBuilder();
-              }
-              value_ = input.readMessage(com.google.protobuf.Value.parser(), extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom(value_);
-                value_ = subBuilder.buildPartial();
-              }
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
+              value_ = bs;
               break;
             }
             default: {
@@ -8316,13 +8246,13 @@ public final class ManagedDatasets {
 
     private int bitField0_;
     public static final int VALUE_FIELD_NUMBER = 1;
-    private com.google.protobuf.Value value_;
+    private volatile java.lang.Object value_;
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
      * @return Whether the value field is set.
      */
     @java.lang.Override
@@ -8331,26 +8261,48 @@ public final class ManagedDatasets {
     }
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
      * @return The value.
      */
     @java.lang.Override
-    public com.google.protobuf.Value getValue() {
-      return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          value_ = s;
+        }
+        return s;
+      }
     }
     /**
      * <pre>
-     * The expected output value, stored as a protobuf Value for type flexibility.
+     * The expected output value, stored as a string for simplicity and compatibility.
      * </pre>
      *
-     * <code>optional .google.protobuf.Value value = 1;</code>
+     * <code>optional string value = 1;</code>
+     * @return The bytes for value.
      */
     @java.lang.Override
-    public com.google.protobuf.ValueOrBuilder getValueOrBuilder() {
-      return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
+    public com.google.protobuf.ByteString
+        getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     private byte memoizedIsInitialized = -1;
@@ -8368,7 +8320,7 @@ public final class ManagedDatasets {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        output.writeMessage(1, getValue());
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, value_);
       }
       unknownFields.writeTo(output);
     }
@@ -8380,8 +8332,7 @@ public final class ManagedDatasets {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(1, getValue());
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, value_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -8550,17 +8501,12 @@ public final class ManagedDatasets {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getValueFieldBuilder();
         }
       }
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        if (valueBuilder_ == null) {
-          value_ = null;
-        } else {
-          valueBuilder_.clear();
-        }
+        value_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -8591,13 +8537,9 @@ public final class ManagedDatasets {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
-          if (valueBuilder_ == null) {
-            result.value_ = value_;
-          } else {
-            result.value_ = valueBuilder_.build();
-          }
           to_bitField0_ |= 0x00000001;
         }
+        result.value_ = value_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -8648,7 +8590,9 @@ public final class ManagedDatasets {
       public Builder mergeFrom(org.mlflow.api.proto.ManagedDatasets.ExpectationValue other) {
         if (other == org.mlflow.api.proto.ManagedDatasets.ExpectationValue.getDefaultInstance()) return this;
         if (other.hasValue()) {
-          mergeValue(other.getValue());
+          bitField0_ |= 0x00000001;
+          value_ = other.value_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -8680,15 +8624,13 @@ public final class ManagedDatasets {
       }
       private int bitField0_;
 
-      private com.google.protobuf.Value value_;
-      private com.google.protobuf.SingleFieldBuilderV3<
-          com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder> valueBuilder_;
+      private java.lang.Object value_ = "";
       /**
        * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
+       * The expected output value, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 1;</code>
+       * <code>optional string value = 1;</code>
        * @return Whether the value field is set.
        */
       public boolean hasValue() {
@@ -8696,144 +8638,98 @@ public final class ManagedDatasets {
       }
       /**
        * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
+       * The expected output value, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 1;</code>
+       * <code>optional string value = 1;</code>
        * @return The value.
        */
-      public com.google.protobuf.Value getValue() {
-        if (valueBuilder_ == null) {
-          return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
-        } else {
-          return valueBuilder_.getMessage();
-        }
-      }
-      /**
-       * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 1;</code>
-       */
-      public Builder setValue(com.google.protobuf.Value value) {
-        if (valueBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
           }
-          value_ = value;
-          onChanged();
+          return s;
         } else {
-          valueBuilder_.setMessage(value);
+          return (java.lang.String) ref;
         }
-        bitField0_ |= 0x00000001;
-        return this;
       }
       /**
        * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
+       * The expected output value, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 1;</code>
+       * <code>optional string value = 1;</code>
+       * @return The bytes for value.
+       */
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The expected output value, stored as a string for simplicity and compatibility.
+       * </pre>
+       *
+       * <code>optional string value = 1;</code>
+       * @param value The value to set.
+       * @return This builder for chaining.
        */
       public Builder setValue(
-          com.google.protobuf.Value.Builder builderForValue) {
-        if (valueBuilder_ == null) {
-          value_ = builderForValue.build();
-          onChanged();
-        } else {
-          valueBuilder_.setMessage(builderForValue.build());
-        }
-        bitField0_ |= 0x00000001;
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        value_ = value;
+        onChanged();
         return this;
       }
       /**
        * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
+       * The expected output value, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 1;</code>
-       */
-      public Builder mergeValue(com.google.protobuf.Value value) {
-        if (valueBuilder_ == null) {
-          if (((bitField0_ & 0x00000001) != 0) &&
-              value_ != null &&
-              value_ != com.google.protobuf.Value.getDefaultInstance()) {
-            value_ =
-              com.google.protobuf.Value.newBuilder(value_).mergeFrom(value).buildPartial();
-          } else {
-            value_ = value;
-          }
-          onChanged();
-        } else {
-          valueBuilder_.mergeFrom(value);
-        }
-        bitField0_ |= 0x00000001;
-        return this;
-      }
-      /**
-       * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 1;</code>
+       * <code>optional string value = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearValue() {
-        if (valueBuilder_ == null) {
-          value_ = null;
-          onChanged();
-        } else {
-          valueBuilder_.clear();
-        }
         bitField0_ = (bitField0_ & ~0x00000001);
+        value_ = getDefaultInstance().getValue();
+        onChanged();
         return this;
       }
       /**
        * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
+       * The expected output value, stored as a string for simplicity and compatibility.
        * </pre>
        *
-       * <code>optional .google.protobuf.Value value = 1;</code>
+       * <code>optional string value = 1;</code>
+       * @param value The bytes for value to set.
+       * @return This builder for chaining.
        */
-      public com.google.protobuf.Value.Builder getValueBuilder() {
-        bitField0_ |= 0x00000001;
+      public Builder setValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        value_ = value;
         onChanged();
-        return getValueFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 1;</code>
-       */
-      public com.google.protobuf.ValueOrBuilder getValueOrBuilder() {
-        if (valueBuilder_ != null) {
-          return valueBuilder_.getMessageOrBuilder();
-        } else {
-          return value_ == null ?
-              com.google.protobuf.Value.getDefaultInstance() : value_;
-        }
-      }
-      /**
-       * <pre>
-       * The expected output value, stored as a protobuf Value for type flexibility.
-       * </pre>
-       *
-       * <code>optional .google.protobuf.Value value = 1;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder> 
-          getValueFieldBuilder() {
-        if (valueBuilder_ == null) {
-          valueBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder>(
-                  getValue(),
-                  getParentForChildren(),
-                  isClean());
-          value_ = null;
-        }
-        return valueBuilder_;
+        return this;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -20436,68 +20332,65 @@ public final class ManagedDatasets {
   static {
     java.lang.String[] descriptorData = {
       "\n\026managed_datasets.proto\022\027mlflow.managed" +
-      "_datasets\032\020databricks.proto\032\034google/prot" +
-      "obuf/struct.proto\032\037google/protobuf/times" +
-      "tamp.proto\"\356\002\n\016ManagedDataset\022\022\n\ndataset" +
-      "_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\016\n\006source\030\003 \001(\t\022" +
-      "\023\n\013source_type\030\004 \001(\t\022\016\n\006schema\030\005 \001(\t\022\017\n\007" +
-      "profile\030\006 \001(\t\022\016\n\006digest\030\007 \001(\t\0220\n\014created" +
-      "_time\030\010 \001(\0132\032.google.protobuf.Timestamp\022" +
-      "4\n\020last_update_time\030\t \001(\0132\032.google.proto" +
-      "buf.Timestamp\022\022\n\ncreated_by\030\n \001(\t\022\027\n\017las" +
-      "t_updated_by\030\013 \001(\t\022\026\n\016experiment_ids\030\014 \003" +
-      "(\t\0227\n\007records\030\r \003(\0132&.mlflow.managed_dat" +
-      "asets.DatasetRecord\"\343\004\n\rDatasetRecord\022\031\n" +
-      "\021dataset_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002" +
-      " \001(\t\0223\n\006inputs\030\003 \003(\0132#.mlflow.managed_da" +
-      "tasets.InputValue\022N\n\014expectations\030\004 \003(\0132" +
-      "8.mlflow.managed_datasets.DatasetRecord." +
-      "ExpectationsEntry\022>\n\004tags\030\005 \003(\01320.mlflow" +
-      ".managed_datasets.DatasetRecord.TagsEntr" +
-      "y\022<\n\006source\030\006 \001(\0132,.mlflow.managed_datas" +
-      "ets.DatasetRecordSource\0220\n\014created_time\030" +
-      "\007 \001(\0132\032.google.protobuf.Timestamp\0224\n\020las" +
-      "t_update_time\030\010 \001(\0132\032.google.protobuf.Ti" +
-      "mestamp\022\022\n\ncreated_by\030\t \001(\t\022\027\n\017last_upda" +
-      "ted_by\030\n \001(\t\032^\n\021ExpectationsEntry\022\013\n\003key" +
-      "\030\001 \001(\t\0228\n\005value\030\002 \001(\0132).mlflow.managed_d" +
-      "atasets.ExpectationValue:\0028\001\032+\n\tTagsEntr" +
-      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"@\n\nInp" +
-      "utValue\022\013\n\003key\030\001 \001(\t\022%\n\005value\030\002 \001(\0132\026.go" +
-      "ogle.protobuf.Value\"9\n\020ExpectationValue\022" +
-      "%\n\005value\030\001 \001(\0132\026.google.protobuf.Value\"\036" +
-      "\n\013HumanSource\022\017\n\007user_id\030\001 \001(\t\"2\n\016Docume" +
-      "ntSource\022\017\n\007doc_uri\030\001 \001(\t\022\017\n\007content\030\002 \001" +
-      "(\t\"0\n\013TraceSource\022\020\n\010trace_id\030\001 \001(\t\022\017\n\007s" +
-      "pan_id\030\002 \001(\t\"\317\001\n\023DatasetRecordSource\0225\n\005" +
-      "human\030\001 \001(\0132$.mlflow.managed_datasets.Hu" +
-      "manSourceH\000\022;\n\010document\030\002 \001(\0132\'.mlflow.m" +
-      "anaged_datasets.DocumentSourceH\000\0225\n\005trac" +
-      "e\030\003 \001(\0132$.mlflow.managed_datasets.TraceS" +
-      "ourceH\000B\r\n\013source_type\"\227\002\n\024CreateManaged" +
-      "Dataset\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experimen" +
-      "t_ids\030\002 \003(\t\022\023\n\013source_type\030\003 \001(\t\022\016\n\006sour" +
-      "ce\030\004 \001(\t\022\016\n\006digest\030\005 \001(\t\022\016\n\006schema\030\006 \001(\t" +
-      "\022\017\n\007profile\030\007 \001(\t\0227\n\007records\030\010 \003(\0132&.mlf" +
-      "low.managed_datasets.DatasetRecord\032D\n\010Re" +
-      "sponse\0228\n\007dataset\030\001 \001(\0132\'.mlflow.managed" +
-      "_datasets.ManagedDataset\"s\n\021GetManagedDa" +
-      "taset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032D\n\010Respo" +
-      "nse\0228\n\007dataset\030\001 \001(\0132\'.mlflow.managed_da" +
-      "tasets.ManagedDataset\"<\n\024DeleteManagedDa" +
-      "taset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
-      "nse\"\300\001\n\024UpdateManagedDataset\022\030\n\ndataset_" +
-      "id\030\001 \001(\tB\004\370\206\031\001\022\017\n\007profile\030\002 \001(\t\0227\n\007recor" +
-      "ds\030\003 \003(\0132&.mlflow.managed_datasets.Datas" +
-      "etRecord\032D\n\010Response\0228\n\007dataset\030\001 \001(\0132\'." +
-      "mlflow.managed_datasets.ManagedDatasetB\031" +
-      "\n\024org.mlflow.api.proto\220\001\001"
+      "_datasets\032\020databricks.proto\032\037google/prot" +
+      "obuf/timestamp.proto\"\356\002\n\016ManagedDataset\022" +
+      "\022\n\ndataset_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\016\n\006sou" +
+      "rce\030\003 \001(\t\022\023\n\013source_type\030\004 \001(\t\022\016\n\006schema" +
+      "\030\005 \001(\t\022\017\n\007profile\030\006 \001(\t\022\016\n\006digest\030\007 \001(\t\022" +
+      "0\n\014created_time\030\010 \001(\0132\032.google.protobuf." +
+      "Timestamp\0224\n\020last_update_time\030\t \001(\0132\032.go" +
+      "ogle.protobuf.Timestamp\022\022\n\ncreated_by\030\n " +
+      "\001(\t\022\027\n\017last_updated_by\030\013 \001(\t\022\026\n\016experime" +
+      "nt_ids\030\014 \003(\t\0227\n\007records\030\r \003(\0132&.mlflow.m" +
+      "anaged_datasets.DatasetRecord\"\343\004\n\rDatase" +
+      "tRecord\022\031\n\021dataset_record_id\030\001 \001(\t\022\022\n\nda" +
+      "taset_id\030\002 \001(\t\0223\n\006inputs\030\003 \003(\0132#.mlflow." +
+      "managed_datasets.InputValue\022N\n\014expectati" +
+      "ons\030\004 \003(\01328.mlflow.managed_datasets.Data" +
+      "setRecord.ExpectationsEntry\022>\n\004tags\030\005 \003(" +
+      "\01320.mlflow.managed_datasets.DatasetRecor" +
+      "d.TagsEntry\022<\n\006source\030\006 \001(\0132,.mlflow.man" +
+      "aged_datasets.DatasetRecordSource\0220\n\014cre" +
+      "ated_time\030\007 \001(\0132\032.google.protobuf.Timest" +
+      "amp\0224\n\020last_update_time\030\010 \001(\0132\032.google.p" +
+      "rotobuf.Timestamp\022\022\n\ncreated_by\030\t \001(\t\022\027\n" +
+      "\017last_updated_by\030\n \001(\t\032^\n\021ExpectationsEn" +
+      "try\022\013\n\003key\030\001 \001(\t\0228\n\005value\030\002 \001(\0132).mlflow" +
+      ".managed_datasets.ExpectationValue:\0028\001\032+" +
+      "\n\tTagsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:" +
+      "\0028\001\"(\n\nInputValue\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030" +
+      "\002 \001(\t\"!\n\020ExpectationValue\022\r\n\005value\030\001 \001(\t" +
+      "\"\036\n\013HumanSource\022\017\n\007user_id\030\001 \001(\t\"2\n\016Docu" +
+      "mentSource\022\017\n\007doc_uri\030\001 \001(\t\022\017\n\007content\030\002" +
+      " \001(\t\"0\n\013TraceSource\022\020\n\010trace_id\030\001 \001(\t\022\017\n" +
+      "\007span_id\030\002 \001(\t\"\317\001\n\023DatasetRecordSource\0225" +
+      "\n\005human\030\001 \001(\0132$.mlflow.managed_datasets." +
+      "HumanSourceH\000\022;\n\010document\030\002 \001(\0132\'.mlflow" +
+      ".managed_datasets.DocumentSourceH\000\0225\n\005tr" +
+      "ace\030\003 \001(\0132$.mlflow.managed_datasets.Trac" +
+      "eSourceH\000B\r\n\013source_type\"\227\002\n\024CreateManag" +
+      "edDataset\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\026\n\016experim" +
+      "ent_ids\030\002 \003(\t\022\023\n\013source_type\030\003 \001(\t\022\016\n\006so" +
+      "urce\030\004 \001(\t\022\016\n\006digest\030\005 \001(\t\022\016\n\006schema\030\006 \001" +
+      "(\t\022\017\n\007profile\030\007 \001(\t\0227\n\007records\030\010 \003(\0132&.m" +
+      "lflow.managed_datasets.DatasetRecord\032D\n\010" +
+      "Response\0228\n\007dataset\030\001 \001(\0132\'.mlflow.manag" +
+      "ed_datasets.ManagedDataset\"s\n\021GetManaged" +
+      "Dataset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032D\n\010Res" +
+      "ponse\0228\n\007dataset\030\001 \001(\0132\'.mlflow.managed_" +
+      "datasets.ManagedDataset\"<\n\024DeleteManaged" +
+      "Dataset\022\030\n\ndataset_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
+      "ponse\"\300\001\n\024UpdateManagedDataset\022\030\n\ndatase" +
+      "t_id\030\001 \001(\tB\004\370\206\031\001\022\017\n\007profile\030\002 \001(\t\0227\n\007rec" +
+      "ords\030\003 \003(\0132&.mlflow.managed_datasets.Dat" +
+      "asetRecord\032D\n\010Response\0228\n\007dataset\030\001 \001(\0132" +
+      "\'.mlflow.managed_datasets.ManagedDataset" +
+      "B\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
-          com.google.protobuf.StructProto.getDescriptor(),
           com.google.protobuf.TimestampProto.getDescriptor(),
         });
     internal_static_mlflow_managed_datasets_ManagedDataset_descriptor =
@@ -20614,7 +20507,6 @@ public final class ManagedDatasets {
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
-    com.google.protobuf.StructProto.getDescriptor();
     com.google.protobuf.TimestampProto.getDescriptor();
   }
 

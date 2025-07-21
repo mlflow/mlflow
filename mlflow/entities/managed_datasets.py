@@ -2,37 +2,56 @@
 Managed Datasets entities for MLflow GenAI evaluation.
 
 This module provides the core entity classes for managed datasets functionality,
-including ManagedDataset, DatasetRecord, and various source types. These entities
-are designed to be compatible with the Databricks agents SDK interface while
-providing a pure OSS implementation.
+including ManagedDataset, DatasetRecord, and various source types.
 """
 
-from typing import List, Optional, Dict, Any, Union
-import uuid
+import hashlib
 import json
 import time
-import hashlib
+import uuid
+from typing import Any, Optional, Union
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.managed_datasets_pb2 import (
-    ManagedDataset as ProtoManagedDataset,
     DatasetRecord as ProtoDatasetRecord,
+)
+from mlflow.protos.managed_datasets_pb2 import (
     DatasetRecordSource as ProtoDatasetRecordSource,
-    InputValue as ProtoInputValue,
-    ExpectationValue as ProtoExpectationValue,
-    HumanSource as ProtoHumanSource,
+)
+from mlflow.protos.managed_datasets_pb2 import (
     DocumentSource as ProtoDocumentSource,
+)
+from mlflow.protos.managed_datasets_pb2 import (
+    ExpectationValue as ProtoExpectationValue,
+)
+from mlflow.protos.managed_datasets_pb2 import (
+    HumanSource as ProtoHumanSource,
+)
+from mlflow.protos.managed_datasets_pb2 import (
+    InputValue as ProtoInputValue,
+)
+from mlflow.protos.managed_datasets_pb2 import (
+    ManagedDataset as ProtoManagedDataset,
+)
+from mlflow.protos.managed_datasets_pb2 import (
     TraceSource as ProtoTraceSource,
 )
-from google.protobuf.struct_pb2 import Value as ProtoValue
 
 
 class InputValue(_MlflowObject):
     """Represents a single input field within a dataset record."""
 
     def __init__(self, key: str, value: Any) -> None:
+        if key is None:
+            raise ValueError("InputValue key cannot be None")
         self._key = key
-        self._value = value
+        self._value = str(value) if value is not None else ""
 
     def __eq__(self, other: "_MlflowObject") -> bool:
         if type(other) is type(self):
@@ -41,96 +60,41 @@ class InputValue(_MlflowObject):
 
     @property
     def key(self) -> str:
-        """The key/name of the input field (e.g., 'question', 'context', 'prompt')."""
         return self._key
 
     @property
-    def value(self) -> Any:
-        """The value of the input field."""
+    def value(self) -> str:
         return self._value
 
     def to_proto(self) -> ProtoInputValue:
-        """Convert this entity to a protobuf message."""
         input_value = ProtoInputValue()
         input_value.key = self.key
-        
-        # Convert value to protobuf Value
-        proto_value = ProtoValue()
-        self._set_proto_value(proto_value, self.value)
-        input_value.value.CopyFrom(proto_value)
-        
+        input_value.value = self.value
         return input_value
 
     @classmethod
     def from_proto(cls, proto: ProtoInputValue) -> "InputValue":
-        """Create an entity from a protobuf message."""
-        value = cls._get_value_from_proto(proto.value)
-        return cls(key=proto.key, value=value)
+        instance = cls.__new__(cls)
+        instance._key = proto.key
+        instance._value = proto.value
+        return instance
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert this entity to a dictionary."""
+    def to_dict(self) -> dict[str, Any]:
         return {"key": self.key, "value": self.value}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InputValue":
-        """Create an entity from a dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> "InputValue":
         return cls(key=data["key"], value=data["value"])
 
-    @staticmethod
-    def _set_proto_value(proto_value: ProtoValue, value: Any) -> None:
-        """Set a protobuf Value from a Python value."""
-        if value is None:
-            proto_value.null_value = 0
-        elif isinstance(value, bool):
-            proto_value.bool_value = value
-        elif isinstance(value, int):
-            proto_value.number_value = float(value)
-        elif isinstance(value, float):
-            proto_value.number_value = value
-        elif isinstance(value, str):
-            proto_value.string_value = value
-        elif isinstance(value, (list, tuple)):
-            list_value = proto_value.list_value
-            for item in value:
-                item_value = list_value.values.add()
-                InputValue._set_proto_value(item_value, item)
-        elif isinstance(value, dict):
-            struct_value = proto_value.struct_value
-            for k, v in value.items():
-                item_value = struct_value.fields[k]
-                InputValue._set_proto_value(item_value, v)
-        else:
-            # Fallback to string representation
-            proto_value.string_value = str(value)
-
-    @staticmethod
-    def _get_value_from_proto(proto_value: ProtoValue) -> Any:
-        """Extract a Python value from a protobuf Value."""
-        which = proto_value.WhichOneof("kind")
-        if which == "null_value":
-            return None
-        elif which == "bool_value":
-            return proto_value.bool_value
-        elif which == "number_value":
-            # Try to return as int if it's a whole number
-            if proto_value.number_value.is_integer():
-                return int(proto_value.number_value)
-            return proto_value.number_value
-        elif which == "string_value":
-            return proto_value.string_value
-        elif which == "list_value":
-            return [InputValue._get_value_from_proto(item) for item in proto_value.list_value.values]
-        elif which == "struct_value":
-            return {k: InputValue._get_value_from_proto(v) for k, v in proto_value.struct_value.fields.items()}
-        else:
-            return None
+    def __repr__(self) -> str:
+        return f"<InputValue: key='{self.key}', value='{self.value}'>"
 
 
 class ExpectationValue(_MlflowObject):
     """Represents an expected output for evaluation scoring."""
 
     def __init__(self, value: Any) -> None:
-        self._value = value
+        self._value = str(value) if value is not None else ""
 
     def __eq__(self, other: "_MlflowObject") -> bool:
         if type(other) is type(self):
@@ -138,45 +102,34 @@ class ExpectationValue(_MlflowObject):
         return False
 
     @property
-    def value(self) -> Any:
-        """The expected output value."""
+    def value(self) -> str:
         return self._value
 
     def to_proto(self) -> ProtoExpectationValue:
-        """Convert this entity to a protobuf message."""
         expectation_value = ProtoExpectationValue()
-        
-        # Convert value to protobuf Value
-        proto_value = ProtoValue()
-        InputValue._set_proto_value(proto_value, self.value)
-        expectation_value.value.CopyFrom(proto_value)
-        
+        expectation_value.value = self._value
         return expectation_value
 
     @classmethod
     def from_proto(cls, proto: ProtoExpectationValue) -> "ExpectationValue":
-        """Create an entity from a protobuf message."""
-        value = InputValue._get_value_from_proto(proto.value)
-        return cls(value=value)
+        return cls(value=proto.value)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert this entity to a dictionary."""
+    def to_dict(self) -> dict[str, Any]:
         return {"value": self.value}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExpectationValue":
-        """Create an entity from a dictionary."""
+    def from_dict(cls, data: dict[str, Any]) -> "ExpectationValue":
         return cls(value=data["value"])
 
 
 class DatasetRecordSource(_MlflowObject):
     """
     Base class for dataset record sources indicating the origin of a dataset record.
-    
+
     This is a union type that can represent human, document, or trace sources.
     """
 
-    def __init__(self, source_type: str, source_data: Dict[str, Any]) -> None:
+    def __init__(self, source_type: str, source_data: dict[str, Any]) -> None:
         self._source_type = source_type
         self._source_data = source_data
 
@@ -187,68 +140,64 @@ class DatasetRecordSource(_MlflowObject):
 
     @property
     def source_type(self) -> str:
-        """The type of source ('human', 'document', or 'trace')."""
         return self._source_type
 
     @property
-    def source_data(self) -> Dict[str, Any]:
-        """The source-specific data."""
+    def source_data(self) -> dict[str, Any]:
         return self._source_data
 
     def to_proto(self) -> ProtoDatasetRecordSource:
-        """Convert this entity to a protobuf message."""
         source = ProtoDatasetRecordSource()
-        
+
         if self.source_type == "human":
             human_source = ProtoHumanSource()
-            if "user_id" in self.source_data:
-                human_source.user_id = self.source_data["user_id"]
+            if user_id := self.source_data.get("user_id"):
+                human_source.user_id = user_id
             source.human.CopyFrom(human_source)
         elif self.source_type == "document":
             doc_source = ProtoDocumentSource()
-            if "doc_uri" in self.source_data:
-                doc_source.doc_uri = self.source_data["doc_uri"]
-            if "content" in self.source_data:
-                doc_source.content = self.source_data["content"]
+            if doc_uri := self.source_data.get("doc_uri"):
+                doc_source.doc_uri = doc_uri
+            if content := self.source_data.get("content"):
+                doc_source.content = content
             source.document.CopyFrom(doc_source)
         elif self.source_type == "trace":
             trace_source = ProtoTraceSource()
-            if "trace_id" in self.source_data:
-                trace_source.trace_id = self.source_data["trace_id"]
-            if "span_id" in self.source_data:
-                trace_source.span_id = self.source_data["span_id"]
+            if trace_id := self.source_data.get("trace_id"):
+                trace_source.trace_id = trace_id
+            if span_id := self.source_data.get("span_id"):
+                trace_source.span_id = span_id
             source.trace.CopyFrom(trace_source)
-        
+
         return source
 
     @classmethod
     def from_proto(cls, proto: ProtoDatasetRecordSource) -> "DatasetRecordSource":
-        """Create an entity from a protobuf message."""
         which = proto.WhichOneof("source_type")
-        
+
         if which == "human":
             source_data = {}
             if proto.human.HasField("user_id"):
                 source_data["user_id"] = proto.human.user_id
-            return cls("human", source_data)
+            return HumanSource(source_data["user_id"])
         elif which == "document":
             source_data = {}
             if proto.document.HasField("doc_uri"):
                 source_data["doc_uri"] = proto.document.doc_uri
             if proto.document.HasField("content"):
                 source_data["content"] = proto.document.content
-            return cls("document", source_data)
+            return DocumentSource(source_data["doc_uri"], source_data.get("content"))
         elif which == "trace":
             source_data = {}
             if proto.trace.HasField("trace_id"):
                 source_data["trace_id"] = proto.trace.trace_id
             if proto.trace.HasField("span_id"):
                 source_data["span_id"] = proto.trace.span_id
-            return cls("trace", source_data)
+            return TraceSource(source_data["trace_id"], source_data.get("span_id"))
         else:
             raise ValueError(f"Unknown source type in proto: {which}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert this entity to a dictionary."""
         return {
             "source_type": self.source_type,
@@ -256,12 +205,18 @@ class DatasetRecordSource(_MlflowObject):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRecordSource":
-        """Create an entity from a dictionary."""
-        return cls(
-            source_type=data["source_type"],
-            source_data=data["source_data"],
-        )
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRecordSource":
+        source_type = data["source_type"]
+        source_data = data["source_data"]
+
+        if source_type == "human":
+            return HumanSource(source_data["user_id"])
+        elif source_type == "document":
+            return DocumentSource(source_data["doc_uri"], source_data.get("content"))
+        elif source_type == "trace":
+            return TraceSource(source_data["trace_id"], source_data.get("span_id"))
+        else:
+            return cls(source_type, source_data)
 
 
 class HumanSource(DatasetRecordSource):
@@ -287,12 +242,10 @@ class DocumentSource(DatasetRecordSource):
 
     @property
     def doc_uri(self) -> str:
-        """URI or identifier of the source document."""
         return self.source_data["doc_uri"]
 
     @property
     def content(self) -> Optional[str]:
-        """Optional document content or excerpt for reference."""
         return self.source_data.get("content")
 
 
@@ -310,19 +263,17 @@ class TraceSource(DatasetRecordSource):
 
     @property
     def trace_id(self) -> str:
-        """ID of the trace from which this record was derived."""
         return self.source_data["trace_id"]
 
     @property
     def span_id(self) -> Optional[str]:
-        """Optional: specific span ID within the trace that generated this record."""
         return self.source_data.get("span_id")
 
 
 class DatasetRecord(_MlflowObject):
     """
     Dataset Record entity representing a single evaluation record within a managed dataset.
-    
+
     Contains inputs, expected outputs, and metadata for evaluation.
     """
 
@@ -330,22 +281,26 @@ class DatasetRecord(_MlflowObject):
         self,
         dataset_record_id: str,
         dataset_id: str,
-        inputs: List[InputValue],
-        expectations: Dict[str, ExpectationValue],
-        tags: Optional[Dict[str, str]] = None,
+        inputs: list[InputValue],
+        expectations: dict[str, ExpectationValue],
+        tags: Optional[dict[str, str]] = None,
         source: Optional[DatasetRecordSource] = None,
         created_time: Optional[int] = None,
         last_update_time: Optional[int] = None,
         created_by: Optional[str] = None,
         last_updated_by: Optional[str] = None,
     ) -> None:
+        if not isinstance(inputs, list):
+            raise TypeError("inputs must be a list of InputValue objects")
+        if not isinstance(expectations, dict):
+            raise TypeError("expectations must be a dictionary")
+
         self._dataset_record_id = dataset_record_id
         self._dataset_id = dataset_id
         self._inputs = inputs or []
         self._expectations = expectations or {}
         self._tags = tags or {}
         self._source = source
-        # Store timestamps as milliseconds to match MLflow patterns
         current_time = int(time.time() * 1000)
         self._created_time = created_time or current_time
         self._last_update_time = last_update_time or current_time
@@ -368,17 +323,17 @@ class DatasetRecord(_MlflowObject):
         return self._dataset_id
 
     @property
-    def inputs(self) -> List[InputValue]:
+    def inputs(self) -> list[InputValue]:
         """Input values for the evaluation record (e.g., questions, prompts, context)."""
         return self._inputs
 
     @property
-    def expectations(self) -> Dict[str, ExpectationValue]:
+    def expectations(self) -> dict[str, ExpectationValue]:
         """Expected outputs/answers for the given inputs, used for evaluation scoring."""
         return self._expectations
 
     @property
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """User-defined tags for categorizing and filtering records."""
         return self._tags
 
@@ -439,35 +394,35 @@ class DatasetRecord(_MlflowObject):
         record = ProtoDatasetRecord()
         record.dataset_record_id = self.dataset_record_id
         record.dataset_id = self.dataset_id
-        
+
         # Add inputs
         for input_val in self.inputs:
             record.inputs.append(input_val.to_proto())
-        
+
         # Add expectations
         for key, expectation in self.expectations.items():
             record.expectations[key].CopyFrom(expectation.to_proto())
-        
+
         # Add tags
         for key, value in self.tags.items():
             record.tags[key] = value
-        
+
         # Add source if present
         if self.source:
             record.source.CopyFrom(self.source.to_proto())
-        
+
         # Add metadata
         if self.created_by:
             record.created_by = self.created_by
         if self.last_updated_by:
             record.last_updated_by = self.last_updated_by
-        
+
         # Set timestamps (convert from milliseconds)
         if self.created_time:
             record.created_time.FromMilliseconds(self.created_time)
         if self.last_update_time:
             record.last_update_time.FromMilliseconds(self.last_update_time)
-        
+
         return record
 
     @classmethod
@@ -475,23 +430,23 @@ class DatasetRecord(_MlflowObject):
         """Create an entity from a protobuf message."""
         inputs = [InputValue.from_proto(input_proto) for input_proto in proto.inputs]
         expectations = {
-            key: ExpectationValue.from_proto(exp_proto) 
+            key: ExpectationValue.from_proto(exp_proto)
             for key, exp_proto in proto.expectations.items()
         }
         tags = dict(proto.tags)
-        
+
         source = None
         if proto.HasField("source"):
             source = DatasetRecordSource.from_proto(proto.source)
-        
+
         created_time = None
         if proto.HasField("created_time"):
             created_time = proto.created_time.ToMilliseconds()
-        
+
         last_update_time = None
         if proto.HasField("last_update_time"):
             last_update_time = proto.last_update_time.ToMilliseconds()
-        
+
         return cls(
             dataset_record_id=proto.dataset_record_id,
             dataset_id=proto.dataset_id,
@@ -505,7 +460,7 @@ class DatasetRecord(_MlflowObject):
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert this entity to a dictionary."""
         return {
             "dataset_record_id": self.dataset_record_id,
@@ -521,21 +476,22 @@ class DatasetRecord(_MlflowObject):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRecord":
         """Create an entity from a dictionary."""
         inputs = [InputValue.from_dict(input_data) for input_data in data.get("inputs", [])]
+
+        expectations_data = data.get("expectations", {})
         expectations = {
-            key: ExpectationValue.from_dict(exp_data)
-            for key, exp_data in data.get("expectations", {}).items()
+            key: ExpectationValue.from_dict(exp_data) for key, exp_data in expectations_data.items()
         }
-        
+
         source = None
         if data.get("source"):
             source = DatasetRecordSource.from_dict(data["source"])
-        
+
         created_time = data.get("created_time")
         last_update_time = data.get("last_update_time")
-        
+
         return cls(
             dataset_record_id=data["dataset_record_id"],
             dataset_id=data["dataset_id"],
@@ -553,18 +509,18 @@ class DatasetRecord(_MlflowObject):
     def create_new(
         cls,
         dataset_id: str,
-        inputs: Dict[str, Any],
-        expectations: Dict[str, Any],
-        tags: Optional[Dict[str, str]] = None,
+        inputs: dict[str, Any],
+        expectations: dict[str, Any],
+        tags: Optional[dict[str, str]] = None,
         source: Optional[DatasetRecordSource] = None,
         created_by: Optional[str] = None,
     ) -> "DatasetRecord":
         """Create a new dataset record with a generated ID."""
-        record_id = str(uuid.uuid4())
-        
+        record_id = uuid.uuid4().hex
+
         input_values = [InputValue(key, value) for key, value in inputs.items()]
         expectation_values = {key: ExpectationValue(value) for key, value in expectations.items()}
-        
+
         return cls(
             dataset_record_id=record_id,
             dataset_id=dataset_id,
@@ -580,12 +536,10 @@ class DatasetRecord(_MlflowObject):
 class ManagedDataset(_MlflowObject):
     """
     Managed Dataset entity for storing GenAI evaluation records.
-    
+
     Represents a collection of evaluation records (inputs and expectations)
-    for GenAI model evaluation and training. Provides capabilities to merge 
+    for GenAI model evaluation and training. Provides capabilities to merge
     records from various sources including traces, human annotations, and documents.
-    
-    This implementation is compatible with the Databricks agents SDK interface.
     """
 
     def __init__(
@@ -601,9 +555,14 @@ class ManagedDataset(_MlflowObject):
         last_update_time: Optional[int] = None,
         created_by: Optional[str] = None,
         last_updated_by: Optional[str] = None,
-        experiment_ids: Optional[List[str]] = None,
-        records: Optional[List[DatasetRecord]] = None,
+        experiment_ids: Optional[list[str]] = None,
+        records: Optional[list[DatasetRecord]] = None,
     ) -> None:
+        if experiment_ids is not None and not isinstance(experiment_ids, list):
+            raise TypeError("experiment_ids must be a list of strings")
+        if records is not None and not isinstance(records, list):
+            raise TypeError("records must be a list of DatasetRecord objects")
+
         self._dataset_id = dataset_id
         self._name = name
         self._source = source
@@ -611,7 +570,6 @@ class ManagedDataset(_MlflowObject):
         self._schema = schema
         self._profile = profile
         self._digest = digest
-        # Store timestamps as milliseconds to match MLflow patterns
         current_time = int(time.time() * 1000)
         self._created_time = created_time or current_time
         self._last_update_time = last_update_time or current_time
@@ -642,7 +600,7 @@ class ManagedDataset(_MlflowObject):
 
     @property
     def source_type(self) -> Optional[str]:
-        """The type of the dataset source, e.g. 'databricks-uc-table', 'trace', 'human', 'document'."""
+        """The type of the dataset source, e.g. 'trace', 'human', 'document'."""
         return self._source_type
 
     @property
@@ -671,6 +629,11 @@ class ManagedDataset(_MlflowObject):
         return self._last_update_time
 
     @property
+    def last_updated_time(self) -> int:
+        """Unix timestamp of when the dataset was last updated in milliseconds."""
+        return self._last_update_time
+
+    @property
     def created_by(self) -> Optional[str]:
         """User who created the dataset."""
         return self._created_by
@@ -681,16 +644,15 @@ class ManagedDataset(_MlflowObject):
         return self._last_updated_by
 
     @property
-    def experiment_ids(self) -> List[str]:
+    def experiment_ids(self) -> list[str]:
         """List of experiment IDs associated with this dataset."""
         return self._experiment_ids
 
     @property
-    def records(self) -> List[DatasetRecord]:
+    def records(self) -> list[DatasetRecord]:
         """List of dataset records contained in this dataset."""
         return self._records
 
-    # Core methods matching Databricks interface
     def to_df(self) -> "pd.DataFrame":
         """
         Convert the dataset records to a pandas DataFrame for analysis.
@@ -699,44 +661,47 @@ class ManagedDataset(_MlflowObject):
             import pandas as pd
         except ImportError:
             raise ImportError("pandas is required to convert to DataFrame")
-        
+
         if not self._records:
             return pd.DataFrame()
-        
-        # Convert records to flat dictionary format
+
         rows = []
         for record in self._records:
-            row = {"dataset_record_id": record.dataset_record_id}
-            
-            # Add inputs as columns
-            for inp in record.inputs:
-                row[f"input_{inp.key}"] = inp.value
-            
-            # Add expectations as columns
-            for key, exp_val in record.expectations.items():
-                row[f"expected_{key}"] = exp_val.value if hasattr(exp_val, 'value') else exp_val
-            
-            # Add tags as columns
-            for key, value in record.tags.items():
-                row[f"tag_{key}"] = value
-            
-            # Add metadata
-            row.update({
-                "created_time": record.created_time,
-                "created_by": record.created_by,
-                "source_type": record.source.source_type if record.source else None,
-            })
-            
+            record_dict = record.to_dict()
+
+            inputs_dict = {
+                input_data["key"]: input_data["value"] for input_data in record_dict["inputs"]
+            }
+
+            expectations_dict = {
+                key: exp_data["value"] for key, exp_data in record_dict["expectations"].items()
+            }
+
+            row = {
+                "dataset_record_id": record_dict["dataset_record_id"],
+                "inputs": inputs_dict,
+                "expectations": expectations_dict,
+                "tags": record_dict["tags"],
+                "source": record_dict["source"],
+                "created_time": record_dict["created_time"],
+                "last_update_time": record_dict["last_update_time"],
+                "created_by": record_dict["created_by"],
+                "last_updated_by": record_dict["last_updated_by"],
+            }
+
             rows.append(row)
-        
+
         return pd.DataFrame(rows)
 
     def set_profile(self, profile: str) -> "ManagedDataset":
         """
         Set the profile data containing summary statistics and metadata.
-        
-        Returns a new ManagedDataset instance (immutable pattern matching Databricks).
+
+        Returns a new ManagedDataset instance.
         """
+        time.sleep(0.001)
+        new_timestamp = int(time.time() * 1000)
+
         return ManagedDataset(
             dataset_id=self.dataset_id,
             name=self.name,
@@ -746,55 +711,45 @@ class ManagedDataset(_MlflowObject):
             profile=profile,
             digest=self.digest,
             created_time=self.created_time,
-            last_update_time=int(time.time() * 1000),
+            last_update_time=new_timestamp,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             experiment_ids=self.experiment_ids,
             records=self.records,
         )
 
-    def merge_records(self, records: Union[List[Dict[str, Any]], "pd.DataFrame"]) -> "ManagedDataset":
+    def merge_records(
+        self, records: Union[list[dict[str, Any]], list["DatasetRecord"], "pd.DataFrame"]
+    ) -> "ManagedDataset":
         """
         Merge records from another source, handling deduplication based on record content.
-        
-        Returns a new ManagedDataset instance (immutable pattern matching Databricks).
-        
+
+        Returns a new ManagedDataset instance.
+
         Args:
-            records: Records to merge - can be list of dicts or pandas DataFrame
+            records: Records to merge - can be list of dicts, list of
+                DatasetRecord objects, or pandas DataFrame
         """
         import pandas as pd
-        
-        # Convert input to standardized format
-        if isinstance(records, pd.DataFrame):
-            records_list = records.to_dict('records')
-        else:
-            records_list = records
-        
-        # Convert to DatasetRecord objects
+
+        if not isinstance(records, (list, pd.DataFrame)):
+            raise TypeError(
+                "records must be a list, list of DatasetRecord objects, or pandas DataFrame"
+            )
+
+        records_list = records.to_dict("records") if isinstance(records, pd.DataFrame) else records
+
         new_records = []
         for record_data in records_list:
-            # Extract inputs (fields starting with 'input_' or provided directly)
-            inputs = {}
-            expectations = {}
-            tags = {}
-            
-            for key, value in record_data.items():
-                if key.startswith('input_'):
-                    inputs[key[6:]] = value  # Remove 'input_' prefix
-                elif key.startswith('expected_'):
-                    expectations[key[9:]] = value  # Remove 'expected_' prefix
-                elif key.startswith('tag_'):
-                    tags[key[4:]] = value  # Remove 'tag_' prefix
-                elif key in ['inputs', 'expectations', 'tags']:
-                    # Direct field access
-                    if key == 'inputs':
-                        inputs.update(value)
-                    elif key == 'expectations':
-                        expectations.update(value)
-                    elif key == 'tags':
-                        tags.update(value)
-            
-            # Create new record
+            # If it's already a DatasetRecord, use it directly
+            if isinstance(record_data, DatasetRecord):
+                new_records.append(record_data)
+                continue
+
+            inputs = record_data.get("inputs", {})
+            expectations = record_data.get("expectations", {})
+            tags = record_data.get("tags", {})
+
             new_record = DatasetRecord.create_new(
                 dataset_id=self.dataset_id,
                 inputs=inputs,
@@ -803,18 +758,20 @@ class ManagedDataset(_MlflowObject):
                 created_by=self.last_updated_by,
             )
             new_records.append(new_record)
-        
+
         # Merge with existing records (deduplication)
-        merged_records = list(self._records)  # Copy existing records
+        merged_records = list(self._records)
         existing_hashes = {self._compute_record_hash(record) for record in merged_records}
-        
+
         for record in new_records:
             record_hash = self._compute_record_hash(record)
             if record_hash not in existing_hashes:
                 merged_records.append(record)
                 existing_hashes.add(record_hash)
-        
-        # Return new instance
+
+        time.sleep(0.001)
+        new_timestamp = int(time.time() * 1000)
+
         return ManagedDataset(
             dataset_id=self.dataset_id,
             name=self.name,
@@ -824,7 +781,7 @@ class ManagedDataset(_MlflowObject):
             profile=self.profile,
             digest=self.digest,
             created_time=self.created_time,
-            last_update_time=int(time.time() * 1000),
+            last_update_time=new_timestamp,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             experiment_ids=self.experiment_ids,
@@ -833,7 +790,6 @@ class ManagedDataset(_MlflowObject):
 
     def _compute_record_hash(self, record: DatasetRecord) -> str:
         """Compute a hash for a dataset record based on its content."""
-        # Create a deterministic representation of the record
         content = {
             "inputs": {inp.key: str(inp.value) for inp in record.inputs},
             "expectations": {k: str(v.value) for k, v in record.expectations.items()},
@@ -842,13 +798,12 @@ class ManagedDataset(_MlflowObject):
         content_str = json.dumps(content, sort_keys=True)
         return hashlib.sha256(content_str.encode()).hexdigest()
 
-    # MLflow entity methods
     def to_proto(self) -> ProtoManagedDataset:
         """Convert this entity to a protobuf message."""
         dataset = ProtoManagedDataset()
         dataset.dataset_id = self.dataset_id
         dataset.name = self.name
-        
+
         if self.source:
             dataset.source = self.source
         if self.source_type:
@@ -863,19 +818,18 @@ class ManagedDataset(_MlflowObject):
             dataset.created_by = self.created_by
         if self.last_updated_by:
             dataset.last_updated_by = self.last_updated_by
-        
+
         dataset.experiment_ids.extend(self.experiment_ids)
-        
+
         # Add all records for bulk operations
         for record in self.records:
             dataset.records.append(record.to_proto())
-        
-        # Set timestamps (convert from milliseconds)
+
         if self.created_time:
             dataset.created_time.FromMilliseconds(self.created_time)
         if self.last_update_time:
             dataset.last_update_time.FromMilliseconds(self.last_update_time)
-        
+
         return dataset
 
     @classmethod
@@ -884,16 +838,16 @@ class ManagedDataset(_MlflowObject):
         created_time = None
         if proto.HasField("created_time"):
             created_time = proto.created_time.ToMilliseconds()
-        
+
         last_update_time = None
         if proto.HasField("last_update_time"):
             last_update_time = proto.last_update_time.ToMilliseconds()
-        
+
         # Convert records from protobuf
         records = []
         for record_proto in proto.records:
             records.append(DatasetRecord.from_proto(record_proto))
-        
+
         return cls(
             dataset_id=proto.dataset_id,
             name=proto.name,
@@ -910,7 +864,7 @@ class ManagedDataset(_MlflowObject):
             records=records,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert this entity to a dictionary."""
         return {
             "dataset_id": self.dataset_id,
@@ -922,6 +876,7 @@ class ManagedDataset(_MlflowObject):
             "digest": self.digest,
             "created_time": self.created_time,
             "last_update_time": self.last_update_time,
+            "last_updated_time": self.last_updated_time,
             "created_by": self.created_by,
             "last_updated_by": self.last_updated_by,
             "experiment_ids": self.experiment_ids,
@@ -929,15 +884,23 @@ class ManagedDataset(_MlflowObject):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ManagedDataset":
+    def from_dict(cls, data: dict[str, Any]) -> "ManagedDataset":
         """Create an entity from a dictionary."""
+        if not isinstance(data, dict):
+            raise TypeError("data must be a dictionary")
+
+        if "dataset_id" not in data:
+            raise KeyError("dataset_id is required")
+        if "name" not in data:
+            raise KeyError("name is required")
+
         created_time = data.get("created_time")
         last_update_time = data.get("last_update_time")
-        
+
         records = []
         if data.get("records"):
             records = [DatasetRecord.from_dict(record_data) for record_data in data["records"]]
-        
+
         return cls(
             dataset_id=data["dataset_id"],
             name=data["name"],
@@ -958,7 +921,7 @@ class ManagedDataset(_MlflowObject):
     def create_new(
         cls,
         name: str,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         source_type: Optional[str] = None,
         source: Optional[str] = None,
         digest: Optional[str] = None,
@@ -967,8 +930,8 @@ class ManagedDataset(_MlflowObject):
         created_by: Optional[str] = None,
     ) -> "ManagedDataset":
         """Create a new managed dataset with a generated ID."""
-        dataset_id = str(uuid.uuid4())
-        
+        dataset_id = uuid.uuid4().hex
+
         return cls(
             dataset_id=dataset_id,
             name=name,
@@ -982,8 +945,65 @@ class ManagedDataset(_MlflowObject):
             experiment_ids=experiment_ids,
         )
 
+    @classmethod
+    def from_df(
+        cls,
+        df: "pd.DataFrame",
+        name: str,
+        experiment_ids: list[str],
+        input_columns: list[str],
+        expectation_columns: list[str],
+        tag_columns: Optional[list[str]] = None,
+        source_type: Optional[str] = None,
+        source: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ) -> "ManagedDataset":
+        """Create a managed dataset from a pandas DataFrame."""
+        if pd is None:
+            raise ImportError("pandas is required to create dataset from DataFrame")
 
-# Factory functions for creating sources
+        dataset = cls.create_new(
+            name=name,
+            experiment_ids=experiment_ids,
+            source_type=source_type,
+            source=source,
+            created_by=created_by,
+        )
+
+        records = []
+        for _, row in df.iterrows():
+            inputs = {col: row[col] for col in input_columns if col in row.index}
+            expectations = {col: row[col] for col in expectation_columns if col in row.index}
+            tags = {}
+            if tag_columns:
+                tags = {col: str(row[col]) for col in tag_columns if col in row.index}
+
+            record = DatasetRecord.create_new(
+                dataset_id=dataset.dataset_id,
+                inputs=inputs,
+                expectations=expectations,
+                tags=tags,
+                created_by=created_by,
+            )
+            records.append(record)
+
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            source=dataset.source,
+            source_type=dataset.source_type,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time,
+            last_update_time=dataset.last_update_time,
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+            experiment_ids=dataset.experiment_ids,
+            records=records,
+        )
+
+
 def create_human_source(user_id: str) -> HumanSource:
     """Create a human source for manually created records."""
     return HumanSource(user_id)
@@ -999,14 +1019,15 @@ def create_trace_source(trace_id: str, span_id: Optional[str] = None) -> TraceSo
     return TraceSource(trace_id, span_id)
 
 
-# Utility functions
 def get_source_summary(source: DatasetRecordSource) -> str:
     """Get a human-readable summary of the source."""
     if isinstance(source, HumanSource):
         return f"Human annotator: {source.user_id}"
     elif isinstance(source, DocumentSource):
         if source.content:
-            content_preview = source.content[:50] + "..." if len(source.content) > 50 else source.content
+            content_preview = (
+                source.content[:50] + "..." if len(source.content) > 50 else source.content
+            )
             return f"Document: {source.doc_uri} (content: {content_preview})"
         else:
             return f"Document: {source.doc_uri}"
