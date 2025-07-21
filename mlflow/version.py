@@ -22,4 +22,3 @@ def _is_package_installed(package_name: str) -> bool:
 # This is used to determine whether to import modules that require
 # dependencies that are not included in the tracing SDK.
 IS_TRACING_SDK_ONLY = not any(_is_package_installed(pkg) for pkg in ["mlflow", "mlflow-skinny"])
-IS_FULL_MLFLOW = _is_package_installed("mlflow")
