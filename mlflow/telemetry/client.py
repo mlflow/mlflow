@@ -47,9 +47,19 @@ class TelemetryClient:
 
     def _fetch_config(self):
         def _fetch():
-            self._get_config()
-            self._is_config_fetched = True
-            if self.config is None:
+            try:
+                self._get_config()
+                self._is_config_fetched = True
+                if self.config is None:
+                    self._is_stopped = True
+                    _set_telemetry_client(None)
+                else:
+                    # this should happen before the first send_batch call
+                    with self._batch_lock:
+                        if self._pending_records:
+                            self._drop_invalid_records()
+            except Exception:
+                self._is_config_fetched = True
                 self._is_stopped = True
                 _set_telemetry_client(None)
 
@@ -94,6 +104,17 @@ class TelemetryClient:
                 )
             except Exception:
                 return
+
+    def _drop_invalid_records(self):
+        """
+        Drop invalid records that are disabled by the config.
+        """
+        if self.config:
+            self._pending_records = [
+                record
+                for record in self._pending_records
+                if record.api_name not in self.config.disable_api_map.get(record.api_module, [])
+            ]
 
     def add_record(self, record: APIRecord):
         """
@@ -260,13 +281,14 @@ class TelemetryClient:
         else:
             # Send any pending records before flushing
             with self._batch_lock:
-                if self._pending_records:
+                if self._pending_records and self.config and not self._is_stopped:
+                    self._drop_invalid_records()
                     self._send_batch()
-            # NB: we cannot join the queue because consumer threads can be
-            # stopped after sending batch, but this is only for tests
-            for thread in self._consumer_threads:
-                if thread.is_alive():
-                    thread.join(timeout=1)
+            # For non-terminating flush, just wait for queue to empty
+            try:
+                self._queue.join()
+            except Exception:
+                pass
 
     def _update_backend_store(self):
         """

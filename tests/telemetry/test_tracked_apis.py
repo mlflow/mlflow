@@ -9,7 +9,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
 from mlflow.models.evaluation.base import _evaluate
-from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
 from mlflow.tracing.client import TracingClient
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -177,10 +177,11 @@ def test_evaluate(mock_requests):
     validate_telemetry_record(mock_requests, _evaluate, search_index=True)
 
 
+@pytest.mark.no_mock_requests_get
 def test_disable_api_map(mock_requests):
     disable_api = TrackingServiceClient.create_logged_model
-    with mock.patch("requests.get") as mock_requests:
-        mock_requests.return_value = mock.Mock(
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
+        mock_requests_get.return_value = mock.Mock(
             status_code=200,
             json=mock.Mock(
                 return_value={
@@ -193,6 +194,7 @@ def test_disable_api_map(mock_requests):
                 }
             ),
         )
+        set_telemetry_client()
 
         mlflow.create_external_model(name="model")
         mlflow.initialize_logged_model(name="model", tags={"key": "value"})
@@ -202,3 +204,9 @@ def test_disable_api_map(mock_requests):
         )
         get_telemetry_client().flush()
         assert len(mock_requests) == 0
+
+        with mlflow.start_run():
+            pass
+        validate_telemetry_record(
+            mock_requests, TrackingServiceClient.create_run, check_params=False
+        )
