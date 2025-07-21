@@ -9,15 +9,6 @@ from mlflow.version import VERSION
 
 
 @pytest.fixture(autouse=True)
-def mock_is_ci_env(monkeypatch):
-    # patch this so we can run telemetry tests, but avoid
-    # tracking other tests in CI
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
-    set_telemetry_client()
-
-
-@pytest.fixture(autouse=True)
 def terminate_telemetry_client():
     yield
     client = get_telemetry_client()
@@ -50,19 +41,25 @@ def mock_requests():
 
 
 @pytest.fixture(autouse=True)
-def mock_requests_get(monkeypatch):
-    """Fixture to mock requests.get and capture telemetry records."""
+def enable_telemetry(monkeypatch):
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
 
-    with patch("requests.get") as mock_get:
+
+@pytest.fixture(autouse=True)
+def mock_requests_get(request, monkeypatch):
+    """Fixture to mock requests.get and capture telemetry records."""
+    if request.node.get_closest_marker("no_mock_requests_get"):
+        return
+
+    with patch("mlflow.telemetry.client.requests.get") as mock_get:
         mock_get.return_value = Mock(
             status_code=200,
             json=Mock(
                 return_value={
                     "mlflow_version": VERSION,
                     "disable_telemetry": False,
-                    "telemetry_url": "http://localhost:9999",
+                    "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_api_map": {},
                     "disable_sdks": [],

@@ -94,5 +94,5 @@ class TelemetryInfo:
 
 @dataclass
 class TelemetryConfig:
-    telemetry_url: str
+    ingestion_url: str
     disable_api_map: dict[str, list[str]]

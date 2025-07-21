@@ -17,7 +17,7 @@ R = TypeVar("R")
 def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if is_telemetry_disabled() or _should_disable_telemetry(func):
+        if is_telemetry_disabled() or _is_telemetry_disabled_for_func(func):
             return func(*args, **kwargs)
 
         success = True
@@ -75,7 +75,7 @@ def _generate_telemetry_record(
         pass
 
 
-def _should_disable_telemetry(func: Callable[..., Any]) -> bool:
+def _is_telemetry_disabled_for_func(func: Callable[..., Any]) -> bool:
     if client := get_telemetry_client():
         return func.__name__ in client.config.disable_api_map.get(func.__module__, [])
     return False

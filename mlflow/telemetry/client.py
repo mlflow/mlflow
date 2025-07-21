@@ -1,4 +1,6 @@
 import atexit
+import random
+import sys
 import threading
 import time
 import uuid
@@ -14,16 +16,15 @@ from mlflow.telemetry.constant import (
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
 )
-from mlflow.telemetry.schemas import APIRecord, TelemetryConfig, TelemetryInfo
-from mlflow.telemetry.utils import _get_config, is_telemetry_disabled
+from mlflow.telemetry.schemas import APIRecord, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 class TelemetryClient:
-    def __init__(self, config: TelemetryConfig):
+    def __init__(self):
         self.info = asdict(TelemetryInfo())
-        self.config = config
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -40,6 +41,59 @@ class TelemetryClient:
 
         # consumer threads for sending records
         self._consumer_threads = []
+        self._is_config_fetched = False
+        self.config = None
+        self._fetch_config()
+
+    def _fetch_config(self):
+        def _fetch():
+            self._get_config()
+            self._is_config_fetched = True
+            if self.config is None:
+                self._is_stopped = True
+                _set_telemetry_client(None)
+
+        self._config_thread = threading.Thread(
+            target=_fetch,
+            name="GetTelemetryConfig",
+            daemon=True,
+        )
+        self._config_thread.start()
+
+    def _get_config(self):
+        """
+        Get the config for the given MLflow version.
+        """
+        mlflow_version = self.info["mlflow_version"]
+        if config_url := _get_config_url(mlflow_version):
+            try:
+                response = requests.get(config_url, timeout=1)
+                if response.status_code != 200:
+                    return
+                config = response.json()
+                if (
+                    config.get("mlflow_version") != mlflow_version
+                    or config.get("disable_telemetry") is True
+                    or config.get("ingestion_url") is None
+                ):
+                    return
+
+                if get_source_sdk().value in config.get("disable_sdks", []):
+                    return
+
+                if sys.platform in config.get("disable_os", []):
+                    return
+
+                rollout_percentage = config.get("rollout_percentage", 100)
+                if random.randint(0, 100) > rollout_percentage:
+                    return
+
+                self.config = TelemetryConfig(
+                    ingestion_url=config["ingestion_url"],
+                    disable_api_map=config.get("disable_api_map", {}),
+                )
+            except Exception:
+                return
 
     def add_record(self, record: APIRecord):
         """
@@ -88,7 +142,7 @@ class TelemetryClient:
             ]
             # TODO: add retry logic
             response = requests.post(
-                self.config.telemetry_url,
+                self.config.ingestion_url,
                 json={"records": records},
                 headers={"Content-Type": "application/json"},
                 timeout=3,
@@ -104,7 +158,10 @@ class TelemetryClient:
         # logs during telemetry collection.
         should_suppress_logs_in_thread.set(True)
 
-        while not self._is_stopped:
+        while not self._is_config_fetched:
+            time.sleep(0.1)
+
+        while self.config and not self._is_stopped:
             try:
                 records = self._queue.get(timeout=1)
             except Empty:
@@ -118,6 +175,14 @@ class TelemetryClient:
 
             self._process_records(records)
             self._queue.task_done()
+
+        # clear the queue if config is None
+        while self.config is None and not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except Empty:
+                break
 
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
@@ -175,9 +240,11 @@ class TelemetryClient:
             self._is_stopped = True
             self.is_active = False
 
+            self._config_thread.join(timeout=1)
+
             # process pending records directly before exiting
             with self._batch_lock, suppress_logs_in_thread():
-                if self._pending_records:
+                if self._pending_records and self.config:
                     self._process_records(self._pending_records)
                 self._pending_records = []
 
@@ -189,16 +256,17 @@ class TelemetryClient:
                 if thread.is_alive():
                     thread.join(timeout=avg_timeout_per_thread)
 
+        # non-terminating flush is only used in tests
         else:
             # Send any pending records before flushing
             with self._batch_lock:
                 if self._pending_records:
                     self._send_batch()
-            # For non-terminating flush, just wait for queue to empty
-            try:
-                self._queue.join()
-            except Exception:
-                pass
+            # NB: we cannot join the queue because consumer threads can be
+            # stopped after sending batch, but this is only for tests
+            for thread in self._consumer_threads:
+                if thread.is_alive():
+                    thread.join(timeout=1)
 
     def _update_backend_store(self):
         """
@@ -213,27 +281,24 @@ class TelemetryClient:
 
 
 _MLFLOW_TELEMETRY_CLIENT = None
+_client_lock = threading.Lock()
 
 
 def set_telemetry_client():
-    global _MLFLOW_TELEMETRY_CLIENT
-
     if is_telemetry_disabled():
         # set to None again so this function can be used to
         # re-initialize the telemetry client
-        _MLFLOW_TELEMETRY_CLIENT = None
+        _set_telemetry_client(None)
     else:
+        _set_telemetry_client(TelemetryClient())
 
-        def _init():
-            global _MLFLOW_TELEMETRY_CLIENT
 
-            if config := _get_config():
-                _MLFLOW_TELEMETRY_CLIENT = TelemetryClient(config=config)
-
-        thread = threading.Thread(target=_init, name="GetTelemetryConfig", daemon=True)
-        thread.start()
-        thread.join(timeout=3)
+def _set_telemetry_client(value: TelemetryClient | None):
+    global _MLFLOW_TELEMETRY_CLIENT
+    with _client_lock:
+        _MLFLOW_TELEMETRY_CLIENT = value
 
 
 def get_telemetry_client() -> Optional[TelemetryClient]:
-    return _MLFLOW_TELEMETRY_CLIENT
+    with _client_lock:
+        return _MLFLOW_TELEMETRY_CLIENT

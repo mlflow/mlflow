@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from unittest import mock
 
 import pytest
 
@@ -11,13 +12,14 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIRecord, APIStatus
+from mlflow.telemetry.schemas import APIRecord, APIStatus, SourceSDK, TelemetryConfig
+from mlflow.utils.os import is_windows
+from mlflow.version import VERSION
 
 
 @pytest.fixture
 def telemetry_client():
     """Fixture to provide a telemetry client."""
-    set_telemetry_client()
     client = get_telemetry_client()
     yield client
     # Cleanup
@@ -116,7 +118,7 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
 
 def test_error_handling(mock_requests, telemetry_client):
     """Test that client handles server errors gracefully."""
-    telemetry_client.config.telemetry_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
+    telemetry_client.config.ingestion_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
 
     # Add a record - should not crash
     record = APIRecord(
@@ -368,6 +370,318 @@ def test_set_telemetry_client_non_blocking():
     start_time = time.time()
     set_telemetry_client()
     assert time.time() - start_time < 1
-    time.sleep(1.1)
     assert get_telemetry_client() is not None
+    time.sleep(1.1)
     assert not any(thread.name.startswith("GetTelemetryConfig") for thread in threading.enumerate())
+
+
+@pytest.mark.parametrize(
+    "mock_requests_return_value",
+    [
+        mock.Mock(status_code=403),
+        mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": True,
+                }
+            ),
+        ),
+        mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": "1.0.0",
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                }
+            ),
+        ),
+        mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 0,
+                }
+            ),
+        ),
+        mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 70,
+                }
+            ),
+        ),
+    ],
+)
+@pytest.mark.no_mock_requests_get
+def test_client_get_config_none(mock_requests_return_value):
+    with (
+        mock.patch("mlflow.telemetry.client.requests.get") as mock_requests,
+        mock.patch("random.randint", return_value=80),
+    ):
+        mock_requests.return_value = mock_requests_return_value
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config is None
+
+
+@pytest.mark.no_mock_requests_get
+def test_client_get_config_not_none():
+    with (
+        mock.patch("mlflow.telemetry.client.requests.get") as mock_requests,
+        mock.patch("random.randint", return_value=50),
+    ):
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 70,
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config == TelemetryConfig(
+            ingestion_url="http://localhost:9999",
+            disable_api_map={},
+        )
+
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config == TelemetryConfig(
+            ingestion_url="http://localhost:9999",
+            disable_api_map={},
+        )
+
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_api_map": {},
+                    "disable_sdks": ["mlflow-tracing"],
+                }
+            ),
+        )
+        with mock.patch(
+            "mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW_TRACING
+        ):
+            set_telemetry_client()
+            client = get_telemetry_client()
+            client._get_config()
+            assert client.config is None
+
+        with mock.patch(
+            "mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW_SKINNY
+        ):
+            set_telemetry_client()
+            client = get_telemetry_client()
+            client._get_config()
+            assert client.config == TelemetryConfig(
+                ingestion_url="http://localhost:9999",
+                disable_api_map={},
+            )
+
+        with mock.patch("mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW):
+            set_telemetry_client()
+            client = get_telemetry_client()
+            client._get_config()
+            assert client.config == TelemetryConfig(
+                ingestion_url="http://localhost:9999",
+                disable_api_map={},
+            )
+
+
+@pytest.mark.no_mock_requests_get
+@pytest.mark.skipif(is_windows(), reason="This test only passes on non-Windows")
+def test_get_config_disable_non_windows():
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["linux", "darwin"],
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config is None
+
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["win32"],
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config == TelemetryConfig(
+            ingestion_url="http://localhost:9999",
+            disable_api_map={},
+        )
+
+
+@pytest.mark.no_mock_requests_get
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+def test_get_config_windows():
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["win32"],
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config is None
+
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_os": ["linux", "darwin"],
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client.config == TelemetryConfig(
+            ingestion_url="http://localhost:9999",
+            disable_api_map={},
+        )
+
+
+@pytest.mark.no_mock_requests_get
+def test_client_set_to_none_if_config_none():
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": True,
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        client._config_thread.join(timeout=3)
+        assert not client._config_thread.is_alive()
+        assert client.config is None
+        assert client._is_config_fetched is True
+        assert client._is_stopped
+
+
+@pytest.mark.no_mock_requests_get
+@pytest.mark.parametrize("terminate", [True, False])
+def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
+        mock_requests_get.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client.add_record(record)
+        assert len(client._pending_records) == 1
+        client.flush(terminate=terminate)
+        assert len(mock_requests) == 1
+
+
+@pytest.mark.no_mock_requests_get
+@pytest.mark.parametrize("terminate", [True, False])
+def test_records_not_processed_when_fetching_config_failed(mock_requests, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(status_code=403)
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client.add_record(record)
+        assert len(client._pending_records) == 1
+        client.flush(terminate=terminate)
+        assert len(mock_requests) == 0
+
+        # clean up
+        if terminate is False:
+            client.flush(terminate=True)

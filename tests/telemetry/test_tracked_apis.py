@@ -186,7 +186,7 @@ def test_disable_api_map(mock_requests):
                 return_value={
                     "mlflow_version": VERSION,
                     "disable_telemetry": False,
-                    "telemetry_url": "http://localhost:9999",
+                    "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_api_map": {disable_api.__module__: [disable_api.__qualname__]},
                     "disable_sdks": [],
