@@ -48,11 +48,13 @@ def enable_telemetry(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_requests_get(request):
+def mock_requests_get(request, monkeypatch):
     """Fixture to mock requests.get and capture telemetry records."""
     if request.node.get_closest_marker("no_mock_requests_get"):
         return
 
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
     with patch("mlflow.telemetry.client.requests.get") as mock_get:
         mock_get.return_value = Mock(
             status_code=200,
