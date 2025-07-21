@@ -8,6 +8,7 @@ from semantic_kernel.connectors.ai.text_completion_client_base import (
 from semantic_kernel.kernel import Kernel
 from semantic_kernel.utils.telemetry.model_diagnostics import decorators
 
+from mlflow.entities import SpanType
 from mlflow.semantic_kernel.autolog import (
     _semantic_kernel_chat_completion_error_wrapper,
     _semantic_kernel_chat_completion_input_wrapper,
@@ -64,54 +65,62 @@ def autolog(
         "invoke_prompt_stream",
     ]
 
-    # Method to parser mapping
-    method_parsers = {
+    # Method configuration: method_name -> (span_type, input_parser, output_serializer)
+    method_configs = {
         # Chat completion methods
-        "get_chat_message_content": _parse_chat_inputs,
-        "get_chat_message_contents": _parse_chat_inputs,
-        "get_streaming_chat_message_content": _parse_chat_inputs,
-        "get_streaming_chat_message_contents": _parse_chat_inputs,
-        "_inner_get_chat_message_contents": _parse_chat_inputs,
-        "_inner_get_streaming_chat_message_contents": _parse_chat_inputs,
+        "get_chat_message_content": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
+        "get_chat_message_contents": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
+        "get_streaming_chat_message_content": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
+        "get_streaming_chat_message_contents": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
+        "_inner_get_chat_message_contents": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
+        "_inner_get_streaming_chat_message_contents": (
+            SpanType.CHAT_MODEL,
+            _parse_chat_inputs,
+            _serialize_chat_output,
+        ),
         # Text completion methods
-        "get_text_content": _parse_text_inputs,
-        "get_text_contents": _parse_text_inputs,
-        "get_streaming_text_content": _parse_text_inputs,
-        "get_streaming_text_contents": _parse_text_inputs,
-        "_inner_get_text_contents": _parse_text_inputs,
-        "_inner_get_streaming_text_contents": _parse_text_inputs,
+        "get_text_content": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        "get_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        "get_streaming_text_content": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        "get_streaming_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        "_inner_get_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        "_inner_get_streaming_text_contents": (
+            SpanType.LLM,
+            _parse_text_inputs,
+            _serialize_text_output,
+        ),
         # Embedding methods
-        "generate_embeddings": _parse_embedding_inputs,
-        "generate_raw_embeddings": _parse_embedding_inputs,
-        # Kernel methods
-        "invoke": _parse_kernel_invoke_inputs,
-        "invoke_stream": _parse_kernel_invoke_inputs,
-        "invoke_prompt": _parse_kernel_invoke_prompt_inputs,
-        "invoke_prompt_stream": _parse_kernel_invoke_prompt_inputs,
-    }
-
-    # Method to serializer mapping
-    method_serializers = {
-        # Chat completion methods
-        "get_chat_message_content": _serialize_chat_output,
-        "get_chat_message_contents": _serialize_chat_output,
-        "get_streaming_chat_message_content": _serialize_chat_output,
-        "get_streaming_chat_message_contents": _serialize_chat_output,
-        "_inner_get_chat_message_contents": _serialize_chat_output,
-        "_inner_get_streaming_chat_message_contents": _serialize_chat_output,
-        # Text completion methods
-        "get_text_content": _serialize_text_output,
-        "get_text_contents": _serialize_text_output,
-        "get_streaming_text_content": _serialize_text_output,
-        "get_streaming_text_contents": _serialize_text_output,
-        "_inner_get_text_contents": _serialize_text_output,
-        "_inner_get_streaming_text_contents": _serialize_text_output,
-        # Kernel methods
-        "invoke": _serialize_kernel_output,
-        "invoke_stream": _serialize_kernel_output,
-        "invoke_prompt": _serialize_kernel_output,
-        "invoke_prompt_stream": _serialize_kernel_output,
-        # Note: Embedding methods excluded as they don't generate traces
+        "generate_embeddings": (SpanType.EMBEDDING, _parse_embedding_inputs, None),
+        "generate_raw_embeddings": (SpanType.EMBEDDING, _parse_embedding_inputs, None),
+        # Kernel methods (no explicit span type)
+        "invoke": (None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
+        "invoke_stream": (None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
+        "invoke_prompt": (None, _parse_kernel_invoke_prompt_inputs, _serialize_kernel_output),
+        "invoke_prompt_stream": (
+            None,
+            _parse_kernel_invoke_prompt_inputs,
+            _serialize_kernel_output,
+        ),
     }
 
     entry_point_patches = [
@@ -144,13 +153,11 @@ def autolog(
     for cls, methods in entry_point_patches:
         for method in methods:
             if hasattr(cls, method):
-                # Use streaming wrapper for streaming methods
                 if method in streaming_methods:
                     safe_patch(FLAVOR_NAME, cls, method, _streaming_not_supported_wrapper)
                 else:
-                    # Create wrapper with the appropriate parser and serializer
-                    parser = method_parsers.get(method)
-                    serializer = method_serializers.get(method)
+                    config = method_configs.get(method, (None, None, None))
+                    _, parser, serializer = config
                     safe_patch(FLAVOR_NAME, cls, method, _create_trace_wrapper(parser, serializer))
 
     patches = [

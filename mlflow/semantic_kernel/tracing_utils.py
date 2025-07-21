@@ -178,7 +178,7 @@ def _set_span_inputs(
     span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
     parsed_inputs = parser(args, kwargs) if parser else {}
 
-    if not parsed_inputs:  # Fallback parsing
+    if not parsed_inputs:
         parsed_inputs = {"function": original.__qualname__}
         if args[1:]:  # Skip self
             parsed_inputs["args"] = [getattr(a, "__class__.__name__", str(a)) for a in args[1:]]
