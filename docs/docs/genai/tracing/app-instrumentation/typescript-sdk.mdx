@@ -142,7 +142,7 @@ The `trace` API is useful when you want to trace a function.
     );
 
     // Invoke the traced function as usual.
-    tracedGetWeather('San Francisco');
+    await tracedGetWeather('San Francisco');
     ```
 
   </TabItem>
@@ -158,6 +158,9 @@ The `trace` API is useful when you want to trace a function.
         // When wrapping an anonymous function, you need to specify the span name.
         { name: 'get-weather' }
     );
+
+    // Invoke the traced function as usual.
+    getWeather('San Francisco');
     ```
 
   </TabItem>
@@ -242,7 +245,7 @@ import * as mlflow from "mlflow-tracing";
 
 const question = "What's the weather like in Seattle?";
 
-const mlflow.withSpan(
+const result = await mlflow.withSpan(
     async (span: mlflow.Span) => {
         return "It's sunny in Seattle!";
     },

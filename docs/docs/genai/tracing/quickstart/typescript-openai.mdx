@@ -33,25 +33,27 @@ For other LLM providers that are not natively integrated with auto-tracing, inst
 
 ```typescript
 import * as mlflow from "mlflow-tracing";
+import Anthropic from '@anthropic-ai/sdk';
 
 // Instantiate the Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Wrap the client method with the `mlflow.trace` wrapper.
-const tracedAnthropic = mlflow.trace(
-  anthropic.messages.create,
-  { spanType: mlflow.SpanType.LLM }
+// Define a traced function that wraps the Anthropic API call.
+const generate = mlflow.trace(
+    (prompt: string) => {
+        return anthropic.messages.create({
+            model: "claude-sonnet-4-latest",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: prompt }],
+        });
+    },
+    { spanType: mlflow.SpanType.LLM }
 );
 
-// Call the wrapped function just like the original function.
-// MLflow will generate a trace that captures inputs, outputs, latency, and exceptions.
-const response = await tracedAnthropic({
-  model: "claude-sonnet-4-20250514",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-});
+// Call the wrapped function as usual.
+const response = await generate("Hello, Claude");
 ```
 
 </details>
@@ -122,6 +124,17 @@ If you are unsure about how to set up an MLflow tracking server, you can start w
 ### Create a new MLflow Experiment
 
 Create a new MLflow experiment in the MLflow UI, or choose an existing experiment.
+
+<ImageBox src="/images/llms/tracing/quickstart/mlflow-ui-new-experiment.png" alt="New Experiment" width="80%" />
+
+1. Navigate to the MLflow UI in your browser. For example, if you started a local MLflow server at port 5000, you can navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000).
+2. Click on the <div className="inline-flex rounded-sm bg-sky-700 px-2 py-1.5 text-sm font-semibold text-white">Create</div> button on the top right.
+3. Enter a name for the experiment and click on "Create".
+
+*You can leave the `Artifact Location` field blank for now. It is an advanced configuration to override where MLflow stores experiment data.*
+
+
+
 
 ### Initialize the Tracing SDK
 
