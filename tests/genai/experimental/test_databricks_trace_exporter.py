@@ -274,7 +274,10 @@ def test_delta_archiver_archive_with_valid_archival_config(
         mock.patch(
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter.asyncio") as mock_asyncio,
+        mock.patch(
+            "mlflow.genai.experimental.databricks_trace_exporter.asyncio.run",
+            side_effect=lambda coro: coro.close() if hasattr(coro, "close") else None,
+        ) as mock_asyncio_run,
     ):
         # Mock client to return valid config
         mock_client = mock_client_class.return_value
@@ -287,7 +290,7 @@ def test_delta_archiver_archive_with_valid_archival_config(
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
 
         # Verify that async archival was initiated
-        mock_asyncio.run.assert_called_once()
+        mock_asyncio_run.assert_called_once()
 
 
 def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, monkeypatch):
@@ -369,7 +372,7 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
         assert any("No proto spans to export" in msg for msg in debug_calls)
 
-        # Stream operations should not be called
+        # Stream operations should not be called since there are no spans
         mock_get_instance.assert_not_called()
         mock_stream.ingest_record.assert_not_called()
 

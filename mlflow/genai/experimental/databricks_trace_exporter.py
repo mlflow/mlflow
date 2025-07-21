@@ -5,10 +5,7 @@ import logging
 import threading
 import time
 import uuid
-from typing import TYPE_CHECKING, Optional, Sequence
-
-if TYPE_CHECKING:
-    pass
+from typing import Optional, Sequence
 
 from cachetools import TTLCache
 from ingest_api_sdk import TableProperties
@@ -25,9 +22,6 @@ from mlflow.genai.experimental.databricks_trace_exporter_utils import (
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.utils.annotations import experimental
-
-if TYPE_CHECKING:
-    pass
 
 _logger = logging.getLogger(__name__)
 
