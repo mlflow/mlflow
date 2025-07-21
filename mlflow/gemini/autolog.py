@@ -6,11 +6,10 @@ import mlflow.gemini
 from mlflow.entities import SpanType
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
-    parse_gemini_content_to_mlflow_chat_messages,
 )
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages, set_span_chat_tools
-from mlflow.types.chat import ChatMessage
+from mlflow.tracing.utils import construct_full_inputs, set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 try:
@@ -88,6 +87,7 @@ class TracingSession:
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
             span_type=_get_span_type(self.original.__name__),
             inputs=self.inputs,
+            attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )
         if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
             _log_generativeai_tool_definition(self.instance, self.span)
@@ -111,21 +111,8 @@ class TracingSession:
         if exc_val:
             self.span.record_exception(exc_val)
 
-        result = self.output
-        if (
-            has_generativeai and isinstance(result, generativeai.types.GenerateContentResponse)
-        ) or (has_genai and isinstance(result, genai.types.GenerateContentResponse)):
-            try:
-                content = _get_keys(self.inputs, ["contents", "content", "message"])
-                messages = parse_gemini_content_to_mlflow_chat_messages(content)
-                messages += _parse_outputs(result)
-                if messages:
-                    set_span_chat_messages(span=self.span, messages=messages)
-            except Exception as e:
-                _logger.warning(f"Failed to set chat attributes for {self.span}. Error: {e}")
-
         # need to convert the response of generate_content for better visualization
-        outputs = result.to_dict() if hasattr(result, "to_dict") else result
+        outputs = self.output.to_dict() if hasattr(self.output, "to_dict") else self.output
         self.span.end(outputs=outputs)
 
 
@@ -156,12 +143,13 @@ def patched_module_call(original, *args, **kwargs):
     ) as span:
         inputs = _construct_full_inputs(original, *args, **kwargs)
         span.set_inputs(inputs)
+        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
         result = original(*args, **kwargs)
         # need to convert the response of generate_content for better visualization
         outputs = result.to_dict() if hasattr(result, "to_dict") else result
         span.set_outputs(outputs)
 
-        return result
+    return result
 
 
 def _get_keys(dic, keys):
@@ -170,21 +158,6 @@ def _get_keys(dic, keys):
             return dic[key]
 
     return None
-
-
-def _parse_outputs(outputs) -> list[ChatMessage]:
-    """
-    This method extract chat messages from genai.types.generation_types.GenerateContentResponse
-    """
-    # content always exist on output
-    # https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/generative_service.proto#L490
-    return sum(
-        [
-            parse_gemini_content_to_mlflow_chat_messages(candidate.content)
-            for candidate in outputs.candidates
-        ],
-        [],
-    )
 
 
 def _log_generativeai_tool_definition(model, span):

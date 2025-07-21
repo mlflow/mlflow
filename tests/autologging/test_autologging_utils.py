@@ -1,7 +1,7 @@
 import inspect
 import sys
 import time
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pytest
@@ -467,7 +467,10 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+        class LoggerCall(NamedTuple):
+            integration: Any
+            call_args: Any
+            call_kwargs: Any
 
         def __init__(self):
             self.calls = []
