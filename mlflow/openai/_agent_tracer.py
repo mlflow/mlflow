@@ -281,7 +281,6 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
     if response and response.output:
         parsed = [_parse_message_like(m) for m in span_data.response.output]
         messages.extend(parsed)
-    attributes[SpanAttributeKey.CHAT_MESSAGES] = [m.model_dump_compat() for m in messages]
 
     # Extract chat tools
     chat_tools = []
