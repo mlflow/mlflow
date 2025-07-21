@@ -861,7 +861,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
                         output_items.append(chunk.item)
 
-            return ResponsesAgentResponse(output=output_items)
+            return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
 
         def __init_subclass__(cls, **kwargs) -> None:
             super().__init_subclass__(**kwargs)

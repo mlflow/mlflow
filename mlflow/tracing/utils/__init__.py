@@ -418,29 +418,6 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 
 
-<<<<<<< HEAD
-def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
-    """
-    Set the `mlflow.chat.messages` and `mlflow.chat.tools` attributes on the specified span
-    based on the inputs and outputs of the function.
-
-    Usually those attributes are set by autologging integrations. This utility function handles
-    special cases where we want to set chat attributes for manually created spans via @mlflow.trace
-    decorator, such as ResponsesAgent tracing spans.
-    """
-    try:
-        from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse
-
-        if isinstance(outputs, ResponsesAgentResponse):
-            inputs = inputs["request"].model_dump_compat()
-            set_span_chat_attributes(span, inputs, outputs)
-    except Exception:
-        pass
-
-
-=======
->>>>>>> master
 def _calculate_percentile(sorted_data: list[float], percentile: float) -> float:
     """
     Calculate the percentile value from sorted data.
