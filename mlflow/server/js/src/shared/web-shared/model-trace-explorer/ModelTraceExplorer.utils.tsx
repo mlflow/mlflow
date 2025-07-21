@@ -991,25 +991,26 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
     return content;
   }
 
-  return (
-    content
-      // eslint-disable-next-line array-callback-return
-      .map((part) => {
-        switch (part.type) {
-          case 'text':
-          case 'input_text':
-          case 'output_text':
-            return part.text;
-          case 'image_url':
-            const url = part?.image_url?.url;
-            return url ? `![image](${url})` : '[image]';
-          case 'input_audio':
-            // raw encoded audio content is not displayed in the UI
-            return '[audio]';
-        }
-      })
-      .join('\n')
-  );
+  const contentParts = content
+    // eslint-disable-next-line array-callback-return
+    .map((part) => {
+      switch (part.type) {
+        case 'text':
+        case 'input_text':
+        case 'output_text':
+          return part.text;
+        case 'image_url':
+          const url = part?.image_url?.url;
+          return url ? `![](${url})` : '[image]';
+        case 'input_audio':
+          // raw encoded audio content is not displayed in the UI
+          return '[audio]';
+      }
+    })
+    .filter((part) => part !== undefined);
+
+  // Join with double line breaks for better visual separation
+  return contentParts.join('\n\n');
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {

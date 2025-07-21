@@ -65,20 +65,22 @@ export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessag
     content = message.content;
   } else if (Array.isArray(message.content)) {
     // Convert array of content parts to string representation
-    content = message.content
+    const contentParts = message.content
       .map((part: any) => {
         if (isString(part)) {
           return part;
         } else if (part.type === 'text' && part.text) {
           return part.text;
         } else if (part.type === 'image_url' && part.image_url?.url) {
-          // Convert to markdown image format
+          // Convert to markdown image format with spacing
           return `![](${part.image_url.url})`;
         }
         return '';
       })
-      .filter(Boolean)
-      .join('\n');
+      .filter(Boolean);
+    
+    // Join with double line breaks for better visual separation
+    content = contentParts.join('\n\n');
   } else {
     content = undefined;
   }
