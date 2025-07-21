@@ -278,7 +278,7 @@ export function trace<T extends (...args: any[]) => any>(
           name: decoratorOptions?.name || originalMethod.name || String(propertyKey),
           spanType: decoratorOptions?.spanType,
           attributes: decoratorOptions?.attributes,
-          inputs: inputs
+          inputs,
         };
 
         return withSpan((_span) => {
