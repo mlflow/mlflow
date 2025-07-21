@@ -551,7 +551,6 @@ class MlflowClient:
             prompt_version = registry_client.create_prompt_version(
                 name=name,
                 template=template,
-                response_format=response_format,
                 description=commit_message,
                 tags=tags or {},
                 response_format=response_format,

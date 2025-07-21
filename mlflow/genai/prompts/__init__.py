@@ -67,8 +67,6 @@ def register_prompt(
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
 
-        response_format: Optional Pydantic class or dictionary defining the expected response
-            structure. This can be used to specify the schema for structured outputs from LLM calls.
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -130,7 +128,6 @@ def register_prompt(
         return registry_api.register_prompt(
             name=name,
             template=template,
-            response_format=response_format,
             commit_message=commit_message,
             tags=tags,
             response_format=response_format,
