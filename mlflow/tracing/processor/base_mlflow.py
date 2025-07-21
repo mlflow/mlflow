@@ -88,17 +88,15 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
         # Processing the trace only when the root span is found.
-        if span._parent is not None:
-            return
+        if span.parent is None:
+            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+            with self._trace_manager.get_trace(trace_id) as trace:
+                if trace is None:
+                    _logger.debug(f"Trace data with request ID {trace_id} not found.")
+                    return
 
-        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        with self._trace_manager.get_trace(trace_id) as trace:
-            if trace is None:
-                _logger.debug(f"Trace data with request ID {trace_id} not found.")
-                return
-
-            self._update_trace_info(trace, span)
-            deduplicate_span_names_in_place(list(trace.span_dict.values()))
+                self._update_trace_info(trace, span)
+                deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
 

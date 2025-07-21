@@ -48,7 +48,7 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         for span in spans:
             if span._parent is not None:
-                _logger.debug("Received a non-root span. Skipping export.")
+                # Skip non-root spans
                 continue
 
             manager_trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
@@ -135,3 +135,10 @@ class MlflowV3SpanExporter(SpanExporter):
             return False
 
         return self._is_async_enabled
+
+    def force_flush(self):
+        """
+        Force the exporter to flush any pending traces.
+        """
+        if self._is_async_enabled:
+            self._async_queue.flush()
