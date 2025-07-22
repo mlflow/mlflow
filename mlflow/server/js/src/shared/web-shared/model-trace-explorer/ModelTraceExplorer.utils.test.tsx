@@ -367,8 +367,10 @@ describe('normalizeConversation', () => {
 
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT)).toEqual([
       expect.objectContaining({
-        content: '![image](data:image/png;base64,<base64_encoded_image_data>)',
+        content: '![](data:image/png;base64,<base64_encoded_image_data>)',
         role: 'tool',
+        tool_calls: undefined,
+        type: 'message',
       }),
       expect.objectContaining({
         role: 'assistant',
