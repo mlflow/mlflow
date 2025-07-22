@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -8,12 +9,14 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
 from mlflow.models.evaluation.base import _evaluate
+from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
 from mlflow.tracing.client import TracingClient
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.version import VERSION
 
-from tests.helper_functions import validate_telemetry_record
+from tests.telemetry.helper_functions import validate_telemetry_record
 
 
 class TestModel(mlflow.pyfunc.PythonModel):
@@ -172,3 +175,38 @@ def test_evaluate(mock_requests):
         extra_metrics=[mlflow.metrics.latency()],
     )
     validate_telemetry_record(mock_requests, _evaluate, search_index=True)
+
+
+@pytest.mark.no_mock_requests_get
+def test_disable_api_map(mock_requests):
+    disable_api = TrackingServiceClient.create_logged_model
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
+        mock_requests_get.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_api_map": {disable_api.__module__: [disable_api.__qualname__]},
+                    "disable_sdks": [],
+                }
+            ),
+        )
+        set_telemetry_client()
+
+        mlflow.create_external_model(name="model")
+        mlflow.initialize_logged_model(name="model", tags={"key": "value"})
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+        )
+        get_telemetry_client().flush()
+        assert len(mock_requests) == 0
+
+        with mlflow.start_run():
+            pass
+        validate_telemetry_record(
+            mock_requests, TrackingServiceClient.create_run, check_params=False
+        )

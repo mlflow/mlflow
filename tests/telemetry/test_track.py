@@ -1,8 +1,8 @@
 import time
+from unittest import mock
 
 import pytest
 
-import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.client import (
     TelemetryClient,
@@ -10,8 +10,12 @@ from mlflow.telemetry.client import (
     set_telemetry_client,
 )
 from mlflow.telemetry.schemas import APIStatus
-from mlflow.telemetry.track import track_api_usage
+from mlflow.telemetry.track import _is_telemetry_disabled_for_func, track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 
 def test_track_api_usage(mock_requests):
@@ -57,19 +61,15 @@ def test_track_api_usage(mock_requests):
 
 
 def test_backend_store_info(tmp_path):
-    @track_api_usage
-    def succeed_func():
-        return True
-
-    succeed_func()
-    get_telemetry_client().flush()
-
     telemetry_client = get_telemetry_client()
+
+    sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
+    with _use_tracking_uri(sqlite_uri):
+        telemetry_client._update_backend_store()
     assert telemetry_client.info["backend_store_scheme"] == "sqlite"
 
-    mlflow.set_tracking_uri(tmp_path)
-    succeed_func()
-    get_telemetry_client().flush()
+    with _use_tracking_uri(tmp_path):
+        telemetry_client._update_backend_store()
     assert telemetry_client.info["backend_store_scheme"] == "file"
 
 
@@ -114,3 +114,64 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     test_func()
     # no new record should be added
     assert len(mock_requests) == 1
+
+
+@pytest.mark.no_mock_requests_get
+def test_is_telemetry_disabled_for_func():
+    def allowed_func():
+        pass
+
+    def disabled_func():
+        pass
+
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_api_map": {disabled_func.__module__: [disabled_func.__qualname__]},
+                }
+            ),
+        )
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is not None
+        # func not in disable_api_map, do not skip
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        # func in disable_api_map, skip
+        assert _is_telemetry_disabled_for_func(disabled_func) is True
+
+    # test telemetry disabled after config is fetched
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(status_code=403)
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is None
+        assert get_telemetry_client() is None
+        # telemetry is disabled, skip all functions
+        assert _is_telemetry_disabled_for_func(allowed_func) is True
+        assert _is_telemetry_disabled_for_func(disabled_func) is True

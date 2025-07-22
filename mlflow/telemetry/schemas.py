@@ -90,3 +90,9 @@ class TelemetryInfo:
     )
     operating_system: str = platform.platform()
     backend_store_scheme: Optional[str] = None
+
+
+@dataclass
+class TelemetryConfig:
+    ingestion_url: str
+    disable_api_map: dict[str, list[str]]

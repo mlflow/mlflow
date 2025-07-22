@@ -14,7 +14,7 @@ import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
@@ -22,8 +22,6 @@ import requests
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.telemetry.client import get_telemetry_client
-from mlflow.telemetry.schemas import BaseParams
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.os import is_windows
@@ -819,32 +817,3 @@ def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
         filter_string=f"name='{name}'", output_format="list", max_results=1
     )
     return logged_models[0] if len(logged_models) >= 1 else None
-
-
-def validate_telemetry_record(
-    mock_requests, func, params=None, *, status="success", search_index=False, check_params=True
-) -> dict[str, Any]:
-    """
-    Validate the telemetry record at the given index.
-    """
-    get_telemetry_client().flush()
-
-    if search_index:
-        api_names = [record["data"]["api_name"] for record in mock_requests]
-        idx = api_names.index(func.__qualname__)
-    else:
-        idx = 0
-
-    record = mock_requests[idx]
-    data = record["data"]
-    assert data["api_module"] == func.__module__
-    assert data["api_name"] == func.__qualname__
-    if check_params:
-        if isinstance(params, BaseParams):
-            assert data["params"] == params.to_json()
-        else:
-            assert data["params"] == params
-    assert data["status"] == status
-    assert data["duration_ms"] is not None
-    mock_requests.clear()
-    return data
