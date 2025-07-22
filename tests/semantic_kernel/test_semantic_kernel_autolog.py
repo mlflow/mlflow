@@ -38,8 +38,8 @@ from tests.semantic_kernel.resources import (
     _create_and_invoke_embeddings,
     _create_and_invoke_kernel_complex,
     _create_and_invoke_kernel_function,
+    _create_and_invoke_kernel_function_object,
     _create_and_invoke_kernel_simple,
-    _create_and_invoke_kernel_streaming,
     _create_and_invoke_text_completion,
 )
 from tests.tracing.helper import get_traces
@@ -115,9 +115,10 @@ async def test_sk_invoke_simple(mock_openai):
         ]
     }
 
-    assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
-    assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
-    assert child_span.get_attribute(TokenUsageKey.TOTAL_TOKENS)
+    chat_usage = child_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert chat_usage[TokenUsageKey.INPUT_TOKENS] == 9
+    assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
+    assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
     assert child_span.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
 
 
@@ -198,9 +199,10 @@ async def test_sk_invoke_complex(mock_openai):
     outputs = child_span.get_attribute(SpanAttributeKey.OUTPUTS)
     assert isinstance(outputs["messages"], list)
 
-    assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
-    assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
-    assert child_span.get_attribute(TokenUsageKey.TOTAL_TOKENS)
+    chat_usage = child_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert chat_usage[TokenUsageKey.INPUT_TOKENS] == 9
+    assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
+    assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
 
 
 @pytest.mark.asyncio
@@ -219,7 +221,7 @@ async def test_sk_invoke_agent(mock_openai):
     grandchild_span = next(s for s in spans if s.parent_id == child_span.span_id)
 
     assert root_span.name == "invoke_agent sushi_agent"
-    assert root_span.span_type == SpanType.UNKNOWN
+    assert root_span.span_type == SpanType.CHAT_MODEL
     assert root_span.get_attribute(model_gen_ai_attributes.OPERATION) == "invoke_agent"
     assert root_span.get_attribute(agent_gen_ai_attributes.AGENT_NAME) == "sushi_agent"
 
@@ -305,7 +307,7 @@ async def test_tracing_autolog_with_active_span(mock_openai):
 
     child = trace.data.spans[1]
     assert child.parent_id == parent.span_id
-    assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.TOOL
+    assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
 
     grandchild = trace.data.spans[2]
     assert grandchild.name == "chat.completions gpt-4o-mini"
@@ -363,22 +365,6 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         assert child_span.get_attribute(SpanAttributeKey.OUTPUTS)
 
     assert len(unique_messages) == n
-
-
-@pytest.mark.asyncio
-async def test_sk_streaming_methods(mock_openai):
-    mlflow.semantic_kernel.autolog()
-
-    _ = await _create_and_invoke_kernel_streaming(mock_openai)
-
-    traces = get_traces()
-    assert len(traces) == 1
-    trace = traces[0]
-    spans = trace.data.spans
-
-    assert len(spans) >= 1
-    streaming_span = next((s for s in spans if "streaming" in s.name.lower()), None)
-    assert streaming_span
 
 
 @pytest.mark.asyncio
@@ -479,6 +465,20 @@ async def test_sk_input_parsing(
 
 
 @pytest.mark.asyncio
+async def test_sk_invoke_with_kernel_arguments(mock_openai):
+    mlflow.semantic_kernel.autolog()
+    _ = await _create_and_invoke_kernel_function_object(mock_openai)
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # Check that kernel arguments were passed through to the prompt
+    child_span = next(s for s in trace.data.spans if "chat.completions" in s.name)
+    inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
+    assert inputs["messages"][0]["content"] == "Add 5 and 3"
+
+
+@pytest.mark.asyncio
 async def test_sk_embeddings(mock_openai):
     mlflow.semantic_kernel.autolog()
 
@@ -491,3 +491,32 @@ async def test_sk_embeddings(mock_openai):
     # spans, so no traces are generated for embedding operations
     traces = get_traces()
     assert len(traces) == 0
+
+
+@pytest.mark.asyncio
+async def test_kernel_invoke_function_object(mock_openai):
+    """Test that kernel.invoke with function object works correctly"""
+    mlflow.semantic_kernel.autolog()
+
+    _ = await _create_and_invoke_kernel_function_object(mock_openai)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # Verify trace structure
+    assert len(trace.data.spans) == 2
+
+    # Root span should be execute_tool
+    root_span = next(s for s in trace.data.spans if s.parent_id is None)
+    assert "execute_tool" in root_span.name
+    assert "MathPlugin-Add" in root_span.name
+
+    # Child span should be chat completion
+    child_span = next(s for s in trace.data.spans if s.parent_id == root_span.span_id)
+    assert "chat.completions" in child_span.name
+
+    # Verify inputs are captured (same as other kernel.invoke patterns)
+    root_inputs = root_span.get_attribute(SpanAttributeKey.INPUTS)
+    assert "messages" in root_inputs
+    assert root_inputs["messages"][0]["content"] == "Add 5 and 3"

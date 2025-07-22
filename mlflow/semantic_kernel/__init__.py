@@ -25,7 +25,6 @@ from mlflow.semantic_kernel.tracing_utils import (
     _serialize_chat_output,
     _serialize_kernel_output,
     _serialize_text_output,
-    _streaming_not_supported_wrapper,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -54,112 +53,51 @@ def autolog(
 
     setup_semantic_kernel_tracing()
 
-    streaming_methods = [
-        "get_streaming_chat_message_content",
-        "get_streaming_chat_message_contents",
-        "_inner_get_streaming_chat_message_contents",
-        "get_streaming_text_content",
-        "get_streaming_text_contents",
-        "_inner_get_streaming_text_contents",
-        "invoke_stream",
-        "invoke_prompt_stream",
-    ]
-
-    # Method configuration: method_name -> (span_type, input_parser, output_serializer)
-    method_configs = {
-        # Chat completion methods
-        "get_chat_message_content": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        "get_chat_message_contents": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        "get_streaming_chat_message_content": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        "get_streaming_chat_message_contents": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        "_inner_get_chat_message_contents": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        "_inner_get_streaming_chat_message_contents": (
-            SpanType.CHAT_MODEL,
-            _parse_chat_inputs,
-            _serialize_chat_output,
-        ),
-        # Text completion methods
-        "get_text_content": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
-        "get_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
-        "get_streaming_text_content": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
-        "get_streaming_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
-        "_inner_get_text_contents": (SpanType.LLM, _parse_text_inputs, _serialize_text_output),
-        "_inner_get_streaming_text_contents": (
-            SpanType.LLM,
-            _parse_text_inputs,
-            _serialize_text_output,
-        ),
-        # Embedding methods
-        "generate_embeddings": (SpanType.EMBEDDING, _parse_embedding_inputs, None),
-        "generate_raw_embeddings": (SpanType.EMBEDDING, _parse_embedding_inputs, None),
-        # Kernel methods (no explicit span type)
-        "invoke": (None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
-        "invoke_stream": (None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
-        "invoke_prompt": (None, _parse_kernel_invoke_prompt_inputs, _serialize_kernel_output),
-        "invoke_prompt_stream": (
-            None,
-            _parse_kernel_invoke_prompt_inputs,
-            _serialize_kernel_output,
-        ),
-    }
-
-    entry_point_patches = [
-        (
+    # NB: Patch all semantic kernel methods that are not covered by the chat decorators listed
+    # below.
+    chat_entry_points = ["get_chat_message_content", "get_chat_message_contents"]
+    for method in chat_entry_points:
+        safe_patch(
+            FLAVOR_NAME,
             ChatCompletionClientBase,
-            [
-                "get_chat_message_content",
-                "get_chat_message_contents",
-                "get_streaming_chat_message_content",
-                "get_streaming_chat_message_contents",
-                "_inner_get_chat_message_contents",
-                "_inner_get_streaming_chat_message_contents",
-            ],
-        ),
-        (
+            method,
+            _create_trace_wrapper(SpanType.CHAT_MODEL, _parse_chat_inputs, _serialize_chat_output),
+        )
+
+    text_entry_points = ["get_text_content", "get_text_contents"]
+    for method in text_entry_points:
+        safe_patch(
+            FLAVOR_NAME,
             TextCompletionClientBase,
-            [
-                "get_text_content",
-                "get_text_contents",
-                "get_streaming_text_content",
-                "get_streaming_text_contents",
-                "_inner_get_text_contents",
-                "_inner_get_streaming_text_contents",
-            ],
-        ),
-        (EmbeddingGeneratorBase, ["generate_embeddings", "generate_raw_embeddings"]),
-        (Kernel, ["invoke", "invoke_stream", "invoke_prompt", "invoke_prompt_stream"]),
-    ]
+            method,
+            _create_trace_wrapper(SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+        )
 
-    for cls, methods in entry_point_patches:
-        for method in methods:
-            if hasattr(cls, method):
-                if method in streaming_methods:
-                    safe_patch(FLAVOR_NAME, cls, method, _streaming_not_supported_wrapper)
-                else:
-                    config = method_configs.get(method, (None, None, None))
-                    _, parser, serializer = config
-                    safe_patch(FLAVOR_NAME, cls, method, _create_trace_wrapper(parser, serializer))
+    embedding_entry_points = ["generate_embeddings", "generate_raw_embeddings"]
+    for method in embedding_entry_points:
+        safe_patch(
+            FLAVOR_NAME,
+            EmbeddingGeneratorBase,
+            method,
+            _create_trace_wrapper(SpanType.EMBEDDING, _parse_embedding_inputs, None),
+        )
 
+    safe_patch(
+        FLAVOR_NAME,
+        Kernel,
+        "invoke",
+        _create_trace_wrapper(None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
+    )
+    safe_patch(
+        FLAVOR_NAME,
+        Kernel,
+        "invoke_prompt",
+        _create_trace_wrapper(None, _parse_kernel_invoke_prompt_inputs, _serialize_kernel_output),
+    )
+
+    # NB: Semantic Kernel uses logging to serialize inputs/outputs. These parsers are used by their
+    # tracing decorators to log the inputs/outputs. These patches give coverage for many additional
+    # methods that are not covered by above entry point patches.
     patches = [
         ("_set_completion_input", _semantic_kernel_chat_completion_input_wrapper),
         ("_set_completion_response", _semantic_kernel_chat_completion_response_wrapper),

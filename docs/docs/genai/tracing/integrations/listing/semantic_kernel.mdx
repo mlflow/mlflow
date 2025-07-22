@@ -31,12 +31,19 @@ MLflow trace automatically captures the following information about Semantic Ker
 ## Getting Started
 
 To get started, let's install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
+:::note
+Currently, tracing for streaming is not supported. If you want this feature, please file a [feature request](https://github.com/mlflow/mlflow/issues).
+:::
 
 ```bash
 pip install mlflow semantic_kernel openai
 ```
 
 Then, enable autologging in your Python code:
+
+:::note
+You must run `mlflow.semantic_kernel.autolog()` prior to running Semantic Kernel code. If this is not performed, traces may not be logged properly.
+:::
 
 ```python
 import mlflow

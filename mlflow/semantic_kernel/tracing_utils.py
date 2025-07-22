@@ -17,7 +17,7 @@ from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
 )
 
 from mlflow.entities import SpanType
-from mlflow.entities.span import LiveSpan
+from mlflow.entities.span import LiveSpan, SpanEvent, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 # NB: Use global variable instead of the instance variable of the processor, because sometimes
@@ -32,7 +32,7 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
     if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
         return span_and_token[0]
     else:
-        _logger.warning(
+        _logger.debug(
             f"Live span not found for OTel span ID: {otel_span_id}. "
             "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
             "additional attributes. "
@@ -86,7 +86,32 @@ def _parse_embedding_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> di
 def _parse_kernel_invoke_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
     """Parse Kernel.invoke method inputs."""
     try:
-        return {k: kwargs[k] for k in ["function_name", "plugin_name"] if k in kwargs and kwargs[k]}
+        result = {}
+
+        # Check if function object is passed as first positional arg after self
+        if len(args) > 1 and args[1] is not None:
+            function = args[1]
+            if hasattr(function, "name") and hasattr(function, "plugin_name"):
+                result["function_name"] = function.name
+                result["plugin_name"] = function.plugin_name
+
+        # Check for function_name and plugin_name in kwargs
+        for k in ["function_name", "plugin_name"]:
+            if k in kwargs and kwargs[k]:
+                result[k] = kwargs[k]
+
+        # Check for arguments (can be positional or keyword)
+        if len(args) > 2 and args[2] is not None:
+            # arguments passed as positional
+            arguments = args[2]
+            if hasattr(arguments, "__dict__"):
+                result["arguments"] = dict(arguments)
+        elif "arguments" in kwargs and kwargs["arguments"] is not None:
+            arguments = kwargs["arguments"]
+            if hasattr(arguments, "__dict__"):
+                result["arguments"] = dict(arguments)
+
+        return result
     except Exception:
         pass
     return {}
@@ -177,36 +202,32 @@ def _get_span_type(span: OTelSpan) -> str:
 
 def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
     """Set token usage attributes on the MLflow span."""
-    if value := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.INPUT_TOKENS, value)
-    if value := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.OUTPUT_TOKENS, value)
+    input_tokens = sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)
+    output_tokens = sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
 
-    if (input_tokens := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)) and (
-        output_tokens := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
-    ):
-        mlflow_span.set_attribute(TokenUsageKey.TOTAL_TOKENS, input_tokens + output_tokens)
+    usage_dict = {}
+    if input_tokens is not None:
+        usage_dict[TokenUsageKey.INPUT_TOKENS] = input_tokens
+    if output_tokens is not None:
+        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+    if input_tokens is not None or output_tokens is not None:
+        total_tokens = (input_tokens or 0) + (output_tokens or 0)
+        usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+    if usage_dict:
+        mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
 
 def _set_span_inputs(
-    span: Any,
+    mlflow_span: LiveSpan,
     parser: Optional[Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]]],
     original: Any,
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> None:
     """Set input attributes on the span."""
-    if not span or not span.is_recording():
-        return
-
-    span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
     parsed_inputs = parser(args, kwargs) if parser else {}
-
-    otel_span_id = span.get_span_context().span_id
-    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
-
-    if not mlflow_span:
-        return
 
     if not parsed_inputs:
         parsed_inputs = {"function": original.__qualname__}
@@ -219,25 +240,12 @@ def _set_span_inputs(
 
 
 def _set_span_outputs(
-    span: Any,
+    mlflow_span: LiveSpan,
     serializer: Optional[Callable[[Any], str]],
     result: Any,
     error: Optional[Exception] = None,
 ) -> None:
     """Set output attributes on the span."""
-    if not span or not span.is_recording():
-        return
-
-    if error:
-        span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps({"error": str(error)}))
-        return
-
-    otel_span_id = span.get_span_context().span_id
-    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
-
-    if not mlflow_span:
-        return
-
     output_str = serializer(result)
     mlflow_span.set_outputs(output_str)
 
@@ -249,8 +257,13 @@ def _set_span_outputs(
         except Exception:
             pass
 
+    if error:
+        mlflow_span.add_event(SpanEvent.from_exception(error))
+        mlflow_span.set_status(SpanStatusCode.ERROR)
+
 
 def _create_trace_wrapper(
+    span_type: Optional[SpanType] = None,
     parser: Optional[Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]]] = None,
     serializer: Optional[Callable[[Any], str]] = None,
 ) -> Callable[[Any], Any]:
@@ -258,23 +271,23 @@ def _create_trace_wrapper(
 
     async def _trace_wrapper(original, *args, **kwargs):
         span = get_current_span()
-        _set_span_inputs(span, parser, original, args, kwargs)
+        mlflow_span = _get_live_span_from_otel_span_id(span.get_span_context().span_id)
+
+        if not mlflow_span:
+            return await original(*args, **kwargs)
+
+        if span_type:
+            mlflow_span.set_span_type(span_type)
+
+        _set_span_inputs(mlflow_span, parser, original, args, kwargs)
 
         try:
             result = await original(*args, **kwargs)
-            _set_span_outputs(span, serializer, result)
-            return result
         except Exception as e:
-            _set_span_outputs(span, serializer, None, error=e)
+            _set_span_outputs(mlflow_span, serializer, None, error=e)
             raise
 
+        _set_span_outputs(mlflow_span, serializer, result)
+        return result
+
     return _trace_wrapper
-
-
-def _streaming_not_supported_wrapper(original, *args, **kwargs):
-    """Wrapper for streaming methods that logs a debug message."""
-    _logger.debug(
-        f"Streaming method '{original.__qualname__}' called. "
-        "Note: Streaming responses are not currently captured in MLflow traces."
-    )
-    return original(*args, **kwargs)
