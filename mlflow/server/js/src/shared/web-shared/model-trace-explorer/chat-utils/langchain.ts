@@ -78,7 +78,7 @@ export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessag
         return '';
       })
       .filter(Boolean);
-    
+
     // Join with double line breaks for better visual separation
     content = contentParts.join('\n\n');
   } else {
