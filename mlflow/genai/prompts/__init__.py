@@ -11,9 +11,6 @@ from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import experimental
 
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
-
 
 @contextmanager
 def suppress_genai_migration_warning():

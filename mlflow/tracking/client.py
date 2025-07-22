@@ -125,8 +125,6 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
-    from mlflow.types.chat import ContentType
-
 
 _logger = logging.getLogger(__name__)
 

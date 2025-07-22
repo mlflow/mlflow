@@ -168,9 +168,6 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
-
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {
     **extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
