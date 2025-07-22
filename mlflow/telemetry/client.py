@@ -159,7 +159,7 @@ class TelemetryClient:
             # TODO: record this case
             pass
 
-    def _process_records(self, records: list[APIRecord], timeout: float = 1):
+    def _process_records(self, records: list[APIRecord], request_timeout: float = 1):
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
@@ -172,7 +172,10 @@ class TelemetryClient:
                 }
                 for record in records
             ]
+            # changing this value can affect total time for processing records
+            # the total time = request_timeout * max_attempts + sleep_time * (max_attempts - 1)
             max_attempts = 3
+            sleep_time = 1
             for i in range(max_attempts):
                 should_retry = False
                 response = None
@@ -181,16 +184,19 @@ class TelemetryClient:
                         self.config.ingestion_url,
                         json={"records": records},
                         headers={"Content-Type": "application/json"},
-                        timeout=timeout,
+                        timeout=request_timeout,
                     )
                     should_retry = response.status_code in RETRYABLE_ERRORS
                 except (ConnectionError, TimeoutError):
                     should_retry = True
-                # if this is executed when terminating, we should not retry
+                # NB: DO NOT retry when terminating
+                # otherwise this increases shutdown overhead significantly
                 if self._is_stopped:
                     return
                 if i < max_attempts - 1 and should_retry:
-                    time.sleep(1)
+                    # we do not use exponential backoff to avoid increasing
+                    # the processing time significantly
+                    time.sleep(sleep_time)
                 elif response and response.status_code in STOP_COLLECTION_ERRORS:
                     self._is_stopped = True
                     self.is_active = False
@@ -239,7 +245,7 @@ class TelemetryClient:
         if self.config and self._pending_records:
             with self._batch_lock:
                 if self._pending_records:
-                    self._process_records(self._pending_records, timeout=1)
+                    self._process_records(self._pending_records, request_timeout=1)
                     self._pending_records = []
 
     def activate(self) -> None:
