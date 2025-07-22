@@ -31,6 +31,13 @@ from mlflow.utils.rest_utils import (
 
 from tests import helper_functions
 
+try:
+    import databricks.sdk
+
+    DATABRICKS_SDK_AVAILABLE = True
+except ImportError:
+    DATABRICKS_SDK_AVAILABLE = False
+
 
 @pytest.mark.parametrize(
     "response_mock",
@@ -824,6 +831,7 @@ def test_databricks_sdk_retry_backoff_calculation():
     assert call_count == 4  # Initial + 3 retries
 
 
+@pytest.mark.skipif(not DATABRICKS_SDK_AVAILABLE, reason="databricks.sdk not available")
 def test_timeout_parameter_propagation_with_timeout():
     """Test timeout parameter propagation from http_request to get_workspace_client with timeout."""
     with (
@@ -851,6 +859,7 @@ def test_timeout_parameter_propagation_with_timeout():
         )
 
 
+@pytest.mark.skipif(not DATABRICKS_SDK_AVAILABLE, reason="databricks.sdk not available")
 def test_timeout_parameter_propagation_without_timeout():
     """Test timeout param propagation from http_request to get_workspace_client without timeout."""
     with (
