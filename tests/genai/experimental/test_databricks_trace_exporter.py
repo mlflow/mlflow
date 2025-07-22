@@ -1,6 +1,5 @@
 """Tests for MlflowV3DeltaSpanExporter functionality."""
 
-import asyncio
 import json
 import threading
 import time
@@ -275,9 +274,8 @@ def test_delta_archiver_archive_with_valid_archival_config(
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.asyncio.run",
-            side_effect=lambda coro: coro.close() if hasattr(coro, "close") else None,
-        ) as mock_asyncio_run,
+            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceDeltaArchiver._archive_trace"
+        ) as mock_archive_trace,
     ):
         # Mock client to return valid config
         mock_client = mock_client_class.return_value
@@ -289,8 +287,10 @@ def test_delta_archiver_archive_with_valid_archival_config(
         # Verify that the client was called
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
 
-        # Verify that async archival was initiated
-        mock_asyncio_run.assert_called_once()
+        # Verify that archival was initiated
+        mock_archive_trace.assert_called_once_with(
+            sample_trace_without_spans, _EXPERIMENT_ID, sample_config.spans_table_name
+        )
 
 
 def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, monkeypatch):
@@ -302,8 +302,8 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
     archiver = DatabricksTraceDeltaArchiver()
 
     # Mock stream and factory
-    mock_stream = mock.AsyncMock()
-    mock_factory = mock.AsyncMock()
+    mock_stream = mock.Mock()
+    mock_factory = mock.Mock()
     mock_factory.get_or_create_stream.return_value = mock_stream
 
     with (
@@ -343,8 +343,8 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
     archiver = DatabricksTraceDeltaArchiver()
 
     # Mock stream and factory
-    mock_stream = mock.AsyncMock()
-    mock_factory = mock.AsyncMock()
+    mock_stream = mock.Mock()
+    mock_factory = mock.Mock()
     mock_factory.get_or_create_stream.return_value = mock_stream
 
     with (
@@ -388,9 +388,9 @@ def test_archive_trace_ingest_stream_error_handling(
     archiver = DatabricksTraceDeltaArchiver()
 
     # Mock stream to raise error during ingestion
-    mock_stream = mock.AsyncMock()
+    mock_stream = mock.Mock()
     mock_stream.ingest_record.side_effect = Exception("Stream ingestion failed")
-    mock_factory = mock.AsyncMock()
+    mock_factory = mock.Mock()
     mock_factory.get_or_create_stream.return_value = mock_stream
 
     with (
@@ -458,25 +458,21 @@ def test_ingest_stream_factory_get_or_create_stream():
     factory = IngestStreamFactory.get_instance(table_props)
 
     # Mock the create_archival_ingest_sdk function to avoid actual API calls
-    mock_stream = mock.AsyncMock()
+    mock_stream = mock.Mock()
 
     with mock.patch(
         "mlflow.genai.experimental.databricks_trace_exporter.create_archival_ingest_sdk"
     ) as mock_create_sdk:
-        mock_sdk_instance = mock.AsyncMock()
+        mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
         mock_create_sdk.return_value = mock_sdk_instance
 
-        async def test_stream_creation():
-            # First call should create stream
-            stream1 = await factory.get_or_create_stream()
-            assert stream1 is mock_stream
+        # First call should create stream
+        stream1 = factory.get_or_create_stream()
+        assert stream1 is mock_stream
 
-            # Verify SDK was called
-            mock_sdk_instance.create_stream.assert_called_once_with(table_props)
-
-        # Run the async test
-        asyncio.run(test_stream_creation())
+        # Verify SDK was called
+        mock_sdk_instance.create_stream.assert_called_once_with(table_props)
 
 
 @pytest.mark.parametrize("invalid_state", ["CLOSED", "FAILED"])
@@ -495,10 +491,10 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     factory = IngestStreamFactory.get_instance(table_props)
 
     # Mock streams with configurable state
-    old_mock_stream = mock.AsyncMock()
+    old_mock_stream = mock.Mock()
     old_mock_stream.state = invalid_state
 
-    new_mock_stream = mock.AsyncMock()
+    new_mock_stream = mock.Mock()
     new_mock_stream.state = "ACTIVE"
 
     with (
@@ -507,31 +503,27 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
         ) as mock_create_sdk,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
-        mock_sdk_instance = mock.AsyncMock()
+        mock_sdk_instance = mock.Mock()
         # First call returns old stream, second call returns new stream
         mock_sdk_instance.create_stream.side_effect = [old_mock_stream, new_mock_stream]
         mock_create_sdk.return_value = mock_sdk_instance
 
-        async def test_stream_recreation():
-            # First call creates and caches the old stream
-            stream1 = await factory.get_or_create_stream()
-            assert stream1 is old_mock_stream
-            assert mock_sdk_instance.create_stream.call_count == 1
+        # First call creates and caches the old stream
+        stream1 = factory.get_or_create_stream()
+        assert stream1 is old_mock_stream
+        assert mock_sdk_instance.create_stream.call_count == 1
 
-            # Second call should detect invalid state and create new stream
-            stream2 = await factory.get_or_create_stream()
-            assert stream2 is new_mock_stream
-            assert stream2 is not old_mock_stream
-            assert mock_sdk_instance.create_stream.call_count == 2
+        # Second call should detect invalid state and create new stream
+        stream2 = factory.get_or_create_stream()
+        assert stream2 is new_mock_stream
+        assert stream2 is not old_mock_stream
+        assert mock_sdk_instance.create_stream.call_count == 2
 
-            # Verify debug logging about invalid state
-            mock_logger.debug.assert_called()
-            debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-            assert any(f"Stream in invalid state {invalid_state}" in msg for msg in debug_calls)
-            assert any("Creating new thread-local stream" in msg for msg in debug_calls)
-
-        # Run the async test
-        asyncio.run(test_stream_recreation())
+        # Verify debug logging about invalid state
+        mock_logger.debug.assert_called()
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        assert any(f"Stream in invalid state {invalid_state}" in msg for msg in debug_calls)
+        assert any("Creating new thread-local stream" in msg for msg in debug_calls)
 
 
 @pytest.mark.parametrize("valid_state", ["ACTIVE", "READY", "CONNECTING", None])
@@ -550,7 +542,7 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     factory = IngestStreamFactory.get_instance(table_props)
 
     # Mock stream with configurable state
-    mock_stream = mock.AsyncMock()
+    mock_stream = mock.Mock()
     if valid_state is not None:
         mock_stream.state = valid_state
     else:
@@ -564,36 +556,32 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
         ) as mock_create_sdk,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
-        mock_sdk_instance = mock.AsyncMock()
+        mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
         mock_create_sdk.return_value = mock_sdk_instance
 
-        async def test_stream_reuse():
-            # First call creates and caches the stream
-            stream1 = await factory.get_or_create_stream()
-            assert stream1 is mock_stream
-            assert mock_sdk_instance.create_stream.call_count == 1
+        # First call creates and caches the stream
+        stream1 = factory.get_or_create_stream()
+        assert stream1 is mock_stream
+        assert mock_sdk_instance.create_stream.call_count == 1
 
-            # Second call should reuse the same stream (no new creation)
-            stream2 = await factory.get_or_create_stream()
-            assert stream2 is mock_stream
-            assert stream1 is stream2  # Same object instance
-            assert mock_sdk_instance.create_stream.call_count == 1  # Still only called once
+        # Second call should reuse the same stream (no new creation)
+        stream2 = factory.get_or_create_stream()
+        assert stream2 is mock_stream
+        assert stream1 is stream2  # Same object instance
+        assert mock_sdk_instance.create_stream.call_count == 1  # Still only called once
 
-            # Third call should also reuse the same stream
-            stream3 = await factory.get_or_create_stream()
-            assert stream3 is mock_stream
-            assert mock_sdk_instance.create_stream.call_count == 1  # Still only called once
+        # Third call should also reuse the same stream
+        stream3 = factory.get_or_create_stream()
+        assert stream3 is mock_stream
+        assert mock_sdk_instance.create_stream.call_count == 1  # Still only called once
 
-            # Verify no invalid state logging occurred
-            debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-            invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
-            assert len(invalid_state_msgs) == 0, (
-                f"Unexpected invalid state messages: {invalid_state_msgs}"
-            )
-
-        # Run the async test
-        asyncio.run(test_stream_reuse())
+        # Verify no invalid state logging occurred
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
+        assert len(invalid_state_msgs) == 0, (
+            f"Unexpected invalid state messages: {invalid_state_msgs}"
+        )
 
 
 def test_ingest_stream_factory_edge_cases():
@@ -616,62 +604,58 @@ def test_ingest_stream_factory_edge_cases():
         ) as mock_create_sdk,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
-        mock_sdk_instance = mock.AsyncMock()
+        mock_sdk_instance = mock.Mock()
         mock_create_sdk.return_value = mock_sdk_instance
 
-        async def test_edge_cases():
-            # Test 1: Stream with non-string state (should be converted to string)
-            mock_stream1 = mock.AsyncMock()
-            mock_stream1.state = 123  # Integer state
-            mock_sdk_instance.create_stream.return_value = mock_stream1
+        # Test 1: Stream with non-string state (should be converted to string)
+        mock_stream1 = mock.Mock()
+        mock_stream1.state = 123  # Integer state
+        mock_sdk_instance.create_stream.return_value = mock_stream1
 
-            stream1 = await factory.get_or_create_stream()
-            assert stream1 is mock_stream1
+        stream1 = factory.get_or_create_stream()
+        assert stream1 is mock_stream1
 
-            # Should reuse the stream since str(123) != "CLOSED" or "FAILED"
-            stream1_reuse = await factory.get_or_create_stream()
-            assert stream1_reuse is mock_stream1
-            assert mock_sdk_instance.create_stream.call_count == 1
+        # Should reuse the stream since str(123) != "CLOSED" or "FAILED"
+        stream1_reuse = factory.get_or_create_stream()
+        assert stream1_reuse is mock_stream1
+        assert mock_sdk_instance.create_stream.call_count == 1
 
-            # Test 2: Clear cache and test stream with state containing invalid string as substring
-            factory._thread_local.stream_cache = None
-            mock_stream2 = mock.AsyncMock()
-            mock_stream2.state = (
-                "NOT_CLOSED_BUT_CONTAINS_CLOSED"  # Contains "CLOSED" but not exactly "CLOSED"
-            )
-            mock_sdk_instance.create_stream.return_value = mock_stream2
+        # Test 2: Clear cache and test stream with state containing invalid string as substring
+        factory._thread_local.stream_cache = None
+        mock_stream2 = mock.Mock()
+        mock_stream2.state = (
+            "NOT_CLOSED_BUT_CONTAINS_CLOSED"  # Contains "CLOSED" but not exactly "CLOSED"
+        )
+        mock_sdk_instance.create_stream.return_value = mock_stream2
 
-            stream2 = await factory.get_or_create_stream()
-            assert stream2 is mock_stream2
+        stream2 = factory.get_or_create_stream()
+        assert stream2 is mock_stream2
 
-            # Should reuse since it's not exactly "CLOSED" or "FAILED"
-            stream2_reuse = await factory.get_or_create_stream()
-            assert stream2_reuse is mock_stream2
-            assert mock_sdk_instance.create_stream.call_count == 2
+        # Should reuse since it's not exactly "CLOSED" or "FAILED"
+        stream2_reuse = factory.get_or_create_stream()
+        assert stream2_reuse is mock_stream2
+        assert mock_sdk_instance.create_stream.call_count == 2
 
-            # Test 3: Clear cache and test empty string state
-            factory._thread_local.stream_cache = None
-            mock_stream3 = mock.AsyncMock()
-            mock_stream3.state = ""  # Empty string
-            mock_sdk_instance.create_stream.return_value = mock_stream3
+        # Test 3: Clear cache and test empty string state
+        factory._thread_local.stream_cache = None
+        mock_stream3 = mock.Mock()
+        mock_stream3.state = ""  # Empty string
+        mock_sdk_instance.create_stream.return_value = mock_stream3
 
-            stream3 = await factory.get_or_create_stream()
-            assert stream3 is mock_stream3
+        stream3 = factory.get_or_create_stream()
+        assert stream3 is mock_stream3
 
-            # Should reuse since empty string is not "CLOSED" or "FAILED"
-            stream3_reuse = await factory.get_or_create_stream()
-            assert stream3_reuse is mock_stream3
-            assert mock_sdk_instance.create_stream.call_count == 3
+        # Should reuse since empty string is not "CLOSED" or "FAILED"
+        stream3_reuse = factory.get_or_create_stream()
+        assert stream3_reuse is mock_stream3
+        assert mock_sdk_instance.create_stream.call_count == 3
 
-            # Verify no invalid state logging occurred for valid edge cases
-            debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-            invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
-            assert len(invalid_state_msgs) == 0, (
-                f"Unexpected invalid state messages: {invalid_state_msgs}"
-            )
-
-        # Run the async test
-        asyncio.run(test_edge_cases())
+        # Verify no invalid state logging occurred for valid edge cases
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
+        assert len(invalid_state_msgs) == 0, (
+            f"Unexpected invalid state messages: {invalid_state_msgs}"
+        )
 
 
 def test_ingest_stream_factory_atexit_registration():
