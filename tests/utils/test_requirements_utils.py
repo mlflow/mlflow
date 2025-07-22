@@ -34,13 +34,19 @@ from tests.helper_functions import AnyStringWith
 
 
 @pytest.fixture(autouse=True, scope="module")
-def restore_sys_modules():
+def restore_sys():
     sys_path_snapshot = sys.path.copy()
     sys_modules_snapshot = dict(sys.modules)
     yield
     sys.modules = sys_modules_snapshot
     sys.path = sys_path_snapshot
     importlib.invalidate_caches()
+
+    import databricks
+    import databricks.sdk
+
+    importlib.reload(databricks)
+    importlib.reload(databricks.sdk)
 
 
 def test_is_comment():
