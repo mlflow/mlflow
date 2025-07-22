@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from types import MappingProxyType
@@ -24,15 +23,14 @@ from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
 )
 
 from mlflow.entities import SpanType
-from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.semantic_kernel.tracing_utils import (
+    _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN,
+    _get_live_span_from_otel_span_id,
     _get_span_type,
     _set_token_usage,
-    _get_live_span_from_otel_span_id,
-    _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN
 )
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -115,7 +113,6 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         parent_st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(parent_span_id)
         parent_span = parent_st[0] if parent_st else None
 
-
         mlflow_span = start_span_no_context(
             name=span.name,
             parent_span=parent_span,
@@ -193,7 +190,7 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
         if are_sensitive_events_enabled():
             full_responses = []
             for completion in completions:
-                full_response: dict[str, Any] =  completion.to_dict()
+                full_response: dict[str, Any] = completion.to_dict()
 
                 if isinstance(completion, ChatMessageContent):
                     full_response["finish_reason"] = completion.finish_reason.value
@@ -202,7 +199,7 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
 
                 full_responses.append(full_response)
 
-            mlflow_span.set_outputs({ "messages": full_responses })
+            mlflow_span.set_outputs({"messages": full_responses})
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, full_responses)
 
     except Exception as e:

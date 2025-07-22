@@ -105,7 +105,6 @@ async def test_sk_invoke_simple(mock_openai):
     assert output["messages"][0]["role"] == "assistant"
     assert "content" in output["messages"][0]
 
-
     # Child span
     assert child_span is not None
     assert child_span.name == "chat.completions gpt-4o-mini"
@@ -127,7 +126,7 @@ async def test_sk_invoke_simple(mock_openai):
             {
                 "role": "assistant",
                 "content": '[{"role": "user", "content": "Is sushi the best food ever?"}]',
-                "finish_reason": "stop"
+                "finish_reason": "stop",
             }
         ]
     }
@@ -223,7 +222,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert isinstance(outputs, dict)
     assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
-    assert child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == outputs['messages']
+    assert child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == outputs["messages"]
 
     assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
     assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
@@ -258,9 +257,7 @@ async def test_sk_invoke_agent(mock_openai):
     assert grandchild_span.name.startswith("chat.completions gpt-4o-mini")
     assert grandchild_span.span_type == SpanType.CHAT_MODEL
     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
-    assert isinstance(
-       grandchild_span.get_attribute(SpanAttributeKey.INPUTS).get("messages"), list
-    )
+    assert isinstance(grandchild_span.get_attribute(SpanAttributeKey.INPUTS).get("messages"), list)
     outputs = grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS)
     assert isinstance(outputs, dict)
     assert "messages" in outputs
@@ -414,13 +411,16 @@ async def test_sk_streaming_methods(mock_openai):
 
 @pytest.mark.asyncio
 async def test_sk_output_serialization():
-    chat_msg = ChatMessageContent(role="assistant", content="Hello",finish_reason = "stop")
+    chat_msg = ChatMessageContent(role="assistant", content="Hello", finish_reason="stop")
     result = _serialize_chat_output(chat_msg)
     print("result", result)
     assert result["messages"][0]["content"] == "Hello"
     assert result["messages"][0]["role"] == "assistant"
 
-    msgs = [ChatMessageContent(role="assistant", content=f"Message {i}",finish_reason = "stop") for i in range(2)]
+    msgs = [
+        ChatMessageContent(role="assistant", content=f"Message {i}", finish_reason="stop")
+        for i in range(2)
+    ]
     result = _serialize_chat_output(msgs)
     assert len(result["messages"]) == 2
     assert result["messages"][0]["content"] == "Message 0"

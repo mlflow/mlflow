@@ -5,7 +5,6 @@ from typing import Any, Callable, Optional
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
-from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
 from semantic_kernel.functions.function_result import FunctionResult
 from semantic_kernel.utils.telemetry.model_diagnostics import (
     gen_ai_attributes as model_gen_ai_attributes,
@@ -28,6 +27,7 @@ _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
 
 _logger = logging.getLogger(__name__)
 
+
 def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
     if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
         return span_and_token[0]
@@ -38,7 +38,6 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
             "additional attributes. "
         )
         return None
-
 
 
 def _parse_chat_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -122,7 +121,7 @@ def _serialize_chat_output(result: Any) -> str:
                     full_response["finish_reason"] = completion.finish_reason.value
                 print("full_response", full_response)
                 full_responses.append(full_response)
-            return { "messages": full_responses }
+            return {"messages": full_responses}
         return json.dumps(None)
     except Exception as e:
         _logger.warning(f"Failed to serialize chat result: {e}")
@@ -233,7 +232,7 @@ def _set_span_outputs(
     if error:
         span.set_attribute(SpanAttributeKey.OUTPUTS, json.dumps({"error": str(error)}))
         return
-    
+
     otel_span_id = span.get_span_context().span_id
     mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
 
@@ -248,8 +247,7 @@ def _set_span_outputs(
         try:
             output_dict = json.loads(output_str)
             if "messages" in output_dict:
-                mlflow_span.set_attribute(
-                    SpanAttributeKey.CHAT_MESSAGES, output_dict["messages"])
+                mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, output_dict["messages"])
         except Exception:
             pass
 
