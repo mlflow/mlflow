@@ -387,6 +387,8 @@ def _wrap_function_safe(fn: Callable[..., Any], wrapper: Callable[..., Any]) -> 
         wrapped.__signature__ = inspect.signature(fn)
     except Exception:
         pass
+    # Add unique marker for MLflow trace detection
+    wrapped.__mlflow_traced__ = True
     return wrapped
 
 
