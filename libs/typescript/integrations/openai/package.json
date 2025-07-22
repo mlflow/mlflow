@@ -1,6 +1,6 @@
 {
   "name": "mlflow-openai",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.0",
   "description": "OpenAI integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
     "prepare": "npm run build"
   },
   "peerDependencies": {
-    "mlflow-tracing": "workspace:*",
+    "mlflow-tracing": "^0.1.0-rc.0",
     "openai": "^4.0.0"
   },
   "devDependencies": {
