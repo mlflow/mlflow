@@ -1,6 +1,7 @@
 import os
-import re
 from typing import Optional
+
+from packaging.version import Version
 
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.constant import BASE_URL
@@ -55,7 +56,7 @@ def _is_in_databricks() -> bool:
     return False
 
 
-_IS_MLFLOW_DEV_VERSION = VERSION.endswith(".dev0")
+_IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
 
@@ -74,12 +75,14 @@ def _get_config_url(version: str) -> Optional[str]:
     """
     Get the config URL for the given MLflow version.
     """
-    pattern = r"^(\d+)\.(\d+)\.(\d+)(\.rc\d+)?$"
+    version_obj = Version(version)
 
-    if re.match(pattern, version):
-        return f"{BASE_URL}/config/{version}"
-
-    if version.endswith(".dev0"):
+    if version_obj.is_devrelease:
         return f"{BASE_URL}/dev/config/{version}"
+
+    if version_obj.base_version == version or (
+        version_obj.is_prerelease and version_obj.pre[0] == "rc"
+    ):
+        return f"{BASE_URL}/config/{version}"
 
     return None

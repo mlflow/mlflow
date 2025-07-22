@@ -23,3 +23,4 @@ def test_get_config_url():
     assert _get_config_url("1.0.0") == f"{BASE_URL}/config/1.0.0"
     assert _get_config_url("1.0.0.rc0") == f"{BASE_URL}/config/1.0.0.rc0"
     assert _get_config_url("1.0.0.dev0") == f"{BASE_URL}/dev/config/1.0.0.dev0"
+    assert _get_config_url("1.0.0+abc") is None

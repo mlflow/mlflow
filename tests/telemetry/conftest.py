@@ -51,6 +51,7 @@ def enable_telemetry(monkeypatch):
 def mock_requests_get(request, monkeypatch):
     """Fixture to mock requests.get and capture telemetry records."""
     if request.node.get_closest_marker("no_mock_requests_get"):
+        yield
         return
 
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
@@ -74,3 +75,5 @@ def mock_requests_get(request, monkeypatch):
         # ensure config is fetched before the test
         while not client._is_config_fetched:
             time.sleep(0.1)
+        yield
+        client.flush(terminate=True)

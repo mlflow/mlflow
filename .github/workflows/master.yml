@@ -480,4 +480,5 @@ jobs:
             --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
       - name: Run telemetry tests
         run: |
+          source .venv/Scripts/activate
           pytest tests/telemetry
