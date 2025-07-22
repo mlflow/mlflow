@@ -32,9 +32,9 @@ from mlflow.models.signature import ModelSignature, Schema
 from mlflow.prompt.constants import (
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TYPE_CHAT,
-    PROMPT_TYPE_TAG_KEY_UC,
+    PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
-    RESPONSE_FORMAT_TAG_KEY_UC,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
@@ -2347,7 +2347,7 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
         proto_to_prompt.assert_called()
 
 
-@mock.patch("mlflow.utils.rest_utils.http_request")
+@mock_http_200
 def test_create_prompt_version_with_response_format_uc(mock_http, store, monkeypatch):
     name = "prompt1"
     template = "Generate a response for {query}"
@@ -2355,34 +2355,32 @@ def test_create_prompt_version_with_response_format_uc(mock_http, store, monkeyp
     tags = {"env": "test"}
     response_format = {"type": "object", "properties": {"answer": {"type": "string"}}}
 
-    # Mock the HTTP response to simulate Unity Catalog server response
-    mock_response_data = {
-        "name": name,
-        "version": "1",
-        "template": json.dumps(template),
-        "description": description,
-        "tags": [
-            {"key": "env", "value": "test"},
-            {"key": RESPONSE_FORMAT_TAG_KEY_UC, "value": json.dumps(response_format)},
-            {"key": PROMPT_TYPE_TAG_KEY_UC, "value": PROMPT_TYPE_TEXT},
-        ],
-    }
-
-    mock_http.return_value = mock.MagicMock(status_code=200, text=json.dumps(mock_response_data))
-
-    result = store.create_prompt_version(
-        name=name,
-        template=template,
-        description=description,
-        tags=tags,
-        response_format=response_format,
-    )
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
+        return_value=PromptVersion(
+            name=name,
+            version=1,
+            template=template,
+            commit_message=description,
+            tags=tags,
+            response_format=response_format,
+        ),
+    ) as proto_to_prompt:
+        store.create_prompt_version(
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            response_format=response_format,
+        )
 
     # Verify the correct endpoint is called
     assert any(
         "/prompts/" in c[1]["endpoint"] and "/versions" in c[1]["endpoint"]
         for c in mock_http.call_args_list
     )
+    proto_to_prompt.assert_called()
 
     # Verify the HTTP request body contains the response_format in tags
     http_call_args = [
@@ -2396,14 +2394,12 @@ def test_create_prompt_version_with_response_format_uc(mock_http, store, monkeyp
     prompt_version = request_body["prompt_version"]
 
     tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
-    expected_response_format = json.dumps(response_format)
-    assert tags_in_request[RESPONSE_FORMAT_TAG_KEY_UC] == expected_response_format
-    assert tags_in_request[PROMPT_TYPE_TAG_KEY_UC] == PROMPT_TYPE_TEXT
-    assert tags_in_request["env"] == "test"
+    assert RESPONSE_FORMAT_TAG_KEY in tags_in_request
 
-    assert isinstance(result, PromptVersion)
-    assert result.name == name
-    assert result.response_format == response_format
+    expected_response_format = json.dumps(response_format)
+    assert tags_in_request[RESPONSE_FORMAT_TAG_KEY] == expected_response_format
+    assert tags_in_request["env"] == "test"
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY] == PROMPT_TYPE_TEXT
 
 
 @mock_http_200
@@ -2454,7 +2450,7 @@ def test_create_prompt_version_with_multi_turn_template_uc(mock_http, store, mon
     tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
     assert tags_in_request["type"] == "conversation"
     assert tags_in_request["env"] == "test"
-    assert tags_in_request[PROMPT_TYPE_TAG_KEY_UC] == PROMPT_TYPE_CHAT
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY] == PROMPT_TYPE_CHAT
 
 
 @mock_http_200

@@ -7,12 +7,9 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
 LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
 
-# New tag keys for enhanced prompt features
-PROMPT_TYPE_TAG_KEY = "mlflow.prompt.type"
-RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response_format"
 # Unity Catalog tags cannot contain dots
-PROMPT_TYPE_TAG_KEY_UC = "_mlflow_prompt_type"
-RESPONSE_FORMAT_TAG_KEY_UC = "_mlflow_prompt_response_format"
+PROMPT_TYPE_TAG_KEY = "_mlflow_prompt_type"
+RESPONSE_FORMAT_TAG_KEY = "_mlflow_prompt_response_format"
 
 # Prompt types
 PROMPT_TYPE_TEXT = "text"
