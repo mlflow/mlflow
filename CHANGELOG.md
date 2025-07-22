@@ -14,7 +14,7 @@ Bug fixes:
 - [Deployments] Propagate `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` to databricks-sdk (#16783, @bbqiu)
 - [Model Registry] Fix issue with search_registered_models with Databricks UC backend not supporting filter_string (#16766, @BenWilson2)
 - [Evaluation] Bug fix: Databricks GenAI evaluation dataset source returns string, instead of DatasetSource instance (#16712, @dbczumar)
-- [] Fix the position of added tracking_uri param to artifact store implementations (#16653, @BenWilson2)
+- [Tracking] Fix the position of added tracking_uri param to artifact store implementations (#16653, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
