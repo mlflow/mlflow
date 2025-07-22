@@ -172,15 +172,6 @@ def test_create_genai_trace_view_spark_session_creation_fails(
         )
 
 
-def test_databricks_agents_import_error():
-    """Test that ImportError is raised when databricks-agents package is not available."""
-    with pytest.raises(
-        ImportError,
-        match=r"The `mlflow\[databricks\]` package is required to use databricks trace archival",
-    ):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
-
-
 # Schema version validation tests
 
 

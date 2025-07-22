@@ -24,7 +24,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
@@ -261,6 +261,10 @@ def test_is_tracing_enabled():
         assert get_tracer_mock.call_count == 1
 
 
+# Skipping the test for tracing SDK while the exporter is in mlflow/genai namespace
+# that depends on many other dependencies.
+# TODO: Consider allowing the exporter import for tracing SDK before GA.
+@skip_when_testing_trace_sdk
 def test_get_mlflow_span_processor_with_databricks_agents_available():
     """Test that MlflowV3DeltaSpanExporter is used when databricks-agents is available."""
     from mlflow.tracing.provider import _get_mlflow_span_processor
