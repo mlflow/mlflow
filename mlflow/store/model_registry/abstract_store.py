@@ -690,9 +690,9 @@ class AbstractStore:
         self,
         name: str,
         template: Union[str, list[dict[str, "ContentType"]]],
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -708,11 +708,11 @@ class AbstractStore:
                   method.
                 - A list of dictionaries representing chat messages, where each message has
                   'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            description: Optional description of the prompt version.
+            tags: Optional dictionary of version tags.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            description: Optional description of the prompt version.
-            tags: Optional dictionary of version tags.
 
         Returns:
             A PromptVersion object representing the created version.
