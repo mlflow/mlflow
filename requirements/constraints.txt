@@ -22,3 +22,5 @@ FLAML<2.3.5
 # `tests/tracing/test_fluent.py::test_mlflow_trace_isolated_from_other_otel_processors`
 # https://github.com/huggingface/transformers/commit/211f2b08751cdee4bd6b84892b91f4a18dbfe305
 transformers<4.53.0
+# TODO: Unpin once https://github.com/textstat/textstat/issues/212 is resolved.
+cmudict<1.1.0
