@@ -49,14 +49,14 @@
   </scm>
   <distributionManagement>
     <repository>
-      <name>Central Portal Snapshots</name>
-      <id>central-portal-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <name>Central Portal</name>
+      <id>central-portal</id>
+      <url>https://central.sonatype.com/repository/maven-central/</url>
       <releases>
-        <enabled>false</enabled>
+        <enabled>true</enabled>
       </releases>
       <snapshots>
-        <enabled>true</enabled>
+        <enabled>false</enabled>
       </snapshots>
     </repository>
   </distributionManagement>
