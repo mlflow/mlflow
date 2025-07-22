@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import pytest
 
@@ -9,9 +10,9 @@ from mlflow.telemetry.client import (
     set_telemetry_client,
 )
 from mlflow.telemetry.schemas import APIStatus
-from mlflow.telemetry.track import track_api_usage
+from mlflow.telemetry.track import _is_telemetry_disabled_for_func, track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
-from mlflow.version import IS_TRACING_SDK_ONLY
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
@@ -113,3 +114,64 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     test_func()
     # no new record should be added
     assert len(mock_requests) == 1
+
+
+@pytest.mark.no_mock_requests_get
+def test_is_telemetry_disabled_for_func():
+    def allowed_func():
+        pass
+
+    def disabled_func():
+        pass
+
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_api_map": {disabled_func.__module__: [disabled_func.__qualname__]},
+                }
+            ),
+        )
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is not None
+        # func not in disable_api_map, do not skip
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        # func in disable_api_map, skip
+        assert _is_telemetry_disabled_for_func(disabled_func) is True
+
+    # test telemetry disabled after config is fetched
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(status_code=403)
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_func(allowed_func) is False
+        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is None
+        assert get_telemetry_client() is None
+        # telemetry is disabled, skip all functions
+        assert _is_telemetry_disabled_for_func(allowed_func) is True
+        assert _is_telemetry_disabled_for_func(disabled_func) is True

@@ -77,8 +77,14 @@ def _generate_telemetry_record(
 
 def _is_telemetry_disabled_for_func(func: Callable[..., Any]) -> bool:
     try:
-        if (client := get_telemetry_client()) and client.config:
-            return func.__name__ in client.config.disable_api_map.get(func.__module__, [])
-        return False
+        if client := get_telemetry_client():
+            if client.config:
+                return func.__qualname__ in client.config.disable_api_map.get(func.__module__, [])
+            # config is not fetched yet, so we assume telemetry is enabled
+            else:
+                return False
+        # telemetry is disabled
+        else:
+            return True
     except Exception:
-        return False
+        return True

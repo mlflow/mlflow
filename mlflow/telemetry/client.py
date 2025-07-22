@@ -49,18 +49,19 @@ class TelemetryClient:
         def _fetch():
             try:
                 self._get_config()
-                self._is_config_fetched = True
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
                 else:
-                    # this should happen before the first send_batch call
+                    # If any telemetry records are generated before the config is loaded,
+                    # filter them by the condition defined in the config before exporting.
                     with self._batch_lock:
                         if self._pending_records:
-                            self._drop_invalid_records()
-            except Exception:
+                            self._drop_disabled_records()
                 self._is_config_fetched = True
+            except Exception:
                 self._is_stopped = True
+                self._is_config_fetched = True
                 _set_telemetry_client(None)
 
         self._config_thread = threading.Thread(
@@ -105,7 +106,7 @@ class TelemetryClient:
             except Exception:
                 return
 
-    def _drop_invalid_records(self):
+    def _drop_disabled_records(self):
         """
         Drop invalid records that are disabled by the config.
         """
@@ -282,7 +283,7 @@ class TelemetryClient:
             # Send any pending records before flushing
             with self._batch_lock:
                 if self._pending_records and self.config and not self._is_stopped:
-                    self._drop_invalid_records()
+                    self._drop_disabled_records()
                     self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
@@ -296,10 +297,13 @@ class TelemetryClient:
         method to update the backend store info at sending telemetry step.
         """
         if not IS_TRACING_SDK_ONLY:
-            # import here to avoid circular import
-            from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
+            try:
+                # import here to avoid circular import
+                from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-            self.info["backend_store_scheme"] = _get_tracking_scheme()
+                self.info["backend_store_scheme"] = _get_tracking_scheme()
+            except Exception:
+                pass
 
 
 _MLFLOW_TELEMETRY_CLIENT = None
@@ -312,7 +316,10 @@ def set_telemetry_client():
         # re-initialize the telemetry client
         _set_telemetry_client(None)
     else:
-        _set_telemetry_client(TelemetryClient())
+        try:
+            _set_telemetry_client(TelemetryClient())
+        except Exception:
+            _set_telemetry_client(None)
 
 
 def _set_telemetry_client(value: TelemetryClient | None):
