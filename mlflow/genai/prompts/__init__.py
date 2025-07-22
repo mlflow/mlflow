@@ -1,6 +1,6 @@
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -10,9 +10,6 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import experimental
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 
 @contextmanager
@@ -31,7 +28,7 @@ def suppress_genai_migration_warning():
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, "ContentType"]]],
+    template: Union[str, list[dict[str, Any]]],
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,

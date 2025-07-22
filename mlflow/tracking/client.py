@@ -125,8 +125,6 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
-    from mlflow.types.chat import ContentType
-
 
 _logger = logging.getLogger(__name__)
 
@@ -444,7 +442,7 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
@@ -5627,7 +5625,7 @@ class MlflowClient:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
