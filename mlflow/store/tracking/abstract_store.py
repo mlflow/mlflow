@@ -13,6 +13,7 @@ from mlflow.entities import (
     LoggedModelTag,
     ViewType,
 )
+from mlflow.entities.managed_datasets import ManagedDataset
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -893,3 +894,38 @@ class AbstractStore:
             model_id: ID of the model to delete.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def create_managed_dataset(self, dataset: ManagedDataset) -> ManagedDataset:
+        """
+        Create a managed dataset in the tracking store.
+
+        Args:
+            dataset: ManagedDataset entity with dataset_id=None
+
+        Returns:
+            ManagedDataset entity with generated dataset_id
+        """
+
+    @abstractmethod
+    def get_managed_dataset(self, dataset_id: str, experiment_id: str) -> ManagedDataset:
+        """
+        Retrieve a managed dataset by ID from a specific experiment.
+
+        Args:
+            dataset_id: Unique dataset identifier
+            experiment_id: Experiment ID where the dataset is stored
+
+        Returns:
+            ManagedDataset entity with all records
+        """
+
+    @abstractmethod
+    def delete_managed_dataset(self, dataset_id: str, experiment_id: str) -> None:
+        """
+        Delete a managed dataset from a specific experiment.
+
+        Args:
+            dataset_id: Unique dataset identifier
+            experiment_id: Primary experiment ID where the dataset is stored
+        """

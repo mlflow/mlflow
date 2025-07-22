@@ -37,6 +37,11 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.managed_datasets import (
+    DatasetRecord,
+    HumanSource,
+    ManagedDataset,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -3930,3 +3935,433 @@ def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     # Should raise MissingConfigException about invalid metadata
     with pytest.raises(MissingConfigException, match=rf"Experiment {exp_id} is invalid with empty"):
         fs._get_experiment(exp_id)
+
+
+# Managed Dataset tests
+
+
+@pytest.fixture
+def experiments(store):
+    exp_id_1 = store.create_experiment("Test Experiment 1", None, None)
+    exp_id_2 = store.create_experiment("Test Experiment 2", None, None)
+    exp_id_3 = store.create_experiment("Test Experiment 3", None, None)
+    return exp_id_1, exp_id_2, exp_id_3
+
+
+def create_sample_dataset(experiment_ids, name="test_dataset", records=None):
+    dataset = ManagedDataset.create_new(
+        name=name,
+        experiment_ids=experiment_ids,
+        source_type="human",
+        source="test_source",
+        created_by="test_user",
+    )
+
+    if records:
+        return ManagedDataset(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            source=dataset.source,
+            source_type=dataset.source_type,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time,
+            last_update_time=dataset.last_update_time,
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+            experiment_ids=dataset.experiment_ids,
+            records=records,
+        )
+    return dataset
+
+
+def create_sample_record(
+    dataset_id, question="What is MLflow?", answer="MLflow is an open-source ML platform"
+):
+    return DatasetRecord.create_new(
+        dataset_id=dataset_id,
+        inputs={"question": question, "context": "AI platform"},
+        expectations={"answer": answer},
+        tags={"category": "qa"},
+        source=HumanSource("test_user"),
+        created_by="test_user",
+    )
+
+
+def test_create_managed_dataset_basic(store, experiments):
+    exp_id_1, _, _ = experiments
+    dataset = create_sample_dataset([exp_id_1])
+    created_dataset = store.create_managed_dataset(dataset)
+
+    assert created_dataset.dataset_id == dataset.dataset_id
+    assert created_dataset.name == "test_dataset"
+    assert created_dataset.experiment_ids == [exp_id_1]
+    assert created_dataset.source_type == "human"
+    assert created_dataset.created_by == "test_user"
+
+    dataset_dir = os.path.join(
+        store.root_directory,
+        exp_id_1,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        created_dataset.dataset_id,
+    )
+    dataset_file = os.path.join(dataset_dir, FileStore.MANAGED_DATASET_FILE_NAME)
+    assert os.path.exists(dataset_file)
+
+    retrieved_dataset = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert retrieved_dataset.dataset_id == created_dataset.dataset_id
+    assert retrieved_dataset.name == created_dataset.name
+    assert retrieved_dataset.experiment_ids == created_dataset.experiment_ids
+    assert retrieved_dataset.source_type == created_dataset.source_type
+    assert retrieved_dataset.created_by == created_dataset.created_by
+
+
+@pytest.mark.parametrize("num_records", [0, 1, 2])
+def test_create_managed_dataset_with_records(store, experiments, num_records):
+    exp_id_1, _, _ = experiments
+    dataset = create_sample_dataset([exp_id_1])
+
+    records = []
+    for i in range(num_records):
+        records.append(create_sample_record(dataset.dataset_id, f"Question {i}", f"Answer {i}"))
+
+    dataset_with_records = create_sample_dataset([exp_id_1], records=records)
+    created_dataset = store.create_managed_dataset(dataset_with_records)
+
+    assert len(created_dataset.records) == num_records
+    if num_records > 0:
+        assert created_dataset.records[0].get_input_value("question") == "Question 0"
+
+    retrieved_dataset = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert len(retrieved_dataset.records) == num_records
+
+    if num_records > 0:
+        assert retrieved_dataset.records[0].get_input_value("question") == "Question 0"
+        for created_record, retrieved_record in zip(
+            created_dataset.records, retrieved_dataset.records
+        ):
+            assert created_record.dataset_record_id == retrieved_record.dataset_record_id
+            assert created_record.get_input_value("question") == retrieved_record.get_input_value(
+                "question"
+            )
+            assert created_record.get_expectation_value(
+                "answer"
+            ) == retrieved_record.get_expectation_value("answer")
+
+
+def test_create_managed_dataset_multi_experiment(store, experiments):
+    exp_id_1, exp_id_2, exp_id_3 = experiments
+    dataset = create_sample_dataset([exp_id_1, exp_id_2, exp_id_3], name="multi_exp_dataset")
+    created_dataset = store.create_managed_dataset(dataset)
+
+    assert created_dataset.experiment_ids == [exp_id_1, exp_id_2, exp_id_3]
+
+    dataset_dir = os.path.join(
+        store.root_directory,
+        exp_id_1,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        created_dataset.dataset_id,
+    )
+    assert os.path.exists(dataset_dir)
+
+    primary_linkage_dir = os.path.join(
+        store.root_directory, exp_id_1, FileStore.MANAGED_DATASETS_FOLDER_NAME, ".linkage"
+    )
+    assert not os.path.exists(primary_linkage_dir)
+
+    for exp_id in [exp_id_2, exp_id_3]:
+        linkage_file = os.path.join(
+            store.root_directory,
+            exp_id,
+            FileStore.MANAGED_DATASETS_FOLDER_NAME,
+            FileStore.MANAGED_DATASET_LINKAGE_FILE_NAME,
+        )
+        assert os.path.exists(linkage_file)
+
+        with open(linkage_file) as f:
+            linkage_data = json.load(f)
+        assert created_dataset.dataset_id in linkage_data["datasets"]
+
+    retrieved_from_primary = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert retrieved_from_primary.dataset_id == created_dataset.dataset_id
+    assert retrieved_from_primary.name == created_dataset.name
+    assert retrieved_from_primary.experiment_ids == created_dataset.experiment_ids
+
+    retrieved_from_secondary = store.get_managed_dataset(created_dataset.dataset_id, exp_id_2)
+    assert retrieved_from_secondary.dataset_id == created_dataset.dataset_id
+    assert retrieved_from_secondary.name == created_dataset.name
+    assert retrieved_from_secondary.experiment_ids == created_dataset.experiment_ids
+
+    assert retrieved_from_primary.to_dict() == retrieved_from_secondary.to_dict()
+
+
+def test_create_managed_dataset_generates_id(store, experiments):
+    exp_id_1, _, _ = experiments
+    dataset = create_sample_dataset([exp_id_1])
+    dataset._dataset_id = None
+
+    created_dataset = store.create_managed_dataset(dataset)
+    assert created_dataset.dataset_id is not None
+    assert len(created_dataset.dataset_id) == 32
+
+    retrieved_dataset = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert retrieved_dataset.dataset_id == created_dataset.dataset_id
+    assert retrieved_dataset.name == created_dataset.name
+    assert retrieved_dataset.experiment_ids == created_dataset.experiment_ids
+
+
+def test_create_managed_dataset_no_experiments_error(store):
+    dataset = ManagedDataset.create_new(
+        name="no_exp_dataset", experiment_ids=[], created_by="test_user"
+    )
+
+    with pytest.raises(
+        MlflowException, match="Dataset must be associated with at least one experiment"
+    ):
+        store.create_managed_dataset(dataset)
+
+
+def test_get_managed_dataset_basic(store, experiments):
+    exp_id_1, _, _ = experiments
+    dataset = create_sample_dataset([exp_id_1])
+    created_dataset = store.create_managed_dataset(dataset)
+    retrieved_dataset = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+
+    assert retrieved_dataset.dataset_id == created_dataset.dataset_id
+    assert retrieved_dataset.name == created_dataset.name
+    assert retrieved_dataset.experiment_ids == created_dataset.experiment_ids
+
+
+def test_get_managed_dataset_with_records(store, experiments):
+    exp_id_1, _, _ = experiments
+    record = create_sample_record("temp_id")
+    dataset = create_sample_dataset([exp_id_1], records=[record])
+
+    created_dataset = store.create_managed_dataset(dataset)
+    retrieved_dataset = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+
+    assert len(retrieved_dataset.records) == 1
+    assert retrieved_dataset.records[0].get_input_value("question") == "What is MLflow?"
+
+
+def test_get_managed_dataset_not_found(store, experiments):
+    exp_id_1, _, _ = experiments
+    non_existent_id = uuid.uuid4().hex
+
+    with pytest.raises(
+        MlflowException, match=f"Managed dataset with ID '{non_existent_id}' not found"
+    ):
+        store.get_managed_dataset(non_existent_id, exp_id_1)
+
+
+def test_delete_managed_dataset_basic(store, experiments):
+    exp_id_1, _, _ = experiments
+    dataset = create_sample_dataset([exp_id_1])
+    created_dataset = store.create_managed_dataset(dataset)
+
+    dataset_dir = os.path.join(
+        store.root_directory,
+        exp_id_1,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        created_dataset.dataset_id,
+    )
+    assert os.path.exists(dataset_dir)
+
+    store.delete_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert not os.path.exists(dataset_dir)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+
+
+def test_delete_managed_dataset_multi_experiment(store, experiments):
+    exp_id_1, exp_id_2, exp_id_3 = experiments
+    dataset = create_sample_dataset([exp_id_1, exp_id_2, exp_id_3])
+    created_dataset = store.create_managed_dataset(dataset)
+
+    dataset_dir = os.path.join(
+        store.root_directory,
+        exp_id_1,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        created_dataset.dataset_id,
+    )
+
+    store.delete_managed_dataset(created_dataset.dataset_id, exp_id_1)
+
+    assert not os.path.exists(dataset_dir)
+
+    for exp_id in [exp_id_2, exp_id_3]:
+        linkage_file = os.path.join(
+            store.root_directory,
+            exp_id,
+            FileStore.MANAGED_DATASETS_FOLDER_NAME,
+            FileStore.MANAGED_DATASET_LINKAGE_FILE_NAME,
+        )
+        assert not os.path.exists(linkage_file)
+
+
+def test_create_managed_dataset_merge_records(store, experiments):
+    exp_id_1, exp_id_2, _ = experiments
+
+    initial_record = create_sample_record("temp_id", "Initial question", "Initial answer")
+    initial_dataset = create_sample_dataset([exp_id_1], records=[initial_record])
+    created_dataset = store.create_managed_dataset(initial_dataset)
+    assert len(created_dataset.records) == 1
+
+    additional_record = create_sample_record(
+        created_dataset.dataset_id, "Additional question", "Additional answer"
+    )
+    update_dataset = ManagedDataset(
+        dataset_id=created_dataset.dataset_id,
+        name="merge_test_dataset",
+        experiment_ids=[exp_id_1, exp_id_2],
+        last_updated_by="user2",
+        records=[additional_record],
+    )
+
+    merged_dataset = store.create_managed_dataset(update_dataset)
+
+    assert merged_dataset.dataset_id == created_dataset.dataset_id
+    assert len(merged_dataset.records) == 2
+    assert merged_dataset.last_updated_by == "user2"
+    assert set(merged_dataset.experiment_ids) == {exp_id_1, exp_id_2}
+
+    questions = [record.get_input_value("question") for record in merged_dataset.records]
+    assert "Initial question" in questions
+    assert "Additional question" in questions
+
+    retrieved_dataset = store.get_managed_dataset(merged_dataset.dataset_id, exp_id_1)
+    assert len(retrieved_dataset.records) == 2
+    retrieved_questions = [
+        record.get_input_value("question") for record in retrieved_dataset.records
+    ]
+    assert "Initial question" in retrieved_questions
+    assert "Additional question" in retrieved_questions
+    assert set(retrieved_dataset.experiment_ids) == {exp_id_1, exp_id_2}
+    assert retrieved_dataset.last_updated_by == "user2"
+
+    retrieved_from_exp2 = store.get_managed_dataset(merged_dataset.dataset_id, exp_id_2)
+    assert retrieved_from_exp2.dataset_id == merged_dataset.dataset_id
+    assert len(retrieved_from_exp2.records) == 2
+
+    linkage_file = os.path.join(
+        store.root_directory,
+        exp_id_2,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        FileStore.MANAGED_DATASET_LINKAGE_FILE_NAME,
+    )
+    assert os.path.exists(linkage_file)
+
+
+def test_consolidated_linkage_multiple_datasets(store, experiments):
+    exp_id_1, exp_id_2, _ = experiments
+
+    dataset1 = create_sample_dataset([exp_id_1, exp_id_2], name="dataset_1")
+    dataset2 = create_sample_dataset([exp_id_1, exp_id_2], name="dataset_2")
+
+    created1 = store.create_managed_dataset(dataset1)
+    created2 = store.create_managed_dataset(dataset2)
+
+    linkage_file = os.path.join(
+        store.root_directory,
+        exp_id_2,
+        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+        FileStore.MANAGED_DATASET_LINKAGE_FILE_NAME,
+    )
+
+    with open(linkage_file) as f:
+        linkage_data = json.load(f)
+
+    assert created1.dataset_id in linkage_data["datasets"]
+    assert created2.dataset_id in linkage_data["datasets"]
+    assert linkage_data["datasets"][created1.dataset_id]["name"] == "dataset_1"
+    assert linkage_data["datasets"][created2.dataset_id]["name"] == "dataset_2"
+
+
+def test_name_collision_across_experiments(store, experiments):
+    exp_id_1, exp_id_2, _ = experiments
+
+    dataset1 = create_sample_dataset([exp_id_1], name="shared_name")
+    dataset2 = create_sample_dataset([exp_id_2], name="shared_name")
+
+    created1 = store.create_managed_dataset(dataset1)
+    created2 = store.create_managed_dataset(dataset2)
+
+    assert created1.dataset_id != created2.dataset_id
+    assert created1.name == created2.name == "shared_name"
+
+
+def test_create_managed_dataset_finds_existing_across_experiments(store, experiments):
+    exp_id_1, exp_id_2, exp_id_3 = experiments
+
+    initial_record = create_sample_record("temp_id", "Initial question", "Initial answer")
+    dataset = create_sample_dataset(
+        [exp_id_1, exp_id_2, exp_id_3], name="test_dataset", records=[initial_record]
+    )
+
+    created_dataset = store.create_managed_dataset(dataset)
+    assert created_dataset.experiment_ids == [exp_id_1, exp_id_2, exp_id_3]
+    assert len(created_dataset.records) == 1
+
+    update_dataset = ManagedDataset(
+        dataset_id=created_dataset.dataset_id,  # Same dataset_id
+        name="test_dataset",
+        experiment_ids=[
+            exp_id_2,
+            exp_id_1,
+            exp_id_3,
+        ],  # Different order - exp_id_2 is now "primary"
+        last_updated_by="user2",
+        records=[
+            create_sample_record(
+                created_dataset.dataset_id, "Additional question", "Additional answer"
+            )
+        ],
+    )
+
+    updated_dataset = store.create_managed_dataset(update_dataset)
+
+    assert updated_dataset.dataset_id == created_dataset.dataset_id
+    assert len(updated_dataset.records) == 2  # Should have both records (merged)
+    assert updated_dataset.last_updated_by == "user2"
+
+    retrieved_from_exp1 = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    retrieved_from_exp2 = store.get_managed_dataset(created_dataset.dataset_id, exp_id_2)
+
+    assert retrieved_from_exp1.dataset_id == retrieved_from_exp2.dataset_id
+    assert len(retrieved_from_exp1.records) == len(retrieved_from_exp2.records) == 2
+
+
+def test_create_managed_dataset_different_experiments_creates_new(store, experiments):
+    exp_id_1, exp_id_2, exp_id_3 = experiments
+
+    initial_record = create_sample_record("temp_id", "Initial question", "Initial answer")
+    dataset = create_sample_dataset(
+        [exp_id_1, exp_id_2], name="test_dataset", records=[initial_record]
+    )
+    created_dataset = store.create_managed_dataset(dataset)
+
+    # This should create a new dataset since exp_id_3 has no linkage to the existing dataset
+    different_experiment_dataset = ManagedDataset(
+        dataset_id=created_dataset.dataset_id,  # Same dataset_id
+        name="different_dataset",
+        experiment_ids=[exp_id_3],  # Completely different experiment
+        created_by="user2",
+        records=[
+            create_sample_record(
+                created_dataset.dataset_id, "Different question", "Different answer"
+            )
+        ],
+    )
+
+    new_dataset = store.create_managed_dataset(different_experiment_dataset)
+
+    assert new_dataset.dataset_id == created_dataset.dataset_id
+    assert len(new_dataset.records) == 1
+    assert new_dataset.records[0].get_input_value("question") == "Different question"
+    assert new_dataset.experiment_ids == [exp_id_3]
+
+    original_retrieved = store.get_managed_dataset(created_dataset.dataset_id, exp_id_1)
+    assert len(original_retrieved.records) == 1
+    assert original_retrieved.records[0].get_input_value("question") == "Initial question"

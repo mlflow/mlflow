@@ -4,9 +4,11 @@ import logging
 import os
 import shutil
 import sys
+import threading
 import time
 import uuid
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, NamedTuple, Optional, TypedDict
 
@@ -40,6 +42,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.managed_datasets import ManagedDataset
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
@@ -201,12 +204,19 @@ class FileStore(AbstractStore):
     # but we keep the old name for backward compatibility
     TRACE_TRACE_METADATA_FOLDER_NAME = "request_metadata"
     MODELS_FOLDER_NAME = "models"
+    MANAGED_DATASETS_FOLDER_NAME = "managed_datasets"
+    MANAGED_DATASET_FILE_NAME = "dataset.json"
+    MANAGED_DATASET_LINKAGE_FILE_NAME = "linkage.json"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
         MODELS_FOLDER_NAME,
+        MANAGED_DATASETS_FOLDER_NAME,
     ]
+
+    # Class-level lock for linkage file operations
+    _linkage_locks = defaultdict(threading.RLock)
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -2724,3 +2734,322 @@ class FileStore(AbstractStore):
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return TraceInfoV2.from_v3(trace_info)
+
+    def create_managed_dataset(self, dataset: ManagedDataset) -> ManagedDataset:
+        """
+        Create a managed dataset in the tracking store.
+
+        Args:
+            dataset: ManagedDataset entity
+
+        Returns:
+            ManagedDataset entity
+        """
+        if not dataset.experiment_ids:
+            raise MlflowException(
+                "Dataset must be associated with at least one experiment",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        primary_experiment_id = dataset.experiment_ids[0]
+
+        _validate_experiment_id(primary_experiment_id)
+        primary_experiment_dir = self._get_experiment_path(
+            primary_experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+
+        mkdir(primary_experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME)
+        managed_datasets_dir = os.path.join(
+            primary_experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME
+        )
+
+        if not dataset.dataset_id:
+            dataset._dataset_id = uuid.uuid4().hex
+
+        actual_primary_experiment_id = None
+
+        dataset_dir = os.path.join(managed_datasets_dir, dataset.dataset_id)
+        dataset_file_path = os.path.join(dataset_dir, FileStore.MANAGED_DATASET_FILE_NAME)
+
+        if exists(dataset_file_path):
+            actual_primary_experiment_id = primary_experiment_id
+        else:
+            # NB: Allows for user behavior where an original dataset that has been linked
+            # to multiple experiments does not specify the correct original ordering can
+            # ensure non-duplicated dataset writes.
+            # For example: User associates experiment_ids ["1", "2", "3"] when creating.
+            # User then calls create_managed_dataset specifying only experiment_ids ["2"]
+            # This logic will find the original dataset written to experiment_id 1 and
+            # update the existing records. Without this logic we would have a stale entry
+            # in experiment_id "1"'s artifact storage with a new copy associated with
+            # experiment_id "2".
+            for exp_id in dataset.experiment_ids:
+                linkage_file_path = self._get_linkage_file_path(exp_id)
+
+                if exists(linkage_file_path):
+                    linkage_data = self._load_linkage_data(linkage_file_path)
+
+                    if dataset.dataset_id in linkage_data.get("datasets", {}):
+                        dataset_info = linkage_data["datasets"][dataset.dataset_id]
+                        linked_primary_exp_id = dataset_info["primary_experiment_id"]
+
+                        linked_exp_dir = self._get_experiment_path(
+                            linked_primary_exp_id,
+                            view_type=ViewType.ACTIVE_ONLY,
+                            assert_exists=True,
+                        )
+                        linked_dataset_file = os.path.join(
+                            linked_exp_dir,
+                            FileStore.MANAGED_DATASETS_FOLDER_NAME,
+                            dataset.dataset_id,
+                            FileStore.MANAGED_DATASET_FILE_NAME,
+                        )
+
+                        if exists(linked_dataset_file):
+                            dataset_file_path = linked_dataset_file
+                            actual_primary_experiment_id = linked_primary_exp_id
+                            break
+
+        if actual_primary_experiment_id:
+            existing_dataset = self._load_managed_dataset_from_file(dataset_file_path)
+
+            incoming_experiment_ids = dataset.experiment_ids[:]
+            incoming_last_updated_by = dataset.last_updated_by
+
+            if dataset.records:
+                dataset = existing_dataset.merge_records(dataset.records)
+            else:
+                dataset = existing_dataset
+
+            if incoming_last_updated_by:
+                dataset._last_updated_by = incoming_last_updated_by
+
+            existing_ids = set(dataset.experiment_ids)
+            for exp_id in incoming_experiment_ids:
+                if exp_id not in existing_ids:
+                    dataset._experiment_ids.append(exp_id)
+        else:
+            mkdir(managed_datasets_dir, dataset.dataset_id)
+            dataset_file_path = os.path.join(
+                os.path.join(managed_datasets_dir, dataset.dataset_id),
+                FileStore.MANAGED_DATASET_FILE_NAME,
+            )
+            actual_primary_experiment_id = primary_experiment_id
+
+        with open(dataset_file_path, "w") as f:
+            json.dump(dataset.to_dict(), f, indent=2)
+
+        # Create metadata linkage for other experiments
+        for exp_id in dataset.experiment_ids:
+            if (
+                exp_id != actual_primary_experiment_id
+            ):  # Skip the experiment where dataset is stored
+                try:
+                    self._create_dataset_linkage(
+                        exp_id, dataset.dataset_id, actual_primary_experiment_id, dataset.name
+                    )
+                except Exception as e:
+                    _logger.warning(f"Failed to create linkage for experiment {exp_id}: {e}")
+
+        return dataset
+
+    def get_managed_dataset(self, dataset_id: str, experiment_id: str) -> ManagedDataset:
+        """
+        Retrieve a managed dataset by ID from a specific experiment.
+
+        Args:
+            dataset_id: Unique dataset identifier
+            experiment_id: Experiment ID where the dataset is stored
+
+        Returns:
+            ManagedDataset entity with all records
+        """
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+
+        dataset_dir = os.path.join(
+            experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME, dataset_id
+        )
+        dataset_file_path = os.path.join(dataset_dir, FileStore.MANAGED_DATASET_FILE_NAME)
+
+        if not exists(dataset_file_path):
+            # Check if there's a linkage file pointing to the dataset in another experiment
+            linkage_file_path = os.path.join(
+                experiment_dir,
+                FileStore.MANAGED_DATASETS_FOLDER_NAME,
+                FileStore.MANAGED_DATASET_LINKAGE_FILE_NAME,
+            )
+            if exists(linkage_file_path):
+                with open(linkage_file_path) as f:
+                    linkage_data = json.load(f)
+
+                if dataset_id in linkage_data.get("datasets", {}):
+                    # Found linkage, get the primary experiment ID
+                    dataset_info = linkage_data["datasets"][dataset_id]
+                    primary_experiment_id = dataset_info["primary_experiment_id"]
+
+                    primary_experiment_dir = self._get_experiment_path(
+                        primary_experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+                    )
+                    primary_dataset_file_path = os.path.join(
+                        primary_experiment_dir,
+                        FileStore.MANAGED_DATASETS_FOLDER_NAME,
+                        dataset_id,
+                        FileStore.MANAGED_DATASET_FILE_NAME,
+                    )
+
+                    if exists(primary_dataset_file_path):
+                        with open(primary_dataset_file_path) as f:
+                            dataset_dict = json.load(f)
+                        return ManagedDataset.from_dict(dataset_dict)
+
+            raise MlflowException(
+                f"Managed dataset with ID '{dataset_id}' not found in experiment '{experiment_id}'",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        with open(dataset_file_path) as f:
+            dataset_dict = json.load(f)
+
+        return ManagedDataset.from_dict(dataset_dict)
+
+    def delete_managed_dataset(self, dataset_id: str, experiment_id: str) -> None:
+        """
+        Delete a managed dataset.
+
+        Args:
+            dataset_id: Unique dataset identifier
+            experiment_id: Any experiment ID where the dataset is accessible
+                          (doesn't need to be the primary storage experiment)
+        """
+        dataset = self.get_managed_dataset(dataset_id, experiment_id)
+
+        if not dataset.experiment_ids:
+            raise MlflowException(
+                f"Dataset '{dataset_id}' has no associated experiments",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        primary_experiment_id = dataset.experiment_ids[0]
+
+        primary_experiment_dir = self._get_experiment_path(
+            primary_experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        dataset_dir = os.path.join(
+            primary_experiment_dir, FileStore.MANAGED_DATASETS_FOLDER_NAME, dataset_id
+        )
+
+        if exists(dataset_dir):
+            shutil.rmtree(dataset_dir)
+
+        for exp_id in dataset.experiment_ids[1:]:  # Skip primary experiment
+            self._remove_dataset_linkage(exp_id, dataset_id)
+
+    @contextmanager
+    def _linkage_file_lock(self, linkage_file_path: str):
+        """Context manager for thread-safe linkage file operations."""
+        with self._linkage_locks[linkage_file_path]:
+            yield
+
+    def _get_linkage_file_path(self, experiment_id: str) -> str:
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        return os.path.join(
+            experiment_dir,
+            self.MANAGED_DATASETS_FOLDER_NAME,
+            self.MANAGED_DATASET_LINKAGE_FILE_NAME,
+        )
+
+    def _ensure_linkage_directories(self, experiment_id: str) -> str:
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+
+        managed_datasets_dir = os.path.join(experiment_dir, self.MANAGED_DATASETS_FOLDER_NAME)
+        if not exists(managed_datasets_dir):
+            mkdir(managed_datasets_dir)
+
+        return os.path.join(managed_datasets_dir, self.MANAGED_DATASET_LINKAGE_FILE_NAME)
+
+    def _load_linkage_data(self, linkage_file_path: str) -> dict[str, Any]:
+        if not exists(linkage_file_path):
+            return {"datasets": {}, "last_updated": int(time.time() * 1000)}
+
+        try:
+            with open(linkage_file_path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {"datasets": {}, "last_updated": int(time.time() * 1000)}
+
+    def _save_linkage_data(self, linkage_file_path: str, linkage_data: dict[str, Any]) -> None:
+        linkage_data["last_updated"] = int(time.time() * 1000)
+
+        temp_file_path = linkage_file_path + ".tmp"
+        try:
+            with open(temp_file_path, "w") as f:
+                json.dump(linkage_data, f, indent=2)
+            os.rename(temp_file_path, linkage_file_path)
+        except Exception as e:
+            if exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise e
+
+    def _load_managed_dataset_from_file(self, dataset_file_path: str) -> ManagedDataset:
+        with open(dataset_file_path) as f:
+            dataset_dict = json.load(f)
+        return ManagedDataset.from_dict(dataset_dict)
+
+    def _create_dataset_linkage(
+        self, experiment_id: str, dataset_id: str, primary_experiment_id: str, dataset_name: str
+    ) -> None:
+        """Create a linkage file in another experiment pointing to the primary dataset location."""
+        linkage_file_path = self._ensure_linkage_directories(experiment_id)
+
+        with self._linkage_file_lock(linkage_file_path):
+            linkage_data = self._load_linkage_data(linkage_file_path)
+
+            linkage_data["datasets"][dataset_id] = {
+                "name": dataset_name,
+                "primary_experiment_id": primary_experiment_id,
+                "created_time": int(time.time() * 1000),
+            }
+
+            self._save_linkage_data(linkage_file_path, linkage_data)
+
+    def _remove_dataset_linkage(self, experiment_id: str, dataset_id: str) -> None:
+        """Remove a dataset linkage entry from the consolidated linkage file."""
+        try:
+            experiment_dir = self._get_experiment_path(experiment_id, view_type=ViewType.ALL)
+            if not experiment_dir:
+                return
+
+            linkage_file_path = self._get_linkage_file_path(experiment_id)
+
+            if not exists(linkage_file_path):
+                return
+
+            with self._linkage_file_lock(linkage_file_path):
+                linkage_data = self._load_linkage_data(linkage_file_path)
+
+                if dataset_id in linkage_data.get("datasets", {}):
+                    del linkage_data["datasets"][dataset_id]
+
+                    if not linkage_data["datasets"]:
+                        os.remove(linkage_file_path)
+                        linkage_dir = os.path.dirname(linkage_file_path)
+                        try:
+                            os.rmdir(linkage_dir)  # Only removes if empty
+                        except OSError:
+                            pass  # Directory not empty or doesn't exist
+                    else:
+                        self._save_linkage_data(linkage_file_path, linkage_data)
+
+        except Exception as e:
+            _logger.warning(
+                f"Failed to remove linkage for dataset {dataset_id} "
+                f"in experiment {experiment_id}: {e}"
+            )
