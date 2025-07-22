@@ -207,13 +207,14 @@ def test_responses_agent_log_default_task():
 
 
 def test_responses_agent_predict(tmp_path):
+    model_path = tmp_path / "model"
     model = SimpleResponsesAgent()
     response = model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert response.output[0].content[0]["type"] == "output_text"
     response = model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert next(response).type == "response.output_item.added"
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    mlflow.pyfunc.save_model(python_model=model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
     response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert response["output"][0]["type"] == "message"
     assert response["output"][0]["content"][0]["type"] == "output_text"
@@ -221,9 +222,10 @@ def test_responses_agent_predict(tmp_path):
 
 
 def test_responses_agent_predict_stream(tmp_path):
+    model_path = tmp_path / "model"
     model = SimpleResponsesAgent()
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    mlflow.pyfunc.save_model(python_model=model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
     responses = list(loaded_model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE))
     # most of this test is that the predict_stream parsing works in _ResponsesAgentPyfuncWrapper
     for r in responses:

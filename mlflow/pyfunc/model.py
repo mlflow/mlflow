@@ -851,6 +851,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ):
             output_items = []
             for chunk in chunks:
+                print(f"chunk: {chunk}")
                 # Handle both dict and pydantic object formats
                 if isinstance(chunk, dict):
                     chunk_type = chunk.get("type")
@@ -861,6 +862,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
                         output_items.append(chunk.item)
 
+            print(f"output_items: {output_items}")
             return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
 
         def __init_subclass__(cls, **kwargs) -> None:
