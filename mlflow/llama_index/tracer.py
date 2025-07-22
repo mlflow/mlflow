@@ -37,11 +37,10 @@ import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.llama_index.chat import get_chat_messages_from_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -283,7 +282,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return self._get_llm_attributes(instance)
 
     def _get_llm_attributes(self, instance) -> dict[str, Any]:
-        attr = {}
+        attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
             if params_str := metadata.json(exclude_unset=True):
@@ -380,28 +379,24 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
         span.set_attribute("prompt", event.prompt)
         span.set_attribute("model_dict", event.model_dict)
-        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
-        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.CHAT_MODEL)
         span.set_attribute("model_dict", event.model_dict)
-        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
         token_counts = self._parse_usage(span)
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
-        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -457,13 +452,6 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             }
         except Exception as e:
             _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
-
-    def _extract_and_set_chat_messages(self, span: LiveSpan, event: BaseEvent):
-        try:
-            messages = get_chat_messages_from_event(event)
-            set_span_chat_messages(span, messages, append=True)
-        except Exception as e:
-            _logger.debug(f"Failed to set chat messages to the span: {e}", exc_info=True)
 
 
 _StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
