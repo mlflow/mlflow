@@ -211,6 +211,7 @@ select = [
   "PT027",   # pytest-unittest-raises-assertion
   "PT030",   # pytest-warns-too-broad
   "PT031",   # pytest-warns-with-multiple-statements
+  "PYI024",  # collections-named-tuple
   "RET504",  # unnecessary-assign
   "RUF002",  # ambiguous-unicode-character-docstring
   "RUF003",  # ambiguous-unicode-character-comment

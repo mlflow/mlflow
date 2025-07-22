@@ -149,7 +149,11 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
-        if is_prompt_supported_registry(self.registry_uri):
+        # Add prompt filter for prompt-supported registries that also support filter_string
+        # Unity Catalog supports prompts but not filter_string parameter
+        if is_prompt_supported_registry(self.registry_uri) and not (
+            self.registry_uri or ""
+        ).startswith("databricks-uc"):
             # Adjust filter string to include or exclude prompts
             filter_string = add_prompt_filter_string(filter_string, False)
 
@@ -547,9 +551,9 @@ class ModelRegistryClient:
         self,
         name: str,
         template: Union[str, list[dict[str, "ContentType"]]],
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -565,16 +569,16 @@ class ModelRegistryClient:
                   method.
                 - A list of dictionaries representing chat messages, where each message has
                   'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            description: Optional description of this version.
+            tags: Optional dictionary of version tags.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            description: Optional description of this version.
-            tags: Optional dictionary of version tags.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, response_format, description, tags)
+        return self.store.create_prompt_version(name, template, description, tags, response_format)
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """

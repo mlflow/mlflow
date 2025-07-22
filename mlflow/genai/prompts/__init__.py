@@ -32,9 +32,9 @@ def suppress_genai_migration_warning():
 def register_prompt(
     name: str,
     template: Union[str, list[dict[str, "ContentType"]]],
-    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
+    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -67,13 +67,13 @@ def register_prompt(
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
 
-        response_format: Optional Pydantic class or dictionary defining the expected response
-            structure. This can be used to specify the schema for structured outputs from LLM calls.
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -128,9 +128,9 @@ def register_prompt(
         return registry_api.register_prompt(
             name=name,
             template=template,
-            response_format=response_format,
             commit_message=commit_message,
             tags=tags,
+            response_format=response_format,
         )
 
 
