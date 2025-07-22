@@ -5640,17 +5640,12 @@ class MlflowClient:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template content for this version. Can be either:
-                - A string containing text with variables enclosed in double curly braces,
-                  e.g. {{variable}}, which will be replaced with actual values by the `format`
-                  method.
-                - A list of dictionaries representing chat messages, where each message has
-                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            template: The prompt template content for this version.
             description: Optional description of the prompt version.
             tags: Optional dictionary of prompt version tags.
             response_format: Optional Pydantic class or dictionary defining the expected response
-                structure. This can be used to specify the schema for structured outputs from LLM
-                calls.
+                structure. This can be used to specify the schema for structured
+                outputs from LLM calls.
 
         Returns:
             A PromptVersion object.
