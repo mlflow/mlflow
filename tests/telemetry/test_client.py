@@ -190,6 +190,42 @@ def test_telemetry_retry_on_error(telemetry_client, error_code, terminate):
         assert tracker.responses == [record]
 
 
+@pytest.mark.parametrize("error_type", [ConnectionError, TimeoutError])
+@pytest.mark.parametrize("terminate", [True, False])
+def test_telemetry_retry_on_request_error(telemetry_client, error_type, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    class MockPostTracker:
+        def __init__(self):
+            self.count = 0
+            self.responses = []
+
+        def mock_post(self, *args, **kwargs):
+            self.count += 1
+            if self.count < 3:
+                raise error_type()
+            else:
+                self.responses.append(record)
+                return mock.Mock(status_code=200)
+
+    tracker = MockPostTracker()
+
+    with mock.patch("requests.post", side_effect=tracker.mock_post):
+        telemetry_client.add_record(record)
+        telemetry_client.flush(terminate=terminate)
+
+    # no retry when terminating
+    if terminate:
+        assert tracker.responses == []
+    else:
+        assert tracker.responses == [record]
+
+
 def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     """Test that records are not added when telemetry client is stopped."""
     telemetry_client._is_stopped = True
@@ -740,72 +776,7 @@ def test_records_not_processed_when_fetching_config_failed(mock_requests, termin
         clean_up_threads(client)
 
 
-@pytest.mark.no_mock_requests_get
-@pytest.mark.parametrize("error_code", [500, 502, 503, 504])
-def test_config_fetch_error_handling(mock_requests, error_code):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
-        timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
-    )
-
-    class MockPostTracker:
-        def __init__(self):
-            self.count = 0
-            self.responses = []
-
-        def mock_requests_get(self, *args, **kwargs):
-            self.count += 1
-            if self.count < 3:
-                return mock.Mock(status_code=error_code)
-            else:
-                return mock.Mock(
-                    status_code=200,
-                    json=mock.Mock(
-                        return_value={
-                            "mlflow_version": VERSION,
-                            "disable_telemetry": False,
-                            "ingestion_url": "http://localhost:9999",
-                            "rollout_percentage": 100,
-                        }
-                    ),
-                )
-
-        def reset(self):
-            self.count = 0
-            self.responses = []
-
-    tracker = MockPostTracker()
-
-    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=tracker.mock_requests_get):
-        set_telemetry_client()
-        client = get_telemetry_client()
-        client.add_record(record)
-        assert len(client._pending_records) == 1
-        # wait for config to be fetched
-        client._config_thread.join()
-        client.flush(terminate=True)
-        assert len(mock_requests) == 1
-        mock_requests.clear()
-        # clean up
-        clean_up_threads(client)
-
-    tracker.reset()
-    # test terminating before config fetched
-    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=tracker.mock_requests_get):
-        set_telemetry_client()
-        client = get_telemetry_client()
-        client.add_record(record)
-        assert len(client._pending_records) == 1
-        client.flush(terminate=True)
-        assert len(mock_requests) == 0
-        assert client._is_stopped is True
-        # clean up
-        clean_up_threads(client)
-
-
-@pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412])
+@pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
 def test_config_fetch_no_retry(mock_requests, error_code):
     record = APIRecord(
         api_module="test_module",

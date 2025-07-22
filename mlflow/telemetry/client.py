@@ -14,7 +14,6 @@ import requests
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
-    CONFIG_RETRYABLE_ERRORS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
     RETRYABLE_ERRORS,
@@ -89,14 +88,9 @@ class TelemetryClient:
         mlflow_version = self.info["mlflow_version"]
         if config_url := _get_config_url(mlflow_version):
             try:
-                for i in range(3):
-                    response = requests.get(config_url, timeout=1)
-                    if response.status_code == 200:
-                        break
-                    if response.status_code in CONFIG_RETRYABLE_ERRORS:
-                        time.sleep(2**i)
-                    else:
-                        return
+                response = requests.get(config_url, timeout=1)
+                if response.status_code != 200:
+                    return
                 config = response.json()
                 if (
                     config.get("mlflow_version") != mlflow_version
@@ -178,26 +172,32 @@ class TelemetryClient:
                 }
                 for record in records
             ]
-            max_retries = 3
-            for i in range(max_retries):
-                response = requests.post(
-                    self.config.ingestion_url,
-                    json={"records": records},
-                    headers={"Content-Type": "application/json"},
-                    timeout=timeout,
-                )
+            max_attempts = 3
+            for i in range(max_attempts):
+                should_retry = False
+                response = None
+                try:
+                    response = requests.post(
+                        self.config.ingestion_url,
+                        json={"records": records},
+                        headers={"Content-Type": "application/json"},
+                        timeout=timeout,
+                    )
+                    should_retry = response.status_code in RETRYABLE_ERRORS
+                except (ConnectionError, TimeoutError):
+                    should_retry = True
                 # if this is executed when terminating, we should not retry
                 if self._is_stopped:
                     return
-                if response.status_code in STOP_COLLECTION_ERRORS:
+                if i < max_attempts - 1 and should_retry:
+                    time.sleep(2**i)
+                elif response and response.status_code in STOP_COLLECTION_ERRORS:
                     self._is_stopped = True
                     self.is_active = False
                     # this is executed in the consumer thread, so
                     # we cannot join the thread here, but this should
                     # be enough to stop the telemetry collection
                     return
-                if response.status_code in RETRYABLE_ERRORS:
-                    time.sleep(2**i)
                 else:
                     return
         except Exception:

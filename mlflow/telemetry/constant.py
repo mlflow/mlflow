@@ -5,12 +5,6 @@ MAX_QUEUE_SIZE = 1000
 MAX_WORKERS = 1
 CONFIG_STAGING_URL = "https://d28ddotnh5kz8j.cloudfront.net"
 CONFIG_URL = "https://config.mlflow-telemetry.io"
-CONFIG_RETRYABLE_ERRORS = [
-    500,  # Interval Server Error
-    502,  # Bad Gateway
-    503,  # Service Unavailable
-    504,  # Gateway Timeout
-]
 RETRYABLE_ERRORS = [
     429,  # Throttled
     500,  # Interval Server Error
