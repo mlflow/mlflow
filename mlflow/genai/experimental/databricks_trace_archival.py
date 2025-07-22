@@ -89,7 +89,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                         >,
                         request_preview: STRING,
                         response_preview: STRING,
-                        request_time: BIGINT,
+                        request_time: DOUBLE,
                         execution_duration: DOUBLE,
                         state: STRING,
                         trace_metadata: MAP<STRING, STRING>
@@ -198,7 +198,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 SELECT
                   ts.trace_data.trace_id,
                   ts.trace_data.client_request_id,
-                  TIMESTAMP_MILLIS(ts.trace_data.request_time) AS request_time,
+                  TIMESTAMP_MILLIS(CAST(ts.trace_data.request_time AS BIGINT)) AS request_time,
                   ts.trace_data.state,
                   ts.trace_data.execution_duration AS execution_duration_ms,
                   ts.trace_data.request_preview AS request,

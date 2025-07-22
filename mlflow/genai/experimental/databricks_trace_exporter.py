@@ -3,7 +3,6 @@ import json
 import logging
 import threading
 import time
-import uuid
 from typing import Optional, Sequence
 
 from cachetools import TTLCache
@@ -187,12 +186,17 @@ class DatabricksTraceDeltaArchiver:
         delta_proto_spans = []
 
         for span in trace.data.spans:
+            # Skip spans that have no span ID since it will break parent-child relationships
+            if span.span_id is None:
+                _logger.debug(f"Span {span.name} has no span ID, skipping")
+                continue
+
             delta_proto = DeltaProtoSpan()
 
             # Use raw OpenTelemetry trace ID instead of the one from the trace
             # (without "tr-" prefix) for full OTel compliance
             delta_proto.trace_id = span._trace_id
-            delta_proto.span_id = span.span_id or str(uuid.uuid4())
+            delta_proto.span_id = span.span_id
             delta_proto.parent_span_id = span.parent_id or ""
             delta_proto.trace_state = ""
             delta_proto.flags = 0
@@ -220,13 +224,12 @@ class DatabricksTraceDeltaArchiver:
                 )  # fallback: 1s after start
             delta_proto.end_time_unix_nano = end_time_ns
 
-            # Convert attributes directly
-            attributes = getattr(span, "attributes", {}) or {}
+            # the raw otel span attributes are already json serialized
+            attributes = dict(span._span.attributes)
+
             for key, value in attributes.items():
-                # Use JSON dumps for consistent encoding
-                delta_proto.attributes[str(key)] = (
-                    json.dumps(value) if not isinstance(value, str) else value
-                )
+                delta_proto.attributes[str(key)] = value
+
             delta_proto.dropped_attributes_count = 0
 
             # Convert events directly
