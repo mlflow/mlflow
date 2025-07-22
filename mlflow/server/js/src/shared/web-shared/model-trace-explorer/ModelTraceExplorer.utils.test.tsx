@@ -38,7 +38,12 @@ import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils'
 import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
 import { MOCK_GEMINI_INPUT, MOCK_GEMINI_OUTPUT } from './chat-utils/gemini.test-utils';
 import { MOCK_DSPY_INPUT, MOCK_DSPY_OUTPUT } from './chat-utils/dspy.test-utils';
-import { MOCK_LANGCHAIN_INPUT, MOCK_LANGCHAIN_OUTPUT } from './chat-utils/langchain.test-utils';
+import {
+  MOCK_LANGCHAIN_INPUT,
+  MOCK_LANGCHAIN_OUTPUT,
+  MOCK_LANGCHAIN_IMAGE_INPUT,
+  MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT,
+} from './chat-utils/langchain.test-utils';
 import { MOCK_LLAMAINDEX_INPUT, MOCK_LLAMAINDEX_OUTPUT } from './chat-utils/llamaindex.test-utils';
 
 describe('parseTraceToTree', () => {
@@ -362,8 +367,10 @@ describe('normalizeConversation', () => {
 
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT)).toEqual([
       expect.objectContaining({
-        content: '![image](data:image/png;base64,<base64_encoded_image_data>)',
+        content: '![](data:image/png;base64,<base64_encoded_image_data>)',
         role: 'tool',
+        tool_calls: undefined,
+        type: 'message',
       }),
       expect.objectContaining({
         role: 'assistant',
@@ -433,6 +440,25 @@ it('should handle langchain input and outputs', () => {
     expect.objectContaining({
       content: expect.stringMatching(/oh, for crying out loud, no! that's just asking for a disaster/i),
       role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle langchain input with image content', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_IMAGE_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content:
+        'Describe the weather in this image:\n\n![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',
+    }),
+  ]);
+});
+
+it('should handle langchain input with single image content (no separator)', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: '![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',
     }),
   ]);
 });

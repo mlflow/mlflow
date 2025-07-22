@@ -522,28 +522,59 @@ const config: Config = {
 
           // Prompt Management Redirects
           {
-            to: '/genai/prompt-version-mgmt/prompt-engineering',
-            from: ['/llms/prompt-engineering'],
+            to: '/genai/prompt-registry/prompt-engineering',
+            from: ['/llms/prompt-engineering', '/genai/prompt-version-mgmt/prompt-engineering'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry',
-            from: ['/prompts'],
+            to: '/genai/prompt-registry',
+            from: ['/prompts', '/genai/prompt-version-mgmt/prompt-registry'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases',
-            from: ['/prompts/cm'],
+            to: '/genai/prompt-registry/manage-prompt-lifecycles-with-aliases',
+            from: ['/prompts/cm', '/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts',
-            from: ['/prompts/evaluate'],
+            to: '/genai/prompt-registry/evaluate-prompts',
+            from: ['/prompts/evaluate', '/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/log-with-model',
-            from: ['/prompts/run-and-model'],
+            to: '/genai/prompt-registry/log-with-model',
+            from: ['/prompts/run-and-model', '/genai/prompt-version-mgmt/prompt-registry/log-with-model'],
           },
           {
-            to: '/genai/prompt-version-mgmt/optimize-prompts',
-            from: ['/genai/prompt-version-mgmt/prompt-registry/optimize-prompts'],
+            to: '/genai/prompt-registry/optimize-prompts',
+            from: [
+              '/genai/prompt-version-mgmt/optimize-prompts',
+              '/genai/prompt-version-mgmt/prompt-registry/optimize-prompts',
+            ],
+          },
+          {
+            to: '/genai/prompt-registry/create-and-edit-prompts',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts'],
+          },
+          {
+            to: '/genai/prompt-registry/use-prompts-in-apps',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-apps'],
+          },
+          {
+            to: '/genai/prompt-registry/structured-output',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/structured-output'],
+          },
+          {
+            to: '/genai/version-tracking',
+            from: ['/genai/prompt-version-mgmt/version-tracking'],
+          },
+          {
+            to: '/genai/version-tracking/quickstart',
+            from: ['/genai/prompt-version-mgmt/version-tracking/quickstart'],
+          },
+          {
+            to: '/genai/version-tracking/track-application-versions-with-mlflow',
+            from: ['/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow'],
+          },
+          {
+            to: '/genai/version-tracking/compare-app-versions',
+            from: ['/genai/prompt-version-mgmt/version-tracking/compare-app-versions'],
           },
 
           // Governance and Deployments Redirects

@@ -3,7 +3,7 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -37,9 +37,6 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 
 @developer_stable
@@ -688,10 +685,10 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -707,11 +704,11 @@ class AbstractStore:
                   method.
                 - A list of dictionaries representing chat messages, where each message has
                   'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+            description: Optional description of the prompt version.
+            tags: Optional dictionary of version tags.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
-            description: Optional description of the prompt version.
-            tags: Optional dictionary of version tags.
 
         Returns:
             A PromptVersion object representing the created version.
