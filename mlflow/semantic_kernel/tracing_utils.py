@@ -105,11 +105,11 @@ def _parse_kernel_invoke_prompt_inputs(
     return {}
 
 
-def _serialize_chat_output(result: Any) -> str:
+def _serialize_chat_output(result: Any) -> Any:
     """Serialize chat completion outputs."""
     try:
         if result is None:
-            return json.dumps(None)
+            return None
         if isinstance(result, ChatMessageContent):
             result = [result]
         if isinstance(result, list) and result and isinstance(result[0], ChatMessageContent):
@@ -119,13 +119,12 @@ def _serialize_chat_output(result: Any) -> str:
 
                 if isinstance(completion, ChatMessageContent):
                     full_response["finish_reason"] = completion.finish_reason.value
-                print("full_response", full_response)
                 full_responses.append(full_response)
             return {"messages": full_responses}
         return json.dumps(None)
     except Exception as e:
         _logger.warning(f"Failed to serialize chat result: {e}")
-        return json.dumps(None)
+        return None
 
 
 def _serialize_text_output(result: Any) -> str:
@@ -242,8 +241,7 @@ def _set_span_outputs(
     output_str = serializer(result)
     mlflow_span.set_outputs(output_str)
 
-    # Set CHAT_MESSAGES for chat outputs (as array format for backward compatibility)
-    if serializer == _serialize_chat_output and output_str != None:
+    if serializer == _serialize_chat_output and output_str is not None:
         try:
             output_dict = json.loads(output_str)
             if "messages" in output_dict:

@@ -200,7 +200,6 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
                 full_responses.append(full_response)
 
             mlflow_span.set_outputs({"messages": full_responses})
-            mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, full_responses)
 
     except Exception as e:
         _logger.warning(f"Failed to set outputs attribute: {e}")

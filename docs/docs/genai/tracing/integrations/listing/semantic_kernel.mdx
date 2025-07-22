@@ -11,13 +11,26 @@ import TabItem from "@theme/TabItem";
 
 # Tracing Semantic Kernel
 
-### ![Semantic Kernel Tracing via autolog](/images/llms/tracing/semantic_kernel_trace_inputs_outputs.png)
+### ![Semantic Kernel Tracing via autolog](/images/llms/tracing/semantic_kernel_tracing_inputs_outputs.png)
 
 [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) is a lightweight, open-source SDK that functions as AI middleware, enabling you to integrate AI models into your C#, Python, or Java codebase via a uniform API layer. By abstracting model interactions, it lets you swap in new models without rewriting your application logic.
 
-[MLflow Tracing](/genai/tracing) provides automatic tracing capability for Semantic Kernel. Auto tracing for Semantic Kernel can be enabled by calling the `mlflow.semantic_kernel.autolog` function, MLflow will capture traces for LLM invocations and log them to the active MLflow Experiment.
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for Semantic Kernel. By enabling auto tracing for Semantic Kernel via the <APILink fn="mlflow.semantic_kernel.autolog" /> function, MLflow will capture traces for LLM invocations and log them to the active MLflow Experiment.
 
-To get started, lets install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
+MLflow trace automatically captures the following information about Semantic Kernel calls:
+
+- Prompts and completion responses
+- Chat history and messages
+- Latencies
+- Model name and provider
+- Kernel functions and plugins
+- Template variables and arguments
+- Token usage information
+- Any exceptions if raised
+
+## Getting Started
+
+To get started, let's install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
 
 ```bash
 pip install mlflow semantic_kernel openai
@@ -41,7 +54,11 @@ from getpass import getpass
 os.environ["OPENAI_API_KEY"] = getpass("openai_api_key: ")
 ```
 
-### Examples
+## Examples
+
+:::note
+Semantic Kernel primarily uses asynchronous programming patterns. The examples below use `async`/`await` syntax. If you're running these in a Jupyter notebook, the code will work as-is. For scripts, you'll need to wrap the async calls appropriately (e.g., using `asyncio.run()`).
+:::
 
 <Tabs>
   <TabItem value="basic" label="Simple Example" default>
@@ -168,3 +185,26 @@ This example showcases:
       </TabItem>
 
   </Tabs>
+
+## Token Usage
+
+MLflow supports token usage tracking for Semantic Kernel. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
+
+```python
+import mlflow
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+if total_usage := trace.info.token_usage:
+    print("== Total token usage: ==")
+    print(f"  Input tokens: {total_usage['input_tokens']}")
+    print(f"  Output tokens: {total_usage['output_tokens']}")
+    print(f"  Total tokens: {total_usage['total_tokens']}")
+```
+
+## Disable Auto-tracing
+
+Auto tracing for Semantic Kernel can be disabled globally by calling `mlflow.semantic_kernel.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

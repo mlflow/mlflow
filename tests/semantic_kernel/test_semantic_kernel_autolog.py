@@ -97,7 +97,6 @@ async def test_sk_invoke_simple(mock_openai):
 
     # Root span
     output = root_span.get_attribute(SpanAttributeKey.OUTPUTS)
-    # parsed_output = json.loads(output)
     assert isinstance(output, dict)
     assert "messages" in output
     assert isinstance(output["messages"], list)
@@ -221,9 +220,6 @@ async def test_sk_invoke_complex(mock_openai):
     assert isinstance(outputs, dict)
     assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
-    assert (
-        json.loads(child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == outputs["messages"]
-    )
 
     assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
     assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
@@ -426,8 +422,8 @@ async def test_sk_output_serialization():
     assert result["messages"][0]["content"] == "Message 0"
     assert result["messages"][1]["content"] == "Message 1"
 
-    assert json.loads(_serialize_chat_output(None)) is None
-    assert json.loads(_serialize_chat_output("not a chat")) is None
+    assert _serialize_chat_output(None) is None
+    assert _serialize_chat_output("not a chat") is None
 
     # Test text output serialization
     text_content = TextContent(text="Hello world")
