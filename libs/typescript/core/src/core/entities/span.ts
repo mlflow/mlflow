@@ -15,6 +15,7 @@ import {
   encodeTraceIdToBase64,
   decodeIdFromBase64
 } from '../utils';
+import { safeJsonStringify } from '../utils/json';
 import { InMemoryTraceManager } from '../trace_manager';
 /**
  * MLflow Span interface
@@ -545,14 +546,14 @@ class SpanAttributesRegistry {
    */
   set(key: string, value: any): void {
     if (typeof key !== 'string') {
-      console.warn(`Attribute key must be a string, but got ${typeof key}. Skipping.`);
+      console.warn(`Attribute key muspt be a string, but got ${typeof key}. Skipping.`);
       return;
     }
 
     // NB: OpenTelemetry attribute can store not only string but also a few primitives like
     // int, float, bool, and list of them. However, we serialize all into JSON string here
     // for the simplicity in deserialization process.
-    this._span.setAttribute(key, JSON.stringify(value));
+    this._span.setAttribute(key, safeJsonStringify(value));
   }
 }
 
