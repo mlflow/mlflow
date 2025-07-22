@@ -1,6 +1,5 @@
 # pep8: disable=E501
 
-import collections
 import functools
 import json
 import os
@@ -33,11 +32,6 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.process import _exec_cmd
 
 np.random.seed(1337)
-
-SavedModelInfo = collections.namedtuple(
-    "SavedModelInfo",
-    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
-)
 
 
 @pytest.fixture(autouse=True)
