@@ -300,7 +300,9 @@ class TelemetryClient:
             # NB: this doesn't suppress log not emitted by mlflow
             with suppress_logs_in_thread(), warnings.catch_warnings():
                 warnings.simplefilter("ignore")
+                start_time = time.time()
                 self.flush(terminate=True)
+                print("Time taken to flush: ", time.time() - start_time)
         except Exception:
             pass
 

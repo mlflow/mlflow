@@ -68,7 +68,7 @@ def is_telemetry_disabled() -> bool:
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
             or _IS_IN_CI_ENV_OR_TESTING
             or _IS_IN_DATABRICKS
-            or _IS_MLFLOW_DEV_VERSION
+            # or _IS_MLFLOW_DEV_VERSION
         )
     except Exception:
         return True
