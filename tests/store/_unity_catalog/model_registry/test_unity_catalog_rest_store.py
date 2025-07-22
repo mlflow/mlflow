@@ -29,7 +29,13 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.prompt.constants import (
+    LINKED_PROMPTS_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY_UC,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY_UC,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -2343,8 +2349,6 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_create_prompt_version_with_response_format_uc(mock_http, store, monkeypatch):
-    from mlflow.prompt.constants import RESPONSE_FORMAT_TAG_KEY
-
     name = "prompt1"
     template = "Generate a response for {query}"
     description = "A response generation prompt"
@@ -2390,11 +2394,12 @@ def test_create_prompt_version_with_response_format_uc(mock_http, store, monkeyp
     prompt_version = request_body["prompt_version"]
 
     tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
-    assert RESPONSE_FORMAT_TAG_KEY in tags_in_request
+    assert RESPONSE_FORMAT_TAG_KEY_UC in tags_in_request
 
     expected_response_format = json.dumps(response_format)
-    assert tags_in_request[RESPONSE_FORMAT_TAG_KEY] == expected_response_format
+    assert tags_in_request[RESPONSE_FORMAT_TAG_KEY_UC] == expected_response_format
     assert tags_in_request["env"] == "test"
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY_UC] == PROMPT_TYPE_TEXT
 
 
 @mock_http_200
@@ -2445,6 +2450,7 @@ def test_create_prompt_version_with_multi_turn_template_uc(mock_http, store, mon
     tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
     assert tags_in_request["type"] == "conversation"
     assert tags_in_request["env"] == "test"
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY_UC] == PROMPT_TYPE_CHAT
 
 
 @mock_http_200

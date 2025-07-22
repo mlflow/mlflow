@@ -18,7 +18,12 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException, RestException
-from mlflow.prompt.constants import RESPONSE_FORMAT_TAG_KEY
+from mlflow.prompt.constants import (
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY_UC,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY_UC,
+)
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1442,9 +1447,13 @@ class UcModelRegistryStore(BaseRestStore):
 
         final_tags = tags.copy() if tags else {}
         if response_format:
-            final_tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
+            final_tags[RESPONSE_FORMAT_TAG_KEY_UC] = json.dumps(
                 PromptVersion.convert_response_format_to_dict(response_format)
             )
+        if isinstance(template, str):
+            final_tags[PROMPT_TYPE_TAG_KEY_UC] = PROMPT_TYPE_TEXT
+        else:
+            final_tags[PROMPT_TYPE_TAG_KEY_UC] = PROMPT_TYPE_CHAT
 
         if final_tags:
             prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(final_tags))

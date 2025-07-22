@@ -2,6 +2,7 @@
 Utility functions for converting between Unity Catalog proto and MLflow entities.
 """
 
+import json
 from typing import Optional
 
 from mlflow.entities.model_registry.prompt import Prompt
@@ -74,6 +75,9 @@ def proto_to_mlflow_prompt(
     version_tags = (
         proto_version_tags_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
     )
+    version_tags = {
+        key: value for key, value in version_tags.items() if not key.startswith("_mlflow")
+    }
 
     # Extract aliases
     aliases = []
@@ -87,7 +91,7 @@ def proto_to_mlflow_prompt(
     return PromptVersion(
         name=proto_version.name,
         version=version,
-        template=proto_version.template,
+        template=json.loads(proto_version.template),
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
         tags=version_tags,
