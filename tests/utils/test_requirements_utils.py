@@ -36,11 +36,13 @@ from tests.helper_functions import AnyStringWith
 
 @pytest.fixture(autouse=True, scope="module")
 def restore_sys():
-    sys_path_snapshot = sys.path.copy()
+    sys_path_snapshot = copy.copy(sys.path)
+    sys_meta_path_snapshot = copy.copy(sys.meta_path)
     sys_modules_snapshot = copy.copy(sys.modules)
     yield
     sys.modules = sys_modules_snapshot
     sys.path = sys_path_snapshot
+    sys.meta_path = sys_meta_path_snapshot
     importlib.invalidate_caches()
 
     # import databricks
