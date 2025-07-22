@@ -118,7 +118,7 @@ settings.top_p = 0.8
 chat_function = kernel.add_function(
     plugin_name="ChatBot",
     function_name="Chat",
-    prompt="{{$chat_history}}{{$user_input}}",
+    prompt="{'{'}{'$chat_history'}{'}'}{'{'}{'$user_input'}{'}'}",
     template_format="semantic-kernel",
     prompt_execution_settings=settings,
 )
@@ -159,10 +159,12 @@ await run_complex_example()
 ```
 
 This example showcases:
+
 - **Chat History**: Maintains conversation context with system messages
 - **Custom Settings**: Configure temperature, max_tokens, and top_p for fine-tuned responses
 - **Kernel Functions**: Use plugins and functions for organized prompt management
-- **Template Variables**: Leverage Semantic Kernel's templating system with `{{$chat_history}}` and `{{$user_input}}`
+- **Template Variables**: Leverage Semantic Kernel's templating system with `{"{"}{"$chat_history"}{"}"}` and `{"{"}{"$user_input"}{"}"}`
 
-  </TabItem>
-</Tabs>
+      </TabItem>
+
+  </Tabs>

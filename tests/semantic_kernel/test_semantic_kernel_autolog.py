@@ -111,7 +111,6 @@ async def test_sk_invoke_simple(mock_openai):
     assert "gen_ai.operation.name" in child_span.attributes
 
     inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
-    print(inputs)
     if isinstance(inputs, str):
         inputs = json.loads(inputs)
     assert isinstance(inputs, dict)
@@ -222,7 +221,9 @@ async def test_sk_invoke_complex(mock_openai):
     assert isinstance(outputs, dict)
     assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
-    assert child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == outputs["messages"]
+    assert (
+        json.loads(child_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == outputs["messages"]
+    )
 
     assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
     assert child_span.get_attribute(TokenUsageKey.OUTPUT_TOKENS)
@@ -413,7 +414,6 @@ async def test_sk_streaming_methods(mock_openai):
 async def test_sk_output_serialization():
     chat_msg = ChatMessageContent(role="assistant", content="Hello", finish_reason="stop")
     result = _serialize_chat_output(chat_msg)
-    print("result", result)
     assert result["messages"][0]["content"] == "Hello"
     assert result["messages"][0]["role"] == "assistant"
 
