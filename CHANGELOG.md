@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 3.1.3 (2025-07-22)
+
+MLflow 3.1.3 includes several major features and improvements
+
+Bug fixes:
+
+- [] Fix the position of added tracking_uri param to artifact store implementations (#16653, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#16475, @harupy
+
 ## 3.1.2 (2025-07-08)
 
 MLflow 3.1.2 is a patch release that includes several bug fixes.
