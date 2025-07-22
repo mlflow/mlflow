@@ -35,9 +35,11 @@ from tests.helper_functions import AnyStringWith
 
 @pytest.fixture(autouse=True, scope="module")
 def restore_sys_modules():
+    sys_path_snapshot = sys.path.copy()
     sys_modules_snapshot = dict(sys.modules)
     yield
     sys.modules = sys_modules_snapshot
+    sys.path = sys_path_snapshot
     importlib.invalidate_caches()
 
 
