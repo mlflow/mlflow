@@ -345,6 +345,7 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
 
     finally:
         sys.modules = sys_modules_snapshot
+        importlib.invalidate_caches()
 
 
 def test_infer_pip_requirements_scopes_databricks_imports():
