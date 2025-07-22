@@ -84,11 +84,13 @@ The `Chat` panel is only supported for the `converse` and `converse_stream` APIs
 MLflow automatically captures token usage statistics for supported Bedrock models and APIs. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
 
 Token usage includes:
+
 - **Input tokens** (prompt tokens)
 - **Output tokens** (completion/generation tokens)
 - **Total tokens** (sum of input and output)
 
 Token usage is extracted from the response for all major Bedrock providers, including:
+
 - Anthropic (Claude)
 - AI21 (Jamba)
 - Amazon Titan/Nova
@@ -97,6 +99,7 @@ Token usage is extracted from the response for all major Bedrock providers, incl
 ### Supported APIs
 
 Token usage is logged for:
+
 - `invoke_model`
 - `invoke_model_with_response_stream`
 - `converse`
