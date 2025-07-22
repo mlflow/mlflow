@@ -22,10 +22,17 @@ def mock_requests():
     """Fixture to mock requests.post and capture telemetry records."""
     captured_records = []
 
+    url_status_code_map = {
+        "http://127.0.0.1:9999/nonexistent": 404,
+        "http://127.0.0.1:9999/unauthorized": 401,
+        "http://127.0.0.1:9999/forbidden": 403,
+        "http://127.0.0.1:9999/bad_request": 400,
+    }
+
     def mock_post(url, json=None, **kwargs):
-        if url == "http://127.0.0.1:9999/nonexistent":
+        if url in url_status_code_map:
             mock_response = Mock()
-            mock_response.status_code = 404
+            mock_response.status_code = url_status_code_map[url]
             return mock_response
         if json and "records" in json:
             captured_records.extend(json["records"])

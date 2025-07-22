@@ -1,11 +1,11 @@
 from typing import Any
 
-from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.client import TelemetryClient, get_telemetry_client
 from mlflow.telemetry.schemas import BaseParams
 
 
 def validate_telemetry_record(
-    mock_requests, func, params=None, *, status="success", search_index=False, check_params=True
+    mock_requests, func, params=None, *, status="success", search_index=True, check_params=True
 ) -> dict[str, Any]:
     """
     Validate the telemetry record at the given index.
@@ -31,3 +31,15 @@ def validate_telemetry_record(
     assert data["duration_ms"] is not None
     mock_requests.clear()
     return data
+
+
+def clean_up_threads(client: TelemetryClient):
+    """
+    Clean up the telemetry threads.
+    flush(terminate=True) has a timeout, use this function if the
+    threads take longer than the timeout to finish.
+    """
+    client._config_thread.join()
+    for thread in client._consumer_threads:
+        if thread.is_alive():
+            thread.join()

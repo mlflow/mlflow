@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+import warnings
 from unittest import mock
 
 import pytest
@@ -15,6 +16,8 @@ from mlflow.telemetry.client import (
 from mlflow.telemetry.schemas import APIRecord, APIStatus, SourceSDK, TelemetryConfig
 from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
+
+from tests.telemetry.helper_functions import clean_up_threads
 
 
 @pytest.fixture
@@ -116,9 +119,18 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     assert not telemetry_client.is_active
 
 
-def test_error_handling(mock_requests, telemetry_client):
-    """Test that client handles server errors gracefully."""
-    telemetry_client.config.ingestion_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1:9999/nonexistent",
+        "http://127.0.0.1:9999/unauthorized",
+        "http://127.0.0.1:9999/forbidden",
+        "http://127.0.0.1:9999/bad_request",
+    ],
+)
+@pytest.mark.parametrize("terminate", [True, False])
+def test_telemetry_collection_stopped_on_error(mock_requests, telemetry_client, url, terminate):
+    telemetry_client.config.ingestion_url = url
 
     # Add a record - should not crash
     record = APIRecord(
@@ -129,11 +141,101 @@ def test_error_handling(mock_requests, telemetry_client):
     )
     telemetry_client.add_record(record)
 
-    telemetry_client.flush()
+    telemetry_client.flush(terminate=terminate)
 
-    # Client should still be active despite errors
-    assert telemetry_client.is_active
+    assert telemetry_client._is_stopped is True
+    assert telemetry_client.is_active is False
     assert len(mock_requests) == 0
+    assert telemetry_client._pending_records == []
+
+    # add record after stopping should be no-op
+    telemetry_client.add_record(record)
+    telemetry_client.flush(terminate=terminate)
+    assert len(mock_requests) == 0
+
+
+@pytest.mark.parametrize("error_code", [429, 500])
+@pytest.mark.parametrize("terminate", [True, False])
+def test_telemetry_retry_on_error(telemetry_client, error_code, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    class MockPostTracker:
+        def __init__(self):
+            self.count = 0
+            self.responses = []
+
+        def mock_post(self, *args, **kwargs):
+            self.count += 1
+            if self.count < 3:
+                return mock.Mock(status_code=error_code)
+            else:
+                self.responses.append(record)
+                return mock.Mock(status_code=200)
+
+    tracker = MockPostTracker()
+
+    with mock.patch("requests.post", side_effect=tracker.mock_post):
+        telemetry_client.add_record(record)
+        start_time = time.time()
+        telemetry_client.flush(terminate=terminate)
+        duration = time.time() - start_time
+        if terminate:
+            assert duration < 1.5
+        else:
+            assert duration < 2.5
+
+    # no retry when terminating
+    if terminate:
+        assert tracker.responses == []
+    else:
+        assert tracker.responses == [record]
+
+
+@pytest.mark.parametrize("error_type", [ConnectionError, TimeoutError])
+@pytest.mark.parametrize("terminate", [True, False])
+def test_telemetry_retry_on_request_error(telemetry_client, error_type, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    class MockPostTracker:
+        def __init__(self):
+            self.count = 0
+            self.responses = []
+
+        def mock_post(self, *args, **kwargs):
+            self.count += 1
+            if self.count < 3:
+                raise error_type()
+            else:
+                self.responses.append(record)
+                return mock.Mock(status_code=200)
+
+    tracker = MockPostTracker()
+
+    with mock.patch("requests.post", side_effect=tracker.mock_post):
+        telemetry_client.add_record(record)
+        start_time = time.time()
+        telemetry_client.flush(terminate=terminate)
+        duration = time.time() - start_time
+        if terminate:
+            assert duration < 1.5
+        else:
+            assert duration < 2.5
+
+    # no retry when terminating
+    if terminate:
+        assert tracker.responses == []
+    else:
+        assert tracker.responses == [record]
 
 
 def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
@@ -683,5 +785,45 @@ def test_records_not_processed_when_fetching_config_failed(mock_requests, termin
         assert len(mock_requests) == 0
 
         # clean up
-        if terminate is False:
-            client.flush(terminate=True)
+        clean_up_threads(client)
+
+
+@pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
+def test_config_fetch_no_retry(mock_requests, error_code):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(status_code=error_code)
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client.add_record(record)
+        assert len(client._pending_records) == 1
+        # wait for config to be fetched
+        client._config_thread.join()
+        client.flush(terminate=True)
+        assert len(mock_requests) == 0
+        mock_requests.clear()
+        # clean up
+        clean_up_threads(client)
+        assert get_telemetry_client() is None
+
+
+def test_warning_suppression_in_shutdown(recwarn):
+    client = get_telemetry_client()
+
+    def flush_mock(*args, **kwargs):
+        warnings.warn("test warning")
+
+    with mock.patch.object(client, "flush", flush_mock):
+        client._at_exit_callback()
+        assert len(recwarn) == 0
+
+    assert len(client._consumer_threads) == 0
