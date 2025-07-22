@@ -126,7 +126,6 @@ def test_mlflow_prompt_to_proto():
         template="Hello {{name}}!",
         commit_message="Test prompt",
         tags={"key1": "value1", "key2": "value2"},
-        aliases=["production"],
     )
 
     # Convert to proto
