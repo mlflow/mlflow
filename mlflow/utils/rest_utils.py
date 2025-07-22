@@ -119,6 +119,7 @@ def http_request(
             host_creds.token,
             host_creds.databricks_auth_profile,
             retry_timeout_seconds=retry_timeout_seconds,
+            timeout=timeout,
         )
 
         def make_sdk_call():
@@ -259,6 +260,7 @@ def get_workspace_client(
     token,
     databricks_auth_profile,
     retry_timeout_seconds=None,
+    timeout=None,
 ):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
@@ -267,6 +269,8 @@ def get_workspace_client(
         kwargs = {"host": host, "token": token}
     else:
         kwargs = {"profile": databricks_auth_profile}
+    if timeout is not None:
+        kwargs["http_timeout_seconds"] = timeout
     config = Config(
         **kwargs,
         retry_timeout_seconds=retry_timeout_seconds
