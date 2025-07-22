@@ -60,9 +60,6 @@ os.environ["OPENAI_API_KEY"] = getpass("openai_api_key: ")
 Semantic Kernel primarily uses asynchronous programming patterns. The examples below use `async`/`await` syntax. If you're running these in a Jupyter notebook, the code will work as-is. For scripts, you'll need to wrap the async calls appropriately (e.g., using `asyncio.run()`).
 :::
 
-<Tabs>
-  <TabItem value="basic" label="Simple Example" default>
-
 The simplest example to show the tracing integration is to instrument a [ChatCompletion Kernel](https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/?tabs=csharp-AzureOpenAI%2Cpython-AzureOpenAI%2Cjava-AzureOpenAI&pivots=programming-language-python).
 
 ```python
@@ -96,114 +93,6 @@ with mlflow.start_run(run_name="semantic_kernel simple example"):
 ```
 
 ### ![Semantic Kernel Chat Completion Tracing via autolog](/images/llms/tracing/semantic_kernel_trace_attributes.png)
-
-  </TabItem>
-  <TabItem value="complex" label="Complex Example">
-
-This example demonstrates a more advanced use case with chat history, custom settings, and kernel functions.
-
-```python
-import asyncio
-import openai
-from semantic_kernel import Kernel
-from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
-from semantic_kernel.contents import ChatHistory
-from semantic_kernel.functions import KernelArguments
-
-# Create a Semantic Kernel instance
-kernel = Kernel()
-
-# Create an OpenAI client
-openai_client = openai.AsyncOpenAI()
-
-# Add the OpenAI chat completion service
-kernel.add_service(
-    OpenAIChatCompletion(
-        service_id="chat-gpt",
-        ai_model_id="gpt-4o-mini",
-        async_client=openai_client,
-    )
-)
-
-# Configure custom settings
-settings = kernel.get_prompt_execution_settings_from_service_id("chat-gpt")
-settings.max_tokens = 100
-settings.temperature = 0.7
-settings.top_p = 0.8
-
-# Create a kernel function with a plugin
-chat_function = kernel.add_function(
-    plugin_name="ChatBot",
-    function_name="Chat",
-    prompt="{'{'}{'$chat_history'}{'}'}{'{'}{'$user_input'}{'}'}",
-    template_format="semantic-kernel",
-    prompt_execution_settings=settings,
-)
-
-# Create a chat history with system message
-chat_history = ChatHistory(
-    system_message=(
-        "You are a chat bot named Mosscap, dedicated to figuring out what people need."
-    )
-)
-
-# Add conversation history
-chat_history.add_user_message("Hi there, who are you?")
-chat_history.add_assistant_message(
-    "I am Mosscap, a chat bot. I'm trying to figure out what people need."
-)
-
-# Define the new user input
-user_input = "I want to find a hotel in Seattle with free wifi and a pool."
-
-
-# Run the example with MLflow tracing
-async def run_complex_example():
-    with mlflow.start_run(run_name="semantic_kernel complex example"):
-        result = await kernel.invoke(
-            chat_function,
-            KernelArguments(
-                user_input=user_input,
-                chat_history=chat_history,
-            ),
-        )
-        print(f"Response: {result}")
-        return result
-
-
-# Execute the async function
-await run_complex_example()
-```
-
-This example showcases:
-
-- **Chat History**: Maintains conversation context with system messages
-- **Custom Settings**: Configure temperature, max_tokens, and top_p for fine-tuned responses
-- **Kernel Functions**: Use plugins and functions for organized prompt management
-- **Template Variables**: Leverage Semantic Kernel's templating system with `{"{"}{"$chat_history"}{"}"}` and `{"{"}{"$user_input"}{"}"}`
-
-      </TabItem>
-
-  </Tabs>
-
-## Token Usage
-
-MLflow supports token usage tracking for Semantic Kernel. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
-
-```python
-import mlflow
-
-# Get the trace object just created
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the token usage
-if total_usage := trace.info.token_usage:
-    print("== Total token usage: ==")
-    print(f"  Input tokens: {total_usage['input_tokens']}")
-    print(f"  Output tokens: {total_usage['output_tokens']}")
-    print(f"  Total tokens: {total_usage['total_tokens']}")
-```
 
 ## Disable Auto-tracing
 

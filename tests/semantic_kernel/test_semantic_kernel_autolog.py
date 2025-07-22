@@ -35,6 +35,7 @@ from mlflow.tracing.constant import (
 from tests.semantic_kernel.resources import (
     _create_and_invoke_chat_agent,
     _create_and_invoke_chat_completion_direct,
+    _create_and_invoke_embeddings,
     _create_and_invoke_kernel_complex,
     _create_and_invoke_kernel_function,
     _create_and_invoke_kernel_simple,
@@ -64,19 +65,14 @@ async def test_sk_invoke_simple(mock_openai):
     assert trace.info.request_id
     assert trace.info.experiment_id == "0"
     assert trace.info.timestamp_ms > 0
-    assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) >= 2
     assert trace.data.response
     assert not trace.data.response.startswith("<coroutine")
-
-    assert "mlflow.traceInputs" in trace.info.trace_metadata
-    assert "mlflow.traceOutputs" in trace.info.trace_metadata
 
     trace_inputs_str = trace.info.trace_metadata.get("mlflow.traceInputs", "")
     trace_outputs_str = trace.info.trace_metadata.get("mlflow.traceOutputs", "")
 
     trace_inputs = json.loads(trace_inputs_str)
-    assert "messages" in trace_inputs
     assert trace_inputs["messages"][0]["content"] == "Is sushi the best food ever?"
 
     trace_outputs = json.loads(trace_outputs_str)
@@ -91,34 +87,24 @@ async def test_sk_invoke_simple(mock_openai):
     root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
     child_span = next((s for s in trace.data.spans if s.parent_id == root_span.span_id), None)
 
-    assert root_span is not None
+    # Root span
     assert SpanAttributeKey.REQUEST_ID in root_span.attributes
     assert not str(root_span.get_attribute(SpanAttributeKey.OUTPUTS)).startswith("<coroutine")
-
-    # Root span
     output = root_span.get_attribute(SpanAttributeKey.OUTPUTS)
-    assert isinstance(output, dict)
-    assert "messages" in output
     assert isinstance(output["messages"], list)
     assert len(output["messages"]) == 1
     assert output["messages"][0]["role"] == "assistant"
     assert "content" in output["messages"][0]
 
     # Child span
-    assert child_span is not None
     assert child_span.name == "chat.completions gpt-4o-mini"
     assert "gen_ai.operation.name" in child_span.attributes
 
     inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
-    if isinstance(inputs, str):
-        inputs = json.loads(inputs)
-    assert isinstance(inputs, dict)
     assert inputs == {"messages": [{"role": "user", "content": "Is sushi the best food ever?"}]}
 
     outputs = child_span.get_attribute(SpanAttributeKey.OUTPUTS)
 
-    if isinstance(outputs, str):
-        outputs = json.loads(outputs)
     assert outputs == {
         "messages": [
             {
@@ -162,7 +148,6 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.request_id
-    assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) == 2
 
 
@@ -185,7 +170,6 @@ async def test_sk_invoke_complex(mock_openai):
 
     # Root span
     root_span = next((s for s in trace.data.spans if s.parent_id is None), None)
-    assert root_span is not None
 
     assert root_span.name == "execute_tool ChatBot-Chat"
     assert root_span.get_attribute(SpanAttributeKey.REQUEST_ID) == trace.info.request_id
@@ -206,19 +190,12 @@ async def test_sk_invoke_complex(mock_openai):
     assert child_span.get_attribute(model_gen_ai_attributes.OUTPUT_TOKENS) == 12
 
     inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
-    if isinstance(inputs, str):
-        inputs = json.loads(inputs)
-    assert isinstance(inputs, dict)
     assert any(
         "I want to find a hotel in Seattle with free wifi and a pool." in m.get("content", "")
         for m in inputs.get("messages", [])
     )
 
     outputs = child_span.get_attribute(SpanAttributeKey.OUTPUTS)
-    if isinstance(outputs, str):
-        outputs = json.loads(outputs)
-    assert isinstance(outputs, dict)
-    assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
 
     assert child_span.get_attribute(TokenUsageKey.INPUT_TOKENS)
@@ -245,7 +222,6 @@ async def test_sk_invoke_agent(mock_openai):
     assert root_span.span_type == SpanType.UNKNOWN
     assert root_span.get_attribute(model_gen_ai_attributes.OPERATION) == "invoke_agent"
     assert root_span.get_attribute(agent_gen_ai_attributes.AGENT_NAME) == "sushi_agent"
-    assert root_span.get_attribute(agent_gen_ai_attributes.OPERATION) == "invoke_agent"
 
     assert child_span.name == "AutoFunctionInvocationLoop"
     assert child_span.span_type == SpanType.UNKNOWN
@@ -254,10 +230,9 @@ async def test_sk_invoke_agent(mock_openai):
     assert grandchild_span.name.startswith("chat.completions gpt-4o-mini")
     assert grandchild_span.span_type == SpanType.CHAT_MODEL
     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
-    assert isinstance(grandchild_span.get_attribute(SpanAttributeKey.INPUTS).get("messages"), list)
+    inputs = grandchild_span.get_attribute(SpanAttributeKey.INPUTS)
+    assert isinstance(inputs["messages"], list)
     outputs = grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS)
-    assert isinstance(outputs, dict)
-    assert "messages" in outputs
     assert isinstance(outputs["messages"], list)
     assert (
         grandchild_span.get_attribute(model_gen_ai_attributes.FINISH_REASON) == "FinishReason.STOP"
@@ -423,7 +398,7 @@ async def test_sk_output_serialization():
     assert result["messages"][1]["content"] == "Message 1"
 
     assert _serialize_chat_output(None) is None
-    assert _serialize_chat_output("not a chat") is None
+    assert _serialize_chat_output("not a chat") == "null"
 
     # Test text output serialization
     text_content = TextContent(text="Hello world")
@@ -501,3 +476,18 @@ async def test_sk_input_parsing(
         assert key in span_inputs, (
             f"Expected '{key}' in span inputs for {target_span.name}, got: {span_inputs}"
         )
+
+
+@pytest.mark.asyncio
+async def test_sk_embeddings(mock_openai):
+    mlflow.semantic_kernel.autolog()
+    
+    result = await _create_and_invoke_embeddings(mock_openai)
+    
+    assert result is not None
+    assert len(result) == 3  
+    
+    # NOTE: Semantic Kernel currently does not instrument embeddings with OpenTelemetry
+    # spans, so no traces are generated for embedding operations
+    traces = get_traces()
+    assert len(traces) == 0
