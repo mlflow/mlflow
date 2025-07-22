@@ -2,9 +2,17 @@ import { compact, has, isNil, isString } from 'lodash';
 import { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
 import { isModelTraceToolCall, prettyPrintToolCall } from '../ModelTraceExplorer.utils';
 
+type LangchainContentPart = {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+};
+
 // it has other fields, but we only care about these for now
 export type LangchainBaseMessage = {
-  content?: string;
+  content?: string | LangchainContentPart[];
   type: 'human' | 'user' | 'assistant' | 'ai' | 'system' | 'tool' | 'function';
   tool_calls?: LangchainToolCallMessage[];
   tool_call_id?: string;
@@ -51,8 +59,34 @@ export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessag
       return null;
   }
 
+  // Handle content that could be a string or an array of content parts
+  let content: string | undefined;
+  if (isString(message.content)) {
+    content = message.content;
+  } else if (Array.isArray(message.content)) {
+    // Convert array of content parts to string representation
+    const contentParts = message.content
+      .map((part: any) => {
+        if (isString(part)) {
+          return part;
+        } else if (part.type === 'text' && part.text) {
+          return part.text;
+        } else if (part.type === 'image_url' && part.image_url?.url) {
+          // Convert to markdown image format with spacing
+          return `![](${part.image_url.url})`;
+        }
+        return '';
+      })
+      .filter(Boolean);
+
+    // Join with double line breaks for better visual separation
+    content = contentParts.join('\n\n');
+  } else {
+    content = undefined;
+  }
+
   const normalizedMessage: ModelTraceChatMessage = {
-    content: message.content,
+    content,
     role,
   };
 
@@ -101,8 +135,8 @@ export const isLangchainBaseMessage = (obj: any): obj is LangchainBaseMessage =>
     return false;
   }
 
-  // it's okay if it's undefined / null, but if present it must be a string
-  if (!isNil(obj.content) && !isString(obj.content)) {
+  // content can be undefined/null, string, or array of content parts
+  if (!isNil(obj.content) && !isString(obj.content) && !Array.isArray(obj.content)) {
     return false;
   }
 
