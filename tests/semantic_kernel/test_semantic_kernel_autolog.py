@@ -481,12 +481,12 @@ async def test_sk_input_parsing(
 @pytest.mark.asyncio
 async def test_sk_embeddings(mock_openai):
     mlflow.semantic_kernel.autolog()
-    
+
     result = await _create_and_invoke_embeddings(mock_openai)
-    
+
     assert result is not None
-    assert len(result) == 3  
-    
+    assert len(result) == 3
+
     # NOTE: Semantic Kernel currently does not instrument embeddings with OpenTelemetry
     # spans, so no traces are generated for embedding operations
     traces = get_traces()
