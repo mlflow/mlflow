@@ -21,7 +21,7 @@ _JAVA_FILES = {}
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {
         6: "  <version>{new_version}</version>",
-        65: "    <mlflow-version>{new_version}</mlflow-version>",
+        76: "    <mlflow-version>{new_version}</mlflow-version>",
     },
     "mlflow/java/client/pom.xml": {
         8: "    <version>{new_version}</version>",
