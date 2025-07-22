@@ -33,7 +33,7 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 FLAVOR_NAME = "semantic_kernel"
 
 
-@experimental(version="3.0.1")
+@experimental(version="3.2.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
