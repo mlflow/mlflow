@@ -820,3 +820,8 @@ def test_databricks_sdk_retry_backoff_calculation():
     actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
     assert actual_sleep_times == expected_sleep_times
     assert call_count == 4  # Initial + 3 retries
+
+
+def test_foo():
+    with mock.patch("databricks.sdk.WorkspaceClient"):
+        pass

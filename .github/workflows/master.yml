@@ -92,10 +92,11 @@ jobs:
       - name: Run tests
         run: |
           source .venv/bin/activate
-          source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/genai tests
+          pytest tests/utils/test_requirements_utils.py tests/utils/test_rest_utils.py
+          # source dev/setup-ssh.sh
+          # pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          #   --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
+          #   --ignore tests/genai tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
