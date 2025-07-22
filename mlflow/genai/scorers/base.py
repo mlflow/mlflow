@@ -57,7 +57,7 @@ class Scorer(BaseModel):
         # Return cached dump if available (prevents re-serialization issues with dynamic functions)
         if self._cached_dump is not None:
             return self._cached_dump
-            
+
         serialized = SerializedScorer(
             name=self.name,
             aggregations=self.aggregations,
