@@ -192,9 +192,29 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> set[str]:
-    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
-    return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
+def _parse_format_fields(content: Union[str, list[Any], dict[str, Any], Any]) -> set[str]:
+    """Parse format fields from content recursively."""
+    if isinstance(content, str):
+        return {fn for _, fn, _, _ in Formatter().parse(content) if fn is not None}
+    elif isinstance(content, list):
+        # Handle multimodal content (list of objects)
+        fields = set()
+        for item in content:
+            if isinstance(item, dict):
+                for value in item.values():
+                    fields.update(_parse_format_fields(value))  # Recursive call
+            elif isinstance(item, str):
+                fields.update(_parse_format_fields(item))
+        return fields
+    elif isinstance(content, dict):
+        # Handle dict content (recursively)
+        fields = set()
+        for value in content.values():
+            fields.update(_parse_format_fields(value))  # Recursive call
+        return fields
+    else:
+        # For other types (e.g., None), return empty set
+        return set()
 
 
 def _get_input_schema(task, content):
@@ -605,13 +625,37 @@ class _ContentFormatter:
 
     def format_chat(self, **params):
         format_args = {v: params[v] for v in self.variables}
-        return [
-            {
-                "role": message.get("role").format(**format_args),
-                "content": message.get("content").format(**format_args),
-            }
-            for message in self.template
-        ]
+
+        def format_value(
+            value: Union[str, list[Any], dict[str, Any], Any],
+        ) -> Union[str, list[Any], dict[str, Any], Any]:
+            if isinstance(value, str):
+                return value.format(**format_args)
+            elif isinstance(value, list):
+                return [format_value(item) for item in value]
+            elif isinstance(value, dict):
+                return {key: format_value(val) for key, val in value.items()}
+            else:
+                return value
+
+        formatted_messages = []
+
+        for message in self.template:
+            role = message.get("role")
+            content = message.get("content")
+
+            # Format role and content recursively
+            formatted_role = format_value(role)
+            formatted_content = format_value(content)
+
+            formatted_messages.append(
+                {
+                    "role": formatted_role,
+                    "content": formatted_content,
+                }
+            )
+
+        return formatted_messages
 
 
 def _first_string_column(pdf):
