@@ -33,6 +33,14 @@ from mlflow.utils.requirements_utils import (
 from tests.helper_functions import AnyStringWith
 
 
+@pytest.fixture(autouse=True, scope="module")
+def restore_sys_modules():
+    sys_modules_snapshot = sys.modules.copy()
+    yield
+    sys.modules = sys_modules_snapshot
+    importlib.invalidate_caches()
+
+
 def test_is_comment():
     assert _is_comment("# comment")
     assert _is_comment("#")
@@ -295,57 +303,51 @@ def test_infer_requirements_excludes_mlflow():
 
 
 def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
-    sys_modules_snapshot = sys.modules.copy()
-    try:
-        from mlflow.utils._capture_modules import _CaptureImportedModules
+    from mlflow.utils._capture_modules import _CaptureImportedModules
 
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
 
-        databricks_dir = os.path.join(tmp_path, "databricks")
-        os.makedirs(databricks_dir)
-        for file_name in [
-            "__init__.py",
-            "automl.py",
-            "automl_runtime.py",
-            "automl_foo.py",
-            "model_monitoring.py",
-            "other.py",
-        ]:
-            with open(os.path.join(databricks_dir, file_name), "w"):
-                pass
+    databricks_dir = os.path.join(tmp_path, "databricks")
+    os.makedirs(databricks_dir)
+    for file_name in [
+        "__init__.py",
+        "automl.py",
+        "automl_runtime.py",
+        "automl_foo.py",
+        "model_monitoring.py",
+        "other.py",
+    ]:
+        with open(os.path.join(databricks_dir, file_name), "w"):
+            pass
 
-        with _CaptureImportedModules() as cap:
-            # Delete `databricks` from the cache to ensure we load from the dummy module created
-            # above.
-            if "databricks" in sys.modules:
-                del sys.modules["databricks"]
-            import databricks
-            import databricks.automl
-            import databricks.automl_foo
-            import databricks.automl_runtime
-            import databricks.model_monitoring
+    with _CaptureImportedModules() as cap:
+        # Delete `databricks` from the cache to ensure we load from the dummy module created
+        # above.
+        if "databricks" in sys.modules:
+            del sys.modules["databricks"]
+        import databricks
+        import databricks.automl
+        import databricks.automl_foo
+        import databricks.automl_runtime
+        import databricks.model_monitoring
 
-        assert "databricks.automl" in cap.imported_modules
-        assert "databricks.model_monitoring" in cap.imported_modules
-        assert "databricks" not in cap.imported_modules
-        assert "databricks.automl_foo" not in cap.imported_modules
+    assert "databricks.automl" in cap.imported_modules
+    assert "databricks.model_monitoring" in cap.imported_modules
+    assert "databricks" not in cap.imported_modules
+    assert "databricks.automl_foo" not in cap.imported_modules
 
-        with _CaptureImportedModules() as cap:
-            import databricks.automl
-            import databricks.automl_foo
-            import databricks.automl_runtime
-            import databricks.model_monitoring
-            import databricks.other  # noqa: F401
+    with _CaptureImportedModules() as cap:
+        import databricks.automl
+        import databricks.automl_foo
+        import databricks.automl_runtime
+        import databricks.model_monitoring
+        import databricks.other  # noqa: F401
 
-        assert "databricks.automl" in cap.imported_modules
-        assert "databricks.model_monitoring" in cap.imported_modules
-        assert "databricks" in cap.imported_modules
-        assert "databricks.automl_foo" not in cap.imported_modules
-
-    finally:
-        sys.modules = sys_modules_snapshot
-        importlib.invalidate_caches()
+    assert "databricks.automl" in cap.imported_modules
+    assert "databricks.model_monitoring" in cap.imported_modules
+    assert "databricks" in cap.imported_modules
+    assert "databricks.automl_foo" not in cap.imported_modules
 
 
 def test_infer_pip_requirements_scopes_databricks_imports():
