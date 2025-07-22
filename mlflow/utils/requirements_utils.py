@@ -11,7 +11,6 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
@@ -80,11 +79,11 @@ def _join_continued_lines(lines):
         yield "".join(continued_lines)
 
 
-# Represents a pip requirement.
-#
-# :param req_str: A requirement string (e.g. "scikit-learn == 0.24.2").
-# :param is_constraint: A boolean indicating whether this requirement is a constraint.
-_Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
+class _Requirement(NamedTuple):
+    # A string representation of the requirement.
+    req_str: str
+    # A boolean indicating whether this requirement is a constraint.
+    is_constraint: bool
 
 
 def _parse_requirements(requirements, is_constraint, base_dir=None):

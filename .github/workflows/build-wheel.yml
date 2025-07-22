@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        type: ["full", "skinny", "tracing"]
+        type: ["dev", "skinny", "tracing"]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install build twine
+          pip install build setuptools twine wheel
 
       - name: Build distribution files
         id: build-dist
@@ -66,12 +66,7 @@ jobs:
             SHA_OPT=""
           fi
 
-          if [ "${{ matrix.type }}" == "skinny" ]; then
-            PACKAGE_TYPE_OPT="--package-type skinny"
-          else
-            PACKAGE_TYPE_OPT=""
-          fi
-          python dev/build.py $PACKAGE_TYPE_OPT $SHA_OPT
+          python dev/build.py --package-type "${{ matrix.type }}" $SHA_OPT
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -129,7 +124,12 @@ jobs:
             URL="git+https://github.com/${REPO}.git@${REF}"
           fi
 
-          docker run --rm python:3.10 bash -c "pip install uv && uv pip install --system $URL && python -c 'import mlflow; print(mlflow.__version__)'"
+          uv run --isolated --no-project --with $URL python -I -c 'import mlflow; print(mlflow.__version__)'
+
+      - name: Test dev/install-skinny.sh
+        if: github.event_name == 'pull_request'
+        run: |
+          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
