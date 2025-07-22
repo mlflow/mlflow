@@ -939,6 +939,15 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "item_id": item_id,
                 "delta": delta,
             }
+         def create_annotation_added(
+            self, item_id: str, annotation, annotation_index: Optional[int] = 0
+        ):
+            return {
+                "type": "response.output_text.annotation.added",
+                "item_id": item_id,
+                "annotation_index": annotation_index,
+                "annotation": annotation,
+        }
 
         def create_text_output_item(
             self, text: str, id: str, annotations: Optional[list[dict]] = None
