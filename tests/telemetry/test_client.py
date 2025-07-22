@@ -181,7 +181,13 @@ def test_telemetry_retry_on_error(telemetry_client, error_code, terminate):
 
     with mock.patch("requests.post", side_effect=tracker.mock_post):
         telemetry_client.add_record(record)
+        start_time = time.time()
         telemetry_client.flush(terminate=terminate)
+        duration = time.time() - start_time
+        if terminate:
+            assert duration < 1.5
+        else:
+            assert duration < 2.5
 
     # no retry when terminating
     if terminate:
@@ -217,7 +223,13 @@ def test_telemetry_retry_on_request_error(telemetry_client, error_type, terminat
 
     with mock.patch("requests.post", side_effect=tracker.mock_post):
         telemetry_client.add_record(record)
+        start_time = time.time()
         telemetry_client.flush(terminate=terminate)
+        duration = time.time() - start_time
+        if terminate:
+            assert duration < 1.5
+        else:
+            assert duration < 2.5
 
     # no retry when terminating
     if terminate:

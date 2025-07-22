@@ -3,7 +3,7 @@ BATCH_SIZE = 500
 BATCH_TIME_INTERVAL_SECONDS = 30
 MAX_QUEUE_SIZE = 1000
 MAX_WORKERS = 1
-CONFIG_STAGING_URL = "https://d28ddotnh5kz8j.cloudfront.net"
+CONFIG_STAGING_URL = "https://config-staging.mlflow-telemetry.io"
 CONFIG_URL = "https://config.mlflow-telemetry.io"
 RETRYABLE_ERRORS = [
     429,  # Throttled

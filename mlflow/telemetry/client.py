@@ -159,7 +159,7 @@ class TelemetryClient:
             # TODO: record this case
             pass
 
-    def _process_records(self, records: list[APIRecord], timeout: float = 3):
+    def _process_records(self, records: list[APIRecord], timeout: float = 1):
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
@@ -190,7 +190,7 @@ class TelemetryClient:
                 if self._is_stopped:
                     return
                 if i < max_attempts - 1 and should_retry:
-                    time.sleep(2**i)
+                    time.sleep(1)
                 elif response and response.status_code in STOP_COLLECTION_ERRORS:
                     self._is_stopped = True
                     self.is_active = False

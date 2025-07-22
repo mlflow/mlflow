@@ -86,6 +86,6 @@ def _get_config_url(version: str) -> Optional[str]:
     if version_obj.base_version == version or (
         version_obj.is_prerelease and version_obj.pre[0] == "rc"
     ):
-        return f"{CONFIG_URL}/config/{version}.json"
+        return f"{CONFIG_URL}/{version}.json"
 
     return None
