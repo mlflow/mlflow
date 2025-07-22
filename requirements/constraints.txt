@@ -17,5 +17,3 @@ pyspark<3.5.6
 # https://github.com/microsoft/FLAML/blob/01c3c836534a244ac8038535455a7fde367366ad/flaml/fabric/mlflow.py#L67-L68
 # This interferes with `test_autologging_warnings_are_redirected_as_expected`.
 FLAML<2.3.5
-# TODO: Unpin once https://github.com/textstat/textstat/issues/212 is resolved.
-cmudict<1.1.0
