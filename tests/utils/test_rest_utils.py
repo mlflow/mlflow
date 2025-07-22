@@ -32,7 +32,7 @@ from mlflow.utils.rest_utils import (
 from tests import helper_functions
 
 try:
-    import databricks.sdk
+    import databricks.sdk  # noqa: F401
 
     DATABRICKS_SDK_AVAILABLE = True
 except ImportError:
