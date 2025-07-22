@@ -148,6 +148,17 @@ export const normalizeLangchainChatInput = (obj: any): ModelTraceChatMessage[] |
     return messages as ModelTraceChatMessage[];
   }
 
+  // it could also just be a plain array that is in the correct format
+  if (Array.isArray(obj) && obj.length > 0 && obj.every(isLangchainBaseMessage)) {
+    const messages = obj.map(langchainMessageToModelTraceMessage);
+
+    if (messages.some((message) => message === null)) {
+      return null;
+    }
+
+    return messages as ModelTraceChatMessage[];
+  }
+
   return null;
 };
 
