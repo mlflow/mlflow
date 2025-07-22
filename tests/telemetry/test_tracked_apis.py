@@ -63,7 +63,7 @@ def test_create_run(mock_requests, mlflow_client):
     exp_id = mlflow.create_experiment(name="test_experiment")
     with mlflow.start_run(experiment_id=exp_id):
         validate_telemetry_record(
-            mock_requests, TrackingServiceClient.create_run, search_index=True, check_params=False
+            mock_requests, TrackingServiceClient.create_run, check_params=False
         )
 
     mlflow_client.create_run(experiment_id=exp_id)
@@ -97,7 +97,6 @@ def test_create_registered_model(mock_requests, mlflow_client):
         mock_requests,
         ModelRegistryClient.create_registered_model,
         RegisteredModelParams(is_prompt=False),
-        search_index=True,
     )
 
 
@@ -106,18 +105,14 @@ def test_create_model_version(mock_requests, mlflow_client):
     mlflow_client.create_model_version(
         name="test_model", source="test_source", run_id="test_run_id"
     )
-    validate_telemetry_record(
-        mock_requests, ModelRegistryClient.create_model_version, search_index=True
-    )
+    validate_telemetry_record(mock_requests, ModelRegistryClient.create_model_version)
 
     mlflow.pyfunc.log_model(
         name="model",
         python_model=TestModel(),
         registered_model_name="test_model",
     )
-    validate_telemetry_record(
-        mock_requests, ModelRegistryClient.create_model_version, search_index=True
-    )
+    validate_telemetry_record(mock_requests, ModelRegistryClient.create_model_version)
 
 
 def test_start_trace(mock_requests, mlflow_client):
@@ -139,7 +134,7 @@ def test_start_trace(mock_requests, mlflow_client):
 
 def test_create_prompt(mock_requests, mlflow_client):
     mlflow_client.create_prompt(name="test_prompt")
-    validate_telemetry_record(mock_requests, ModelRegistryClient.create_prompt, search_index=True)
+    validate_telemetry_record(mock_requests, ModelRegistryClient.create_prompt)
 
     # OSS prompt registry uses create_registered_model with a special tag
     mlflow.genai.register_prompt(
@@ -151,7 +146,6 @@ def test_create_prompt(mock_requests, mlflow_client):
         mock_requests,
         ModelRegistryClient.create_registered_model,
         expected_params,
-        search_index=True,
     )
 
 
@@ -174,7 +168,7 @@ def test_evaluate(mock_requests):
         model=lambda x: x["x"] * 2,
         extra_metrics=[mlflow.metrics.latency()],
     )
-    validate_telemetry_record(mock_requests, _evaluate, search_index=True)
+    validate_telemetry_record(mock_requests, _evaluate)
 
 
 @pytest.mark.no_mock_requests_get

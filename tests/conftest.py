@@ -14,6 +14,7 @@ from opentelemetry import trace as trace_api
 
 import mlflow
 import mlflow.telemetry.utils
+from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -334,3 +335,21 @@ def mock_is_in_databricks(request):
 def reset_active_model_context():
     yield
     clear_active_model()
+
+
+@pytest.fixture(autouse=True)
+def enable_telemetry_in_ci(monkeypatch, request):
+    test_file_path = os.path.relpath(request.path)
+    # skip in telemetry tests
+    if test_file_path.startswith("tests/telemetry"):
+        yield
+        return
+
+    # patch this so we can capture telemetry records in CI
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+    set_telemetry_client()
+    yield
+    client = get_telemetry_client()
+    if client:
+        client.flush(terminate=True)

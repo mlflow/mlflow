@@ -72,7 +72,7 @@ def _generate_telemetry_record(
             duration_ms=duration_ms,
         )
     except Exception:
-        pass
+        return
 
 
 def _is_telemetry_disabled_for_func(func: Callable[..., Any]) -> bool:

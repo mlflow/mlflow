@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 import uuid
+import warnings
 from dataclasses import asdict
 from queue import Empty, Full, Queue
 from typing import Optional
@@ -13,13 +14,23 @@ import requests
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
+    CONFIG_RETRYABLE_ERRORS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    RETRYABLE_ERRORS,
+    STOP_COLLECTION_ERRORS,
 )
 from mlflow.telemetry.schemas import APIRecord, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
+
+try:
+    from IPython import get_ipython
+
+    IS_IPYTHON = get_ipython() is not None
+except ImportError:
+    IS_IPYTHON = False
 
 
 class TelemetryClient:
@@ -78,9 +89,14 @@ class TelemetryClient:
         mlflow_version = self.info["mlflow_version"]
         if config_url := _get_config_url(mlflow_version):
             try:
-                response = requests.get(config_url, timeout=1)
-                if response.status_code != 200:
-                    return
+                for i in range(3):
+                    response = requests.get(config_url, timeout=1)
+                    if response.status_code == 200:
+                        break
+                    if response.status_code in CONFIG_RETRYABLE_ERRORS:
+                        time.sleep(2**i)
+                    else:
+                        return
                 config = response.json()
                 if (
                     config.get("mlflow_version") != mlflow_version
@@ -149,7 +165,7 @@ class TelemetryClient:
             # TODO: record this case
             pass
 
-    def _process_records(self, records: list[APIRecord]):
+    def _process_records(self, records: list[APIRecord], timeout: float = 3):
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
@@ -162,15 +178,28 @@ class TelemetryClient:
                 }
                 for record in records
             ]
-            # TODO: add retry logic
-            response = requests.post(
-                self.config.ingestion_url,
-                json={"records": records},
-                headers={"Content-Type": "application/json"},
-                timeout=3,
-            )
-            if response.status_code != 200:
-                pass
+            max_retries = 3
+            for i in range(max_retries):
+                response = requests.post(
+                    self.config.ingestion_url,
+                    json={"records": records},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                )
+                # if this is executed when terminating, we should not retry
+                if self._is_stopped:
+                    return
+                if response.status_code in STOP_COLLECTION_ERRORS:
+                    self._is_stopped = True
+                    self.is_active = False
+                    # this is executed in the consumer thread, so
+                    # we cannot join the thread here, but this should
+                    # be enough to stop the telemetry collection
+                    return
+                if response.status_code in RETRYABLE_ERRORS:
+                    time.sleep(2**i)
+                else:
+                    return
         except Exception:
             pass
 
@@ -206,6 +235,13 @@ class TelemetryClient:
             except Empty:
                 break
 
+        # process remaining records when terminating
+        if self.config and self._pending_records:
+            with self._batch_lock:
+                if self._pending_records:
+                    self._process_records(self._pending_records, timeout=1)
+                    self._pending_records = []
+
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
         with self._lock:
@@ -215,8 +251,8 @@ class TelemetryClient:
             self._set_up_threads()
 
             # Callback to ensure remaining tasks are processed before program exit
-            # TODO: make sure this works in jupyter notebook
             if not self._atexit_callback_registered:
+                # This works in jupyter notebook
                 atexit.register(self._at_exit_callback)
                 self._atexit_callback_registered = True
 
@@ -245,7 +281,14 @@ class TelemetryClient:
 
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
-        self.flush(terminate=True)
+        try:
+            # Suppress logs/warnings during shutdown
+            # NB: this doesn't suppress log not emitted by mlflow
+            with suppress_logs_in_thread(), warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.flush(terminate=True)
+        except Exception:
+            pass
 
     def flush(self, terminate=False) -> None:
         """
@@ -264,15 +307,11 @@ class TelemetryClient:
 
             self._config_thread.join(timeout=1)
 
-            # process pending records directly before exiting
-            with self._batch_lock, suppress_logs_in_thread():
-                if self._pending_records and self.config:
-                    self._process_records(self._pending_records)
-                self._pending_records = []
-
             # Wait for threads to finish with a timeout
+            # The timeout for jupyter notebook needs to be higher
+            timeout = 3 if IS_IPYTHON else 2
             avg_timeout_per_thread = (
-                1 / len(self._consumer_threads) if self._consumer_threads else 0
+                timeout / len(self._consumer_threads) if self._consumer_threads else 0
             )
             for thread in self._consumer_threads:
                 if thread.is_alive():
