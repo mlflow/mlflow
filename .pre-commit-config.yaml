@@ -18,6 +18,12 @@ repos:
         files: '^(?!docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
+      - id: prettier
+        name: prettier-docs
+        files: '^docs/.*\.(js|jsx|ts|tsx|md|mdx|css)$'
+        args: ["--config", "docs/prettier.config.js"]
+        require_serial: true
+
   - repo: local
     hooks:
       - id: ruff
