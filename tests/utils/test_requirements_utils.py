@@ -45,10 +45,10 @@ def restore_sys():
     sys.meta_path = sys_meta_path_snapshot
     importlib.invalidate_caches()
 
-    # import databricks
+    import databricks
     # import databricks.sdk
 
-    # importlib.reload(databricks)
+    importlib.reload(databricks)
     # importlib.reload(databricks.sdk)
 
 
