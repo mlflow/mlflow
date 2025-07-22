@@ -49,8 +49,8 @@
   </scm>
   <distributionManagement>
     <repository>
-      <name>Central Portal</name>
-      <id>central-portal</id>
+      <name>Central Portal Releases</name>
+      <id>central-portal-releases</id>
       <url>https://central.sonatype.com/repository/maven-central/</url>
       <releases>
         <enabled>true</enabled>
@@ -59,6 +59,17 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
+    <snapshotRepository>
+      <name>Central Portal Snapshots</name>
+      <id>central-portal-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </snapshotRepository>
   </distributionManagement>
 
   <properties>
