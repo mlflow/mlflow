@@ -65,7 +65,8 @@
 
   <modules>
     <module>client</module>
-    <module>spark</module>
+    <module>spark_2.12</module>
+    <module>spark_2.13</module>
   </modules>
 
   <dependencyManagement>
