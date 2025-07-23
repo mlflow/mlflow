@@ -203,6 +203,7 @@ Use <APILink fn="mlflow.client.MlflowClient.update_webhook" >`MlflowClient.updat
 ```python
 # Update webhook configuration
 client.update_webhook(
+    # Unspecified fields will remain unchanged
     webhook_id=webhook.webhook_id,
     status="DISABLED",  # Temporarily disable the webhook
     events=[WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.MODEL_VERSION_TAG_SET],
