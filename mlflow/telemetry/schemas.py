@@ -89,7 +89,7 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
-    backend_store_scheme: Optional[str] = None
+    tracking_uri_scheme: Optional[str] = None
 
 
 @dataclass

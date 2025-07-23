@@ -15,7 +15,10 @@ from mlflow.telemetry.client import (
 )
 from mlflow.telemetry.schemas import APIRecord, APIStatus, SourceSDK, TelemetryConfig
 from mlflow.utils.os import is_windows
-from mlflow.version import VERSION
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.telemetry.helper_functions import clean_up_threads
 
@@ -827,3 +830,25 @@ def test_warning_suppression_in_shutdown(recwarn):
         assert len(recwarn) == 0
 
     assert len(client._consumer_threads) == 0
+
+
+@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
+@pytest.mark.parametrize("terminate", [True, False])
+def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, terminate):
+    record = APIRecord(
+        api_module="test_module",
+        api_name="test_api",
+        timestamp_ns=time.time_ns(),
+        status=APIStatus.SUCCESS,
+    )
+
+    with _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client.add_record(record)
+        client.flush(terminate=terminate)
+        assert len(mock_requests) == 0
+        assert client._queue.empty()
+        # clean up
+        clean_up_threads(client)
+        assert get_telemetry_client() is None
