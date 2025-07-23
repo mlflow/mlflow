@@ -29,11 +29,8 @@ class MlflowV3SpanExporter(SpanExporter):
     using the V3 trace schema and API.
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None):
-        self._client = TracingClient(tracking_uri)
-        self._is_async_enabled = self._should_enable_async_logging()
-        if self._is_async_enabled:
-            self._async_queue = AsyncTraceExportQueue()
+    def __init__(self):
+        self._async_queue = AsyncTraceExportQueue()
 
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
@@ -67,7 +64,10 @@ class MlflowV3SpanExporter(SpanExporter):
             if not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
-            if self._should_log_async():
+            tracking_uri = InMemoryTraceManager.get_instance().get_trace_tracking_uri(
+                trace.info.trace_id
+            )
+            if self._should_log_async(tracking_uri):
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_trace,
@@ -88,8 +88,12 @@ class MlflowV3SpanExporter(SpanExporter):
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
-                self._client._upload_trace_data(returned_trace_info, trace.data)
+                tracking_uri = InMemoryTraceManager.get_instance().get_trace_tracking_uri(
+                    trace.info.trace_id
+                )
+                client = TracingClient(tracking_uri)
+                returned_trace_info = client.start_trace(trace.info)
+                client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
@@ -100,20 +104,21 @@ class MlflowV3SpanExporter(SpanExporter):
             # would otherwise add latency to the export procedure and (2) prompt linking is not
             # critical for trace export (if the prompt fails to link, the user's workflow is
             # minorly affected), so we don't have to await successful linking
-            try_link_prompts_to_trace(
-                client=self._client,
-                trace_id=trace.info.trace_id,
-                prompts=prompts,
-                synchronous=False,
-            )
+            if trace:
+                try_link_prompts_to_trace(
+                    client=client,
+                    trace_id=trace.info.trace_id,
+                    prompts=prompts,
+                    synchronous=False,
+                )
         except Exception as e:
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
-    def _should_enable_async_logging(self):
+    def _should_enable_async_logging(self, tracking_uri):
         if (
             is_in_databricks_notebook()
             # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
-            or not is_databricks_uri(self._client.tracking_uri)
+            or not is_databricks_uri(tracking_uri)
         ):
             # NB: We don't turn on async logging in Databricks notebook by default
             # until we are confident that the async logging is working on the
@@ -128,10 +133,10 @@ class MlflowV3SpanExporter(SpanExporter):
 
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
-    def _should_log_async(self):
+    def _should_log_async(self, tracking_uri):
         # During evaluate, the eval harness relies on the generated trace objects,
         # so we should not log traces asynchronously.
         if maybe_get_request_id(is_evaluate=True):
             return False
 
-        return self._is_async_enabled
+        return self._should_enable_async_logging(tracking_uri)

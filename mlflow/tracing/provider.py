@@ -313,7 +313,7 @@ def _get_mlflow_span_processor():
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    exporter = MlflowV3SpanExporter()
     return MlflowV3SpanProcessor(exporter)
 
 

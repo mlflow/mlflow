@@ -3,6 +3,7 @@ from typing import Optional
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+import mlflow
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -27,6 +28,9 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
 
         This method is called in the on_start method of the base class.
         """
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+        from mlflow.tracing.destination import MlflowExperiment
+
         trace_info = TraceInfo(
             trace_id=generate_trace_id_v3(root_span),
             trace_location=TraceLocation.from_experiment_id(
@@ -38,6 +42,11 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
             trace_metadata=self._get_basic_trace_metadata(),
             tags=self._get_basic_trace_tags(root_span),
         )
-        self._trace_manager.register_trace(root_span.context.trace_id, trace_info)
+
+        tracking_uri = None
+        if isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), MlflowExperiment):
+            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.get().tracking_uri or mlflow.get_tracking_uri()
+
+        self._trace_manager.register_trace(root_span.context.trace_id, trace_info, tracking_uri)
 
         return trace_info

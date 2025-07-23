@@ -42,8 +42,11 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
     """
 
-    def __init__(self):
-        self.span_exporter = None
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+    ):
+        self.span_exporter = span_exporter
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._env_metadata = resolve_env_metadata()
 
@@ -58,18 +61,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 is obtained from the global context, it won't be passed here so we should not rely
                 on it.
         """
-        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-        from mlflow.tracing.destination import MlflowExperiment
-        
-        # Initialize the span exporter using thread-local tracing destination settings.
-        tracking_uri = None
-        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-            if isinstance(destination, MlflowExperiment):
-                tracking_uri = destination.tracking_uri
-        tracking_uri = tracking_uri or mlflow.get_tracking_uri()
-        self.span_exporter = MlflowV3SpanExporter(tracking_uri)
-
         trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
         if not trace_id and span.parent is not None:

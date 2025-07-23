@@ -69,9 +69,11 @@ class InMemoryTraceManager:
 
         # Store mapping between OpenTelemetry trace ID and MLflow trace ID
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
+
+        self._trace_id_to_tracking_uri_map = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, tracking_uri: Optional[str]):
         """
         Register a new trace info object to the in-memory trace registry.
 
@@ -84,6 +86,8 @@ class InMemoryTraceManager:
         with self._lock:
             self._traces[trace_info.trace_id] = _Trace(trace_info)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
+            if tracking_uri:
+                self._trace_id_to_tracking_uri_map[trace_info.trace_id] = tracking_uri
 
     def register_span(self, span: LiveSpan):
         """
@@ -171,6 +175,9 @@ class InMemoryTraceManager:
             return ManagerTrace(
                 trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
             )
+
+    def get_trace_tracking_uri(self, trace_id):
+        return self._trace_id_to_tracking_uri_map[trace_id]
 
     def _check_timeout_update(self):
         """

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
@@ -2109,3 +2110,60 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         assert actual_filter_string == expected_filter_string, (
             f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
         )
+
+
+def test_set_destination_in_threads(async_logging_enabled):
+    # This test makes sure `set_destination` obeys thread-local behavior.
+    class TestModel:
+        def predict(self, x):
+            with mlflow.start_span(name="root_span") as root_span:
+                root_span.set_inputs({"x": x})
+                z = x
+
+                child_span = start_span_no_context(
+                    name="child_span_1",
+                    span_type=SpanType.LLM,
+                    parent_span=root_span,
+                )
+                child_span.set_inputs(z)
+
+                z = z + 2
+                time.sleep(1)
+
+                child_span.set_outputs(z)
+                child_span.end()
+
+                root_span.set_outputs(z)
+            return z
+
+    model = TestModel()
+    
+    def func(x):
+        model.predict(x)
+
+    thread1 = threading.Thread(target=func, args=(1,))
+    thread2 = threading.Thread(target=func, args=(2,))
+
+    thread1.start()
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+    
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id is not None
+    assert trace.info.experiment_id == _get_experiment_id()
+    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.state == TraceState.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
+    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
+
+    assert trace.data.request == '{"x": 1, "y": 2}'
+    assert trace.data.response == "5"
+    assert len(trace.data.spans) == 2
