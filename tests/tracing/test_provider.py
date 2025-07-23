@@ -6,6 +6,7 @@ from opentelemetry import trace
 
 import mlflow
 import mlflow.tracking._tracking_service
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
@@ -367,3 +368,41 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
+
+
+def test_sampling_ratio(monkeypatch):
+    @mlflow.trace
+    def test_function():
+        return "test"
+
+    # Test with 100% sampling (default)
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 10
+    purge_traces()
+
+    # Test with 0% sampling
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 0
+    purge_traces()
+
+    # With 50% sampling and 100 runs, we expect around 50 traces
+    # but due to randomness, we check for a reasonable range
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.5")
+    mlflow.tracing.reset()
+
+    for _ in range(100):
+        test_function()
+
+    traces = get_traces()
+    assert 30 <= len(traces) <= 70, (
+        f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
+    )

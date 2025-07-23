@@ -667,7 +667,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
-      <div className="metrics-plot-container">
+      <div className="mlflow-metrics-plot-container">
         <MetricsPlotControls
           // @ts-expect-error TS(2322): Type '{ numRuns: number; numCompletedRuns: number;... Remove this comment to see the full error message
           numRuns={this.props.runUuids.length}

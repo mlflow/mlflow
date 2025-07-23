@@ -344,7 +344,7 @@ class ModelInfo:
 
         :getter: Gets the model ID of the logged model
         """
-        return self._logged_model.model_id
+        return self._logged_model.model_id if self._logged_model else None
 
     @property
     def metrics(self) -> Optional[list[Metric]]:
@@ -353,7 +353,7 @@ class ModelInfo:
 
         :getter: Retrieves the metrics of the logged model
         """
-        return self._logged_model.metrics
+        return self._logged_model.metrics if self._logged_model else None
 
     @property
     def params(self) -> dict[str, str]:
@@ -362,7 +362,7 @@ class ModelInfo:
 
         :getter: Retrieves the parameters of the logged model
         """
-        return self._logged_model.params
+        return self._logged_model.params if self._logged_model else None
 
     @property
     def tags(self) -> dict[str, str]:
@@ -371,7 +371,7 @@ class ModelInfo:
 
         :getter: Retrieves the tags of the logged model
         """
-        return self._logged_model.tags
+        return self._logged_model.tags if self._logged_model else None
 
     @property
     def creation_timestamp(self) -> int:
@@ -380,14 +380,14 @@ class ModelInfo:
 
         :getter:  the creation timestamp of the logged model
         """
-        return self._logged_model.creation_timestamp
+        return self._logged_model.creation_timestamp if self._logged_model else None
 
     @property
     def name(self) -> str:
         """
         Returns the name of the logged model.
         """
-        return self._logged_model.name
+        return self._logged_model.name if self._logged_model else None
 
 
 class Model:
@@ -678,6 +678,8 @@ class Model:
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
         """
+        if logged_model is None and self.model_id is not None:
+            logged_model = mlflow.get_logged_model(model_id=self.model_id)
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,

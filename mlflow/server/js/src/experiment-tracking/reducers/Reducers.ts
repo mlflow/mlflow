@@ -42,7 +42,7 @@ import { sampledMetricsByRunUuid } from './SampledMetricsReducer';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { imagesByRunUuid } from './ImageReducer';
 import { colorByRunUuid } from './RunColorReducer';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import { runInputsOutputsByUuid } from './InputsOutputsReducer';
 
 export type ApisReducerReduxState = Record<
   string,
@@ -426,7 +426,7 @@ export const artifactsByRunUuid = (state = {}, action: any) => {
       const { runUuid, loggedModelId } = action.meta;
 
       // If the artifact belongs to a logged model instead of run, use its id as a store identifier
-      const storeIdentifier = isExperimentLoggedModelsUIEnabled() ? loggedModelId ?? runUuid : runUuid;
+      const storeIdentifier = loggedModelId ?? runUuid;
 
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       let artifactNode = state[storeIdentifier] || new ArtifactNode(true);
@@ -537,6 +537,7 @@ const entities = combineReducers({
   runInfosByUuid,
   runInfoOrderByUuid,
   runDatasetsByUuid,
+  runInputsOutputsByUuid,
   runUuidsMatchingFilter,
   metricsByRunUuid,
   imagesByRunUuid,

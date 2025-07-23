@@ -169,7 +169,7 @@ class OpenAIAdapter(ProviderAdapter):
             choices=[
                 completions.Choice(
                     index=idx,
-                    text=c["message"]["content"],
+                    text=c.get("message", {}).get("content") or c.get("text") or "",
                     finish_reason=c["finish_reason"],
                 )
                 for idx, c in enumerate(resp["choices"])

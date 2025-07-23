@@ -20,9 +20,7 @@ from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 def convert_message_to_mlflow_chat(message: Union[BaseModel, dict[str, Any]]) -> ChatMessage:
     """
     Convert Anthropic message object into MLflow's standard format (OpenAI compatible).
-
     Ref: https://docs.anthropic.com/en/api/messages#body-messages
-
     Args:
         message: Anthropic message object or a dictionary representing the message.
 

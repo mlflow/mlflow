@@ -20,7 +20,6 @@ jest.setTimeout(90000); // Larger timeout for integration testing (tables render
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
@@ -97,6 +96,10 @@ const getMockedModelResponse = (data: any = testData) =>
               {
                 key: 'mlflow.sourceRunName',
                 value: 'run-name',
+              },
+              {
+                key: 'mlflow.user',
+                value: 'user@users.com',
               },
               {
                 key: 'mlflow.modelVersions',
@@ -198,6 +201,8 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(container.textContent).toMatch(/Source run ID\s*run-id-\d/);
     });
 
+    expect(container.textContent).toMatch(/Created by\s*user@users.com/);
+
     await waitFor(() => {
       expect(container.textContent).toMatch(/Source run\s*run-name-\d/);
     });
@@ -218,6 +223,8 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(container.textContent).toMatch(/Model ID\s*m-1/);
       expect(container.textContent).toMatch(/Source run ID\s*run-id-\d/);
     });
+
+    expect(container.textContent).toMatch(/Created by\s*user@users.com/);
 
     await waitFor(() => {
       expect(container.textContent).toMatch(/Source run\s*run-name-\d/);
@@ -509,10 +516,10 @@ describe('ExperimentLoggedModelListPage', () => {
     const expectedMessage = 'Model registered successfully';
 
     await waitFor(() => {
-      expect(Utils.displayGlobalInfoNotification).toBeCalledWith(expect.stringContaining(expectedMessage));
+      expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledWith(expect.stringContaining(expectedMessage));
     });
 
-    expect(registerApiSpy).toBeCalledWith(
+    expect(registerApiSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         model_id: 'm-1',
       }),

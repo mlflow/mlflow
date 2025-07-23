@@ -114,7 +114,7 @@ graph TB
 Prompt templates support sophisticated variable interpolation:
 
 ```python
-# Example template with variables
+# Example text template with variables
 template = """
 You are an expert {{ role }}. Analyze the following {{ content_type }} and provide {{ num_points }} key insights.
 
@@ -125,6 +125,21 @@ Requirements:
 - Use {{ tone }} tone
 - Limit response to {{ max_length }} words
 """
+
+# Variables automatically extracted: role, content_type, num_points, content, focus_area, tone, max_length
+
+
+# Example chat template with multiple messages
+chat_template = [
+    {
+        "role": "system",
+        "content": "You are an expert {{ role }}. Analyze the following {{ content_type }} and provide {{ num_points }} key insights.",
+    },
+    {
+        "role": "user",
+        "content": " Content: {{ content }}\n\nRequirements:\n- Focus on {{ focus_area }}\n- Use {{ tone }} tone\n- Limit response to {{ max_length }} words",
+    },
+]
 
 # Variables automatically extracted: role, content_type, num_points, content, focus_area, tone, max_length
 ```
@@ -145,6 +160,43 @@ prompt = mlflow.genai.register_prompt(
         "model": "gpt-4",
         "performance_score": "0.92",
         "review_status": "approved",
+    },
+)
+```
+
+### Response Formats
+
+Response formats define expected output structures for structured generation:
+
+```python
+from pydantic import BaseModel
+
+
+class AnalysisResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    confidence_score: float
+
+
+# Register prompt with response format
+prompt = mlflow.genai.register_prompt(
+    name="content-analyzer",
+    template=template,
+    response_format=AnalysisResponse,
+    commit_message="Added structured response format",
+)
+
+# Or use dictionary format
+prompt = mlflow.genai.register_prompt(
+    name="qa-prompt",
+    template="Answer: {{ question }}",
+    response_format={
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+            "sources": {"type": "array", "items": {"type": "string"}},
+        },
     },
 )
 ```
@@ -373,11 +425,20 @@ Creating and managing prompts involves several key steps:
 ```python
 # Complete workflow example
 import mlflow
+from pydantic import BaseModel
 
-# 1. Register initial prompt
-prompt = mlflow.genai.register_prompt(
+
+class SupportResponse(BaseModel):
+    response: str
+    confidence: float
+    suggested_actions: list[str]
+
+
+# 1. Register initial text prompt
+text_prompt = mlflow.genai.register_prompt(
     name="customer-support",
     template="You are a helpful {{ role }}. Please {{ action }} for: {{ query }}",
+    response_format=SupportResponse,
     commit_message="Initial customer support template",
     tags={"domain": "support", "language": "en"},
 )
@@ -396,6 +457,6 @@ formatted = production_prompt.format(
 
 ## Next Steps
 
-**[Prompt Management Guide](/genai/prompt-version-mgmt/prompt-registry/)** provides comprehensive guidance on creating, versioning, and managing prompts effectively. **[MLflow UI Navigation](/genai/tracing/observe-with-traces/ui)** helps you master the interface for exploring and managing prompts.
+**[Prompt Management Guide](/genai/prompt-registry/)** provides comprehensive guidance on creating, versioning, and managing prompts effectively. **[MLflow UI Navigation](/genai/tracing/observe-with-traces/ui)** helps you master the interface for exploring and managing prompts.
 
 MLflow Prompt Registry provides the essential framework for systematic prompt engineering, enabling teams to build, version, and deploy high-quality prompt templates with confidence and collaboration.
