@@ -4,7 +4,7 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -47,9 +47,6 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 _logger = logging.getLogger(__name__)
 
@@ -537,7 +534,7 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, "ContentType"]]],
+    template: Union[str, list[dict[str, Any]]],
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,

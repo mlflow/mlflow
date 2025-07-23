@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-tracing"
-version = "3.1.3.dev0"
+version = "3.1.4.dev0"
 description = "MLflow Tracing SDK is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality to instrument your code/models/agents with MLflow Tracing."
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks", "observability", "monitoring"]
