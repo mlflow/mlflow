@@ -24,7 +24,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
@@ -259,6 +259,62 @@ def test_is_tracing_enabled():
         with pytest.raises(MlflowTracingException, match="error"):
             assert is_tracing_enabled() is False
         assert get_tracer_mock.call_count == 1
+
+
+# Skipping the test for tracing SDK while the exporter is in mlflow/genai namespace
+# that depends on many other dependencies.
+# TODO: Consider allowing the exporter import for tracing SDK before GA.
+@skip_when_testing_trace_sdk
+def test_get_mlflow_span_processor_with_databricks_agents_available():
+    """Test that MlflowV3DeltaSpanExporter is used when databricks-agents is available."""
+    from mlflow.tracing.provider import _get_mlflow_span_processor
+
+    # Mock databricks-agents as available
+    with mock.patch("importlib.util.find_spec") as mock_find_spec:
+        mock_find_spec.return_value = mock.MagicMock()  # databricks-agents is available
+
+        with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
+            processor = _get_mlflow_span_processor("databricks")
+
+            # Verify the correct exporter type is used
+            from mlflow.genai.experimental.databricks_trace_exporter import (
+                MlflowV3DeltaSpanExporter,
+            )
+
+            assert isinstance(processor.span_exporter, MlflowV3DeltaSpanExporter)
+
+            # Verify debug logging occurred
+            mock_logger.debug.assert_called_with(
+                "Using MlflowV3DeltaSpanExporter with Databricks Delta archiving"
+            )
+
+
+def test_get_mlflow_span_processor_without_databricks_agents():
+    """Test that MlflowV3SpanExporter is used when databricks-agents is not available."""
+    from mlflow.tracing.provider import _get_mlflow_span_processor
+
+    # Mock the import to raise ImportError (simulating missing dependencies)
+    import_orig = __builtins__["__import__"]
+
+    def mock_import(name, *args, **kwargs):
+        if name == "mlflow.genai.experimental":
+            raise ImportError("databricks-agents not available")
+        return import_orig(name, *args, **kwargs)
+
+    with mock.patch("builtins.__import__", side_effect=mock_import):
+        with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
+            processor = _get_mlflow_span_processor("databricks")
+
+            # Verify the fallback exporter type is used
+            from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+
+            assert isinstance(processor.span_exporter, MlflowV3SpanExporter)
+            assert not hasattr(processor.span_exporter, "_config_cache")  # Delta-specific feature
+
+            # Verify debug logging occurred
+            mock_logger.debug.assert_called_with(
+                "Defaulint to MlflowV3SpanExporter (databricks-agents not available)"
+            )
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False, None])

@@ -317,7 +317,9 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install databricks-agents openai dspy
+          pip install databricks-agents openai dspy 
+          # Install databricks-ingest from a pre-release wheel as it is not yet publicly released.
+          pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/jameswu/wheels/databricks_ingest-0.0.13-py3-none-any.whl
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
