@@ -86,8 +86,7 @@ class InMemoryTraceManager:
         with self._lock:
             self._traces[trace_info.trace_id] = _Trace(trace_info)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
-            if tracking_uri:
-                self._trace_id_to_tracking_uri_map[trace_info.trace_id] = tracking_uri
+            self._trace_id_to_tracking_uri_map[trace_info.trace_id] = tracking_uri
 
     def register_span(self, span: LiveSpan):
         """

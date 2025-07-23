@@ -19,8 +19,11 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     using the V3 trace schema and API.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+    ):
+        super().__init__(span_exporter)
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """
@@ -45,7 +48,8 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
 
         tracking_uri = None
         if isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), MlflowExperiment):
-            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.get().tracking_uri or mlflow.get_tracking_uri()
+            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.get().tracking_uri
+        tracking_uri = tracking_uri or mlflow.get_tracking_uri()
 
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info, tracking_uri)
 

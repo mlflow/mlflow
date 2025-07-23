@@ -14,11 +14,9 @@ class MlflowExperimentLocation(_MlflowObject):
 
     Args:
         experiment_id: The ID of the MLflow experiment where the trace is stored.
-        tracking_uri: The MLflow tracking URI.
     """
 
     experiment_id: str
-    tracking_uri: str
 
     def to_proto(self):
         return pb.TraceLocation.MlflowExperimentLocation(experiment_id=self.experiment_id)
