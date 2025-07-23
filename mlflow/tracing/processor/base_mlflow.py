@@ -7,6 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
+import mlflow
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -59,12 +60,14 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         """
         from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+        from mlflow.tracing.destination import MlflowExperiment
         
         # Initialize the span exporter using thread-local tracing destination settings.
         tracking_uri = None
         if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-            if destination.type == "experiment":
+            if isinstance(destination, MlflowExperiment):
                 tracking_uri = destination.tracking_uri
+        tracking_uri = tracking_uri or mlflow.get_tracking_uri()
         self.span_exporter = MlflowV3SpanExporter(tracking_uri)
 
         trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
