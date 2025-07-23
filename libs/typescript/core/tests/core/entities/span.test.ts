@@ -206,6 +206,67 @@ describe('Span', () => {
     });
   });
 
+  describe('Circular Reference Handling', () => {
+    it('should handle circular references in span attributes', () => {
+      const traceId = 'tr-circular';
+      const span = tracer.startSpan('circular-test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId, SpanType.UNKNOWN) as LiveSpan;
+
+        // Create an object with circular reference
+        const circularObj: any = { name: 'test' };
+        circularObj.self = circularObj;
+
+        // This should not throw
+        expect(() => {
+          mlflowSpan.setAttribute('circular', circularObj);
+        }).not.toThrow();
+
+        // Verify the circular reference is replaced with placeholder
+        const attrValue = mlflowSpan.getAttribute('circular');
+        expect(attrValue.name).toBe('test');
+        expect(attrValue.self).toBe('[Circular]');
+      } finally {
+        span.end();
+      }
+    });
+
+    it('should handle non-serializable objects', () => {
+      const traceId = 'tr-non-serializable';
+      const span = tracer.startSpan('non-serializable-test');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId, SpanType.UNKNOWN) as LiveSpan;
+
+        // Test various non-serializable objects
+        const testData = {
+          func: () => console.log('test'),
+          undefinedVal: undefined,
+          error: new Error('Test error'),
+          date: new Date('2024-01-01'),
+          regex: /test/g,
+          map: new Map([['key', 'value']]),
+          set: new Set([1, 2, 3])
+        };
+
+        // This should not throw
+        expect(() => {
+          mlflowSpan.setAttribute('nonSerializable', testData);
+        }).not.toThrow();
+
+        const attrValue = mlflowSpan.getAttribute('nonSerializable');
+        expect(attrValue.func).toBe('[Function]');
+        expect(attrValue.undefinedVal).toBe('[Undefined]');
+        expect(attrValue.error.name).toBe('Error');
+        expect(attrValue.error.message).toBe('Test error');
+        expect(attrValue.date).toBeDefined(); // Date should be serialized normally
+      } finally {
+        span.end();
+      }
+    });
+  });
+
   describe('JSON Serialization', () => {
     it('should produce correct JSON format for toJson()', () => {
       const traceId = 'tr-12345';
