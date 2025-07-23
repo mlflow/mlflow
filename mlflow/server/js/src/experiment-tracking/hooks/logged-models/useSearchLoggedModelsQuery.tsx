@@ -67,7 +67,7 @@ export const useSearchLoggedModelsQuery = (
         datasets: !isEmpty(selectedFilterDatasets) ? selectedFilterDatasets : undefined,
       };
 
-      return loggedModelsDataRequest('/ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
+      return loggedModelsDataRequest('ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
     },
     cacheTime: 0,
     getNextPageParam: (lastPage) => lastPage.next_page_token,
