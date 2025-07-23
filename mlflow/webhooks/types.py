@@ -25,8 +25,11 @@ class RegisteredModelCreatedPayload(TypedDict):
     """
 
     name: str
+    """The name of the registered model."""
     tags: dict[str, str]
+    """Tags associated with the registered model."""
     description: Optional[str]
+    """Description of the registered model."""
 
     @classmethod
     def example(cls) -> "RegisteredModelCreatedPayload":
@@ -56,18 +59,24 @@ class ModelVersionCreatedPayload(TypedDict):
     """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     source: str
+    """The source URI of the model version."""
     run_id: Optional[str]
+    """The run ID associated with the model version, if applicable."""
     tags: dict[str, str]
+    """Tags associated with the model version."""
     description: Optional[str]
+    """Description of the model version."""
 
     @classmethod
     def example(cls) -> "ModelVersionCreatedPayload":
         return cls(
             name="example_model",
             version="1",
-            source="runs:/abcd1234abcd5678/model",
+            source="models:/123",
             run_id="abcd1234abcd5678",
             tags={"example_key": "example_value"},
             description="An example model version",
@@ -91,9 +100,13 @@ class ModelVersionTagSetPayload(TypedDict):
     """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     key: str
+    """The tag key being set."""
     value: str
+    """The tag value being set."""
 
     @classmethod
     def example(cls) -> "ModelVersionTagSetPayload":
@@ -112,13 +125,20 @@ class ModelVersionTagDeletedPayload(TypedDict):
 
     .. code-block:: python
 
-        {"name": "example_model", "version": "1", "key": "example_key"}
+        {
+            "name": "example_model",
+            "version": "1",
+            "key": "example_key",
+        }
 
     """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     key: str
+    """The tag key being deleted."""
 
     @classmethod
     def example(cls) -> "ModelVersionTagDeletedPayload":
@@ -146,8 +166,11 @@ class ModelVersionAliasCreatedPayload(TypedDict):
     """
 
     name: str
+    """The name of the registered model."""
     alias: str
+    """The alias being created."""
     version: str
+    """The version of the model the alias is being assigned to."""
 
     @classmethod
     def example(cls) -> "ModelVersionAliasCreatedPayload":
@@ -165,12 +188,17 @@ class ModelVersionAliasDeletedPayload(TypedDict):
 
     .. code-block:: python
 
-        {"name": "example_model", "alias": "example_alias"}
+        {
+            "name": "example_model",
+            "alias": "example_alias",
+        }
 
     """
 
     name: str
+    """The name of the registered model."""
     alias: str
+    """The alias being deleted."""
 
     @classmethod
     def example(cls) -> "ModelVersionAliasDeletedPayload":
