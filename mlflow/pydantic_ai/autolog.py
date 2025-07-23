@@ -120,15 +120,6 @@ def _get_span_type(instance) -> str:
     except ImportError:
         pass
 
-
-    try:
-        from pydantic_ai._tool_manager import ToolManager
-    except ImportError:
-        return SpanType.UNKNOWN
-
-    if isinstance(instance, ToolManager):
-        return SpanType.TOOL
-
     return SpanType.UNKNOWN
 
 
