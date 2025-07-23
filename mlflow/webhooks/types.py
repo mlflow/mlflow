@@ -12,7 +12,7 @@ from mlflow.entities.webhook import WebhookEvent
 class RegisteredModelCreatedPayload(TypedDict):
     """Payload sent when a new registered model is created.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
@@ -40,7 +40,7 @@ class RegisteredModelCreatedPayload(TypedDict):
 class ModelVersionCreatedPayload(TypedDict):
     """Payload sent when a new model version is created.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
@@ -77,7 +77,7 @@ class ModelVersionCreatedPayload(TypedDict):
 class ModelVersionTagSetPayload(TypedDict):
     """Payload sent when a tag is set on a model version.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
@@ -108,7 +108,7 @@ class ModelVersionTagSetPayload(TypedDict):
 class ModelVersionTagDeletedPayload(TypedDict):
     """Payload sent when a tag is deleted from a model version.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
@@ -133,7 +133,7 @@ class ModelVersionAliasCreatedPayload(TypedDict):
     """
     Payload sent when an alias is created for a model version.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
@@ -161,7 +161,7 @@ class ModelVersionAliasCreatedPayload(TypedDict):
 class ModelVersionAliasDeletedPayload(TypedDict):
     """Payload sent when an alias is deleted from a model version.
 
-    Example payload::
+    Example payload:
 
     .. code-block:: python
 
