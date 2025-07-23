@@ -1,7 +1,7 @@
 import io
 import json
 import logging
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from botocore.client import BaseClient
 from botocore.response import StreamingBody
@@ -10,7 +10,7 @@ import mlflow
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
-from mlflow.bedrock.utils import skip_if_trace_disabled
+from mlflow.bedrock.utils import parse_complete_token_usage_from_response, skip_if_trace_disabled
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -60,6 +60,31 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
         safe_patch(FLAVOR_NAME, client_class, "converse_stream", _patched_converse_stream)
 
 
+def _parse_usage_from_response(
+    response_data: Union[dict[str, Any], str],
+) -> Optional[dict[str, int]]:
+    """Parse token usage from Bedrock API response body.
+
+    Args:
+        response_data: The response body from Bedrock API, either as dict or string.
+
+    Returns:
+        Standardized token usage dictionary, or None if parsing fails or no usage found.
+    """
+    try:
+        if isinstance(response_data, dict):
+            if usage_data := response_data.get("usage"):
+                return parse_complete_token_usage_from_response(usage_data)
+
+            # If no "usage" field, check if the response itself contains token fields
+            # (e.g., Meta Llama responses have prompt_token_count, generation_token_count)
+            return parse_complete_token_usage_from_response(response_data)
+        return None
+    except (KeyError, TypeError, ValueError) as e:
+        _logger.debug(f"Failed to parse token usage from response: {e}")
+        return None
+
+
 @skip_if_trace_disabled
 def _patched_invoke_model(original, self, *args, **kwargs):
     with mlflow.start_span(name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}") as span:
@@ -77,6 +102,10 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         span_type = SpanType.EMBEDDING if "embedding" in parsed_response_body else SpanType.LLM
         span.set_span_type(span_type)
         span.set_outputs({**result, "body": parsed_response_body})
+
+        # Parse and set token usage information if available
+        if usage_data := _parse_usage_from_response(parsed_response_body):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
 
         return result
 
@@ -143,6 +172,11 @@ def _patched_converse(original, self, *args, **kwargs):
 
         result = original(self, *args, **kwargs)
         span.set_outputs(result)
+
+        # Parse and set token usage information if available
+        if usage_data := _parse_usage_from_response(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_data)
+
         return result
 
 

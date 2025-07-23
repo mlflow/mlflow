@@ -7,7 +7,7 @@ import re
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import google.protobuf.empty_pb2
 from pydantic import BaseModel
@@ -167,9 +167,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {
@@ -1426,7 +1423,7 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
