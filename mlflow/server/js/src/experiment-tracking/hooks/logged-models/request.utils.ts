@@ -1,5 +1,5 @@
 import { matchPredefinedError } from '@databricks/web-shared/errors';
-import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
+import { getAjaxUrl, getDefaultHeaders } from '../../../common/utils/FetchUtils';
 
 function serializeRequestBody(payload: any | FormData | Blob) {
   if (payload === undefined) {
@@ -12,10 +12,11 @@ function serializeRequestBody(payload: any | FormData | Blob) {
 
 // Helper method to make a request to the backend.
 export const loggedModelsDataRequest = async (
-  url: string,
+  relativeUrl: string,
   method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,
 ) => {
+  const url = getAjaxUrl(relativeUrl);
   const headers = {
     ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...getDefaultHeaders(document.cookie),
