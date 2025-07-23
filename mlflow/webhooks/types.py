@@ -10,7 +10,19 @@ from mlflow.entities.webhook import WebhookEvent
 
 
 class RegisteredModelCreatedPayload(TypedDict):
-    """Payload sent when a new registered model is created."""
+    """Payload sent when a new registered model is created.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "tags": {"example_key": "example_value"},
+            "description": "An example registered model",
+        }
+
+    """
 
     name: str
     tags: dict[str, str]
@@ -26,7 +38,22 @@ class RegisteredModelCreatedPayload(TypedDict):
 
 
 class ModelVersionCreatedPayload(TypedDict):
-    """Payload sent when a new model version is created."""
+    """Payload sent when a new model version is created.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "source": "models:/123",
+            "run_id": "abcd1234abcd5678",
+            "tags": {"example_key": "example_value"},
+            "description": "An example model version",
+        }
+
+    """
 
     name: str
     version: str
@@ -48,7 +75,20 @@ class ModelVersionCreatedPayload(TypedDict):
 
 
 class ModelVersionTagSetPayload(TypedDict):
-    """Payload sent when a tag is set on a model version."""
+    """Payload sent when a tag is set on a model version.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "key": "example_key",
+            "value": "example_value",
+        }
+
+    """
 
     name: str
     version: str
@@ -66,7 +106,15 @@ class ModelVersionTagSetPayload(TypedDict):
 
 
 class ModelVersionTagDeletedPayload(TypedDict):
-    """Payload sent when a tag is deleted from a model version."""
+    """Payload sent when a tag is deleted from a model version.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {"name": "example_model", "version": "1", "key": "example_key"}
+
+    """
 
     name: str
     version: str
@@ -82,7 +130,20 @@ class ModelVersionTagDeletedPayload(TypedDict):
 
 
 class ModelVersionAliasCreatedPayload(TypedDict):
-    """Payload sent when an alias is created for a model version."""
+    """
+    Payload sent when an alias is created for a model version.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "alias": "example_alias",
+            "version": "1",
+        }
+
+    """
 
     name: str
     alias: str
@@ -98,7 +159,15 @@ class ModelVersionAliasCreatedPayload(TypedDict):
 
 
 class ModelVersionAliasDeletedPayload(TypedDict):
-    """Payload sent when an alias is deleted from a model version."""
+    """Payload sent when an alias is deleted from a model version.
+
+    Example payload::
+
+    .. code-block:: python
+
+        {"name": "example_model", "alias": "example_alias"}
+
+    """
 
     name: str
     alias: str
