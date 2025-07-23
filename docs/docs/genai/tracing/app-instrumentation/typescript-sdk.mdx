@@ -19,7 +19,7 @@ MLflow Typescript SDK is an experimental package. We are actively working on it 
 
 :::
 
-MLflow Typescript SDK empowers AI application developers by bringing the [MLflow Tracing](/genai/tracing) capabilities to Typescript and Javascript. With minimum code change, you can **debug**, **evaluate**, and **monitor** your applications with MLflow's powerful observability features and take advantage of the trusted end-to--end MLOps platform.
+MLflow's Typescript SDK empowers AI application developers by bringing the [MLflow Tracing](/genai/tracing) capabilities to Typescript and Javascript. With minimum code change, you can **debug**, **evaluate**, and **monitor** your applications with MLflow's powerful observability features and take advantage of the trusted end-to--end MLOps platform.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ If you are new to MLflow Tracing, please start with the following quickstart gui
 npm install mlflow-tracing
 ```
 
-After installation, connect you application to MLflow server by following the [Connecting to MLflow Server](/genai/tracing/app-instrumentation#2-connect-your-application-with-mlflow) guide.
+After installation, connect your application to an MLflow server by following the [Connecting to an MLflow Server](/genai/tracing/app-instrumentation#2-connect-your-application-with-mlflow) guide.
 
 ## Basic Usage
 
@@ -60,11 +60,11 @@ const getWeather = mlflow.trace(
   { name: 'get-weather' }
 );
 
-// Invoke the function as usual, MLflow will automatically creates a span and capture
+// Invoke the function as usual, MLflow will automatically create a span and capture
 // inputs, outputs, latency, and exception information.
 getWeather('San Francisco');
 
-// Alternatively, start and end span manually.
+// Alternatively, start and end spans manually.
 const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
@@ -78,7 +78,7 @@ Install the OpenAI integration package:
 npm install mlflow-openai
 ```
 
-Then wrap the OpenAI client with the `tracedOpenAI` function:
+Then, wrap the OpenAI client with the `tracedOpenAI` function:
 
 ```typescript
 import * as mlflow from "mlflow-tracing";
@@ -215,7 +215,7 @@ The trace will look like this:
 
 ### Tracing a class method with the `@trace` API
 
-TypeScript version 5.0+ supports decorators. MLflow Tracing support this syntax to trace class methods easily. MLflow will automatically creates a span that captures:
+TypeScript version 5.0+ supports decorators. MLflow Tracing supports this syntax to trace class methods easily. MLflow will automatically creates a span that captures:
 
 - Input arguments
 - Return value
@@ -279,13 +279,13 @@ span.end({
 
 ## Grouping Traces by Users and Sessions
 
-Many real-world applications use sessions to maintain multi-turn user interactions. On the other hand, traces are often generated per-request. MLflow support grouping traces by user sessions to help you understand the user journey and identify issues. Refer to the [Track Users & Sessions](/genai/tracing/track-users-sessions) guide for more details.
+Many real-world applications use sessions to maintain multi-turn user interactions. On the other hand, traces are often generated per-request. MLflow supports grouping traces by user sessions to help you understand an end-user's journey and identify issues. Refer to the [Track Users & Sessions](/genai/tracing/track-users-sessions) guide for more details.
 
 ## FAQ
 
-#### Q. I found a feature in Python SDK that is not available in Typescript SDK.
+#### Q. I found a feature in the Python SDK that is not available in the Typescript SDK.
 
-Typescript SDK started later than Python SDK, so some features are not available yet. Please raise a feature request in [GitHub](https://github.com/mlflow/mlflow/issues/new/choose) to get the attention of the maintainers.
+The Typescript SDK started later than Python SDK, so some features are not available yet. Please raise a feature request in [GitHub](https://github.com/mlflow/mlflow/issues/new/choose) to get the attention of the maintainers.
 
 #### Q. Do I need to install Python to use MLflow Typescript SDK?
 
