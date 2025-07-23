@@ -21,7 +21,10 @@ import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotificati
 import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageAutoRefresh,
+  shouldUseGetLoggedModelsBatchAPI,
+} from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
@@ -34,6 +37,8 @@ import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
+import { useLoggedModelsForExperimentRunsTableV2 } from '../../hooks/useLoggedModelsForExperimentRunsTableV2';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -67,6 +72,7 @@ const createCurrentTime = () => {
 };
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
+const CHARTS_MIN_WIDTH = 350;
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -81,6 +87,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     requestError,
     refreshRuns,
   } = props;
+
+  const isComparingExperiments = experiments.length > 1;
 
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new ExperimentPageViewState());
@@ -102,6 +110,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runInfos,
     runUuidsMatchingFilter,
     datasetsList,
+    inputsOutputsList,
   } = runsData;
 
   const modelVersionsByRunUuid = useSelector(({ entities }: ReduxState) => entities.modelVersionsByRunUuid);
@@ -117,8 +126,10 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
         metrics: metricsList[index],
         tags: tagsList[index],
         datasets: datasetsList[index],
+        inputs: inputsOutputsList?.[index]?.inputs || {},
+        outputs: inputsOutputsList?.[index]?.outputs || {},
       })),
-    [datasetsList, metricsList, paramsList, runInfos, tagsList],
+    [datasetsList, metricsList, paramsList, runInfos, tagsList, inputsOutputsList],
   );
 
   const { orderByKey, searchFilter } = searchFacetsState;
@@ -156,8 +167,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const experimentIds = useMemo(() => experiments.map(({ experimentId }) => experimentId), [experiments]);
 
-  // Fetch logged models (MLflow v3) for the experiment to be displayed in the runs table
-  const loggedModelsV3ByRunUuid = useLoggedModelsForExperimentRunsTable(experimentIds);
+  // Check if we should use new GetLoggedModels API.
+  // If true, logged (and registered) models will be fetched based on runs inputs/outputs.
+  const isUsingGetLoggedModelsAPI = shouldUseGetLoggedModelsBatchAPI();
+
+  // Conditionally use legacy hook for fetching all logged models in the experiment
+  const loggedModelsV3ByRunUuidFromExperiment = useLoggedModelsForExperimentRunsTable({
+    experimentIds,
+    enabled: !isUsingGetLoggedModelsAPI,
+  });
+
+  // Conditionally use new hook for fetching logged models based on runs inputs/outputs
+  const loggedModelsV3ByRunUuidFromRunInputsOutputs = useLoggedModelsForExperimentRunsTableV2({
+    runData,
+    enabled: isUsingGetLoggedModelsAPI,
+  });
+
+  // Select the appropriate logged models based on the feature flag
+  const loggedModelsV3ByRunUuid = isUsingGetLoggedModelsAPI
+    ? loggedModelsV3ByRunUuidFromRunInputsOutputs
+    : loggedModelsV3ByRunUuidFromExperiment;
+
   // Use new, memoized version of the row creation function.
   // Internally disabled if the flag is not set.
   const visibleRuns = useExperimentRunRows({
@@ -240,6 +270,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     [experiments],
   );
 
+  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
+
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
       <RunsChartsSetHighlightContextProvider>
@@ -255,8 +287,10 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           refreshRuns={refreshRuns}
           uiState={uiState}
           isLoading={isLoadingRuns}
+          isComparingExperiments={isComparingExperiments}
         />
         <div
+          ref={ref}
           css={{
             minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
             height: '100%',
@@ -269,6 +303,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               onResize={setTableAreaWidth}
               runListHidden={runListHidden}
               width={tableAreaWidth}
+              maxWidth={resizableMaxWidth}
             >
               {tableElement}
             </ExperimentViewRunsTableResizer>
@@ -290,6 +325,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               globalLineChartConfig={uiState.globalLineChartConfig}
               chartsSearchFilter={uiState.chartsSearchFilter}
               storageKey={configStorageKey}
+              minWidth={CHARTS_MIN_WIDTH}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

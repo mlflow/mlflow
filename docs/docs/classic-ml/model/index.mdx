@@ -221,14 +221,14 @@ and <APILink fn="mlflow.sklearn.load_model">load_model</APILink> functions for s
 you can use the <APILink fn="mlflow.models.Model">mlflow.models.Model</APILink> class to create and write models. This
 class has four key functions:
 
-- {""}<APILink fn="mlflow.models.Model.add_flavor">add_flavor</APILink> to add a flavor to the model. Each flavor
-  has a string name and a dictionary of key-value attributes, where the values can be any object
-  that can be serialized to YAML.
-- {""}<APILink fn="mlflow.models.Model.save">save</APILink> to save the model to a local directory.
-- {""}<APILink fn="mlflow.models.Model.log">log</APILink> to log the model as an artifact in the
-  current run using MLflow Tracking.
-- {""}<APILink fn="mlflow.models.Model.load">load</APILink> to load a model from a local directory or
-  from an artifact in a previous run.
+- <APILink fn="mlflow.models.Model.add_flavor">add_flavor</APILink> to add a flavor to the model. Each flavor
+has a string name and a dictionary of key-value attributes, where the values can be any object
+that can be serialized to YAML.
+- <APILink fn="mlflow.models.Model.save">save</APILink> to save the model to a local directory.
+- <APILink fn="mlflow.models.Model.log">log</APILink> to log the model as an artifact in the
+current run using MLflow Tracking.
+- <APILink fn="mlflow.models.Model.load">load</APILink> to load a model from a local directory or
+from an artifact in a previous run.
 
 ## Models From Code
 
@@ -335,7 +335,7 @@ framework was used to produce the model. This interoperability is very powerful 
 any Python model to be productionized in a variety of environments.
 
 In addition, the `python_function` model flavor defines a generic
-filesystem <Link to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-filesystem-format" target="_blank">model format</Link>
+filesystem <APILink fn="mlflow.pyfunc" hash="pyfunc-filesystem-format">model format</APILink>
 for Python models and provides utilities for saving and loading models
 to and from this format. The format is self-contained in the sense that it includes all the
 information necessary to load and use a model. Dependencies are stored either directly with the
@@ -545,16 +545,16 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="_blank">mlflow_save_model</Link>
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="_blank">mlflow_log_model</Link> in R for saving H2O
+and <APILink fn="mlflow.r" hash="mlflow-save-model-crate">mlflow_save_model</APILink>
+and <APILink fn="mlflow.r" hash="mlflow-log-model">mlflow_log_model</APILink> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
 MLflow Models with the `h2o` flavor using <APILink fn="mlflow.pyfunc.load_model" />,
-the [h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
+the [h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
 called. Therefore, the correct version of `h2o(-py)` must be installed in the loader's
 environment. You can customize the arguments given to
-[h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
+[h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
 `init` entry of the persisted H2O model's YAML configuration file: `model.h2o/h2o.yaml`.
 
 Finally, you can use the <APILink fn="mlflow.h2o.load_model" /> method to load MLflow Models with the
@@ -645,7 +645,6 @@ For more information, see <APILink fn="mlflow.spark">mlflow.spark</APILink>.
 ### TensorFlow (`tensorflow`)
 
 The full guide for the `tensorflow` integration [can be viewed here](/ml/deep-learning/tensorflow/).
-
 
 ### ONNX (`onnx`)
 
@@ -791,7 +790,7 @@ print(y_pred)
 
 ### CatBoost (`catboost`)
 
-The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/concepts/python-reference_catboost.html)
+The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/en/concepts/python-reference_catboost)
 in MLflow format via the <APILink fn="mlflow.catboost.save_model" /> and <APILink fn="mlflow.catboost.log_model" /> methods.
 These methods also add the `python_function` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
@@ -1562,7 +1561,7 @@ REST endpoints.
 
 The following examples demonstrate how you can use the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
 module to create custom Python models. For additional information about model customization with MLflow's
-`python_function` utilities, see the <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-create-custom">python_function custom models documentation</Link>.
+`python_function` utilities, see the <APILink fn="mlflow.pyfunc" hash="pyfunc-create-custom">python_function custom models documentation</APILink>.
 
 #### Example: Creating a model with type hints
 
@@ -1663,7 +1662,7 @@ assert model_output.equals(pd.DataFrame([range(5, 15)]))
 
 This example begins by training and saving a gradient boosted tree model using the XGBoost
 library. Next, it defines a wrapper class around the XGBoost model that conforms to MLflow's
-`python_function` <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-inference-api">inference API</Link>.
+`python_function` <APILink fn="mlflow.pyfunc" hash="pyfunc-inference-api">inference API</APILink>.
 Then, it uses the wrapper class and the saved XGBoost model to construct an MLflow Model that performs inference using the gradient
 boosted tree. Finally, it loads the MLflow Model in `python_function` format and uses it to
 evaluate test data.
@@ -1801,7 +1800,6 @@ with mlflow.start_run() as run:
 ### Custom Flavors
 
 To read about how to build custom integrations and to see examples of community-developed extended library support, check out the [Community Model Flavors](/ml/community-model-flavors) page.
-
 
 ## Validate Models before Deployment
 
@@ -2041,7 +2039,7 @@ pyfunc_udf = mlflow.pyfunc.spark_udf(
 ## Deployment to Custom Targets \{#deployment_plugin}
 
 In addition to the built-in deployment tools, MLflow provides a pluggable <APILink fn="mlflow.deployments" />
-and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments CLI</Link> for deploying models to custom targets and environments.
+and <APILink fn="mlflow.server.cli" hash="mlflow-deployments">mlflow deployments CLI</APILink> for deploying models to custom targets and environments.
 To deploy to a custom target, you must first install an appropriate third-party Python plugin. See the list of
 known community-maintained plugins [here](/ml/plugins).
 
@@ -2050,14 +2048,14 @@ known community-maintained plugins [here](/ml/plugins).
 The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
 using the <APILink fn="mlflow.deployments">mlflow.deployments Python API</APILink>:
 
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-create" target="_blank">Create</Link>: Deploy an MLflow model to a specified custom target
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-delete" target="_blank">Delete</Link>: Delete a deployment
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-update" target="_blank">Update</Link>: Update an existing deployment, for example to
-  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-list" target="_blank">List</Link>: List IDs of all deployments
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-get" target="_blank">Get</Link>: Print a detailed description of a particular deployment
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-run-local" target="_blank">Run Local</Link>: Deploy the model locally for testing
-- {""}<Link to="/api_reference/cli.html#mlflow-deployments-help" target="_blank">Help</Link>: Show the help string for the specified target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-create">Create</APILink>: Deploy an MLflow model to a specified custom target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-delete">Delete</APILink>: Delete a deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-update">Update</APILink>: Update an existing deployment, for example to
+deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-list">List</APILink>: List IDs of all deployments
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-get">Get</APILink>: Print a detailed description of a particular deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-run-local">Run Local</APILink>: Deploy the model locally for testing
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-help">Help</APILink>: Show the help string for the specified target
 
 For more info, see:
 

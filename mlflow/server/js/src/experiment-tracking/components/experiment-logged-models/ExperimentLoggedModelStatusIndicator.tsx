@@ -56,7 +56,7 @@ export const ExperimentLoggedModelStatusIndicator = ({ data }: { data: LoggedMod
       return (
         <Typography.Text color="error">
           <FormattedMessage
-            defaultMessage="Upload failed"
+            defaultMessage="Failed"
             description="Label for upload failed state of a experiment logged model"
           />
         </Typography.Text>
@@ -75,6 +75,10 @@ export const ExperimentLoggedModelStatusIndicator = ({ data }: { data: LoggedMod
 
     return status;
   };
+
+  if (status === LoggedModelStatusProtoEnum.LOGGED_MODEL_STATUS_UNSPECIFIED) {
+    return null;
+  }
 
   return (
     <Tag componentId="mlflow.logged_model.status" css={{ backgroundColor: getTagColor() }}>

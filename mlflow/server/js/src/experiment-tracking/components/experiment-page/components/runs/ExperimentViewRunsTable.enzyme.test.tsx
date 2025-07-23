@@ -115,7 +115,7 @@ describe('ExperimentViewRunsTable', () => {
 
   test('should properly call creating column definitions function', () => {
     createWrapper();
-    expect(useRunsColumnDefinitions).toBeCalledWith(
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedColumns: expect.anything(),
         compareExperiments: false,
@@ -132,7 +132,7 @@ describe('ExperimentViewRunsTable', () => {
 
     // Assert that we're not calling for generating columns
     // while having "newparam" parameter
-    expect(useRunsColumnDefinitions).not.toBeCalledWith(
+    expect(useRunsColumnDefinitions).not.toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -145,7 +145,7 @@ describe('ExperimentViewRunsTable', () => {
 
     // Assert that "newparam" parameter is being included in calls
     // for new columns
-    expect(useRunsColumnDefinitions).toBeCalledWith(
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -186,7 +186,7 @@ describe('ExperimentViewRunsTable', () => {
     const containingExperimentsWrapper = createWrapper({ moreRunsAvailable: false });
 
     // Assert "load more" row not being sent to agGrid
-    expect(mockGridApi.setRowData).not.toBeCalledWith(
+    expect(mockGridApi.setRowData).not.toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
     );
 
@@ -196,7 +196,7 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert "load more" row being added to payload
-    expect(mockGridApi.setRowData).toBeCalledWith(
+    expect(mockGridApi.setRowData).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
     );
   });

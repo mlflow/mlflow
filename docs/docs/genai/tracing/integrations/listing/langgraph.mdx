@@ -30,7 +30,6 @@ MLflow LangGraph integration is not only about tracing. MLflow offers full track
 
 :::
 
-
 ### Example Usage
 
 Running the following code will generate a trace for the graph as shown in the above video clip.
@@ -124,7 +123,6 @@ ChatOpenAI_2:
   Total tokens: 139
 ```
 
-
 ### Adding spans within a node or a tool
 
 By combining auto-tracing with the [manual tracing APIs](/genai/tracing/app-instrumentation/manual-tracing), you can add child spans inside a node or tool, to get more detailed insights for the step.
@@ -188,7 +186,6 @@ def code_check(state: GraphState):
 This way, the span for the `check_code` node will have child spans, which record whether the each validation fails or not, with their exception details.
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
-
 
 ### Disable auto-tracing
 

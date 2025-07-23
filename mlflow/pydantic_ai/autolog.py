@@ -141,7 +141,7 @@ def _get_agent_attributes(instance):
 
 
 def _get_model_attributes(instance):
-    model = {}
+    model = {SpanAttributeKey.MESSAGE_FORMAT: "pydantic_ai"}
     for key, value in instance.__dict__.items():
         if value is None:
             continue

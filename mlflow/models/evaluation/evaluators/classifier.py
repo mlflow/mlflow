@@ -1,8 +1,7 @@
 import logging
 import math
-from collections import namedtuple
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,7 +22,10 @@ from mlflow.models.utils import plot_lines
 _logger = logging.getLogger(__name__)
 
 
-_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
+class _Curve(NamedTuple):
+    plot_fn: Callable[..., Any]
+    plot_fn_args: dict[str, Any]
+    auc: float
 
 
 class ClassifierEvaluator(BuiltInEvaluator):
@@ -107,11 +109,18 @@ class ClassifierEvaluator(BuiltInEvaluator):
             # np.where only works for numpy array, not list
             self.label_list = np.array(self.label_list)
 
+        if len(self.label_list) < 2:
+            raise MlflowException(
+                "Evaluation dataset for classification must contain at least two unique "
+                f"labels, but only {len(self.label_list)} unique labels were found.",
+                "Please provide a 'label_list' parameter in 'evaluator_config' with all "
+                "possible classes, e.g., evaluator_config={{'label_list': [0, 1]}}.",
+            )
+
         # sort label_list ASC, for binary classification it makes sure the last one is pos label
         self.label_list.sort()
 
-        is_binomial = len(self.label_list) <= 2
-        if is_binomial:
+        if len(self.label_list) == 2:
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
             else:
@@ -120,11 +129,6 @@ class ClassifierEvaluator(BuiltInEvaluator):
                         self.label_list, np.where(self.label_list == self.pos_label)
                     )
                 self.label_list = np.append(self.label_list, self.pos_label)
-            if len(self.label_list) < 2:
-                raise MlflowException(
-                    "Evaluation dataset for classification must contain at least two unique "
-                    f"labels, but only {len(self.label_list)} unique labels were found.",
-                )
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
@@ -140,7 +144,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
-        if len(self.label_list) <= 2:
+        if len(self.label_list) == 2:
             metrics = _get_binary_classifier_metrics(
                 y_true=self.y_true,
                 y_pred=self.y_pred,
@@ -495,7 +499,7 @@ def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
     with _suppress_class_imbalance_errors(ValueError):
-        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels).ravel()
         return {
             "true_negatives": tn,
             "false_positives": fp,
@@ -558,6 +562,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
         binary_classifier_metrics = _get_binary_classifier_metrics(
             y_true=y_bin,
             y_pred=y_pred_bin,
+            labels=[0, 1],  # Use binary labels for per-class metrics
             pos_label=1,
             sample_weights=sample_weights,
         )
@@ -566,9 +571,6 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
-
-
-_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
 def _gen_classifier_curve(

@@ -1,4 +1,5 @@
 import functools
+import json
 import re
 from textwrap import dedent
 from typing import Any, Optional, Union
@@ -8,7 +9,14 @@ from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_NAME_RULE,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    RESPONSE_FORMAT_TAG_KEY,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 
@@ -36,16 +44,27 @@ def model_version_to_prompt_version(
             f"Prompt `{model_version.name}` does not contain a prompt text"
         )
 
+    if model_version.tags.get(PROMPT_TYPE_TAG_KEY) == PROMPT_TYPE_CHAT:
+        template = json.loads(model_version.tags[PROMPT_TEXT_TAG_KEY])
+    else:
+        template = model_version.tags[PROMPT_TEXT_TAG_KEY]
+
+    if RESPONSE_FORMAT_TAG_KEY in model_version.tags:
+        response_format = json.loads(model_version.tags[RESPONSE_FORMAT_TAG_KEY])
+    else:
+        response_format = None
+
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
-        template=model_version.tags[PROMPT_TEXT_TAG_KEY],
+        template=template,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,
+        response_format=response_format,
     )
 
 

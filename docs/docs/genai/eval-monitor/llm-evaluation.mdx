@@ -118,7 +118,7 @@ There are two types of LLM evaluation metrics in MLflow:
 
 See [this page](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html) for the full list of the built-in heuristic metrics.
 
-#### Default Metrics with Pre-defined Model Types {#llm-eval-default-metrics}
+#### Default Metrics with Pre-defined Model Types \{#llm-eval-default-metrics}
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the
 LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. To use
@@ -137,27 +137,23 @@ results = mlflow.evaluate(
 The supported LLM model types and associated metrics are listed below:
 
 - **question-answering**: `model_type="question-answering"`:
-
   - exact-match
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **text-summarization**: `model_type="text-summarization"`:
-
   - [ROUGE](https://huggingface.co/spaces/evaluate-metric/rouge) \[3\]
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **text models**: `model_type="text"`:
-
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **retrievers**: `model_type="retriever"`:
-
   - [precision_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Precision_at_k>) \[4\]
   - [recall_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Recall>) \[4\]
   - [ndcg_at_k](https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG) \[4\]
@@ -172,7 +168,7 @@ The supported LLM model types and associated metrics are listed below:
 
 \[4\] All retriever metrics have a default `retriever_k` value of `3` that can be overridden by specifying `retriever_k` in the `evaluator_config` argument.
 
-#### Use a Custom List of Metrics {#llm-eval-custom-metrics}
+#### Use a Custom List of Metrics \{#llm-eval-custom-metrics}
 
 Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics
 for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
@@ -209,8 +205,7 @@ The full reference for supported evaluation metrics can be found <APILink fn="ml
 This is very similar to creating custom traditional metrics, with the exception of returning a <APILink fn="mlflow.metrics.MetricValue" /> instance.
 Basically you need to:
 
-1. Implement An `eval_fn` to define your scoring logic. This function must take in 2 args: `predictions` and ` target``.
- `eval_fn` must return a <APILink fn="mlflow.metrics.MetricValue" /> instance.
+1. Implement An `eval_fn` to define your scoring logic. This function must take in 2 args: `predictions` and `target`. `eval_fn` must return a <APILink fn="mlflow.metrics.MetricValue" /> instance.
 2. Pass `eval_fn` and other arguments to the `mlflow.metrics.make_metric` API to create the metric.
 
 The following code creates a dummy per-row metric called `"over_10_chars"`; if the model output is greater than 10,
@@ -280,17 +275,17 @@ results = mlflow.evaluate(
 Here is the list of built-in LLM-as-a-Judge metrics. Click on the link to see the full documentation for each metric:
 
 - <APILink fn="mlflow.metrics.genai.answer_similarity" />: Evaluate how similar
-  a model's generated output is compared to the information in the ground truth
-  data.
+a model's generated output is compared to the information in the ground truth
+data.
 - <APILink fn="mlflow.metrics.genai.answer_correctness" />: Evaluate how
-  factually correct a model's generated output is based on the information
-  within the ground truth data.
+factually correct a model's generated output is based on the information
+within the ground truth data.
 - <APILink fn="mlflow.metrics.genai.answer_relevance" />: Evaluate how relevant
-  the model generated output is to the input (context is ignored).
+the model generated output is to the input (context is ignored).
 - <APILink fn="mlflow.metrics.genai.relevance" />: Evaluate how relevant the
-  model generated output is with respect to both the input and the context.
+model generated output is with respect to both the input and the context.
 - <APILink fn="mlflow.metrics.genai.faithfulness" />: Evaluate how faithful the
-  model generated output is based on the context provided.
+model generated output is based on the context provided.
 
 #### Selecting the Judge Model
 
@@ -453,7 +448,7 @@ answer_similarity = mlflow.metrics.genai.answer_similarity(
 
 [MLflow AI Gateway](/genai/governance/ai-gateway) is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
 
-1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/genai/governance/ai-gateway/#deployments-quickstart).
+1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/genai/governance/ai-gateway/setup).
 2. Set the MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
 3. Set `endpoints:/<endpoint-name>` to the `model` parameter in the metrics definition.
 
@@ -591,18 +586,18 @@ professionalism = mlflow.metrics.genai.make_genai_metric(
 
 In order to evaluate your model with `mlflow.evaluate()`, your model has to be one of the following types:
 
-1. A <APILink fn="mlflow.pyfunc.PyFuncModel" /> instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
-   general we call that MLflow model. The
-2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
+1.  A <APILink fn="mlflow.pyfunc.PyFuncModel" /> instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
+    general we call that MLflow model. The
+2.  A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
 
-   <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
-   briefly it should:
+          <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
 
-   - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
-   - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
+    briefly it should:
+    - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
+    - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
 
-3. An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
-4. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
+3.  An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
+4.  Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 ### Evaluating with an MLflow Model
 
@@ -639,7 +634,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
    )
    ```
 
-### Evaluating with a Custom Function {#llm-eval-custom-function}
+### Evaluating with a Custom Function \{#llm-eval-custom-function}
 
 As of MLflow 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a python function without requiring
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
@@ -768,7 +763,7 @@ The input data can be either of the following format when using an URI of the ML
                 )
                 ```
             </td>
-            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/genai/governance/ai-gateway#standard-deployments-parameters) for more information about the request format for different model endpoint types.</td>
+            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/genai/governance/ai-gateway/usage#query-parameters) for more information about the request format for different model endpoint types.</td>
         </tr>
         <tr>
             <td>A list of input strings.</td>
@@ -881,7 +876,7 @@ with mlflow.start_run() as run:
 
 Evaluating [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html) can be done in the same way, you just need to specify the different URI that points to the serving endpoint like `"endpoints:/your-chat-endpoint"`.
 
-### Evaluating with a Static Dataset {#llm-eval-static-dataset}
+### Evaluating with a Static Dataset \{#llm-eval-static-dataset}
 
 For MLflow >= 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a static dataset without specifying a model.
 This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and

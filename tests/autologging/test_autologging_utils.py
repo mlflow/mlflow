@@ -1,7 +1,7 @@
 import inspect
 import sys
 import time
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pytest
@@ -120,7 +120,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):
 def test_log_fn_args_as_params_ignores_unwanted_parameters(
     start_run,
 ):
-    args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
+    args = "arg1"
+    kwargs = {"arg2": "value"}
+    unlogged = ["arg1", "arg2", "arg3"]
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -465,7 +467,10 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+        class LoggerCall(NamedTuple):
+            integration: Any
+            call_args: Any
+            call_kwargs: Any
 
         def __init__(self):
             self.calls = []

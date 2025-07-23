@@ -1,5 +1,4 @@
 import json
-import sys
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -54,10 +53,7 @@ class SpanEvent(_MlflowObject):
         """Get the stacktrace of the parent error."""
         msg = repr(error)
         try:
-            if sys.version_info < (3, 10):
-                tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-            else:
-                tb = traceback.format_exception(error)
+            tb = traceback.format_exception(error)
             return "".join(tb).strip()
         except Exception:
             return msg

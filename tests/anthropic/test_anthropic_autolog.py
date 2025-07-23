@@ -192,21 +192,18 @@ def test_messages_autolog(is_async):
     }
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test message",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "test answer",
-                    "type": "text",
-                }
-            ],
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
 
     mlflow.anthropic.autolog(disable=True)
     _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
@@ -255,32 +252,19 @@ def test_messages_autolog_multi_modal(is_async):
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == dummy_multi_modal_request
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "What text is in this image?",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "data:image/png;base64," + image_base64,
-                    },
-                },
-            ],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "test answer",
-                    "type": "text",
-                }
-            ],
-        },
-    ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
 
 
 def test_messages_autolog_tool_calling(is_async):
@@ -299,56 +283,6 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
-
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "What's the weather like in San Francisco?",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "<thinking>I need to use the get_unit first.</thinking>",
-                    "type": "text",
-                }
-            ],
-            "tool_calls": [
-                {
-                    "id": "tool_123",
-                    "type": "function",
-                    "function": {
-                        "name": "get_unit",
-                        "arguments": '{"location": "San Francisco"}',
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": [{"text": "celsius", "type": "text"}],
-            "tool_call_id": "tool_123",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "<thinking>Next, I need to use the get_weather</thinking>",
-                    "type": "text",
-                }
-            ],
-            "tool_calls": [
-                {
-                    "id": "tool_456",
-                    "type": "function",
-                    "function": {
-                        "name": "get_weather",
-                        "arguments": '{"location": "San Francisco", "unit": "celsius"}',
-                    },
-                }
-            ],
-        },
-    ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -392,6 +326,20 @@ def test_messages_autolog_tool_calling(is_async):
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
 
 @pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
 def test_messages_autolog_with_thinking(is_async):
@@ -417,22 +365,15 @@ def test_messages_autolog_with_thinking(is_async):
     }
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test message",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "I need to think about this for a while.",
-                    "type": "text",
-                },
-                {
-                    "text": "test answer",
-                    "type": "text",
-                },
-            ],
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }

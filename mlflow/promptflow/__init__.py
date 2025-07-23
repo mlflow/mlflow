@@ -421,7 +421,7 @@ class _PromptflowModelWrapper:
         self,
         data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]]],
         params: Optional[dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ) -> Union[dict, list]:
+    ) -> Union[dict[str, Any], list[Any]]:
         """
         Args:
             data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.

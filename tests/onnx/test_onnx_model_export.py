@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 from unittest import mock
 
@@ -40,11 +39,6 @@ from tests.helper_functions import (
 
 TEST_DIR = "tests"
 TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
-
-pytestmark = pytest.mark.skipif(
-    (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
-)
-
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--env-manager", "local"]
 
 

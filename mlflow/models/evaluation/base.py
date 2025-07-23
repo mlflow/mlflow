@@ -883,7 +883,7 @@ def resolve_evaluators_and_configs(
             # If evaluator config is passed but any of available evaluator key is not
             # in the evaluator config, we assume the evaluator config to be a flat dict,
             # which is globally applied to all evaluators.
-            evaluator_config = {ev: evaluator_config for ev in evaluators}
+            evaluator_config = dict.fromkeys(evaluators, evaluator_config)
 
         # Filter out evaluators that cannot evaluate the model type.
         resolved = []
@@ -1371,7 +1371,7 @@ def evaluate(  # noqa: D417
             - A Pandas DataFrame containing evaluation features, labels, and optionally model
                 outputs. Model outputs are required to be provided when model is unspecified.
                 If ``feature_names`` argument not specified, all columns except for the label
-                column and model_output column are regarded as feature columns. Otherwise,
+                column and predictions column are regarded as feature columns. Otherwise,
                 only column names present in ``feature_names`` are regarded as feature columns.
             -  A Spark DataFrame containing evaluation features and labels. If
                 ``feature_names`` argument not specified, all columns except for the label
@@ -1381,7 +1381,7 @@ def evaluate(  # noqa: D417
             - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
                 features, labels, and optionally model outputs. Model outputs are only supported
                 with a PandasDataset. Model outputs are required when model is unspecified, and
-                should be specified via the ``predictions`` prerty of the PandasDataset.
+                should be specified via the ``predictions`` property of the PandasDataset.
 
         model_type: (Optional) A string describing the model type. The default evaluator
             supports the following model types:

@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Optional
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
     LoggedModel,
     LoggedModelInput,
@@ -10,11 +11,10 @@ from mlflow.entities import (
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
-    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -240,53 +240,15 @@ class AbstractStore:
 
         """
 
-    # TODO: rename this to create_trace_info
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Start an initial TraceInfo object in the backend store.
+        Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
-        """
-        raise NotImplementedError
-
-    # TODO: rename this to update_trace_info
-    # can we pass in execution_time_ms instead of timestamp_ms directly?
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id : Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
+            The returned TraceInfo object from the backend.
         """
         raise NotImplementedError
 
@@ -295,13 +257,13 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
 
-        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
-        - `max_traces` can't be specified if `request_ids` is specified.
+        - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `trace_ids` is specified.
 
         Args:
             experiment_id: ID of the associated experiment.
@@ -310,45 +272,45 @@ class AbstractStore:
             max_traces: The maximum number of traces to delete. If max_traces is specified, and
                 it is less than the number of traces that would be deleted based on the
                 max_timestamp_millis, the oldest traces will be deleted first.
-            request_ids: A set of request IDs to delete.
+            trace_ids: A set of trace IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
-        # request_ids can't be an empty list of string
-        if max_timestamp_millis is None and not request_ids:
+        # trace_ids can't be an empty list of string
+        if max_timestamp_millis is None and not trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+                "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and request_ids:
+        if max_timestamp_millis and trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+                "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
-        if request_ids and max_traces is not None:
+        if trace_ids and max_traces is not None:
             raise MlflowException.invalid_parameter_value(
-                "`max_traces` can't be specified if `request_ids` is specified.",
+                "`max_traces` can't be specified if `trace_ids` is specified.",
             )
         if max_traces is not None and max_traces <= 0:
             raise MlflowException.invalid_parameter_value(
                 f"`max_traces` must be a positive integer, received {max_traces}.",
             )
-        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
+        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, trace_ids)
 
     def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         raise NotImplementedError
 
-    def get_trace_info(self, request_id: str) -> TraceInfoV2:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the `trace_id`.
 
         Args:
-            request_id: String id of the trace to fetch.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
@@ -375,7 +337,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfoV2], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -400,24 +362,93 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
-        Set a tag on the trace with the given request_id.
+        Set a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
             value: The string value of the tag.
         """
         raise NotImplementedError
 
-    def delete_trace_tag(self, request_id: str, key: str):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
-        Delete a tag on the trace with the given request_id.
+        Delete a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
+        """
+        raise NotImplementedError
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieve an assessment from a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The assessment identifier that denotes a unique assessment entry
+                for a given trace.
+
+        Returns:
+            The Assessment object for the given trace and assessment ids.
+        """
+        raise NotImplementedError
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Logs an Assessment for a given trace or a span within a trace.
+
+        Args:
+            assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
+                contains the key value mappings of assessment criteria comprised of either
+                expectations or user/system/scorer-provided feedback (label data) on the quality
+                of the trace response or for a span within a trace.
+
+        Returns:
+            The Assessment object for the logging operation.
+        """
+        raise NotImplementedError
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[str] = None,
+        feedback: Optional[str] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        """
+        Updates the given Assessment's mutable values to overwrite updated values
+        for the given trace and Assessment data.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment upon which overrides will be applied to
+                mutable attributes.
+            name: An Optional override to the name of the assessment.
+            expectation: An Optional override of the expectation for the assessment.
+            feedback: An Optional override to the feedback for a given assessment.
+            rationale: An Optional string defining the reasoning behind the override of
+                the assessment.
+            metadata: An Optional mapping of additional customizable metadata for the assessment.
+
+        Returns:
+            The Assessment object representing the updated state of an assessment for a given trace.
+        """
+        raise NotImplementedError
+
+    def delete_assessment(self, trace_id: str, assessment_id):
+        """
+        Delete an assessment for a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
 
@@ -468,6 +499,15 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment.
             tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
+        """
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String id for the experiment.
+            key: String name of the tag to be deleted.
         """
 
     def set_tag(self, run_id, tag):
