@@ -47,30 +47,6 @@
     <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
     <url>http://github.com/mlflow/mlflow/tree/master</url>
   </scm>
-  <distributionManagement>
-    <repository>
-      <name>Central Portal Releases</name>
-      <id>central</id>
-      <url>https://central.sonatype.com/repository/maven-releases/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-    <snapshotRepository>
-      <name>Central Portal Snapshots</name>
-      <id>central-portal-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </snapshotRepository>
-  </distributionManagement>
 
   <properties>
     <mlflow-version>3.1.4-SNAPSHOT</mlflow-version>
