@@ -2,9 +2,13 @@ import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
 
-# Decorators & Context Managers (Recommended)
+# Manual Tracing
 
 In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your Python code using MLflow's manual tracing APIs. This is especially useful when you need to instrument your custom Python code.
+
+:::tip
+Looking for the Typescript guide? Checkout the <ins>[Typescript SDK](/genai/tracing/app-instrumentation/typescript-sdk)</ins> documentation.
+:::
 
 ## Decorator
 
@@ -487,83 +491,6 @@ async def async_pipeline(items: list[str]) -> list[str]:
 # Run the async pipeline
 asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 ```
-
-### Low-Level Client APIs
-
-For advanced scenarios requiring complete control over trace lifecycle, MLflow provides low-level client APIs. These are recommended only when decorators and context managers don't meet your requirements.
-
-**Use client APIs for:**
-
-- 👨‍💼 Manual parent-child relationship control
-- 🛠️ Precise control of span start and end points
-
-**⚠️ Important Limitations:**
-
-- ❌ No automatic parent-child relationship detection
-- 🛠️ Manual exception handling required
-- 🚫 Incompatible with auto-tracing integrations
-- 📋 Requires explicit span lifecycle management
-
-**Basic Example:**
-
-```python
-from mlflow import MlflowClient
-
-client = MlflowClient()
-
-# Start trace (creates root span)
-root_span = client.start_trace(name="my_application_flow", inputs={"user_id": "123"})
-
-try:
-    # Create child span
-    child_span = client.start_span(
-        name="processing_step",
-        request_id=root_span.request_id,
-        parent_id=root_span.span_id,
-        inputs={"data": "sample"},
-    )
-
-    # Do work
-    result = perform_operation()
-
-    # End child span
-    client.end_span(
-        request_id=child_span.request_id,
-        span_id=child_span.span_id,
-        outputs={"result": result},
-        status="OK",
-    )
-
-except Exception as e:
-    # Handle errors manually
-    client.end_span(
-        request_id=child_span.request_id,
-        span_id=child_span.span_id,
-        status="ERROR",
-        attributes={"error": str(e)},
-    )
-    raise
-finally:
-    # End root trace
-    client.end_trace(request_id=root_span.request_id, outputs={"status": "completed"})
-```
-
-**When to Use Different Approaches:**
-
-- 🎯 **Decorators**: Simple function tracing, most common use case
-- 📦 **Context Managers**: Complex code blocks, manual input/output control
-- 🔧 **Client APIs**: Custom trace IDs, distributed tracing, existing system integration
-
-## Best Practices
-
-- 📝 **Use descriptive span names**: Choose names that clearly describe what the span does, making traces easier to understand and debug.
-- 🎯 **Apply `@mlflow.trace` as the outermost decorator**: This ensures complete visibility into function execution when using multiple decorators.
-- 🤝 **Combine with auto-tracing**: Use manual spans to add context around automatically traced operations for comprehensive observability.
-- 🏗️ **Set meaningful attributes**: Add custom attributes that help with debugging and analysis, such as model names, processing parameters, or business context.
-- 🛡️ **Handle errors gracefully**: The decorator automatically captures exceptions, but you can add custom error handling and additional context as needed.
-- 🎛️ **Choose the right approach**: Use decorators for simple cases, context managers for complex blocks, and client APIs only when you need full control.
-- ⚡ **Implement sampling for high-throughput**: Use conditional tracing and sampling strategies to balance observability with performance.
-- 🌐 **Propagate context in distributed systems**: Ensure trace context flows correctly across service boundaries.
 
 ## Next Steps
 
