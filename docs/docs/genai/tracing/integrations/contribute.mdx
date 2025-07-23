@@ -42,12 +42,6 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     </details>
 
     <details>
-        <summary>Q. When would you use the MLflow Client for creating traces?</summary>
-        <p>A. The Client API is useful when you want fine-grained control over how you start and end a trace. For example, you can specify a parent span ID when starting a span.\
-        <em>Reference:</em> [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/manual-tracing/low-level-api)</p>
-    </details>
-
-    <details>
         <summary>Q. How do you log input data to a span?</summary>
         <p>A. You can log input data with the `span.set_inputs()` method for a span object returned by the ``mlflow.start_span`` context manager or Client APIs.\
         <em>Reference:</em> [Tracing Concepts](/genai/tracing/concepts/trace)</p>
