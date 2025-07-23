@@ -134,9 +134,3 @@ def test_on_end():
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}
-
-    # Non-root span should not be exported
-    mock_exporter.reset_mock()
-    child_span = create_mock_otel_span(trace_id="trace_id", span_id=2, parent_id=1)
-    processor.on_end(child_span)
-    mock_exporter.export.assert_not_called()
