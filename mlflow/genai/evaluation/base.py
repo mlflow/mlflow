@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
-from mlflow.genai.evaluation import harness
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
@@ -16,10 +15,7 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import (
-    clean_up_extra_traces,
-    convert_predict_fn,
-)
+from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
@@ -269,6 +265,8 @@ def evaluate(
 
 
 def _evaluate_oss(data, scorers, predict_fn, model_id):
+    from mlflow.genai.evaluation import harness
+
     # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
     # This is a temporary hack to avoid branching _convert_to_eval_set()
     # into OSS and DBX implementation.

@@ -309,7 +309,7 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
 def test_input_is_required_if_trace_is_not_provided(is_in_databricks):
     mock_module = (
-        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.base.harness.run"
+        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.harness.run"
     )
 
     with patch(mock_module) as mock_evaluate:
@@ -332,7 +332,7 @@ def test_input_is_required_if_trace_is_not_provided(is_in_databricks):
 
 def test_input_is_optional_if_trace_is_provided(is_in_databricks):
     mock_module = (
-        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.base.harness.run"
+        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.harness.run"
     )
 
     with mlflow.start_span() as span:
