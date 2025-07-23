@@ -128,10 +128,16 @@
   justify-content: center;
 }
 
+.SmallLogoCardRounded {
+  border-radius: 12px;
+}
+
 .SmallLogoCardImage {
   max-width: 150px;
   max-height: 80px;
   justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .NewFeatureCardContent {
