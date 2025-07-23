@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 3.1.4 (2025-07-23)
+
+MLflow 3.1.4 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+#16835, #16820, @daniellok-db
+
 ## 3.1.3 (2025-07-22)
 
 MLflow 3.1.3 includes several major features and improvements
