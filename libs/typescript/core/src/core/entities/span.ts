@@ -546,7 +546,7 @@ class SpanAttributesRegistry {
    */
   set(key: string, value: any): void {
     if (typeof key !== 'string') {
-      console.warn(`Attribute key muspt be a string, but got ${typeof key}. Skipping.`);
+      console.warn(`Attribute key must be a string, but got ${typeof key}. Skipping.`);
       return;
     }
 
