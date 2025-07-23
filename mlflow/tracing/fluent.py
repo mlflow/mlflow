@@ -36,7 +36,6 @@ from mlflow.tracing.utils import (
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
-    set_chat_attributes_special_case,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracing.utils.warning import request_id_backward_compatible
@@ -59,12 +58,12 @@ _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
 
 def trace(
-    func: Optional[Callable] = None,
+    func: Optional[Callable[..., Any]] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    output_reducer: Optional[Callable] = None,
-) -> Callable:
+    output_reducer: Optional[Callable[[list[Any]], Any]] = None,
+) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
 
@@ -196,11 +195,11 @@ def trace(
 
 
 def _wrap_function(
-    fn: Callable,
+    fn: Callable[..., Any],
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
         # between sync and async cases
@@ -214,9 +213,6 @@ def _wrap_function(
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-
-                set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
-
                 try:
                     yield result
                 except GeneratorExit:
@@ -254,12 +250,12 @@ def _wrap_function(
 
 
 def _wrap_generator(
-    fn: Callable,
+    fn: Callable[..., Any],
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    output_reducer: Optional[Callable] = None,
-) -> Callable:
+    output_reducer: Optional[Callable[[list[Any]], Any]] = None,
+) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
     Generator functions need special handling because of its lazy evaluation nature.
@@ -304,7 +300,7 @@ def _wrap_generator(
         span: LiveSpan,
         inputs: Optional[dict[str, Any]] = None,
         outputs: Optional[list[Any]] = None,
-        output_reducer: Optional[Callable] = None,
+        output_reducer: Optional[Callable[[list[Any]], Any]] = None,
         error: Optional[Exception] = None,
     ):
         if error:
@@ -318,7 +314,6 @@ def _wrap_generator(
             except Exception as e:
                 _logger.debug(f"Failed to reduce outputs from stream: {e}")
 
-        set_chat_attributes_special_case(span, inputs=inputs, outputs=outputs)
         span.end(outputs=outputs)
 
     def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
@@ -385,13 +380,15 @@ def _wrap_generator(
     return _wrap_function_safe(fn, wrapper)
 
 
-def _wrap_function_safe(fn: Callable, wrapper: Callable) -> Callable:
+def _wrap_function_safe(fn: Callable[..., Any], wrapper: Callable[..., Any]) -> Callable[..., Any]:
     wrapped = functools.wraps(fn)(wrapper)
     # Update the signature of the wrapper to match the signature of the original (safely)
     try:
         wrapped.__signature__ = inspect.signature(fn)
     except Exception:
         pass
+    # Add unique marker for MLflow trace detection
+    wrapped.__mlflow_traced__ = True
     return wrapped
 
 
@@ -1106,7 +1103,7 @@ def update_current_trace(
             if state not in (TraceState.OK, TraceState.ERROR):
                 raise _invalid_state_error(state)
 
-            trace.info.state = state
+            trace.info.state = TraceState(state) if isinstance(state, str) else state
 
         trace.info.tags.update(tags or {})
         trace.info.trace_metadata.update(metadata or {})

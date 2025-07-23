@@ -10,10 +10,9 @@ Remove this developer API.
 
 import logging
 import os
-from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
@@ -35,10 +34,17 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple(
-    "_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"]
-)
-_PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
+
+class _PendingCreateRun(NamedTuple):
+    experiment_id: str
+    start_time: Optional[int]
+    tags: list[RunTag]
+    run_name: Optional[str]
+
+
+class _PendingSetTerminated(NamedTuple):
+    status: Optional[str]
+    end_time: Optional[int]
 
 
 class PendingRunId:

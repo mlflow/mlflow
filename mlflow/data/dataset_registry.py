@@ -15,7 +15,9 @@ class DatasetRegistry:
         self.constructors = {}
 
     def register_constructor(
-        self, constructor_fn: Callable, constructor_name: Optional[str] = None
+        self,
+        constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+        constructor_name: Optional[str] = None,
     ) -> str:
         """Registers a dataset constructor.
 
@@ -60,7 +62,10 @@ class DatasetRegistry:
                 )
 
     @staticmethod
-    def _validate_constructor(constructor_fn: Callable, constructor_name: str):
+    def _validate_constructor(
+        constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+        constructor_name: str,
+    ):
         if not constructor_name.startswith("load_") and not constructor_name.startswith("from_"):
             raise MlflowException(
                 f"Invalid dataset constructor name: {constructor_name}."
@@ -90,7 +95,10 @@ class DatasetRegistry:
             )
 
 
-def register_constructor(constructor_fn: Callable, constructor_name: Optional[str] = None) -> str:
+def register_constructor(
+    constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+    constructor_name: Optional[str] = None,
+) -> str:
     """Registers a dataset constructor.
 
     Args:
@@ -119,7 +127,7 @@ def register_constructor(constructor_fn: Callable, constructor_name: Optional[st
     return registered_constructor_name
 
 
-def get_registered_constructors() -> dict[str, Callable]:
+def get_registered_constructors() -> dict[str, Callable[[Optional[str], Optional[str]], Dataset]]:
     """Obtains the registered dataset constructors.
 
     Returns:
@@ -154,3 +162,7 @@ with suppress(ImportError):
 
     _dataset_registry.register_constructor(load_delta)
     _dataset_registry.register_constructor(from_spark)
+with suppress(ImportError):
+    from mlflow.data.polars_dataset import from_polars
+
+    _dataset_registry.register_constructor(from_polars)

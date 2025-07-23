@@ -64,5 +64,6 @@ export declare const dropdownSeparatorStyles: (theme: Theme) => {
     margin: string;
     backgroundColor: string;
 };
+export declare function getZIndex(): number;
 export {};
 //# sourceMappingURL=DropdownMenu.d.ts.map

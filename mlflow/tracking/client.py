@@ -20,6 +20,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import yaml
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities import (
@@ -40,12 +41,6 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.assessment import (
-    Assessment,
-    Expectation,
-    Feedback,
-)
-from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
@@ -56,6 +51,10 @@ from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
@@ -73,6 +72,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
+    _parse_model_uri,
     get_model_name_and_version,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -86,6 +86,7 @@ from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -441,15 +442,16 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
         A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name
-        and template text at minimum. With MLflow Prompt Registry, you can create, manage,
+        and template content at minimum. With MLflow Prompt Registry, you can create, manage,
         and version control prompts with the MLflow's robust model tracking framework.
 
         If there is no registered prompt with the given name, a new prompt will be created.
@@ -460,18 +462,30 @@ class MlflowClient:
         .. code-block:: python
 
             from mlflow import MlflowClient
+            from pydantic import BaseModel
 
             # Your prompt registry URI
             client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
-            # Register a new prompt
+            # Register a text prompt
             client.register_prompt(
-                name="my_prompt",
+                name="greeting_prompt",
                 template="Respond to the user's message as a {{style}} AI.",
+                response_format={"type": "string", "description": "A friendly response"},
+            )
+
+            # Register a chat prompt with multiple messages
+            client.register_prompt(
+                name="assistant_prompt",
+                template=[
+                    {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                    {"role": "user", "content": "{{question}}"},
+                ],
+                response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
             )
 
             # Load the prompt from the registry
-            prompt = client.load_prompt("my_prompt")
+            prompt = client.load_prompt("greeting_prompt")
 
             # Use the prompt in your application
             import openai
@@ -487,7 +501,7 @@ class MlflowClient:
 
             # Update the prompt with a new version
             prompt = client.register_prompt(
-                name="my_prompt",
+                name="greeting_prompt",
                 template="Respond to the user's message as a {{style}} AI. {{greeting}}",
                 commit_message="Add a greeting to the prompt.",
                 tags={"author": "Bob"},
@@ -495,14 +509,22 @@ class MlflowClient:
 
         Args:
             name: The name of the prompt.
-            template: The template text of the prompt. It can contain variables enclosed in
-                double curly braces, e.g. {{variable}}, which will be replaced with actual values
-                by the `format` method.
+            template: The template content of the prompt. Can be either:
+
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
             tags: A dictionary of tags associated with the **prompt version**.
                 This is useful for storing version-specific information, such as the author of
                 the changes. Optional.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -529,6 +551,7 @@ class MlflowClient:
                 template=template,
                 description=commit_message,
                 tags=tags or {},
+                response_format=response_format,
             )
 
             return registry_client.get_prompt_version(name, str(prompt_version.version))
@@ -562,7 +585,21 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
-        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        tags.update({IS_PROMPT_TAG_KEY: "true"})
+        if isinstance(template, list):
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT})
+            tags.update({PROMPT_TEXT_TAG_KEY: json.dumps(template)})
+        else:
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
+            tags.update({PROMPT_TEXT_TAG_KEY: template})
+        if response_format:
+            tags.update(
+                {
+                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
+                }
+            )
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -600,7 +637,7 @@ class MlflowClient:
 
         Args:
             filter_string (Optional[str]):
-                An additional registry‐search expression to apply (e.g.
+                An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
             max_results (int):
@@ -678,18 +715,20 @@ class MlflowClient:
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
         if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version
-            name, version = self.parse_prompt_uri(parsed_name_or_uri)
+            # URI case: parse the URI to extract name and version/alias
+            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
         else:
             # Name case: use the name and provided version
             name = parsed_name_or_uri
-            version = parsed_version
+            version_or_alias = parsed_version
 
         registry_client = self._get_registry_client()
         try:
-            # Use get_prompt_version for specific version/alias
-            return registry_client.get_prompt_version(name, version)
-
+            # If version_or_alias is not a digit, treat as alias
+            if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
+                return registry_client.get_prompt_version_by_alias(name, version_or_alias)
+            else:
+                return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
             if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
                 return None
@@ -906,21 +945,33 @@ class MlflowClient:
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
         Parse prompt URI into prompt name and prompt version.
-        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        - 'prompts:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompts:/<name>@<alias>' -> ('<name>', '<version>')
+
+        This method reuses the existing model URI parsing logic with prompts prefix.
         """
-        parsed = urllib.parse.urlparse(uri)
+        # Use the existing model URI parsing utilities with prompts scheme
+        parsed_prompt_uri = _parse_model_uri(uri, scheme="prompts")
 
-        if parsed.scheme != "prompts":
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+        if parsed_prompt_uri.model_id is not None:
+            # This shouldn't happen for prompts (no model IDs), but handle gracefully
+            raise MlflowException.invalid_parameter_value(f"Invalid prompt URI format: {uri}")
+
+        if parsed_prompt_uri.version is not None:
+            # Direct version reference: prompts:/name/version
+            return parsed_prompt_uri.name, parsed_prompt_uri.version
+
+        if parsed_prompt_uri.alias is not None:
+            # Alias reference: prompts:/name@alias - resolve to version
+            prompt_version = self.get_prompt_version_by_alias(
+                parsed_prompt_uri.name, parsed_prompt_uri.alias
             )
+            return parsed_prompt_uri.name, str(prompt_version.version)
 
-        # Replace schema to 'models:/' to reuse the model URI parsing logic
-        try:
-            return get_model_name_and_version(self, f"models:{parsed.path}")
-        except MlflowException:
-            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+        # Handle stage or latest (not supported for prompts)
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid prompt URI: {uri}. Prompts do not support stage-based references."
+        )
 
     ##### Tracing #####
     def delete_traces(
@@ -977,7 +1028,7 @@ class MlflowClient:
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=trace_ids,
+            trace_ids=trace_ids,
         )
 
     @request_id_backward_compatible
@@ -1227,31 +1278,7 @@ class MlflowClient:
         Returns:
             The trace ID of the logged trace.
         """
-        from mlflow.tracking.fluent import _get_experiment_id
-
-        # If the trace is created outside MLflow experiment (e.g. model serving), it does
-        # not have an experiment ID, but we need to log it to the tracking server.
-        experiment_id = trace.info.experiment_id or _get_experiment_id()
-
-        # Create trace info entry in the backend
-        # Note that the backend generates a new request ID for the trace. Currently there is
-        # no way to insert the trace with a specific request ID given by the user.
-        new_info = self._tracing_client.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            request_metadata={},
-            tags={},
-        )
-        self._tracing_client.end_trace(
-            request_id=new_info.trace_id,
-            # Compute the end time of the original trace
-            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
-            status=trace.info.status,
-            request_metadata=trace.info.request_metadata,
-            tags=trace.info.tags,
-        )
-        self._tracing_client._upload_trace_data(new_info, trace.data)
-        return new_info.trace_id
+        return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
     @request_id_backward_compatible
     def start_span(
@@ -1499,51 +1526,6 @@ class MlflowClient:
                 it will be truncated when stored.
         """
         self._tracing_client.delete_trace_tag(trace_id, key)
-
-    def log_assessment(
-        self,
-        trace_id: str,
-        name: str,
-        source: AssessmentSource,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        span_id: Optional[str] = None,
-    ) -> Assessment:
-        return self._tracing_client.log_assessment(
-            trace_id=trace_id,
-            name=name,
-            source=source,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-            span_id=span_id,
-        )
-
-    def update_assessment(
-        self,
-        trace_id: str,
-        assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Assessment:
-        return self._tracing_client.update_assessment(
-            trace_id=trace_id,
-            assessment_id=assessment_id,
-            name=name,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-        )
-
-    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
-        return self._tracing_client.delete_assessment(trace_id, assessment_id)
 
     def search_experiments(
         self,
@@ -2126,6 +2108,36 @@ class MlflowClient:
 
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
+
+    def delete_experiment_tag(self, experiment_id: str, key: str) -> None:
+        """
+        Delete a tag from the experiment with the specified ID.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            key: Name of the tag to be deleted.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            # Create an experiment and set its tag
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information, validate that tag is set
+            experiment = client.get_experiment(experiment_id)
+            assert experiment.tags == {"nlp.framework": "Spark NLP"}
+
+            client.delete_experiment_tag(experiment_id, "nlp.framework")
+
+            # Fetch experiment metadata information, validate that tag is deleted
+            experiment = client.get_experiment(experiment_id)
+            assert experiment.tags == {}
+
+        """
+        self._tracking_client.delete_experiment_tag(experiment_id, key)
 
     def set_tag(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
@@ -3070,8 +3082,8 @@ class MlflowClient:
         artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                downloaded_artifact_path = self.download_artifacts(
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
@@ -3210,10 +3222,8 @@ class MlflowClient:
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id,
-                        artifact_path=artifact_file,
-                        dst_path=tmpdir,
+                    downloaded_artifact_path = self.download_artifacts(
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
                     )
                     existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:
@@ -5615,9 +5625,10 @@ class MlflowClient:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -5627,9 +5638,12 @@ class MlflowClient:
 
         Args:
             name: Name of the prompt.
-            template: Template text of the prompt version.
+            template: The prompt template content for this version.
             description: Optional description of the prompt version.
             tags: Optional dictionary of prompt version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured
+                outputs from LLM calls.
 
         Returns:
             A PromptVersion object.
@@ -5649,7 +5663,9 @@ class MlflowClient:
             )
         """
         registry_client = self._get_registry_client()
-        return registry_client.create_prompt_version(name, template, description, tags)
+        return registry_client.create_prompt_version(
+            name, template, description, tags, response_format
+        )
 
     @experimental(version="3.0.0")
     @require_prompt_registry

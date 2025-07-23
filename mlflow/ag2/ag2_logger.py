@@ -13,6 +13,7 @@ from openai.types.chat import ChatCompletion
 from mlflow.entities.span import NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import capture_function_input_args
 from mlflow.utils.autologging_utils import autologging_is_disabled
@@ -125,6 +126,7 @@ class MlflowAg2Logger(BaseLogger):
                     name=original.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
+                    attributes={SpanAttributeKey.MESSAGE_FORMAT: "ag2"},
                 )
                 self._chat_state.session_span = span
                 try:
@@ -181,6 +183,10 @@ class MlflowAg2Logger(BaseLogger):
         if self._chat_state.session_span is None:
             _logger.warning("Failed to start span. No active chat session.")
             return NoOpSpan()
+
+        # Add MESSAGE_FORMAT attribute for AG2 spans
+        attributes = attributes or {}
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "ag2"
 
         return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we
@@ -250,8 +256,26 @@ class MlflowAg2Logger(BaseLogger):
             },
             start_time_ns=start_time_ns,
         )
+        if usage := self._parse_usage(response):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
         span.end(outputs=response, end_time_ns=time.time_ns())
         self._chat_state.pending_spans.append(span)
+
+    def _parse_usage(self, output: Any) -> Optional[dict[str, int]]:
+        usage = getattr(output, "usage", None)
+        if usage is None:
+            return None
+        input_tokens = usage.prompt_tokens
+        output_tokens = usage.completion_tokens
+        total_tokens = usage.total_tokens
+        if total_tokens is None and None not in (input_tokens, output_tokens):
+            total_tokens = input_tokens + output_tokens
+        return {
+            TokenUsageKey.INPUT_TOKENS: input_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+            TokenUsageKey.TOTAL_TOKENS: total_tokens,
+        }
 
     # The following methods are not used but are required to implement the BaseLogger interface.
     @_catch_exception

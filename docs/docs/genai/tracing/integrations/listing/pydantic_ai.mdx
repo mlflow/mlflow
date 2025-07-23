@@ -15,7 +15,6 @@ import TabItem from "@theme/TabItem";
 
 [​PydanticAI](https://ai.pydantic.dev/) is a Python framework designed to simplify the development of production-grade generative AI applications. It brings type safety, ergonomic API design, and a developer-friendly experience to GenAI app development.​
 
-
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [​PydanticAI](https://ai.pydantic.dev/), an open source framework for building multi-agent applications. By enabling auto tracing for ​PydanticAI by calling the <APILink fn="mlflow.pydantic_ai.autolog" /> function, , MLflow will capture nested traces for ​PydanticAI workflow execution and logged them to the active MLflow Experiment.
 
 ```python
@@ -26,11 +25,11 @@ mlflow.pydantic_ai.autolog()
 
 MLflow trace automatically captures the following information about ​PydanticAI agents:
 
-* Agent calls with prompts, kwargs & output responses
-* LLM requests logging model name, prompt, parameters & response
-* Tool runs capturing tool name, arguments & usage metrics
-* MCP server calls & listings for tool-invocation tracing
-* Span metadata: latency, errors & run-ID linkage
+- Agent calls with prompts, kwargs & output responses
+- LLM requests logging model name, prompt, parameters & response
+- Tool runs capturing tool name, arguments & usage metrics
+- MCP server calls & listings for tool-invocation tracing
+- Span metadata: latency, errors & run-ID linkage
 
 :::note
 
@@ -39,7 +38,6 @@ Currently, MLflow's PydanticAI integration supports tracing for both synchronous
 :::
 
 ### Example Usage
-
 
 First, enable auto-tracing for PydanticAI, and optionally create an MLflow experiment to write traces to. This helps organizing your traces better.
 
@@ -194,7 +192,6 @@ await main()
 # asyncio.run(main())
 ```
 
-
 ## Advanced Example: Utilising MCP Server
 
 MLflow Tracing automatically captures tool-related interactions from the MCP server in PydanticAI, including call_tool and list_tools operations. These actions are recorded as individual spans in the trace UI.
@@ -243,7 +240,6 @@ await main()
 # Uncomment this is you are using an IDE or Python script.
 # asyncio.run(main())
 ```
-
 
 ### Disable auto-tracing
 

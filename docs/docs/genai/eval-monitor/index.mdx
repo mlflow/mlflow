@@ -1,17 +1,92 @@
 import { CardGroup, TitleCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp } from "lucide-react";
 
 # Evaluate & Monitor
+
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
-<div class="flex-row" style={{ marginTop: "2rem", marginBottom: "2rem", gap: "1rem" }}>
-  <TitleCard
+## Why Evaluate GenAI Applications?
+
+<FeatureHighlights features={[
+  {
+    icon: CheckCircle,
+    title: "Quality Assurance",
+    description: "Ensure your AI consistently produces accurate, helpful, and safe responses across different inputs and contexts."
+  },
+  {
+    icon: TrendingUp,
+    title: "Continuous Improvement",
+    description: "Track performance over time and identify specific areas where your AI can be enhanced through systematic evaluation."
+  },
+  {
+    icon: Users,
+    title: "Human-AI Collaboration",
+    description: "Combine automated evaluation with human expertise to create comprehensive quality assessment workflows."
+  },
+  {
+    icon: Bot,
+    title: "Production Monitoring",
+    description: "Monitor AI performance in real-time production environments to maintain quality standards and catch issues early."
+  }
+]} />
+
+## Feedback & Expectations
+
+MLflow provides two complementary approaches to GenAI evaluation that work together to create comprehensive quality assessment:
+
+**Feedback** captures quality evaluations of how well your AI actually performed. This can come from multiple sources:
+
+- **Human reviewers** providing expert judgment on response quality
+- **LLM judges** offering automated evaluation at scale
+- **Programmatic checks** validating format, compliance, and business rules
+
+**Expectations** define the ground truth - what your AI should produce for specific inputs. These establish reference points for objective accuracy measurement and enable systematic testing against known correct answers.
+
+Together, feedback and expectations enable you to measure both subjective quality and objective accuracy, creating a complete evaluation framework for your GenAI applications.
+
+<TilesGrid>
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Feedback Collection"
+    description="Capture quality evaluations from LLM judges, programmatic checks, and human reviewers"
+    href="/genai/assessments/feedback"
+    linkText="Start collecting →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Ground Truth Expectations"
+    description="Define expected outputs and correct answers to establish quality baselines"
+    href="/genai/assessments/expectations"
+    linkText="Start annotating →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Additional Evaluation Options
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
     title="LLM Evaluation (Legacy)"
-    description="MLflow provides LLM evaluation capabilities built on top of the classic mlflow.evaluate API. If you are using self-hosted or local MLflow, click this card to learn more about available evaluation options."
-    link="/genai/eval-monitor/llm-evaluation"
+    description="MLflow evaluation capabilities built on top of the classic mlflow.evaluate API for self-hosted or local MLflow"
+    href="/genai/eval-monitor/llm-evaluation"
+    linkText="Learn more →"
+    containerHeight={64}
   />
-  <TitleCard
-    title="New Evaluation Suite for LLMs/GenAI (Managed-Only)"
-    link="https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/"
-    description="MLflow 3 introduces a new evaluation suite for LLMs/GenAI. This new suite is only available in Managed MLflow on Databricks, but are coming soon to OSS MLflow. If you are interested in trying it out with free Databricks trial, click this card to learn more."
+  <TileCard
+    icon={ExternalLink}
+    iconSize={48}
+    title="New Evaluation Suite (Managed-Only)"
+    description="MLflow 3 introduces a new evaluation suite for LLMs/GenAI, available in Managed MLflow on Databricks"
+    href="https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/"
+    linkText="Try with Databricks →"
+    containerHeight={64}
   />
-</div>
+</TilesGrid>

@@ -167,10 +167,10 @@ following parameters:
 
   ├── MLmodel
   ├── code
-  │   ├── sklearn_iris.py
+  │   ├── sklearn_iris.py
   │
   ├── data
-  │   └── model.pkl
+  │   └── model.pkl
   └── mlflow_env.yml
 
 ::
@@ -432,6 +432,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -732,12 +733,16 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
         try:
             data = _enforce_schema(data, input_schema, flavor)
         except Exception as e:
-            # Include error in message for backwards compatibility
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to enforce schema of data '{data}' "
-                f"with schema '{input_schema}'. "
-                f"Error: {e}",
-            )
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Failed to enforce model input schema. Please check your input data."
+            else:
+                # Include error in message for backwards compatibility
+                message = (
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}"
+                )
+            raise MlflowException.invalid_parameter_value(message)
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -3171,7 +3176,7 @@ def save_model(
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
@@ -3299,7 +3304,7 @@ def save_model(
                     )
                 except Exception as e:
                     raise MlflowException.invalid_parameter_value(
-                        f"Input example does not match the model signature. Error: {e}"
+                        f"Input example does not match the model signature. {e}"
                     )
 
     with _get_dependencies_schemas() as dependencies_schemas:
@@ -3540,8 +3545,7 @@ def log_model(
             path via ``context.artifacts["my_file"]``.
 
             If ``None``, no artifacts are added to the model.
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
 
@@ -3786,7 +3790,9 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     return input_example
 
 
-def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_responses_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ResponsesAgent models
 
     Returns: a dictionary input example
@@ -3832,6 +3838,8 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:

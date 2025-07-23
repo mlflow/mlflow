@@ -25,8 +25,12 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.9 python3.9-distutils \
-    && ln -s -f $(which python3.9) /usr/bin/python \
+RUN apt install -y software-properties-common \
+    && apt update \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt update \
+    && apt install -y python3.10 python3.10-distutils \
+    && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 RUN pip install virtualenv
@@ -64,6 +68,9 @@ SETUP_MINICONDA = """# Setup miniconda
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
+# Remove default channels to avoid `CondaToSNonInteractiveError`.
+# See https://github.com/mlflow/mlflow/pull/16752 for more details.
+RUN conda config --system --remove channels defaults && conda config --system --add channels conda-forge
 """  # noqa: E501
 
 

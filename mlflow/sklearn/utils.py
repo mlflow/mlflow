@@ -1,4 +1,3 @@
-import collections
 import inspect
 import logging
 import pkgutil
@@ -8,6 +7,7 @@ from copy import deepcopy
 from importlib import import_module
 from numbers import Number
 from operator import itemgetter
+from typing import Any, Callable, NamedTuple
 
 import numpy as np
 from packaging.version import Version
@@ -28,15 +28,22 @@ _TRAINING_PREFIX = "training_"
 
 _SAMPLE_WEIGHT = "sample_weight"
 
+
 # _SklearnArtifact represents a artifact (e.g confusion matrix) that will be computed and
 # logged during the autologging routine for a particular model type (eg, classifier, regressor).
-_SklearnArtifact = collections.namedtuple(
-    "_SklearnArtifact", ["name", "function", "arguments", "title"]
-)
+class _SklearnArtifact(NamedTuple):
+    name: str
+    function: Callable[..., Any]
+    arguments: dict[str, Any]
+    title: str
+
 
 # _SklearnMetric represents a metric (e.g, precision_score) that will be computed and
 # logged during the autologging routine for a particular model type (eg, classifier, regressor).
-_SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
+class _SklearnMetric(NamedTuple):
+    name: str
+    function: Callable[..., Any]
+    arguments: dict[str, Any]
 
 
 def _gen_xgboost_sklearn_estimators_to_patch():
@@ -939,7 +946,7 @@ def _backported_all_estimators(type_filter=None):
     Use this backported `all_estimators` in old versions of sklearn because:
     1. An inferior version of `all_estimators` that old versions of sklearn use for testing,
        might function differently from a newer version.
-    2. This backported `all_estimators` works on old versions of sklearn that don’t even define
+    2. This backported `all_estimators` works on old versions of sklearn that don't even define
        the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========

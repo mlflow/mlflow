@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Any, Optional, Union
 
+from pydantic import BaseModel
+
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -16,6 +18,10 @@ from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
@@ -679,9 +685,10 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -691,9 +698,17 @@ class AbstractStore:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text.
+            template: The prompt template content. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
             description: Optional description of the prompt version.
             tags: Optional dictionary of version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
 
         Returns:
             A PromptVersion object representing the created version.
@@ -701,8 +716,25 @@ class AbstractStore:
         # Create version tags including template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
+        if isinstance(template, str):
+            version_tags.append(ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template))
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT))
+        else:
+            version_tags.append(
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=json.dumps(template))
+            )
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_CHAT))
+        if response_format:
+            version_tags.append(
+                ModelVersionTag(
+                    key=RESPONSE_FORMAT_TAG_KEY,
+                    value=json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
+                )
+            )
+
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
 
@@ -871,12 +903,11 @@ class AbstractStore:
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        from mlflow.tracking import _get_store as _get_tracking_store
+        from mlflow.tracing.client import TracingClient
 
-        tracking_store = _get_tracking_store()
-
+        client = TracingClient()
         with self._prompt_link_lock:
-            trace_info = tracking_store.get_trace_info(trace_id)
+            trace_info = client.get_trace_info(trace_id)
             if not trace_info:
                 raise MlflowException(
                     f"Could not find trace with ID '{trace_id}' to which to link prompts.",
@@ -900,7 +931,7 @@ class AbstractStore:
 
             # Only update if the tag value actually changed (avoiding redundant updates)
             if current_tag_value != updated_tag_value:
-                tracking_store.set_trace_tag(
+                client.set_trace_tag(
                     trace_id,
                     LINKED_PROMPTS_TAG_KEY,
                     updated_tag_value,

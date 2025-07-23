@@ -80,7 +80,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
       return (
-        <div className="ShowArtifactPage">
+        <div className="mlflow-ShowArtifactPage">
           <div className="text-area-border-box">
             <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
               {renderedContent ?? ''}
@@ -94,10 +94,10 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     this.setState({ loading: true });
-    const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId } = this.props;
+    const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId }, getArtifactContent)
+      .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags }, getArtifactContent)
       .then((text: string) => {
         this.setState({ text: text, loading: false });
       })

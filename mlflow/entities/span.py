@@ -26,6 +26,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.tracing.utils.processor import apply_span_processors
 
 _logger = logging.getLogger(__name__)
 
@@ -473,7 +474,12 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
-        self.set_status(SpanStatusCode.ERROR)
+        self.set_status(
+            SpanStatus(
+                status_code=SpanStatusCode.ERROR,
+                description=f"{type(exception).__name__}: {exception}",
+            )
+        )
 
     def end(
         self,
@@ -513,6 +519,9 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
+            # Apply span processors
+            apply_span_processors(self)
+
             self._span.end(end_time=end_time_ns)
 
         except Exception as e:
@@ -540,6 +549,7 @@ class LiveSpan(Span):
         span: Span,
         parent_span_id: Optional[str] = None,
         trace_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
         otel_trace_id: Optional[str] = None,
         end_trace: bool = True,
     ) -> "LiveSpan":
@@ -558,6 +568,8 @@ class LiveSpan(Span):
                 If it is None, the span will be created as a root span.
             trace_id: The trace ID to be set on the new span. Specify this if you want to
                 create the new span with a particular trace ID.
+            experiment_id: The experiment ID to be set on the new span. If not specified, the
+                experiment ID will be set to the current experiment ID.
             otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
                 If not specified, the newly generated trace ID will be used.
             end_trace: Whether to end the trace after cloning the span. Default is True.
@@ -577,6 +589,7 @@ class LiveSpan(Span):
             name=span.name,
             parent=parent_span._span if parent_span else None,
             start_time_ns=span.start_time_ns,
+            experiment_id=experiment_id,
         )
         # The latter one from attributes is the newly generated trace ID by the span processor.
         trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
@@ -587,8 +600,10 @@ class LiveSpan(Span):
         clone_span.set_attributes(
             {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
         )
-        clone_span.set_inputs(span.inputs)
-        clone_span.set_outputs(span.outputs)
+        if span.inputs:
+            clone_span.set_inputs(span.inputs)
+        if span.outputs:
+            clone_span.set_outputs(span.outputs)
         for event in span.events:
             clone_span.add_event(event)
 

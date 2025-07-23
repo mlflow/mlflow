@@ -194,6 +194,8 @@ body:
           required: false
         - label: "`area/docs`: MLflow documentation pages"
           required: false
+        - label: "`area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows"
+          required: false
         - label: "`area/examples`: Example code"
           required: false
         - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
@@ -202,9 +204,13 @@ body:
           required: false
         - label: "`area/projects`: MLproject format, project running backends"
           required: false
+        - label: "`area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management"
+          required: false
         - label: "`area/scoring`: MLflow Model server, model deployment tools, Spark UDFs"
           required: false
         - label: "`area/server-infra`: MLflow Tracking server backend"
+          required: false
+        - label: "`area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality"
           required: false
         - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
           required: false

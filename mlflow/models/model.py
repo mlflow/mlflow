@@ -344,7 +344,7 @@ class ModelInfo:
 
         :getter: Gets the model ID of the logged model
         """
-        return self._logged_model.model_id
+        return self._logged_model.model_id if self._logged_model else None
 
     @property
     def metrics(self) -> Optional[list[Metric]]:
@@ -353,7 +353,7 @@ class ModelInfo:
 
         :getter: Retrieves the metrics of the logged model
         """
-        return self._logged_model.metrics
+        return self._logged_model.metrics if self._logged_model else None
 
     @property
     def params(self) -> dict[str, str]:
@@ -362,7 +362,7 @@ class ModelInfo:
 
         :getter: Retrieves the parameters of the logged model
         """
-        return self._logged_model.params
+        return self._logged_model.params if self._logged_model else None
 
     @property
     def tags(self) -> dict[str, str]:
@@ -371,7 +371,7 @@ class ModelInfo:
 
         :getter: Retrieves the tags of the logged model
         """
-        return self._logged_model.tags
+        return self._logged_model.tags if self._logged_model else None
 
     @property
     def creation_timestamp(self) -> int:
@@ -380,14 +380,14 @@ class ModelInfo:
 
         :getter:  the creation timestamp of the logged model
         """
-        return self._logged_model.creation_timestamp
+        return self._logged_model.creation_timestamp if self._logged_model else None
 
     @property
     def name(self) -> str:
         """
         Returns the name of the logged model.
         """
-        return self._logged_model.name
+        return self._logged_model.name if self._logged_model else None
 
 
 class Model:
@@ -404,7 +404,7 @@ class Model:
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Optional[dict[str, Any]] = None,
-        model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
+        model_uuid: Union[str, Callable[[], str], None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
@@ -418,7 +418,7 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
+        self.utc_time_created = str(utc_time_created or datetime.now())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -619,7 +619,7 @@ class Model:
 
     @experimental(version="2.13.0")
     @property
-    def resources(self) -> dict[str, dict[ResourceType, list[dict]]]:
+    def resources(self) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         """
         An optional dictionary that contains the resources required to serve the model.
 
@@ -642,7 +642,7 @@ class Model:
 
     @experimental(version="2.21.0")
     @property
-    def auth_policy(self) -> dict[str, dict]:
+    def auth_policy(self) -> dict[str, dict[str, Any]]:
         """
         An optional dictionary that contains the auth policy required to serve the model.
 
@@ -654,7 +654,7 @@ class Model:
 
     @experimental(version="2.21.0")
     @auth_policy.setter
-    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
+    def auth_policy(self, value: Optional[Union[dict[str, Any], AuthPolicy]]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
 
     @property
@@ -678,6 +678,8 @@ class Model:
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
         """
+        if logged_model is None and self.model_id is not None:
+            logged_model = mlflow.get_logged_model(model_id=self.model_id)
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
@@ -1432,7 +1434,8 @@ def get_model_info(model_uri: str) -> ModelInfo:
 
         with mlflow.start_run() as run:
             params = {"n_estimators": 3, "random_state": 42}
-            X, y = [[0, 1]], [1]
+            X = [[0, 1]]
+            y = [1]
             signature = mlflow.models.infer_signature(X, y)
             rfr = RandomForestRegressor(**params).fit(X, y)
             mlflow.log_params(params)
