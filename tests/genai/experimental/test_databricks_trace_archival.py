@@ -28,6 +28,14 @@ from mlflow.utils.mlflow_tags import (
 )
 
 
+def _create_mock_databricks_agents():
+    """Helper function to create a mock databricks.agents module with proper __spec__."""
+    mock_module = Mock()
+    mock_module.__spec__ = Mock()
+    mock_module.__spec__.name = "databricks.agents"
+    return mock_module
+
+
 def _create_trace_destination_proto(
     experiment_id: str = "12345",
     spans_table_name: str = "catalog.schema.spans",
@@ -492,6 +500,9 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
 
     # Mock successful client operations
     mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}  # No existing archival tag
+    mock_client_instance.get_experiment.return_value = mock_experiment
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):

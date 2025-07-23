@@ -281,6 +281,23 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
+    # Check if archival is already enabled by looking for the experiment tag
+    mlflow_client = MlflowClient()
+    try:
+        experiment = mlflow_client.get_experiment(experiment_id)
+        if experiment and experiment.tags:
+            existing_view_name = experiment.tags.get(MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE)
+            if existing_view_name:
+                _logger.info(
+                    f"Trace archival already enabled for experiment {experiment_id}. "
+                    f"Using existing view: {existing_view_name}"
+                )
+                return existing_view_name
+
+    except Exception as e:
+        _logger.debug(f"Could not check experiment tags for {experiment_id}: {e}")
+        # Continue with normal flow if we can't check tags
+
     trace_archival_location = f"{catalog}.{schema}.{table_prefix}_{experiment_id}"
 
     try:
