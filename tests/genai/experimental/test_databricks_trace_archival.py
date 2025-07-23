@@ -13,20 +13,16 @@ from mlflow.genai.experimental.databricks_trace_archival import (
     _validate_schema_versions,
     enable_databricks_trace_archival,
 )
+from mlflow.genai.experimental.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
 )
-
-
-def _create_mock_databricks_agents():
-    """Helper function to create a mock databricks.agents module with proper __spec__."""
-    mock_module = Mock()
-    mock_module.__spec__ = Mock()
-    mock_module.__spec__.name = "databricks.agents"
-    return mock_module
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
 
 
 def _create_trace_destination_proto(
@@ -352,8 +348,6 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
     )
 
     # Validate set_experiment_tag was called with correct parameters
-    from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
-
     mock_client_instance.set_experiment_tag.assert_called_once_with(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
@@ -365,13 +359,36 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
 # Successful archival integration tests
 
 
+@pytest.mark.parametrize(
+    ("table_prefix", "expected_view_name", "expected_spans_table", "expected_events_table"),
+    [
+        (
+            None,  # no prefix means falling back to default "trace_logs" prefix
+            "catalog.schema.trace_logs_12345",
+            "catalog.schema.experiment_12345_spans",
+            "catalog.schema.experiment_12345_events",
+        ),
+        (
+            "custom",  # custom prefix
+            "catalog.schema.custom_12345",
+            "catalog.schema.custom_12345_spans",
+            "catalog.schema.custom_12345_events",
+        ),
+    ],
+)
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_successful_archival_with_default_prefix(
-    mock_mlflow_client, mock_create_view, mock_trace_client
+def test_successful_archival_with_prefix(
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    table_prefix,
+    expected_view_name,
+    expected_spans_table,
+    expected_events_table,
 ):
-    """Test successful end-to-end archival with default table prefix."""
+    """Test successful end-to-end archival with different table prefixes."""
     # Create a valid config
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -379,8 +396,8 @@ def test_successful_archival_with_default_prefix(
 
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
-        spans_table_name="catalog.schema.experiment_12345_spans",
-        events_table_name="catalog.schema.experiment_12345_events",
+        spans_table_name=expected_spans_table,
+        events_table_name=expected_events_table,
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
         events_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
@@ -398,94 +415,35 @@ def test_successful_archival_with_default_prefix(
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):
-        result = enable_databricks_trace_archival("12345", "catalog", "schema")
+        # Call with appropriate prefix (default vs custom)
+        if not table_prefix:
+            result = enable_databricks_trace_archival("12345", "catalog", "schema")
+        else:
+            result = enable_databricks_trace_archival(
+                "12345", "catalog", "schema", table_prefix=table_prefix
+            )
 
     # Verify trace client was called with correct arguments
     mock_trace_client_instance.create_trace_destination.assert_called_once_with(
         experiment_id="12345",
         catalog="catalog",
         schema="schema",
-        table_prefix="trace_logs",
+        table_prefix=table_prefix or "trace_logs",
     )
 
     mock_create_view.assert_called_once_with(
-        "catalog.schema.trace_logs_12345",
-        "catalog.schema.experiment_12345_spans",
-        "catalog.schema.experiment_12345_events",
+        expected_view_name,
+        expected_spans_table,
+        expected_events_table,
     )
 
     # Verify set_experiment_tag was called with correct parameters
-    from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
-
     mock_client_instance.set_experiment_tag.assert_called_once_with(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
-        "catalog.schema.trace_logs_12345",  # tag value (archival location)
+        expected_view_name,  # tag value (archival location)
     )
-    assert result == "catalog.schema.trace_logs_12345"
-
-
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_successful_archival_with_custom_prefix(
-    mock_mlflow_client, mock_create_view, mock_trace_client
-):
-    """Test successful archival with custom table prefix."""
-    # Create a valid config
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
-        DatabricksTraceDeltaStorageConfig,
-    )
-
-    mock_config = DatabricksTraceDeltaStorageConfig(
-        experiment_id="12345",
-        spans_table_name="catalog.schema.custom_12345_spans",
-        events_table_name="catalog.schema.custom_12345_events",
-        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
-    )
-
-    # Mock trace client to return valid config
-    mock_trace_client_instance = Mock()
-    mock_trace_client_instance.create_trace_destination.return_value = mock_config
-    mock_trace_client.return_value = mock_trace_client_instance
-
-    # Mock successful client operations
-    mock_client_instance = Mock()
-    mock_experiment = Mock()
-    mock_experiment.tags = {}  # No existing archival tag
-    mock_client_instance.get_experiment.return_value = mock_experiment
-    mock_mlflow_client.return_value = mock_client_instance
-
-    with patch("importlib.util.find_spec", return_value=Mock()):
-        result = enable_databricks_trace_archival(
-            "12345", "catalog", "schema", table_prefix="custom"
-        )
-
-    # Verify trace client was called with correct arguments for custom prefix
-    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
-        experiment_id="12345",
-        catalog="catalog",
-        schema="schema",
-        table_prefix="custom",
-    )
-
-    # Verify custom prefix was used
-    mock_create_view.assert_called_once_with(
-        "catalog.schema.custom_12345",
-        "catalog.schema.custom_12345_spans",
-        "catalog.schema.custom_12345_events",
-    )
-
-    # Verify set_experiment_tag was called with correct parameters for custom prefix
-    from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
-
-    mock_client_instance.set_experiment_tag.assert_called_once_with(
-        "12345",  # experiment_id
-        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
-        "catalog.schema.custom_12345",  # tag value (custom archival location)
-    )
-    assert result == "catalog.schema.custom_12345"
+    assert result == expected_view_name
 
 
 # Idempotency tests
@@ -496,11 +454,6 @@ def test_successful_archival_with_custom_prefix(
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_client):
     """Test that enable_databricks_trace_archival is idempotent when called multiple times."""
-    # Create a valid config
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
-        DatabricksTraceDeltaStorageConfig,
-    )
-
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.experiment_12345_spans",
@@ -538,6 +491,13 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
     # Verify experiment tag was set 3 times (once per call)
     assert mock_client_instance.set_experiment_tag.call_count == 3
 
+    # Verify experiment tag was set with correct parameters
+    mock_client_instance.set_experiment_tag.assert_called_with(
+        "12345",  # experiment_id
+        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
+        "catalog.schema.trace_logs_12345",  # tag value
+    )
+
 
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
@@ -564,72 +524,3 @@ def test_enablement_failure_due_to_storage_config_conflict(
     # Verify view creation and tag setting were not called
     mock_create_view.assert_not_called()
     mock_client_instance.set_experiment_tag.assert_not_called()
-
-
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_idempotent_enablement_view_and_tag_recreation(
-    mock_mlflow_client, mock_create_view, mock_trace_client
-):
-    """Test successful recreation of view and tag when archival already exists."""
-    # Create a valid config (simulating existing archival)
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
-        DatabricksTraceDeltaStorageConfig,
-    )
-
-    mock_config = DatabricksTraceDeltaStorageConfig(
-        experiment_id="12345",
-        spans_table_name="catalog.schema.experiment_12345_spans",
-        events_table_name="catalog.schema.experiment_12345_events",
-        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
-    )
-
-    # Mock trace client to return existing config
-    mock_trace_client_instance = Mock()
-    mock_trace_client_instance.create_trace_destination.return_value = mock_config
-    mock_trace_client.return_value = mock_trace_client_instance
-
-    # Mock successful view creation
-    mock_create_view.return_value = None
-
-    # Mock successful client operations with existing tag
-    mock_client_instance = Mock()
-    mock_experiment = Mock()
-    # Simulate existing archival tag
-    from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
-
-    mock_experiment.tags = {
-        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE: "catalog.schema.trace_logs_12345"
-    }
-    mock_client_instance.get_experiment.return_value = mock_experiment
-    mock_mlflow_client.return_value = mock_client_instance
-
-    with patch("importlib.util.find_spec", return_value=Mock()):
-        result = enable_databricks_trace_archival("12345", "catalog", "schema")
-
-    # Verify the archival location is returned
-    assert result == "catalog.schema.trace_logs_12345"
-
-    # Verify trace client was called (idempotent call)
-    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
-        experiment_id="12345",
-        catalog="catalog",
-        schema="schema",
-        table_prefix="trace_logs",
-    )
-
-    # Verify view was recreated even though archival existed
-    mock_create_view.assert_called_once_with(
-        "catalog.schema.trace_logs_12345",
-        "catalog.schema.experiment_12345_spans",
-        "catalog.schema.experiment_12345_events",
-    )
-
-    # Verify experiment tag was reset even though it already existed
-    mock_client_instance.set_experiment_tag.assert_called_once_with(
-        "12345",
-        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
-        "catalog.schema.trace_logs_12345",
-    )
