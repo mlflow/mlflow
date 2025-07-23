@@ -35,7 +35,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -2112,7 +2112,16 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         )
 
 
-def test_set_destination_in_threads(async_logging_enabled):
+def test_set_destination_in_threads(async_logging_enabled, tmp_path):
+    from mlflow.utils.os import is_windows
+    from mlflow.client import MlflowClient
+    from mlflow.tracing.destination import MlflowExperiment
+
+    def gen_tracking_uri(key):
+        db_path = tmp_path.joinpath(key).as_uri()
+        tracking_uri = ("sqlite://" if is_windows() else "sqlite:////") + db_path[len("file://"):]
+        return tracking_uri
+
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
         def predict(self, x):
@@ -2138,32 +2147,42 @@ def test_set_destination_in_threads(async_logging_enabled):
 
     model = TestModel()
     
-    def func(x):
+    def func(tracking_uri, experiment_id, x):
+        set_destination(MlflowExperiment(experiment_id, tracking_uri))
         model.predict(x)
+        if async_logging_enabled:
+            mlflow.flush_trace_async_logging(terminate=True)
 
-    thread1 = threading.Thread(target=func, args=(1,))
-    thread2 = threading.Thread(target=func, args=(2,))
+    tracking_uri1 = gen_tracking_uri("store1")
+    experiment_id1 = MlflowClient(tracking_uri1).create_experiment("a1")
+    thread1 = threading.Thread(target=func, args=(tracking_uri1, experiment_id1, 3))
+
+    tracking_uri2 = gen_tracking_uri("store2")
+    experiment_id2 = MlflowClient(tracking_uri2).create_experiment("a2")
+    thread2 = threading.Thread(target=func, args=(tracking_uri2, experiment_id2, 4))
 
     thread1.start()
     thread2.start()
 
     thread1.join()
     thread2.join()
-    
 
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
-
-    traces = get_traces()
+    traces = get_traces(experiment_id1, tracking_uri1)
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
-    assert trace.info.experiment_id == _get_experiment_id()
-    assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
+    assert trace.info.experiment_id == experiment_id1
+    assert trace.info.execution_time_ms >= 1 * 1e3
     assert trace.info.state == TraceState.OK
-    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
-    assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 3}'
+    assert len(trace.data.spans) == 2
 
-    assert trace.data.request == '{"x": 1, "y": 2}'
-    assert trace.data.response == "5"
+    traces = get_traces(experiment_id2, tracking_uri2)
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id is not None
+    assert trace.info.experiment_id == experiment_id2
+    assert trace.info.execution_time_ms >= 1 * 1e3
+    assert trace.info.state == TraceState.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 4}'
     assert len(trace.data.spans) == 2
