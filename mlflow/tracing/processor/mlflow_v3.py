@@ -18,12 +18,8 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     using the V3 trace schema and API.
     """
 
-    def __init__(
-        self,
-        span_exporter: SpanExporter,
-        experiment_id: Optional[str] = None,
-    ):
-        super().__init__(span_exporter, experiment_id)
+    def __init__(self):
+        super().__init__()
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """

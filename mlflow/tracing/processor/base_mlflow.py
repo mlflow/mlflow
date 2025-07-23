@@ -41,13 +41,8 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
     """
 
-    def __init__(
-        self,
-        span_exporter: SpanExporter,
-        experiment_id: Optional[str] = None,
-    ):
-        self.span_exporter = span_exporter
-        self._experiment_id = experiment_id
+    def __init__(self):
+        self.span_exporter = None
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._env_metadata = resolve_env_metadata()
 
@@ -62,6 +57,16 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 is obtained from the global context, it won't be passed here so we should not rely
                 on it.
         """
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+        
+        # Initialize the span exporter using thread-local tracing destination settings.
+        tracking_uri = None
+        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+            if destination.type == "experiment":
+                tracking_uri = destination.tracking_uri
+        self.span_exporter = MlflowV3SpanExporter(tracking_uri)
+
         trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
         if not trace_id and span.parent is not None:
@@ -108,17 +113,18 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
         The experiment ID can be configured in multiple ways, in order of precedence:
           1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
-          2. An experiment ID specified via the processor constructor
+          2. An experiment ID specified via `mlflow.tracing.set_destination`
           3. An experiment ID of an active run.
           4. The default experiment ID
         """
         from mlflow.tracking.fluent import _get_latest_active_run
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
         if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
             return experiment_id
 
-        if self._experiment_id:
-            return self._experiment_id
+        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+            return destination.experiment_id or _get_experiment_id()
 
         if run := _get_latest_active_run():
             return run.info.experiment_id
