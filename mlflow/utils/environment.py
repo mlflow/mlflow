@@ -530,6 +530,10 @@ def _lock_requirements(
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))
             constraints_opt = [f"--constraints={constraints_file}"]
+        elif pip_constraint := os.environ.get("PIP_CONSTRAINT"):
+            # If PIP_CONSTRAINT is set, use it as a constraint file
+            constraints_opt = [f"--constraints={pip_constraint}"]
+
         try:
             uv_options, uv_envs = _get_uv_options_for_databricks()
             out = subprocess.check_output(

@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,9 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")

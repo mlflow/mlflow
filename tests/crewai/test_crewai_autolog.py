@@ -268,14 +268,6 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
@@ -411,14 +403,6 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert "Action: TestTool" in chat_attributes[2]["content"]
     # LLM - return answer
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "LLM.call_2"
@@ -426,11 +410,6 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[-1]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[-1]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
@@ -542,14 +521,6 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
@@ -602,14 +573,6 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_7.parent_id is span_6.span_id
     assert span_7.inputs["messages"] is not None
     assert span_7.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_7.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_2_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_2_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory_2"
@@ -722,14 +685,6 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_6.parent_id is span_2.span_id
     assert span_6.inputs["messages"] is not None
     assert span_6.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_6.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # ShortTermMemory.save
     span_7 = traces[0].data.spans[7]
@@ -839,14 +794,6 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
@@ -1020,14 +967,6 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"

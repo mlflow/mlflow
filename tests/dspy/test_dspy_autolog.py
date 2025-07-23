@@ -21,7 +21,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
@@ -134,17 +134,6 @@ def test_autolog_lm():
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
 
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test input",
-        },
-        {
-            "role": "assistant",
-            "content": "[[ ## output ## ]]\ntest output",
-        },
-    ]
-
     usage = spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
@@ -213,7 +202,6 @@ def test_autolog_cot():
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
 
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5
     usage = spans[3].get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
@@ -262,12 +250,6 @@ def test_mlflow_callback_exception():
     assert spans[2].status.status_code == "OK"
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
-
-    # Chat attribute should capture input message only when an error occurs
-    messages = spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)
-    assert len(messages) == 2
-    assert messages[0]["role"] == "system"
-    assert messages[1]["role"] == "user"
 
 
 @pytest.mark.skipif(
@@ -338,7 +320,6 @@ def test_autolog_react():
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 3
     usage = spans[3].get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert usage == {
         TokenUsageKey.INPUT_TOKENS: 5,

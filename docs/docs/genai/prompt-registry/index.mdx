@@ -236,12 +236,62 @@ The `Prompt` object is the core entity in MLflow Prompt Registry. It represents 
 Key attributes of a Prompt object:
 
 - `Name`: A unique identifier for the prompt.
-- `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
+- `Template`: The content of the prompt, which can be either:
+  - A string containing text with variables in `{{variable}}` format (text prompts)
+  - A list of dictionaries representing chat messages with 'role' and 'content' keys (chat prompts)
 - `Version`: A sequential number representing the revision of the prompt.
 - `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
 - `Tags`: Optional key-value pairs assigned at the prompt version
   for categorization and filtering. For example, you may add tags for project name, language, etc, which apply to all versions of the prompt.
 - `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/genai/data-model/prompts#alias-management) for more details.
+- `is_text_prompt`: A boolean property indicating whether the prompt is a text prompt (True) or chat prompt (False).
+- `response_format`: An optional property containing the expected response structure specification, which can be used to validate or structure outputs from LLM calls.
+
+### Prompt Types
+
+#### Text Prompts
+
+Text prompts use a simple string template with variables enclosed in double curly braces:
+
+```python
+text_template = "Hello {{ name }}, how are you today?"
+```
+
+#### Chat Prompts
+
+Chat prompts use a list of message dictionaries, each with 'role' and 'content' keys:
+
+```python
+chat_template = [
+    {"role": "system", "content": "You are a helpful {{ style }} assistant."},
+    {"role": "user", "content": "{{ question }}"},
+]
+```
+
+### Response Format
+
+The `response_format` property allows you to specify the expected structure of responses from LLM calls. This can be either a Pydantic model class or a dictionary defining the schema:
+
+```python
+from pydantic import BaseModel
+
+
+class SummaryResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    word_count: int
+
+
+# Or as a dictionary
+response_format_dict = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "key_points": {"type": "array", "items": {"type": "string"}},
+        "word_count": {"type": "integer"},
+    },
+}
+```
 
 ## FAQ
 
@@ -265,7 +315,7 @@ A: No, prompt versions are immutable once created. To update a prompt, create a 
 
 #### Q: Can I use prompt templates with frameworks like LangChain or LlamaIndex?
 
-A: Yes, you can load prompts from MLflow and use them with any framework. For example, the following example demonstrates how to use a prompt registered in MLflow with LangChain. Also refer to [Logging Prompts with LangChain](/genai/prompt-version-mgmt/prompt-registry/log-with-model#example-1-logging-prompts-with-langchain) for more details.
+A: Yes, you can load prompts from MLflow and use them with any framework. For example, the following example demonstrates how to use a prompt registered in MLflow with LangChain. Also refer to [Logging Prompts with LangChain](/genai/prompt-registry/log-with-model#example-1-logging-prompts-with-langchain) for more details.
 
 ```python
 import mlflow
