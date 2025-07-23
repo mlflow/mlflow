@@ -19,7 +19,7 @@ type Props = {
 export function HtmlTableView({ columns, values, styles = {}, testId, scroll }: Props) {
   return (
     <LegacyTable
-      className="html-table-view"
+      className="mlflow-html-table-view"
       data-test-id={testId}
       dataSource={values}
       columns={columns}

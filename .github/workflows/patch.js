@@ -53,7 +53,7 @@ module.exports = async ({ context, github, core }) => {
     owner,
     repo,
   });
-  const latest = releases.data[0];
+  const latest = releases.data.find(({ tag_name }) => tag_name.startsWith("v"));
   const version = latest.tag_name.replace("v", "");
   const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();

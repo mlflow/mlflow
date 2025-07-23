@@ -82,9 +82,9 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def __init__(
         self,
         artifact_uri: str,
-        tracking_uri: Optional[str] = None,
         credential=None,
         credential_refresh_def=None,
+        tracking_uri: Optional[str] = None,
     ) -> None:
         super().__init__(artifact_uri, tracking_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes

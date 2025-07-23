@@ -432,7 +432,6 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
     def predict(model_input: list[int | str]) -> list[int | str]:
         return model_input

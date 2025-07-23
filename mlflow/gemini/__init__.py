@@ -3,6 +3,7 @@ The ``mlflow.gemini`` module provides an API for tracing the interaction with Ge
 """
 
 from mlflow.gemini.autolog import (
+    async_patched_class_call,
     patched_class_call,
     patched_module_call,
 )
@@ -22,7 +23,7 @@ def autolog(
     """
     Enables (or disables) and configures autologging from Gemini to MLflow.
     Currently, both legacy SDK google-generativeai and new SDK google-genai are supported.
-    Only synchronous calls are supported. Asynchronous APIs and streaming are not recorded.
+    Both synchronous and asynchronous calls are supported for the new SDK.
 
     Args:
         log_traces: If ``True``, traces are logged for Gemini models.
@@ -70,12 +71,24 @@ def autolog(
                 method,
                 patched_class_call,
             )
+            safe_patch(
+                FLAVOR_NAME,
+                genai.models.AsyncModels,
+                method,
+                async_patched_class_call,
+            )
 
         safe_patch(
             FLAVOR_NAME,
             genai.chats.Chat,
             "send_message",
             patched_class_call,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            genai.chats.AsyncChat,
+            "send_message",
+            async_patched_class_call,
         )
     except ImportError:
         pass

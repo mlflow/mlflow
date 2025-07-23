@@ -4,8 +4,8 @@ import { useParams } from '../../common/utils/RoutingUtils';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { GetExperimentsContextProvider } from './experiment-page/contexts/GetExperimentsContext';
 import { ExperimentView } from './experiment-page/ExperimentView';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import ExperimentPageTabs from '../pages/experiment-page-tabs/ExperimentPageTabs';
+import { shouldEnableExperimentPageChildRoutes } from '../../common/utils/FeatureUtils';
 
 const getExperimentActions = {
   setExperimentTagApi,
@@ -17,7 +17,7 @@ const ExperimentPage = () => {
   const { theme } = useDesignSystemTheme();
 
   const { tabName } = useParams();
-  const shouldRenderTabbedView = isExperimentLoggedModelsUIEnabled() && Boolean(tabName);
+  const shouldRenderTabbedView = shouldEnableExperimentPageChildRoutes() || Boolean(tabName);
 
   return (
     <div css={{ display: 'flex', height: '100%' }}>

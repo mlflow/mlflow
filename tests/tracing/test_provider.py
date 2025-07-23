@@ -6,6 +6,7 @@ from opentelemetry import trace
 
 import mlflow
 import mlflow.tracking._tracking_service
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
@@ -269,6 +270,15 @@ def test_get_mlflow_span_processor_with_databricks_agents_available():
     """Test that MlflowV3DeltaSpanExporter is used when databricks-agents is available."""
     from mlflow.tracing.provider import _get_mlflow_span_processor
 
+    try:
+        from mlflow.genai.experimental.databricks_trace_exporter import (
+            MlflowV3DeltaSpanExporter,
+        )
+    except ImportError as e:
+        if "ingest_api_sdk" in str(e):
+            pytest.skip("ingest_api_sdk is not available")
+        raise
+
     # Mock databricks-agents as available
     with mock.patch("importlib.util.find_spec") as mock_find_spec:
         mock_find_spec.return_value = mock.MagicMock()  # databricks-agents is available
@@ -276,17 +286,13 @@ def test_get_mlflow_span_processor_with_databricks_agents_available():
         with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
             processor = _get_mlflow_span_processor("databricks")
 
-            # Verify the correct exporter type is used
-            from mlflow.genai.experimental.databricks_trace_exporter import (
-                MlflowV3DeltaSpanExporter,
-            )
+    # Verify the correct exporter type is used
+    assert isinstance(processor.span_exporter, MlflowV3DeltaSpanExporter)
 
-            assert isinstance(processor.span_exporter, MlflowV3DeltaSpanExporter)
-
-            # Verify debug logging occurred
-            mock_logger.debug.assert_called_with(
-                "Using MlflowV3DeltaSpanExporter with Databricks Delta archiving"
-            )
+    # Verify debug logging occurred
+    mock_logger.debug.assert_called_with(
+        "Using MlflowV3DeltaSpanExporter with Databricks Delta archiving"
+    )
 
 
 def test_get_mlflow_span_processor_without_databricks_agents():
@@ -367,3 +373,41 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
+
+
+def test_sampling_ratio(monkeypatch):
+    @mlflow.trace
+    def test_function():
+        return "test"
+
+    # Test with 100% sampling (default)
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 10
+    purge_traces()
+
+    # Test with 0% sampling
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 0
+    purge_traces()
+
+    # With 50% sampling and 100 runs, we expect around 50 traces
+    # but due to randomness, we check for a reasonable range
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.5")
+    mlflow.tracing.reset()
+
+    for _ in range(100):
+        test_function()
+
+    traces = get_traces()
+    assert 30 <= len(traces) <= 70, (
+        f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
+    )

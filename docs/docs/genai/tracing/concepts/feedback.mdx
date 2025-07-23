@@ -4,7 +4,10 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { ClipboardCheck, UserCheck, Bot, UsersRound } from "lucide-react";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { ClipboardCheck, UserCheck, Bot, UsersRound, MessageSquare, FileText, Target } from "lucide-react";
+import FeedbackArchitectureImageUrl from '@site/static/images/llms/tracing/schema/feedback_architecture.png';
 
 # Feedback Concepts
 
@@ -49,7 +52,7 @@ Feedback serves as the bridge between running your application and understanding
 ## Core Structure
 
 <div style={{display: 'flex', justifyContent: 'center'}}>
-  <img src="/images/llms/tracing/schema/feedback_architecture.png" alt="Feedback Architecture" style={{width: '60%'}} />
+  <img src={FeedbackArchitectureImageUrl} alt="Feedback Architecture" style={{width: '60%'}} />
 </div>
 
 Feedback is often created by different sources, such as human annotators, LLM judges, or real user's feedback in the application. The <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object in MLflow is a standard container for storing these signals along with metadata to track
@@ -66,7 +69,7 @@ how they are created. Feedbacks are associated with a Trace, or a particular Spa
 | `error`               | `Optional[AssessmentError]` | An optional error associated with the feedback. This is used to indicate that the feedback was not processed successfully, for example, an exception from the LLM judge execution.                                                                                                                                                                                                                      |
 | `metadata`            | `Optional[dict[str, str]]`  | Optional key-value pairs associated with the feedback.                                                                                                                                                                                                                                                                                                                                                  |
 | `create_time_ms`      | `int`                       | The timestamp of when the feedback is created, in milliseconds.                                                                                                                                                                                                                                                                                                                                         |
-| `last_update_time_ms` | int                         | The timestamp of when the feedback is updated, in milliseconds.                                                                                                                                                                                                                                                                                                                                         |
+| `last_update_time_ms` | `int`                       | The timestamp of when the feedback is updated, in milliseconds.                                                                                                                                                                                                                                                                                                                                         |
 | `trace_id`            | `str`                       | The ID of the trace that the feedback is attached to.                                                                                                                                                                                                                                                                                                                                                   |
 | `span_id`             | `Optional[str]`             | The ID of the span that the feedback is attached to, if it is associated with a particular span in the trace. For example, you can give a feedback to the specific retriever output in the RAG application.                                                                                                                                                                                             |
 
@@ -120,3 +123,35 @@ how they are created. Feedbacks are associated with a Trace, or a particular Spa
     }
 }
 ```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="Feedback Guide"
+    description="Complete guide for using mlflow.log_feedback with practical examples and code samples"
+    href="/genai/assessments/feedback"
+    linkText="View the feedback guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Expectations Concepts"
+    description="Learn how to define ground truth expectations for comprehensive evaluation"
+    href="/genai/tracing/concepts/expectations"
+    linkText="Learn about expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Ground Truth Expectations"
+    description="Understand how to define expected outputs for comprehensive evaluation"
+    href="/genai/assessments/expectations"
+    linkText="Learn about expectations →"
+    containerHeight={64}
+  />
+</TilesGrid>
