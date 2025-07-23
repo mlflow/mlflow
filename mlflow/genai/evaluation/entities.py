@@ -134,12 +134,7 @@ class EvalResult:
         assessments = self.get_assessments_dict()
 
         # Merge dictionaries and convert to pd.Series
-        combined_data = {
-            **inputs,
-            # **metrics,
-            **assessments,
-        }
-        return pd.Series(combined_data)
+        return pd.Series(inputs | assessments)
 
     def get_assessments_dict(self) -> dict[str, Any]:
         result = {}
@@ -147,10 +142,12 @@ class EvalResult:
             if not isinstance(assessment, Feedback):
                 continue
 
-            result[f"{assessment.name}/value"] = assessment.value
-            result[f"{assessment.name}/rationale"] = assessment.rationale
-            result[f"{assessment.name}/error_message"] = assessment.error_message
-            result[f"{assessment.name}/error_code"] = assessment.error_code
+            result |= {
+                f"{assessment.name}/value": assessment.value,
+                f"{assessment.name}/rationale": assessment.rationale,
+                f"{assessment.name}/error_message": assessment.error_message,
+                f"{assessment.name}/error_code": assessment.error_code,
+            }
 
         return result
 

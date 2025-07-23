@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from typing import TYPE_CHECKING, Any, Collection, Optional, Union
 
 from mlflow.entities import Assessment, Trace
@@ -325,6 +326,10 @@ def make_code_type_assessment_source(scorer_name: str) -> AssessmentSource:
 
 
 def is_none_or_nan(value: Any) -> bool:
-    """Checks whether a value is None or NaN."""
-    # isinstance(value, float) check is needed to ensure that pd.isna is not called on an array.
-    return value is None or (isinstance(value, float) and pd.isna(value))
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))

@@ -29,8 +29,7 @@ def run(
     dataset: pd.DataFrame,
     predict_fn=None,
     scorers=None,
-    run_id,
-):
+) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
 
@@ -158,8 +157,8 @@ def _compute_eval_scores(
         try:
             results = [future.result() for future in as_completed(futures)]
         except KeyboardInterrupt:
-            for future in futures:
-                future.cancel()
+            # Cancel pending futures
+            executor.shutdown(cancel_futures=True)
             raise
 
     # Flatten list[list[Assessment]] into a single list[Assessment]

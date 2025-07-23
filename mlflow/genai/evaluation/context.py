@@ -5,7 +5,7 @@ contexts.
 
 import functools
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Callable, Optional
 
 import mlflow
 
@@ -41,13 +41,13 @@ class NoneContext(Context):
     """
 
     def get_mlflow_experiment_id(self) -> Optional[str]:
-        raise AssertionError("Context is not set")
+        raise NotImplementedError("Context is not set")
 
     def get_mlflow_run_id(self) -> Optional[str]:
-        raise AssertionError("Context is not set")
+        raise NotImplementedError("Context is not set")
 
     def get_user_name(self) -> Optional[str]:
-        raise AssertionError("Context is not set")
+        raise NotImplementedError("Context is not set")
 
 
 class RealContext(Context):
@@ -75,6 +75,7 @@ class RealContext(Context):
 
     def __init__(self):
         self._dbutils = self._get_dbutils()
+        self._run_id = None
         try:
             self._notebook_context = self._dbutils.entry_point.getDbutils().notebook().getContext()
         except Exception:
@@ -91,13 +92,13 @@ class RealContext(Context):
         Warning: This run_id may not be active. This happens when `get_mlflow_run_id` is called from
         a different thread than the one that started the MLflow run.
         """
-        # First check if we have a thread-local override
-        if hasattr(self, "_thread_local_mlflow_run_id") and self._thread_local_mlflow_run_id:
-            return self._thread_local_mlflow_run_id
+        # First check if a run ID is specified explicitly by the parent thread
+        if self._run_id:
+            return self._run_id
 
-        # Otherwise fall back to the active run
-        if mlflow.active_run():
-            return mlflow.active_run().info.run_id
+        # Otherwise fall back to the active run in the current thread
+        if run := mlflow.active_run():
+            return run.info.run_id
 
         return None
 
@@ -109,11 +110,7 @@ class RealContext(Context):
         started the MLflow run. It sets the run ID in a thread-local variable so that it can be
         accessed from the thread.
         """
-        # Since we can't directly set mlflow.active_run() in a thread,
-        # we'll store the run_id in a thread-local attribute
-        if not hasattr(self, "_thread_local_mlflow_run_id"):
-            self._thread_local_mlflow_run_id = None
-        self._thread_local_mlflow_run_id = run_id
+        self._run_id = run_id
 
     def get_user_name(self) -> Optional[str]:
         try:
@@ -140,13 +137,11 @@ def get_context() -> Context:
     return _context_singleton or NoneContext()
 
 
-def eval_context(func):
+def eval_context(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator for wrapping all eval APIs with setup and closure logic.
 
     Sets up a context singleton with RealContext if there isn't one already.
-    Initializes the session for the current thread. Clears the session after
-    the function is executed.
     """
 
     @functools.wraps(func)

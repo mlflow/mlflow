@@ -74,6 +74,9 @@ def test_scorer_name_works(sample_data, dummy_scorer, is_in_databricks):
 
 
 def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
+
     with (
         patch(
             "databricks.agents.evals.judges.correctness",
