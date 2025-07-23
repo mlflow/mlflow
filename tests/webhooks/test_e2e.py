@@ -406,7 +406,7 @@ def test_webhook_test_insecure_endpoint(mlflow_client: MlflowClient, app_client:
     assert logs[0]["payload"] == {
         "name": "example_model",
         "version": "1",
-        "source": "runs:/abcd1234abcd5678/model",
+        "source": "models:/123",
         "run_id": "abcd1234abcd5678",
         "tags": {"example_key": "example_value"},
         "description": "An example model version",
