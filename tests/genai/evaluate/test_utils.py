@@ -307,8 +307,12 @@ def test_scorer_receives_correct_data(data_fixture, request):
         assert set(all_custom_expectations) == set(expected_custom_expectations)
 
 
-def test_input_is_required_if_trace_is_not_provided():
-    with patch("mlflow.models.evaluate") as mock_evaluate:
+def test_input_is_required_if_trace_is_not_provided(is_in_databricks):
+    mock_module = (
+        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.base.harness.run"
+    )
+
+    with patch(mock_module) as mock_evaluate:
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
@@ -326,14 +330,18 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_called_once()
 
 
-def test_input_is_optional_if_trace_is_provided():
+def test_input_is_optional_if_trace_is_provided(is_in_databricks):
+    mock_module = (
+        "mlflow.models.evaluate" if is_in_databricks else "mlflow.genai.evaluation.base.harness.run"
+    )
+
     with mlflow.start_span() as span:
         span.set_inputs({"question": "What is the capital of France?"})
         span.set_outputs("Paris")
 
     trace = mlflow.get_trace(span.trace_id)
 
-    with patch("mlflow.models.evaluate") as mock_evaluate:
+    with patch(mock_module) as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
             scorers=[Safety()],
@@ -377,7 +385,10 @@ def test_scorer_receives_correct_data_with_trace_data(input_type):
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
-def test_predict_fn_receives_correct_data(data_fixture, request):
+def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("The predict_fn arg is not supported in OSS MLflow yet")
+
     sample_data = request.getfixturevalue(data_fixture)
 
     received_args = []
