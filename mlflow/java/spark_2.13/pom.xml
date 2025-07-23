@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>mlflow-spark_2.13</artifactId>
-  <version>3.1.3</version>
+  <version>3.1.4</version>
   <name>${project.artifactId}</name>
   <properties>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>3.1.3</version>
+    <version>3.1.4</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -67,18 +67,6 @@
     <sourceDirectory>../spark/src/main/scala</sourceDirectory>
     <testSourceDirectory>../spark/src/test/scala</testSourceDirectory>
     <plugins>
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.8.0</version>
-        <extensions>true</extensions>
-        <configuration>
-            <skipPublishing>false</skipPublishing>
-            <publishingServerId>central</publishingServerId>
-            <centralSnapshotsUrl>https://central.sonatype.com/repository/maven-snapshots/</centralSnapshotsUrl>
-            <autoPublish>true</autoPublish>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
