@@ -1,15 +1,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>mlflow-spark_${scala.compat.version}</artifactId>
+  <artifactId>mlflow-spark_2.13</artifactId>
   <version>3.1.4-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <properties>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <encoding>UTF-8</encoding>
-    <!-- These scala versions will be overwritten in the release job when deploying mlflow-spark_2.13 -->
-    <scala.version>2.12.18</scala.version>
-    <scala.compat.version>2.12</scala.compat.version>
+    <scala.version>2.13.10</scala.version>
+    <scala.compat.version>2.13</scala.compat.version>
     <spec2.version>4.2.0</spec2.version>
   </properties>
 

@@ -118,7 +118,7 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path
 
     mlflow_version_tag_pattern = r"<mlflow.version>"
     mlflow_spark_pattern = (
-        r"<artifactId>mlflow-spark_\${scala\.compat\.version}</artifactId>\s+<version>"
+        r"<artifactId>mlflow-spark_2\.1[2|3]</artifactId>\s+<version>"
     )
     mlflow_parent_pattern = r"<artifactId>mlflow-parent</artifactId>\s+<version>"
 
