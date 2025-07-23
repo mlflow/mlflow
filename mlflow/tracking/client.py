@@ -126,8 +126,6 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
-    from mlflow.types.chat import ContentType
-
 
 _logger = logging.getLogger(__name__)
 
@@ -445,7 +443,7 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
@@ -5628,9 +5626,10 @@ class MlflowClient:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -5640,9 +5639,12 @@ class MlflowClient:
 
         Args:
             name: Name of the prompt.
-            template: Template text of the prompt version.
+            template: The prompt template content for this version.
             description: Optional description of the prompt version.
             tags: Optional dictionary of prompt version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured
+                outputs from LLM calls.
 
         Returns:
             A PromptVersion object.
@@ -5662,7 +5664,9 @@ class MlflowClient:
             )
         """
         registry_client = self._get_registry_client()
-        return registry_client.create_prompt_version(name, template, description, tags)
+        return registry_client.create_prompt_version(
+            name, template, description, tags, response_format
+        )
 
     @experimental(version="3.0.0")
     @require_prompt_registry

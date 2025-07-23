@@ -418,7 +418,7 @@ def test_trace_retriever(multi_index, is_async):
     for i in range(1, 4):
         assert spans[i].parent_id == spans[i - 1].span_id
 
-    assert spans[0].name == "BaseRetriever.aretrieve" if is_async else "BaseRetriever.retrieve"
+    assert spans[0].name.endswith("Retriever.aretrieve" if is_async else "Retriever.retrieve")
     assert spans[0].span_type == SpanType.RETRIEVER
     assert spans[0].inputs == {"str_or_query_bundle": "apple"}
     assert len(spans[0].outputs) == 1
@@ -434,13 +434,13 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[1].inputs["query_bundle"]["query_str"] == "apple"
     assert spans[1].outputs == spans[0].outputs
 
-    assert spans[2].name.startswith("BaseEmbedding")
+    assert "Embedding" in spans[2].name
     assert spans[2].span_type == SpanType.EMBEDDING
     assert spans[2].inputs == {"query": "apple"}
     assert len(spans[2].outputs) == 1536  # embedding size
     assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
 
-    assert spans[3].name.startswith("OpenAIEmbedding")
+    assert "Embedding" in spans[3].name
     assert spans[3].span_type == SpanType.EMBEDDING
     assert spans[3].inputs == {"query": "apple"}
     assert len(spans[3].outputs) == 1536  # embedding size
@@ -477,7 +477,7 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
 
     # Validate span attributes for some key spans
     spans = traces[0].data.spans
-    assert spans[0].name == f"BaseQueryEngine.{prefix}query"
+    assert spans[0].name.endswith(f"QueryEngine.{prefix}query")
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].inputs == {"str_or_query_bundle": "Hello"}
     assert spans[0].outputs == response

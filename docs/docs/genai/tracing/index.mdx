@@ -6,12 +6,13 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { GitMerge, Heart, Zap, Puzzle, LifeBuoy, Users } from "lucide-react";
+import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracing for LLM Observability
 
 MLflow Tracing enhances LLM observability in your applications by capturing the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
 
-![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="Tracing Gateway Video" />
 
 ## Use Cases Throughout the ML Lifecycle
 
@@ -168,7 +169,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
     image="/images/logos/python-logo.png"
     title="Quickstart (Python)"
     description="Get started with MLflow in Python"
-    href="/genai/tracing/quickstart"
+    href="/genai/tracing/quickstart/python-openai"
     linkText="Start building →"
     containerHeight={64}
   />
@@ -176,7 +177,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
     image="/images/logos/javascript-typescript-logo.png"
     title="Quickstart (JS/TS)"
     description="Get started with MLflow in JavaScript or TypeScript"
-    href="/genai/tracing/quickstart"
+    href="/genai/tracing/quickstart/typescript-openai"
     linkText="Start building →"
     containerHeight={64}
   />
@@ -210,11 +211,11 @@ For the complete list and detailed integration examples, see the [Automatic Trac
 
 In addition to the one-line auto tracing experience, MLflow offers Python SDK for manually instrumenting your code and manipulating traces:
 
-- [Trace a function with `@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#decorator)
-- [Trace any block of code using context manager](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)
+- [Trace a function with `@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing#decorator)
+- [Trace any block of code using context manager](/genai/tracing/app-instrumentation/manual-tracing#context-manager)
 - [Combine multiple auto-tracing integrations](/genai/tracing/app-instrumentation/automatic/#multi-framework-example)
-- [Instrument multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis/#multi-threading)
-- [Native async support](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#async-support)
+- [Instrument multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing#multi-threading)
+- [Native async support](/genai/tracing/app-instrumentation/manual-tracing#async-support)
 - [Group and filter traces using sessions](/genai/tracing/track-users-sessions)
 - [Redact PII data from traces](/genai/tracing/observe-with-traces/masking)
 - [Disable tracing globally](/genai/tracing/app-instrumentation/automatic#disabling-tracing)

@@ -83,3 +83,49 @@ export const MOCK_LANGCHAIN_OUTPUT = {
   run: null,
   type: 'LLMResult',
 };
+
+export const MOCK_LANGCHAIN_IMAGE_INPUT = [
+  [
+    {
+      content: [
+        {
+          type: 'text',
+          text: 'Describe the weather in this image:',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: 'https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png',
+          },
+        },
+      ],
+      additional_kwargs: {},
+      response_metadata: {},
+      type: 'human',
+      name: null,
+      id: null,
+      example: false,
+    },
+  ],
+];
+
+export const MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT = [
+  [
+    {
+      content: [
+        {
+          type: 'image_url',
+          image_url: {
+            url: 'https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png',
+          },
+        },
+      ],
+      additional_kwargs: {},
+      response_metadata: {},
+      type: 'human',
+      name: null,
+      id: null,
+      example: false,
+    },
+  ],
+];
