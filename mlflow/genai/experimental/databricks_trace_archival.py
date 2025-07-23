@@ -144,41 +144,60 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 -- 3. Aggregated the valid assessments grouped by trace_id
                 assessments_agg AS (
                   SELECT
-                      trace_id,
-                      COLLECT_LIST(
-                          FROM_JSON(
-                              body,
-                              'STRUCT<
-                                  assessment_id: STRING,
-                                  trace_id: STRING,
-                                  assessment_name: STRING,
-                                  source: STRUCT<source_id: STRING, source_type: STRING>,
-                                  create_time: TIMESTAMP,
-                                  last_update_time: TIMESTAMP,
-                                  expectation: STRUCT<value: STRING>,
-                                  feedback: STRUCT<
-                                      value: STRING,
-                                      error: STRUCT<error_code: STRING, error_message: STRING>
-                                  >,
-                                  rationale: STRING,
-                                  metadata: MAP<STRING, STRING>,
-                                  span_id: STRING
-                              >'
-                          )
-                      ) AS assessments
-                  FROM (
+                    trace_id,
+                    COLLECT_LIST(
+                      NAMED_STRUCT(
+                        'assessment_id', assessment.assessment_id,
+                        'trace_id', assessment.trace_id,
+                        'assessment_name', assessment.assessment_name,
+                        'source', assessment.source,
+                        'create_time', TIMESTAMP_MILLIS(CAST(assessment.create_time AS BIGINT)),
+                        'last_update_time', TIMESTAMP_MILLIS(
+                            CAST(assessment.last_update_time AS BIGINT)
+                        ),
+                        'expectation', assessment.expectation,
+                        'feedback', assessment.feedback,
+                        'rationale', assessment.rationale,
+                        'metadata', assessment.metadata,
+                        'span_id', assessment.span_id
+                      )
+                    ) AS assessments
+                  FROM
+                    (
                       SELECT
-                          trace_id,
-                          body
-                      FROM {events_table}
-                      WHERE event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
-                          AND attributes['valid'] = 'true'
-                      QUALIFY ROW_NUMBER() OVER (
-                          PARTITION BY trace_id, attributes['assessment_id']
-                          ORDER BY time_unix_nano DESC
-                      ) = 1
-                  )
-                  GROUP BY trace_id
+                        trace_id,
+                        FROM_JSON(
+                          body,
+                          'STRUCT<
+                            assessment_id: STRING,
+                            trace_id: STRING,
+                            assessment_name: STRING,
+                            source: STRUCT<source_id: STRING, source_type: STRING>,
+                            create_time: DOUBLE,
+                            last_update_time: DOUBLE,
+                            expectation: STRUCT<value: STRING>,
+                            feedback: STRUCT<
+                                value: STRING,
+                                error: STRUCT<error_code: STRING, error_message: STRING>
+                            >,
+                            rationale: STRING,
+                            metadata: MAP<STRING, STRING>,
+                            span_id: STRING
+                          >'
+                        ) AS assessment
+                      FROM
+                        {events_table}
+                      WHERE
+                        event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
+                        AND attributes['valid'] = 'true'
+                      QUALIFY
+                        ROW_NUMBER() OVER (
+                            PARTITION BY trace_id, attributes['assessment_id']
+                            ORDER BY time_unix_nano DESC
+                          ) = 1
+                    )
+                  GROUP BY
+                    trace_id
                 ),
                 -- 4. Latest tags grouped by trace_id
                 latest_tags AS (
@@ -226,6 +245,8 @@ def _do_enable_databricks_archival(
 ) -> str:
     """
     Enable trace archival by orchestrating the full archival enablement process.
+    Note that this operation is idempotent such that if the archival is already enabled,
+    it will return the existing view name without making any changes.
 
     Args:
         experiment_id: The MLflow experiment ID to enable archival for
@@ -239,49 +260,22 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
-    # Check if archival is already enabled by looking for the experiment tag
-    mlflow_client = MlflowClient()
-    try:
-        experiment = mlflow_client.get_experiment(experiment_id)
-        if experiment and experiment.tags:
-            existing_view_name = experiment.tags.get(MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE)
-            if existing_view_name:
-                _logger.info(
-                    f"Trace archival already enabled for experiment {experiment_id}. "
-                    f"Using existing view: {existing_view_name}"
-                )
-                return existing_view_name
-
-    except Exception as e:
-        _logger.debug(f"Could not check experiment tags for {experiment_id}: {e}")
-        # Continue with normal flow if we can't check tags
-
     trace_archival_location = f"{catalog}.{schema}.{table_prefix}_{experiment_id}"
 
     try:
         # 1. Create trace destination using client
+        # The backend API is idempotent and will return existing configuration if it already exists
+        # It will only throw ALREADY_EXISTS error if the table schema versions have changed
         _logger.info(
             f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}"
         )
 
-        try:
-            trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
-                experiment_id=experiment_id,
-                catalog=catalog,
-                schema=schema,
-                table_prefix=table_prefix,
-            )
-        except MlflowException as e:
-            # The backend API is not idempotent, so we need to handle the ALREADY_EXISTS error
-            if "ALREADY_EXISTS" in str(e):
-                _logger.info(
-                    f"Trace archival already exists for experiment {experiment_id}. "
-                    f"Returning expected view: {trace_archival_location}"
-                )
-                return trace_archival_location
-            else:
-                # Re-raise other MlflowExceptions
-                raise
+        trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
+            experiment_id=experiment_id,
+            catalog=catalog,
+            schema=schema,
+            table_prefix=table_prefix,
+        )
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
             f"Events table: {trace_archive_config.events_table_name}, "
@@ -303,7 +297,7 @@ def _do_enable_databricks_archival(
         )
 
         # 5. Set experiment tag to track the archival location
-        mlflow_client.set_experiment_tag(
+        MlflowClient().set_experiment_tag(
             experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location
         )
 

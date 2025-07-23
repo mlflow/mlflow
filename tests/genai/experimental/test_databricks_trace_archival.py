@@ -486,3 +486,150 @@ def test_successful_archival_with_custom_prefix(
         "catalog.schema.custom_12345",  # tag value (custom archival location)
     )
     assert result == "catalog.schema.custom_12345"
+
+
+# Idempotency tests
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_client):
+    """Test that enable_databricks_trace_archival is idempotent when called multiple times."""
+    # Create a valid config
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
+
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.experiment_12345_spans",
+        events_table_name="catalog.schema.experiment_12345_events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return valid config (simulating existing archival)
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful client operations
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        # Call enable_databricks_trace_archival multiple times
+        result1 = enable_databricks_trace_archival("12345", "catalog", "schema")
+        result2 = enable_databricks_trace_archival("12345", "catalog", "schema")
+        result3 = enable_databricks_trace_archival("12345", "catalog", "schema")
+
+    # All calls should return the same archival location
+    assert result1 == "catalog.schema.trace_logs_12345"
+    assert result2 == "catalog.schema.trace_logs_12345"
+    assert result3 == "catalog.schema.trace_logs_12345"
+
+    # Verify trace client was called 3 times (once per call)
+    assert mock_trace_client_instance.create_trace_destination.call_count == 3
+
+    # Verify view was recreated 3 times (once per call)
+    assert mock_create_view.call_count == 3
+
+    # Verify experiment tag was set 3 times (once per call)
+    assert mock_client_instance.set_experiment_tag.call_count == 3
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_enablement_failure_due_to_storage_config_conflict(
+    mock_mlflow_client, mock_create_view, mock_trace_client
+):
+    """Test that ALREADY_EXISTS error is propagated when table schema versions change."""
+    # Mock trace client to raise ALREADY_EXISTS exception
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.side_effect = MlflowException(
+        "ALREADY_EXISTS: Table schema version mismatch"
+    )
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful MLflow client operations
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        with pytest.raises(MlflowException, match="ALREADY_EXISTS: Table schema version mismatch"):
+            enable_databricks_trace_archival("12345", "catalog", "schema")
+
+    # Verify view creation and tag setting were not called
+    mock_create_view.assert_not_called()
+    mock_client_instance.set_experiment_tag.assert_not_called()
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_idempotent_enablement_view_and_tag_recreation(
+    mock_mlflow_client, mock_create_view, mock_trace_client
+):
+    """Test successful recreation of view and tag when archival already exists."""
+    # Create a valid config (simulating existing archival)
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
+
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.experiment_12345_spans",
+        events_table_name="catalog.schema.experiment_12345_events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return existing config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful view creation
+    mock_create_view.return_value = None
+
+    # Mock successful client operations with existing tag
+    mock_client_instance = Mock()
+    mock_experiment = Mock()
+    # Simulate existing archival tag
+    from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
+
+    mock_experiment.tags = {
+        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE: "catalog.schema.trace_logs_12345"
+    }
+    mock_client_instance.get_experiment.return_value = mock_experiment
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        result = enable_databricks_trace_archival("12345", "catalog", "schema")
+
+    # Verify the archival location is returned
+    assert result == "catalog.schema.trace_logs_12345"
+
+    # Verify trace client was called (idempotent call)
+    mock_trace_client_instance.create_trace_destination.assert_called_once_with(
+        experiment_id="12345",
+        catalog="catalog",
+        schema="schema",
+        table_prefix="trace_logs",
+    )
+
+    # Verify view was recreated even though archival existed
+    mock_create_view.assert_called_once_with(
+        "catalog.schema.trace_logs_12345",
+        "catalog.schema.experiment_12345_spans",
+        "catalog.schema.experiment_12345_events",
+    )
+
+    # Verify experiment tag was reset even though it already existed
+    mock_client_instance.set_experiment_tag.assert_called_once_with(
+        "12345",
+        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
+        "catalog.schema.trace_logs_12345",
+    )
