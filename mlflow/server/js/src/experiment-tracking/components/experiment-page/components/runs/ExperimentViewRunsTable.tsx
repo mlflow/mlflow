@@ -27,6 +27,7 @@ import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
+import { ExperimentViewRunsEmptyState } from './ExperimentViewRunsEmptyState';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 import { shouldUseRunRowsVisibilityMap } from '../../../../../common/utils/FeatureUtils';
@@ -201,17 +202,25 @@ export const ExperimentViewRunsTable = React.memo(
       if (isLoading) {
         gridApi.showLoadingOverlay();
       } else {
-        gridApi.hideOverlay();
-
         // If there are more runs available in the API, append
         // additional special row that will display "Load more" button
         if (rowsData.length && moreRunsAvailable) {
+          gridApi.hideOverlay();
           gridApi.setRowData([...rowsData, createLoadMoreRow()]);
           gridSizeHandler(gridApi);
           return;
         }
 
-        gridApi.setRowData(rowsData);
+        // Check if we have no data (e.g., when hideFinishedRuns filters out all runs)
+        if (rowsData.length === 0) {
+          // Show built-in empty overlay to display empty state while keeping headers visible
+          gridApi.showNoRowsOverlay();
+          // Still set empty data so headers are rendered
+          gridApi.setRowData([]);
+        } else {
+          gridApi.hideOverlay();
+          gridApi.setRowData(rowsData);
+        }
         gridSizeHandler(gridApi);
       }
     }, [gridApi, rowsData, isLoading, moreRunsAvailable, loadMoreRunsFunc, gridSizeHandler]);
@@ -302,7 +311,9 @@ export const ExperimentViewRunsTable = React.memo(
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
     const displayRunsTable = !runListHidden || !isComparingRuns;
     const displayStatusBar = !runListHidden;
-    const displayEmptyState = rowsData.length < 1 && !isLoading && displayRunsTable;
+    // Remove external empty state since AG-Grid will handle it internally
+    // and we need to keep headers visible for visibility controls
+    const displayEmptyState = false;
 
     const tableContext = useMemo(() => ({ orderByAsc, orderByKey }), [orderByAsc, orderByKey]);
 
@@ -361,9 +372,13 @@ export const ExperimentViewRunsTable = React.memo(
                 suppressFieldDotNotation
                 enableCellTextSelection
                 components={getFrameworkComponents()}
-                suppressNoRowsOverlay
                 loadingOverlayComponent="loadingOverlayComponent"
                 loadingOverlayComponentParams={{ showImmediately: true }}
+                noRowsOverlayComponent="noRowsOverlayComponent"
+                noRowsOverlayComponentParams={{
+                  searchFacetsState,
+                  allRunsCount,
+                }}
                 getRowId={getRowId}
                 rowBuffer={ROW_BUFFER}
                 onCellClicked={handleCellClicked}
@@ -384,11 +399,19 @@ export const ExperimentViewRunsTable = React.memo(
             )}
           </div>
           {displayEmptyState && (
-            <ExperimentViewRunsEmptyTable
+            <ExperimentViewRunsEmptyState
+              isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
+              hasRunLimit={searchFacetsState.runLimit !== null}
+              totalRuns={allRunsCount}
               onClearFilters={() => {
                 setUrlSearchFacets(createExperimentPageSearchFacetsState());
               }}
-              isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
+              onShowFinishedRuns={() => {
+                setUrlSearchFacets({ ...searchFacetsState, hideFinishedRuns: false });
+              }}
+              onShowAllRuns={() => {
+                setUrlSearchFacets({ ...searchFacetsState, runLimit: null });
+              }}
             />
           )}
           {displayStatusBar && <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />}

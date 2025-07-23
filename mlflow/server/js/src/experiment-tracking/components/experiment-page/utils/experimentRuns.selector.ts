@@ -14,6 +14,7 @@ import {
 import { KeyValueEntity } from '../../../../common/types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
+import { isFinishedRunStatus } from '../../../utils/runStatusUtils';
 import { pickBy } from 'lodash';
 
 export type ExperimentRunsSelectorResult = {
@@ -88,6 +89,8 @@ export type ExperimentRunsSelectorParams = {
   lifecycleFilter?: LIFECYCLE_FILTER;
   modelVersionFilter?: MODEL_VERSION_FILTER;
   datasetsFilter?: DatasetSummary[];
+  hideFinishedRuns?: boolean;
+  runLimit?: number | null;
 };
 
 /**
@@ -100,7 +103,10 @@ const extractRunInfos = (
     lifecycleFilter = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilter = MODEL_VERSION_FILTER.ALL_RUNS,
     datasetsFilter = [],
-  }: ExperimentRunsSelectorParams,
+    runLimit = null,
+    hideFinishedRuns = false,
+  }: // hideFinishedRuns moved back to client-side due to server validation issues
+  ExperimentRunsSelectorParams,
 ): RunInfoEntity[] => {
   const { modelVersionsByRunUuid } = state.entities;
 
@@ -122,7 +128,7 @@ const extractRunInfos = (
           return true;
         } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS) {
           return rInfo.runUuid in modelVersionsByRunUuid;
-        } else if (modelVersionFilter === MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS) {
+        } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITHOUT_MODEL_VERSIONS) {
           return !(rInfo.runUuid in modelVersionsByRunUuid);
         } else {
           // eslint-disable-next-line no-console -- TODO(FEINF-3587)
@@ -143,6 +149,14 @@ const extractRunInfos = (
         });
       })
       .map(([rInfo, _]) => rInfo)
+      // Filter out finished runs if hideFinishedRuns is enabled
+      // Client-side filtering used due to server validation restrictions
+      .filter((rInfo) => {
+        if (!hideFinishedRuns) return true;
+        return !isFinishedRunStatus(rInfo.status);
+      })
+      // Apply run limit if specified
+      .slice(0, runLimit || undefined)
   );
 };
 

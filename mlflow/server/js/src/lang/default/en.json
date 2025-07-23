@@ -11,6 +11,10 @@
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
   },
+  "+AwZO4": {
+    "defaultMessage": "Retry",
+    "description": "Button to retry loading the runs visibility dropdown"
+  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -455,6 +459,10 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
+  "4POq1i": {
+    "defaultMessage": "No runs match your current filters and limit",
+    "description": "Title for empty state when both filters and run limit cause no results"
+  },
   "4U/RVz": {
     "defaultMessage": "False",
     "description": "Label for an assessment with a 'false' boolean value"
@@ -647,6 +655,10 @@
     "defaultMessage": "Add new variable",
     "description": "Experiment page > new run modal > \"add new variable\" button label"
   },
+  "72XRTj": {
+    "defaultMessage": "No runs within the current limit",
+    "description": "Title for empty state when run limit causes no results"
+  },
   "72uGpl": {
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
@@ -722,6 +734,10 @@
   "7pRcdg": {
     "defaultMessage": "Edit description",
     "description": "Label for the edit description button on the logged models details page"
+  },
+  "7s7IcF": {
+    "defaultMessage": "Start by running your first experiment to see tracking results here.",
+    "description": "Description for empty state when experiment has no runs"
   },
   "7teFL4": {
     "defaultMessage": "Search metric charts",
@@ -1067,6 +1083,10 @@
     "defaultMessage": "Delete",
     "description": "Label for the delete prompt action on the registered prompt details page"
   },
+  "C2xGUH": {
+    "defaultMessage": "Some runs are hidden. Click to show options.",
+    "description": "Tooltip for the visibility toggle button when runs are hidden"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -1118,6 +1138,10 @@
   "Cjq57+": {
     "defaultMessage": "Tools",
     "description": "Section header in the chat tab that displays all tools that were available for the chat model to call during execution"
+  },
+  "CpJr8L": {
+    "defaultMessage": "Remove run limit",
+    "description": "Button to remove run limit"
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -1687,6 +1711,10 @@
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
   },
+  "LK1Mi1": {
+    "defaultMessage": "The current run limit may be excluding all runs. Try showing more runs or clearing filters.",
+    "description": "Description for empty state when run limit causes no results"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -1703,6 +1731,10 @@
     "defaultMessage": "No traces found with the current filter query. <button>Reset filters</button> to see all traces.",
     "description": "Experiment page > traces table > no traces recorded"
   },
+  "LbZGsq": {
+    "defaultMessage": "Clear all filters",
+    "description": "Button to clear all filters"
+  },
   "Li72QU": {
     "defaultMessage": "Add",
     "description": "Key-value tag table cell > 'add' button label"
@@ -1710,6 +1742,10 @@
   "LiW/yM": {
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
+  },
+  "LkcTDU": {
+    "defaultMessage": "All {totalRuns, plural, =0 {runs} one {run} other {runs}} in this experiment {totalRuns, plural, =0 {are} one {is} other {are}} finished. Try showing finished runs to see all results.",
+    "description": "Description for empty state when all runs are finished"
   },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
@@ -2059,6 +2095,10 @@
     "defaultMessage": "Metric",
     "description": "Label for the metric column in the logged model details metrics table"
   },
+  "R/8utr": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding finished runs (FINISHED, FAILED, KILLED status) - text stays constant, checkmark indicates state"
+  },
   "R3Lb6z": {
     "defaultMessage": "The requested resource was not found.",
     "description": "Resource not found (HTTP STATUS 404) generic error message"
@@ -2106,6 +2146,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S1gf7m": {
+    "defaultMessage": "Show first 10",
+    "description": "Menu option for showing only the first 10 runs"
   },
   "S7ESYH": {
     "defaultMessage": "Visualizations",
@@ -2346,6 +2390,10 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
+  },
+  "VHGEBz": {
+    "defaultMessage": "All runs are visible. Click to show options.",
+    "description": "Tooltip for the visibility toggle button when all runs are visible"
   },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
@@ -2679,6 +2727,10 @@
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
   },
+  "Zhp0/t": {
+    "defaultMessage": "Run Name",
+    "description": "Fallback text when RunNameHeaderCellRenderer fails to render"
+  },
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
@@ -2723,6 +2775,10 @@
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
   },
+  "Zykh6+": {
+    "defaultMessage": "Show all runs",
+    "description": "Menu option for showing all runs"
+  },
   "a02Pn6": {
     "defaultMessage": "Step",
     "description": "Run page > Charts tab > Chart tooltip > Step label"
@@ -2762,6 +2818,10 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
+  },
+  "aRWMOX": {
+    "defaultMessage": "No runs in this experiment",
+    "description": "Title for empty state when experiment has no runs"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -2806,6 +2866,10 @@
   "axF2gD": {
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
+  },
+  "aygHzZ": {
+    "defaultMessage": "Disable hiding of finished runs with FINISHED, FAILED, and KILLED statuses",
+    "description": "Accessible label for hide finished runs checkbox when checked"
   },
   "b0KTgh": {
     "defaultMessage": "Add/edit alias for prompt version {version}",
@@ -2854,6 +2918,10 @@
   "bXA79t": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > ignore outliers > on setting label"
+  },
+  "bXz1A3": {
+    "defaultMessage": "Show finished runs",
+    "description": "Button to show finished runs"
   },
   "bZdMSj": {
     "defaultMessage": "Ungrouped",
@@ -2998,6 +3066,10 @@
   "dbps6u": {
     "defaultMessage": "Prompt",
     "description": "Sidebar button inside the 'new' popover to create new prompt"
+  },
+  "dcgZC9": {
+    "defaultMessage": "Show all runs",
+    "description": "Button to show all runs"
   },
   "dcoaGS": {
     "defaultMessage": "No experiments created",
@@ -3331,6 +3403,10 @@
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > Model metrics tab"
   },
+  "hKKQqU": {
+    "defaultMessage": "No runs match the current filters.",
+    "description": "Generic description for empty state"
+  },
   "hV4vVj": {
     "defaultMessage": "called {functionName} in {toolCallId}",
     "description": "A message that shows the tool calls that an AI assistant made. The full message reads (for example): 'Assistant called get_weather in id_123'."
@@ -3406,6 +3482,10 @@
   "iLFoPb": {
     "defaultMessage": "State",
     "description": "Filtering label to filter experiments based on state of active or deleted"
+  },
+  "iPYcAN": {
+    "defaultMessage": "No runs found",
+    "description": "Generic title for empty state"
   },
   "iQzwqe": {
     "defaultMessage": "Min",
@@ -3494,6 +3574,10 @@
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
+  },
+  "jlxGsS": {
+    "defaultMessage": "Hide finished runs with FINISHED, FAILED, and KILLED statuses",
+    "description": "Accessible label for hide finished runs checkbox when unchecked"
   },
   "jo4LfR": {
     "defaultMessage": "Pending",
@@ -3803,6 +3887,10 @@
     "defaultMessage": "No description",
     "description": "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
   },
+  "nt+ZXJ": {
+    "defaultMessage": "Try showing finished runs, increasing the run limit, or clearing other filters to see more results.",
+    "description": "Description for empty state when both filters and run limit cause no results"
+  },
   "ny+fBZ": {
     "defaultMessage": "Columns",
     "description": "Dropdown text to display columns names that could to be rendered for the experiment runs table"
@@ -3902,6 +3990,10 @@
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
+  },
+  "pBv7jM": {
+    "defaultMessage": "No active runs found",
+    "description": "Title for empty state when hiding finished runs"
   },
   "pDK3Ha": {
     "defaultMessage": "Run example code:",
@@ -4050,6 +4142,10 @@
   "r5t1Je": {
     "defaultMessage": "Show execution timeline",
     "description": "Tooltip for a button that shows execution timeline info in the trace UI."
+  },
+  "rA1pKr": {
+    "defaultMessage": "Show first 20",
+    "description": "Menu option for showing only the first 20 runs"
   },
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",

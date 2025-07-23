@@ -18,6 +18,8 @@ export const EXPERIMENT_PAGE_QUERY_PARAM_KEYS = [
   'lifecycleFilter',
   'modelVersionFilter',
   'datasetsFilter',
+  'hideFinishedRuns',
+  'runLimit',
 ];
 
 export const EXPERIMENT_PAGE_QUERY_PARAM_IS_PREVIEW = 'isPreview';
@@ -49,8 +51,17 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
   const isPreview = queryParams.get(EXPERIMENT_PAGE_QUERY_PARAM_IS_PREVIEW) === 'true';
 
   // Destructure to get raw values
-  const { searchFilter, orderByKey, orderByAsc, startTime, lifecycleFilter, modelVersionFilter, datasetsFilter } =
-    pickedValues;
+  const {
+    searchFilter,
+    orderByKey,
+    orderByAsc,
+    startTime,
+    lifecycleFilter,
+    modelVersionFilter,
+    datasetsFilter,
+    hideFinishedRuns,
+    runLimit,
+  } = pickedValues;
 
   const areValuesEmpty = keys(pickedValues).length < 1;
 
@@ -83,6 +94,8 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
           lifecycleFilter,
           modelVersionFilter,
           datasetsFilter,
+          hideFinishedRuns,
+          runLimit,
         },
         isNil,
       ),
@@ -99,6 +112,8 @@ export const useExperimentPageSearchFacets = (): [ExperimentQueryParamsSearchFac
     lifecycleFilter,
     modelVersionFilter,
     datasetsFilter,
+    hideFinishedRuns,
+    runLimit,
     areValuesEmpty,
   ]);
 

@@ -48,9 +48,26 @@ export enum LIFECYCLE_FILTER {
   DELETED = 'Deleted',
 }
 
+export const FINISHED_RUN_STATUSES = ['FINISHED', 'FAILED', 'KILLED'] as const;
+
+export const DEFAULT_HIDE_FINISHED_RUNS = false;
+
+// Run limit options for the visibility dropdown
+export const RUN_LIMIT_OPTIONS = {
+  FIRST_10: 10,
+  FIRST_20: 20,
+  ALL: null,
+} as const;
+
+export const RUN_LIMIT_LABELS = {
+  FIRST_10: 'Show first 10',
+  FIRST_20: 'Show first 20',
+  ALL: 'Show all runs',
+} as const;
+
 export enum MODEL_VERSION_FILTER {
   WITH_MODEL_VERSIONS = 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
+  WITHOUT_MODEL_VERSIONS = 'Without Model Versions',
   ALL_RUNS = 'All Runs',
 }
 
