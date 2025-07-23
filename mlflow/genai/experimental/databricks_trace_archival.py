@@ -72,165 +72,116 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
 
         query = f"""
             CREATE OR REPLACE VIEW {view_name} AS
-              WITH trace_snapshots AS (
-                  -- 1. Extract trace metadata from trace snapshot events
-                  SELECT
-                    trace_id,
-                    -- Parse the JSON body to extract all trace metadata
+            WITH
+            -- 1. Extract trace metadata from trace snapshot events
+            trace_snapshots AS (
+              SELECT
+                trace_id,
+                PARSE_JSON(body) AS trace_data -- Parse the JSON body as a VARIANT
+              FROM
+                {events_table}
+              WHERE
+                event_name = '{TRACE_SNAPSHOT_OTEL_EVENT_NAME}'
+            ),
+            -- 2. Aggregate spans grouped by trace_id
+            spans_agg AS (
+              SELECT
+                trace_id,
+                COLLECT_LIST(STRUCT(*)) AS spans -- keep the original span record in tact
+              FROM
+                {spans_table}
+              GROUP BY
+                trace_id
+            ),
+            -- 3. Aggregated valid assessments grouped by trace_id
+            assessments_agg AS (
+              SELECT
+                trace_id,
+                -- Collect and parse the JSON body as a VARIANT
+                COLLECT_LIST(parse_json(body)) AS assessments
+              FROM (
+                SELECT trace_id, body
+                FROM
+                {events_table}
+                WHERE event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
+                  AND attributes['valid'] = 'true'
+                QUALIFY ROW_NUMBER() OVER (
+                  PARTITION BY trace_id, attributes['assessment_id']
+                  ORDER BY time_unix_nano DESC
+                ) = 1
+              )
+              GROUP BY trace_id
+            ),
+            -- 4. Latest tags grouped by trace_id
+            latest_tags AS (
+              SELECT
+                trace_id,
+                FIRST_VALUE(body) OVER (
+                    PARTITION BY trace_id
+                    ORDER BY time_unix_nano DESC
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+                  ) AS tag_json
+              FROM
+                {events_table}
+              WHERE
+                event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
+              QUALIFY
+                ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
+            )
+            -- 5. Main query - join the trace metadata with associated tags, assessments and spans.
+            -- All transformation are moved here to keep the joins performant
+            SELECT
+              ts.trace_data:trace_id::STRING AS trace_id,
+              ts.trace_data:client_request_id::STRING AS client_request_id,
+              TIMESTAMP_MILLIS(CAST(ts.trace_data:request_time::DOUBLE AS BIGINT)) AS request_time,
+              ts.trace_data:state::STRING AS state,
+              ts.trace_data:execution_duration::DOUBLE AS execution_duration_ms,
+              ts.trace_data:request_preview::STRING AS request,
+              ts.trace_data:response_preview::STRING AS response,
+              ts.trace_data:trace_metadata AS trace_metadata,
+              COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
+              ts.trace_data:trace_location AS trace_location,
+              spans,
+              COALESCE(
+                TRANSFORM(
+                  aa.assessments,
+                  body -> STRUCT(
+                    body:assessment_id::STRING AS assessment_id,
+                    body:trace_id::STRING AS trace_id,
+                    body:assessment_name::STRING AS assessment_name,
                     FROM_JSON(
-                      body,
-                      'STRUCT<
-                        trace_id: STRING,
-                        client_request_id: STRING,
-                        trace_location: STRUCT<
-                          type: STRING,
-                          mlflow_experiment: STRUCT<experiment_id: STRING>,
-                          inference_table: STRUCT<full_table_name: STRING>
-                        >,
-                        request_preview: STRING,
-                        response_preview: STRING,
-                        request_time: DOUBLE,
-                        execution_duration: DOUBLE,
-                        state: STRING,
-                        trace_metadata: MAP<STRING, STRING>
-                      >'
-                    ) AS trace_data
-                  FROM
-                    {events_table}
-                  WHERE
-                    event_name = '{TRACE_SNAPSHOT_OTEL_EVENT_NAME}'
+                        body:source::STRING,
+                        'STRUCT<source_id: STRING, source_type: STRING>'
+                    ) AS source,
+                    TIMESTAMP_MILLIS(CAST(body:create_time::DOUBLE AS BIGINT)) AS create_time,
+                    TIMESTAMP_MILLIS(
+                        CAST(body:last_update_time::DOUBLE AS BIGINT)
+                    ) AS last_update_time,
+                    FROM_JSON(body:expectation::STRING, 'STRUCT<value: STRING>') AS expectation,
+                    FROM_JSON(
+                        body:feedback::STRING,
+                        'STRUCT<
+                            value: STRING,
+                            error: STRUCT<
+                                error_code: STRING,
+                                error_message: STRING,
+                                stack_trace: STRING
+                            >
+                         >'
+                    ) AS feedback,
+                    body:rationale::STRING AS rationale,
+                    FROM_JSON(body:metadata::STRING, 'MAP<STRING, STRING>') AS metadata,
+                    body:span_id::STRING AS span_id,
+                    body:valid::BOOLEAN AS valid
+                  )
                 ),
-                -- 2. Aggregate all spans for a given trace
-                spans_agg AS (
-                  SELECT
-                    trace_id,
-                    COLLECT_LIST(
-                      NAMED_STRUCT(
-                        'span_id', span_id,
-                        'trace_id', trace_id,
-                        'parent_id', parent_span_id,
-                        'start_time', TIMESTAMP_MILLIS(
-                            CAST(start_time_unix_nano / 1000000 AS BIGINT)
-                        ),
-                        'end_time', TIMESTAMP_MILLIS(CAST(end_time_unix_nano / 1000000 AS BIGINT)),
-                        'status_code', GET_JSON_OBJECT(status, '$.code'),
-                        'status_message', GET_JSON_OBJECT(status, '$.message'),
-                        'name', name,
-                        'attributes', attributes,
-                        'events',
-                        CASE
-                          WHEN events IS NOT NULL AND size(events) > 0
-                          THEN TRANSFORM(
-                            events,
-                            e -> NAMED_STRUCT(
-                              'name', GET_JSON_OBJECT(e, '$.name'),
-                              'timestamp', TIMESTAMP_MILLIS(
-                                  CAST(
-                                      CAST(GET_JSON_OBJECT(e, '$.time_unix_nano') AS BIGINT)
-                                      / 1000000
-                                      AS BIGINT
-                                  )
-                              ),
-                              'attributes', GET_JSON_OBJECT(e, '$.attributes')
-                            )
-                          )
-                          ELSE ARRAY()
-                        END
-                      )
-                    ) AS spans
-                  FROM {spans_table}
-                  GROUP BY trace_id
-                ),
-                -- 3. Aggregated the valid assessments grouped by trace_id
-                assessments_agg AS (
-                  SELECT
-                    trace_id,
-                    COLLECT_LIST(
-                      NAMED_STRUCT(
-                        'assessment_id', assessment.assessment_id,
-                        'trace_id', assessment.trace_id,
-                        'assessment_name', assessment.assessment_name,
-                        'source', assessment.source,
-                        'create_time', TIMESTAMP_MILLIS(CAST(assessment.create_time AS BIGINT)),
-                        'last_update_time', TIMESTAMP_MILLIS(
-                            CAST(assessment.last_update_time AS BIGINT)
-                        ),
-                        'expectation', assessment.expectation,
-                        'feedback', assessment.feedback,
-                        'rationale', assessment.rationale,
-                        'metadata', assessment.metadata,
-                        'span_id', assessment.span_id
-                      )
-                    ) AS assessments
-                  FROM
-                    (
-                      SELECT
-                        trace_id,
-                        FROM_JSON(
-                          body,
-                          'STRUCT<
-                            assessment_id: STRING,
-                            trace_id: STRING,
-                            assessment_name: STRING,
-                            source: STRUCT<source_id: STRING, source_type: STRING>,
-                            create_time: DOUBLE,
-                            last_update_time: DOUBLE,
-                            expectation: STRUCT<value: STRING>,
-                            feedback: STRUCT<
-                                value: STRING,
-                                error: STRUCT<error_code: STRING, error_message: STRING>
-                            >,
-                            rationale: STRING,
-                            metadata: MAP<STRING, STRING>,
-                            span_id: STRING
-                          >'
-                        ) AS assessment
-                      FROM
-                        {events_table}
-                      WHERE
-                        event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
-                        AND attributes['valid'] = 'true'
-                      QUALIFY
-                        ROW_NUMBER() OVER (
-                            PARTITION BY trace_id, attributes['assessment_id']
-                            ORDER BY time_unix_nano DESC
-                          ) = 1
-                    )
-                  GROUP BY
-                    trace_id
-                ),
-                -- 4. Latest tags grouped by trace_id
-                latest_tags AS (
-                  SELECT
-                    trace_id,
-                    FIRST_VALUE(body) OVER (
-                      PARTITION BY trace_id
-                      ORDER BY time_unix_nano DESC
-                      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-                    ) AS tag_json
-                  FROM {events_table}
-                  WHERE event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
-                  QUALIFY ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
-                )
-                -- 5. Main query - join the trace metadata with associated tags,
-                -- assessments and spans
-                SELECT
-                  ts.trace_data.trace_id,
-                  ts.trace_data.client_request_id,
-                  TIMESTAMP_MILLIS(CAST(ts.trace_data.request_time AS BIGINT)) AS request_time,
-                  ts.trace_data.state,
-                  ts.trace_data.execution_duration AS execution_duration_ms,
-                  ts.trace_data.request_preview AS request,
-                  ts.trace_data.response_preview AS response,
-                  ts.trace_data.trace_metadata,
-                  COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
-                  ts.trace_data.trace_location,
-                  COALESCE(aa.assessments, ARRAY()) AS assessments,
-                  COALESCE(sa.spans, ARRAY()) AS spans
-                FROM trace_snapshots ts
-                  LEFT JOIN latest_tags lt ON ts.trace_id = lt.trace_id
-                  LEFT JOIN assessments_agg aa ON ts.trace_id = aa.trace_id
-                  LEFT JOIN spans_agg sa ON ts.trace_id = sa.trace_id;
+                ARRAY()
+              ) AS assessments
+            FROM
+              trace_snapshots ts
+              LEFT JOIN latest_tags lt ON ts.trace_id = lt.trace_id
+              LEFT JOIN assessments_agg aa ON ts.trace_id = aa.trace_id
+              LEFT JOIN spans_agg sa ON ts.trace_id = sa.trace_id;
             """
 
         spark.sql(query)

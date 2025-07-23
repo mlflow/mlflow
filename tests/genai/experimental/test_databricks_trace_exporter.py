@@ -6,6 +6,7 @@ import time
 from unittest import mock
 
 import pytest
+from ingest_api_sdk.shared.definitions import StreamState
 
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
@@ -475,7 +476,9 @@ def test_ingest_stream_factory_get_or_create_stream():
         mock_sdk_instance.create_stream.assert_called_once_with(table_props)
 
 
-@pytest.mark.parametrize("invalid_state", ["CLOSED", "FAILED"])
+@pytest.mark.parametrize(
+    "invalid_state", [s for s in StreamState if s not in [StreamState.OPENED, StreamState.FLUSHING]]
+)
 def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     """Test that factory recreates streams when cached streams are in invalid states."""
 
@@ -492,10 +495,10 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 
     # Mock streams with configurable state
     old_mock_stream = mock.Mock()
-    old_mock_stream.state = invalid_state
+    old_mock_stream.get_state.return_value = invalid_state
 
     new_mock_stream = mock.Mock()
-    new_mock_stream.state = "ACTIVE"
+    new_mock_stream.get_state.return_value = StreamState.OPENED
 
     with (
         mock.patch(
@@ -526,7 +529,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
         assert any("Creating new thread-local stream" in msg for msg in debug_calls)
 
 
-@pytest.mark.parametrize("valid_state", ["ACTIVE", "READY", "CONNECTING", None])
+@pytest.mark.parametrize("valid_state", [StreamState.OPENED, StreamState.FLUSHING])
 def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     """Test that factory reuses cached streams when they are in valid states."""
 
@@ -543,12 +546,7 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
     # Mock stream with configurable state
     mock_stream = mock.Mock()
-    if valid_state is not None:
-        mock_stream.state = valid_state
-    else:
-        # Remove state attribute entirely to test hasattr() path
-        if hasattr(mock_stream, "state"):
-            delattr(mock_stream, "state")
+    mock_stream.get_state.return_value = valid_state
 
     with (
         mock.patch(
@@ -577,80 +575,6 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
         assert mock_sdk_instance.create_stream.call_count == 1  # Still only called once
 
         # Verify no invalid state logging occurred
-        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-        invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
-        assert len(invalid_state_msgs) == 0, (
-            f"Unexpected invalid state messages: {invalid_state_msgs}"
-        )
-
-
-def test_ingest_stream_factory_edge_cases():
-    """Test edge cases in stream state handling."""
-
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
-
-    # Create table properties for testing
-    table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
-
-    # Clear existing instances
-    IngestStreamFactory._instances.clear()
-
-    factory = IngestStreamFactory.get_instance(table_props)
-
-    with (
-        mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_ingest_sdk"
-        ) as mock_create_sdk,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
-    ):
-        mock_sdk_instance = mock.Mock()
-        mock_create_sdk.return_value = mock_sdk_instance
-
-        # Test 1: Stream with non-string state (should be converted to string)
-        mock_stream1 = mock.Mock()
-        mock_stream1.state = 123  # Integer state
-        mock_sdk_instance.create_stream.return_value = mock_stream1
-
-        stream1 = factory.get_or_create_stream()
-        assert stream1 is mock_stream1
-
-        # Should reuse the stream since str(123) != "CLOSED" or "FAILED"
-        stream1_reuse = factory.get_or_create_stream()
-        assert stream1_reuse is mock_stream1
-        assert mock_sdk_instance.create_stream.call_count == 1
-
-        # Test 2: Clear cache and test stream with state containing invalid string as substring
-        factory._thread_local.stream_cache = None
-        mock_stream2 = mock.Mock()
-        mock_stream2.state = (
-            "NOT_CLOSED_BUT_CONTAINS_CLOSED"  # Contains "CLOSED" but not exactly "CLOSED"
-        )
-        mock_sdk_instance.create_stream.return_value = mock_stream2
-
-        stream2 = factory.get_or_create_stream()
-        assert stream2 is mock_stream2
-
-        # Should reuse since it's not exactly "CLOSED" or "FAILED"
-        stream2_reuse = factory.get_or_create_stream()
-        assert stream2_reuse is mock_stream2
-        assert mock_sdk_instance.create_stream.call_count == 2
-
-        # Test 3: Clear cache and test empty string state
-        factory._thread_local.stream_cache = None
-        mock_stream3 = mock.Mock()
-        mock_stream3.state = ""  # Empty string
-        mock_sdk_instance.create_stream.return_value = mock_stream3
-
-        stream3 = factory.get_or_create_stream()
-        assert stream3 is mock_stream3
-
-        # Should reuse since empty string is not "CLOSED" or "FAILED"
-        stream3_reuse = factory.get_or_create_stream()
-        assert stream3_reuse is mock_stream3
-        assert mock_sdk_instance.create_stream.call_count == 3
-
-        # Verify no invalid state logging occurred for valid edge cases
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
         invalid_state_msgs = [msg for msg in debug_calls if "invalid state" in msg]
         assert len(invalid_state_msgs) == 0, (

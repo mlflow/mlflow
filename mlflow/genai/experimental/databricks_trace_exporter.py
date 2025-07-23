@@ -334,15 +334,11 @@ class IngestStreamFactory:
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
 
-            # Check if stream is in a valid state
-            is_invalid_state = hasattr(stream, "state") and str(stream.state) in [
-                "CLOSED",
-                "FAILED",
-            ]
+            from ingest_api_sdk.shared.definitions import StreamState
 
-            if is_invalid_state:
-                _logger.debug(f"Stream in invalid state {stream.state}, creating new stream")
-                # Invalidate the bad stream from the cache
+            # Invalidate the bad stream from the cache if stream is in a valid state
+            if stream.get_state() not in [StreamState.OPENED, StreamState.FLUSHING]:
+                _logger.debug(f"Stream in invalid state {stream.get_state()}, creating new stream")
                 self._thread_local.stream_cache = None
 
         # Return the valid stream if it wasn't invalidated
