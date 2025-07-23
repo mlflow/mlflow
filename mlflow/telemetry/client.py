@@ -163,6 +163,14 @@ class TelemetryClient:
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
+            if self.info["tracking_uri_scheme"] in ["databricks", "databricks-uc", "uc"]:
+                self._is_stopped = True
+                # set config to None to allow consumer thread drop records in the queue
+                self.config = None
+                self.is_active = False
+                _set_telemetry_client(None)
+                return
+
             records = [
                 {
                     "data": self.info | record.to_dict(),
@@ -346,7 +354,7 @@ class TelemetryClient:
                 # import here to avoid circular import
                 from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-                self.info["backend_store_scheme"] = _get_tracking_scheme()
+                self.info["tracking_uri_scheme"] = _get_tracking_scheme()
             except Exception:
                 pass
 

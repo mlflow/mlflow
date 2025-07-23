@@ -66,11 +66,11 @@ def test_backend_store_info(tmp_path):
     sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
     with _use_tracking_uri(sqlite_uri):
         telemetry_client._update_backend_store()
-    assert telemetry_client.info["backend_store_scheme"] == "sqlite"
+    assert telemetry_client.info["tracking_uri_scheme"] == "sqlite"
 
     with _use_tracking_uri(tmp_path):
         telemetry_client._update_backend_store()
-    assert telemetry_client.info["backend_store_scheme"] == "file"
+    assert telemetry_client.info["tracking_uri_scheme"] == "file"
 
 
 @pytest.mark.parametrize(
