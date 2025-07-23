@@ -17,7 +17,7 @@ export const loggedModelsDataRequest = async (
   body?: any,
 ) => {
   const headers = {
-    body ? { 'Content-Type': 'application/json' } : {},
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
     ...getDefaultHeaders(document.cookie),
   };
   const response = await fetch(url, {
