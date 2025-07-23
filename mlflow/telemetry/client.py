@@ -35,6 +35,7 @@ except ImportError:
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(TelemetryInfo())
+        print("session_id", self.info["session_id"])
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
