@@ -19,7 +19,7 @@ MLflow Typescript SDK is an experimental package. We are actively working on it 
 
 :::
 
-MLflow's Typescript SDK empowers AI application developers by bringing the [MLflow Tracing](/genai/tracing) capabilities to Typescript and Javascript. With minimum code change, you can **debug**, **evaluate**, and **monitor** your applications with MLflow's powerful observability features and take advantage of the trusted end-to--end MLOps platform.
+MLflow's Typescript SDK empowers AI application developers by bringing [MLflow's Tracing](/genai/tracing) capabilities to Typescript and Javascript. With minimum code changes, you can **debug**, **evaluate**, and **monitor** your applications with MLflow's powerful observability features and take advantage of the trusted end-to-end MLOps platform.
 
 ## Quick Start
 
@@ -65,8 +65,8 @@ const getWeather = mlflow.trace(
 getWeather('San Francisco');
 
 // Alternatively, start and end spans manually.
-const span = mlflow.startSpan({ name: 'my-span' });
-span.end();
+const span = mlflow.startSpan({ name: 'my-span', inputs: { message: 'Hi, MLflow!' } });
+span.end({ outputs: { message: 'Hi, what can I do for you?' } });
 ```
 
   </TabItem>
@@ -215,7 +215,7 @@ The trace will look like this:
 
 ### Tracing a class method with the `@trace` API
 
-TypeScript version 5.0+ supports decorators. MLflow Tracing supports this syntax to trace class methods easily. MLflow will automatically creates a span that captures:
+TypeScript version 5.0+ supports decorators. MLflow Tracing supports this syntax to trace class methods easily. MLflow will automatically create a span that captures:
 
 - Input arguments
 - Return value
@@ -285,7 +285,7 @@ Many real-world applications use sessions to maintain multi-turn user interactio
 
 #### Q. I found a feature in the Python SDK that is not available in the Typescript SDK.
 
-The Typescript SDK started later than Python SDK, so some features are not available yet. Please raise a feature request in [GitHub](https://github.com/mlflow/mlflow/issues/new/choose) to get the attention of the maintainers.
+The Typescript SDK started later than the Python SDK, so some features are not available yet. Please raise a feature request in [GitHub](https://github.com/mlflow/mlflow/issues/new/choose) to get the attention of the maintainers.
 
 #### Q. Do I need to install Python to use MLflow Typescript SDK?
 
