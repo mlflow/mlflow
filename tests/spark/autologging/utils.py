@@ -7,7 +7,7 @@ from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 def _get_mlflow_spark_jar_path():
-    jar_dir = os.path.join(os.path.dirname(mlflow.__file__), "java", "spark_2.12", "target")
+    jar_dir = os.path.join(os.path.dirname(mlflow.__file__), "java", "spark_2.13", "target")
     jar_filenames = [
         fname
         for fname in os.listdir(jar_dir)
