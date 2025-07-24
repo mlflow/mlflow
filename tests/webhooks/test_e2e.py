@@ -24,7 +24,7 @@ class WebhookLogEntry:
     endpoint: str
     headers: dict[str, str]
     status_code: int
-    payload: dict[str, Any] | None = None
+    payload: dict[str, Any]
     error: str | None = None
 
 
