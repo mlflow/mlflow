@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator
 
@@ -16,6 +17,15 @@ from mlflow.entities.webhook import WebhookEvent
 
 from tests.helper_functions import get_safe_port
 from tests.webhooks.app import WEBHOOK_SECRET
+
+
+@dataclass
+class WebhookLogEntry:
+    endpoint: str
+    headers: dict[str, str]
+    status_code: int
+    payload: dict[str, Any]
+    error: str | None = None
 
 
 def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
@@ -83,10 +93,11 @@ class AppClient:
         resp = requests.delete(self.get_url("/logs"))
         resp.raise_for_status()
 
-    def get_logs(self) -> list[dict[str, Any]]:
+    def get_logs(self) -> list[WebhookLogEntry]:
         response = requests.get(self.get_url("/logs"))
         response.raise_for_status()
-        return response.json().get("logs", [])
+        logs_data = response.json().get("logs", [])
+        return [WebhookLogEntry(**log_data) for log_data in logs_data]
 
 
 @contextlib.contextmanager
@@ -156,8 +167,8 @@ def test_registered_model_created(mlflow_client: MlflowClient, app_client: AppCl
     )
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "description": registered_model.description,
         "tags": registered_model.tags,
@@ -180,8 +191,8 @@ def test_model_version_created(mlflow_client: MlflowClient, app_client: AppClien
     )
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "version": model_version.version,
         "source": "s3://bucket/path/to/model",
@@ -211,8 +222,8 @@ def test_model_version_tag_set(mlflow_client: MlflowClient, app_client: AppClien
     )
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": "model_version_tag_set",
         "version": model_version.version,
         "key": "test_tag_key",
@@ -244,8 +255,8 @@ def test_model_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppC
     )
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "version": model_version.version,
         "key": "test_tag_key",
@@ -271,8 +282,8 @@ def test_model_version_alias_created(mlflow_client: MlflowClient, app_client: Ap
     )
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "version": model_version.version,
         "alias": "test_alias",
@@ -299,8 +310,8 @@ def test_model_version_alias_deleted(mlflow_client: MlflowClient, app_client: Ap
     mlflow_client.delete_registered_model_alias(name=model_version.name, alias="test_alias")
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "alias": "test_alias",
     }
@@ -323,16 +334,16 @@ def test_webhook_with_secret(mlflow_client: MlflowClient, app_client: AppClient)
 
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/secure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/secure-webhook"
+    assert logs[0].payload == {
         "name": registered_model.name,
         "description": registered_model.description,
         "tags": registered_model.tags,
     }
-    assert logs[0]["status_code"] == 200
+    assert logs[0].status_code == 200
     # HTTP headers are case-insensitive and FastAPI normalizes them to lowercase
-    assert "x-mlflow-signature" in logs[0]["headers"]
-    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+    assert "x-mlflow-signature" in logs[0].headers
+    assert logs[0].headers["x-mlflow-signature"].startswith("sha256=")
 
 
 def test_webhook_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppClient) -> None:
@@ -354,9 +365,9 @@ def test_webhook_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppC
     # The webhook request should have failed, but error should be logged
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/secure-webhook"
-    assert logs[0]["error"] == "Invalid signature"
-    assert logs[0]["status_code"] == 401
+    assert logs[0].endpoint == "/secure-webhook"
+    assert logs[0].error == "Invalid signature"
+    assert logs[0].status_code == 401
 
 
 def test_webhook_without_secret_to_secure_endpoint(
@@ -378,9 +389,9 @@ def test_webhook_without_secret_to_secure_endpoint(
     # The webhook request should fail due to missing signature, but error should be logged
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/secure-webhook"
-    assert logs[0]["error"] == "Missing signature header"
-    assert logs[0]["status_code"] == 400
+    assert logs[0].endpoint == "/secure-webhook"
+    assert logs[0].error == "Missing signature header"
+    assert logs[0].status_code == 400
 
 
 def test_webhook_test_insecure_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
@@ -402,8 +413,8 @@ def test_webhook_test_insecure_endpoint(mlflow_client: MlflowClient, app_client:
     # Check that the test payload was received
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": "example_model",
         "version": "1",
         "source": "models:/123",
@@ -433,15 +444,15 @@ def test_webhook_test_secure_endpoint(mlflow_client: MlflowClient, app_client: A
     # Check that the test payload was received with proper signature
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/secure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/secure-webhook"
+    assert logs[0].payload == {
         "name": "example_model",
         "tags": {"example_key": "example_value"},
         "description": "An example registered model",
     }
-    assert logs[0]["status_code"] == 200
-    assert "x-mlflow-signature" in logs[0]["headers"]
-    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+    assert logs[0].status_code == 200
+    assert "x-mlflow-signature" in logs[0].headers
+    assert logs[0].headers["x-mlflow-signature"].startswith("sha256=")
 
 
 def test_webhook_test_with_specific_event(
@@ -471,8 +482,8 @@ def test_webhook_test_with_specific_event(
     # Check that the correct payload was sent
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/insecure-webhook"
-    assert logs[0]["payload"] == {
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
         "name": "example_model",
         "version": "1",
         "key": "example_key",
@@ -518,6 +529,6 @@ def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client:
     # Check that error was logged
     logs = app_client.get_logs()
     assert len(logs) == 1
-    assert logs[0]["endpoint"] == "/secure-webhook"
-    assert logs[0]["error"] == "Invalid signature"
-    assert logs[0]["status_code"] == 401
+    assert logs[0].endpoint == "/secure-webhook"
+    assert logs[0].error == "Invalid signature"
+    assert logs[0].status_code == 401
