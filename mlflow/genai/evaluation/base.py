@@ -1,25 +1,25 @@
 import logging
 import time
 import warnings
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
+from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
-    _convert_to_legacy_eval_set,
+    _convert_to_eval_set,
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import (
-    clean_up_extra_traces,
-    convert_predict_fn,
-)
+from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
+    _start_run_or_reuse_active_run,
 )
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
@@ -27,6 +27,7 @@ from mlflow.tracing.constant import (
     RETURN_TRACE_OPTION_KEY,
 )
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
+from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -223,25 +224,11 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    try:
-        import databricks.agents  # noqa: F401
-    except ImportError:
-        raise ImportError(
-            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
-            "Please install it with `pip install databricks-agents`."
-        )
-
-    if not is_databricks_uri(mlflow.get_tracking_uri()):
-        raise ValueError(
-            "The genai evaluation function is only supported on Databricks. "
-            "Please set the tracking URI to Databricks."
-        )
-
     is_managed_dataset = isinstance(data, EvaluationDataset)
 
     scorers = validate_scorers(scorers)
-    # convert into a pandas dataframe with current evaluation set schema
-    df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
+    # convert into a pandas dataframe with expected evaluation set schema
+    df = data.to_df() if is_managed_dataset else _convert_to_eval_set(data)
 
     builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
@@ -257,9 +244,57 @@ def evaluate(
             "For example: {'query': 'What is MLflow?'}"
         )
 
+    # If the input dataset is a managed dataset, we pass the original dataset
+    # to the evaluate function to preserve metadata like dataset name.
+    data = data if is_managed_dataset else df
+
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
+    eval_start_time = int(time.time() * 1000)
+
+    if is_databricks_uri(mlflow.get_tracking_uri()):
+        result = _evaluate_dbx(data, scorers, predict_fn, model_id)
+    else:
+        result = _evaluate_oss(data, scorers, predict_fn, model_id)
+
+    # Clean up noisy traces generated during evaluation
+    clean_up_extra_traces(result.run_id, eval_start_time)
+
+    return result
+
+
+def _evaluate_oss(data, scorers, predict_fn, model_id):
+    from mlflow.genai.evaluation import harness
+
+    # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
+    # This is a temporary hack to avoid branching _convert_to_eval_set()
+    # into OSS and DBX implementation.
+    data = data.rename(
+        columns={
+            "request": InputDatasetColumn.INPUTS,
+            "response": InputDatasetColumn.OUTPUTS,
+        }
+    )
+
+    # TODO: Log input dataset to the run
+    with (
+        _start_run_or_reuse_active_run(),
+        _set_active_model(model_id=model_id) if model_id else nullcontext(),
+    ):
+        return harness.run(
+            predict_fn=predict_fn,
+            dataset=data,
+            scorers=scorers,
+        )
+        # TODO: Support logging aggregated metrics to the logged model
+
+
+def _evaluate_dbx(data, scorers, predict_fn, model_id):
+    """In Databricks, we run GenAI evaluation using databricks-agents package and
+    the mlflow.evaluate() function. This is a temporary migration state and we will
+    eventually unify this into OSS flow.
+    """
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -275,12 +310,9 @@ def evaluate(
             module="mlflow.data.evaluation_dataset",
         )
 
-        eval_start_time = int(time.time() * 1000)
-        result = mlflow.models.evaluate(
+        return mlflow.models.evaluate(
             model=predict_fn,
-            # If the input dataset is a managed dataset, we pass the original dataset
-            # to the evaluate function to preserve metadata like dataset name.
-            data=data if is_managed_dataset else df,
+            data=data,
             evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
             # Scorers are passed to the eval harness as extra metrics
             extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
@@ -288,10 +320,6 @@ def evaluate(
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
-
-        # Clean up noisy traces generated during evaluation
-        clean_up_extra_traces(result.run_id, eval_start_time)
-        return result
 
 
 @experimental(version="3.0.0")

@@ -1,8 +1,11 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+import math
+from typing import TYPE_CHECKING, Any, Collection, Optional, Union
 
 from mlflow.entities import Assessment, Trace
+from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
@@ -30,6 +33,8 @@ if TYPE_CHECKING:
 
 
 _logger = logging.getLogger(__name__)
+
+USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
 
 
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -79,11 +84,10 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     return df
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
+def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
-    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
-    be accepted by mlflow.evaluate().
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts it
+    into standardized Pandas DataFrame.
     The expected schema can be found at:
     https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
 
@@ -242,3 +246,90 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         eval_fn=eval_fn,
         name=scorer.name,
     )
+
+
+def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
+    """
+    Convert the scorer return value to a list of MLflow Assessment (Feedback) objects.
+
+    Scorer can return:
+    - A number, boolean, or string, a list of them.
+    - An Feedback object
+    - A list of Feedback objects
+
+    All of the above will be converted to a list of Feedback objects.
+    """
+    # None is a valid metric value, return an empty list
+    if value is None:
+        return []
+
+    # Primitives are valid metric values
+    if isinstance(value, (int, float, bool, str)):
+        return [
+            Feedback(
+                name=scorer_name,
+                source=make_code_type_assessment_source(scorer_name),
+                value=value,
+            )
+        ]
+
+    if isinstance(value, Feedback):
+        value.name = _get_custom_assessment_name(value, scorer_name)
+        return [value]
+
+    if isinstance(value, Collection):
+        assessments = []
+        for item in value:
+            if isinstance(item, Feedback):
+                # Scorer returns multiple assessments as a list.
+                item.name = _get_custom_assessment_name(item, scorer_name)
+                assessments.append(item)
+            else:
+                # If the item is not assessment, the list represents a single assessment
+                # value of list type. Convert it to a Feedback object.
+                assessments.append(
+                    Feedback(
+                        name=scorer_name,
+                        source=make_code_type_assessment_source(scorer_name),
+                        value=item,
+                    )
+                )
+        return assessments
+
+    raise MlflowException.invalid_parameter_value(
+        f"Got unsupported result from scorer '{scorer_name}'. "
+        f"Expected the metric value to be a number, or a boolean, or a string, "
+        "or an Feedback, or a list of Feedbacks. "
+        f"Got {value}.",
+    )
+
+
+def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:
+    """Get the name of the custom assessment. Use assessment name if present and not a builtin judge
+    name, otherwise use the scorer name.
+
+    Args:
+        assessment: The assessment to get the name for.
+        scorer_name: The name of the scprer.
+    """
+    # If the user didn't provide a name, use the scorer name
+    if assessment.name == DEFAULT_FEEDBACK_NAME or (
+        assessment.metadata is not None
+        and assessment.metadata.get(USER_DEFINED_ASSESSMENT_NAME_KEY) == "false"
+    ):
+        return scorer_name
+    return assessment.name
+
+
+def make_code_type_assessment_source(scorer_name: str) -> AssessmentSource:
+    return AssessmentSource(source_type=AssessmentSourceType.CODE, source_id=scorer_name)
+
+
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))

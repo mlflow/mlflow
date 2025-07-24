@@ -53,7 +53,10 @@ def sample_data():
 
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
-def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
+def test_scorer_existence_in_metrics(sample_data, dummy_scorer, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
+
     result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any("always_yes" in metric for metric in result.metrics.keys())
 
@@ -61,13 +64,19 @@ def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
 @pytest.mark.parametrize(
     "dummy_scorer", [AlwaysYesScorer(name="always_no"), scorer(name="always_no")(always_yes)]
 )
-def test_scorer_name_works(sample_data, dummy_scorer):
+def test_scorer_name_works(sample_data, dummy_scorer, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
+
     _SCORER_NAME = "always_no"
     result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any(_SCORER_NAME in metric for metric in result.metrics.keys())
 
 
-def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
+def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
+
     with (
         patch(
             "databricks.agents.evals.judges.correctness",
@@ -132,7 +141,10 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
     )
 
 
-def test_trace_passed_to_custom_scorer_correctly(sample_data):
+def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
+
     actual_call_args_list = []
 
     @scorer
@@ -171,7 +183,10 @@ def test_trace_passed_to_custom_scorer_correctly(sample_data):
         )
 
 
-def test_trace_passed_correctly():
+def test_trace_passed_correctly(is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
+
     @mlflow.trace
     def predict_fn(question):
         return "output: " + str(question)
@@ -233,7 +248,10 @@ def test_trace_passed_correctly():
         ),
     ],
 )
-def test_scorer_on_genai_evaluate(sample_data, scorer_return):
+def test_scorer_on_genai_evaluate(sample_data, scorer_return, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
+
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return
@@ -262,7 +280,7 @@ def test_custom_scorer_allow_none_return():
     assert dummy_scorer.run(inputs={"question": "query"}, outputs="answer") is None
 
 
-def test_scorer_returns_feedback_with_error(sample_data):
+def test_scorer_returns_feedback_with_error(sample_data, is_in_databricks):
     @scorer
     def dummy_scorer(inputs):
         return Feedback(
@@ -272,11 +290,10 @@ def test_scorer_returns_feedback_with_error(sample_data):
             metadata={"index": 0},
         )
 
-    with patch("mlflow.get_tracking_uri", return_value="databricks"):
-        results = mlflow.genai.evaluate(
-            data=sample_data,
-            scorers=[dummy_scorer],
-        )
+    results = mlflow.genai.evaluate(
+        data=sample_data,
+        scorers=[dummy_scorer],
+    )
 
     # Scorer should not be in result when it returns an error
     assert all("dummy_scorer" not in metric for metric in results.metrics.keys())
@@ -320,7 +337,10 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     assert feedbacks[1].name == "small_question"
 
 
-def test_extra_traces_from_customer_scorer_should_be_cleaned_up():
+def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support predict_fn yet")
+
     @scorer
     def my_scorer_1(inputs, outputs):
         with mlflow.start_span(name="scorer_trace_1") as span:
@@ -361,7 +381,10 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up():
     assert len(get_traces()) == 1
 
 
-def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up():
+def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up(is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS GenAI evaluator doesn't support predict_fn yet")
+
     def predict(question: str) -> str:
         return "output: " + str(question)
 

@@ -89,7 +89,7 @@ def _validate_assessments(traces):
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
 
 
-def test_evaluate_with_static_dataset():
+def test_evaluate_with_static_dataset(is_in_databricks):
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -114,11 +114,13 @@ def test_evaluate_with_static_dataset():
         scorers=[exact_match, is_concise, relevance, has_trace],
     )
 
-    metrics = result.metrics
-    assert metrics["exact_match/mean"] == 1.0
-    assert metrics["is_concise/mean"] == 0.5
-    assert metrics["relevance/mean"] == 1.0
-    assert metrics["has_trace/mean"] == 1.0
+    # OSS evaluator doesn't support metrics aggregation yet.
+    if is_in_databricks:
+        metrics = result.metrics
+        assert metrics["exact_match/mean"] == 1.0
+        assert metrics["is_concise/mean"] == 0.5
+        assert metrics["relevance/mean"] == 1.0
+        assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -142,7 +144,10 @@ def test_evaluate_with_static_dataset():
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
-def test_evaluate_with_predict_fn(is_predict_fn_traced):
+def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS genai evaluator doesn't support predict_fn yet")
+
     model_id = mlflow.set_active_model(name="test-model-id").model_id
 
     data = [
@@ -171,11 +176,12 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
         model_id=model_id,
     )
 
-    metrics = result.metrics
-    assert metrics["exact_match/mean"] == 0.0
-    assert metrics["is_concise/mean"] == 0.5
-    assert metrics["relevance/mean"] == 1.0
-    assert metrics["has_trace/mean"] == 1.0
+    if is_in_databricks:
+        metrics = result.metrics
+        assert metrics["exact_match/mean"] == 0.0
+        assert metrics["is_concise/mean"] == 0.5
+        assert metrics["relevance/mean"] == 1.0
+        assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -204,7 +210,6 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
 
 
 @pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
-@pytest.mark.parametrize("pass_full_dataframe", [True, False])
 def test_evaluate_with_traces(pass_full_dataframe):
     questions = ["What is MLflow?", "What is Spark?"]
 
@@ -290,8 +295,10 @@ def test_evaluate_with_traces(pass_full_dataframe):
     _validate_assessments(traces)
 
 
-@pytest.mark.skip(reason="TODO: Run test with databricks-agents and tracking URI 'databricks'")
-def test_evaluate_with_managed_dataset():
+def test_evaluate_with_managed_dataset(is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS genai evaluator doesn't support managed dataset evaluation yet")
+
     class MockDatasetClient:
         def __init__(self):
             # dataset_id -> list of records
@@ -377,7 +384,12 @@ def test_evaluate_with_managed_dataset():
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")
-def test_model_from_deployment_endpoint(mock_get_deploy_client):
+def test_model_from_deployment_endpoint(mock_get_deploy_client, is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip(
+            "OSS genai evaluator doesn't support model from deployment endpoint evaluation yet"
+        )
+
     mock_client = mock_get_deploy_client.return_value
     mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
 
@@ -441,12 +453,14 @@ def test_no_scorers(mock_get_tracking_uri):
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
-def test_trace_input_can_contain_string_input(pass_full_dataframe):
+def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databricks):
     """
     The `inputs` column must be a dictionary when a static dataset is provided.
     However, when a trace is provided, it doesn't need to be validated and the
     harness can handle it nicely.
     """
+    if not is_in_databricks:
+        pytest.skip("OSS genai evaluator doesn't support trace input yet")
     with mlflow.start_span() as span:
         span.set_inputs("What is MLflow?")
         span.set_outputs("MLflow is a tool for ML")
