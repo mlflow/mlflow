@@ -291,26 +291,39 @@ function createAndRegisterMlflowSpan(
  *   }
  * }
  */
-export function trace(options?: TraceOptions): MethodDecorator;
+export function trace(options?: TraceOptions): any;
 export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T;
 export function trace<T extends (...args: any[]) => any>(
   funcOrOptions?: T | TraceOptions,
   options?: TraceOptions
-): T | MethodDecorator {
+): any {
   // Check if this is being used as a decorator (no function provided, or options provided)
   if (typeof funcOrOptions !== 'function') {
     const decoratorOptions = funcOrOptions;
 
-    // Return a method decorator
-    return function (_target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-      const originalMethod = descriptor.value as T;
+    // Return a method decorator that supports both old and new TypeScript decorator syntax
+    return function (...args: any[]) {
+      let originalMethod: Function;
+      let methodName: string;
 
-      if (typeof originalMethod !== 'function') {
-        throw new Error('@trace decorator can only be applied to methods');
+      // Check if using new TypeScript 5.0+ decorator syntax
+      const isNewSyntax =
+        args.length === 2 && typeof args[1] === 'object' && !Array.isArray(args[1]);
+
+      if (isNewSyntax) {
+        // New syntax: (originalMethod, context)
+        originalMethod = args[0];
+        const context = args[1] as ClassMethodDecoratorContext;
+        methodName = String(context.name);
+      } else {
+        // Old syntax: (target, propertyKey, descriptor)
+        const desc = args[2] as PropertyDescriptor;
+        originalMethod = desc.value;
+        methodName = String(args[1]);
       }
 
       // Create the traced method wrapper
-      descriptor.value = function (this: any, ...args: any[]) {
+      const tracedMethod = function (this: any, ...args: any[]) {
         let inputs: any;
         try {
           inputs = mapArgsToObject(originalMethod, args);
@@ -320,24 +333,32 @@ export function trace<T extends (...args: any[]) => any>(
         }
 
         const spanOptions: Omit<SpanOptions, 'parent'> = {
-          name: decoratorOptions?.name || originalMethod.name || String(propertyKey),
+          name: decoratorOptions?.name || originalMethod.name || methodName,
           spanType: decoratorOptions?.spanType,
           attributes: decoratorOptions?.attributes,
           inputs
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return withSpan((_span) => {
           // Call the original method with the preserved `this` context
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          return originalMethod.apply(this, args);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return originalMethod.apply(this, args) as ReturnType<T>;
         }, spanOptions) as ReturnType<T>;
       };
 
-      // Preserve the original method's properties
-      Object.defineProperty(descriptor.value, 'length', { value: originalMethod.length });
-      Object.defineProperty(descriptor.value, 'name', { value: originalMethod.name });
+      // Return the appropriate value based on the decorator syntax
+      if (isNewSyntax) {
+        return tracedMethod as T;
+      } else {
+        const descriptor = args[2] as PropertyDescriptor;
+        descriptor.value = tracedMethod;
+        // Preserve the original method's properties
+        Object.defineProperty(descriptor.value, 'length', { value: originalMethod.length });
+        Object.defineProperty(descriptor.value, 'name', { value: originalMethod.name });
 
-      return descriptor;
+        return descriptor;
+      }
     };
   } else {
     // This is the function-based usage (existing behavior)
