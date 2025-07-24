@@ -1,52 +1,93 @@
+import base64
 import hashlib
 import hmac
 import json
 import logging
+import time
+import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
-from mlflow.webhooks.types import WebhookPayload, get_example_payload_for_event
+from mlflow.webhooks.constants import (
+    WEBHOOK_DELIVERY_ID_HEADER,
+    WEBHOOK_SIGNATURE_HEADER,
+    WEBHOOK_SIGNATURE_VERSION,
+    WEBHOOK_TIMESTAMP_HEADER,
+)
+from mlflow.webhooks.types import (
+    WebhookPayload,
+    get_example_payload_for_event,
+)
 
 _logger = logging.getLogger(__name__)
 
 
-def _generate_hmac_signature(secret: str, payload_bytes: bytes) -> str:
-    """Generate HMAC-SHA256 signature for webhook payload.
+def _generate_hmac_signature(secret: str, delivery_id: str, timestamp: str, payload: str) -> str:
+    """Generate webhook HMAC-SHA256 signature.
 
     Args:
         secret: The webhook secret key
-        payload_bytes: The serialized payload bytes
+        delivery_id: The unique delivery ID
+        timestamp: Unix timestamp as string
+        payload: The JSON payload as string
 
     Returns:
-        The HMAC signature in the format "sha256=<hex_digest>"
+        The signature in the format "v1,<base64_encoded_signature>"
     """
-    signature = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
-    return f"sha256={signature}"
+    # Signature format: delivery_id.timestamp.payload
+    signed_content = f"{delivery_id}.{timestamp}.{payload}"
+    signature = hmac.new(
+        secret.encode("utf-8"), signed_content.encode("utf-8"), hashlib.sha256
+    ).digest()
+    signature_b64 = base64.b64encode(signature).decode("utf-8")
+    return f"{WEBHOOK_SIGNATURE_VERSION},{signature_b64}"
 
 
 def _send_webhook_request(
     webhook: Webhook,
     payload: WebhookPayload,
+    event: WebhookEvent,
 ) -> requests.Response:
     """Send a webhook request to the specified URL.
 
     Args:
         webhook: The webhook object containing the URL and secret
         payload: The payload to send
+        event: The webhook event type
 
     Returns:
         requests.Response object from the webhook request
     """
-    payload_bytes = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    # Create webhook payload with metadata
+    webhook_payload = {
+        "type": event.value,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": payload,
+    }
 
-    # Add HMAC signature if secret is configured
+    payload_json = json.dumps(webhook_payload)
+    payload_bytes = payload_json.encode("utf-8")
+
+    # Generate IDs and timestamps for webhooks
+    delivery_id = str(uuid.uuid4())
+    unix_timestamp = str(int(time.time()))
+
+    # MLflow webhook headers
+    headers = {
+        "Content-Type": "application/json",
+        WEBHOOK_DELIVERY_ID_HEADER: delivery_id,
+        WEBHOOK_TIMESTAMP_HEADER: unix_timestamp,
+    }
+
+    # Add signature if secret is configured
     if webhook.secret:
-        signature = _generate_hmac_signature(webhook.secret, payload_bytes)
+        signature = _generate_hmac_signature(
+            webhook.secret, delivery_id, unix_timestamp, payload_json
+        )
         headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
     return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=30)
@@ -62,7 +103,7 @@ def _dispatch_webhook_impl(
     for webhook in store.list_webhooks():
         if event in webhook.events:
             try:
-                _send_webhook_request(webhook, payload)
+                _send_webhook_request(webhook, payload, event)
             except Exception as e:
                 _logger.error(
                     f"Failed to send webhook to {webhook.url} for event {event}: {e}",
@@ -99,7 +140,7 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
     test_event = event or webhook.events[0]
     try:
         test_payload = get_example_payload_for_event(test_event)
-        response = _send_webhook_request(webhook=webhook, payload=test_payload)
+        response = _send_webhook_request(webhook=webhook, payload=test_payload, event=test_event)
         return WebhookTestResult(
             success=response.status_code < 400,
             response_status=response.status_code,

@@ -332,7 +332,7 @@ def test_webhook_with_secret(mlflow_client: MlflowClient, app_client: AppClient)
     assert logs[0]["status_code"] == 200
     # HTTP headers are case-insensitive and FastAPI normalizes them to lowercase
     assert "x-mlflow-signature" in logs[0]["headers"]
-    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+    assert logs[0]["headers"]["x-mlflow-signature"].startswith("v1,")
 
 
 def test_webhook_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppClient) -> None:
@@ -441,7 +441,7 @@ def test_webhook_test_secure_endpoint(mlflow_client: MlflowClient, app_client: A
     }
     assert logs[0]["status_code"] == 200
     assert "x-mlflow-signature" in logs[0]["headers"]
-    assert logs[0]["headers"]["x-mlflow-signature"].startswith("sha256=")
+    assert logs[0]["headers"]["x-mlflow-signature"].startswith("v1,")
 
 
 def test_webhook_test_with_specific_event(

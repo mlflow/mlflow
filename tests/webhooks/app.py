@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -8,7 +9,12 @@ import fastapi
 import uvicorn
 from fastapi import HTTPException, Request
 
-from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
+from mlflow.webhooks.constants import (
+    WEBHOOK_DELIVERY_ID_HEADER,
+    WEBHOOK_SIGNATURE_HEADER,
+    WEBHOOK_SIGNATURE_VERSION,
+    WEBHOOK_TIMESTAMP_HEADER,
+)
 
 LOG_FILE = Path("logs.jsonl")
 
@@ -22,9 +28,12 @@ async def health_check():
 
 @app.post("/insecure-webhook")
 async def insecure_webhook(request: Request):
+    payload = await request.json()
+    # Extract the data field from webhook payload
+    actual_payload = payload.get("data", payload) if isinstance(payload, dict) else payload
     webhook_data = {
         "endpoint": "/insecure-webhook",
-        "payload": await request.json(),
+        "payload": actual_payload,
         "headers": dict(request.headers),
         "status_code": 200,
     }
@@ -56,21 +65,29 @@ async def get_logs():
 WEBHOOK_SECRET = "test-secret-key"
 
 
-def verify_signature(payload: bytes, signature: str) -> bool:
-    if not signature or not signature.startswith("sha256="):
+def verify_webhook_signature(
+    payload: str, signature: str, delivery_id: str, timestamp: str
+) -> bool:
+    if not signature or not signature.startswith(f"{WEBHOOK_SIGNATURE_VERSION},"):
         return False
 
+    # Signature format: delivery_id.timestamp.payload
+    signed_content = f"{delivery_id}.{timestamp}.{payload}"
     expected_signature = hmac.new(
-        WEBHOOK_SECRET.encode("utf-8"), payload, hashlib.sha256
-    ).hexdigest()
-    provided_digest = signature.removeprefix("sha256=")
-    return hmac.compare_digest(expected_signature, provided_digest)
+        WEBHOOK_SECRET.encode("utf-8"), signed_content.encode("utf-8"), hashlib.sha256
+    ).digest()
+    expected_signature_b64 = base64.b64encode(expected_signature).decode("utf-8")
+
+    provided_signature = signature.removeprefix(f"{WEBHOOK_SIGNATURE_VERSION},")
+    return hmac.compare_digest(expected_signature_b64, provided_signature)
 
 
 @app.post("/secure-webhook")
 async def secure_webhook(request: Request):
     body = await request.body()
     signature = request.headers.get(WEBHOOK_SIGNATURE_HEADER)
+    timestamp = request.headers.get(WEBHOOK_TIMESTAMP_HEADER)
+    delivery_id = request.headers.get(WEBHOOK_DELIVERY_ID_HEADER)
 
     if not signature:
         error_data = {
@@ -83,7 +100,29 @@ async def secure_webhook(request: Request):
             f.write(json.dumps(error_data) + "\n")
         raise HTTPException(status_code=400, detail="Missing signature header")
 
-    if not verify_signature(body, signature):
+    if not timestamp:
+        error_data = {
+            "endpoint": "/secure-webhook",
+            "error": "Missing timestamp header",
+            "status_code": 400,
+            "headers": dict(request.headers),
+        }
+        with LOG_FILE.open("a") as f:
+            f.write(json.dumps(error_data) + "\n")
+        raise HTTPException(status_code=400, detail="Missing timestamp header")
+
+    if not delivery_id:
+        error_data = {
+            "endpoint": "/secure-webhook",
+            "error": "Missing delivery ID header",
+            "status_code": 400,
+            "headers": dict(request.headers),
+        }
+        with LOG_FILE.open("a") as f:
+            f.write(json.dumps(error_data) + "\n")
+        raise HTTPException(status_code=400, detail="Missing delivery ID header")
+
+    if not verify_webhook_signature(body.decode("utf-8"), signature, delivery_id, timestamp):
         error_data = {
             "endpoint": "/secure-webhook",
             "error": "Invalid signature",
@@ -95,9 +134,11 @@ async def secure_webhook(request: Request):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     payload = json.loads(body)
+    # Extract the data field from webhook payload
+    actual_payload = payload.get("data", payload) if isinstance(payload, dict) else payload
     webhook_data = {
         "endpoint": "/secure-webhook",
-        "payload": payload,
+        "payload": actual_payload,
         "headers": dict(request.headers),
         "status_code": 200,
     }
