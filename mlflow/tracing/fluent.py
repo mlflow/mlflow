@@ -36,7 +36,6 @@ from mlflow.tracing.utils import (
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
-    set_chat_attributes_special_case,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracing.utils.warning import request_id_backward_compatible
@@ -214,9 +213,6 @@ def _wrap_function(
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
-
-                set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
-
                 try:
                     yield result
                 except GeneratorExit:
@@ -318,7 +314,6 @@ def _wrap_generator(
             except Exception as e:
                 _logger.debug(f"Failed to reduce outputs from stream: {e}")
 
-        set_chat_attributes_special_case(span, inputs=inputs, outputs=outputs)
         span.end(outputs=outputs)
 
     def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
@@ -392,6 +387,8 @@ def _wrap_function_safe(fn: Callable[..., Any], wrapper: Callable[..., Any]) -> 
         wrapped.__signature__ = inspect.signature(fn)
     except Exception:
         pass
+    # Add unique marker for MLflow trace detection
+    wrapped.__mlflow_traced__ = True
     return wrapped
 
 

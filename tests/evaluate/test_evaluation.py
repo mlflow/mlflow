@@ -6,7 +6,7 @@ import re
 import signal
 import subprocess
 import uuid
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -87,7 +87,11 @@ def get_breast_cancer_dataset():
     return data.data, data.target
 
 
-RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+class RunData(NamedTuple):
+    params: dict[str, Any]
+    metrics: dict[str, Any]
+    tags: dict[str, Any]
+    artifacts: list[str]
 
 
 def get_run_data(run_id):

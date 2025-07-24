@@ -2,12 +2,13 @@ import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
+import ImageBox from "@site/src/components/ImageBox";
 
 # Automatic Tracing
 
 MLflow Tracing is integrated with various GenAI libraries and provides **one-line automatic tracing** experience for each library (and the combination of them!). This page shows detailed examples to integrate MLflow with popular GenAI libraries.
 
-![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="Tracing Gateway Video" />
 
 ## Supported Integrations
 
@@ -82,17 +83,20 @@ Each integration automatically captures your application's logic and intermediat
   </SmallLogoCard>
 </CardGroup>
 <br />
-Below are quick-start examples for some of the most popular integrations. Remember to install the necessary packages for each library you intend to use (e.g., `pip install openai langchain langgraph anthropic dspy`).
 
-## Combining Manual and Automatic Tracing
+:::info Missing your favorite library?
+Is your favorite library missing from the list? Consider <ins>[contributing to MLflow Tracing](/genai/tracing/integrations/contribute)</ins> or <ins>[submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D)</ins> to our Github repository.
+:::
+
+## Advanced Usage
+
+### Combining Manual and Automatic Tracing
 
 The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
 
 1. 🔄 **Complex workflows** that involve multiple LLM calls
 2. 🤖 **Multi-agent systems** where different agents use different LLM providers
 3. 🔗 **Chaining multiple LLM calls** together with custom logic in between
-
-### Basic Example
 
 Here's a simple example that combines OpenAI auto-tracing with manually defined spans:
 

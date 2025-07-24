@@ -6,9 +6,8 @@ import subprocess
 import sys
 import threading
 import time
-from collections import namedtuple
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 from unittest import mock
 
 import aiohttp
@@ -236,7 +235,9 @@ class UvicornGateway:
         self.thread.join()
 
 
-ServerInfo = namedtuple("ServerInfo", ["pid", "url"])
+class ServerInfo(NamedTuple):
+    pid: int
+    url: str
 
 
 def log_sentence_transformers_model():

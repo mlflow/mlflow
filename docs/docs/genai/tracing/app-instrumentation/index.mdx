@@ -1,404 +1,222 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { GitMerge } from "lucide-react";
 
-# Instrument your app
+# Instrument Your App with MLflow Tracing
 
-Learn how to instrument your GenAI application with MLflow Tracing to capture and visualize the execution flow of your application. MLflow offers two main approaches to implementing tracing that can be used independently or together for comprehensive observability.
-
-## Prerequisites
-
-This guide requires the following packages:
-
-**mlflow>=3.1**: Core MLflow functionality with GenAI features.
-
-**openai>=1.0.0**: Only required to run the [Quick Start Examples](#quick-start-examples) below (if using other LLM providers, install their respective SDKs instead)
-
-Install the required packages:
-
-```bash
-pip install --upgrade "mlflow>=3.1" openai>=1.0.0
-```
-
-:::note[MLflow Version Recommendation]
-While tracing features are available starting in MLflow 2.15.0+, **it is strongly recommended to install MLflow 3** for the latest GenAI capabilities, including expanded tracing features, enhanced evaluation capabilities, and an improved UI.
+:::tip
+New to MLflow Tracing? Checkout the <ins>[Quick Start Guide](/genai/tracing/quickstart/python-openai)</ins> to get started.
 :::
 
-## Environment Setup
+This page provides a comprehensive guide for instrumenting your GenAI applications with MLflow Tracing.
 
-Before running the examples below, configure your environment:
+## 1. Installation
 
+<TabsWrapper>
 <Tabs>
-  <TabItem value="local" label="Local MLflow" default>
-    For local development, start the MLflow tracking server:
+  <TabItem value="python" label="Python" default>
+    Add [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) to your Python environment to enable tracing features with minimum set of dependencies.
+    ```bash
+    pip install mlflow-tracing
+    ```
+  </TabItem>
+  <TabItem value="js" label="JS/TS">
+    ```bash
+    npm install mlflow-tracing
+    ```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+:::info
+
+The [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) Python package does not include other MLflow features, such as the self-host tracking server, evaluation capabilities, prompt management, etc. If you want to use the full set of MLflow's features, please install the full MLflow package. We recommend using the [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) package for production applications to keep the dependencies and package footprint minimal.
+
+```bash
+pip install mlflow
+```
+
+:::
+
+## 2. Connect Your Application with MLflow
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="local" label="Self-Host MLflow (Local)" default>
+    For local development or personal use, locally hosting MLflow is a good option. While this is not recommended for production use, it is the fastest way to get started. For logging traces, we recommend using a [SQL Backend](https://mlflow.org/docs/latest/tracking.html#sql-backend) for better performance.
+
+    To start a local MLflow server, run the following command in your terminal. Alternatively, you can use the official [Docker image](https://github.com/mlflow/mlflow/pkgs/container/mlflow) to run the server.
 
     ```bash
-    mlflow server --host 127.0.0.1 --port 5000
+    # Replace sqlite:/// part with your preferred database URI.
+    mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlruns.db
     ```
 
-    Then configure your tracking URI:
+    Then, in your application, configure the tracking URI and set an active experiment using the following code:
+
+    **Python:**
 
     ```python
     import mlflow
 
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
-    mlflow.set_experiment("my-tracing-experiment")
+    mlflow.set_experiment("<your-experiment-name>")
+    ```
+
+    **JS/TS:**
+
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    mlflow.init(
+      trackingUri: "http://127.0.0.1:5000",
+      experimentId: "<your-experiment-id>",  // If no experiment is created yet, create it on UI first.
+    );
     ```
 
   </TabItem>
-  <TabItem value="remote" label="Remote Server">
-    For remote MLflow servers, configure the tracking URI:
+  <TabItem value="remote" label="Remote MLflow">
+    When you have a remote MLflow server already running (either self-hosted or a cloud-based managed MLflow), you can connect your application to it by configuring the tracking URI.
+
+    **Python**
 
     ```python
     import mlflow
 
-    mlflow.set_tracking_uri("https://your-mlflow-server.com")
-    mlflow.set_experiment("my-tracing-experiment")
+    mlflow.set_tracking_uri("https://<your-mlflow-server>:<port>")
+    mlflow.set_experiment("<your-experiment-name>")
+    ```
+
+    **JS/TS:**
+
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    mlflow.init(
+      trackingUri: "https://<your-mlflow-server.com>:<port>",
+      experimentId: "<your-experiment-id>",  // If no experiment is created yet, create it within the MLflow UI first.
+    );
     ```
 
   </TabItem>
   <TabItem value="databricks" label="Databricks">
-    If you're working on tracing with Databricks, configure your authentication:
 
-    ```python
-    import os
-
-    # Set Databricks authentication (only needed when running outside Databricks)
-    os.environ["DATABRICKS_HOST"] = "https://your-workspace.databricks.com"
-    os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"
-    ```
-
-  </TabItem>
-</Tabs>
-
-## Tracing Approaches
-
-MLflow provides two complementary approaches to tracing:
-
-**[Automatic Tracing](#automatic-tracing)**: Just add 1 line of code `mlflow.<library>.autolog()` to automatically capture your app's logic. Automatic tracing works with 20+ [supported libraries and frameworks](/genai/tracing/integrations) out of the box
-
-**[Manual Tracing](#manual-tracing)**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how using [high-level APIs (decorators and fluent context managers)](manual-tracing/fluent-apis) or [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api).
-
-:::note
-Automatic and manual tracing can be used together. For example, you could use the auto-tracing for OpenAI's SDK and manual tracing to combine multiple LLM calls into a single trace that represents your application's end to end logic.
-:::
-
-## Quick Start Examples
-
-### Automatic Tracing Example
-
-Enable automatic tracing for your favorite library with just one line of code:
-
-```python
-import mlflow
-from openai import OpenAI
-import os
-
-# Set up environment (if not already configured)
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-
-# Set up MLflow tracking
-mlflow.set_tracking_uri("http://127.0.0.1:5000")
-mlflow.set_experiment("auto-tracing-demo")
-
-# Enable automatic tracing for OpenAI
-mlflow.openai.autolog()
-
-# Your existing code works unchanged
-client = OpenAI()
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "What is MLflow?"}],
-    max_tokens=100,
-)
-
-print(response.choices[0].message.content)
-# Traces are automatically captured and logged!
-```
-
-### Manual Tracing Example
-
-Use the `@mlflow.trace` decorator to instrument your custom functions:
-
-```python
-import mlflow
-from mlflow.entities import SpanType
-from openai import OpenAI
-import os
-
-# Set up environment (if not already configured)
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-
-# Set up MLflow tracking
-mlflow.set_tracking_uri("http://127.0.0.1:5000")
-mlflow.set_experiment("manual-tracing-demo")
-
-# Enable automatic tracing for OpenAI
-mlflow.openai.autolog()
-
-
-@mlflow.trace(name="RAG Pipeline", span_type=SpanType.CHAIN)
-def answer_question(question: str) -> str:
-    """A simple RAG pipeline with manual tracing."""
-
-    # Step 1: Retrieve context (manually traced)
-    context = retrieve_context(question)
-
-    # Step 2: Generate answer (automatically traced by OpenAI autolog)
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": f"Context: {context}"},
-            {"role": "user", "content": question},
-        ],
-        max_tokens=150,
-    )
-
-    return response.choices[0].message.content
-
-
-@mlflow.trace(span_type=SpanType.RETRIEVER)
-def retrieve_context(question: str) -> str:
-    """Simulate context retrieval."""
-    # Simulate retrieval logic
-    return f"Relevant context for: {question}"
-
-
-# Execute the traced pipeline
-result = answer_question("What is MLflow Tracing?")
-print(result)
-```
-
-:::tip
-Generally, we recommend starting with [automatic tracing](/genai/tracing/app-instrumentation/automatic) and only moving to [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) if your application's logic is not accurately captured or you need more control.
-:::
-
-## Automatic Tracing
-
-Automatic tracing provides zero-code observability for supported libraries. Simply call the autolog function for your library and MLflow will automatically capture all relevant operations.
-
-MLflow supports automatic tracing for 20+ popular GenAI libraries including LLM providers (OpenAI, Anthropic, Google Gemini, AWS Bedrock), frameworks (LangChain, LangGraph, LlamaIndex, DSPy). See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
-
-```python
-import mlflow
-
-mlflow.openai.autolog()
-```
-
-You can enable autolog for multiple libraries simultaneously by calling each autolog function. For example, to enable autolog for OpenAI and LangChain, you can do:
-
-```python
-import mlflow
-
-mlflow.openai.autolog()
-mlflow.langchain.autolog()
-```
-
-## Manual Tracing
-
-Manual tracing gives you fine-grained control over what gets traced and how. Use it to instrument custom logic, combine operations into logical units, or add custom metadata.
-
-<Tabs>
-  <TabItem value="decorator" label="@mlflow.trace Decorator" default>
-    The decorator approach is ideal for instrumenting functions:
-
-    ```python
-    import mlflow
-    from mlflow.entities import SpanType
-
-
-    @mlflow.trace(name="Document Processor", span_type=SpanType.CHAIN)
-    def process_document(document: str, language: str = "en") -> dict:
-        """Process a document through multiple steps."""
-
-        # This entire function execution will be traced
-        tokens = tokenize(document)
-        entities = extract_entities(tokens, language)
-        summary = generate_summary(tokens)
-
-        return {"entities": entities, "summary": summary, "token_count": len(tokens)}
-    ```
-
-  </TabItem>
-  <TabItem value="context-manager" label="Context Manager">
-    Use context managers for instrumenting code blocks:
-
-    ```python
-    import mlflow
-    from mlflow.entities import SpanType
-
-
-    def complex_pipeline(data):
-        with mlflow.start_span(name="Data Validation", span_type=SpanType.UNKNOWN) as span:
-            validated_data = validate_input(data)
-            span.set_attribute("validation_errors", len(validated_data.errors))
-
-        with mlflow.start_span(name="Model Prediction", span_type=SpanType.LLM) as span:
-            prediction = model.predict(validated_data)
-            span.set_attribute("confidence", prediction.confidence)
-
-        return prediction
-    ```
-
-  </TabItem>
-  <TabItem value="combining" label="Combining with Auto Tracing">
-    The most powerful approach combines both automatic and manual tracing:
-
-    ```python
-    import mlflow
-    from mlflow.entities import SpanType
-    from openai import OpenAI
-
-    # Enable automatic tracing for OpenAI
-    mlflow.openai.autolog()
-
-
-    @mlflow.trace(name="RAG Pipeline", span_type=SpanType.CHAIN)
-    def rag_pipeline(question: str) -> str:
-        """A RAG pipeline with both manual and automatic tracing."""
-
-        # Manual tracing for custom retrieval logic
-        with mlflow.start_span(
-            name="Document Retrieval", span_type=SpanType.RETRIEVER
-        ) as span:
-            relevant_docs = search_documents(question)
-            span.set_attribute("documents_retrieved", len(relevant_docs))
-
-        # Automatic tracing for OpenAI call (via autolog)
-        client = OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": f"Context: {relevant_docs}"},
-                {"role": "user", "content": question},
-            ],
-        )
-
-        return response.choices[0].message.content
-    ```
-
-  </TabItem>
-</Tabs>
-
-### Span Types and Attributes
-
-Enhance your traces with proper categorization and metadata using span types like `SpanType.CHAIN`, `SpanType.LLM`, `SpanType.RETRIEVER`, `SpanType.EMBEDDING`, and others. Add custom attributes using `span.set_attribute()` to capture important metadata about your operations.
-
-Learn more about manual tracing techniques, decorators, context managers, and advanced patterns in the [Manual Tracing Guide](/genai/tracing/app-instrumentation/manual-tracing).
-
-## View Logged Traces
-
-After instrumenting your application, you can view and analyze your traces in several ways:
-
-<Tabs>
-  <TabItem value="mlflow-ui" label="MLflow UI" default>
-    After logging your traces, you can view them in the [MLflow UI](/genai/tracing/observe-with-traces/ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.
-
-    ![MLflow Tracking UI](/images/llms/tracing/trace-experiment-ui.png)
-
-    This table includes high-level information about the traces, such as the trace ID, the inputs / outputs of the root span, and more. From this page, you can also perform a few actions to manage your traces:
-
-    **Search**: Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
-
-    ![Searching traces](/images/llms/tracing/trace-session-id.gif)
-
-    **Delete**: The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button.
-
-    ![Deleting traces](/images/llms/tracing/trace-delete.gif)
-
-    **Edit Tags**: You can also edit key-value tags on your traces via the UI.
-
-    ![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
-
-    To browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
-
-    ![Trace Browser](/images/llms/tracing/tracing-top.gif)
-
-  </TabItem>
-  <TabItem value="jupyter" label="Jupyter Notebooks">
-    :::note
-    The MLflow Tracing Jupyter integration is available in **MLflow 2.20 and above**
+    :::info
+    These steps describe using a Databricks Personal Access Token. MLflow also works with the other <ins>[Databricks-supported authentication methods](https://mlflow.org/docs/latest/tracking.html#databricks)</ins>.
     :::
 
-    You can also view the trace UI directly within Jupyter notebooks, allowing you to debug your applications without having to tab out of your development environment.
+    If you're working on tracing with Databricks, configure your authentication with the Databricks CLI or by using the following environment variables:
 
-    ![Jupyter Trace UI](/images/llms/tracing/jupyter-trace-ui.png)
+    ```bash
+    export DATABRICKS_HOST="https://your-workspace.databricks.com"
+    export DATABRICKS_TOKEN="your-databricks-token"
+    ```
 
-    This feature requires using an [MLflow Tracking Server](/ml/tracking/server), as this is where the UI assets are fetched from. To get started, simply ensure that the MLflow Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+    Then, set the tracking URI and the target experiment to store the traces in MLflow from your application.
 
-    By default, the trace UI will automatically be displayed for the following events:
-
-    **When the cell code generates a trace** (e.g. via [automatic tracing](/genai/tracing/app-instrumentation/automatic), or by running a manually traced function)
-
-    **When <APILink fn="mlflow.search_traces" /> is called**
-
-    **When a <APILink fn="mlflow.entities.Trace" /> object is displayed** (e.g. via IPython's `display` function, or when it is the last value returned in a cell)
-
-    To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.
-
-  </TabItem>
-  <TabItem value="programmatic" label="Programmatic Access">
-    Query and analyze traces programmatically:
-
+    **Python:**
     ```python
-    import mlflow
+    mlflow.set_tracking_uri("databricks")
+    mlflow.set_experiment("<your-experiment-name>")
+    ```
 
-    # Search for traces with specific criteria
-    traces = mlflow.search_traces(
-        experiment_ids=["1"],
-        filter_string="attributes.model_name = 'gpt-4o-mini'",
-        max_results=100,
-    )
+    **JS/TS:**
 
-    # Get a specific trace
-    trace = mlflow.get_trace("trace-id-here")
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    mlflow.init(
+      trackingUri: "databricks",
+      experimentId: "<your-experiment-id>",
+    );
     ```
 
   </TabItem>
-</Tabs>
+  <TabItem value="otel" label="OpenTelemetry">
+    MLflow traces are compatible with OpenTelemetry, allowing you to export traces to OpenTelemetry-compatible monitoring backends.
 
-## Next Steps
+    Install the OpenTelemetry Protocol (OTLP) exporter:
 
-Now that you understand the basics of instrumenting your app with MLflow Tracing, explore these detailed guides and resources:
+    ```bash
+    pip install opentelemetry-exporter-otlp
+    ```
 
-<Tabs>
-  <TabItem value="learn-more" label="Learn More" default>
-    **Deepen Your Tracing Knowledge:**
 
-    **[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)**: Explore all supported libraries and frameworks for one-line tracing integration
+    Then, configure the following environment variables:
 
-    **[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Learn advanced techniques for custom instrumentation and complex workflows
+    ```bash
+    export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://your-otel-collector.com:4317/v1/traces"
+    ```
 
-    **[Combining Approaches](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing)**: Mix automatic and manual tracing for optimal observability
+    Your monitoring backends may have additional setup to enable trace exporting. Please refer to [OpenTelemetry Integration](/genai/tracing/prod-tracing#opentelemetry-integration) for additional configurations and links to the each vendor's setup documentation.
 
-  </TabItem>
-  <TabItem value="integrations" label="Integration Examples">
-    **Library-Specific Guides:**
-
-    **[OpenAI Integration](/genai/tracing/integrations/listing/openai)**: Detailed OpenAI tracing examples and best practices
-
-    **[LangChain Integration](/genai/tracing/integrations/listing/langchain)**: Comprehensive LangChain application tracing
-
-    **[LlamaIndex Integration](/genai/tracing/integrations/listing/llama_index)**: Trace LlamaIndex workflows and components
-
-    **[All Integrations](/genai/tracing/integrations)**: Browse all supported libraries and frameworks
-
-  </TabItem>
-  <TabItem value="working-with-traces" label="Working with Traces">
-    **Analyze and Use Your Trace Data:**
-
-    **[Query Traces](/genai/tracing/observe-with-traces/query-via-sdk)**: Programmatically access and analyze your traces
-
-    **[Search and Filter](/genai/tracing/search-traces)**: Advanced search techniques and filtering options
-
-    **[Production Monitoring](/genai/tracing/prod-tracing)**: Scale tracing for production workloads
+    :::note
+      OpenTelemetry export is only supported for the Python SDK right now.
+    :::
 
   </TabItem>
 </Tabs>
+</TabsWrapper>
 
-:::tip
-**Recommended Learning Path:**
+## 3. Instrumenting Your Application Logic
 
-Start with automatic tracing for immediate value, then add manual tracing for custom logic and workflows. The combination of automatic and manual tracing gives you comprehensive observability into your GenAI applications with minimal overhead.
-:::
+MLflow offers different ways to instrument your application logic. Follow the links below to learn more about each approach to instrument your application:
+
+<TilesGrid>
+  <TileCard
+    image="/images/llms/tracing/app-instrumentation/autolog-logos.png"
+    title="Automatic Tracing"
+    description="Instrument your application with a single line of code."
+    href="/genai/tracing/app-instrumentation/automatic"
+    containerHeight={96}
+  />
+  <TileCard
+    image="/images/llms/tracing/app-instrumentation/manual-tracing2.png"
+    title="Manual Tracing"
+    description="Instrument any Python code with a few lines of code, with full control and flexibility."
+    href="/genai/tracing/app-instrumentation/manual-tracing"
+    containerHeight={96}
+  />
+  <TileCard
+    image="/images/logos/javascript-typescript-logo.png"
+    title="Typescript SDK"
+    description="Instrument your Node.js applications with MLflow Tracing Typescript SDK."
+    href="/genai/tracing/app-instrumentation/typescript-sdk"
+    containerHeight={96}
+  />
+</TilesGrid>
+
+## ⚙️ Common Patterns
+
+### Production Considerations
+
+MLflow Tracing is production ready, but in order to ensure the scalability and reliability of the tracing system, we recommend the following best practices:
+
+1. Enable [Async Logging](/genai/tracing/prod-tracing#asynchronous-trace-logging) and set up appropriate queue size and timeout.
+2. Use the lightweight [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) package for minimizing the package footprint and dependencies.
+3. Use [managed MLflow services](/genai/tracing/prod-tracing#managed-monitoring-with-databricks) for reducing the operational overhead and ensure the scalability of the tracing system.
+4. When using self-hosted MLflow, make sure to use the **SQL Backend** with a scalable database like PostgreSQL. The default file-based backend has scalability limitations and is not recommended for production use.
+
+### Async Applications
+
+Async programming is an effective tool for improving the throughput of your application, particularly for LLM-based applications that are typically I/O bound. MLflow Tracing natively [supports instrumenting async applications](/genai/tracing/app-instrumentation/manual-tracing#async-support).
+
+### Multi-Threaded Applications
+
+Multi-threading is a common strategy for parallelizing IO-bound operations in applications. MLflow Tracing supports [multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing#multi-threading) using context propagation.
+
+### Managing User sessions
+
+Many LLM-based applications are deployed as chat-based applications, where each user session is a separate thread. Grouping traces by user session is a common practice. MLflow Tracing supports [managing user sessions](/genai/tracing/track-users-sessions).
+
+### Redacting PII Data
+
+Traces can contain sensitive data such as raw user inputs, internal document contents, etc. MLflow Tracing supports [redacting PII data](/genai/tracing/observe-with-traces/masking) using flexible masking rules, custom functions, and integration with external PII masking libraries.
+
+### Collecting User Feedbacks
+
+User feedback is a valuable source of information for improving the user experience of your application. MLflow Tracing supports [collecting user feedback on traces](/genai/tracing/collect-user-feedback) to track and analyze the feedbacks effectively.

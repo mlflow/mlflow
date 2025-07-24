@@ -21,12 +21,8 @@ import type {
   ModelTraceSpan,
   ModelTraceSpanNode,
   ModelTraceChatMessage,
-  LangchainChatGeneration,
-  LangchainBaseMessage,
   ModelTraceChatResponse,
   ModelTraceChatInput,
-  LlamaIndexChatResponse,
-  LangchainToolCallMessage,
   ModelTraceToolCall,
   ModelTraceChatTool,
   ModelTraceChatToolParamProperty,
@@ -41,7 +37,22 @@ import type {
   ModelTraceEvent,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
-import type { OpenAIResponsesOutputItem } from './chat-utils/openai.types';
+import {
+  normalizeAnthropicChatInput,
+  normalizeAnthropicChatOutput,
+  normalizeGeminiChatInput,
+  normalizeGeminiChatOutput,
+  normalizeOpenAIChatInput,
+  normalizeOpenAIChatResponse,
+  normalizeOpenAIResponsesInput,
+  normalizeOpenAIResponsesOutput,
+  normalizeLangchainChatInput,
+  normalizeLangchainChatResult,
+  normalizeLlamaIndexChatResponse,
+  normalizeDspyChatInput,
+  normalizeDspyChatOutput,
+} from './chat-utils';
+import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -313,18 +324,7 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
-const getChatMessagesFromSpan = (
-  messagesAttributeValue: any,
-  inputs: any,
-  outputs: any,
-): ModelTraceChatMessage[] | undefined => {
-  // if the `mlflow.chat.messages` attribute is provided
-  // and in the correct format, return it as-is
-  // we allow content type to be content part list for the `mlflow.chat.messages` attribute
-  if (Array.isArray(messagesAttributeValue) && messagesAttributeValue.every(isRawModelTraceChatMessage)) {
-    return compact(messagesAttributeValue.map(prettyPrintChatMessage));
-  }
-
+const getChatMessagesFromSpan = (inputs: any, outputs: any): ModelTraceChatMessage[] | undefined => {
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
@@ -377,11 +377,7 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const chatMessages = getChatMessagesFromSpan(
-    tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']),
-    inputs,
-    outputs,
-  );
+  const chatMessages = getChatMessagesFromSpan(inputs, outputs);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -730,75 +726,6 @@ export const getSpanExceptionCount = (span: ModelTraceSpanNode | ModelTraceSpan)
   return getSpanExceptionEvents(span).length;
 };
 
-export const langchainMessageToModelTraceMessage = (message: LangchainBaseMessage): ModelTraceChatMessage | null => {
-  let role: ModelTraceChatMessage['role'];
-  switch (message.type) {
-    case 'user':
-    case 'human':
-      role = 'user';
-      break;
-    case 'assistant':
-    case 'ai':
-      role = 'assistant';
-      break;
-    case 'system':
-      role = 'system';
-      break;
-    case 'tool':
-      role = 'tool';
-      break;
-    case 'function':
-      role = 'function';
-      break;
-    default:
-      return null;
-  }
-
-  const normalizedMessage: ModelTraceChatMessage = {
-    content: message.content,
-    role,
-  };
-
-  const toolCalls = message.tool_calls;
-  const toolCallsFromKwargs = message.additional_kwargs?.tool_calls;
-
-  // attempt to parse tool calls from the top-level field,
-  // otherwise fall back to the additional_kwargs field if it exists
-  if (
-    !isNil(toolCalls) &&
-    Array.isArray(toolCalls) &&
-    toolCalls.length > 0 &&
-    toolCalls.every(isLangchainToolCallMessage)
-  ) {
-    // compact for typing. the coercion should not fail since we
-    // check that the type is correct in the if condition above
-    normalizedMessage.tool_calls = compact(toolCalls.map(normalizeLangchainToolCall));
-  } else if (
-    !isNil(toolCallsFromKwargs) &&
-    Array.isArray(toolCallsFromKwargs) &&
-    toolCallsFromKwargs.length > 0 &&
-    toolCallsFromKwargs.every(isModelTraceToolCall)
-  ) {
-    normalizedMessage.tool_calls = toolCallsFromKwargs.map(prettyPrintToolCall);
-  }
-
-  if (!isNil(message.tool_call_id)) {
-    normalizedMessage.tool_call_id = message.tool_call_id;
-  }
-
-  return normalizedMessage;
-};
-
-export const normalizeLangchainToolCall = (toolCall: LangchainToolCallMessage): ModelTraceToolCall | null => {
-  return {
-    id: toolCall.id,
-    function: {
-      arguments: JSON.stringify(toolCall.args, null, 2),
-      name: toolCall.name,
-    },
-  };
-};
-
 export const isModelTraceChatToolParamProperty = (obj: any): obj is ModelTraceChatToolParamProperty => {
   if (isNil(obj)) {
     return false;
@@ -936,32 +863,6 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
   return obj && isModelTraceChoices(obj.choices);
 };
 
-export const isLangchainBaseMessage = (obj: any): obj is LangchainBaseMessage => {
-  if (!obj) {
-    return false;
-  }
-
-  // it's okay if it's undefined / null, but if present it must be a string
-  if (!isNil(obj.content) && !isString(obj.content)) {
-    return false;
-  }
-
-  // tool call validation is handled by the normalization function
-  return ['human', 'user', 'assistant', 'ai', 'system', 'tool', 'function'].includes(obj.type);
-};
-
-export const isLangchainToolCallMessage = (obj: any): obj is LangchainToolCallMessage => {
-  return obj && isString(obj.name) && has(obj, 'args') && isString(obj.id);
-};
-
-export const isLangchainChatGeneration = (obj: any): obj is LangchainChatGeneration => {
-  return obj && isLangchainBaseMessage(obj.message);
-};
-
-export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatResponse => {
-  return obj && isModelTraceChatMessage(obj.message);
-};
-
 /**
  * Attempt to normalize a conversation, return null in case the format is unrecognized
  * TODO: move all chat parsing logic to the chat-utils folder to avoid cluttering this
@@ -975,6 +876,12 @@ export const isLlamaIndexChatResponse = (obj: any): obj is LlamaIndexChatRespons
  *   5. OpenAI Responses inputs
  *   6. OpenAI Responses output
  *   7. LlamaIndex chat responses
+ *   8. DSPy chat inputs
+ *   8. DSPy chat outputs
+ *   9. Gemini inputs
+ *  10. Gemini outputs
+ *  11. Anthropic inputs
+ *  12. Anthropic outputs
  */
 export const normalizeConversation = (input: any): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -989,6 +896,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const langchainChatInput = normalizeLangchainChatInput(input);
     if (langchainChatInput) {
       return langchainChatInput;
+    }
+
+    const llamaIndexChatInput = normalizeLlamaIndexChatInput(input);
+    if (llamaIndexChatInput) {
+      return llamaIndexChatInput;
+    }
+
+    const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
+    if (llamaIndexChatResponse) {
+      return llamaIndexChatResponse;
     }
 
     const openAIChatInput = normalizeOpenAIChatInput(input);
@@ -1011,92 +928,45 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
       return openAIResponsesOutput;
     }
 
-    const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
-    if (llamaIndexChatResponse) {
-      return llamaIndexChatResponse;
+    const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
+    if (openAIResponsesInput) {
+      return openAIResponsesInput;
+    }
+
+    const dspyChatInput = normalizeDspyChatInput(input);
+    if (dspyChatInput) {
+      return dspyChatInput;
+    }
+
+    const dspyChatOutput = normalizeDspyChatOutput(input);
+    if (dspyChatOutput) {
+      return dspyChatOutput;
+    }
+
+    const geminiChatInput = normalizeGeminiChatInput(input);
+    if (geminiChatInput) {
+      return geminiChatInput;
+    }
+
+    const geminiChatOutput = normalizeGeminiChatOutput(input);
+    if (geminiChatOutput) {
+      return geminiChatOutput;
+    }
+
+    const anthropicChatInput = normalizeAnthropicChatInput(input);
+    if (anthropicChatInput) {
+      return anthropicChatInput;
+    }
+
+    const anthropicChatOutput = normalizeAnthropicChatOutput(input);
+    if (anthropicChatOutput) {
+      return anthropicChatOutput;
     }
 
     return null;
   } catch (e) {
     return null;
   }
-};
-
-// normalize langchain chat input format
-export const normalizeLangchainChatInput = (obj: any): ModelTraceChatMessage[] | null => {
-  // it could be a list of list of messages
-  if (
-    Array.isArray(obj) &&
-    obj.length === 1 &&
-    Array.isArray(obj[0]) &&
-    obj[0].length > 0 &&
-    obj[0].every(isLangchainBaseMessage)
-  ) {
-    const messages = obj[0].map(langchainMessageToModelTraceMessage);
-    // if we couldn't convert all the messages, then consider the input invalid
-    if (messages.some((message) => message === null)) {
-      return null;
-    }
-
-    return messages as ModelTraceChatMessage[];
-  }
-
-  // it could also be an object with the `messages` key
-  if (Array.isArray(obj?.messages) && obj.messages.length > 0 && obj.messages.every(isLangchainBaseMessage)) {
-    const messages = obj.messages.map(langchainMessageToModelTraceMessage);
-
-    if (messages.some((message: ModelTraceChatMessage[] | null) => message === null)) {
-      return null;
-    }
-
-    return messages as ModelTraceChatMessage[];
-  }
-
-  return null;
-};
-
-const isLangchainChatGenerations = (obj: any): obj is LangchainChatGeneration[][] => {
-  if (!Array.isArray(obj) || obj.length < 1) {
-    return false;
-  }
-
-  if (!Array.isArray(obj[0]) || obj[0].length < 1) {
-    return false;
-  }
-
-  // langchain chat generations are a list of lists of messages
-  return obj[0].every(isLangchainChatGeneration);
-};
-
-const getMessagesFromLangchainChatGenerations = (
-  generations: LangchainChatGeneration[],
-): ModelTraceChatMessage[] | null => {
-  const messages = generations.map((generation: LangchainChatGeneration) =>
-    langchainMessageToModelTraceMessage(generation.message),
-  );
-
-  if (messages.some((message) => message === null)) {
-    return null;
-  }
-
-  return messages as ModelTraceChatMessage[];
-};
-
-// detect if an object is a langchain ChatResult, and normalize it to a list of messages
-export const normalizeLangchainChatResult = (obj: any): ModelTraceChatMessage[] | null => {
-  if (isLangchainChatGenerations(obj)) {
-    return getMessagesFromLangchainChatGenerations(obj[0]);
-  }
-
-  if (
-    !Array.isArray(obj?.generations) ||
-    !(obj.generations.length > 0) ||
-    !obj.generations[0].every(isLangchainChatGeneration)
-  ) {
-    return null;
-  }
-
-  return getMessagesFromLangchainChatGenerations(obj.generations[0]);
 };
 
 export const prettyPrintToolCall = (toolCall: ModelTraceToolCall): ModelTraceToolCall => {
@@ -1121,25 +991,26 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
     return content;
   }
 
-  return (
-    content
-      // eslint-disable-next-line array-callback-return
-      .map((part) => {
-        switch (part.type) {
-          case 'text':
-          case 'input_text':
-          case 'output_text':
-            return part.text;
-          case 'image_url':
-            // raw encoded image content is not displayed in the UI
-            return '[image]';
-          case 'input_audio':
-            // raw encoded audio content is not displayed in the UI
-            return '[audio]';
-        }
-      })
-      .join('\n')
-  );
+  const contentParts = content
+    // eslint-disable-next-line array-callback-return
+    .map((part) => {
+      switch (part.type) {
+        case 'text':
+        case 'input_text':
+        case 'output_text':
+          return part.text;
+        case 'image_url':
+          const url = part?.image_url?.url;
+          return url ? `![](${url})` : '[image]';
+        case 'input_audio':
+          // raw encoded audio content is not displayed in the UI
+          return '[audio]';
+      }
+    })
+    .filter((part) => part !== undefined);
+
+  // Join with double line breaks for better visual separation
+  return contentParts.join('\n\n');
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1156,118 +1027,4 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
   };
-};
-
-// normalize the OpenAI chat input format (object with 'messages' or 'input' key)
-export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  const messages = obj.messages ?? obj.input;
-  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isRawModelTraceChatMessage)) {
-    return null;
-  }
-
-  return compact(messages.map(prettyPrintChatMessage));
-};
-
-// normalize the OpenAI chat response format (object with 'choices' key)
-export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
-  if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
-  }
-
-  if (!isModelTraceChatResponse(obj)) {
-    return null;
-  }
-
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
-};
-
-export const isOpenAIResponsesOutputItem = (obj: any): obj is OpenAIResponsesOutputItem => {
-  if (!obj) {
-    return false;
-  }
-
-  if (obj.type === 'message') {
-    return isRawModelTraceChatMessage(obj);
-  }
-
-  if (obj.type === 'function_call') {
-    return isString(obj.call_id) && isString(obj.name) && isString(obj.arguments);
-  }
-
-  if (obj.type === 'function_call_output') {
-    return isString(obj.call_id) && isString(obj.output);
-  }
-
-  return false;
-};
-
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
-  if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
-  }
-
-  if (obj.type === 'function_call') {
-    return {
-      role: 'assistant',
-      tool_calls: [
-        prettyPrintToolCall({
-          id: obj.call_id,
-          function: {
-            arguments: obj.arguments,
-            name: obj.name,
-          },
-        }),
-      ],
-    };
-  }
-
-  if (obj.type === 'function_call_output') {
-    return {
-      role: 'tool',
-      tool_call_id: obj.call_id,
-      content: obj.output,
-    };
-  }
-
-  return null;
-};
-
-export const normalizeOpenAIResponsesOutput = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!obj) {
-    return null;
-  }
-
-  // list of output items
-  if (Array.isArray(obj) && obj.length > 0 && obj.every(isOpenAIResponsesOutputItem)) {
-    return compact(obj.map(normalizeOpenAIResponsesOutputItem));
-  }
-
-  // list of output chunks
-  if (
-    Array.isArray(obj) &&
-    obj.length > 0 &&
-    obj.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
-  ) {
-    return compact(obj.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
-  }
-
-  return null;
-};
-
-export const normalizeLlamaIndexChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
-  if (!isLlamaIndexChatResponse(obj)) {
-    return null;
-  }
-
-  return [obj.message];
 };

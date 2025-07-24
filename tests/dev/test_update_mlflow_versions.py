@@ -21,14 +21,18 @@ _JAVA_FILES = {}
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {
         6: "  <version>{new_version}</version>",
-        73: "    <mlflow-version>{new_version}</mlflow-version>",
+        52: "    <mlflow-version>{new_version}</mlflow-version>",
     },
     "mlflow/java/client/pom.xml": {
         8: "    <version>{new_version}</version>",
     },
-    "mlflow/java/spark/pom.xml": {
+    "mlflow/java/spark_2.12/pom.xml": {
         4: "  <version>{new_version}</version>",
-        19: "    <version>{new_version}</version>",
+        18: "    <version>{new_version}</version>",
+    },
+    "mlflow/java/spark_2.13/pom.xml": {
+        4: "  <version>{new_version}</version>",
+        18: "    <version>{new_version}</version>",
     },
 }
 
