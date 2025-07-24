@@ -314,7 +314,7 @@ spark:
       if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
         python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
-      pushd mlflow/java/spark
+      pushd mlflow/java/spark_2.13
       mvn package -DskipTests -q
       popd
 
