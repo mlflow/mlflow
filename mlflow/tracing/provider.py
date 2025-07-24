@@ -34,6 +34,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+from mlflow.utils.thread_utils import ThreadLocalVariable
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -48,7 +49,7 @@ _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
 # This destination, when set, will take precedence over other configurations.
-_MLFLOW_TRACE_USER_DESTINATION = None
+_MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
 
 _logger = logging.getLogger(__name__)
 
@@ -199,8 +200,7 @@ def set_destination(destination: TraceDestination):
 
     # The destination needs to be persisted because the tracer setup can be re-initialized
     # e.g. when the tracing is disabled and re-enabled, or tracking URI is changed, etc.
-    global _MLFLOW_TRACE_USER_DESTINATION
-    _MLFLOW_TRACE_USER_DESTINATION = destination
+    _MLFLOW_TRACE_USER_DESTINATION.set(destination)
 
     _setup_tracer_provider()
 
@@ -467,8 +467,7 @@ def reset():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
 
     # Reset the custom destination set by the user
-    global _MLFLOW_TRACE_USER_DESTINATION
-    _MLFLOW_TRACE_USER_DESTINATION = None
+    _MLFLOW_TRACE_USER_DESTINATION.set(None)
 
     # Reset the tracing configuration to defaults
     reset_config()

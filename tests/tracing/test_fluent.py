@@ -2147,6 +2147,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
             mlflow.flush_trace_async_logging(terminate=True)
 
     experiment_id1 = MlflowClient().create_experiment("a1")
+
     thread1 = threading.Thread(target=func, args=(experiment_id1, 3))
 
     experiment_id2 = MlflowClient().create_experiment("a2")
