@@ -192,7 +192,7 @@ class ChatAgentChunk(BaseModel):
         class Config:
             validate_assignment = True
 
-    delta: ChatAgentMessage
+    delta: Optional[ChatAgentMessage] = None
     finish_reason: Optional[str] = None
     # TODO: add finish_reason_metadata once we have a plan for usage
     custom_outputs: Optional[dict[str, Any]] = None
@@ -201,9 +201,12 @@ class ChatAgentChunk(BaseModel):
     @model_validator(mode="after")
     def check_message_id(cls, values):
         """
-        Ensure that the message ID is unique.
+        Ensure that the message ID is unique if delta is provided.
         """
-        message_id = values.delta.id if IS_PYDANTIC_V2_OR_NEWER else values.get("delta").get("id")
+        delta = values.delta if IS_PYDANTIC_V2_OR_NEWER else values.get("delta")
+        if not delta:
+            return values
+        message_id = delta.id if IS_PYDANTIC_V2_OR_NEWER else delta.get("id")
 
         if message_id is None:
             raise ValueError(
