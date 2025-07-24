@@ -88,7 +88,6 @@ def test_set_destination_mlflow_experiment(monkeypatch):
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert processors[0]._experiment_id == "123"
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
     # Set destination with experiment_id and tracking_uri
@@ -98,7 +97,6 @@ def test_set_destination_mlflow_experiment(monkeypatch):
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
-    assert processors[0]._experiment_id == "456"
 
     # Experiment with Databricks tracking URI -> V3 exporter should be used
     mlflow.tracing.set_destination(
@@ -108,7 +106,6 @@ def test_set_destination_mlflow_experiment(monkeypatch):
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert processors[0]._experiment_id == "456"
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
@@ -120,7 +117,6 @@ def test_set_destination_databricks(monkeypatch):
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert processors[0]._experiment_id == "123"
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 

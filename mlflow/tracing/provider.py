@@ -21,11 +21,14 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
+    MLFLOW_TRACE_SAMPLING_RATIO,
+)
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -49,7 +52,20 @@ _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
 # This destination, when set, will take precedence over other configurations.
-_MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
+if MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get():
+    _MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
+else:
+    class _TraceUserDestination:
+        def __init__(self):
+            self.value = None
+
+        def get(self):
+            return self.value
+
+        def set(self, value):
+            self.value = value
+
+    _MLFLOW_TRACE_USER_DESTINATION = _TraceUserDestination()
 
 _logger = logging.getLogger(__name__)
 
