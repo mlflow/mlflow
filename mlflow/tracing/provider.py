@@ -246,18 +246,7 @@ def _setup_tracer_provider(disabled=False):
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    if _MLFLOW_TRACE_USER_DESTINATION is not None:
-        experiment_id = _MLFLOW_TRACE_USER_DESTINATION.experiment_id
-
-        tracking_uri = None
-        if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
-            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.tracking_uri
-
-        processor = _get_mlflow_span_processor(
-            tracking_uri=tracking_uri or mlflow.get_tracking_uri(), experiment_id=experiment_id
-        )
-
-    elif should_use_otlp_exporter():
+    if should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
@@ -316,7 +305,7 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
 
-def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] = None):
+def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
@@ -325,7 +314,7 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
+    return MlflowV3SpanProcessor(exporter)
 
 
 @raise_as_trace_exception
