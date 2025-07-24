@@ -165,6 +165,8 @@ def set_destination(destination: TraceDestination):
     A destination specified by this function will take precedence over
     other configurations, such as tracking URI, OTLP environment variables.
 
+    The destination setting only takes effect in current thread.
+
     To reset the destination, call the :py:func:`mlflow.tracing.reset()` function.
 
     Args:
