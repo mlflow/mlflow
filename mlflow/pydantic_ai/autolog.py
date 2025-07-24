@@ -114,6 +114,15 @@ def _get_span_type(instance) -> str:
         return SpanType.TOOL
     if isinstance(instance, MCPServer):
         return SpanType.TOOL
+
+    try:
+        from pydantic_ai._tool_manager import ToolManager
+
+        if isinstance(instance, ToolManager):
+            return SpanType.TOOL
+    except ImportError:
+        pass
+
     return SpanType.UNKNOWN
 
 
