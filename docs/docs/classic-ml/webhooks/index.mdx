@@ -1,0 +1,395 @@
+import { APILink } from "@site/src/components/APILink";
+
+# Webhooks
+
+## Overview
+
+MLflow webhooks enable real-time notifications when specific events occur in the Model Registry. When you register a model, create a new version, or modify tags and aliases, MLflow can automatically send HTTP POST requests to your specified endpoints. This enables seamless integration with CI/CD pipelines, notification systems, and other external services.
+
+:::warning
+Webhooks are only supported with the SQL backend. The file backend does not support webhooks.
+:::
+
+## Key Features
+
+- **Real-time notifications** for Model Registry events
+- **HMAC signature verification** for secure webhook delivery
+- **Multiple event types** including model creation, versioning, and tagging
+- **Built-in testing** to verify webhook connectivity
+
+## Supported Events
+
+MLflow webhooks support the following Model Registry events:
+
+<table>
+  <thead>
+    <tr>
+      <th>Event</th>
+      <th>Description</th>
+      <th>Payload Schema</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>REGISTERED_MODEL_CREATED</code></td>
+      <td>Triggered when a new registered model is created</td>
+      <td><APILink fn="mlflow.webhooks.types.RegisteredModelCreatedPayload" >`RegisteredModelCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>MODEL_VERSION_CREATED</code></td>
+      <td>Triggered when a new model version is created</td>
+      <td><APILink fn="mlflow.webhooks.types.ModelVersionCreatedPayload" >`ModelVersionCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>MODEL_VERSION_TAG_SET</code></td>
+      <td>Triggered when a tag is set on a model version</td>
+      <td><APILink fn="mlflow.webhooks.types.ModelVersionTagSetPayload" >`ModelVersionTagSetPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>MODEL_VERSION_TAG_DELETED</code></td>
+      <td>Triggered when a tag is deleted from a model version</td>
+      <td><APILink fn="mlflow.webhooks.types.ModelVersionTagDeletedPayload" >`ModelVersionTagDeletedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>MODEL_VERSION_ALIAS_CREATED</code></td>
+      <td>Triggered when an alias is created for a model version</td>
+      <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasCreatedPayload" >`ModelVersionAliasCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>MODEL_VERSION_ALIAS_DELETED</code></td>
+      <td>Triggered when an alias is deleted from a model version</td>
+      <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasDeletedPayload" >`ModelVersionAliasDeletedPayload`</APILink></td>
+    </tr>
+  </tbody>
+</table>
+
+## Quick Start
+
+### Creating a Webhook
+
+```python
+from mlflow import MlflowClient
+from mlflow.entities.webhook import WebhookEvent
+
+client = MlflowClient()
+
+# Create a webhook for model version creation events
+webhook = client.create_webhook(
+    name="model-version-notifier",
+    url="https://your-app.com/webhook",
+    events=[WebhookEvent.MODEL_VERSION_CREATED],
+    description="Notifies when new model versions are created",
+    secret="your-secret-key",  # Optional: for HMAC signature verification
+)
+
+print(f"Created webhook: {webhook.webhook_id}")
+```
+
+### Testing a Webhook
+
+Before putting your webhook into production, test it with example payloads using <APILink fn="mlflow.client.MlflowClient.test_webhook" >`MlflowClient.test_webhook()`</APILink>:
+
+```python
+# Test the webhook with an example payload
+result = client.test_webhook(webhook.webhook_id)
+
+if result.success:
+    print(f"Webhook test successful! Status code: {result.response_status}")
+else:
+    print(f"Webhook test failed. Status: {result.response_status}")
+    if result.error_message:
+        print(f"Error: {result.error_message}")
+```
+
+You can also test specific event types:
+
+```python
+# Test with a specific event type
+from mlflow.entities.webhook import WebhookEvent
+
+result = client.test_webhook(
+    webhook.webhook_id,
+    event=WebhookEvent.MODEL_VERSION_CREATED,
+)
+```
+
+When you call `test_webhook()`, MLflow sends example payloads to your webhook URL. These test payloads have the same structure as real event payloads. Click on the payload schema links in the table above to see the exact structure and examples for each event type.
+
+### Testing Multi-Event Webhooks
+
+If your webhook is subscribed to multiple events, `test_webhook()` behavior depends on whether you specify an event:
+
+- **Without specifying an event**: MLflow uses the **first event** from the webhook's event list
+- **With a specific event**: MLflow uses the specified event (must be in the webhook's event list)
+
+```python
+# Create webhook with multiple events
+webhook = client.create_webhook(
+    name="multi-event-webhook",
+    url="https://your-domain.com/webhook",
+    events=[
+        WebhookEvent.REGISTERED_MODEL_CREATED,
+        WebhookEvent.MODEL_VERSION_CREATED,
+        WebhookEvent.MODEL_VERSION_TAG_SET,
+    ],
+    secret="your-secret-key",
+)
+
+# Test with first event (REGISTERED_MODEL_CREATED)
+result = client.test_webhook(webhook.webhook_id)
+
+# Test with specific event
+result = client.test_webhook(
+    webhook.webhook_id,
+    event=WebhookEvent.MODEL_VERSION_TAG_SET,
+)
+```
+
+## Webhook Management
+
+### Listing Webhooks
+
+Use <APILink fn="mlflow.client.MlflowClient.list_webhooks" >`MlflowClient.list_webhooks()`</APILink> to retrieve webhooks. This method returns paginated results:
+
+```python
+# List webhooks with pagination
+webhooks = client.list_webhooks(max_results=10)
+for webhook in webhooks:
+    print(f"{webhook.name}: {webhook.url} (Status: {webhook.status})")
+    print(f"  Events: {', '.join(webhook.events)}")
+
+# Continue to next page if available
+if webhooks.next_page_token:
+    next_page = client.list_webhooks(
+        max_results=10, page_token=webhooks.next_page_token
+    )
+```
+
+To retrieve all webhooks across multiple pages:
+
+```python
+# Retrieve all webhooks across pages
+all_webhooks = []
+page_token = None
+
+while True:
+    page = client.list_webhooks(max_results=100, page_token=page_token)
+    all_webhooks.extend(page)
+
+    if not page.next_page_token:
+        break
+    page_token = page.next_page_token
+
+print(f"Total webhooks: {len(all_webhooks)}")
+```
+
+### Getting a Specific Webhook
+
+Use <APILink fn="mlflow.client.MlflowClient.get_webhook" >`MlflowClient.get_webhook()`</APILink> to retrieve details of a specific webhook:
+
+```python
+# Get a specific webhook by ID
+webhook = client.get_webhook(webhook_id)
+print(f"Name: {webhook.name}")
+print(f"URL: {webhook.url}")
+print(f"Status: {webhook.status}")
+print(f"Events: {webhook.events}")
+```
+
+### Updating a Webhook
+
+Use <APILink fn="mlflow.client.MlflowClient.update_webhook" >`MlflowClient.update_webhook()`</APILink> to modify webhook configuration:
+
+```python
+# Update webhook configuration
+client.update_webhook(
+    # Unspecified fields will remain unchanged
+    webhook_id=webhook.webhook_id,
+    status="DISABLED",  # Temporarily disable the webhook
+    events=[WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.MODEL_VERSION_TAG_SET],
+)
+```
+
+### Deleting a Webhook
+
+Use <APILink fn="mlflow.client.MlflowClient.delete_webhook" >`MlflowClient.delete_webhook()`</APILink> to remove a webhook:
+
+```python
+# Delete a webhook
+client.delete_webhook(webhook.webhook_id)
+```
+
+## Security
+
+### HMAC Signature Verification
+
+When you create a webhook with a secret, MLflow signs each request with an HMAC-SHA256 signature. This allows your endpoint to verify that the request genuinely comes from MLflow.
+
+The signature is included in the `X-MLflow-Signature` header with the format: `sha256=<hex_digest>`
+
+Here's how to verify the signature in Python:
+
+```python
+import hmac
+import hashlib
+
+
+def verify_mlflow_signature(payload: bytes, signature: str, secret: str) -> bool:
+    """Verify the HMAC signature from MLflow webhook"""
+    expected_signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+
+    return hmac.compare_digest(f"sha256={expected_signature}", signature)
+```
+
+### Environment Variables
+
+- `MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY`: Encryption key for storing webhook secrets securely
+
+## Example: FastAPI Webhook Receiver
+
+Here's a complete example of a [FastAPI](https://fastapi.tiangolo.com/) application that receives and processes MLflow webhooks:
+
+```python
+from fastapi import FastAPI, Request, HTTPException, Header
+from typing import Optional
+import hmac
+import hashlib
+import logging
+
+app = FastAPI()
+logger = logging.getLogger(__name__)
+
+# Your webhook secret (keep this secure!)
+WEBHOOK_SECRET = "your-secret-key"
+
+
+def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
+    """Verify HMAC signature from MLflow"""
+    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", signature)
+
+
+@app.post("/webhook")
+async def handle_webhook(
+    request: Request,
+    x_mlflow_signature: Optional[str] = Header(None),
+):
+    """Handle webhook with HMAC signature verification"""
+
+    # Get raw payload for signature verification
+    payload = await request.body()
+
+    # Verify signature
+    if not x_mlflow_signature:
+        raise HTTPException(status_code=400, detail="Missing signature header")
+
+    if not verify_signature(payload, x_mlflow_signature, WEBHOOK_SECRET):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # Parse payload
+    data = await request.json()
+
+    # Print the payload for debugging
+    print(f"Received webhook payload: {data}")
+
+    # Add your webhook processing logic here
+    # For example, you might want to handle different event types
+    # based on the payload structure
+
+    return {"status": "success"}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+### Running the Example
+
+1. **Install dependencies:**
+
+   ```bash
+   pip install fastapi uvicorn
+   ```
+
+2. **Set up MLflow server with webhook encryption:**
+
+   ```bash
+   # Generate a secure encryption key for webhook secrets
+   export MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+   # Start MLflow server with webhook support
+   mlflow server
+   ```
+
+3. **Start the webhook receiver:**
+
+   ```bash
+   python webhook_receiver.py
+   ```
+
+4. **Configure MLflow webhook:**
+
+   ```python
+   from mlflow import MlflowClient
+   from mlflow.entities.webhook import WebhookEvent
+
+   client = MlflowClient("http://localhost:5000")
+
+   # Create webhook with HMAC verification
+   webhook = client.create_webhook(
+       name="fastapi-receiver",
+       url="https://your-domain.com/webhook",
+       events=[WebhookEvent.MODEL_VERSION_CREATED],
+       secret="your-secret-key",
+   )
+   ```
+
+5. **Test the webhook:**
+
+   ```python
+   # Test webhook connectivity
+   result = client.test_webhook(webhook.webhook_id)
+   print(f"Test result: {result.success}")
+
+   # Create a model version to trigger the webhook
+   client.create_registered_model("test-model")
+   client.create_model_version(
+       name="test-model", source="s3://bucket/model", run_id="abc123"
+   )
+   ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Webhook not triggering:**
+   - Verify the webhook status is "ACTIVE"
+   - Check that the event type matches your actions
+   - Ensure your MLflow server has network access to the webhook URL
+
+2. **Signature verification failing:**
+   - Ensure you're using the raw request body for verification
+   - Check that the secret matches exactly (no extra spaces)
+
+3. **Connection timeouts:**
+   - MLflow has a default timeout of 30 seconds for webhook requests
+   - Ensure your endpoint responds quickly
+
+## API Reference
+
+For complete API documentation, see:
+
+- <APILink fn="mlflow.client.MlflowClient.create_webhook" >`MlflowClient.create_webhook()`</APILink>
+- <APILink fn="mlflow.client.MlflowClient.list_webhooks" >`MlflowClient.list_webhooks()`</APILink>
+- <APILink fn="mlflow.client.MlflowClient.get_webhook" >`MlflowClient.get_webhook()`</APILink>
+- <APILink fn="mlflow.client.MlflowClient.update_webhook" >`MlflowClient.update_webhook()`</APILink>
+- <APILink fn="mlflow.client.MlflowClient.delete_webhook" >`MlflowClient.delete_webhook()`</APILink>
+- <APILink fn="mlflow.client.MlflowClient.test_webhook" >`MlflowClient.test_webhook()`</APILink>

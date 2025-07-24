@@ -10,11 +10,26 @@ from mlflow.entities.webhook import WebhookEvent
 
 
 class RegisteredModelCreatedPayload(TypedDict):
-    """Payload sent when a new registered model is created."""
+    """Payload sent when a new registered model is created.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "tags": {"example_key": "example_value"},
+            "description": "An example registered model",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     tags: dict[str, str]
+    """Tags associated with the registered model."""
     description: Optional[str]
+    """Description of the registered model."""
 
     @classmethod
     def example(cls) -> "RegisteredModelCreatedPayload":
@@ -26,21 +41,42 @@ class RegisteredModelCreatedPayload(TypedDict):
 
 
 class ModelVersionCreatedPayload(TypedDict):
-    """Payload sent when a new model version is created."""
+    """Payload sent when a new model version is created.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "source": "models:/123",
+            "run_id": "abcd1234abcd5678",
+            "tags": {"example_key": "example_value"},
+            "description": "An example model version",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     source: str
+    """The source URI of the model version."""
     run_id: Optional[str]
+    """The run ID associated with the model version, if applicable."""
     tags: dict[str, str]
+    """Tags associated with the model version."""
     description: Optional[str]
+    """Description of the model version."""
 
     @classmethod
     def example(cls) -> "ModelVersionCreatedPayload":
         return cls(
             name="example_model",
             version="1",
-            source="runs:/abcd1234abcd5678/model",
+            source="models:/123",
             run_id="abcd1234abcd5678",
             tags={"example_key": "example_value"},
             description="An example model version",
@@ -48,12 +84,29 @@ class ModelVersionCreatedPayload(TypedDict):
 
 
 class ModelVersionTagSetPayload(TypedDict):
-    """Payload sent when a tag is set on a model version."""
+    """Payload sent when a tag is set on a model version.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "key": "example_key",
+            "value": "example_value",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     key: str
+    """The tag key being set."""
     value: str
+    """The tag value being set."""
 
     @classmethod
     def example(cls) -> "ModelVersionTagSetPayload":
@@ -66,11 +119,26 @@ class ModelVersionTagSetPayload(TypedDict):
 
 
 class ModelVersionTagDeletedPayload(TypedDict):
-    """Payload sent when a tag is deleted from a model version."""
+    """Payload sent when a tag is deleted from a model version.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "key": "example_key",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     version: str
+    """The version of the model."""
     key: str
+    """The tag key being deleted."""
 
     @classmethod
     def example(cls) -> "ModelVersionTagDeletedPayload":
@@ -82,11 +150,27 @@ class ModelVersionTagDeletedPayload(TypedDict):
 
 
 class ModelVersionAliasCreatedPayload(TypedDict):
-    """Payload sent when an alias is created for a model version."""
+    """
+    Payload sent when an alias is created for a model version.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "alias": "example_alias",
+            "version": "1",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     alias: str
+    """The alias being created."""
     version: str
+    """The version of the model the alias is being assigned to."""
 
     @classmethod
     def example(cls) -> "ModelVersionAliasCreatedPayload":
@@ -98,10 +182,23 @@ class ModelVersionAliasCreatedPayload(TypedDict):
 
 
 class ModelVersionAliasDeletedPayload(TypedDict):
-    """Payload sent when an alias is deleted from a model version."""
+    """Payload sent when an alias is deleted from a model version.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "alias": "example_alias",
+        }
+
+    """
 
     name: str
+    """The name of the registered model."""
     alias: str
+    """The alias being deleted."""
 
     @classmethod
     def example(cls) -> "ModelVersionAliasDeletedPayload":
