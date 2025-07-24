@@ -7,6 +7,8 @@ from typing import Optional
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import WEBHOOK_SIGNATURE_HEADER
 from mlflow.webhooks.types import WebhookPayload, get_example_payload_for_event
@@ -95,6 +97,13 @@ def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> Webh
     Returns:
         WebhookTestResult indicating success/failure and response details
     """
+    # Validate event if provided
+    if event is not None and event not in webhook.events:
+        raise MlflowException(
+            f"Event '{event}' is not in webhook's configured events: {webhook.events}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     # Use provided event or the first event type for testing
     test_event = event or webhook.events[0]
     try:

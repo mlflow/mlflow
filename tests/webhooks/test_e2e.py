@@ -13,6 +13,7 @@ from cryptography.fernet import Fernet
 
 from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookEvent
+from mlflow.exceptions import MlflowException
 
 from tests.helper_functions import get_safe_port
 from tests.webhooks.app import WEBHOOK_SECRET
@@ -521,3 +522,18 @@ def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client:
     assert logs[0]["endpoint"] == "/secure-webhook"
     assert logs[0]["error"] == "Invalid signature"
     assert logs[0]["status_code"] == 401
+
+
+def test_webhook_test_with_invalid_event(
+    mlflow_client: MlflowClient, app_client: AppClient
+) -> None:
+    webhook = mlflow_client.create_webhook(
+        name="invalid_event_test_webhook",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED, WebhookEvent.MODEL_VERSION_CREATED],
+    )
+
+    with pytest.raises(
+        MlflowException, match=r"MODEL_VERSION_TAG_SET.*is not in webhook's configured events"
+    ):
+        mlflow_client.test_webhook(webhook.webhook_id, event=WebhookEvent.MODEL_VERSION_TAG_SET)
