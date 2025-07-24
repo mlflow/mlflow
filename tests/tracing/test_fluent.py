@@ -2149,6 +2149,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
 
     def func(experiment_id, x):
         set_destination(MlflowExperiment(experiment_id))
+        time.sleep(0.5)
         model.predict(x)
         if async_logging_enabled:
             mlflow.flush_trace_async_logging(terminate=True)
