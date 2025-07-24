@@ -7,9 +7,9 @@ from typing import Optional, Sequence
 
 from cachetools import TTLCache
 from ingest_api_sdk import TableProperties
+from opentelemetry.sdk.trace import ReadableSpan
 
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.trace import Trace
+from mlflow.entities.span import Span
 from mlflow.environment_variables import (
     MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
 )
@@ -18,7 +18,10 @@ from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     create_archival_ingest_sdk,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import encode_span_id
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -42,18 +45,37 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter):
         # Delta archiver for Databricks archiving functionality
         self._delta_archiver = DatabricksTraceDeltaArchiver()
 
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
-        Handles exporting a trace via the MlflowV3SpanExporter with additional archiving to
-        Databricks Delta tables.
+        Export the spans to the destination.
         """
-        # Call parent implementation for existing MlflowV3SpanExporter functionality
-        super()._log_trace(trace, prompts)
+        # Export the spans to Databricks Delta if archival is enabled
+        # NB: Call this before super().export() is called , so that
+        # the trace is still in InMemoryTraceManager
+        for span in spans:
+            if mlflow_span := self._get_mlflow_spans(span):
+                try:
+                    self._delta_archiver.archive(mlflow_span)
+                except Exception as e:
+                    _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
+        # Export the spans to MLflow backend as usual
+        super().export(spans)
+
+    def _get_mlflow_spans(self, span: ReadableSpan) -> Optional[Span]:
+        """
+        Get the MLflow spans for the given OpenTelemetry spans.
+        """
         try:
-            self._delta_archiver.archive(trace)
+            return InMemoryTraceManager.get_instance().get_span_from_id(
+                # use MLflow trace ID instead of OTel trace ID
+                trace_id=json.loads(span.attributes.get(SpanAttributeKey.REQUEST_ID)),
+                # MLflow span ID is encoded version of OTel span ID
+                span_id=encode_span_id(span.context.span_id),
+            )
         except Exception as e:
-            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
+            _logger.warning(f"Failed to get MLflow span for span {span.context.span_id}: {e}")
+            return None
 
 
 class DatabricksTraceDeltaArchiver:
@@ -66,13 +88,13 @@ class DatabricksTraceDeltaArchiver:
     _config_cache = TTLCache(maxsize=100, ttl=TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS)
     _config_cache_lock = threading.Lock()
 
-    def archive(self, trace: Trace):
+    def archive(self, span: Span):
         """
         Try to export a trace to Databricks Delta if archival is configured for the experiment.
         This method handles all enablement checking, configuration resolution, and authentication.
 
         Args:
-            trace: MLflow Trace object containing spans data.
+            span: MLflow Span object containing spans data.
         """
         # Check if delta archival is globally enabled
         if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
@@ -82,12 +104,13 @@ class DatabricksTraceDeltaArchiver:
         try:
             # Extract experiment ID from trace location
             experiment_id = None
-            if (
-                trace.info.trace_location
-                and trace.info.trace_location.type == "MLFLOW_EXPERIMENT"
-                and trace.info.trace_location.mlflow_experiment
-            ):
-                experiment_id = trace.info.trace_location.mlflow_experiment.experiment_id
+            with InMemoryTraceManager.get_instance().get_trace(span.trace_id) as trace:
+                if (
+                    trace.info.trace_location
+                    and trace.info.trace_location.type == "MLFLOW_EXPERIMENT"
+                    and trace.info.trace_location.mlflow_experiment
+                ):
+                    experiment_id = trace.info.trace_location.mlflow_experiment.experiment_id
 
             if not experiment_id:
                 _logger.debug("No experiment ID found in trace, skipping delta archival")
@@ -108,8 +131,8 @@ class DatabricksTraceDeltaArchiver:
                 config.spans_table_name, DeltaProtoSpan.DESCRIPTOR
             )
 
-            # Run the trace logging
-            self._archive_trace(trace, experiment_id, config.spans_table_name)
+            # Run the async trace logging and wait for completion
+            self._archive(span, experiment_id, config.spans_table_name)
 
         except Exception as e:
             _logger.warning(f"Failed to export trace to Databricks Delta: {e}")
@@ -131,23 +154,18 @@ class DatabricksTraceDeltaArchiver:
                 _logger.debug(f"Cached config for experiment {experiment_id}: {config is not None}")
             return self._config_cache[experiment_id]
 
-    def _archive_trace(self, trace: Trace, experiment_id: str, spans_table_name: str):
+    def _archive(self, span: Span, experiment_id: str, spans_table_name: str):
         """
-        Handles exporting a trace to Databricks Delta using the IngestApi.
+        Handles exporting a span to Databricks Delta using the IngestApi.
 
         Args:
-            trace: MLflow Trace object containing spans data.
+            span: MLflow Span object containing spans data.
             experiment_id: ID of the experiment for logging.
             spans_table_name: Name of the spans table for logging.
         """
         try:
             # Convert MLflow trace to OTel proto spans
-            proto_spans = self._convert_trace_to_proto_spans(trace)
-
-            if not proto_spans or len(proto_spans) == 0:
-                _logger.debug("No proto spans to export")
-                return
-
+            proto_span = self._convert_span_to_proto(span)
             # Get stream factory singleton for this table
             factory = IngestStreamFactory.get_instance(self._spans_table_properties)
 
@@ -156,11 +174,10 @@ class DatabricksTraceDeltaArchiver:
 
             # Ingest all spans for the trace
             _logger.debug(
-                f"Ingesting {len(proto_spans)} spans for trace {trace.info.request_id} to table "
+                f"Ingesting span {span.span_id} for trace {span.trace_id} to table "
                 f"{spans_table_name}"
             )
-            for proto_span in proto_spans:
-                stream.ingest_record(proto_span)
+            stream.ingest_record(proto_span)
 
             # Always flush() to ensure data durability.  In sync logging mode, this is ok.
             # For async mode, the flush will be handled by the async queue
@@ -170,93 +187,85 @@ class DatabricksTraceDeltaArchiver:
         except Exception as e:
             _logger.warning(f"Failed to send trace to Databricks Delta: {e}")
 
-    def _convert_trace_to_proto_spans(self, trace: Trace) -> "list[DeltaProtoSpan]":
+    def _convert_span_to_proto(self, span: Span) -> "DeltaProtoSpan":
         """
-        Convert an MLflow trace to a list of Delta Proto Spans.
+        Convert an MLflow span to a Delta Proto Span.
         Direct conversion from MLflow Span to Delta format.
 
         Args:
-            trace: MLflow Trace object containing spans data.
+            span: MLflow Span object containing spans data.
 
         TODO: move this to Span.to_proto() once the legacy trace server span are fully repcated
 
         Returns:
-            List of DeltaProtoSpan objects.
+            DeltaProtoSpan object.
         """
-        delta_proto_spans = []
+        delta_proto = DeltaProtoSpan()
 
-        for span in trace.data.spans:
-            # Skip spans that have no span ID since it will break parent-child relationships
-            if span.span_id is None:
-                _logger.debug(f"Span {span.name} has no span ID, skipping")
-                continue
+        # Skip spans that have no span ID since it will break parent-child relationships
+        if span.span_id is None:
+            _logger.debug(f"Span {span.name} has no span ID, skipping")
+            return
 
-            delta_proto = DeltaProtoSpan()
+        delta_proto = DeltaProtoSpan()
 
-            # Use raw OpenTelemetry trace ID instead of the one from the trace
-            # (without "tr-" prefix) for full OTel compliance
-            delta_proto.trace_id = span._trace_id
-            delta_proto.span_id = span.span_id
-            delta_proto.parent_span_id = span.parent_id or ""
-            delta_proto.trace_state = ""
-            delta_proto.flags = 0
-            delta_proto.name = span.name
+        # Use raw OpenTelemetry trace ID instead of the one from the trace
+        # (without "tr-" prefix) for full OTel compliance
+        delta_proto.trace_id = span._trace_id
+        delta_proto.span_id = span.span_id
+        delta_proto.parent_span_id = span.parent_id or ""
+        delta_proto.trace_state = ""
+        delta_proto.flags = 0
+        delta_proto.name = span.name
 
-            # Map span kind to string
-            kind_mapping = {
-                "internal": "SPAN_KIND_INTERNAL",
-                "server": "SPAN_KIND_SERVER",
-                "client": "SPAN_KIND_CLIENT",
-                "producer": "SPAN_KIND_PRODUCER",
-                "consumer": "SPAN_KIND_CONSUMER",
+        # Map span kind to string
+        kind_mapping = {
+            "internal": "SPAN_KIND_INTERNAL",
+            "server": "SPAN_KIND_SERVER",
+            "client": "SPAN_KIND_CLIENT",
+            "producer": "SPAN_KIND_PRODUCER",
+            "consumer": "SPAN_KIND_CONSUMER",
+        }
+        delta_proto.kind = kind_mapping.get(
+            getattr(span, "kind", "internal").lower(), "SPAN_KIND_INTERNAL"
+        )
+
+        # Set timestamps (convert to nanoseconds if needed)
+        current_time_ns = int(time.time() * 1e9)
+        delta_proto.start_time_unix_nano = getattr(span, "start_time_ns", current_time_ns)
+        end_time_ns = getattr(span, "end_time_ns", None)
+        if end_time_ns is None:
+            end_time_ns = delta_proto.start_time_unix_nano + 1000000000  # fallback: 1s after start
+        delta_proto.end_time_unix_nano = end_time_ns
+
+        # the raw otel span attributes are already json serialized
+        attributes = dict(span._span.attributes)
+
+        for key, value in attributes.items():
+            delta_proto.attributes[str(key)] = value
+
+        # Convert events directly
+        events = getattr(span, "events", []) or []
+        for event in events:
+            event_dict = {
+                "time_unix_nano": getattr(event, "timestamp_ns", current_time_ns),
+                "name": getattr(event, "name", "event"),
+                "attributes": getattr(event, "attributes", {}) or {},
+                "dropped_attributes_count": 0,
             }
-            delta_proto.kind = kind_mapping.get(
-                getattr(span, "kind", "internal").lower(), "SPAN_KIND_INTERNAL"
-            )
+            delta_proto.events.append(json.dumps(event_dict))
+        delta_proto.dropped_events_count = 0
 
-            # Set timestamps (convert to nanoseconds if needed)
-            current_time_ns = int(time.time() * 1e9)
-            delta_proto.start_time_unix_nano = getattr(span, "start_time_ns", current_time_ns)
-            end_time_ns = getattr(span, "end_time_ns", None)
-            if end_time_ns is None:
-                end_time_ns = (
-                    delta_proto.start_time_unix_nano + 1000000000
-                )  # fallback: 1s after start
-            delta_proto.end_time_unix_nano = end_time_ns
+        # Links are rarely used in MLflow, set to empty
+        delta_proto.dropped_links_count = 0
 
-            # the raw otel span attributes are already json serialized
-            attributes = dict(span._span.attributes)
-
-            for key, value in attributes.items():
-                delta_proto.attributes[str(key)] = value
-
-            delta_proto.dropped_attributes_count = 0
-
-            # Convert events directly
-            events = getattr(span, "events", []) or []
-            for event in events:
-                event_dict = {
-                    "time_unix_nano": getattr(event, "timestamp_ns", current_time_ns),
-                    "name": getattr(event, "name", "event"),
-                    "attributes": getattr(event, "attributes", {}) or {},
-                    "dropped_attributes_count": 0,
-                }
-                delta_proto.events.append(json.dumps(event_dict))
-            delta_proto.dropped_events_count = 0
-
-            # Links are rarely used in MLflow, set to empty
-            delta_proto.dropped_links_count = 0
-
-            # Convert status directly
-            status_dict = {
-                "code": getattr(span.status, "status_code", "STATUS_CODE_UNSET"),
-                "message": getattr(span.status, "description", "") or "",
-            }
-            delta_proto.status = json.dumps(status_dict)
-
-            delta_proto_spans.append(delta_proto)
-
-        return delta_proto_spans
+        # Convert status directly
+        status_dict = {
+            "code": getattr(span.status, "status_code", "STATUS_CODE_UNSET"),
+            "message": getattr(span.status, "description", "") or "",
+        }
+        delta_proto.status = json.dumps(status_dict)
+        return delta_proto
 
     def shutdown(self):
         """
