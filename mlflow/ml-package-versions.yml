@@ -312,12 +312,10 @@ spark:
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
-        pushd mlflow/java/spark_2.13
+        mvn package -DskipTests -q -pl spark_2.13
       else
-        pushd mlflow/java/spark_2.12
+        mvn package -DskipTests -q -pl spark_2.12
       fi
-      mvn package -DskipTests -q
-      popd
 
       # `test_spark_disable_autologging.py` is flaky if it runs with other tests
       # so run it individually
