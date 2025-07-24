@@ -57,8 +57,7 @@ jobs:
             --ignore tests/tracing/test_assessment.py --import-mode=importlib
 
           export MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION=true
-          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py \
-            --ignore tests/tracing/test_assessment.py --import-mode=importlib
+          pytest tests/tracing/test_fluent.py --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 
