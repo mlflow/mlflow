@@ -157,7 +157,12 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                     TIMESTAMP_MILLIS(
                         CAST(body:last_update_time::DOUBLE AS BIGINT)
                     ) AS last_update_time,
-                    FROM_JSON(body:expectation::STRING, 'STRUCT<value: STRING>') AS expectation,
+                    FROM_JSON(body:expectation::STRING,
+                        'STRUCT<
+                            value: STRING,
+                            serialized_value: STRUCT<serialization_format: STRING, value: STRING>
+                            >
+                        ') AS expectation,
                     FROM_JSON(
                         body:feedback::STRING,
                         'STRUCT<
