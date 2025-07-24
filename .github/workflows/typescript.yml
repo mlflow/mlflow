@@ -47,10 +47,6 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      - name: Install uv
-        # UV is used for installing Python dependencies for the tracking server
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
       - name: Run format check
         run: yarn format:check
 
