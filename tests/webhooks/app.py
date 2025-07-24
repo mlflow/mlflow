@@ -36,6 +36,7 @@ async def insecure_webhook(request: Request):
         "payload": actual_payload,
         "headers": dict(request.headers),
         "status_code": 200,
+        "error": None,
     }
     with LOG_FILE.open("a") as f:
         f.write(json.dumps(webhook_data) + "\n")
@@ -92,9 +93,10 @@ async def secure_webhook(request: Request):
     if not signature:
         error_data = {
             "endpoint": "/secure-webhook",
-            "error": "Missing signature header",
-            "status_code": 400,
             "headers": dict(request.headers),
+            "status_code": 400,
+            "payload": None,
+            "error": "Missing signature header",
         }
         with LOG_FILE.open("a") as f:
             f.write(json.dumps(error_data) + "\n")
@@ -125,9 +127,10 @@ async def secure_webhook(request: Request):
     if not verify_webhook_signature(body.decode("utf-8"), signature, delivery_id, timestamp):
         error_data = {
             "endpoint": "/secure-webhook",
-            "error": "Invalid signature",
-            "status_code": 401,
             "headers": dict(request.headers),
+            "status_code": 401,
+            "payload": None,
+            "error": "Invalid signature",
         }
         with LOG_FILE.open("a") as f:
             f.write(json.dumps(error_data) + "\n")
@@ -141,6 +144,7 @@ async def secure_webhook(request: Request):
         "payload": actual_payload,
         "headers": dict(request.headers),
         "status_code": 200,
+        "error": None,
     }
 
     with LOG_FILE.open("a") as f:
