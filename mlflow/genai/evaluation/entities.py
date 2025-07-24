@@ -43,7 +43,6 @@ class EvalItem:
         """
         Create an EvalItem from a row of input Pandas Dataframe row.
         """
-        print(row)
         inputs = cls._parse_inputs(row.get(InputDatasetColumn.INPUTS))
         outputs = row.get(InputDatasetColumn.OUTPUTS)
 
