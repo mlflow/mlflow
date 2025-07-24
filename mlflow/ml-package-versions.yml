@@ -297,7 +297,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.2.1"
+    minimum: "3.3.4"
     maximum: "4.0.0"
     java:
       "<= 3.4.1": "11"
