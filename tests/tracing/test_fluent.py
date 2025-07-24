@@ -2127,23 +2127,21 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
         def predict(self, x):
             with mlflow.start_span(name="root_span") as root_span:
                 root_span.set_inputs({"x": x})
-                z = x
 
-                child_span = start_span_no_context(
-                    name="child_span_1",
-                    span_type=SpanType.LLM,
-                    parent_span=root_span,
-                )
-                child_span.set_inputs(z)
+                def child_span_thread(z):
+                    child_span = start_span_no_context(
+                        name="child_span_1",
+                        span_type=SpanType.LLM,
+                        parent_span=root_span,
+                    )
+                    child_span.set_inputs(z)
+                    time.sleep(0.5)
+                    child_span.end()
 
-                z = z + 2
-                time.sleep(1)
-
-                child_span.set_outputs(z)
-                child_span.end()
-
-                root_span.set_outputs(z)
-            return z
+                thread = threading.Thread(target=child_span_thread, args=(x + 1,))
+                thread.start()
+                thread.join()
+            return x
 
     model = TestModel()
     
@@ -2159,7 +2157,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
 
     tracking_uri2 = gen_tracking_uri("store2")
     experiment_id2 = MlflowClient(tracking_uri2).create_experiment("a2")
-    thread2 = threading.Thread(target=func, args=(tracking_uri2, experiment_id2, 4))
+    thread2 = threading.Thread(target=func, args=(tracking_uri2, experiment_id2, 40))
 
     thread1.start()
     thread2.start()
@@ -2172,17 +2170,21 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
     trace = traces[0]
     assert trace.info.trace_id is not None
     assert trace.info.experiment_id == experiment_id1
-    assert trace.info.execution_time_ms >= 1 * 1e3
+    assert trace.info.execution_time_ms >= 0.5 * 1e3
     assert trace.info.state == TraceState.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 3}'
     assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].inputs == {'x': 3}
+    assert trace.data.spans[1].inputs == 4
 
     traces = get_traces(experiment_id2, tracking_uri2)
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
     assert trace.info.experiment_id == experiment_id2
-    assert trace.info.execution_time_ms >= 1 * 1e3
+    assert trace.info.execution_time_ms >= 0.5 * 1e3
     assert trace.info.state == TraceState.OK
-    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 4}'
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 40}'
     assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].inputs == {'x': 40}
+    assert trace.data.spans[1].inputs == 41
