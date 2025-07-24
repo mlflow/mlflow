@@ -1,7 +1,7 @@
 """Webhook dispatch implementation following Standard Webhooks conventions.
 
 This module implements webhook delivery patterns similar to the Standard Webhooks
-specification (https://www.standardwebhooks.com/), providing consistent and secure
+specification (https://www.standardwebhooks.com), providing consistent and secure
 webhook delivery with HMAC signature verification and timestamp-based replay protection.
 """
 
