@@ -95,7 +95,7 @@ class Span:
         self._span = otel_span
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
-        self._attributes = CachedSpanAttributesRegistry(otel_span)
+        self._attributes = _CachedSpanAttributesRegistry(otel_span)
 
     @property
     @lru_cache(maxsize=1)
@@ -387,7 +387,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
-        self._attributes = SpanAttributesRegistry(otel_span)
+        self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
 
@@ -721,7 +721,7 @@ class NoOpSpan(Span):
         pass
 
 
-class SpanAttributesRegistry:
+class _SpanAttributesRegistry:
     """
     A utility class to manage the span attributes.
 
@@ -760,13 +760,13 @@ class SpanAttributesRegistry:
         self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
 
 
-class CachedSpanAttributesRegistry(SpanAttributesRegistry):
+class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
     """
     A cache-enabled version of the SpanAttributesRegistry.
 
     The caching helps to avoid the redundant deserialization of the attribute, however, it does
     not handle the value change well. Therefore, this class should only be used for the persisted
-    spans that are immutable, and thus implemented as a subclass of SpanAttributesRegistry.
+    spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.
     """
 
     @lru_cache(maxsize=128)
