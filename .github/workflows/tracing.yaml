@@ -52,6 +52,11 @@ jobs:
         #     to avoid overlooking unnecessary dependencies in the core tracing package.
         run: |
           export PYTHONPATH=$(pwd)
+          export MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION=false
+          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py \
+            --ignore tests/tracing/test_assessment.py --import-mode=importlib
+
+          export MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION=true
           pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py \
             --ignore tests/tracing/test_assessment.py --import-mode=importlib
 
