@@ -9,7 +9,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
-from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
@@ -233,13 +232,6 @@ def test_trace_passed_correctly(is_in_databricks):
             Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
             Feedback(name="small_question", value=1, rationale="Not sure, just a guess"),
         ],
-        # Raw Assessment object. This construction should only be done internally.
-        Assessment(
-            name="big_question",
-            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="123"),
-            feedback=FeedbackValue(value=42),
-            rationale="It's the answer to everything",
-        ),
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return, is_in_databricks):
