@@ -30,7 +30,7 @@ async def health_check():
 async def insecure_webhook(request: Request):
     payload = await request.json()
     # Extract the data field from webhook payload
-    actual_payload = payload.get("data", payload) if isinstance(payload, dict) else payload
+    actual_payload = payload.get("data", payload)
     webhook_data = {
         "endpoint": "/insecure-webhook",
         "payload": actual_payload,
@@ -135,7 +135,7 @@ async def secure_webhook(request: Request):
 
     payload = json.loads(body)
     # Extract the data field from webhook payload
-    actual_payload = payload.get("data", payload) if isinstance(payload, dict) else payload
+    actual_payload = payload.get("data", payload)
     webhook_data = {
         "endpoint": "/secure-webhook",
         "payload": actual_payload,
