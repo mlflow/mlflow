@@ -92,7 +92,7 @@ def test_set_destination_mlflow_experiment(monkeypatch):
 
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
-        destination=MlflowExperiment(experiment_id="456", tracking_uri="http://localhost")
+        destination=MlflowExperiment(experiment_id="456")
     )
 
     tracer = _get_tracer("test")
@@ -100,7 +100,7 @@ def test_set_destination_mlflow_experiment(monkeypatch):
 
     # Experiment with Databricks tracking URI -> V3 exporter should be used
     mlflow.tracing.set_destination(
-        destination=MlflowExperiment(experiment_id="456", tracking_uri="databricks")
+        destination=MlflowExperiment(experiment_id="456")
     )
 
     tracer = _get_tracer("test")

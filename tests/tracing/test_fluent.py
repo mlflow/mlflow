@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
@@ -2146,11 +2147,10 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path):
         if async_logging_enabled:
             mlflow.flush_trace_async_logging(terminate=True)
 
-    experiment_id1 = MlflowClient().create_experiment("a1")
-
+    experiment_id1 = MlflowClient().create_experiment(uuid.uuid4().hex)
     thread1 = threading.Thread(target=func, args=(experiment_id1, 3))
 
-    experiment_id2 = MlflowClient().create_experiment("a2")
+    experiment_id2 = MlflowClient().create_experiment(uuid.uuid4().hex)
     thread2 = threading.Thread(target=func, args=(experiment_id2, 40))
 
     thread1.start()
