@@ -23,6 +23,12 @@ from flask import (
     make_response,
     render_template_string,
     request,
+    session,
+    redirect,
+    url_for,
+    send_from_directory,
+    current_app,
+    abort,
 )
 from werkzeug.datastructures import Authorization
 
@@ -127,6 +133,7 @@ from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+import os
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -539,16 +546,31 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
 
 def authenticate_request_basic_auth() -> Union[Authorization, Response]:
     """Authenticate the request using basic auth."""
+    # Check for session-based login first
+    if "username" in session:
+        return Authorization("basic", {"username": session["username"], "password": ""})
+    # Fallback to HTTP Basic Auth
     if request.authorization is None:
-        return make_basic_auth_response()
-
+        return redirect("/login")  # Show your custom login page
     username = request.authorization.username
     password = request.authorization.password
     if store.authenticate_user(username, password):
         return request.authorization
     else:
-        # let user attempt login again
-        return make_basic_auth_response()
+        return redirect("/login")
+
+
+def require_login_for_ui():
+    if (
+        not request.path.startswith("/static")
+        and not request.path.startswith("/assets")
+        and not request.path.startswith("/login")
+        and not request.path.startswith("/signup")
+        and not request.path.startswith("/api")
+        and not request.path.startswith("/mlflow/users")
+        and "username" not in session
+    ):
+        return redirect("/login")
 
 
 def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
@@ -1105,6 +1127,162 @@ def delete_registered_model_permission():
     return make_response({})
 
 
+def custom_login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if store.authenticate_user(username, password):
+            session["username"] = username
+            return redirect(url_for("serve"))  # or change to your desired landing page
+        else:
+            flash("Invalid username or password")
+    return render_template_string("""
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>MLflow Login</title>
+    <style>
+        body {
+            background: #f4f6fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .login-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 40px 32px 32px 32px;
+            width: 100%;
+            max-width: 370px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .logo {
+            margin-bottom: 24px;
+            width: 200px;
+            display: flex;
+            justify-content: center;
+        }
+        .logo img {
+            width: 200px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #222;
+        }
+        .login-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .login-form label {
+            font-size: 1rem;
+            margin-bottom: 6px;
+            color: #444;
+        }
+        .login-form input {
+            padding: 10px 12px;
+            margin-bottom: 18px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #f9fafb;
+            transition: border 0.2s;
+        }
+        .login-form input:focus {
+            border: 1.5px solid #2272b4;
+            outline: none;
+        }
+        .login-form button {
+            background: #2272b4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-form button:hover {
+            background: #185a8c;
+        }
+        .signup-link {
+            margin-top: 18px;
+            font-size: 0.97rem;
+        }
+        .signup-link a {
+            color: #2272b4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .error-message {
+            color: #d32f2f;
+            margin-bottom: 12px;
+            font-size: 0.98rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class='login-container'>
+        <div class='logo'><img src='/assets/variphi-logo.png' alt='Variphi Logo'/></div>
+        <div class='login-title'>Sign in to MLflow</div>
+        <form class='login-form' method='post'>
+            <label for='username'>Username</label>
+            <input id='username' name='username' type='text' placeholder='Enter your username' required autofocus>
+            <label for='password'>Password</label>
+            <input id='password' name='password' type='password' placeholder='Enter your password' required>
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                <div class='error-message'>
+                  {% for message in messages %}{{ message }}{% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+            <button type='submit'>Login</button>
+        </form>
+        <div class='signup-link'>Don't have an account? <a href='/signup'>Sign up</a></div>
+    </div>
+</body>
+</html>
+""")
+
+
+def logout():
+    session.pop("username", None)
+    return redirect("/login")
+
+
+def logout_link():
+    if "username" in session:
+        return '<a href="/logout">Logout</a>'
+    return ''
+
+
+def custom_assets(filename):
+    # Print the resolved path for debugging
+    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'assets'))
+    print("Serving assets from:", assets_dir)
+    file_path = os.path.join(assets_dir, filename)
+    print("Requested file:", file_path)
+    if not os.path.exists(file_path):
+        print("File does not exist:", file_path)
+        return abort(404)
+    return send_from_directory(assets_dir, filename)
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1219,8 +1397,29 @@ def create_app(app: Flask = app):
         view_func=delete_registered_model_permission,
         methods=["DELETE"],
     )
+    app.add_url_rule(
+        rule="/login",
+        view_func=custom_login,
+        methods=["GET", "POST"],
+    )
+    app.add_url_rule(
+        rule="/logout",
+        view_func=logout,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule="/logout-link",
+        view_func=logout_link,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule="/assets/<path:filename>",
+        view_func=custom_assets,
+        methods=["GET"],
+    )
 
     app.before_request(_before_request)
     app.after_request(_after_request)
+    app.before_request(require_login_for_ui)
 
     return app
