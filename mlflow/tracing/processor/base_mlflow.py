@@ -173,6 +173,9 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # Update trace state from span status, but only if the user hasn't explicitly set
         # a different trace status
         update_trace_state_from_span_conditionally(trace, root_span)
+
+        # TODO: Remove this once the new trace table UI is available that is based on MLflow V3 trace.
+        # Until then, these two metadata are still used to render the "request" and "response" columns.
         trace.info.trace_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(

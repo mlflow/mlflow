@@ -40,7 +40,13 @@ export const TraceMetadataKey = {
   MODEL_ID: 'mlflow.modelId',
   SIZE_BYTES: 'mlflow.trace.sizeBytes',
   SCHEMA_VERSION: 'mlflow.traceSchemaVersion',
-  TOKEN_USAGE: 'mlflow.trace.tokenUsage'
+  TOKEN_USAGE: 'mlflow.trace.tokenUsage',
+  // Deprecated, do not use. These fields are used for storing trace request and response
+  // in MLflow 2.x. In MLflow 3.x, these are replaced in favor of the request_preview and
+  // response_preview fields in the trace info.
+  // TODO: Remove this once the new trace table UI is available that is based on MLflow V3 trace.
+  INPUTS: 'mlflow.traceInputs',
+  OUTPUTS: 'mlflow.traceOutputs'
 };
 
 /**
@@ -78,3 +84,8 @@ export const TokenUsageKey = {
   OUTPUT_TOKENS: 'output_tokens',
   TOTAL_TOKENS: 'total_tokens'
 };
+
+/**
+ * Max length of the request/response preview in the trace info.
+ */
+export const REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 1000;

@@ -5,6 +5,7 @@ import { createTraceLocationFromExperimentId } from '../../src/core/entities/tra
 import { TraceState } from '../../src/core/entities/trace_state';
 import { createTestSpan } from '../helper';
 import { Span } from '../../src/core/entities/span';
+import { TraceMetadataKey } from '../../src/core/constants';
 
 /**
  * Helper function to create a test TraceInfo object
@@ -70,5 +71,20 @@ describe('InMemoryTraceManager', () => {
     expect(poppedTrace1?.data.spans.length).toBe(3);
     expect(traceManager.getTrace(traceId)).toBeNull();
     expect(poppedTrace1?.data.spans[0]).toBeInstanceOf(Span);
+  });
+
+  it('should truncate the request/response preview if it exceeds the max length', () => {
+    const traceManager = InMemoryTraceManager.getInstance();
+    const traceId = 'tr-1';
+    const otelTraceId = '12345';
+    traceManager.registerTrace(otelTraceId, createTestTraceInfo(traceId));
+
+    const span = createTestSpan('test', traceId, 'span11');
+    span.setInputs('a'.repeat(5000));
+    traceManager.registerSpan(span);
+
+    const trace = traceManager.popTrace(otelTraceId);
+    expect(trace?.info.requestPreview).toHaveLength(1000);
+    expect(trace?.info.traceMetadata[TraceMetadataKey.INPUTS]).toHaveLength(1000);
   });
 });

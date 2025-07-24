@@ -2,7 +2,11 @@ import { LiveSpan, Span } from './entities/span';
 import { TraceInfo } from './entities/trace_info';
 import { Trace } from './entities/trace';
 import { TraceData } from './entities/trace_data';
-import { SpanAttributeKey } from './constants';
+import {
+  REQUEST_RESPONSE_PREVIEW_MAX_LENGTH,
+  SpanAttributeKey,
+  TraceMetadataKey
+} from './constants';
 
 /**
  * Internal representation to keep the state of a trace.
@@ -30,15 +34,35 @@ class _Trace {
       // TODO: Implement the smart truncation logic.
       // Only set previews if they haven't been explicitly set by updateCurrentTrace
       if (!this.info.requestPreview) {
-        this.info.requestPreview = root_span._span.attributes[SpanAttributeKey.INPUTS] as string;
+        this.info.requestPreview = getPreviewString(
+          root_span._span.attributes[SpanAttributeKey.INPUTS] as string
+        );
       }
       if (!this.info.responsePreview) {
-        this.info.responsePreview = root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string;
+        this.info.responsePreview = getPreviewString(
+          root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string
+        );
       }
+
+      // TODO: Remove this once the new trace table UI is available that is based on MLflow V3 trace.
+      // Until then, these two metadata are still used to render the "request" and "response" columns.
+      this.info.traceMetadata[TraceMetadataKey.INPUTS] = this.info.requestPreview;
+      this.info.traceMetadata[TraceMetadataKey.OUTPUTS] = this.info.responsePreview;
     }
 
     return new Trace(this.info, traceData);
   }
+}
+
+function getPreviewString(inputsOrOutputs: string): string {
+  if (!inputsOrOutputs) {
+    return '';
+  }
+
+  if (inputsOrOutputs.length > REQUEST_RESPONSE_PREVIEW_MAX_LENGTH) {
+    return inputsOrOutputs.slice(0, REQUEST_RESPONSE_PREVIEW_MAX_LENGTH - 3) + '...';
+  }
+  return inputsOrOutputs;
 }
 
 /**
