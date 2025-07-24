@@ -6,8 +6,11 @@ import click
 
 
 @click.command()
-@click.option("--with-r", "with_r", is_flag=True, default=False, help="The version to release")
-def main(with_r):
+@click.option("--with-r", "with_r", is_flag=True, default=False, help="Build R documentation")
+@click.option(
+    "--with-ts", "with_ts", is_flag=True, default=True, help="Build TypeScript documentation"
+)
+def main(with_r, with_ts):
     try:
         # Run "make rsthtml" in "api_reference" subfolder
         print("Building API reference documentation...")
@@ -16,6 +19,8 @@ def main(with_r):
         subprocess.run(["make", "javadocs"], check=True, cwd="api_reference")
         if with_r:
             subprocess.run(["make", "rdocs"], check=True, cwd="api_reference")
+        if with_ts:
+            subprocess.run(["make", "tsdocs"], check=True, cwd="api_reference")
         print("Build successful.")
     except subprocess.CalledProcessError as e:
         print(f"Build failed: {e}")
