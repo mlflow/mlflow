@@ -1,11 +1,11 @@
-import json
 import platform
 import sys
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
+from mlflow.telemetry.params import BaseParams
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
 
@@ -13,34 +13,6 @@ class APIStatus(str, Enum):
     UNKNOWN = "unknown"
     SUCCESS = "success"
     FAILURE = "failure"
-
-
-@dataclass
-class BaseParams:
-    """
-    Base class for params that are logged to telemetry.
-    """
-
-    def to_json(self) -> str:
-        return json.dumps(asdict(self))
-
-
-@dataclass
-class LoggedModelParams(BaseParams):
-    flavor: str
-
-
-@dataclass
-class RegisteredModelParams(BaseParams):
-    is_prompt: bool
-
-
-@dataclass
-class CreateRunParams(BaseParams):
-    # Capture the set of currently imported packages at run creation time to
-    # understand how MLflow is used together with other libraries. Collecting
-    # this data at run creation ensures accuracy and completeness.
-    imports: list[str]
 
 
 @dataclass

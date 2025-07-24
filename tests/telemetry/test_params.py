@@ -1,8 +1,11 @@
 import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-from mlflow.telemetry.parser import LoggedModelParser, RegisteredModelParser
-from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
+from mlflow.telemetry.params import (
+    CreateModelVersionParams,
+    LoggedModelParams,
+    RegisteredModelParams,
+)
 
 
 @pytest.mark.parametrize(
@@ -29,8 +32,8 @@ from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
         ({}, None),
     ],
 )
-def test_logged_model_parser(arguments, expected_params):
-    assert LoggedModelParser.extract_params(arguments) == expected_params
+def test_logged_model_parse_params(arguments, expected_params):
+    assert LoggedModelParams.parse(arguments) == expected_params
 
 
 @pytest.mark.parametrize(
@@ -43,5 +46,19 @@ def test_logged_model_parser(arguments, expected_params):
         ({}, RegisteredModelParams(is_prompt=False)),
     ],
 )
-def test_registered_model_parser(arguments, expected_params):
-    assert RegisteredModelParser.extract_params(arguments) == expected_params
+def test_registered_model_parse_params(arguments, expected_params):
+    assert RegisteredModelParams.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"tags": None}, CreateModelVersionParams(is_prompt=False)),
+        ({"tags": {}}, CreateModelVersionParams(is_prompt=False)),
+        ({"tags": {IS_PROMPT_TAG_KEY: "true"}}, CreateModelVersionParams(is_prompt=True)),
+        ({"tags": {IS_PROMPT_TAG_KEY: "false"}}, CreateModelVersionParams(is_prompt=False)),
+        ({}, CreateModelVersionParams(is_prompt=False)),
+    ],
+)
+def test_create_model_version_parse_params(arguments, expected_params):
+    assert CreateModelVersionParams.parse(arguments) == expected_params

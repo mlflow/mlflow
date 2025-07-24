@@ -10,7 +10,11 @@ from mlflow import MlflowClient
 from mlflow.entities import Feedback
 from mlflow.models.evaluation.base import _evaluate
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
-from mlflow.telemetry.schemas import LoggedModelParams, RegisteredModelParams
+from mlflow.telemetry.params import (
+    CreateModelVersionParams,
+    LoggedModelParams,
+    RegisteredModelParams,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -105,14 +109,33 @@ def test_create_model_version(mock_requests, mlflow_client):
     mlflow_client.create_model_version(
         name="test_model", source="test_source", run_id="test_run_id"
     )
-    validate_telemetry_record(mock_requests, ModelRegistryClient.create_model_version)
+    validate_telemetry_record(
+        mock_requests,
+        ModelRegistryClient.create_model_version,
+        CreateModelVersionParams(is_prompt=False),
+    )
 
     mlflow.pyfunc.log_model(
         name="model",
         python_model=TestModel(),
         registered_model_name="test_model",
     )
-    validate_telemetry_record(mock_requests, ModelRegistryClient.create_model_version)
+    validate_telemetry_record(
+        mock_requests,
+        ModelRegistryClient.create_model_version,
+        CreateModelVersionParams(is_prompt=False),
+    )
+
+    mlflow.genai.register_prompt(
+        name="ai_assistant_prompt",
+        template="Respond to the user's message as a {{style}} AI. {{greeting}}",
+        commit_message="Initial version of AI assistant",
+    )
+    validate_telemetry_record(
+        mock_requests,
+        ModelRegistryClient.create_model_version,
+        CreateModelVersionParams(is_prompt=True),
+    )
 
 
 def test_start_trace(mock_requests, mlflow_client):

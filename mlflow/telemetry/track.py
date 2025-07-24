@@ -4,7 +4,7 @@ import time
 from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
-from mlflow.telemetry.parser import API_PARSER_MAPPING
+from mlflow.telemetry.params import PARAMS_MAPPING
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
     is_telemetry_disabled,
@@ -61,8 +61,8 @@ def _generate_telemetry_record(
         if params and params[0] == "cls" and isinstance(arguments["cls"], type):
             del arguments["cls"]
 
-        parser = API_PARSER_MAPPING.get(func.__name__)
-        record_params = parser.extract_params(arguments) if parser else None
+        params_class = PARAMS_MAPPING.get(func.__name__)
+        record_params = params_class.parse(arguments) if params_class else None
         return APIRecord(
             api_module=func.__module__,
             api_name=func.__qualname__,
