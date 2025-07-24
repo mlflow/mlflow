@@ -155,15 +155,14 @@ def purge_traces(experiment_id=None):
 
 def get_tracer_tracking_uri() -> Optional[str]:
     """Get current tracking URI configured as the trace export destination."""
-    from opentelemetry import trace
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+    from mlflow.tracing.destination import MlflowExperiment
 
-    tracer = _get_tracer(__name__)
-    if isinstance(tracer, trace.ProxyTracer):
-        tracer = tracer._tracer
-    span_processor = tracer.span_processor._span_processors[0]
+    tracking_uri = None
+    if isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), MlflowExperiment):
+        tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.get().tracking_uri
 
-    if isinstance(span_processor, MlflowV3SpanProcessor):
-        return span_processor.span_exporter._client.tracking_uri
+    return tracking_uri or mlflow.get_tracking_uri()
 
 
 @pytest.fixture

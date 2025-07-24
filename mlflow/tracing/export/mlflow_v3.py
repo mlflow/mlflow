@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+import mlflow
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
@@ -67,7 +68,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
             tracking_uri = InMemoryTraceManager.get_instance().get_trace_tracking_uri(
                 trace.info.trace_id
-            )
+            ) or mlflow.get_tracking_uri()
             if self._should_log_async(tracking_uri):
                 self._async_queue.put(
                     task=Task(

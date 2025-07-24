@@ -73,7 +73,7 @@ class InMemoryTraceManager:
         self._trace_id_to_tracking_uri_map = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, tracking_uri: Optional[str]):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, tracking_uri: Optional[str] = None):
         """
         Register a new trace info object to the in-memory trace registry.
 

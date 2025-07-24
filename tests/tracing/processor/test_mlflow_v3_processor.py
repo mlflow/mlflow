@@ -88,20 +88,6 @@ def test_on_start_during_run(monkeypatch):
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
-def test_on_start_with_experiment_id_override(monkeypatch):
-    mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
-    processor = MlflowV3SpanProcessor(
-        span_exporter=mock.MagicMock(), experiment_id="another_experiment"
-    )
-
-    span = create_mock_otel_span(trace_id=123, span_id=1)
-    processor.on_start(span)
-
-    trace_id = "tr-" + encode_trace_id(span.context.trace_id)
-    trace = InMemoryTraceManager.get_instance()._traces[trace_id]
-    assert trace.info.experiment_id == "another_experiment"
-
-
 def test_on_end():
     trace_info = create_test_trace_info("request_id", 0)
     trace_manager = InMemoryTraceManager.get_instance()

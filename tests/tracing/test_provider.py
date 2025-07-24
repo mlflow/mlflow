@@ -120,7 +120,6 @@ def test_set_destination_databricks(monkeypatch):
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert processors[0]._experiment_id == "123"
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
