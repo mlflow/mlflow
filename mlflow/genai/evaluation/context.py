@@ -5,9 +5,12 @@ contexts.
 
 import functools
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional
+from typing import Callable, Optional, ParamSpec, TypeVar
 
 import mlflow
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class Context(ABC):
@@ -134,10 +137,10 @@ def get_context() -> Context:
     """
     Get the context.
     """
-    return _context_singleton or NoneContext()
+    return _context_singleton
 
 
-def eval_context(func: Callable[..., Any]) -> Callable[..., Any]:
+def eval_context(func: Callable[P, R]) -> Callable[P, R]:
     """
     Decorator for wrapping all eval APIs with setup and closure logic.
 
@@ -145,7 +148,7 @@ def eval_context(func: Callable[..., Any]) -> Callable[..., Any]:
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         # Set up the context singleton if it doesn't exist
         if not context_is_active():
             global _context_singleton
