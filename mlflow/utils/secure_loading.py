@@ -22,14 +22,14 @@ SAFE_PICKLE_CLASSES = {
     'numpy.dtype',
     'numpy.int32', 'numpy.int64', 'numpy.float32', 'numpy.float64',
     'numpy.bool_', 'numpy.str_',
-    
+
     # Pandas types
     'pandas.core.frame.DataFrame',
     'pandas.core.series.Series',
     'pandas.core.index.Index',
     'pandas.core.dtypes.dtypes.CategoricalDtype',
-    
-    # Scikit-learn estimators (core models only)
+
+    # Scikit-learn estimators
     'sklearn.linear_model._base.LinearRegression',
     'sklearn.linear_model._logistic.LogisticRegression',
     'sklearn.ensemble._forest.RandomForestClassifier',
@@ -38,19 +38,73 @@ SAFE_PICKLE_CLASSES = {
     'sklearn.tree._classes.DecisionTreeRegressor',
     'sklearn.svm._classes.SVC',
     'sklearn.svm._classes.SVR',
-    
-    # Standard Python types
+
+    # Built-in types
     'builtins.dict', 'builtins.list', 'builtins.tuple', 'builtins.set',
     'builtins.str', 'builtins.int', 'builtins.float', 'builtins.bool',
-    
+    'builtins.type',
+
     # Collections
     'collections.OrderedDict',
     'collections.defaultdict',
-    
-    # Genesis-Flow internal types
+
+    # MLflow types
     'mlflow.models.signature.ModelSignature',
+    'mlflow.models.signature._TypeHints',
     'mlflow.types.schema.Schema',
+    'mlflow.pyfunc.model.PythonModel',
+
+    # Cloudpickle internals
+    'cloudpickle.cloudpickle._make_skeleton_class',
+    'cloudpickle.cloudpickle._class_setstate',
+    'cloudpickle.cloudpickle._make_function',
+    'cloudpickle.cloudpickle._builtin_type',
+    'cloudpickle.cloudpickle._function_setstate',
+    'cloudpickle.cloudpickle._make_empty_cell',
+    'cloudpickle.cloudpickle._make_cell',
+
+    # Sentence Transformers
+    'sentence_transformers.SentenceTransformer.SentenceTransformer',
+    'sentence_transformers.model_card.SentenceTransformerModelCardData',
+    'sentence_transformers.models.Transformer.Transformer',
+    'sentence_transformers.models.Pooling.Pooling',
+    'sentence_transformers.models.Normalize.Normalize',
+
+    # Torch
+    'torch.torch_version.TorchVersion',
+    'torch._utils._rebuild_tensor_v2',
+    'torch.storage._load_from_bytes',
+    'torch.nn.modules.sparse.Embedding',
+    'torch._utils._rebuild_parameter',
+    'torch.nn.modules.normalization.LayerNorm',
+    'torch.nn.modules.dropout.Dropout',
+    'torch.nn.modules.container.ModuleList',
+    'torch.nn.modules.linear.Linear',
+    'torch.nn.modules.activation.Tanh',
+    'torch.float32',
+    'torch._C._nn.gelu',
+
+    # Transformers
+    'transformers.models.bert.modeling_bert.BertModel',
+    'transformers.models.bert.modeling_bert.BertEmbeddings',
+    'transformers.models.bert.modeling_bert.BertEncoder',
+    'transformers.models.bert.modeling_bert.BertLayer',
+    'transformers.models.bert.modeling_bert.BertAttention',
+    'transformers.models.bert.modeling_bert.BertSdpaSelfAttention',
+    'transformers.models.bert.modeling_bert.BertSelfOutput',
+    'transformers.models.bert.modeling_bert.BertIntermediate',
+    'transformers.models.bert.modeling_bert.BertOutput',
+    'transformers.models.bert.modeling_bert.BertPooler',
+    'transformers.models.bert.configuration_bert.BertConfig',
+    'transformers.models.bert.tokenization_bert_fast.BertTokenizerFast',
+    'transformers.activations.GELUActivation',
+
+    # Tokenizers
+    'tokenizers.Tokenizer',
+    'tokenizers.models.Model',
+    'tokenizers.AddedToken',
 }
+
 
 class RestrictedUnpickler(pickle.Unpickler):
     """
