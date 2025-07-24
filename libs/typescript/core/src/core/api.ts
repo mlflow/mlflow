@@ -261,6 +261,8 @@ function createAndRegisterMlflowSpan(
  *
  * When used as a decorator, it preserves the `this` context for class methods.
  *
+ * Note: Typescript decorator is still in experimental stage.
+ *
  * @param func The function to trace (when used as function wrapper)
  * @param options Optional trace options including name, spanType, and attributes
  * @returns The traced function or method decorator
