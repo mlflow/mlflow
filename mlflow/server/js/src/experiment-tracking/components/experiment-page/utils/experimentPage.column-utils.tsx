@@ -453,7 +453,7 @@ export const useRunsColumnDefinitions = ({
         headerName: 'Metrics',
         groupId: COLUMN_TYPES.METRICS,
         children: metricKeys
-          .filter(metricKey => {
+          .filter((metricKey) => {
             // Only create columns for metrics that are selected or if we're comparing runs
             const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
             return isComparingRuns || selectedColumns.includes(canonicalSortKey);
@@ -496,7 +496,7 @@ export const useRunsColumnDefinitions = ({
         headerName: 'Parameters',
         groupId: COLUMN_TYPES.PARAMS,
         children: paramKeys
-          .filter(paramKey => {
+          .filter((paramKey) => {
             // Only create columns for parameters that are selected or if we're comparing runs
             const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
             return isComparingRuns || selectedColumns.includes(canonicalSortKey);
@@ -530,7 +530,7 @@ export const useRunsColumnDefinitions = ({
         headerName: 'Tags',
         colId: COLUMN_TYPES.TAGS,
         children: tagKeys
-          .filter(tagKey => {
+          .filter((tagKey) => {
             // Only create columns for tags that are selected or if we're comparing runs
             const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey);
             return isComparingRuns || selectedColumns.includes(canonicalSortKey);

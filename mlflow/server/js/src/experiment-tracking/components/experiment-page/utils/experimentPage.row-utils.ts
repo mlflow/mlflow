@@ -606,7 +606,7 @@ export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fa
   if (!paramEntity) {
     return fallback;
   }
-  
+
   const parsed = parseInt(paramEntity, 10);
   return isNaN(parsed) ? fallback : parsed;
 };
