@@ -47,11 +47,9 @@ jobs:
         run: |
           pip install pytest pytest-asyncio pyyaml requests sqlparse typing-extensions
 
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-        with:
-          ## If no one connects after 5 minutes, shut down server.
-          wait-timeout-minutes: 120
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
