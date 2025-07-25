@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ValidationError
 
@@ -19,9 +19,6 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -69,7 +66,7 @@ class PromptVersion(_ModelRegistryEntity):
         self,
         name: str,
         version: int,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
@@ -93,7 +90,8 @@ class PromptVersion(_ModelRegistryEntity):
         # Determine prompt type and set it
         if isinstance(template, list) and len(template) > 0:
             try:
-                all(ChatMessage.model_validate(msg) for msg in template)
+                for msg in template:
+                    ChatMessage.model_validate(msg)
             except ValidationError as e:
                 raise ValueError("Template must be a list of dicts with role and content") from e
             self._prompt_type = PROMPT_TYPE_CHAT
@@ -129,13 +127,17 @@ class PromptVersion(_ModelRegistryEntity):
                 else self.template
             )
         else:
-            short_msgs = [json.dumps(m)[:PROMPT_TEXT_DISPLAY_LIMIT] + "..." for m in self.template]
-            text = "[" + ",".join(short_msgs) + "]"
+            message = json.dumps(self.template)
+            text = (
+                message[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+                if len(message) > PROMPT_TEXT_DISPLAY_LIMIT
+                else message
+            )
         return f"PromptVersion(name={self.name}, version={self.version}, template={text})"
 
     # Core PromptVersion properties
     @property
-    def template(self) -> Union[str, list[dict[str, ContentType]]]:
+    def template(self) -> Union[str, list[dict[str, Any]]]:
         """
         Return the template content of the prompt.
 
@@ -172,7 +174,7 @@ class PromptVersion(_ModelRegistryEntity):
             return None
         return json.loads(self._tags[RESPONSE_FORMAT_TAG_KEY])
 
-    def to_single_brace_format(self) -> Union[str, list[dict[str, ContentType]]]:
+    def to_single_brace_format(self) -> Union[str, list[dict[str, Any]]]:
         """
         Convert the template to single brace format. This is useful for integrating with other
         systems that use single curly braces for variable replacement, such as LangChain's prompt
@@ -298,7 +300,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     def format(
         self, allow_partial: bool = False, **kwargs
-    ) -> Union[PromptVersion, str, list[dict[str, ContentType]]]:
+    ) -> Union[PromptVersion, str, list[dict[str, Any]]]:
         """
         Format the template with the given keyword arguments.
         By default, it raises an error if there are missing variables. To format

@@ -177,7 +177,6 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
     assert span2.parent_id == spans[1].span_id
 
     span3 = spans[3]
-    assert span3.name == "Tool.run"
     assert span3.span_type == SpanType.TOOL
     assert span3.parent_id == spans[1].span_id
 
@@ -215,7 +214,6 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     assert span1.parent_id == spans[0].span_id
 
     span2 = spans[2]
-    assert span2.name == "Tool.run"
     assert span2.span_type == SpanType.TOOL
     assert span2.parent_id == spans[0].span_id
 

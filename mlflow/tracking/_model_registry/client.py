@@ -5,7 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -30,10 +30,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, uti
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
-
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 
 class ModelRegistryClient:
@@ -546,7 +542,7 @@ class ModelRegistryClient:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, "ContentType"]]],
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
