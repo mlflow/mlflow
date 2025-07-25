@@ -73,7 +73,7 @@ class ModelSignature:
 
     def __init__(
         self,
-        # `dataclass` is not a valid type annotation, so we use `Any` here as a workaround.
+        # `dataclass` is an invalid type annotation. Use `Any` instead as a workaround.
         inputs: Union[Schema, Any] = None,
         outputs: Union[Schema, Any] = None,
         params: ParamSchema = None,
