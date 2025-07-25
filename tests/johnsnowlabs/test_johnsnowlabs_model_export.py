@@ -19,7 +19,9 @@ from mlflow.pyfunc import spark_udf
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import assert_register_model_called_with_local_model_path
+from tests.helper_functions import (
+    assert_register_model_called_with_local_model_path,
+)
 
 MODEL_CACHE_FOLDER = None
 nlu_model = "en.classify.bert_sequence.covid_sentiment"
@@ -660,6 +662,8 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #
 #     def mock_get_dbutils():
 #         import inspect
+
+
 #
 #         # _get_dbutils is called during run creation and model logging; to avoid breaking run
 #         # creation, we only mock the output if _get_dbutils is called during spark model logging

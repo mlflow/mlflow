@@ -1,0 +1,173 @@
+import time
+from unittest import mock
+
+import pytest
+
+from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
+from mlflow.telemetry.client import (
+    TelemetryClient,
+    get_telemetry_client,
+    set_telemetry_client,
+)
+from mlflow.telemetry.events import CreateLoggedModelEvent, Event
+from mlflow.telemetry.schemas import Status
+from mlflow.telemetry.track import _is_telemetry_disabled_for_event, record_usage_event
+from mlflow.telemetry.utils import is_telemetry_disabled
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+
+
+class TestEvent(Event):
+    name = "test_event"
+
+
+def test_track_api_usage(mock_requests):
+    assert len(mock_requests) == 0
+
+    @record_usage_event(TestEvent)
+    def succeed_func():
+        # sleep to make sure duration_ms > 0
+        time.sleep(0.01)
+        return True
+
+    @record_usage_event(TestEvent)
+    def fail_func():
+        time.sleep(0.01)
+        raise ValueError("test")
+
+    succeed_func()
+    with pytest.raises(ValueError, match="test"):
+        fail_func()
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 2
+    succeed_record = mock_requests[0]["data"]
+    assert succeed_record["schema_version"] == 1
+    assert succeed_record["event_name"] == TestEvent.name
+    assert succeed_record["status"] == Status.SUCCESS.value
+    assert succeed_record["params"] is None
+    assert succeed_record["duration_ms"] > 0
+
+    fail_record = mock_requests[1]["data"]
+    assert fail_record["schema_version"] == 1
+    assert fail_record["event_name"] == TestEvent.name
+    assert fail_record["status"] == Status.FAILURE.value
+    assert fail_record["params"] is None
+    assert fail_record["duration_ms"] > 0
+
+    telemetry_info = get_telemetry_client().info
+    assert telemetry_info.items() <= succeed_record.items()
+    assert telemetry_info.items() <= fail_record.items()
+
+
+def test_backend_store_info(tmp_path):
+    telemetry_client = get_telemetry_client()
+
+    sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
+    with _use_tracking_uri(sqlite_uri):
+        telemetry_client._update_backend_store()
+    assert telemetry_client.info["tracking_uri_scheme"] == "sqlite"
+
+    with _use_tracking_uri(tmp_path):
+        telemetry_client._update_backend_store()
+    assert telemetry_client.info["tracking_uri_scheme"] == "file"
+
+
+@pytest.mark.parametrize(
+    ("env_var", "value", "expected_result"),
+    [
+        (MLFLOW_DISABLE_TELEMETRY.name, "true", None),
+        (MLFLOW_DISABLE_TELEMETRY.name, "false", TelemetryClient),
+        ("DO_NOT_TRACK", "true", None),
+        ("DO_NOT_TRACK", "false", TelemetryClient),
+    ],
+)
+def test_track_api_usage_respect_env_var(monkeypatch, env_var, value, expected_result):
+    monkeypatch.setenv(env_var, value)
+    # mimic the behavior of `import mlflow`
+    set_telemetry_client()
+    telemetry_client = get_telemetry_client()
+    if expected_result is None:
+        assert is_telemetry_disabled() is True
+        assert telemetry_client is None
+    else:
+        assert isinstance(telemetry_client, expected_result)
+
+
+def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests):
+    telemetry_client = get_telemetry_client()
+    assert isinstance(telemetry_client, TelemetryClient)
+
+    @record_usage_event(TestEvent)
+    def test_func():
+        pass
+
+    test_func()
+
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 1
+    record = mock_requests[0]["data"]
+    assert record["event_name"] == TestEvent.name
+
+    monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
+    test_func()
+    # no new record should be added
+    assert len(mock_requests) == 1
+
+
+@pytest.mark.no_mock_requests_get
+def test_is_telemetry_disabled_for_event():
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_events": ["test_event"],
+                }
+            ),
+        )
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_event(TestEvent) is False
+        assert _is_telemetry_disabled_for_event(TestEvent) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is not None
+        # event not in disable_events, do not skip
+        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
+        # event in disable_events, skip
+        assert _is_telemetry_disabled_for_event(TestEvent) is True
+
+    # test telemetry disabled after config is fetched
+    def mock_requests_get(*args, **kwargs):
+        time.sleep(1)
+        return mock.Mock(status_code=403)
+
+    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
+        set_telemetry_client()
+        client = get_telemetry_client()
+        assert client is not None
+        assert client.config is None
+        # do not skip when config is not fetched yet
+        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
+        assert _is_telemetry_disabled_for_event(TestEvent) is False
+        time.sleep(2)
+        assert client._is_config_fetched is True
+        assert client.config is None
+        assert get_telemetry_client() is None
+        # telemetry is disabled, skip all events
+        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is True
+        assert _is_telemetry_disabled_for_event(TestEvent) is True

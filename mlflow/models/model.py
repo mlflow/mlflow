@@ -32,7 +32,9 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.tracking.fluent import (
+    _create_logged_model,
     _get_active_model_context,
+    _last_logged_model_id,
     _set_active_model_id,
     _use_logged_model,
 )
@@ -1163,7 +1165,7 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
-                model = mlflow.initialize_logged_model(
+                model = _create_logged_model(
                     # TODO: Update model name
                     name=name,
                     source_run_id=run_id,
@@ -1172,7 +1174,9 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
+                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
                 )
+                _last_logged_model_id.set(model.model_id)
                 if (
                     MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
                     and is_databricks_uri(tracking_uri)
