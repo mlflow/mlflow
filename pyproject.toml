@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "genesis-flow"
-version = "1.0.0"
+version = "1.0.1"
 description = "Genesis-Flow: Lightweight, secure MLflow fork for Genesis platform"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
