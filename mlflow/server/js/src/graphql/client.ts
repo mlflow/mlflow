@@ -5,10 +5,7 @@ import {
   Operation,
   createHttpLink,
 } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-import {
-  RetryLink,
-  DefaultHeadersLink
-} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { RetryLink, DefaultHeadersLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];

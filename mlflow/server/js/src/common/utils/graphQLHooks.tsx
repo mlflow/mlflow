@@ -1,10 +1,4 @@
-import {
-  ApolloLink,
-  Operation,
-  NextLink,
-  Observable,
-  FetchResult,
-} from '@apollo/client/core';
+import { ApolloLink, Operation, NextLink, Observable, FetchResult } from '@apollo/client/core';
 import { getDefaultHeaders } from './FetchUtils';
 
 export * from '@apollo/client';
