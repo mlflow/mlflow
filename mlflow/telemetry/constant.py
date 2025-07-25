@@ -23,7 +23,7 @@ PACKAGES_TO_CHECK_IMPORT = [
     "h2o",
     "lightgbm",
     "prophet",
-    "pyspark",
+    "pyspark.ml",
     "sklearn",
     "spacy",
     "statsmodels",
