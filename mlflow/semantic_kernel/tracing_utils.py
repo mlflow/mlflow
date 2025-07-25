@@ -1,12 +1,13 @@
 import logging
+from contextlib import contextmanager
 from typing import Any, Callable, Optional
 
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_history import ChatHistory
-from semantic_kernel.contents.chat_message_content import ChatMessageContent
 from semantic_kernel.contents.kernel_content import KernelContent
 from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
+from semantic_kernel.functions import FunctionResult
 from semantic_kernel.utils.telemetry.model_diagnostics import (
     gen_ai_attributes as model_gen_ai_attributes,
 )
@@ -17,6 +18,7 @@ from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
     TEXT_STREAMING_COMPLETION_OPERATION,
 )
 
+import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -50,23 +52,11 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
         # Wrapping _set_completion_input
         # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
         mlflow_span.set_inputs(_parse_content(prompt))
-        mlflow_span.set_span_type(SpanType.CHAT_MODEL)
 
     if completions := full_kwargs.get("completions"):
         # Wrapping _set_completion_response
-        # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L400
-        full_responses = []
-        for completion in completions:
-            full_response: dict[str, Any] = completion.to_dict()
-
-            if isinstance(completion, ChatMessageContent):
-                full_response["finish_reason"] = completion.finish_reason.value
-            if isinstance(completion, StreamingContentMixin):
-                full_response["index"] = completion.choice_index
-
-            full_responses.append(full_response)
-
-        mlflow_span.set_outputs({"messages": full_responses})
+        # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/
+        mlflow_span.set_outputs({"messages": [_parse_content(c) for c in completions]})
 
     if error := full_kwargs.get("error"):
         # Wrapping _set_completion_error
@@ -76,34 +66,46 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
     return original(*args, **kwargs)
 
 
-def create_trace_wrapper(
-    span_type: Optional[SpanType] = None,
-) -> Callable[[Any], Any]:
+def create_trace_wrapper(span_type: SpanType) -> Callable[[Any], Any]:
     """Create a trace wrapper with specific parser and serializer."""
 
     async def _trace_wrapper(original, self, *args, **kwargs):
         otel_span_id = get_current_span().get_span_context().span_id
-        mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+        active_mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
 
-        if not mlflow_span:
-            return await original(self, *args, **kwargs)
-
-        if span_type:
+        # If Semantic Kernel does not create an OTel span for the method, we create
+        # one ourselves. (e.g., kernel.invoke)
+        with (
+            _use_span(active_mlflow_span)
+            if active_mlflow_span
+            else mlflow.start_span(name=f"{self.__class__.__name__}.{original.__name__}")
+        ) as mlflow_span:
+            inputs = construct_full_inputs(original, self, *args, **kwargs)
+            mlflow_span.set_inputs(_parse_content(inputs))
             mlflow_span.set_span_type(span_type)
 
-        inputs = construct_full_inputs(original, self, *args, **kwargs)
-        mlflow_span.set_inputs(_parse_content(inputs))
-
-        try:
             result = await original(self, *args, **kwargs)
-        except Exception as e:
-            mlflow_span.record_exception(e)
-            raise
 
-        mlflow_span.set_outputs(_parse_content(result))
+            mlflow_span.set_outputs(_parse_content(result))
+
         return result
 
     return _trace_wrapper
+
+
+@contextmanager
+def _use_span(mlflow_span: LiveSpan):
+    """
+    Use the existing mlflow span created by the SemanticKernelSpanProcessor
+    like context manager.
+    """
+    try:
+        yield mlflow_span
+    except Exception as e:
+        mlflow_span.record_exception(e)
+        raise
+    # NB: We don't call span.end() here, because it is already called in the
+    # SemanticKernelSpanProcessor.on_end() handler.
 
 
 def _parse_content(value: Any) -> Any:
@@ -119,8 +121,12 @@ def _parse_content(value: Any) -> Any:
     elif isinstance(value, ChatHistory):
         # Record chat history as a list of messages for better readability
         value = {"messages": [_parse_content(m) for m in value.messages]}
-    elif isinstance(value, KernelContent):
+    elif isinstance(value, (KernelContent, StreamingContentMixin)):
         value = value.to_dict()
+    elif isinstance(value, FunctionResult):
+        # make a copy to avoid modifying the original result
+        value = value.model_copy()
+        value.value = _parse_content(value.value)
     elif isinstance(value, list):
         value = [_parse_content(item) for item in value]
     return value

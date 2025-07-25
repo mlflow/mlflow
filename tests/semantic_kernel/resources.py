@@ -9,9 +9,7 @@ from semantic_kernel.connectors.ai.open_ai import (
 from semantic_kernel.contents import ChatHistory
 from semantic_kernel.functions import KernelArguments
 
-from tests.tracing.helper import (
-    reset_autolog_state,  # noqa: F401
-)
+from tests.tracing.helper import reset_autolog_state  # noqa: F401
 
 
 async def _create_and_invoke_kernel_simple(mock_openai):
