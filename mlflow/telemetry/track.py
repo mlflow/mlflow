@@ -85,7 +85,9 @@ def _is_telemetry_disabled_for_event(event: type[Event]) -> bool:
         if client := get_telemetry_client():
             if client.config:
                 return event.name in client.config.disable_events
-            # config is not fetched yet, so we assume telemetry is enabled
+            # when config is not fetched yet, we assume telemetry is enabled and
+            # append records. After fetching the config, we check the telemetry
+            # status and drop the records if disabled.
             else:
                 return False
         # telemetry is disabled

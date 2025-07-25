@@ -12,24 +12,14 @@ from typing import Optional
 import requests
 
 from mlflow.telemetry.constant import (
-    BATCH_SIZE,
-    BATCH_TIME_INTERVAL_SECONDS,
+    DEFAULT_BATCH_SIZE,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
-    RETRYABLE_ERRORS,
-    STOP_COLLECTION_ERRORS,
 )
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
-
-try:
-    from IPython import get_ipython
-
-    IS_IPYTHON = get_ipython() is not None
-except ImportError:
-    IS_IPYTHON = False
 
 
 class TelemetryClient:
@@ -43,8 +33,7 @@ class TelemetryClient:
         self._is_active = False
         self._atexit_callback_registered = False
 
-        self._batch_size = BATCH_SIZE
-        self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
+        self._batch_size = DEFAULT_BATCH_SIZE
         self._pending_records: list[Record] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
@@ -62,12 +51,6 @@ class TelemetryClient:
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
-                else:
-                    # If any telemetry records are generated before the config is loaded,
-                    # filter them by the condition defined in the config before exporting.
-                    with self._batch_lock:
-                        if self._pending_records:
-                            self._drop_disabled_records()
                 self._is_config_fetched = True
             except Exception:
                 self._is_stopped = True
@@ -109,29 +92,18 @@ class TelemetryClient:
                 if random.randint(0, 100) > rollout_percentage:
                     return
 
-                self.config = TelemetryConfig(
-                    ingestion_url=config["ingestion_url"],
-                    disable_events=set(config.get("disable_events", [])),
-                )
+                self.config = TelemetryConfig.from_dict(config)
+                if "batch_size" in config:
+                    self._batch_size = int(config["batch_size"])
             except Exception:
                 return
-
-    def _drop_disabled_records(self):
-        """
-        Drop invalid records that are disabled by the config.
-        """
-        if self.config:
-            self._pending_records = [
-                record
-                for record in self._pending_records
-                if record.event_name not in self.config.disable_events
-            ]
 
     def add_record(self, record: Record):
         """
         Add a record to be batched and sent to the telemetry server.
         """
         if not self.is_active:
+            self._is_first_record = True
             self.activate()
 
         if self._is_stopped:
@@ -142,8 +114,11 @@ class TelemetryClient:
 
             # Only send immediately if we've reached the batch size,
             # time-based sending is handled by the batch checker thread
-            if len(self._pending_records) >= self._batch_size:
+            # send the first record immediately to make sure the current session
+            # is tracked
+            if self._is_first_record or len(self._pending_records) >= self._batch_size:
                 self._send_batch()
+                self._is_first_record = False
 
     def _send_batch(self):
         """Send the current batch of records."""
@@ -194,7 +169,7 @@ class TelemetryClient:
                         headers={"Content-Type": "application/json"},
                         timeout=request_timeout,
                     )
-                    should_retry = response.status_code in RETRYABLE_ERRORS
+                    should_retry = response.status_code in self.config.retryable_error_codes
                 except (ConnectionError, TimeoutError):
                     should_retry = True
                 # NB: DO NOT retry when terminating
@@ -205,7 +180,7 @@ class TelemetryClient:
                     # we do not use exponential backoff to avoid increasing
                     # the processing time significantly
                     time.sleep(sleep_time)
-                elif response and response.status_code in STOP_COLLECTION_ERRORS:
+                elif response and response.status_code in self.config.stop_on_error_codes:
                     self._is_stopped = True
                     self.is_active = False
                     # this is executed in the consumer thread, so
@@ -231,7 +206,7 @@ class TelemetryClient:
                 records = self._queue.get(timeout=1)
             except Empty:
                 # check if batch time interval has passed and send data if needed
-                if time.time() - self._last_batch_time >= self._batch_time_interval:
+                if time.time() - self._last_batch_time >= self.config.batch_time_interval_seconds:
                     self._last_batch_time = time.time()
                     with self._batch_lock:
                         if self._pending_records:
@@ -248,13 +223,8 @@ class TelemetryClient:
                 self._queue.task_done()
             except Empty:
                 break
-
-        # process remaining records when terminating
-        if self.config and self._pending_records:
-            with self._batch_lock:
-                if self._pending_records:
-                    self._process_records(self._pending_records, request_timeout=1)
-                    self._pending_records = []
+        # drop remaining records when terminating to avoid
+        # causing any overhead
 
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
@@ -319,24 +289,13 @@ class TelemetryClient:
             self._is_stopped = True
             self.is_active = False
 
-            self._config_thread.join(timeout=1)
-
-            # Wait for threads to finish with a timeout
-            # The timeout for jupyter notebook needs to be higher
-            timeout = 3 if IS_IPYTHON else 2
-            avg_timeout_per_thread = (
-                timeout / len(self._consumer_threads) if self._consumer_threads else 0
-            )
-            for thread in self._consumer_threads:
-                if thread.is_alive():
-                    thread.join(timeout=avg_timeout_per_thread)
-
         # non-terminating flush is only used in tests
         else:
+            self._config_thread.join(timeout=1)
+
             # Send any pending records before flushing
             with self._batch_lock:
                 if self._pending_records and self.config and not self._is_stopped:
-                    self._drop_disabled_records()
                     self._send_batch()
             # For non-terminating flush, just wait for queue to empty
             try:
@@ -357,6 +316,12 @@ class TelemetryClient:
                 self.info["tracking_uri_scheme"] = _get_tracking_scheme()
             except Exception:
                 pass
+
+    def _join_threads(self):
+        """Join all threads"""
+        for thread in self._consumer_threads:
+            if thread.is_alive():
+                thread.join(timeout=1)
 
 
 _MLFLOW_TELEMETRY_CLIENT = None
