@@ -13,7 +13,6 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 import requests
 
@@ -133,7 +132,7 @@ def dispatch_webhook(
         )
 
 
-def test_webhook(webhook: Webhook, event: Optional[WebhookEvent] = None) -> WebhookTestResult:
+def test_webhook(webhook: Webhook, event: WebhookEvent | None = None) -> WebhookTestResult:
     """Test a webhook by sending a test payload.
 
     Args:

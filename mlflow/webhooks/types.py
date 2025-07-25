@@ -4,7 +4,7 @@ This module contains class definitions for all webhook event payloads
 that are sent when various model registry events occur.
 """
 
-from typing import Optional, TypeAlias, TypedDict
+from typing import TypeAlias, TypedDict
 
 from mlflow.entities.webhook import WebhookEvent
 
@@ -28,7 +28,7 @@ class RegisteredModelCreatedPayload(TypedDict):
     """The name of the registered model."""
     tags: dict[str, str]
     """Tags associated with the registered model."""
-    description: Optional[str]
+    description: str | None
     """Description of the registered model."""
 
     @classmethod
@@ -64,11 +64,11 @@ class ModelVersionCreatedPayload(TypedDict):
     """The version of the model."""
     source: str
     """The source URI of the model version."""
-    run_id: Optional[str]
+    run_id: str | None
     """The run ID associated with the model version, if applicable."""
     tags: dict[str, str]
     """Tags associated with the model version."""
-    description: Optional[str]
+    description: str | None
     """Description of the model version."""
 
     @classmethod
