@@ -109,6 +109,9 @@ def test_compute_aggregated_metrics_with_namespace():
         (CategoricalRating.NO, 0.0),
         ("yes", 1.0),
         ("no", 0.0),
+        # Case-insensitive
+        ("Yes", 1.0),
+        ("No", 0.0),
     ],
 )
 def test_cast_numeric_values(value, expected_float):

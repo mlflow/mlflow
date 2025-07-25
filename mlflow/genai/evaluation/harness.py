@@ -52,7 +52,7 @@ def run(
 
     with ThreadPoolExecutor(
         # TODO: Add new MLflow environment variable for this
-        max_workers=os.environ.get("RAG_EVAL_MAX_WORKERS", 10),
+        max_workers=int(os.environ.get("RAG_EVAL_MAX_WORKERS", "10")),
         thread_name_prefix="MlflowGenAIEvalHarness",
     ) as executor:
         futures = [

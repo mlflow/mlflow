@@ -2,14 +2,13 @@
 
 import collections
 import logging
-from typing import Callable, Union
 
 import numpy as np
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult
 from mlflow.genai.judges.databricks import CategoricalRating
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import AggregationFunc, Scorer
 
 _logger = logging.getLogger(__name__)
 
@@ -43,9 +42,9 @@ def compute_aggregated_metrics(
     for eval_result in eval_results:
         for assessment in eval_result.assessments:
             if isinstance(assessment, Feedback):
-                assessment_values[assessment.name].append(
-                    _cast_assessment_value_to_float(assessment)
-                )
+                value = _cast_assessment_value_to_float(assessment)
+                if value is not None:  # Exclude None from aggregation
+                    assessment_values[assessment.name].append(value)
 
     # List all aggregations to compute for each scorer
     scorer_aggregations = {}
@@ -58,13 +57,11 @@ def compute_aggregated_metrics(
     # Compute aggregates
     result = {}
     for name, values in assessment_values.items():
-        # Filter out None values
-        values = [value for value in values if value is not None]
         if not values:
             continue
 
         # Get the function name from the returned assessment name.
-        scorer_function_name = name.split("/")[1] if len(name.split("/")) > 1 else name
+        scorer_function_name = name.split("/", 1)[-1]
 
         # Compute aggregations for the scorer, defaulting to just ["mean"]
         aggregations_to_compute = scorer_aggregations.get(scorer_function_name, ["mean"])
@@ -83,15 +80,15 @@ def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
         return float(assessment.value)
     elif (
         isinstance(assessment.value, str)
-        and CategoricalRating(assessment.value) != CategoricalRating.UNKNOWN
+        and CategoricalRating(assessment.value.lower()) != CategoricalRating.UNKNOWN
     ):
-        return float(assessment.value == CategoricalRating.YES)
+        return float(assessment.value.lower() == CategoricalRating.YES)
     else:
         _logger.error(f"Invalid assessment value: {assessment.value}")
 
 
 def _compute_aggregations(
-    scores: list[float], aggregations: list[Union[str, Callable[..., float]]]
+    scores: list[float], aggregations: list[str | AggregationFunc]
 ) -> dict[str, float]:
     """Compute aggregate statistics for a list of scores based on specified aggregations.
 
