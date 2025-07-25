@@ -75,13 +75,27 @@ def test_create_run(mock_requests, mlflow_client):
 
 
 def test_create_run_with_imports(mock_requests):
-    import lightgbm  # noqa: F401
+    with mlflow.start_run():
+        data = validate_telemetry_record(
+            mock_requests, TrackingServiceClient.create_run, check_params=False
+        )
+        assert "pyspark.ml" not in json.loads(data["params"])["imports"]
+
+    import pyspark
 
     with mlflow.start_run():
         data = validate_telemetry_record(
             mock_requests, TrackingServiceClient.create_run, check_params=False
         )
-        assert "lightgbm" in json.loads(data["params"])["imports"]
+        assert "pyspark.ml" not in json.loads(data["params"])["imports"]
+
+    import pyspark.ml  # noqa: F401
+
+    with mlflow.start_run():
+        data = validate_telemetry_record(
+            mock_requests, TrackingServiceClient.create_run, check_params=False
+        )
+        assert "pyspark.ml" in json.loads(data["params"])["imports"]
 
 
 def test_create_registered_model(mock_requests, mlflow_client):

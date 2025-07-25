@@ -117,7 +117,6 @@ jobs:
           source ./dev/install-common-deps.sh
           pip install .
           # used for telemetry tests
-          pip install lightgbm
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
@@ -455,8 +454,6 @@ jobs:
           pip install -r requirements/test-requirements.txt
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
-          # used for telemetry tests
-          pip install lightgbm
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
