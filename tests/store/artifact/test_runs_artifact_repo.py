@@ -118,16 +118,13 @@ def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
     artifact_uri = "runs:/some-run-id/path/to/model"
 
     with mock.patch(
-        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=Mock(),
     ) as mock_get_repo:
         with mock.patch(
             "mlflow.tracking.artifact_utils.get_artifact_uri",
             return_value="s3://test-bucket/some-run-id/artifacts/path/to/model",
         ) as mock_get_artifact_uri:
-            # Mock the artifact repository
-            mock_repo = Mock()
-            mock_get_repo.return_value = mock_repo
-
             # Create RunsArtifactRepository with tracking_uri
             RunsArtifactRepository(artifact_uri, tracking_uri=tracking_uri)
 
