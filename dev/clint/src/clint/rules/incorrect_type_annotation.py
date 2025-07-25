@@ -1,5 +1,7 @@
 import ast
 
+from typing_extensions import Self
+
 from clint.resolver import Resolver
 from clint.rules.base import Rule
 
@@ -17,7 +19,7 @@ class IncorrectTypeAnnotation(Rule):
         self.expected = expected
 
     @classmethod
-    def check(cls, node: ast.expr, resolver: Resolver) -> "IncorrectTypeAnnotation":
+    def check(cls, node: ast.AST, resolver: Resolver) -> Self | None:
         names = resolver.resolve(node)
         if names is None:
             return None
