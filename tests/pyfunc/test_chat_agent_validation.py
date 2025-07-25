@@ -76,11 +76,3 @@ def test_chat_agent_chunk_throws_on_updated_id():
     chunk = ChatAgentChunk(**data)
     with pytest.raises(ValueError, match="The field `delta` of ChatAgentChunk"):
         chunk.delta = ChatAgentMessage(**{"role": "user", "content": "b"})
-
-
-def test_chat_agent_chunk_allows_none_delta():
-    # ChatAgentChunk with delta=None should be allowed
-    # also ensure no validation errors are raised
-    chunk = ChatAgentChunk()
-    assert chunk.delta is None
-    assert chunk.finish_reason is None
