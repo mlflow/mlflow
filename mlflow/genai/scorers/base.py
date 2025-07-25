@@ -21,7 +21,7 @@ _SERIALIZATION_VERSION = 1
 
 @dataclass
 class ScorerSamplingConfig:
-    """Configuration for background scorer sampling."""
+    """Configuration for registered scorer sampling."""
     sample_rate: float = 1.0
     filter_string: Optional[str] = None
 
@@ -49,7 +49,7 @@ class SerializedScorer:
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
 
-    # Background scorer fields
+    # Registered scorer fields
     server_name: Optional[str] = None
     sampling_config: Optional[dict[str, Any]] = None
 
@@ -220,7 +220,7 @@ class Scorer(BaseModel):
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         
-        # Restore background scorer fields
+        # Restore registered scorer fields
         if serialized.server_name:
             object.__setattr__(scorer_instance, "_server_name", serialized.server_name)
         if serialized.sampling_config:
@@ -387,7 +387,7 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with server registration.
         """
-        from mlflow.genai.scorers.background import _add_background_scorer
+        from mlflow.genai.scorers.registry import _add_registered_scorer
         
         server_name = name or self.name
         
@@ -395,7 +395,7 @@ class Scorer(BaseModel):
         new_scorer = self._create_copy()
         
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        _add_background_scorer(
+        _add_registered_scorer(
             scheduled_scorer_name=server_name,
             scorer=new_scorer,
             sample_rate=0.0,
@@ -410,7 +410,7 @@ class Scorer(BaseModel):
 
     def start(self, sample_rate: float, filter_string: Optional[str] = None) -> "Scorer":
         """
-        Start background scoring with the specified sampling configuration.
+        Start registered scoring with the specified sampling configuration.
 
         Args:
             sample_rate: Fraction of traces to evaluate (0.0 to 1.0).
@@ -424,10 +424,10 @@ class Scorer(BaseModel):
                 "Scorer must be registered before starting. Use scorer.register() first."
             )
         
-        from mlflow.genai.scorers.background import _update_background_scorer
+        from mlflow.genai.scorers.registry import _update_registered_scorer
         
         # Update the scorer on the server
-        _update_background_scorer(
+        _update_registered_scorer(
             scheduled_scorer_name=self._server_name,
             sample_rate=sample_rate,
             filter_string=filter_string,
@@ -457,14 +457,14 @@ class Scorer(BaseModel):
                 "Scorer must be registered before updating. Use scorer.register() first."
             )
         
-        from mlflow.genai.scorers.background import _update_background_scorer
+        from mlflow.genai.scorers.registry import _update_registered_scorer
         
         # Use current values if not provided
         new_sample_rate = sample_rate if sample_rate is not None else (self.sample_rate or 0.0)
         new_filter_string = filter_string if filter_string is not None else self.filter_string
         
         # Update the scorer on the server
-        _update_background_scorer(
+        _update_registered_scorer(
             scheduled_scorer_name=self._server_name,
             sample_rate=new_sample_rate,
             filter_string=new_filter_string,
@@ -480,7 +480,7 @@ class Scorer(BaseModel):
 
     def stop(self) -> "Scorer":
         """
-        Stop background scoring by setting sample rate to 0.
+        Stop registered scoring by setting sample rate to 0.
 
         Returns:
             A new Scorer instance with sample rate set to 0.
@@ -499,10 +499,10 @@ class Scorer(BaseModel):
                 "Scorer is not registered on the server."
             )
         
-        from mlflow.genai.scorers.background import _delete_background_scorer
+        from mlflow.genai.scorers.registry import _delete_registered_scorer
         
         # Delete the scorer from the server
-        _delete_background_scorer(scheduled_scorer_name=self._server_name)
+        _delete_registered_scorer(scheduled_scorer_name=self._server_name)
         
         # Create a new scorer instance without server registration
         new_scorer = self._create_copy()

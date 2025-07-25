@@ -80,7 +80,7 @@ class BuiltInScorer(Scorer):
 
         scorer_instance = scorer_class(**constructor_args)
         
-        # Restore background scorer fields
+        # Restore registered scorer fields
         if serialized.server_name:
             object.__setattr__(scorer_instance, "_server_name", serialized.server_name)
         if serialized.sampling_config:

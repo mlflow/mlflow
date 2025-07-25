@@ -1,7 +1,7 @@
 """
-Background scorer functionality for MLflow GenAI.
+Registered scorer functionality for MLflow GenAI.
 
-This module provides functions to manage background scorers that automatically
+This module provides functions to manage registered scorers that automatically
 evaluate traces in MLflow experiments.
 """
 from typing import Optional
@@ -10,7 +10,7 @@ from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.utils.annotations import experimental
 
 _ERROR_MSG = (
-    "The `databricks-agents` package is required to use background scorers. "
+    "The `databricks-agents` package is required to register scorers. "
     "Please install it with `pip install databricks-agents`."
 )
 
@@ -18,9 +18,9 @@ _ERROR_MSG = (
 @experimental(version="3.0.0")
 def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Scorer]:
     """
-    List all background scorers for an experiment.
+    List all registered scorers for an experiment.
 
-    This function returns all background scorers configured for the specified experiment,
+    This function returns all registered scorers configured for the specified experiment,
     or for the current active experiment if no experiment ID is provided.
 
     Args:
@@ -28,7 +28,7 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
             If None, uses the currently active experiment.
 
     Returns:
-        A list of Scorer objects representing all background scorers configured
+        A list of Scorer objects representing all registered scorers configured
         for the specified experiment.
 
     Example:
@@ -47,7 +47,7 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
             # List scorers for the current active experiment
             mlflow.set_experiment("my_genai_app_monitoring")
             current_scorers = list_scorers()
-            print(f"Found {len(current_scorers)} background scorers")
+            print(f"Found {len(current_scorers)} registered scorers")
     """
     try:
         from databricks.agents.scorers import list_scheduled_scorers
@@ -57,11 +57,11 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
     # Get scheduled scorers from the server
     scheduled_scorers = list_scheduled_scorers(experiment_id, **kwargs)
     
-    # Convert to Scorer instances with background info
+    # Convert to Scorer instances with registration info
     scorers = []
     for scheduled_scorer in scheduled_scorers:
         scorer = scheduled_scorer.scorer
-        # Set the background scorer fields
+        # Set the registered scorer fields
         object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
         object.__setattr__(scorer, "_sampling_config", 
                          ScorerSamplingConfig(sample_rate=scheduled_scorer.sample_rate,
@@ -74,18 +74,18 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
 @experimental(version="3.0.0")
 def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> Scorer:
     """
-    Retrieve a specific background scorer by name.
+    Retrieve a specific registered scorer by name.
 
-    This function returns a Scorer instance with its current background
+    This function returns a Scorer instance with its current registration
     configuration, including sampling rate and filter criteria.
 
     Args:
-        name: The name of the background scorer to retrieve.
+        name: The name of the registered scorer to retrieve.
         experiment_id: The ID of the MLflow experiment containing the scorer.
             If None, uses the currently active experiment.
 
     Returns:
-        A Scorer object with its current background configuration.
+        A Scorer object with its current registration configuration.
 
     Example:
         .. code-block:: python
@@ -113,7 +113,7 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> S
         **kwargs
     )
     
-    # Extract the scorer and set background fields
+    # Extract the scorer and set registration fields
     scorer = scheduled_scorer.scorer
     object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
     object.__setattr__(scorer, "_sampling_config", 
@@ -124,7 +124,7 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> S
 
 
 # Private functions for internal use by Scorer methods
-def _add_background_scorer(
+def _add_registered_scorer(
     *,
     scheduled_scorer_name: str,
     scorer: Scorer,
@@ -133,7 +133,7 @@ def _add_background_scorer(
     experiment_id: Optional[str] = None,
     **kwargs,
 ):
-    """Internal function to add a background scorer."""
+    """Internal function to add a registered scorer."""
     try:
         from databricks.agents.scorers import add_scheduled_scorer
     except ImportError as e:
@@ -144,7 +144,7 @@ def _add_background_scorer(
     )
 
 
-def _update_background_scorer(
+def _update_registered_scorer(
     *,
     scheduled_scorer_name: str,
     scorer: Optional[Scorer] = None,
@@ -153,7 +153,7 @@ def _update_background_scorer(
     experiment_id: Optional[str] = None,
     **kwargs,
 ):
-    """Internal function to update a background scorer."""
+    """Internal function to update a registered scorer."""
     try:
         from databricks.agents.scorers import update_scheduled_scorer
     except ImportError as e:
@@ -164,13 +164,13 @@ def _update_background_scorer(
     )
 
 
-def _delete_background_scorer(
+def _delete_registered_scorer(
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
     **kwargs,
 ):
-    """Internal function to delete a background scorer."""
+    """Internal function to delete a registered scorer."""
     try:
         from databricks.agents.scorers import delete_scheduled_scorer
     except ImportError as e:
