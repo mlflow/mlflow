@@ -232,6 +232,7 @@ To prevent replay attacks, it's recommended to verify that webhook timestamps ar
 ### Environment Variables
 
 - `MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY`: Encryption key for storing webhook secrets securely
+- `MLFLOW_WEBHOOK_REQUEST_TIMEOUT`: Timeout in seconds for webhook HTTP requests (default: 30)
 
 ## Example: FastAPI Webhook Receiver
 
@@ -422,8 +423,8 @@ if __name__ == "__main__":
    - Check that the secret matches exactly (no extra spaces)
 
 3. **Connection timeouts:**
-   - MLflow has a default timeout of 30 seconds for webhook requests
-   - Ensure your endpoint responds quickly
+   - MLflow has a default timeout of 30 seconds for webhook requests (configurable via `MLFLOW_WEBHOOK_REQUEST_TIMEOUT`)
+   - Ensure your endpoint responds quickly or increase the timeout if needed
 
 ## API Reference
 

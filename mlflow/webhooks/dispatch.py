@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
+from mlflow.environment_variables import MLFLOW_WEBHOOK_REQUEST_TIMEOUT
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
@@ -96,7 +97,8 @@ def _send_webhook_request(
         )
         headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
-    return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=30)
+    timeout = MLFLOW_WEBHOOK_REQUEST_TIMEOUT.get()
+    return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=timeout)
 
 
 def _dispatch_webhook_impl(
