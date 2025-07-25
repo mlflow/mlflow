@@ -279,8 +279,8 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
         self.stack.pop()
 
     def visit_Name(self, node: ast.Name) -> None:
-        if r := rules.IncorrectTypeAnnotation.check(node, self.linter.resolver):
-            self.linter._check(Location.from_node(node), r)
+        if rule := rules.IncorrectTypeAnnotation.check(node, self.linter.resolver):
+            self.linter._check(Location.from_node(node), rule)
 
         if self._is_bare_generic_type(node):
             self.linter._check(Location.from_node(node), rules.UnparameterizedGenericType(node.id))
