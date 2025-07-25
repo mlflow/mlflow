@@ -34,7 +34,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri, tracking_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
-        self.repo = get_artifact_repository(uri, self.tracking_uri)
+        self.repo = get_artifact_repository(uri, tracking_uri=self.tracking_uri)
 
     @staticmethod
     def is_runs_uri(uri):
@@ -158,7 +158,9 @@ class RunsArtifactRepository(ArtifactRepository):
                 page_token = page.token
 
         if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
-            return get_artifact_repository(matched.artifact_location, self.tracking_uri)
+            return get_artifact_repository(
+                matched.artifact_location, tracking_uri=self.tracking_uri
+            )
 
         return None
 
