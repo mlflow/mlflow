@@ -9,11 +9,16 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
-from mlflow.telemetry.schemas import (
-    CreateModelVersionParams,
-    EventName,
-    LoggedModelParams,
-    RegisteredModelParams,
+from mlflow.telemetry.events import (
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateModelVersionEvent,
+    CreatePromptEvent,
+    CreateRegisteredModelEvent,
+    CreateRunEvent,
+    EvaluateEvent,
+    LogAssessmentEvent,
+    StartTraceEvent,
 )
 from mlflow.version import VERSION
 
@@ -31,7 +36,7 @@ def mlflow_client():
 
 
 def test_create_logged_model(mock_requests):
-    event_name = EventName.CREATE_LOGGED_MODEL.value
+    event_name = CreateLoggedModelEvent.name
     mlflow.create_external_model(name="model")
     validate_telemetry_record(mock_requests, event_name)
 
@@ -42,17 +47,17 @@ def test_create_logged_model(mock_requests):
         name="model",
         python_model=TestModel(),
     )
-    validate_telemetry_record(mock_requests, event_name, LoggedModelParams(flavor="pyfunc"))
+    validate_telemetry_record(mock_requests, event_name, {"flavor": "pyfunc"})
 
     mlflow.sklearn.log_model(
         knn.KNeighborsClassifier(),
         name="model",
     )
-    validate_telemetry_record(mock_requests, event_name, LoggedModelParams(flavor="sklearn"))
+    validate_telemetry_record(mock_requests, event_name, {"flavor": "sklearn"})
 
 
 def test_create_experiment(mock_requests, mlflow_client):
-    event_name = EventName.CREATE_EXPERIMENT.value
+    event_name = CreateExperimentEvent.name
     mlflow.create_experiment(name="test_experiment")
     validate_telemetry_record(mock_requests, event_name)
 
@@ -61,7 +66,7 @@ def test_create_experiment(mock_requests, mlflow_client):
 
 
 def test_create_run(mock_requests, mlflow_client):
-    event_name = EventName.CREATE_RUN.value
+    event_name = CreateRunEvent.name
     exp_id = mlflow.create_experiment(name="test_experiment")
     with mlflow.start_run(experiment_id=exp_id):
         validate_telemetry_record(mock_requests, event_name, check_params=False)
@@ -71,7 +76,7 @@ def test_create_run(mock_requests, mlflow_client):
 
 
 def test_create_run_with_imports(mock_requests):
-    event_name = EventName.CREATE_RUN.value
+    event_name = CreateRunEvent.name
     import lightgbm  # noqa: F401
 
     with mlflow.start_run():
@@ -80,12 +85,12 @@ def test_create_run_with_imports(mock_requests):
 
 
 def test_create_registered_model(mock_requests, mlflow_client):
-    event_name = EventName.CREATE_REGISTERED_MODEL.value
+    event_name = CreateRegisteredModelEvent.name
     mlflow_client.create_registered_model(name="test_model1")
     validate_telemetry_record(
         mock_requests,
         event_name,
-        RegisteredModelParams(is_prompt=False),
+        {"is_prompt": False},
     )
 
     mlflow.pyfunc.log_model(
@@ -96,12 +101,12 @@ def test_create_registered_model(mock_requests, mlflow_client):
     validate_telemetry_record(
         mock_requests,
         event_name,
-        RegisteredModelParams(is_prompt=False),
+        {"is_prompt": False},
     )
 
 
 def test_create_model_version(mock_requests, mlflow_client):
-    event_name = EventName.CREATE_MODEL_VERSION.value
+    event_name = CreateModelVersionEvent.name
     mlflow_client.create_registered_model(name="test_model")
     mlflow_client.create_model_version(
         name="test_model", source="test_source", run_id="test_run_id"
@@ -109,7 +114,7 @@ def test_create_model_version(mock_requests, mlflow_client):
     validate_telemetry_record(
         mock_requests,
         event_name,
-        CreateModelVersionParams(is_prompt=False),
+        {"is_prompt": False},
     )
 
     mlflow.pyfunc.log_model(
@@ -120,7 +125,7 @@ def test_create_model_version(mock_requests, mlflow_client):
     validate_telemetry_record(
         mock_requests,
         event_name,
-        CreateModelVersionParams(is_prompt=False),
+        {"is_prompt": False},
     )
 
     mlflow.genai.register_prompt(
@@ -131,12 +136,12 @@ def test_create_model_version(mock_requests, mlflow_client):
     validate_telemetry_record(
         mock_requests,
         event_name,
-        CreateModelVersionParams(is_prompt=True),
+        {"is_prompt": True},
     )
 
 
 def test_start_trace(mock_requests, mlflow_client):
-    event_name = EventName.START_TRACE.value
+    event_name = StartTraceEvent.name
     with mlflow.start_span(name="test_span"):
         pass
     validate_telemetry_record(mock_requests, event_name)
@@ -155,17 +160,17 @@ def test_start_trace(mock_requests, mlflow_client):
 
 def test_create_prompt(mock_requests, mlflow_client):
     mlflow_client.create_prompt(name="test_prompt")
-    validate_telemetry_record(mock_requests, EventName.CREATE_PROMPT.value)
+    validate_telemetry_record(mock_requests, CreatePromptEvent.name)
 
     # OSS prompt registry uses create_registered_model with a special tag
     mlflow.genai.register_prompt(
         name="greeting_prompt",
         template="Respond to the user's message as a {{style}} AI. {{greeting}}",
     )
-    expected_params = RegisteredModelParams(is_prompt=True)
+    expected_params = {"is_prompt": True}
     validate_telemetry_record(
         mock_requests,
-        EventName.CREATE_REGISTERED_MODEL.value,
+        CreateRegisteredModelEvent.name,
         expected_params,
     )
 
@@ -180,7 +185,7 @@ def test_log_assessment(mock_requests):
         )
 
         mlflow.log_assessment(trace_id=span.trace_id, assessment=feedback)
-    validate_telemetry_record(mock_requests, EventName.LOG_ASSESSMENT.value)
+    validate_telemetry_record(mock_requests, LogAssessmentEvent.name)
 
 
 def test_evaluate(mock_requests):
@@ -189,7 +194,7 @@ def test_evaluate(mock_requests):
         model=lambda x: x["x"] * 2,
         extra_metrics=[mlflow.metrics.latency()],
     )
-    validate_telemetry_record(mock_requests, EventName.EVALUATE.value)
+    validate_telemetry_record(mock_requests, EvaluateEvent.name)
 
 
 @pytest.mark.no_mock_requests_get
@@ -203,7 +208,7 @@ def test_disable_events(mock_requests):
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
-                    "disable_events": [EventName.CREATE_LOGGED_MODEL.value],
+                    "disable_events": [CreateLoggedModelEvent.name],
                     "disable_sdks": [],
                 }
             ),
@@ -221,4 +226,4 @@ def test_disable_events(mock_requests):
 
         with mlflow.start_run():
             pass
-        validate_telemetry_record(mock_requests, EventName.CREATE_RUN.value, check_params=False)
+        validate_telemetry_record(mock_requests, CreateRunEvent.name, check_params=False)

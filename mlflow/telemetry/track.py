@@ -4,7 +4,8 @@ import time
 from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
-from mlflow.telemetry.schemas import PARAMS_MAPPING, EventName, Record, Status
+from mlflow.telemetry.events import Event
+from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     is_telemetry_disabled,
 )
@@ -13,11 +14,11 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def record_usage_event(event_name: EventName) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def record_usage_event(event: Event) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event_name):
+            if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event):
                 return func(*args, **kwargs)
 
             success = True
@@ -33,7 +34,7 @@ def record_usage_event(event_name: EventName) -> Callable[[Callable[P, R]], Call
                     client = get_telemetry_client()
                     if client and (
                         record := _generate_telemetry_record(
-                            func, args, kwargs, success, duration_ms, event_name
+                            func, args, kwargs, success, duration_ms, event
                         )
                     ):
                         client.add_record(record)
@@ -51,7 +52,7 @@ def _generate_telemetry_record(
     kwargs: dict[str, Any],
     success: bool,
     duration_ms: int,
-    event_name: EventName,
+    event: Event,
 ) -> Optional[Record]:
     try:
         signature = inspect.signature(func)
@@ -66,10 +67,9 @@ def _generate_telemetry_record(
         if params and params[0] == "cls" and isinstance(arguments["cls"], type):
             del arguments["cls"]
 
-        params_class = PARAMS_MAPPING.get(event_name)
-        record_params = params_class.parse(arguments) if params_class else None
+        record_params = event.parse(arguments)
         return Record(
-            event_name=event_name.value if isinstance(event_name, EventName) else event_name,
+            event_name=event.name,
             timestamp_ns=time.time_ns(),
             params=record_params,
             status=Status.SUCCESS if success else Status.FAILURE,
@@ -79,11 +79,11 @@ def _generate_telemetry_record(
         return
 
 
-def _is_telemetry_disabled_for_event(event_name: EventName) -> bool:
+def _is_telemetry_disabled_for_event(event: Event) -> bool:
     try:
         if client := get_telemetry_client():
             if client.config:
-                return event_name in client.config.disable_events
+                return event.name in client.config.disable_events
             # config is not fetched yet, so we assume telemetry is enabled
             else:
                 return False

@@ -1,7 +1,7 @@
+import json
 from typing import Any
 
 from mlflow.telemetry.client import TelemetryClient, get_telemetry_client
-from mlflow.telemetry.schemas import BaseParams
 
 
 def validate_telemetry_record(
@@ -28,10 +28,10 @@ def validate_telemetry_record(
     data = record["data"]
     assert data["event_name"] == event_name
     if check_params:
-        if isinstance(params, BaseParams):
-            assert data["params"] == params.to_json()
+        if params:
+            assert data["params"] == json.dumps(params)
         else:
-            assert data["params"] == params
+            assert data["params"] is None
     assert data["status"] == status
     assert data["duration_ms"] is not None
     mock_requests.clear()
