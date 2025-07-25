@@ -890,3 +890,7 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
 )
+
+#: Specifies the timeout in seconds for webhook HTTP requests
+#: (default: ``30``)
+MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TIMEOUT", int, 30)
