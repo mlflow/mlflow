@@ -110,7 +110,36 @@ export const ExperimentViewRunsTable = React.memo(
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
 
-    const { paramKeyList, metricKeyList, tagsList } = runsData;
+    // Performance optimization: Only extract the keys we actually need based on selectedColumns
+    const { paramKeyList, metricKeyList, tagsList } = useMemo(() => {
+      // If we're comparing runs, we don't need to filter the keys
+      if (isComparingRuns) {
+        return runsData;
+      }
+
+      // Filter metric keys based on selected columns
+      const filteredMetricKeys = runsData.metricKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
+      );
+
+      // Filter param keys based on selected columns
+      const filteredParamKeys = runsData.paramKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+      );
+
+      // Filter tag keys based on selected columns
+      const filteredTags = Object.fromEntries(
+        Object.entries(runsData.tagsList).filter(([key]) =>
+          selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+        ),
+      );
+
+      return {
+        metricKeyList: filteredMetricKeys,
+        paramKeyList: filteredParamKeys,
+        tagsList: filteredTags,
+      };
+    }, [runsData, selectedColumns, isComparingRuns]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
@@ -370,6 +399,14 @@ export const ExperimentViewRunsTable = React.memo(
                 onGridSizeChanged={({ api }) => gridSizeHandler(api)}
                 onCellMouseOver={cellMouseOverHandler}
                 onCellMouseOut={cellMouseOutHandler}
+                maxBlocksInCache={20} // Increased from 10
+                cacheBlockSize={100}
+                maxConcurrentDatasourceRequests={2} // Increased from 1
+                suppressModelUpdateAfterUpdateTransaction
+                immutableData // Added for better performance
+                getRowNodeId={(data) => data.rowUuid} // Added for better row identification
+                suppressPropertyNamesCheck // Added to reduce overhead
+                suppressAnimationFrame // Added to reduce rendering overhead
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (
