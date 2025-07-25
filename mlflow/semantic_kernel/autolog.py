@@ -1,13 +1,12 @@
 import logging
 import os
-from types import MappingProxyType
 from typing import Any, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import (
     NoOpTracerProvider,
     ProxyTracerProvider,
@@ -18,13 +17,12 @@ from opentelemetry.trace import (
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
 from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
+from semantic_kernel.contents.text_content import TextContent
 from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
     are_sensitive_events_enabled,
 )
 
 from mlflow.entities import SpanType
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.semantic_kernel.tracing_utils import (
     _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN,
     _get_live_span_from_otel_span_id,
@@ -37,17 +35,13 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 
 _logger = logging.getLogger(__name__)
 
-# NB: The global variable and lookup function are imported from tracing_utils
 
-
-def _set_logging_env_variables():
-    # NB: these environment variables are required to enable the telemetry for
-    # genai fields in Semantic Kernel, which are currently marked as experimental.
+def _enable_experimental_genai_tracing():
+    # NB: These settings are required to enable the telemetry for genai attributes
+    # such as chat completion inputs/outputs, which are currently marked as experimental.
+    # We directly update the singleton setting object instead of using env vars,
+    # because the object might be already initialized by the time we call this function.
     # https://learn.microsoft.com/en-us/semantic-kernel/concepts/enterprise-readiness/observability/telemetry-with-console
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS"] = "true"
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE"] = "true"
-
-    # NB: Reset the diagnostics module which is initialized at import time
     from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
         MODEL_DIAGNOSTICS_SETTINGS,
     )
@@ -59,7 +53,7 @@ def _set_logging_env_variables():
 
 
 def setup_semantic_kernel_tracing():
-    _set_logging_env_variables()
+    _enable_experimental_genai_tracing()
 
     # NB: This logic has a known issue that it does not work when Semantic Kernel program is
     # executed before calling this setup is called. This is because Semantic Kernel caches the
@@ -82,18 +76,10 @@ def setup_semantic_kernel_tracing():
             provider.add_span_processor(sk_processor)
 
 
-class DummySpanExporter:
-    # NB: Dummy NoOp exporter that does nothing, because OTel span processor requires an exporter
-    def on_end(self, span: OTelReadableSpan) -> None:
-        pass
-
-    def shutdown(self) -> None:
-        pass
-
-
 class SemanticKernelSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
-        self.span_exporter = DummySpanExporter()
+        # NB: Dummy NoOp exporter that does nothing, because OTel span processor requires an exporter
+        self.span_exporter = SpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         otel_span_id = span.get_span_context().span_id
@@ -116,13 +102,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
             return
 
         mlflow_span, token = st
-        attributes = (
-            dict(span.attributes)
-            if isinstance(span.attributes, MappingProxyType)
-            else span.attributes
-        )
-        mlflow_span.set_attributes(attributes)
-        _set_token_usage(mlflow_span, attributes)
+        mlflow_span.set_attributes(dict(span.attributes))
+        _set_token_usage(mlflow_span, span.attributes)
 
         if not mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
             mlflow_span.set_span_type(_get_span_type(span))
@@ -132,22 +113,17 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
 
 def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
-    prompt = args[1] if len(args) > 1 else kwargs.get("prompt")
+    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
+    inputs: str | ChatHistory = args[1] if len(args) > 1 else kwargs.get("prompt")
 
-    if isinstance(prompt, ChatHistory):
-        prompt_value = [msg.to_dict() for msg in prompt.messages]
-    elif not isinstance(prompt, list):
-        prompt_value = [prompt]
-    else:
-        prompt_value = prompt
-
-    prompt_value_with_message = {"messages": prompt_value}
+    if isinstance(inputs, ChatHistory):
+        inputs = {"messages": [msg.to_dict() for msg in inputs.messages]}
 
     otel_span_id = get_current_span().get_span_context().span_id
 
     if mlflow_span := _get_live_span_from_otel_span_id(otel_span_id):
         mlflow_span.set_span_type(SpanType.CHAT_MODEL)
-        mlflow_span.set_inputs(prompt_value_with_message)
+        mlflow_span.set_inputs(inputs)
     else:
         _logger.debug(
             "Span is not found or recording. Skipping registering chat "
@@ -158,8 +134,11 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
 
 
 def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs) -> None:
+    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L400
     current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
-    completions = (args[1] if len(args) > 1 else kwargs.get("completions")) or []
+    completions: list[ChatMessageContent | TextContent | StreamingContentMixin] = (
+        args[1] if len(args) > 1 else kwargs.get("completions")
+    ) or []
 
     otel_span_id = current_span.get_span_context().span_id
     mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
@@ -184,8 +163,10 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
 
         mlflow_span.set_outputs({"messages": full_responses})
 
+    return original(*args, **kwargs)
 
 def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) -> None:
+    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L452
     current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
     error = args[1] if len(args) > 1 else kwargs.get("error")
 
@@ -193,8 +174,7 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
     mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
 
     if mlflow_span:
-        mlflow_span.add_event(SpanEvent.from_exception(error))
-        mlflow_span.set_status(SpanStatusCode.ERROR)
+        mlflow_span.record_exception(error)
     else:
         _logger.debug("Span is not found or recording. Skipping error handling.")
 
