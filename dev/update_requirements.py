@@ -3,11 +3,13 @@ This script updates the `max_major_version` attribute of each package in a YAML 
 specification (e.g. requirements/core-requirements.yaml) to the maximum available version on PyPI.
 """
 
-import argparse
+import os
 
 import requests
 from packaging.version import InvalidVersion, Version
 from ruamel.yaml import YAML
+
+PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
 
 
 def get_latest_major_version(package_name: str) -> int:
@@ -34,34 +36,12 @@ def get_latest_major_version(package_name: str) -> int:
     return max(versions).major
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Update the `max_major_version` attribute of each package in a YAML dependencies"
-            " specification."
-        )
-    )
-    parser.add_argument(
-        "--requirements-yaml-location",
-        required=True,
-        help="Local directory path where the requirements.yaml files are located.",
-    )
-    parser.add_argument(
-        "--package-names",
-        default=["tracing", "skinny", "core", "gateway"],
-        nargs="+",
-        help="List of package names to update. Values can be 'tracing', 'skinny', 'core', or 'gateway'.",
-    )
-    return parser.parse_args()
-
-
 def main():
-    args = parse_args()
     yaml = YAML()
     yaml.preserve_quotes = True
 
-    for package_name in args.package_names:
-        req_file_path = f"{args.requirements_yaml_location}/{package_name}-requirements.yaml"
+    for package_name in PACKAGE_NAMES:
+        req_file_path = os.path.join("requirements", package_name + "-requirements.yaml")
         with open(req_file_path) as f:
             requirements_src = f.read()
             requirements = yaml.load(requirements_src)

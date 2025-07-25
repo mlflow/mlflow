@@ -33,8 +33,8 @@ class PackageType(Enum):
 """
         if self is PackageType.RELEASE:
             return f"""{WARNING}
-# This file defines the package metadata of `mlflow`. `mlflow-skinny` and `mlflow-tracing
-# is included in the requirements to prevent a version mismatch between `mlflow` and those
+# This file defines the package metadata of `mlflow`. `mlflow-skinny` and `mlflow-tracing`
+# are included in the requirements to prevent a version mismatch between `mlflow` and those
 # child packages. This file will replace `pyproject.toml` when releasing a new version.
 """
         if self is PackageType.DEV:
@@ -172,7 +172,7 @@ def build(package_type: PackageType) -> None:
             ] + sorted(core_requirements)
         case PackageType.DEV:
             _check_skinny_tracing_mismatch(skinny_requirements, tracing_requirements)
-            # The above line guarantee skinny_requirements is an exact superset of
+            # The above line guarantees skinny_requirements is an exact superset of
             # tracing_requirements, so we don't need to include both below.
             dependencies = sorted(core_requirements + skinny_requirements)
         case _:

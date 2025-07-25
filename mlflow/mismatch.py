@@ -34,7 +34,7 @@ def _check_version_mismatch() -> None:
             (
                 f"Versions of mlflow ({mlflow_ver}) and child packages {mismatched_str} "
                 "are different. This may lead to unexpected behavior. "
-                "Please install the same version of both packages."
+                "Please install the same version of all MLflow packages."
             ),
             stacklevel=2,
             category=UserWarning,

@@ -61,7 +61,7 @@ _PYPROJECT_TOML_FILES = {
         10: 'version = "{new_version}"',
     },
     "libs/tracing/pyproject.toml": {
-        7: 'version = "{new_version}"',
+        10: 'version = "{new_version}"',
     },
 }
 
