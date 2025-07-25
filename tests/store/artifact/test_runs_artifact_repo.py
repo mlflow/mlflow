@@ -118,6 +118,8 @@ def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
         "mlflow.tracking.artifact_utils.get_artifact_uri",
         return_value="s3://test-bucket/some-run-id/artifacts/path/to/model",
     ) as mock_get_artifact_uri:
-        runs_repo = RunsArtifactRepository("runs:/some-run-id/path/to/model", tracking_uri="http://test-tracking-server:5000")
+        runs_repo = RunsArtifactRepository(
+            "runs:/some-run-id/path/to/model", tracking_uri="http://test-tracking-server:5000"
+        )
         assert isinstance(runs_repo.repo, S3ArtifactRepository)
         mock_get_artifact_uri.assert_called_once()
