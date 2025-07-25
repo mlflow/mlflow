@@ -233,6 +233,37 @@ To prevent replay attacks, it's recommended to verify that webhook timestamps ar
 
 - `MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY`: Encryption key for storing webhook secrets securely
 - `MLFLOW_WEBHOOK_REQUEST_TIMEOUT`: Timeout in seconds for webhook HTTP requests (default: 30)
+- `MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES`: Maximum number of retry attempts for failed webhook requests (default: 3)
+
+## Webhook Delivery Reliability
+
+### Automatic Retry Logic
+
+MLflow implements automatic retry logic to ensure reliable webhook delivery. When a webhook request fails, MLflow will automatically retry the request based on the following rules:
+
+**Retryable Status Codes:**
+
+- **5xx errors** (500-599): Server errors that may be temporary
+- **429 Too Many Requests**: Rate limit errors
+
+**Non-Retryable Status Codes:**
+
+- **2xx** (200-299): Success responses
+- **3xx** (300-399): Redirects
+- **4xx** (400-499, except 429): Client errors that won't be resolved by retrying
+
+### Retry Behavior
+
+When a retryable error occurs, MLflow:
+
+1. **Exponential Backoff**: Uses exponential backoff with jitter to prevent thundering herd issues
+   - Base delays: 1s, 2s, 4s, 8s, etc.
+   - Jitter: Adds up to 10% random jitter to each delay
+2. **Respects Rate Limits**: For 429 responses, MLflow checks the `Retry-After` header and uses the larger of:
+   - The value specified in `Retry-After` header
+   - The calculated exponential backoff time
+
+3. **Configurable Retries**: Set the maximum number of retries using the `MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES` environment variable
 
 ## Example: FastAPI Webhook Receiver
 

@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import logging
+import random
 import time
 import uuid
 from datetime import datetime, timezone
@@ -17,7 +18,10 @@ from datetime import datetime, timezone
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
-from mlflow.environment_variables import MLFLOW_WEBHOOK_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES,
+    MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
+)
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
@@ -31,6 +35,21 @@ from mlflow.webhooks.types import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _calculate_backoff_with_jitter(attempt: int, jitter_fraction: float = 0.1) -> float:
+    """Calculate exponential backoff time with jitter.
+
+    Args:
+        attempt: The retry attempt number (0-based)
+        jitter_fraction: Fraction of base backoff to use as maximum jitter (default: 0.1)
+
+    Returns:
+        Backoff time in seconds with jitter applied
+    """
+    base_backoff = 2**attempt  # Exponential backoff: 1s, 2s, 4s, 8s...
+    jitter = random.uniform(0, base_backoff * jitter_fraction)
+    return base_backoff + jitter
 
 
 def _generate_hmac_signature(secret: str, delivery_id: str, timestamp: str, payload: str) -> str:
@@ -59,7 +78,7 @@ def _send_webhook_request(
     payload: WebhookPayload,
     event: WebhookEvent,
 ) -> requests.Response:
-    """Send a webhook request to the specified URL.
+    """Send a webhook request to the specified URL with retry logic.
 
     Args:
         webhook: The webhook object containing the URL and secret
@@ -98,7 +117,58 @@ def _send_webhook_request(
         headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
     timeout = MLFLOW_WEBHOOK_REQUEST_TIMEOUT.get()
-    return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=timeout)
+    max_retries = MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES.get()
+
+    # Retry logic with exponential backoff and jitter
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.post(
+                webhook.url, data=payload_bytes, headers=headers, timeout=timeout
+            )
+
+            should_retry = response.status_code >= 500 or response.status_code == 429
+            if not should_retry:
+                # Return successful response or non-retryable errors
+                return response
+
+            if attempt < max_retries:
+                backoff_time = _calculate_backoff_with_jitter(attempt)
+
+                # For 429, check if there's a Retry-After header
+                if response.status_code == 429 and (
+                    retry_after := response.headers.get("Retry-After")
+                ):
+                    try:
+                        retry_after = int(retry_after)
+                        backoff_time = max(backoff_time, retry_after)
+                    except (ValueError, TypeError):
+                        # If Retry-After is not a valid integer, use calculated backoff
+                        pass
+
+                _logger.warning(
+                    f"Webhook request to {webhook.url} failed with status {response.status_code}. "
+                    f"Retrying in {backoff_time:.2f}s (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(backoff_time)
+            else:
+                # Last attempt failed, return the response
+                return response
+
+        except requests.RequestException as e:
+            if attempt < max_retries:
+                backoff_time = _calculate_backoff_with_jitter(attempt)
+
+                _logger.warning(
+                    f"Webhook request to {webhook.url} failed: {e}. "
+                    f"Retrying in {backoff_time:.2f}s (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(backoff_time)
+            else:
+                # Last attempt failed, re-raise the exception
+                raise
+
+    # This should never be reached, but included for completeness
+    raise RuntimeError("Unexpected error in webhook retry logic")
 
 
 def _dispatch_webhook_impl(

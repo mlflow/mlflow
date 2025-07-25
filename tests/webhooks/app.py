@@ -44,12 +44,18 @@ async def insecure_webhook(request: Request):
     return {"status": "received"}
 
 
-@app.delete("/logs")
-async def clear_logs():
+@app.post("/reset")
+async def reset():
+    """Reset both logs and counters for testing"""
+    # Clear logs
     if LOG_FILE.exists():
-        # Clear contents
         LOG_FILE.open("w").close()
-    return {"status": "logs cleared"}
+
+    # Reset all counters
+    flaky_counter.reset()
+    rate_limited_counter.reset()
+
+    return {"status": "reset complete", "logs": "cleared", "counters": "reset"}
 
 
 @app.get("/logs")
@@ -151,6 +157,93 @@ async def secure_webhook(request: Request):
         f.write(json.dumps(webhook_data) + "\n")
 
     return {"status": "received", "signature": "verified"}
+
+
+# Simple counter class for individual endpoints
+class Counter:
+    def __init__(self):
+        self.value = 0
+
+    def increment(self) -> int:
+        self.value += 1
+        return self.value
+
+    def reset(self) -> None:
+        self.value = 0
+
+
+# Create separate counters for each endpoint
+flaky_counter = Counter()
+rate_limited_counter = Counter()
+
+
+@app.post("/flaky-webhook")
+async def flaky_webhook(request: Request):
+    """Endpoint that fails initially but succeeds after retries"""
+    attempt = flaky_counter.increment()
+
+    payload = await request.json()
+    actual_payload = payload.get("data", payload)
+
+    # Log the attempt
+    webhook_data = {
+        "endpoint": "/flaky-webhook",
+        "payload": actual_payload,
+        "headers": dict(request.headers),
+        "attempt": attempt,
+        "error": None,
+    }
+
+    # Fail on first two attempts with 500 error
+    if attempt <= 2:
+        webhook_data["status_code"] = 500
+        webhook_data["error"] = "Server error (will retry)"
+        with LOG_FILE.open("a") as f:
+            f.write(json.dumps(webhook_data) + "\n")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    # Succeed on third attempt
+    webhook_data["status_code"] = 200
+    with LOG_FILE.open("a") as f:
+        f.write(json.dumps(webhook_data) + "\n")
+
+    return {"status": "received", "attempt": attempt}
+
+
+@app.post("/rate-limited-webhook")
+async def rate_limited_webhook(request: Request):
+    """Endpoint that returns 429 with Retry-After header"""
+    attempt = rate_limited_counter.increment()
+
+    payload = await request.json()
+    actual_payload = payload.get("data", payload)
+
+    # Log the attempt
+    webhook_data = {
+        "endpoint": "/rate-limited-webhook",
+        "payload": actual_payload,
+        "headers": dict(request.headers),
+        "attempt": attempt,
+        "error": None,
+    }
+
+    # Return 429 on first attempt
+    if attempt == 1:
+        webhook_data["status_code"] = 429
+        webhook_data["error"] = "Rate limited"
+        with LOG_FILE.open("a") as f:
+            f.write(json.dumps(webhook_data) + "\n")
+        # Return 429 with Retry-After header
+        response = fastapi.Response(content="Rate limited", status_code=429)
+        response.headers["Retry-After"] = "2"
+        return response
+
+    # Succeed on second attempt
+    webhook_data["status_code"] = 200
+    with LOG_FILE.open("a") as f:
+        f.write(json.dumps(webhook_data) + "\n")
+
+    return {"status": "received", "attempt": attempt}
 
 
 if __name__ == "__main__":
