@@ -108,9 +108,8 @@ def _parse_content(value: Any) -> Any:
     elif isinstance(value, (KernelContent, StreamingContentMixin)):
         value = value.to_dict()
     elif isinstance(value, FunctionResult):
-        # make a copy to avoid modifying the original result
-        value = value.model_copy()
-        value.value = _parse_content(value.value)
+        # Extract "value" field from the FunctionResult object
+        value = _parse_content(value.value)
     elif isinstance(value, list):
         value = [_parse_content(item) for item in value]
     return value

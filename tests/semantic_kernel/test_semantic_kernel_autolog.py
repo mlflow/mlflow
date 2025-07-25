@@ -77,13 +77,13 @@ async def test_sk_invoke_simple(mock_openai):
     assert spans[0].name == "Kernel.invoke_prompt"
     assert spans[0].span_type == SpanType.AGENT
     assert spans[0].inputs == {"prompt": prompt}
-    assert spans[0].outputs["value"] == [{"role": "assistant", "content": expected_content}]
+    assert spans[0].outputs == [{"role": "assistant", "content": expected_content}]
 
     # Kernel.invoke_prompt
     assert spans[1].name == "Kernel.invoke"
     assert spans[1].span_type == SpanType.AGENT
     assert spans[1].inputs["function"] is not None
-    assert spans[1].outputs["value"] == [{"role": "assistant", "content": expected_content}]
+    assert spans[1].outputs == [{"role": "assistant", "content": expected_content}]
 
     # Execute LLM as a tool
     assert spans[2].name.startswith("execute_tool")
@@ -427,7 +427,7 @@ async def test_kernel_invoke_function_object(mock_openai):
     assert kernel_span.name == "Kernel.invoke"
     assert kernel_span.span_type == SpanType.AGENT
     assert kernel_span.inputs["function"] is not None
-    assert kernel_span.outputs["value"] is not None
+    assert kernel_span.outputs is not None
 
     assert tool_span.name == "execute_tool MathPlugin-Add"
     assert tool_span.span_type == SpanType.TOOL
