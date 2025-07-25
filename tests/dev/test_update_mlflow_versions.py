@@ -147,7 +147,7 @@ def test_update_mlflow_versions(
         assert changed_lines == formatted_expected_changes
 
 
-def _parse_diff_line(diff: str) -> tuple[int, int]:
+def _parse_diff_line(diff: list[str]) -> dict[int, str]:
     diff_lines = {}
     for idx, line in enumerate(diff):
         match = _DIFF_REGEX.search(line)

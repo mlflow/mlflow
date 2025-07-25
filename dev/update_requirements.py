@@ -44,7 +44,13 @@ def parse_args():
     parser.add_argument(
         "--requirements-yaml-location",
         required=True,
-        help="Local file path of the requirements.yaml specification.",
+        help="Local directory path where the requirements.yaml files are located.",
+    )
+    parser.add_argument(
+        "--package-names",
+        default=["tracing", "skinny", "core", "gateway"],
+        nargs="+",
+        help="List of package names to update. Values can be 'tracing', 'skinny', 'core', or 'gateway'.",
     )
     return parser.parse_args()
 
@@ -54,22 +60,24 @@ def main():
     yaml = YAML()
     yaml.preserve_quotes = True
 
-    with open(args.requirements_yaml_location) as f:
-        requirements_src = f.read()
-        requirements = yaml.load(requirements_src)
+    for package_name in args.package_names:
+        req_file_path = f"{args.requirements_yaml_location}/{package_name}-requirements.yaml"
+        with open(req_file_path) as f:
+            requirements_src = f.read()
+            requirements = yaml.load(requirements_src)
 
-    for key, req_info in requirements.items():
-        pip_release = req_info["pip_release"]
-        max_major_version = req_info["max_major_version"]
-        if req_info.get("freeze", False):
-            continue
-        latest_major_version = get_latest_major_version(pip_release)
-        if latest_major_version > max_major_version:
-            requirements[key]["max_major_version"] = latest_major_version
-            print(f"Updated {key}.max_major_version to {latest_major_version}")
+        for key, req_info in requirements.items():
+            pip_release = req_info["pip_release"]
+            max_major_version = req_info["max_major_version"]
+            if req_info.get("freeze", False):
+                continue
+            latest_major_version = get_latest_major_version(pip_release)
+            if latest_major_version > max_major_version:
+                requirements[key]["max_major_version"] = latest_major_version
+                print(f"Updated {key}.max_major_version to {latest_major_version}")
 
-    with open(args.requirements_yaml_location, "w") as f:
-        yaml.dump(requirements, f)
+        with open(req_file_path, "w") as f:
+            yaml.dump(requirements, f)
 
 
 if __name__ == "__main__":

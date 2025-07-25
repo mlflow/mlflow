@@ -389,11 +389,12 @@ def _check_skinny_tracing_mismatch(skinny_reqs: list[str], tracing_reqs: list[st
     it will complicate the package management (need another .release.toml file
     that is dependent by pyproject.release.toml)
     """
-    if set(tracing_reqs) - set(skinny_reqs):
+    if diff := set(tracing_reqs) - set(skinny_reqs):
         raise RuntimeError(
             "Tracing requirements must be a subset of skinny requirements. "
             "Please check the requirements/skinny-requirements.txt and "
-            "requirements/tracing-requirements.txt files."
+            "requirements/tracing-requirements.txt files.\n"
+            f"Diff: {diff}"
         )
 
 

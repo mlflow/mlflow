@@ -40,7 +40,7 @@ def parse_args(args):
         default=["core", "skinny", "tracing", "gateway"],
         nargs="+",
         help="Names of the packages to generate requirements for. "
-        "Valid values are: full, skinny, tracing",
+        "Valid values are: tracing, skinny, core, gateway",
     )
 
     return parser.parse_args(args)
