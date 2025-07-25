@@ -20,13 +20,13 @@ def autolog(
     silent: bool = False,
 ):
     """
-    Enables (or disables) and configures autologging from Anthropic to MLflow.
+    Enables (or disables) and configures autologging from Semantic Kernel to MLflow.
     Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
 
     Args:
-        log_traces: If ``True``, traces are logged for Anthropic models.
+        log_traces: If ``True``, traces are logged for Semantic Kernel.
             If ``False``, no traces are collected during inference. Default to ``True``.
-        disable: If ``True``, disables the Anthropic autologging. Default to ``False``.
+        disable: If ``True``, disables the Semantic Kernel  autologging. Default to ``False``.
         silent: If ``True``, suppress all event logs and warnings from MLflow during Anthropic
             autologging. If ``False``, show all events and warnings.
     """

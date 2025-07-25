@@ -31,31 +31,6 @@ def mock_openai():
         yield base_url
 
 
-@pytest.fixture
-def dummy_otel_span_processor():
-    """A dummy OpenTelemetry span processor that does nothing."""
-
-    class DummySpanExporter:
-        # Dummy NoOp exporter that does nothing, because OTel span processor requires an exporter
-        def on_end(self, *args, **kwargs) -> None:
-            pass
-
-        def shutdown(self) -> None:
-            pass
-
-    class DummySpanProcessor(SimpleSpanProcessor):
-        def __init__(self, span_exporter):
-            self.span_exporter = DummySpanExporter()
-
-        def on_start(self, *args, **kwargs):
-            pass
-
-        def on_end(self, *args, **kwargs):
-            pass
-
-    return DummySpanProcessor(DummySpanExporter())
-
-
 @pytest_asyncio.fixture(autouse=True)
 async def post_test_tracing_cleanup():
     yield
