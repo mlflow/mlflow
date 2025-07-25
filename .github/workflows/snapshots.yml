@@ -63,7 +63,7 @@ jobs:
 
       - name: Upload artifacts to nightly release
         # This step requires contents write permission, but pull requests filed from forks do not have this permission.
-        if: github.event_name != 'pull_request' || github.event.pull_request.base.repo.full_name == 'mlflow/mlflow'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'mlflow/mlflow'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
