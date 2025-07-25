@@ -52,22 +52,30 @@ _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
 # This destination, when set, will take precedence over other configurations.
-if MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get():
-    _MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
-else:
-    class _TraceUserDestination:
-        def __init__(self):
-            self.value = None
-
-        def get(self):
-            return self.value
-
-        def set(self, value):
-            self.value = value
-
-    _MLFLOW_TRACE_USER_DESTINATION = _TraceUserDestination()
+_MLFLOW_TRACE_USER_DESTINATION = None
 
 _logger = logging.getLogger(__name__)
+
+
+def _init_trace_user_destination():
+    global _MLFLOW_TRACE_USER_DESTINATION
+    if MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get():
+        _MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
+    else:
+        class _TraceUserDestination:
+            def __init__(self):
+                self.value = None
+
+            def get(self):
+                return self.value
+
+            def set(self, value):
+                self.value = value
+
+        _MLFLOW_TRACE_USER_DESTINATION = _TraceUserDestination()
+
+
+_init_trace_user_destination()
 
 
 def start_span_in_context(name: str) -> trace.Span:

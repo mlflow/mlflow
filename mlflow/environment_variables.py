@@ -875,7 +875,7 @@ MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHE
 
 
 #: Whether to allow setting thread local tracing destination.
-#: (default: ``True``)
+#: (default: ``False``)
 MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", True
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
 )

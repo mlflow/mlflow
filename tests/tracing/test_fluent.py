@@ -2116,13 +2116,14 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         )
 
 
-@pytest.mark.skipif(
-    not MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get(),
-    reason="The testcase requires enabling thread-local tracing destination feature."
-)
-def test_set_destination_in_threads(async_logging_enabled, tmp_path):
+def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch):
     from mlflow.client import MlflowClient
     from mlflow.tracing.destination import MlflowExperiment
+    from mlflow.tracing.provider import _init_trace_user_destination
+
+    monkeypatch.setenv(MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.name, "true")
+
+    _init_trace_user_destination()
 
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
