@@ -1,6 +1,8 @@
 import asyncio
 import json
 import time
+import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
@@ -20,7 +22,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -34,7 +39,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -2109,3 +2114,81 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         assert actual_filter_string == expected_filter_string, (
             f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
         )
+
+
+def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch):
+    from mlflow.client import MlflowClient
+    from mlflow.tracing.destination import MlflowExperiment
+    from mlflow.tracing.provider import _init_trace_user_destination
+
+    monkeypatch.setenv(MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.name, "true")
+
+    _init_trace_user_destination()
+
+    # This test makes sure `set_destination` obeys thread-local behavior.
+    class TestModel:
+        def predict(self, x):
+            with mlflow.start_span(name="root_span") as root_span:
+                root_span.set_inputs({"x": x})
+
+                def child_span_thread(z):
+                    child_span = start_span_no_context(
+                        name="child_span_1",
+                        span_type=SpanType.LLM,
+                        parent_span=root_span,
+                    )
+                    child_span.set_inputs(z)
+                    time.sleep(0.5)
+                    child_span.end()
+
+                thread = threading.Thread(target=child_span_thread, args=(x + 1,))
+                thread.start()
+                thread.join()
+            return x
+
+    model = TestModel()
+
+    def func(experiment_id, x):
+        set_destination(MlflowExperiment(experiment_id))
+        time.sleep(0.5)
+        model.predict(x)
+        if async_logging_enabled:
+            mlflow.flush_trace_async_logging(terminate=True)
+
+    experiment_id1 = MlflowClient().create_experiment(uuid.uuid4().hex)
+    thread1 = threading.Thread(target=func, args=(experiment_id1, 3))
+
+    experiment_id2 = MlflowClient().create_experiment(uuid.uuid4().hex)
+    thread2 = threading.Thread(target=func, args=(experiment_id2, 40))
+
+    thread1.start()
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+
+    time.sleep(0.2)
+
+    traces = get_traces(experiment_id1)
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id is not None
+    assert trace.info.experiment_id == experiment_id1
+    assert trace.info.execution_time_ms >= 0.5 * 1e3
+    assert trace.info.state == TraceState.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 3}'
+    assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].inputs == {'x': 3}
+    assert trace.data.spans[1].inputs == 4
+
+    traces = get_traces(experiment_id2)
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id is not None
+    assert trace.info.experiment_id == experiment_id2
+    assert trace.info.execution_time_ms >= 0.5 * 1e3
+    assert trace.info.state == TraceState.OK
+    assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 40}'
+    assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].inputs == {'x': 40}
+    assert trace.data.spans[1].inputs == 41
