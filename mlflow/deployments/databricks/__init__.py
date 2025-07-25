@@ -179,7 +179,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         # Each line format depends on specific endpoint
         # Explicitly set the encoding to `utf-8` so the `decode_unicode` in the next line
         # will decode correctly
-        response.encoding = 'utf-8'
+        response.encoding = "utf-8"
         return (
             line.strip()
             for line in response.iter_lines(decode_unicode=True)
