@@ -2128,22 +2128,29 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
         def predict(self, x):
+            print(f"thread-{x} #1")
             with mlflow.start_span(name="root_span") as root_span:
+                print(f"thread-{x} #2")
                 root_span.set_inputs({"x": x})
 
                 def child_span_thread(z):
+                    print(f"thread-nest-{x} #1")
                     child_span = start_span_no_context(
                         name="child_span_1",
                         span_type=SpanType.LLM,
                         parent_span=root_span,
                     )
+                    print(f"thread-nest-{x} #2")
                     child_span.set_inputs(z)
                     time.sleep(0.5)
                     child_span.end()
+                    print(f"thread-nest-{x} #3")
 
                 thread = threading.Thread(target=child_span_thread, args=(x + 1,))
+                print(f"thread-{x} #2")
                 thread.start()
                 thread.join()
+                print(f"thread-{x} #3")
             return x
 
     model = TestModel()
@@ -2170,6 +2177,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
     time.sleep(0.2)
 
     traces = get_traces(experiment_id1)
+    print(f"got trace #1")
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
@@ -2182,6 +2190,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
     assert trace.data.spans[1].inputs == 4
 
     traces = get_traces(experiment_id2)
+    print(f"got trace #2")
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
