@@ -200,7 +200,7 @@ describe('ExperimentViewRuns column utils', () => {
     expect((paramsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'));
 
     // Find the tags column group - note that in the implementation, tags use colId instead of groupId
-    const tagsGroup = columnDefinitions.find((col) => col.colId === COLUMN_TYPES.TAGS) as ColGroupDef;
+    const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS) as ColGroupDef;
     expect(tagsGroup).toBeDefined();
     expect(tagsGroup.children?.length).toBe(1);
     expect((tagsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'));
