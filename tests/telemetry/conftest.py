@@ -72,7 +72,7 @@ def mock_requests_get(request, monkeypatch):
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
-                    "disable_api_map": {},
+                    "disable_events": [],
                     "disable_sdks": [],
                 }
             ),

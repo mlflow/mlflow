@@ -36,7 +36,8 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.track import track_api_usage
+from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -133,7 +134,7 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
-    @track_api_usage
+    @record_usage_event(CreateRunEvent)
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -259,7 +260,7 @@ class TrackingServiceClient:
         """
         return self.store.get_experiment_by_name(name)
 
-    @track_api_usage
+    @record_usage_event(CreateExperimentEvent)
     def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
@@ -824,7 +825,7 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    @track_api_usage
+    @record_usage_event(CreateLoggedModelEvent)
     def create_logged_model(
         self,
         experiment_id: str,

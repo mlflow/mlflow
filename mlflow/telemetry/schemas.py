@@ -1,3 +1,4 @@
+import json
 import platform
 import sys
 import uuid
@@ -5,32 +6,29 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from mlflow.telemetry.params import BaseParams
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
 
-class APIStatus(str, Enum):
+class Status(str, Enum):
     UNKNOWN = "unknown"
     SUCCESS = "success"
     FAILURE = "failure"
 
 
 @dataclass
-class APIRecord:
-    api_module: str
-    api_name: str
+class Record:
+    event_name: str
     timestamp_ns: int
-    params: Optional[BaseParams] = None
-    status: APIStatus = APIStatus.UNKNOWN
+    params: Optional[dict[str, Any]] = None
+    status: Status = Status.UNKNOWN
     duration_ms: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "timestamp_ns": self.timestamp_ns,
-            "api_module": self.api_module,
-            "api_name": self.api_name,
+            "event_name": self.event_name,
             # dump params to string so we can parse them easily in ETL pipeline
-            "params": self.params.to_json() if self.params else None,
+            "params": json.dumps(self.params) if self.params else None,
             "status": self.status.value,
             "duration_ms": self.duration_ms,
         }
@@ -67,4 +65,4 @@ class TelemetryInfo:
 @dataclass
 class TelemetryConfig:
     ingestion_url: str
-    disable_api_map: dict[str, list[str]]
+    disable_events: set[str]
