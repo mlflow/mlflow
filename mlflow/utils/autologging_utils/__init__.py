@@ -9,6 +9,7 @@ from typing import Any, Callable, Optional
 import mlflow
 from mlflow.entities import Metric
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
+from mlflow.environment_variables import MLFLOW_TARGET_TRAINING_TO_LOGGING_TIME_RATIO
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
 # submodules (e.g., `safety`, `events`) that depend on the module-level logger. Add the `noqa: E402`
@@ -288,7 +289,7 @@ class BatchMetricsLogger:
         self.total_log_batch_time += end - start
 
     def _should_flush(self):
-        target_training_to_logging_time_ratio = 10
+        target_training_to_logging_time_ratio = MLFLOW_TARGET_TRAINING_TO_LOGGING_TIME_RATIO
         if (
             self.total_training_time
             >= self.total_log_batch_time * target_training_to_logging_time_ratio

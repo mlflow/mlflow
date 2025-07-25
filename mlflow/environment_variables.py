@@ -161,6 +161,12 @@ _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT = _EnvironmentVariable(
     "_MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT", int, 120
 )
 
+#: Specifies the ratio between training time and accumulated logging time,
+#: where (default: ``10``) result in 10% overhead to the training.
+MLFLOW_TARGET_TRAINING_TO_LOGGING_TIME_RATIO = _EnvironmentVariable(
+    "MLFLOW_TARGET_TRAINING_TO_LOGGING_TIME_RATIO", int, 10
+)
+
 #: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
