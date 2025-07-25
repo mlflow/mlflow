@@ -106,3 +106,34 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")
     runs_repo.repo.download_artifacts.assert_called_once()
+
+
+def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
+    """
+    Test that tracking_uri is passed as keyword argument to get_artifact_repository.
+    This verifies the fix for issue #16873 where tracking_uri was incorrectly passed
+    as a positional argument, causing it to be interpreted as access_key_id in S3.
+    """
+    tracking_uri = "http://test-tracking-server:5000"
+    artifact_uri = "runs:/some-run-id/path/to/model"
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+    ) as mock_get_repo:
+        with mock.patch("mlflow.tracking.artifact_utils.get_artifact_uri") as mock_get_artifact_uri:
+            # Mock the underlying URI resolution to return an S3 URI
+            mock_get_artifact_uri.return_value = (
+                "s3://test-bucket/some-run-id/artifacts/path/to/model"
+            )
+
+            # Mock the artifact repository
+            mock_repo = Mock()
+            mock_get_repo.return_value = mock_repo
+
+            # Create RunsArtifactRepository with tracking_uri
+            RunsArtifactRepository(artifact_uri, tracking_uri=tracking_uri)
+
+            # Verify get_artifact_repository was called with tracking_uri as keyword argument
+            mock_get_repo.assert_called_with(
+                "s3://test-bucket/some-run-id/artifacts/path/to/model", tracking_uri=tracking_uri
+            )
