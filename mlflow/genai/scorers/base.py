@@ -11,12 +11,24 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.registry import (
+    _add_registered_scorer,
+    _update_registered_scorer,
+    _delete_registered_scorer,
+)
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+
+
+@dataclass
+class ScorerSamplingConfig:
+    """Configuration for registered scorer sampling."""
+    sample_rate: float = 1.0
+    filter_string: Optional[str] = None
 
 
 @dataclass
@@ -42,6 +54,10 @@ class SerializedScorer:
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
 
+    # Registered scorer fields
+    server_name: Optional[str] = None
+    sampling_config: Optional[dict[str, Any]] = None
+
     def __post_init__(self):
         """Validate that either builtin scorer fields or decorator scorer fields are present."""
         has_builtin_fields = self.builtin_scorer_class is not None
@@ -66,6 +82,18 @@ class Scorer(BaseModel):
     aggregations: Optional[list[str]] = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
+    _server_name: Optional[str] = PrivateAttr(default=None)
+    _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
+
+    @property
+    def sample_rate(self) -> Optional[float]:
+        """Get the sample rate for this scorer."""
+        return self._sampling_config.sample_rate if self._sampling_config else None
+
+    @property
+    def filter_string(self) -> Optional[str]:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
@@ -99,6 +127,8 @@ class Scorer(BaseModel):
             call_source=source_info.get("call_source"),
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
+            server_name=self._server_name,
+            sampling_config=asdict(self._sampling_config) if self._sampling_config else None,
         )
         return asdict(serialized)
 
@@ -194,6 +224,13 @@ class Scorer(BaseModel):
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        
+        # Restore registered scorer fields
+        if serialized.server_name:
+            object.__setattr__(scorer_instance, "_server_name", serialized.server_name)
+        if serialized.sampling_config:
+            object.__setattr__(scorer_instance, "_sampling_config", ScorerSamplingConfig(**serialized.sampling_config))
+        
         return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
@@ -344,6 +381,150 @@ class Scorer(BaseModel):
                 )
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
+
+    def register(self, name: Optional[str] = None) -> "Scorer":
+        """
+        Register this scorer with the MLflow server.
+
+        Args:
+            name: Optional name for the server-side scorer. If not provided, uses the scorer's name.
+
+        Returns:
+            A new Scorer instance with server registration.
+        """
+        
+        server_name = name or self.name
+        
+        # Create a new scorer instance with the server name
+        new_scorer = self._create_copy()
+        
+        # Add the scorer to the server with sample_rate=0 (not actively sampling)
+        _add_registered_scorer(
+            scheduled_scorer_name=server_name,
+            scorer=self,
+            sample_rate=0.0,
+            filter_string=None,
+        )
+        
+        # Set the server name and sampling config on the new instance
+        new_scorer._server_name = server_name
+        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0)
+        
+        return new_scorer
+
+    def start(self, sample_rate: float, filter_string: Optional[str] = None) -> "Scorer":
+        """
+        Start registered scoring with the specified sampling configuration.
+
+        Args:
+            sample_rate: Fraction of traces to evaluate (0.0 to 1.0).
+            filter_string: Optional MLflow search_traces compatible filter string.
+
+        Returns:
+            A new Scorer instance with updated sampling configuration.
+        """
+        if not self._server_name:
+            raise MlflowException(
+                "Scorer must be registered before starting. Use scorer.register() first."
+            )
+        
+        # Update the scorer on the server
+        _update_registered_scorer(
+            scheduled_scorer_name=self._server_name,
+            sample_rate=sample_rate,
+            filter_string=filter_string,
+        )
+        
+        # Create a new scorer instance with updated sampling config
+        new_scorer = self._create_copy()
+        object.__setattr__(new_scorer, "_server_name", self._server_name)
+        object.__setattr__(new_scorer, "_sampling_config", 
+                         ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string))
+        
+        return new_scorer
+
+    def update(self, sample_rate: Optional[float] = None, filter_string: Optional[str] = None) -> "Scorer":
+        """
+        Update the sampling configuration for this scorer.
+
+        Args:
+            sample_rate: New fraction of traces to evaluate (0.0 to 1.0).
+            filter_string: New MLflow search_traces compatible filter string.
+
+        Returns:
+            A new Scorer instance with updated configuration.
+        """
+        if not self._server_name:
+            raise MlflowException(
+                "Scorer must be registered before updating. Use scorer.register() first."
+            )
+        
+        # Use current values if not provided
+        new_sample_rate = sample_rate if sample_rate is not None else (self.sample_rate or 0.0)
+        new_filter_string = filter_string if filter_string is not None else self.filter_string
+        
+        # Update the scorer on the server
+        _update_registered_scorer(
+            scheduled_scorer_name=self._server_name,
+            sample_rate=new_sample_rate,
+            filter_string=new_filter_string,
+        )
+        
+        # Create a new scorer instance with updated sampling config
+        new_scorer = self._create_copy()
+        object.__setattr__(new_scorer, "_server_name", self._server_name)
+        object.__setattr__(new_scorer, "_sampling_config", 
+                         ScorerSamplingConfig(sample_rate=new_sample_rate, filter_string=new_filter_string))
+        
+        return new_scorer
+
+    def stop(self) -> "Scorer":
+        """
+        Stop registered scoring by setting sample rate to 0.
+
+        Returns:
+            A new Scorer instance with sample rate set to 0.
+        """
+        return self.update(sample_rate=0.0)
+
+    def delete(self) -> "Scorer":
+        """
+        Delete this scorer from the server.
+
+        Returns:
+            A new Scorer instance with cleared server registration.
+        """
+        if not self._server_name:
+            raise MlflowException(
+                "Scorer is not registered on the server."
+            )
+        
+        from mlflow.genai.scorers.registry import _delete_registered_scorer
+        
+        # Delete the scorer from the server
+        _delete_registered_scorer(scheduled_scorer_name=self._server_name)
+        
+        # Create a new scorer instance without server registration
+        new_scorer = self._create_copy()
+        object.__setattr__(new_scorer, "_server_name", None)
+        object.__setattr__(new_scorer, "_sampling_config", None)
+        
+        return new_scorer
+
+    def _create_copy(self) -> "Scorer":
+        """
+        Create a copy of this scorer instance.
+        """
+        # For decorator scorers
+        if hasattr(self, "_original_func"):
+            return scorer(
+                self._original_func,
+                name=self.name,
+                aggregations=self.aggregations,
+            )
+        # For builtin scorers, use model_copy
+        else:
+            return self.model_copy()
 
 
 @experimental(version="3.0.0")
