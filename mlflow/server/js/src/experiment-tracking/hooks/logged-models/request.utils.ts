@@ -24,7 +24,7 @@ export const loggedModelsDataRequest = async (
   const response = await fetch(url, {
     method,
     body: serializeRequestBody(body),
-    headers: headers,
+    headers,
   });
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
