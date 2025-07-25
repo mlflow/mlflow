@@ -3,7 +3,7 @@ from typing import Optional
 
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
+from mlflow.environment_variables import _MLFLOW_TESTING_TELEMETRY, MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
 from mlflow.version import VERSION
 
@@ -63,6 +63,8 @@ _IS_IN_DATABRICKS = _is_in_databricks()
 
 def is_telemetry_disabled() -> bool:
     try:
+        if _MLFLOW_TESTING_TELEMETRY.get():
+            return False
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"

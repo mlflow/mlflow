@@ -477,4 +477,4 @@ jobs:
       - name: Run telemetry tests
         run: |
           source .venv/Scripts/activate
-          pytest tests/telemetry
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry

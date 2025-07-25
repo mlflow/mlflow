@@ -346,8 +346,7 @@ def enable_telemetry_in_ci(monkeypatch, request):
         return
 
     # patch this so we can capture telemetry records in CI
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+    monkeypatch.setenv("_MLFLOW_TESTING_TELEMETRY", "true")
     set_telemetry_client()
     yield
     client = get_telemetry_client()

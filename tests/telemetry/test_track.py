@@ -23,7 +23,7 @@ class TestEvent(Event):
     name = "test_event"
 
 
-def test_track_api_usage(mock_requests):
+def test_track_api_usage(mock_requests, mock_telemetry_client: TelemetryClient):
     assert len(mock_requests) == 0
 
     @record_usage_event(TestEvent)
@@ -37,11 +37,14 @@ def test_track_api_usage(mock_requests):
         time.sleep(0.01)
         raise ValueError("test")
 
-    succeed_func()
-    with pytest.raises(ValueError, match="test"):
-        fail_func()
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        succeed_func()
+        with pytest.raises(ValueError, match="test"):
+            fail_func()
 
-    get_telemetry_client().flush()
+    mock_telemetry_client.flush()
 
     assert len(mock_requests) == 2
     succeed_record = mock_requests[0]["data"]
@@ -58,22 +61,20 @@ def test_track_api_usage(mock_requests):
     assert fail_record["params"] is None
     assert fail_record["duration_ms"] > 0
 
-    telemetry_info = get_telemetry_client().info
+    telemetry_info = mock_telemetry_client.info
     assert telemetry_info.items() <= succeed_record.items()
     assert telemetry_info.items() <= fail_record.items()
 
 
-def test_backend_store_info(tmp_path):
-    telemetry_client = get_telemetry_client()
-
+def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient):
     sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
     with _use_tracking_uri(sqlite_uri):
-        telemetry_client._update_backend_store()
-    assert telemetry_client.info["tracking_uri_scheme"] == "sqlite"
+        mock_telemetry_client._update_backend_store()
+    assert mock_telemetry_client.info["tracking_uri_scheme"] == "sqlite"
 
     with _use_tracking_uri(tmp_path):
-        telemetry_client._update_backend_store()
-    assert telemetry_client.info["tracking_uri_scheme"] == "file"
+        mock_telemetry_client._update_backend_store()
+    assert mock_telemetry_client.info["tracking_uri_scheme"] == "file"
 
 
 @pytest.mark.parametrize(
@@ -85,7 +86,9 @@ def test_backend_store_info(tmp_path):
         ("DO_NOT_TRACK", "false", TelemetryClient),
     ],
 )
-def test_track_api_usage_respect_env_var(monkeypatch, env_var, value, expected_result):
+def test_track_api_usage_respect_env_var(
+    monkeypatch, env_var, value, expected_result, bypass_env_check
+):
     monkeypatch.setenv(env_var, value)
     # mimic the behavior of `import mlflow`
     set_telemetry_client()
@@ -97,7 +100,7 @@ def test_track_api_usage_respect_env_var(monkeypatch, env_var, value, expected_r
         assert isinstance(telemetry_client, expected_result)
 
 
-def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests):
+def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests, bypass_env_check):
     telemetry_client = get_telemetry_client()
     assert isinstance(telemetry_client, TelemetryClient)
 
@@ -118,7 +121,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     assert len(mock_requests) == 1
 
 
-@pytest.mark.no_mock_requests_get
+@pytest.mark.no_mock_telemetry_client
 def test_is_telemetry_disabled_for_event():
     def mock_requests_get(*args, **kwargs):
         time.sleep(1)
@@ -139,20 +142,20 @@ def test_is_telemetry_disabled_for_event():
         )
 
     with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
-        set_telemetry_client()
-        client = get_telemetry_client()
+        client = TelemetryClient()
         assert client is not None
         assert client.config is None
-        # do not skip when config is not fetched yet
-        assert _is_telemetry_disabled_for_event(TestEvent) is False
-        assert _is_telemetry_disabled_for_event(TestEvent) is False
-        time.sleep(2)
-        assert client._is_config_fetched is True
-        assert client.config is not None
-        # event not in disable_events, do not skip
-        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
-        # event in disable_events, skip
-        assert _is_telemetry_disabled_for_event(TestEvent) is True
+        with mock.patch("mlflow.telemetry.track.get_telemetry_client", return_value=client):
+            # do not skip when config is not fetched yet
+            assert _is_telemetry_disabled_for_event(TestEvent) is False
+            assert _is_telemetry_disabled_for_event(TestEvent) is False
+            time.sleep(2)
+            assert client._is_config_fetched is True
+            assert client.config is not None
+            # event not in disable_events, do not skip
+            assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
+            # event in disable_events, skip
+            assert _is_telemetry_disabled_for_event(TestEvent) is True
 
     # test telemetry disabled after config is fetched
     def mock_requests_get(*args, **kwargs):
@@ -160,17 +163,20 @@ def test_is_telemetry_disabled_for_event():
         return mock.Mock(status_code=403)
 
     with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
-        set_telemetry_client()
-        client = get_telemetry_client()
+        client = TelemetryClient()
         assert client is not None
         assert client.config is None
-        # do not skip when config is not fetched yet
-        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
-        assert _is_telemetry_disabled_for_event(TestEvent) is False
-        time.sleep(2)
-        assert client._is_config_fetched is True
-        assert client.config is None
-        assert get_telemetry_client() is None
-        # telemetry is disabled, skip all events
-        assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is True
-        assert _is_telemetry_disabled_for_event(TestEvent) is True
+        with (
+            mock.patch("mlflow.telemetry.track.get_telemetry_client", return_value=client),
+            mock.patch(
+                "mlflow.telemetry.client._set_telemetry_client"
+            ) as mock_set_telemetry_client,
+        ):
+            # do not skip when config is not fetched yet
+            assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
+            assert _is_telemetry_disabled_for_event(TestEvent) is False
+            time.sleep(2)
+            assert client._is_config_fetched is True
+            assert client.config is None
+            # global telemetry client is set to None when telemetry is disabled
+            mock_set_telemetry_client.assert_called_once_with(None)

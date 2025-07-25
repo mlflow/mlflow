@@ -5,7 +5,7 @@ from mlflow.telemetry.utils import (
 )
 
 
-def test_is_telemetry_disabled(monkeypatch):
+def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
     assert is_telemetry_disabled() is False
 
     with monkeypatch.context() as m:

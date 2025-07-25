@@ -5,7 +5,7 @@ import pytest
 
 import mlflow
 import mlflow.telemetry.utils
-from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
+from mlflow.telemetry.client import TelemetryClient, get_telemetry_client
 from mlflow.version import VERSION
 
 
@@ -50,20 +50,17 @@ def mock_requests():
 
 
 @pytest.fixture(autouse=True)
-def enable_telemetry(monkeypatch):
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
+def enable_telemetry_in_ci(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_TESTING_TELEMETRY", "true")
 
 
 @pytest.fixture(autouse=True)
-def mock_requests_get(request, monkeypatch):
+def mock_telemetry_client(request):
     """Fixture to mock requests.get and capture telemetry records."""
-    if request.node.get_closest_marker("no_mock_requests_get"):
+    if request.node.get_closest_marker("no_mock_telemetry_client"):
         yield
         return
 
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
     with patch("mlflow.telemetry.client.requests.get") as mock_get:
         mock_get.return_value = Mock(
             status_code=200,
@@ -81,10 +78,17 @@ def mock_requests_get(request, monkeypatch):
                 }
             ),
         )
-        set_telemetry_client()
-        client = get_telemetry_client()
+        client = TelemetryClient()
         # ensure config is fetched before the test
         while not client._is_config_fetched:
             time.sleep(0.1)
-        yield
+        yield client
         client.flush(terminate=True)
+        client._join_threads()
+
+
+@pytest.fixture
+def bypass_env_check(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_TESTING_TELEMETRY", "false")
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
