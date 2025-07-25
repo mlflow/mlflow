@@ -66,3 +66,16 @@ class TelemetryInfo:
 class TelemetryConfig:
     ingestion_url: str
     disable_events: set[str]
+    batch_time_interval_seconds: int
+    retryable_error_codes: set[int]
+    stop_on_error_codes: set[int]
+
+    @classmethod
+    def from_dict(cls, config: dict[str, Any]) -> "TelemetryConfig":
+        return TelemetryConfig(
+            ingestion_url=config["ingestion_url"],
+            disable_events=set(config.get("disable_events", [])),
+            batch_time_interval_seconds=int(config["batch_time_interval_seconds"]),
+            retryable_error_codes=set(config["retryable_error_codes"]),
+            stop_on_error_codes=set(config["stop_on_error_codes"]),
+        )

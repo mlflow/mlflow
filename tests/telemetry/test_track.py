@@ -131,6 +131,9 @@ def test_is_telemetry_disabled_for_event():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_events": ["test_event"],
+                    "batch_time_interval_seconds": 30,
+                    "retryable_error_codes": [429, 500],
+                    "stop_on_error_codes": [400, 401, 403, 404],
                 }
             ),
         )

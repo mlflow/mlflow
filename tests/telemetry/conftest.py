@@ -74,6 +74,9 @@ def mock_requests_get(request, monkeypatch):
                     "rollout_percentage": 100,
                     "disable_events": [],
                     "disable_sdks": [],
+                    "batch_time_interval_seconds": 30,
+                    "retryable_error_codes": [429, 500],
+                    "stop_on_error_codes": [400, 401, 403, 404],
                 }
             ),
         )

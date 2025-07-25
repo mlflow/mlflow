@@ -12,12 +12,9 @@ from typing import Optional
 import requests
 
 from mlflow.telemetry.constant import (
-    BATCH_SIZE,
-    BATCH_TIME_INTERVAL_SECONDS,
+    DEFAULT_BATCH_SIZE,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
-    RETRYABLE_ERRORS,
-    STOP_COLLECTION_ERRORS,
 )
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
@@ -43,8 +40,7 @@ class TelemetryClient:
         self._is_active = False
         self._atexit_callback_registered = False
 
-        self._batch_size = BATCH_SIZE
-        self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
+        self._batch_size = DEFAULT_BATCH_SIZE
         self._pending_records: list[Record] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
@@ -109,10 +105,9 @@ class TelemetryClient:
                 if random.randint(0, 100) > rollout_percentage:
                     return
 
-                self.config = TelemetryConfig(
-                    ingestion_url=config["ingestion_url"],
-                    disable_events=set(config.get("disable_events", [])),
-                )
+                self.config = TelemetryConfig.from_dict(config)
+                if "batch_size" in config:
+                    self._batch_size = int(config["batch_size"])
             except Exception:
                 return
 
@@ -194,7 +189,7 @@ class TelemetryClient:
                         headers={"Content-Type": "application/json"},
                         timeout=request_timeout,
                     )
-                    should_retry = response.status_code in RETRYABLE_ERRORS
+                    should_retry = response.status_code in self.config.retryable_error_codes
                 except (ConnectionError, TimeoutError):
                     should_retry = True
                 # NB: DO NOT retry when terminating
@@ -205,7 +200,7 @@ class TelemetryClient:
                     # we do not use exponential backoff to avoid increasing
                     # the processing time significantly
                     time.sleep(sleep_time)
-                elif response and response.status_code in STOP_COLLECTION_ERRORS:
+                elif response and response.status_code in self.config.stop_on_error_codes:
                     self._is_stopped = True
                     self.is_active = False
                     # this is executed in the consumer thread, so
@@ -231,7 +226,7 @@ class TelemetryClient:
                 records = self._queue.get(timeout=1)
             except Empty:
                 # check if batch time interval has passed and send data if needed
-                if time.time() - self._last_batch_time >= self._batch_time_interval:
+                if time.time() - self._last_batch_time >= self.config.batch_time_interval_seconds:
                     self._last_batch_time = time.time()
                     with self._batch_lock:
                         if self._pending_records:

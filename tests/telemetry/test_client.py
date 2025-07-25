@@ -411,7 +411,7 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
     """Test that batching respects time interval configuration."""
 
     # Set batch time interval to 1 second for testing
-    telemetry_client._batch_time_interval = 1
+    telemetry_client.config.batch_time_interval_seconds = 1
 
     # Add first record
     record1 = Record(
@@ -525,6 +525,11 @@ def test_client_get_config_none(mock_requests_return_value):
 
 @pytest.mark.no_mock_requests_get
 def test_client_get_config_not_none():
+    default_configs = {
+        "batch_time_interval_seconds": 30,
+        "retryable_error_codes": {429, 500},
+        "stop_on_error_codes": {400, 401, 403, 404},
+    }
     with (
         mock.patch("mlflow.telemetry.client.requests.get") as mock_requests,
         mock.patch("random.randint", return_value=50),
@@ -537,6 +542,7 @@ def test_client_get_config_not_none():
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 70,
+                    **default_configs,
                 }
             ),
         )
@@ -546,6 +552,7 @@ def test_client_get_config_not_none():
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
             disable_events=set(),
+            **default_configs,
         )
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
@@ -557,6 +564,7 @@ def test_client_get_config_not_none():
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
+                    **default_configs,
                 }
             ),
         )
@@ -566,6 +574,7 @@ def test_client_get_config_not_none():
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
             disable_events=set(),
+            **default_configs,
         )
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
@@ -579,6 +588,7 @@ def test_client_get_config_not_none():
                     "rollout_percentage": 100,
                     "disable_events": [],
                     "disable_sdks": ["mlflow-tracing"],
+                    **default_configs,
                 }
             ),
         )
@@ -599,6 +609,7 @@ def test_client_get_config_not_none():
             assert client.config == TelemetryConfig(
                 ingestion_url="http://localhost:9999",
                 disable_events=set(),
+                **default_configs,
             )
 
         with mock.patch("mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW):
@@ -608,12 +619,39 @@ def test_client_get_config_not_none():
             assert client.config == TelemetryConfig(
                 ingestion_url="http://localhost:9999",
                 disable_events=set(),
+                **default_configs,
             )
+
+    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
+        mock_requests.return_value = mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value={
+                    "mlflow_version": VERSION,
+                    "disable_telemetry": False,
+                    "ingestion_url": "http://localhost:9999",
+                    "rollout_percentage": 100,
+                    "disable_events": [],
+                    "disable_sdks": ["mlflow-tracing"],
+                    "batch_size": 100,
+                    **default_configs,
+                }
+            ),
+        )
+        set_telemetry_client()
+        client = get_telemetry_client()
+        client._get_config()
+        assert client._batch_size == 100
 
 
 @pytest.mark.no_mock_requests_get
 @pytest.mark.skipif(is_windows(), reason="This test only passes on non-Windows")
 def test_get_config_disable_non_windows():
+    default_configs = {
+        "batch_time_interval_seconds": 30,
+        "retryable_error_codes": {429, 500},
+        "stop_on_error_codes": {400, 401, 403, 404},
+    }
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
         mock_requests.return_value = mock.Mock(
             status_code=200,
@@ -624,6 +662,7 @@ def test_get_config_disable_non_windows():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_os": ["linux", "darwin"],
+                    **default_configs,
                 }
             ),
         )
@@ -642,6 +681,7 @@ def test_get_config_disable_non_windows():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_os": ["win32"],
+                    **default_configs,
                 }
             ),
         )
@@ -651,12 +691,18 @@ def test_get_config_disable_non_windows():
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
             disable_events=set(),
+            **default_configs,
         )
 
 
 @pytest.mark.no_mock_requests_get
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 def test_get_config_windows():
+    default_configs = {
+        "batch_time_interval_seconds": 30,
+        "retryable_error_codes": {429, 500},
+        "stop_on_error_codes": {400, 401, 403, 404},
+    }
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
         mock_requests.return_value = mock.Mock(
             status_code=200,
@@ -667,6 +713,7 @@ def test_get_config_windows():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_os": ["win32"],
+                    **default_configs,
                 }
             ),
         )
@@ -685,6 +732,7 @@ def test_get_config_windows():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_os": ["linux", "darwin"],
+                    **default_configs,
                 }
             ),
         )
@@ -694,6 +742,7 @@ def test_get_config_windows():
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
             disable_events=set(),
+            **default_configs,
         )
 
 
@@ -736,6 +785,9 @@ def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
+                    "batch_time_interval_seconds": 30,
+                    "retryable_error_codes": {429, 500},
+                    "stop_on_error_codes": {400, 401, 403, 404},
                 }
             ),
         )
