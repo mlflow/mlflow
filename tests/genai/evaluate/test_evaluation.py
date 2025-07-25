@@ -115,12 +115,11 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     )
 
     # OSS evaluator doesn't support metrics aggregation yet.
-    if is_in_databricks:
-        metrics = result.metrics
-        assert metrics["exact_match/mean"] == 1.0
-        assert metrics["is_concise/mean"] == 0.5
-        assert metrics["relevance/mean"] == 1.0
-        assert metrics["has_trace/mean"] == 1.0
+    metrics = result.metrics
+    assert metrics["exact_match/mean"] == 1.0
+    assert metrics["is_concise/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -176,12 +175,11 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
         model_id=model_id,
     )
 
-    if is_in_databricks:
-        metrics = result.metrics
-        assert metrics["exact_match/mean"] == 0.0
-        assert metrics["is_concise/mean"] == 0.5
-        assert metrics["relevance/mean"] == 1.0
-        assert metrics["has_trace/mean"] == 1.0
+    metrics = result.metrics
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["is_concise/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()

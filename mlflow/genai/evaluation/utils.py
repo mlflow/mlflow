@@ -105,7 +105,7 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     return (
         df.rename(columns=column_mapping)
         .pipe(_deserialize_trace_column_if_needed)
-        .pipe(_extract_request_from_trace)
+        .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
 
@@ -156,16 +156,17 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     return df
 
 
-def _extract_request_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` columns to the dataframe if it is not already present.
-    This is for compatibility with mlflow.evaluate() that requires `request` column.
+    Add `request` and `response`columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
 
     if "request" not in df.columns:
         df["request"] = df["trace"].apply(lambda trace: json.loads(trace.data.request))
+    if "response" not in df.columns:
+        df["response"] = df["trace"].apply(lambda trace: json.loads(trace.data.response))
     return df
 
 

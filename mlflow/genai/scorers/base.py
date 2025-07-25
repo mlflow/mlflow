@@ -18,6 +18,8 @@ _logger = logging.getLogger(__name__)
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
 
+AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
 
 @dataclass
 class SerializedScorer:
@@ -63,7 +65,7 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: Optional[list[str | AggregationFunc]] = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
 
