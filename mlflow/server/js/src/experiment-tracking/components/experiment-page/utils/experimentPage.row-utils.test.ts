@@ -11,13 +11,13 @@ import {
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
 } from './experimentPage.common-utils';
-import { 
-  SingleRunData, 
-  prepareRunsGridData, 
+import {
+  SingleRunData,
+  prepareRunsGridData,
   useExperimentRunRows,
   extractRunRowParam,
   extractRunRowParamFloat,
-  extractRunRowParamInteger
+  extractRunRowParamInteger,
 } from './experimentPage.row-utils';
 import { renderHook } from '@testing-library/react';
 
@@ -738,7 +738,7 @@ describe('ExperimentViewRuns row utils, utility functions', () => {
       { key: 'epochs', value: '100' },
     ],
   } as any;
-  
+
   describe('extractRunRowParam', () => {
     test('it extracts existing parameter value', () => {
       expect(extractRunRowParam(mockRunRow, 'learning_rate')).toBe('0.01');
@@ -812,9 +812,7 @@ describe('ExperimentViewRuns row utils, useExperimentRunRows hook', () => {
   });
 
   test('it returns memoized run rows data', () => {
-    const { result, rerender } = renderHook(() =>
-      useExperimentRunRows(commonPrepareRunsGridDataParams)
-    );
+    const { result, rerender } = renderHook(() => useExperimentRunRows(commonPrepareRunsGridDataParams));
 
     const firstResult = result.current;
     expect(firstResult).toHaveLength(MOCK_RUN_DATA.length);
@@ -826,19 +824,20 @@ describe('ExperimentViewRuns row utils, useExperimentRunRows hook', () => {
 
   test('it recalculates when dependencies change', () => {
     const { result, rerender } = renderHook(
-      ({ runsPinned }: { runsPinned: string[] }) => useExperimentRunRows({ ...commonPrepareRunsGridDataParams, runsPinned }),
-      { initialProps: { runsPinned: [] as string[] } }
+      ({ runsPinned }: { runsPinned: string[] }) =>
+        useExperimentRunRows({ ...commonPrepareRunsGridDataParams, runsPinned }),
+      { initialProps: { runsPinned: [] as string[] } },
     );
 
     const firstResult = result.current;
-    expect(firstResult.every(row => !row.pinned)).toBe(true);
+    expect(firstResult.every((row) => !row.pinned)).toBe(true);
 
     // Rerender with different runsPinned should recalculate
     rerender({ runsPinned: ['run1_1'] as string[] });
     const secondResult = result.current;
-    
+
     expect(secondResult).not.toBe(firstResult);
-    expect(secondResult.some(row => row.pinned)).toBe(true);
+    expect(secondResult.some((row) => row.pinned)).toBe(true);
   });
 
   test('it handles nested children correctly', () => {
@@ -847,7 +846,7 @@ describe('ExperimentViewRuns row utils, useExperimentRunRows hook', () => {
         ...commonPrepareRunsGridDataParams,
         nestChildren: true,
         runsExpanded: { run1_1: true },
-      })
+      }),
     );
 
     expect(result.current).toHaveLength(5); // As tested in previous nested tests

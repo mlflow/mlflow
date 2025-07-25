@@ -20,7 +20,7 @@ jest.mock('../../utils/experimentPage.column-utils', () => ({
     if (params.isComparingRuns) {
       return [];
     }
-    
+
     // Otherwise, return columns based on selected columns or all columns if no filtering
     return [];
   }),

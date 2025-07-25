@@ -116,28 +116,28 @@ export const ExperimentViewRunsTable = React.memo(
       if (isComparingRuns) {
         return runsData;
       }
-      
+
       // Filter metric keys based on selected columns
-      const filteredMetricKeys = runsData.metricKeyList.filter(key => 
-        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key))
+      const filteredMetricKeys = runsData.metricKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
       );
-      
+
       // Filter param keys based on selected columns
-      const filteredParamKeys = runsData.paramKeyList.filter(key => 
-        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key))
+      const filteredParamKeys = runsData.paramKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
       );
-      
+
       // Filter tag keys based on selected columns
       const filteredTags = Object.fromEntries(
-        Object.entries(runsData.tagsList).filter(([key]) => 
-          selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key))
-        )
+        Object.entries(runsData.tagsList).filter(([key]) =>
+          selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+        ),
       );
-      
+
       return {
         metricKeyList: filteredMetricKeys,
         paramKeyList: filteredParamKeys,
-        tagsList: filteredTags
+        tagsList: filteredTags,
       };
     }, [runsData, selectedColumns, isComparingRuns]);
 

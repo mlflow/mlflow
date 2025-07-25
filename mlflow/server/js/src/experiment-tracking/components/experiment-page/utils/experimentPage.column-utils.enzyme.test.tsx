@@ -44,14 +44,14 @@ describe('ExperimentViewRuns column utils', () => {
   test('it creates proper column definitions with basic attributes', () => {
     // Add all columns to selected columns to ensure they're all included
     const allSelectedColumns = [
-      ...MOCK_METRICS.map(key => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
-      ...MOCK_PARAMS.map(key => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
-      ...MOCK_TAGS.map(key => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key))
+      ...MOCK_METRICS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
+      ...MOCK_PARAMS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+      ...MOCK_TAGS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
     ];
-    
+
     const columnDefinitions = getHookResult({
       ...MOCK_HOOK_PARAMS,
-      selectedColumns: allSelectedColumns
+      selectedColumns: allSelectedColumns,
     });
 
     // Assert existence of regular attribute columns
@@ -179,45 +179,43 @@ describe('ExperimentViewRuns column utils', () => {
       makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'),
       makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'),
     ];
-    
+
     // Get column definitions with selected columns
     const columnDefinitions = getHookResult({
       ...MOCK_HOOK_PARAMS,
       selectedColumns,
       isComparingRuns: false,
     }) as unknown as ColGroupDef[];
-    
+
     // Find the metrics column group
     const metricsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.METRICS) as ColGroupDef;
     expect(metricsGroup).toBeDefined();
     expect(metricsGroup.children?.length).toBe(1);
     expect((metricsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'));
-    
+
     // Find the params column group
     const paramsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.PARAMS) as ColGroupDef;
     expect(paramsGroup).toBeDefined();
     expect(paramsGroup.children?.length).toBe(1);
     expect((paramsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'));
-    
+
     // Find the tags column group - note that in the implementation, tags use colId instead of groupId
     const tagsGroup = columnDefinitions.find((col) => col.colId === COLUMN_TYPES.TAGS) as ColGroupDef;
     expect(tagsGroup).toBeDefined();
     expect(tagsGroup.children?.length).toBe(1);
     expect((tagsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'));
   });
-  
+
   test('it includes all columns when comparing runs regardless of selection', () => {
     // Set up selected columns but enable comparing runs
-    const selectedColumns = [
-      makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'),
-    ];
-    
+    const selectedColumns = [makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1')];
+
     const columnDefinitions = getHookResult({
       ...MOCK_HOOK_PARAMS,
       selectedColumns,
       isComparingRuns: true,
     }) as unknown as any[];
-    
+
     // When comparing runs, we should only have 2 columns (checkbox and run name)
     expect(columnDefinitions?.length).toBe(2);
   });
@@ -227,11 +225,11 @@ describe('ExperimentViewRuns column utils', () => {
     // and include it in the selected columns
     const metric1Key = makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1');
     const metric2Key = makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2');
-    
+
     const hookParams: UseRunsColumnDefinitionsParams = {
       ...MOCK_HOOK_PARAMS,
       metricKeyList: ['metric_1'],
-      selectedColumns: [metric1Key]
+      selectedColumns: [metric1Key],
     };
     let result: ColGroupDef[] = [];
     const Component = (props: { hookParams: UseRunsColumnDefinitionsParams }) => {
@@ -247,10 +245,10 @@ describe('ExperimentViewRuns column utils', () => {
 
     // Next, add a new set of two metrics and update selected columns
     wrapper.setProps({
-      hookParams: { 
-        ...hookParams, 
+      hookParams: {
+        ...hookParams,
         metricKeyList: ['metric_1', 'metric_2'],
-        selectedColumns: [metric1Key, metric2Key]
+        selectedColumns: [metric1Key, metric2Key],
       },
     });
 
@@ -261,10 +259,10 @@ describe('ExperimentViewRuns column utils', () => {
 
     // Finally, retract the first metric and leave "metric_2" only, but keep both in selected columns
     wrapper.setProps({
-      hookParams: { 
-        ...hookParams, 
+      hookParams: {
+        ...hookParams,
         metricKeyList: ['metric_2'],
-        selectedColumns: [metric1Key, metric2Key]
+        selectedColumns: [metric1Key, metric2Key],
       },
     });
 
