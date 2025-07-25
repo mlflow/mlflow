@@ -1,0 +1,179 @@
+"""
+Background scorer functionality for MLflow GenAI.
+
+This module provides functions to manage background scorers that automatically
+evaluate traces in MLflow experiments.
+"""
+from typing import Optional
+
+from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.utils.annotations import experimental
+
+_ERROR_MSG = (
+    "The `databricks-agents` package is required to use background scorers. "
+    "Please install it with `pip install databricks-agents`."
+)
+
+
+@experimental(version="3.0.0")
+def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Scorer]:
+    """
+    List all background scorers for an experiment.
+
+    This function returns all background scorers configured for the specified experiment,
+    or for the current active experiment if no experiment ID is provided.
+
+    Args:
+        experiment_id: The ID of the MLflow experiment to list scorers for.
+            If None, uses the currently active experiment.
+
+    Returns:
+        A list of Scorer objects representing all background scorers configured
+        for the specified experiment.
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.scorers import list_scorers
+
+            # List scorers for a specific experiment
+            scorers = list_scorers(experiment_id="12345")
+            for scorer in scorers:
+                print(f"Scorer: {scorer.name}")
+                print(f"Sample rate: {scorer.sample_rate}")
+                print(f"Filter: {scorer.filter_string}")
+
+            # List scorers for the current active experiment
+            mlflow.set_experiment("my_genai_app_monitoring")
+            current_scorers = list_scorers()
+            print(f"Found {len(current_scorers)} background scorers")
+    """
+    try:
+        from databricks.agents.scorers import list_scheduled_scorers
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    
+    # Get scheduled scorers from the server
+    scheduled_scorers = list_scheduled_scorers(experiment_id, **kwargs)
+    
+    # Convert to Scorer instances with background info
+    scorers = []
+    for scheduled_scorer in scheduled_scorers:
+        scorer = scheduled_scorer.scorer
+        # Set the background scorer fields
+        object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
+        object.__setattr__(scorer, "_sampling_config", 
+                         ScorerSamplingConfig(sample_rate=scheduled_scorer.sample_rate,
+                                            filter_string=scheduled_scorer.filter_string))
+        scorers.append(scorer)
+    
+    return scorers
+
+
+@experimental(version="3.0.0")
+def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> Scorer:
+    """
+    Retrieve a specific background scorer by name.
+
+    This function returns a Scorer instance with its current background
+    configuration, including sampling rate and filter criteria.
+
+    Args:
+        name: The name of the background scorer to retrieve.
+        experiment_id: The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment.
+
+    Returns:
+        A Scorer object with its current background configuration.
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.scorers import get_scorer
+
+            # Get a specific scorer
+            my_scorer = get_scorer(name="my_safety_scorer")
+            
+            print(f"Sample rate: {my_scorer.sample_rate}")
+            print(f"Filter: {my_scorer.filter_string}")
+            
+            # Update the scorer
+            my_scorer = my_scorer.update(sample_rate=0.5)
+    """
+    try:
+        from databricks.agents.scorers import get_scheduled_scorer
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    
+    # Get the scheduled scorer from the server
+    scheduled_scorer = get_scheduled_scorer(
+        scheduled_scorer_name=name,
+        experiment_id=experiment_id,
+        **kwargs
+    )
+    
+    # Extract the scorer and set background fields
+    scorer = scheduled_scorer.scorer
+    object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
+    object.__setattr__(scorer, "_sampling_config", 
+                     ScorerSamplingConfig(sample_rate=scheduled_scorer.sample_rate,
+                                        filter_string=scheduled_scorer.filter_string))
+    
+    return scorer
+
+
+# Private functions for internal use by Scorer methods
+def _add_background_scorer(
+    *,
+    scheduled_scorer_name: str,
+    scorer: Scorer,
+    sample_rate: float,
+    filter_string: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    **kwargs,
+):
+    """Internal function to add a background scorer."""
+    try:
+        from databricks.agents.scorers import add_scheduled_scorer
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    
+    return add_scheduled_scorer(
+        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
+    )
+
+
+def _update_background_scorer(
+    *,
+    scheduled_scorer_name: str,
+    scorer: Optional[Scorer] = None,
+    sample_rate: Optional[float] = None,
+    filter_string: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    **kwargs,
+):
+    """Internal function to update a background scorer."""
+    try:
+        from databricks.agents.scorers import update_scheduled_scorer
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    
+    return update_scheduled_scorer(
+        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
+    )
+
+
+def _delete_background_scorer(
+    *,
+    scheduled_scorer_name: str,
+    experiment_id: Optional[str] = None,
+    **kwargs,
+):
+    """Internal function to delete a background scorer."""
+    try:
+        from databricks.agents.scorers import delete_scheduled_scorer
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    
+    return delete_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)

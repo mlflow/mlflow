@@ -1,3 +1,4 @@
+from mlflow.genai.scorers.background import get_scorer, list_scorers
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
@@ -23,4 +24,6 @@ __all__ = [
     "Scorer",
     "scorer",
     "get_all_scorers",
+    "get_scorer",
+    "list_scorers",
 ]

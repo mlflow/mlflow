@@ -42,6 +42,8 @@ class BuiltInScorer(Scorer):
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
             builtin_scorer_pydantic_data=pydantic_model_data,
+            server_name=self._server_name if hasattr(self, "_server_name") else None,
+            sampling_config=asdict(self._sampling_config) if hasattr(self, "_sampling_config") and self._sampling_config else None,
         )
 
         return asdict(serialized)
@@ -76,7 +78,16 @@ class BuiltInScorer(Scorer):
         # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
 
-        return scorer_class(**constructor_args)
+        scorer_instance = scorer_class(**constructor_args)
+        
+        # Restore background scorer fields
+        if serialized.server_name:
+            object.__setattr__(scorer_instance, "_server_name", serialized.server_name)
+        if serialized.sampling_config:
+            from mlflow.genai.scorers.base import ScorerSamplingConfig
+            object.__setattr__(scorer_instance, "_sampling_config", ScorerSamplingConfig(**serialized.sampling_config))
+        
+        return scorer_instance
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns
