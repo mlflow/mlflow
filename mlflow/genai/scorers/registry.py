@@ -62,10 +62,11 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
     for scheduled_scorer in scheduled_scorers:
         scorer = scheduled_scorer.scorer
         # Set the registered scorer fields
-        object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
-        object.__setattr__(scorer, "_sampling_config", 
-                         ScorerSamplingConfig(sample_rate=scheduled_scorer.sample_rate,
-                                            filter_string=scheduled_scorer.filter_string))
+        scorer._server_name = scheduled_scorer.scheduled_scorer_name
+        scorer._sampling_config = ScorerSamplingConfig(
+            sample_rate=scheduled_scorer.sample_rate,
+            filter_string=scheduled_scorer.filter_string,
+        )
         scorers.append(scorer)
     
     return scorers
@@ -115,11 +116,11 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> S
     
     # Extract the scorer and set registration fields
     scorer = scheduled_scorer.scorer
-    object.__setattr__(scorer, "_server_name", scheduled_scorer.scheduled_scorer_name)
-    object.__setattr__(scorer, "_sampling_config", 
-                     ScorerSamplingConfig(sample_rate=scheduled_scorer.sample_rate,
-                                        filter_string=scheduled_scorer.filter_string))
-    
+    scorer._server_name = scheduled_scorer.scheduled_scorer_name
+    scorer._sampling_config = ScorerSamplingConfig(
+        sample_rate=scheduled_scorer.sample_rate,
+        filter_string=scheduled_scorer.filter_string,
+    )
     return scorer
 
 

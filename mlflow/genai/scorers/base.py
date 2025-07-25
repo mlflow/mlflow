@@ -11,6 +11,11 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.registry import (
+    _add_registered_scorer,
+    _update_registered_scorer,
+    _delete_registered_scorer,
+)
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -387,7 +392,6 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with server registration.
         """
-        from mlflow.genai.scorers.registry import _add_registered_scorer
         
         server_name = name or self.name
         
@@ -397,14 +401,14 @@ class Scorer(BaseModel):
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         _add_registered_scorer(
             scheduled_scorer_name=server_name,
-            scorer=new_scorer,
+            scorer=self,
             sample_rate=0.0,
             filter_string=None,
         )
         
         # Set the server name and sampling config on the new instance
-        object.__setattr__(new_scorer, "_server_name", server_name)
-        object.__setattr__(new_scorer, "_sampling_config", ScorerSamplingConfig(sample_rate=0.0))
+        new_scorer._server_name = server_name
+        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0)
         
         return new_scorer
 
@@ -423,8 +427,6 @@ class Scorer(BaseModel):
             raise MlflowException(
                 "Scorer must be registered before starting. Use scorer.register() first."
             )
-        
-        from mlflow.genai.scorers.registry import _update_registered_scorer
         
         # Update the scorer on the server
         _update_registered_scorer(
@@ -456,8 +458,6 @@ class Scorer(BaseModel):
             raise MlflowException(
                 "Scorer must be registered before updating. Use scorer.register() first."
             )
-        
-        from mlflow.genai.scorers.registry import _update_registered_scorer
         
         # Use current values if not provided
         new_sample_rate = sample_rate if sample_rate is not None else (self.sample_rate or 0.0)
