@@ -9,8 +9,8 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIStatus
-from mlflow.telemetry.track import _is_telemetry_disabled_for_func, track_api_usage
+from mlflow.telemetry.schemas import Status
+from mlflow.telemetry.track import _is_telemetry_disabled_for_event, record_usage_event
 from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -21,13 +21,15 @@ if not IS_TRACING_SDK_ONLY:
 def test_track_api_usage(mock_requests):
     assert len(mock_requests) == 0
 
-    @track_api_usage
+    event_name = "test_event"
+
+    @record_usage_event(event_name)
     def succeed_func():
         # sleep to make sure duration_ms > 0
         time.sleep(0.01)
         return True
 
-    @track_api_usage
+    @record_usage_event(event_name)
     def fail_func():
         time.sleep(0.01)
         raise ValueError("test")
@@ -41,17 +43,15 @@ def test_track_api_usage(mock_requests):
     assert len(mock_requests) == 2
     succeed_record = mock_requests[0]["data"]
     assert succeed_record["schema_version"] == 1
-    assert succeed_record["api_module"] == succeed_func.__module__
-    assert succeed_record["api_name"] == succeed_func.__qualname__
-    assert succeed_record["status"] == APIStatus.SUCCESS.value
+    assert succeed_record["event_name"] == event_name
+    assert succeed_record["status"] == Status.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
     fail_record = mock_requests[1]["data"]
     assert fail_record["schema_version"] == 1
-    assert fail_record["api_module"] == fail_func.__module__
-    assert fail_record["api_name"] == fail_func.__qualname__
-    assert fail_record["status"] == APIStatus.FAILURE.value
+    assert fail_record["event_name"] == event_name
+    assert fail_record["status"] == Status.FAILURE.value
     assert fail_record["params"] is None
     assert fail_record["duration_ms"] > 0
 
@@ -98,7 +98,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     telemetry_client = get_telemetry_client()
     assert isinstance(telemetry_client, TelemetryClient)
 
-    @track_api_usage
+    @record_usage_event("test_event")
     def test_func():
         pass
 
@@ -107,8 +107,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     get_telemetry_client().flush()
     assert len(mock_requests) == 1
     record = mock_requests[0]["data"]
-    assert record["api_module"] == test_func.__module__
-    assert record["api_name"] == test_func.__qualname__
+    assert record["event_name"] == "test_event"
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
@@ -118,12 +117,6 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
 
 @pytest.mark.no_mock_requests_get
 def test_is_telemetry_disabled_for_func():
-    def allowed_func():
-        pass
-
-    def disabled_func():
-        pass
-
     def mock_requests_get(*args, **kwargs):
         time.sleep(1)
         return mock.Mock(
@@ -134,7 +127,7 @@ def test_is_telemetry_disabled_for_func():
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
-                    "disable_api_map": {disabled_func.__module__: [disabled_func.__qualname__]},
+                    "disable_events": ["disabled_event"],
                 }
             ),
         )
@@ -145,15 +138,15 @@ def test_is_telemetry_disabled_for_func():
         assert client is not None
         assert client.config is None
         # do not skip when config is not fetched yet
-        assert _is_telemetry_disabled_for_func(allowed_func) is False
-        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        assert _is_telemetry_disabled_for_event("allowed_event") is False
+        assert _is_telemetry_disabled_for_event("disabled_event") is False
         time.sleep(2)
         assert client._is_config_fetched is True
         assert client.config is not None
-        # func not in disable_api_map, do not skip
-        assert _is_telemetry_disabled_for_func(allowed_func) is False
-        # func in disable_api_map, skip
-        assert _is_telemetry_disabled_for_func(disabled_func) is True
+        # event not in disable_events, do not skip
+        assert _is_telemetry_disabled_for_event("allowed_event") is False
+        # event in disable_events, skip
+        assert _is_telemetry_disabled_for_event("disabled_event") is True
 
     # test telemetry disabled after config is fetched
     def mock_requests_get(*args, **kwargs):
@@ -166,12 +159,12 @@ def test_is_telemetry_disabled_for_func():
         assert client is not None
         assert client.config is None
         # do not skip when config is not fetched yet
-        assert _is_telemetry_disabled_for_func(allowed_func) is False
-        assert _is_telemetry_disabled_for_func(disabled_func) is False
+        assert _is_telemetry_disabled_for_event("allowed_event") is False
+        assert _is_telemetry_disabled_for_event("disabled_event") is False
         time.sleep(2)
         assert client._is_config_fetched is True
         assert client.config is None
         assert get_telemetry_client() is None
-        # telemetry is disabled, skip all functions
-        assert _is_telemetry_disabled_for_func(allowed_func) is True
-        assert _is_telemetry_disabled_for_func(disabled_func) is True
+        # telemetry is disabled, skip all events
+        assert _is_telemetry_disabled_for_event("allowed_event") is True
+        assert _is_telemetry_disabled_for_event("disabled_event") is True

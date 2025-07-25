@@ -4,8 +4,7 @@ import time
 from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
-from mlflow.telemetry.params import PARAMS_MAPPING
-from mlflow.telemetry.schemas import APIRecord, APIStatus
+from mlflow.telemetry.schemas import PARAMS_MAPPING, EventName, Record, Status
 from mlflow.telemetry.utils import (
     is_telemetry_disabled,
 )
@@ -14,31 +13,36 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
-    @functools.wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if is_telemetry_disabled() or _is_telemetry_disabled_for_func(func):
-            return func(*args, **kwargs)
+def record_usage_event(event_name: EventName) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event_name):
+                return func(*args, **kwargs)
 
-        success = True
-        start_time = time.time()
-        try:
-            return func(*args, **kwargs)
-        except Exception:
-            success = False
-            raise
-        finally:
+            success = True
+            start_time = time.time()
             try:
-                duration_ms = int((time.time() - start_time) * 1000)
-                client = get_telemetry_client()
-                if client and (
-                    record := _generate_telemetry_record(func, args, kwargs, success, duration_ms)
-                ):
-                    client.add_record(record)
+                return func(*args, **kwargs)
             except Exception:
-                pass
+                success = False
+                raise
+            finally:
+                try:
+                    duration_ms = int((time.time() - start_time) * 1000)
+                    client = get_telemetry_client()
+                    if client and (
+                        record := _generate_telemetry_record(
+                            func, args, kwargs, success, duration_ms, event_name
+                        )
+                    ):
+                        client.add_record(record)
+                except Exception:
+                    pass
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 def _generate_telemetry_record(
@@ -47,7 +51,8 @@ def _generate_telemetry_record(
     kwargs: dict[str, Any],
     success: bool,
     duration_ms: int,
-) -> Optional[APIRecord]:
+    event_name: EventName,
+) -> Optional[Record]:
     try:
         signature = inspect.signature(func)
         bound_args = signature.bind(*args, **kwargs)
@@ -61,25 +66,24 @@ def _generate_telemetry_record(
         if params and params[0] == "cls" and isinstance(arguments["cls"], type):
             del arguments["cls"]
 
-        params_class = PARAMS_MAPPING.get(func.__name__)
+        params_class = PARAMS_MAPPING.get(event_name)
         record_params = params_class.parse(arguments) if params_class else None
-        return APIRecord(
-            api_module=func.__module__,
-            api_name=func.__qualname__,
+        return Record(
+            event_name=event_name.value if isinstance(event_name, EventName) else event_name,
             timestamp_ns=time.time_ns(),
             params=record_params,
-            status=APIStatus.SUCCESS if success else APIStatus.FAILURE,
+            status=Status.SUCCESS if success else Status.FAILURE,
             duration_ms=duration_ms,
         )
     except Exception:
         return
 
 
-def _is_telemetry_disabled_for_func(func: Callable[..., Any]) -> bool:
+def _is_telemetry_disabled_for_event(event_name: EventName) -> bool:
     try:
         if client := get_telemetry_client():
             if client.config:
-                return func.__qualname__ in client.config.disable_api_map.get(func.__module__, [])
+                return event_name in client.config.disable_events
             # config is not fetched yet, so we assume telemetry is enabled
             else:
                 return False

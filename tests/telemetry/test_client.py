@@ -13,7 +13,7 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIRecord, APIStatus, SourceSDK, TelemetryConfig
+from mlflow.telemetry.schemas import Record, SourceSDK, Status, TelemetryConfig
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -43,11 +43,10 @@ def test_telemetry_client_initialization(telemetry_client: TelemetryClient):
 def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
     """Test adding a record and sending it to the mock server."""
     # Create a test record
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     # Add record and wait for processing
@@ -59,8 +58,7 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
     assert "partition-key" in received_record
 
     data = received_record["data"]
-    assert data["api_module"] == "test_module"
-    assert data["api_name"] == "test_api"
+    assert data["event_name"] == "test_event"
     assert data["status"] == "success"
 
 
@@ -70,11 +68,10 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
 
     # Add multiple records
     for i in range(5):
-        record = APIRecord(
-            api_module="test_module",
-            api_name=f"test_api_{i}",
+        record = Record(
+            event_name=f"test_event_{i}",
             timestamp_ns=time.time_ns(),
-            status=APIStatus.SUCCESS,
+            status=Status.SUCCESS,
         )
         telemetry_client.add_record(record)
 
@@ -85,11 +82,10 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
 
 def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
     """Test that flush properly sends pending records."""
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
 
@@ -100,11 +96,10 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
 
 def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     for _ in range(100):
-        record = APIRecord(
-            api_module="test_module",
-            api_name="test_api",
+        record = Record(
+            event_name="test_event",
             timestamp_ns=time.time_ns(),
-            status=APIStatus.SUCCESS,
+            status=Status.SUCCESS,
         )
         telemetry_client.add_record(record)
     assert len(mock_requests) == 0
@@ -136,11 +131,10 @@ def test_telemetry_collection_stopped_on_error(mock_requests, telemetry_client, 
     telemetry_client.config.ingestion_url = url
 
     # Add a record - should not crash
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
 
@@ -160,11 +154,10 @@ def test_telemetry_collection_stopped_on_error(mock_requests, telemetry_client, 
 @pytest.mark.parametrize("error_code", [429, 500])
 @pytest.mark.parametrize("terminate", [True, False])
 def test_telemetry_retry_on_error(telemetry_client, error_code, terminate):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     class MockPostTracker:
@@ -202,11 +195,10 @@ def test_telemetry_retry_on_error(telemetry_client, error_code, terminate):
 @pytest.mark.parametrize("error_type", [ConnectionError, TimeoutError])
 @pytest.mark.parametrize("terminate", [True, False])
 def test_telemetry_retry_on_request_error(telemetry_client, error_type, terminate):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     class MockPostTracker:
@@ -245,11 +237,10 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     """Test that records are not added when telemetry client is stopped."""
     telemetry_client._is_stopped = True
 
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
 
@@ -265,11 +256,10 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
 
     def add_records(thread_id):
         for i in range(5):
-            record = APIRecord(
-                api_module="test_module",
-                api_name=f"thread_{thread_id}_api_{i}",
+            record = Record(
+                event_name=f"test_event_{thread_id}_{i}",
                 timestamp_ns=time.time_ns(),
-                status=APIStatus.SUCCESS,
+                status=Status.SUCCESS,
             )
             telemetry_client.add_record(record)
             time.sleep(0.1)
@@ -293,11 +283,10 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
 
 def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_requests):
     """Test that telemetry info is included in records."""
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
 
@@ -311,17 +300,16 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
     assert telemetry_client.info.items() <= data.items()
 
     # Check that record fields are present
-    assert data["api_name"] == "test_api"
+    assert data["event_name"] == "test_event"
     assert data["status"] == "success"
 
 
 def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     """Test that partition key is set correctly."""
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
     telemetry_client.add_record(record)
@@ -365,11 +353,10 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, telemetry_cli
 
     telemetry_client._process_records = process_with_log
 
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record)
 
@@ -397,11 +384,10 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, telemetry_clien
 
     # Add multiple records to ensure consumer thread processes them
     for i in range(5):
-        record = APIRecord(
-            api_module="test_module",
-            api_name=f"test_api_{i}",
+        record = Record(
+            event_name=f"test_event_{i}",
             timestamp_ns=time.time_ns(),
-            status=APIStatus.SUCCESS,
+            status=Status.SUCCESS,
         )
         telemetry_client.add_record(record)
 
@@ -428,11 +414,10 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
     telemetry_client._batch_time_interval = 1
 
     # Add first record
-    record1 = APIRecord(
-        api_module="test_module",
-        api_name="test_api_1",
+    record1 = Record(
+        event_name="test_event_1",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record1)
 
@@ -440,11 +425,10 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
     assert len(mock_requests) == 0
 
     # Add second record before time interval
-    record2 = APIRecord(
-        api_module="test_module",
-        api_name="test_api_2",
+    record2 = Record(
+        event_name="test_event_2",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record2)
 
@@ -456,19 +440,18 @@ def test_batch_time_interval(mock_requests, telemetry_client: TelemetryClient):
     # records are sent due to time interval
     assert len(mock_requests) == 2
 
-    record3 = APIRecord(
-        api_module="test_module",
-        api_name="test_api_3",
+    record3 = Record(
+        event_name="test_event_3",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     telemetry_client.add_record(record3)
     assert len(mock_requests) == 2
     telemetry_client.flush()
 
     # Verify all records were sent
-    api_names = {req["data"]["api_name"] for req in mock_requests}
-    assert api_names == {"test_api_1", "test_api_2", "test_api_3"}
+    event_names = {req["data"]["event_name"] for req in mock_requests}
+    assert event_names == {"test_event_1", "test_event_2", "test_event_3"}
 
 
 def test_set_telemetry_client_non_blocking():
@@ -562,7 +545,7 @@ def test_client_get_config_not_none():
         client._get_config()
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
-            disable_api_map={},
+            disable_events=set(),
         )
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
@@ -582,7 +565,7 @@ def test_client_get_config_not_none():
         client._get_config()
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
-            disable_api_map={},
+            disable_events=set(),
         )
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
@@ -594,7 +577,7 @@ def test_client_get_config_not_none():
                     "disable_telemetry": False,
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
-                    "disable_api_map": {},
+                    "disable_events": [],
                     "disable_sdks": ["mlflow-tracing"],
                 }
             ),
@@ -615,7 +598,7 @@ def test_client_get_config_not_none():
             client._get_config()
             assert client.config == TelemetryConfig(
                 ingestion_url="http://localhost:9999",
-                disable_api_map={},
+                disable_events=set(),
             )
 
         with mock.patch("mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW):
@@ -624,7 +607,7 @@ def test_client_get_config_not_none():
             client._get_config()
             assert client.config == TelemetryConfig(
                 ingestion_url="http://localhost:9999",
-                disable_api_map={},
+                disable_events=set(),
             )
 
 
@@ -667,7 +650,7 @@ def test_get_config_disable_non_windows():
         client._get_config()
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
-            disable_api_map={},
+            disable_events=set(),
         )
 
 
@@ -710,7 +693,7 @@ def test_get_config_windows():
         client._get_config()
         assert client.config == TelemetryConfig(
             ingestion_url="http://localhost:9999",
-            disable_api_map={},
+            disable_events=set(),
         )
 
 
@@ -739,11 +722,10 @@ def test_client_set_to_none_if_config_none():
 @pytest.mark.no_mock_requests_get
 @pytest.mark.parametrize("terminate", [True, False])
 def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
         mock_requests_get.return_value = mock.Mock(
@@ -768,11 +750,10 @@ def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
 @pytest.mark.no_mock_requests_get
 @pytest.mark.parametrize("terminate", [True, False])
 def test_records_not_processed_when_fetching_config_failed(mock_requests, terminate):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     def mock_requests_get(*args, **kwargs):
@@ -793,11 +774,10 @@ def test_records_not_processed_when_fetching_config_failed(mock_requests, termin
 
 @pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
 def test_config_fetch_no_retry(mock_requests, error_code):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     def mock_requests_get(*args, **kwargs):
@@ -835,11 +815,10 @@ def test_warning_suppression_in_shutdown(recwarn):
 @pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
 @pytest.mark.parametrize("terminate", [True, False])
 def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, terminate):
-    record = APIRecord(
-        api_module="test_module",
-        api_name="test_api",
+    record = Record(
+        event_name="test_event",
         timestamp_ns=time.time_ns(),
-        status=APIStatus.SUCCESS,
+        status=Status.SUCCESS,
     )
 
     with _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"):

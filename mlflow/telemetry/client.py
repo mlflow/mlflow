@@ -19,7 +19,7 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     STOP_COLLECTION_ERRORS,
 )
-from mlflow.telemetry.schemas import APIRecord, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -35,7 +35,7 @@ except ImportError:
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(TelemetryInfo())
-        self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
+        self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
 
@@ -45,7 +45,7 @@ class TelemetryClient:
 
         self._batch_size = BATCH_SIZE
         self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
-        self._pending_records: list[APIRecord] = []
+        self._pending_records: list[Record] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
 
@@ -111,7 +111,7 @@ class TelemetryClient:
 
                 self.config = TelemetryConfig(
                     ingestion_url=config["ingestion_url"],
-                    disable_api_map=config.get("disable_api_map", {}),
+                    disable_events=set(config.get("disable_events", [])),
                 )
             except Exception:
                 return
@@ -124,10 +124,10 @@ class TelemetryClient:
             self._pending_records = [
                 record
                 for record in self._pending_records
-                if record.api_name not in self.config.disable_api_map.get(record.api_module, [])
+                if record.event_name not in self.config.disable_events
             ]
 
-    def add_record(self, record: APIRecord):
+    def add_record(self, record: Record):
         """
         Add a record to be batched and sent to the telemetry server.
         """
@@ -159,7 +159,7 @@ class TelemetryClient:
             # TODO: record this case
             pass
 
-    def _process_records(self, records: list[APIRecord], request_timeout: float = 1):
+    def _process_records(self, records: list[Record], request_timeout: float = 1):
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()

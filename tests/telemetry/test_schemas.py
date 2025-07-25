@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-from mlflow.telemetry.params import (
+from mlflow.telemetry.schemas import (
     CreateModelVersionParams,
     LoggedModelParams,
     RegisteredModelParams,

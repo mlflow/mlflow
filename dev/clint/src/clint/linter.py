@@ -465,9 +465,6 @@ class Linter(ast.NodeVisitor):
             if rules.InvalidExperimentalDecorator.check(decorator, self.resolver):
                 self._check(Location.from_node(decorator), rules.InvalidExperimentalDecorator())
 
-        if decorator := rules.TrackApiUsageTopMost.check(self.resolver, decorator_list):
-            self._check(Location.from_node(decorator), rules.TrackApiUsageTopMost())
-
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
