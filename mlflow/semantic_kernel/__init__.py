@@ -1,16 +1,9 @@
-from semantic_kernel.connectors.ai.chat_completion_client_base import (
-    ChatCompletionClientBase,
-)
-from semantic_kernel.connectors.ai.text_completion_client_base import (
-    TextCompletionClientBase,
-)
 from semantic_kernel.kernel import Kernel
 from semantic_kernel.utils.telemetry.model_diagnostics import decorators
 
-from mlflow.entities import SpanType
 from mlflow.semantic_kernel.autolog import setup_semantic_kernel_tracing
 from mlflow.semantic_kernel.tracing_utils import (
-    create_trace_wrapper,
+    patched_kernel_entry_point,
     semantic_kernel_diagnostics_wrapper,
 )
 from mlflow.utils.annotations import experimental
@@ -40,35 +33,13 @@ def autolog(
 
     setup_semantic_kernel_tracing()
 
-    # NB: Patch all semantic kernel methods that are not covered by the chat decorators listed
-    # below.
-    chat_entry_points = ["get_chat_message_content", "get_chat_message_contents"]
-    for method in chat_entry_points:
-        safe_patch(
-            FLAVOR_NAME,
-            ChatCompletionClientBase,
-            method,
-            create_trace_wrapper(SpanType.CHAT_MODEL),
-        )
-
-    text_entry_points = ["get_text_content", "get_text_contents"]
-    for method in text_entry_points:
-        safe_patch(
-            FLAVOR_NAME,
-            TextCompletionClientBase,
-            method,
-            create_trace_wrapper(SpanType.LLM),
-        )
-
-    # NOTE: Semantic Kernel currently does not instrument embeddings with OpenTelemetry
-    # embedding_entry_points = ["generate_embeddings", "generate_raw_embeddings"]
-    kernel_entry_points = ["invoke", "invoke_prompt"]
-    for method in kernel_entry_points:
+    # Create root spans for the kernel entry points.
+    for method in ["invoke", "invoke_prompt"]:
         safe_patch(
             FLAVOR_NAME,
             Kernel,
             method,
-            create_trace_wrapper(SpanType.AGENT),
+            patched_kernel_entry_point,
         )
 
     # NB: Semantic Kernel uses logging to serialize inputs/outputs. These parsers are used by their

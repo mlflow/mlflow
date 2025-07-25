@@ -89,14 +89,8 @@ kernel.add_service(
 )
 
 
-# Define an async function that invokes your prompt
-async def run_query() -> FunctionResult:
-    return await kernel.invoke_prompt("Is sushi the best food ever?")
-
-
-with mlflow.start_run(run_name="semantic_kernel simple example"):
-    answer = await run_query()
-    print("AI says:", answer)
+answer = await kernel.invoke_prompt("Is sushi the best food ever?")
+print("AI says:", answer)
 ```
 
 ### ![Semantic Kernel Chat Completion Tracing via autolog](/images/llms/tracing/semantic_kernel_trace_attributes.png)

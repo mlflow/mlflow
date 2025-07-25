@@ -30,7 +30,6 @@ from tests.semantic_kernel.resources import (
     _create_and_invoke_chat_completion_direct,
     _create_and_invoke_embeddings,
     _create_and_invoke_kernel_complex,
-    _create_and_invoke_kernel_function,
     _create_and_invoke_kernel_function_object,
     _create_and_invoke_kernel_simple,
     _create_and_invoke_text_completion,
@@ -88,9 +87,7 @@ async def test_sk_invoke_simple(mock_openai):
 
     # Execute LLM as a tool
     assert spans[2].name.startswith("execute_tool")
-    assert spans[2].inputs == {"messages": [{"role": "user", "content": prompt}]}
-    assert not str(spans[2].outputs).startswith("<coroutine")
-    assert spans[2].outputs == [{"role": "assistant", "content": expected_content}]
+    assert spans[2].span_type == SpanType.TOOL
 
     # Actual LLM call
     assert spans[3].name == "chat.completions gpt-4o-mini"
@@ -164,7 +161,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert len(arguments["chat_history"]) == 2
 
     assert tool_span.name == "execute_tool ChatBot-Chat"
-    assert tool_span.span_type == SpanType.CHAT_MODEL
+    assert tool_span.span_type == SpanType.TOOL
     assert tool_span.parent_id == kernel_span.span_id
 
     assert chat_span.name == "chat.completions gpt-4o-mini"
@@ -205,7 +202,7 @@ async def test_sk_invoke_agent(mock_openai):
     root_span, child_span, grandchild_span = spans
 
     assert root_span.name == "invoke_agent sushi_agent"
-    assert root_span.span_type == SpanType.CHAT_MODEL
+    assert root_span.span_type == SpanType.AGENT
     assert root_span.get_attribute(model_gen_ai_attributes.OPERATION) == "invoke_agent"
     assert root_span.get_attribute(agent_gen_ai_attributes.AGENT_NAME) == "sushi_agent"
 
@@ -324,7 +321,7 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
 
         assert spans[0].span_type == SpanType.AGENT
         assert spans[1].span_type == SpanType.AGENT
-        assert spans[2].span_type == SpanType.CHAT_MODEL
+        assert spans[2].span_type == SpanType.TOOL
         assert spans[3].span_type == SpanType.CHAT_MODEL
 
         message = spans[3].inputs["messages"][0]["content"]
@@ -341,11 +338,6 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         (
             _create_and_invoke_kernel_simple,
             "chat.completions",
-            ["messages"],
-        ),
-        (
-            _create_and_invoke_kernel_function,
-            "execute_tool",
             ["messages"],
         ),
         (
@@ -438,8 +430,7 @@ async def test_kernel_invoke_function_object(mock_openai):
     assert kernel_span.outputs["value"] is not None
 
     assert tool_span.name == "execute_tool MathPlugin-Add"
-    assert tool_span.inputs["messages"][0]["content"] == "Add 5 and 3"
-    assert tool_span.outputs is not None
+    assert tool_span.span_type == SpanType.TOOL
 
     # Child span should be chat completion
     assert chat_span.name == "chat.completions gpt-4o-mini"

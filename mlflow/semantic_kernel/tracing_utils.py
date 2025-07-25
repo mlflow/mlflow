@@ -1,6 +1,5 @@
 import logging
-from contextlib import contextmanager
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
@@ -17,6 +16,9 @@ from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
     TEXT_COMPLETION_OPERATION,
     TEXT_STREAMING_COMPLETION_OPERATION,
 )
+from semantic_kernel.utils.telemetry.model_diagnostics.function_tracer import (
+    OPERATION_NAME as FUNCTION_OPERATION_NAME,
+)
 
 import mlflow
 from mlflow.entities import SpanType
@@ -28,6 +30,15 @@ from mlflow.tracing.utils import construct_full_inputs
 # multiple span processor instances can be created and we need to share the same map.
 _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
 
+_OPERATION_TO_SPAN_TYPE = {
+    CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
+    CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
+    TEXT_COMPLETION_OPERATION: SpanType.LLM,
+    TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
+    FUNCTION_OPERATION_NAME: SpanType.TOOL,
+    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/agent_diagnostics/decorators.py#L22
+    "invoke_agent": SpanType.AGENT,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -66,46 +77,19 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
     return original(*args, **kwargs)
 
 
-def create_trace_wrapper(span_type: SpanType) -> Callable[[Any], Any]:
-    """Create a trace wrapper with specific parser and serializer."""
+async def patched_kernel_entry_point(original, self, *args, **kwargs):
+    with mlflow.start_span(
+        name=f"{self.__class__.__name__}.{original.__name__}",
+        span_type=SpanType.AGENT,
+    ) as mlflow_span:
+        inputs = construct_full_inputs(original, self, *args, **kwargs)
+        mlflow_span.set_inputs(_parse_content(inputs))
 
-    async def _trace_wrapper(original, self, *args, **kwargs):
-        otel_span_id = get_current_span().get_span_context().span_id
-        active_mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+        result = await original(self, *args, **kwargs)
 
-        # If Semantic Kernel does not create an OTel span for the method, we create
-        # one ourselves. (e.g., kernel.invoke)
-        with (
-            _use_span(active_mlflow_span)
-            if active_mlflow_span
-            else mlflow.start_span(name=f"{self.__class__.__name__}.{original.__name__}")
-        ) as mlflow_span:
-            inputs = construct_full_inputs(original, self, *args, **kwargs)
-            mlflow_span.set_inputs(_parse_content(inputs))
-            mlflow_span.set_span_type(span_type)
+        mlflow_span.set_outputs(_parse_content(result))
 
-            result = await original(self, *args, **kwargs)
-
-            mlflow_span.set_outputs(_parse_content(result))
-
-        return result
-
-    return _trace_wrapper
-
-
-@contextmanager
-def _use_span(mlflow_span: LiveSpan):
-    """
-    Use the existing mlflow span created by the SemanticKernelSpanProcessor
-    like context manager.
-    """
-    try:
-        yield mlflow_span
-    except Exception as e:
-        mlflow_span.record_exception(e)
-        raise
-    # NB: We don't call span.end() here, because it is already called in the
-    # SemanticKernelSpanProcessor.on_end() handler.
+    return result
 
 
 def _parse_content(value: Any) -> Any:
@@ -146,22 +130,12 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
 
 def _get_span_type(span: OTelSpan) -> str:
     """Determine the span type based on the operation."""
-    span_type = None
-
     if hasattr(span, "attributes") and (
         operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
     ):
-        span_map = {
-            CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            TEXT_COMPLETION_OPERATION: SpanType.LLM,
-            TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
-            # added from https://github.com/microsoft/semantic-kernel/blob/79d3dde556e4cdc482d83c9f5f0a459c5cc79a48/python/semantic_kernel/utils/telemetry/model_diagnostics/function_tracer.py#L24
-            "execute_tool": SpanType.TOOL,
-        }
-        span_type = span_map.get(operation)
+        return _OPERATION_TO_SPAN_TYPE.get(operation, SpanType.UNKNOWN)
 
-    return span_type or SpanType.UNKNOWN
+    return SpanType.UNKNOWN
 
 
 def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
