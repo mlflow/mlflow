@@ -59,11 +59,12 @@ def _is_in_databricks() -> bool:
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
+_IS_MLFLOW_TESTING = _MLFLOW_TESTING_TELEMETRY.get()
 
 
 def is_telemetry_disabled() -> bool:
     try:
-        if _MLFLOW_TESTING_TELEMETRY.get():
+        if _IS_MLFLOW_TESTING:
             return False
         return (
             MLFLOW_DISABLE_TELEMETRY.get()

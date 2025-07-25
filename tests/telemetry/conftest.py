@@ -50,11 +50,6 @@ def mock_requests():
 
 
 @pytest.fixture(autouse=True)
-def enable_telemetry_in_ci(monkeypatch):
-    monkeypatch.setenv("_MLFLOW_TESTING_TELEMETRY", "true")
-
-
-@pytest.fixture(autouse=True)
 def mock_telemetry_client(request):
     """Fixture to mock requests.get and capture telemetry records."""
     if request.node.get_closest_marker("no_mock_telemetry_client"):
@@ -89,6 +84,6 @@ def mock_telemetry_client(request):
 
 @pytest.fixture
 def bypass_env_check(monkeypatch):
-    monkeypatch.setenv("_MLFLOW_TESTING_TELEMETRY", "false")
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING", False)
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
