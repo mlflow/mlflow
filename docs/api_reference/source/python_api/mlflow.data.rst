@@ -144,6 +144,17 @@ polars
     :exclude-members: to_pyfunc, to_evaluation_dataset
 
 
+pyarrow
+~~~~~~~
+
+.. autofunction:: mlflow.data.from_arrow
+
+.. autoclass:: mlflow.data.arrow_dataset.ArrowDataset()
+    :members:
+    :undoc-members:
+    :exclude-members: to_pyfunc, to_evaluation_dataset
+
+
 Dataset Sources 
 ~~~~~~~~~~~~~~~~
 
