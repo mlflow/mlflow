@@ -35,6 +35,7 @@ except ImportError:
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(TelemetryInfo())
+        print("session_id", self.info["session_id"])
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -300,7 +301,9 @@ class TelemetryClient:
             # NB: this doesn't suppress log not emitted by mlflow
             with suppress_logs_in_thread(), warnings.catch_warnings():
                 warnings.simplefilter("ignore")
+                start_time = time.time()
                 self.flush(terminate=True)
+                print("Time taken to flush: ", time.time() - start_time)
         except Exception:
             pass
 
