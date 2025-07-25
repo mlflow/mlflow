@@ -1,16 +1,12 @@
 import asyncio
-import json
 from unittest import mock
 
 import openai
 import pytest
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
-from semantic_kernel.contents.chat_message_content import ChatMessageContent
-from semantic_kernel.contents.text_content import TextContent
 from semantic_kernel.exceptions import FunctionExecutionException, KernelInvokeException
 from semantic_kernel.functions.function_result import FunctionResult
-from semantic_kernel.functions.kernel_function_metadata import KernelFunctionMetadata
 from semantic_kernel.utils.telemetry.agent_diagnostics import (
     gen_ai_attributes as agent_gen_ai_attributes,
 )
@@ -22,11 +18,6 @@ import mlflow.semantic_kernel
 from mlflow.entities import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.semantic_kernel.autolog import SemanticKernelSpanProcessor
-from mlflow.semantic_kernel.tracing_utils import (
-    _serialize_chat_output,
-    _serialize_kernel_output,
-    _serialize_text_output,
-)
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
@@ -73,12 +64,15 @@ async def test_sk_invoke_simple(mock_openai):
     root_span, child_span = trace.data.spans
 
     # Root span
+    assert root_span.span_type == SpanType.CHAT_MODEL
+    assert root_span.inputs == {
+        "messages": [{"role": "user", "content": "Is sushi the best food ever?"}]
+    }
     assert not str(root_span.outputs).startswith("<coroutine")
-    assert root_span.outputs["messages"] == [
+    assert root_span.outputs == [
         {
             "role": "assistant",
             "content": '[{"role": "user", "content": "Is sushi the best food ever?"}]',
-            "finish_reason": "stop",
         }
     ]
 
@@ -328,48 +322,6 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
         assert child_span.outputs["messages"][0]["content"]
 
     assert len(unique_messages) == n
-
-
-@pytest.mark.asyncio
-async def test_sk_output_serialization():
-    chat_msg = ChatMessageContent(role="assistant", content="Hello", finish_reason="stop")
-    result = _serialize_chat_output(chat_msg)
-    assert result["messages"][0]["content"] == "Hello"
-    assert result["messages"][0]["role"] == "assistant"
-
-    msgs = [
-        ChatMessageContent(role="assistant", content=f"Message {i}", finish_reason="stop")
-        for i in range(2)
-    ]
-    result = _serialize_chat_output(msgs)
-    assert len(result["messages"]) == 2
-    assert result["messages"][0]["content"] == "Message 0"
-    assert result["messages"][1]["content"] == "Message 1"
-
-    assert _serialize_chat_output(None) is None
-    assert _serialize_chat_output("not a chat") == "null"
-
-    # Test text output serialization
-    text_content = TextContent(text="Hello world")
-    result = _serialize_text_output(text_content)
-    parsed = json.loads(result)
-    assert parsed["type"] == "text"
-    assert parsed["text"] == "Hello world"
-
-    assert json.loads(_serialize_text_output(None)) is None
-    assert json.loads(_serialize_text_output("plain string")) == "plain string"
-
-    func_metadata = KernelFunctionMetadata(name="test_function", is_prompt=False)
-    kernel_result = FunctionResult(function=func_metadata, value="result value")
-    result = _serialize_kernel_output(kernel_result)
-    assert result == "result value"
-
-    nested_result = FunctionResult(function=func_metadata, value={"key": "value"})
-    result = _serialize_kernel_output(nested_result)
-    assert result == {"key": "value"}
-
-    assert json.loads(_serialize_kernel_output(None)) is None
-    assert _serialize_kernel_output([1, 2, 3]) == [1, 2, 3]
 
 
 @pytest.mark.parametrize(

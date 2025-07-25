@@ -1,7 +1,6 @@
 from semantic_kernel.connectors.ai.chat_completion_client_base import (
     ChatCompletionClientBase,
 )
-from semantic_kernel.connectors.ai.embedding_generator_base import EmbeddingGeneratorBase
 from semantic_kernel.connectors.ai.text_completion_client_base import (
     TextCompletionClientBase,
 )
@@ -9,22 +8,10 @@ from semantic_kernel.kernel import Kernel
 from semantic_kernel.utils.telemetry.model_diagnostics import decorators
 
 from mlflow.entities import SpanType
-from mlflow.semantic_kernel.autolog import (
-    _semantic_kernel_chat_completion_error_wrapper,
-    _semantic_kernel_chat_completion_input_wrapper,
-    _semantic_kernel_chat_completion_response_wrapper,
-    setup_semantic_kernel_tracing,
-)
+from mlflow.semantic_kernel.autolog import setup_semantic_kernel_tracing
 from mlflow.semantic_kernel.tracing_utils import (
-    _create_trace_wrapper,
-    _parse_chat_inputs,
-    _parse_embedding_inputs,
-    _parse_kernel_invoke_inputs,
-    _parse_kernel_invoke_prompt_inputs,
-    _parse_text_inputs,
-    _serialize_chat_output,
-    _serialize_kernel_output,
-    _serialize_text_output,
+    create_trace_wrapper,
+    semantic_kernel_diagnostics_wrapper,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -61,7 +48,7 @@ def autolog(
             FLAVOR_NAME,
             ChatCompletionClientBase,
             method,
-            _create_trace_wrapper(SpanType.CHAT_MODEL, _parse_chat_inputs, _serialize_chat_output),
+            create_trace_wrapper(SpanType.CHAT_MODEL),
         )
 
     text_entry_points = ["get_text_content", "get_text_contents"]
@@ -70,44 +57,31 @@ def autolog(
             FLAVOR_NAME,
             TextCompletionClientBase,
             method,
-            _create_trace_wrapper(SpanType.LLM, _parse_text_inputs, _serialize_text_output),
+            create_trace_wrapper(SpanType.LLM),
         )
 
-    embedding_entry_points = ["generate_embeddings", "generate_raw_embeddings"]
-    for method in embedding_entry_points:
+    # NOTE: Semantic Kernel currently does not instrument embeddings with OpenTelemetry
+    # embedding_entry_points = ["generate_embeddings", "generate_raw_embeddings"]
+    kernel_entry_points = ["invoke", "invoke_prompt"]
+    for method in kernel_entry_points:
         safe_patch(
             FLAVOR_NAME,
-            EmbeddingGeneratorBase,
+            Kernel,
             method,
-            _create_trace_wrapper(SpanType.EMBEDDING, _parse_embedding_inputs, None),
+            create_trace_wrapper(SpanType.AGENT),
         )
-
-    safe_patch(
-        FLAVOR_NAME,
-        Kernel,
-        "invoke",
-        _create_trace_wrapper(None, _parse_kernel_invoke_inputs, _serialize_kernel_output),
-    )
-    safe_patch(
-        FLAVOR_NAME,
-        Kernel,
-        "invoke_prompt",
-        _create_trace_wrapper(None, _parse_kernel_invoke_prompt_inputs, _serialize_kernel_output),
-    )
 
     # NB: Semantic Kernel uses logging to serialize inputs/outputs. These parsers are used by their
     # tracing decorators to log the inputs/outputs. These patches give coverage for many additional
     # methods that are not covered by above entry point patches.
-    patches = [
-        ("_set_completion_input", _semantic_kernel_chat_completion_input_wrapper),
-        ("_set_completion_response", _semantic_kernel_chat_completion_response_wrapper),
-        ("_set_completion_error", _semantic_kernel_chat_completion_error_wrapper),
-    ]
-
-    for method_name, wrapper in patches:
+    for method_name in [
+        "_set_completion_input",
+        "_set_completion_response",
+        "_set_completion_error",
+    ]:
         safe_patch(
             FLAVOR_NAME,
             decorators,
             method_name,
-            wrapper,
+            semantic_kernel_diagnostics_wrapper,
         )

@@ -1,6 +1,5 @@
 import logging
-import os
-from typing import Any, Optional
+from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -10,26 +9,16 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import (
     NoOpTracerProvider,
     ProxyTracerProvider,
-    get_current_span,
     get_tracer_provider,
     set_tracer_provider,
-)
-from semantic_kernel.contents.chat_history import ChatHistory
-from semantic_kernel.contents.chat_message_content import ChatMessageContent
-from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
-from semantic_kernel.contents.text_content import TextContent
-from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
-    are_sensitive_events_enabled,
 )
 
 from mlflow.entities import SpanType
 from mlflow.semantic_kernel.tracing_utils import (
     _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN,
-    _get_live_span_from_otel_span_id,
     _get_span_type,
     _set_token_usage,
 )
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 
@@ -78,7 +67,7 @@ def setup_semantic_kernel_tracing():
 
 class SemanticKernelSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
-        # NB: Dummy NoOp exporter that does nothing, because OTel span processor requires an exporter
+        # NB: Dummy NoOp exporter, because OTel span processor requires an exporter
         self.span_exporter = SpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
@@ -110,72 +99,3 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
         detach_span_from_context(token)
         mlflow_span.end()
-
-
-def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
-    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
-    inputs: str | ChatHistory = args[1] if len(args) > 1 else kwargs.get("prompt")
-
-    if isinstance(inputs, ChatHistory):
-        inputs = {"messages": [msg.to_dict() for msg in inputs.messages]}
-
-    otel_span_id = get_current_span().get_span_context().span_id
-
-    if mlflow_span := _get_live_span_from_otel_span_id(otel_span_id):
-        mlflow_span.set_span_type(SpanType.CHAT_MODEL)
-        mlflow_span.set_inputs(inputs)
-    else:
-        _logger.debug(
-            "Span is not found or recording. Skipping registering chat "
-            f"completion attributes to {SpanAttributeKey.INPUTS}."
-        )
-
-    return original(*args, **kwargs)
-
-
-def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs) -> None:
-    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L400
-    current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
-    completions: list[ChatMessageContent | TextContent | StreamingContentMixin] = (
-        args[1] if len(args) > 1 else kwargs.get("completions")
-    ) or []
-
-    otel_span_id = current_span.get_span_context().span_id
-    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
-    if not mlflow_span:
-        _logger.debug(
-            "Span is not found or recording. Skipping registering chat "
-            f"completion attributes to {SpanAttributeKey.OUTPUTS}."
-        )
-        return original(*args, **kwargs)
-
-    if are_sensitive_events_enabled():
-        full_responses = []
-        for completion in completions:
-            full_response: dict[str, Any] = completion.to_dict()
-
-            if isinstance(completion, ChatMessageContent):
-                full_response["finish_reason"] = completion.finish_reason.value
-            if isinstance(completion, StreamingContentMixin):
-                full_response["index"] = completion.choice_index
-
-            full_responses.append(full_response)
-
-        mlflow_span.set_outputs({"messages": full_responses})
-
-    return original(*args, **kwargs)
-
-def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) -> None:
-    # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L452
-    current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
-    error = args[1] if len(args) > 1 else kwargs.get("error")
-
-    otel_span_id = current_span.get_span_context().span_id
-    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
-
-    if mlflow_span:
-        mlflow_span.record_exception(error)
-    else:
-        _logger.debug("Span is not found or recording. Skipping error handling.")
-
-    return original(*args, **kwargs)

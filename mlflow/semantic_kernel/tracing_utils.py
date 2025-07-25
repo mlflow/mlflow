@@ -1,11 +1,12 @@
-import json
 import logging
 from typing import Any, Callable, Optional
 
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
+from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.chat_message_content import ChatMessageContent
-from semantic_kernel.functions.function_result import FunctionResult
+from semantic_kernel.contents.kernel_content import KernelContent
+from semantic_kernel.contents.streaming_content_mixin import StreamingContentMixin
 from semantic_kernel.utils.telemetry.model_diagnostics import (
     gen_ai_attributes as model_gen_ai_attributes,
 )
@@ -17,8 +18,9 @@ from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
 )
 
 from mlflow.entities import SpanType
-from mlflow.entities.span import LiveSpan, SpanEvent, SpanStatusCode
+from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import construct_full_inputs
 
 # NB: Use global variable instead of the instance variable of the processor, because sometimes
 # multiple span processor instances can be created and we need to share the same map.
@@ -26,6 +28,102 @@ _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
 
 
 _logger = logging.getLogger(__name__)
+
+
+def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
+    """
+    Wrapper for Semantic Kernel's model diagnostics decorators.
+
+    This wrapper is used to record the inputs and outputs to the span, because
+    Semantic Kernel's Otel span do not record the inputs and outputs.
+    """
+    full_kwargs = construct_full_inputs(original, *args, **kwargs)
+    current_span = full_kwargs.get("current_span") or get_current_span()
+    otel_span_id = current_span.get_span_context().span_id
+    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+
+    if not mlflow_span:
+        _logger.debug("Span is not found or recording. Skipping error handling.")
+        return original(*args, **kwargs)
+
+    if prompt := full_kwargs.get("prompt"):
+        # Wrapping _set_completion_input
+        # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
+        mlflow_span.set_inputs(_parse_content(prompt))
+        mlflow_span.set_span_type(SpanType.CHAT_MODEL)
+
+    if completions := full_kwargs.get("completions"):
+        # Wrapping _set_completion_response
+        # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L400
+        full_responses = []
+        for completion in completions:
+            full_response: dict[str, Any] = completion.to_dict()
+
+            if isinstance(completion, ChatMessageContent):
+                full_response["finish_reason"] = completion.finish_reason.value
+            if isinstance(completion, StreamingContentMixin):
+                full_response["index"] = completion.choice_index
+
+            full_responses.append(full_response)
+
+        mlflow_span.set_outputs({"messages": full_responses})
+
+    if error := full_kwargs.get("error"):
+        # Wrapping _set_completion_error
+        # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L452
+        mlflow_span.record_exception(error)
+
+    return original(*args, **kwargs)
+
+
+def create_trace_wrapper(
+    span_type: Optional[SpanType] = None,
+) -> Callable[[Any], Any]:
+    """Create a trace wrapper with specific parser and serializer."""
+
+    async def _trace_wrapper(original, self, *args, **kwargs):
+        otel_span_id = get_current_span().get_span_context().span_id
+        mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+
+        if not mlflow_span:
+            return await original(self, *args, **kwargs)
+
+        if span_type:
+            mlflow_span.set_span_type(span_type)
+
+        inputs = construct_full_inputs(original, self, *args, **kwargs)
+        mlflow_span.set_inputs(_parse_content(inputs))
+
+        try:
+            result = await original(self, *args, **kwargs)
+        except Exception as e:
+            mlflow_span.record_exception(e)
+            raise
+
+        mlflow_span.set_outputs(_parse_content(result))
+        return result
+
+    return _trace_wrapper
+
+
+def _parse_content(value: Any) -> Any:
+    """
+    Parse the message content objects in Semantic Kernel into a more readable format.
+
+    Those objects are Pydantic models, but includes many noisy fields that are not
+    useful for debugging and hard to read. The base KernelContent class has a to_dict()
+    method that converts them into more readable format (role, content), so we use that.
+    """
+    if isinstance(value, dict) and (chat_history := value.get("chat_history")):
+        value = _parse_content(chat_history)
+    elif isinstance(value, ChatHistory):
+        # Record chat history as a list of messages for better readability
+        value = {"messages": [_parse_content(m) for m in value.messages]}
+    elif isinstance(value, KernelContent):
+        value = value.to_dict()
+    elif isinstance(value, list):
+        value = [_parse_content(item) for item in value]
+    return value
 
 
 def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
@@ -38,146 +136,6 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
             "additional attributes. "
         )
         return None
-
-
-def _parse_chat_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Parse chat completion method inputs."""
-    try:
-        chat_history = args[1] if len(args) > 1 else kwargs.get("chat_history")
-        if chat_history and hasattr(chat_history, "messages"):
-            return {
-                "messages": [
-                    {
-                        "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
-                        "content": str(msg.content),
-                    }
-                    for msg in chat_history.messages
-                    if hasattr(msg, "role") and hasattr(msg, "content")
-                ]
-            }
-    except Exception:
-        pass
-    return {}
-
-
-def _parse_text_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Parse text completion method inputs."""
-    try:
-        # Text methods always have prompt as first positional arg after self
-        prompt = args[1] if len(args) > 1 else kwargs.get("prompt", "")
-        return {"prompt": str(prompt)}
-    except Exception:
-        pass
-    return {}
-
-
-def _parse_embedding_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Parse embedding generation method inputs."""
-    try:
-        # Embedding methods always have texts as first positional arg after self
-        texts = args[1] if len(args) > 1 else kwargs.get("texts", [])
-        if isinstance(texts, list):
-            return {"texts": [str(t) for t in texts]}
-    except Exception:
-        pass
-    return {}
-
-
-def _parse_kernel_invoke_inputs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Parse Kernel.invoke method inputs."""
-    try:
-        result = {}
-
-        # Check if function object is passed as first positional arg after self
-        if len(args) > 1 and args[1] is not None:
-            function = args[1]
-            if hasattr(function, "name") and hasattr(function, "plugin_name"):
-                result["function_name"] = function.name
-                result["plugin_name"] = function.plugin_name
-
-        # Check for function_name and plugin_name in kwargs
-        for k in ["function_name", "plugin_name"]:
-            if k in kwargs and kwargs[k]:
-                result[k] = kwargs[k]
-
-        # Check for arguments (can be positional or keyword)
-        if len(args) > 2 and args[2] is not None:
-            # arguments passed as positional
-            arguments = args[2]
-            if hasattr(arguments, "__dict__"):
-                result["arguments"] = dict(arguments)
-        elif "arguments" in kwargs and kwargs["arguments"] is not None:
-            arguments = kwargs["arguments"]
-            if hasattr(arguments, "__dict__"):
-                result["arguments"] = dict(arguments)
-
-        return result
-    except Exception:
-        pass
-    return {}
-
-
-def _parse_kernel_invoke_prompt_inputs(
-    args: tuple[Any, ...], kwargs: dict[str, Any]
-) -> dict[str, Any]:
-    """Parse Kernel.invoke_prompt method inputs."""
-    try:
-        # invoke_prompt has prompt as first positional arg after self
-        prompt = args[1] if len(args) > 1 else kwargs.get("prompt", "")
-        return {"prompt": str(prompt)}
-    except Exception:
-        pass
-    return {}
-
-
-def _serialize_chat_output(result: Any) -> Any:
-    """Serialize chat completion outputs."""
-    try:
-        if result is None:
-            return None
-        if isinstance(result, ChatMessageContent):
-            result = [result]
-        if isinstance(result, list) and result and isinstance(result[0], ChatMessageContent):
-            full_responses = []
-            for completion in result:
-                full_response: dict[str, Any] = completion.to_dict()
-
-                if isinstance(completion, ChatMessageContent):
-                    full_response["finish_reason"] = completion.finish_reason.value
-                full_responses.append(full_response)
-            return {"messages": full_responses}
-        return json.dumps(None)
-    except Exception as e:
-        _logger.warning(f"Failed to serialize chat result: {e}")
-        return None
-
-
-def _serialize_text_output(result: Any) -> str:
-    """Serialize text completion outputs."""
-    try:
-        if result is None:
-            return json.dumps(None)
-        if hasattr(result, "to_dict"):
-            return json.dumps(result.to_dict())
-        if isinstance(result, list) and result and hasattr(result[0], "to_dict"):
-            return json.dumps([item.to_dict() for item in result])
-        return json.dumps(str(result))
-    except Exception as e:
-        _logger.warning(f"Failed to serialize text result: {e}")
-        return json.dumps(str(result))
-
-
-def _serialize_kernel_output(result: Any) -> str:
-    """Serialize kernel function outputs."""
-    try:
-        if result is None:
-            return json.dumps(None)
-        if isinstance(result, FunctionResult):
-            return _serialize_kernel_output(result.value)
-        return result
-    except Exception as e:
-        _logger.warning(f"Failed to serialize kernel result: {e}")
-        return json.dumps(str(result))
 
 
 def _get_span_type(span: OTelSpan) -> str:
@@ -217,77 +175,3 @@ def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> No
 
     if usage_dict:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
-
-
-def _set_span_inputs(
-    mlflow_span: LiveSpan,
-    parser: Optional[Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]]],
-    original: Any,
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-) -> None:
-    """Set input attributes on the span."""
-    parsed_inputs = parser(args, kwargs) if parser else {}
-
-    if not parsed_inputs:
-        parsed_inputs = {"function": original.__qualname__}
-        if args[1:]:  # Skip self
-            parsed_inputs["args"] = [getattr(a, "__class__.__name__", str(a)) for a in args[1:]]
-        if kwargs:
-            parsed_inputs["kwargs"] = {k: str(v) for k, v in kwargs.items()}
-
-    mlflow_span.set_inputs(parsed_inputs)
-
-
-def _set_span_outputs(
-    mlflow_span: LiveSpan,
-    serializer: Optional[Callable[[Any], str]],
-    result: Any,
-    error: Optional[Exception] = None,
-) -> None:
-    """Set output attributes on the span."""
-    output_str = serializer(result)
-    mlflow_span.set_outputs(output_str)
-
-    if serializer == _serialize_chat_output and output_str is not None:
-        try:
-            output_dict = json.loads(output_str)
-            if "messages" in output_dict:
-                mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, output_dict["messages"])
-        except Exception:
-            pass
-
-    if error:
-        mlflow_span.add_event(SpanEvent.from_exception(error))
-        mlflow_span.set_status(SpanStatusCode.ERROR)
-
-
-def _create_trace_wrapper(
-    span_type: Optional[SpanType] = None,
-    parser: Optional[Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]]] = None,
-    serializer: Optional[Callable[[Any], str]] = None,
-) -> Callable[[Any], Any]:
-    """Create a trace wrapper with specific parser and serializer."""
-
-    async def _trace_wrapper(original, *args, **kwargs):
-        span = get_current_span()
-        mlflow_span = _get_live_span_from_otel_span_id(span.get_span_context().span_id)
-
-        if not mlflow_span:
-            return await original(*args, **kwargs)
-
-        if span_type:
-            mlflow_span.set_span_type(span_type)
-
-        _set_span_inputs(mlflow_span, parser, original, args, kwargs)
-
-        try:
-            result = await original(*args, **kwargs)
-        except Exception as e:
-            _set_span_outputs(mlflow_span, serializer, None, error=e)
-            raise
-
-        _set_span_outputs(mlflow_span, serializer, result)
-        return result
-
-    return _trace_wrapper
