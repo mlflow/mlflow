@@ -21,10 +21,7 @@ class IncorrectTypeAnnotation(Rule):
     @classmethod
     def check(cls, node: ast.AST, resolver: Resolver) -> Self | None:
         names = resolver.resolve(node)
-        if names is None:
-            return None
-
-        actual = ".".join(names)
+        actual = ".".join(names) if names else ast.unparse(node)
         if expected := cls.MAPPING.get(actual):
             return cls(actual=actual, expected=expected)
 
