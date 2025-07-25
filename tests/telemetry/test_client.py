@@ -20,8 +20,6 @@ from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
-from tests.telemetry.helper_functions import clean_up_threads
-
 
 @pytest.fixture
 def telemetry_client():
@@ -94,6 +92,17 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
     assert len(mock_requests) == 1
 
 
+def test_first_record_sent(telemetry_client: TelemetryClient, mock_requests):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    telemetry_client.add_record(record)
+    time.sleep(1)
+    assert len(mock_requests) == 1
+
+
 def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     for _ in range(100):
         record = Record(
@@ -107,12 +116,9 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     start_time = time.time()
     telemetry_client.flush(terminate=True)
     end_time = time.time()
-
-    # 1 second for consumer threads
-    # add some buffer for processing time
-    assert end_time - start_time < 2
-    # remaining records are processed directly
-    assert len(mock_requests) == 100
+    assert end_time - start_time < 0.1
+    # remaining records are dropped
+    assert len(mock_requests) == 0
 
     assert not telemetry_client.is_active
 
@@ -794,8 +800,9 @@ def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
         set_telemetry_client()
         client = get_telemetry_client()
         client.add_record(record)
-        assert len(client._pending_records) == 1
-        client.flush(terminate=terminate)
+        assert len(client._pending_records) == 0
+        assert client._queue.qsize() == 1
+        time.sleep(1)
         assert len(mock_requests) == 1
 
 
@@ -816,12 +823,13 @@ def test_records_not_processed_when_fetching_config_failed(mock_requests, termin
         set_telemetry_client()
         client = get_telemetry_client()
         client.add_record(record)
-        assert len(client._pending_records) == 1
-        client.flush(terminate=terminate)
+        assert len(client._pending_records) == 0
+        assert client._queue.qsize() == 1
+        time.sleep(1)
         assert len(mock_requests) == 0
 
         # clean up
-        clean_up_threads(client)
+        client._join_threads()
 
 
 @pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
@@ -840,14 +848,14 @@ def test_config_fetch_no_retry(mock_requests, error_code):
         set_telemetry_client()
         client = get_telemetry_client()
         client.add_record(record)
-        assert len(client._pending_records) == 1
+        assert len(client._pending_records) == 0
         # wait for config to be fetched
         client._config_thread.join()
         client.flush(terminate=True)
         assert len(mock_requests) == 0
         mock_requests.clear()
         # clean up
-        clean_up_threads(client)
+        client._join_threads()
         assert get_telemetry_client() is None
 
 
@@ -879,7 +887,6 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
         client.add_record(record)
         client.flush(terminate=terminate)
         assert len(mock_requests) == 0
-        assert client._queue.empty()
         # clean up
-        clean_up_threads(client)
+        client._join_threads()
         assert get_telemetry_client() is None

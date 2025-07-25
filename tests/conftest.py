@@ -353,3 +353,4 @@ def enable_telemetry_in_ci(monkeypatch, request):
     client = get_telemetry_client()
     if client:
         client.flush(terminate=True)
+        client._join_threads()

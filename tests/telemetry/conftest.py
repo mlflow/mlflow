@@ -15,6 +15,7 @@ def terminate_telemetry_client():
     client = get_telemetry_client()
     if client:
         client.flush(terminate=True)
+        client._join_threads()
 
 
 @pytest.fixture
