@@ -5,6 +5,8 @@ from mlflow.telemetry.constant import PACKAGES_TO_CHECK_IMPORT
 
 
 class Event:
+    name: str
+
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> Optional[dict[str, Any]]:
         """

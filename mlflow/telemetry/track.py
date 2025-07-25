@@ -14,7 +14,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def record_usage_event(event: Event) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -38,6 +38,7 @@ def record_usage_event(event: Event) -> Callable[[Callable[P, R]], Callable[P, R
                         )
                     ):
                         client.add_record(record)
+                # TODO: add a logger to log errors guarded by a MLflow env var
                 except Exception:
                     pass
 
@@ -52,7 +53,7 @@ def _generate_telemetry_record(
     kwargs: dict[str, Any],
     success: bool,
     duration_ms: int,
-    event: Event,
+    event: type[Event],
 ) -> Optional[Record]:
     try:
         signature = inspect.signature(func)
@@ -79,7 +80,7 @@ def _generate_telemetry_record(
         return
 
 
-def _is_telemetry_disabled_for_event(event: Event) -> bool:
+def _is_telemetry_disabled_for_event(event: type[Event]) -> bool:
     try:
         if client := get_telemetry_client():
             if client.config:
