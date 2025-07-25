@@ -193,6 +193,7 @@ select = [
   "PLR0402", # manual-from-import
   "PLE1205", # logging-too-many-args
   "PLW0602", # global-variable-not-assigned
+  "PLW1508", # invalid-envvar-default
   "PT001",   # pytest-fixture-incorrect-parentheses-style
   "PT002",   # pytest-fixture-positional-args
   "PT003",   # pytest-extraneous-scope-function
