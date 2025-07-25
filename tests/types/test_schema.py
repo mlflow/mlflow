@@ -3,7 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -1875,7 +1875,7 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
     class InvalidDataclassWithUnion:
-        foo: Union[str, int] = "1"
+        foo: str | int = "1"
 
     with pytest.raises(
         MlflowException,
