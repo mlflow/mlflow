@@ -1,5 +1,4 @@
 import datetime
-import sys
 from typing import Any, Dict, List, Optional, Union, get_args
 from unittest import mock
 
@@ -406,7 +405,6 @@ def test_type_hints_validation_errors():
         _validate_data_against_type_hint(["a"], list)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_type_hint_for_python_3_10():
     assert _infer_schema_from_list_type_hint(list[bool | int | str]) == Schema(
         [ColSpec(type=AnyType())]

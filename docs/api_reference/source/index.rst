@@ -7,6 +7,7 @@ This page hosts the API documentation for MLflow.
     :maxdepth: 1
 
     python_api/index
+    typescript_api/index
     cli
     auth/python-api
     auth/rest-api

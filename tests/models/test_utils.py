@@ -1,6 +1,6 @@
 import os
 import random
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -31,7 +31,10 @@ from mlflow.pyfunc import _enforce_schema, _validate_prediction_input
 from mlflow.types import DataType, Schema
 from mlflow.types.schema import Array, ColSpec, Object, Property
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")

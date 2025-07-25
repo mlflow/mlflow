@@ -2,10 +2,12 @@
 Utility functions for converting between Unity Catalog proto and MLflow entities.
 """
 
+import json
 from typing import Optional
 
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.prompt.constants import RESPONSE_FORMAT_TAG_KEY
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
@@ -74,6 +76,14 @@ def proto_to_mlflow_prompt(
     version_tags = (
         proto_version_tags_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
     )
+    if RESPONSE_FORMAT_TAG_KEY in version_tags:
+        response_format = json.loads(version_tags[RESPONSE_FORMAT_TAG_KEY])
+    else:
+        response_format = None
+
+    version_tags = {
+        key: value for key, value in version_tags.items() if not key.startswith("_mlflow")
+    }
 
     # Extract aliases
     aliases = []
@@ -87,11 +97,12 @@ def proto_to_mlflow_prompt(
     return PromptVersion(
         name=proto_version.name,
         version=version,
-        template=proto_version.template,
+        template=json.loads(proto_version.template),
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
         tags=version_tags,
         aliases=aliases,
+        response_format=response_format,
     )
 
 

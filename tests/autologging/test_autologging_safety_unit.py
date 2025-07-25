@@ -1,8 +1,8 @@
 import abc
 import copy
 import inspect
-from collections import namedtuple
 from contextlib import nullcontext as does_not_raise
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pytest
@@ -67,18 +67,14 @@ def test_autologging_integration():
 
 
 class MockEventLogger(AutologgingEventLogger):
-    LoggerCall = namedtuple(
-        "LoggerCall",
-        [
-            "method",
-            "session",
-            "patch_obj",
-            "function_name",
-            "call_args",
-            "call_kwargs",
-            "exception",
-        ],
-    )
+    class LoggerCall(NamedTuple):
+        method: str
+        session: Any
+        patch_obj: Any
+        function_name: str
+        call_args: Any
+        call_kwargs: Any
+        exception: Any
 
     def __init__(self):
         self.calls = []

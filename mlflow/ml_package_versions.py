@@ -141,7 +141,7 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "4.0.0"
         },
         "autologging": {
-            "minimum": "3.2.1",
+            "minimum": "3.3.0",
             "maximum": "4.0.0"
         }
     },

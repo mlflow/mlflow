@@ -530,6 +530,10 @@ def _lock_requirements(
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))
             constraints_opt = [f"--constraints={constraints_file}"]
+        elif pip_constraint := os.environ.get("PIP_CONSTRAINT"):
+            # If PIP_CONSTRAINT is set, use it as a constraint file
+            constraints_opt = [f"--constraints={pip_constraint}"]
+
         try:
             uv_options, uv_envs = _get_uv_options_for_databricks()
             out = subprocess.check_output(
@@ -604,7 +608,11 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
+        return Requirement(requirement_string).name.lower() in [
+            "mlflow",
+            "mlflow-skinny",
+            "mlflow-tracing",
+        ]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 

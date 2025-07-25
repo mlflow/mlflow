@@ -1,5 +1,5 @@
 import os
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,9 +12,12 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import mlflow
 from mlflow import MlflowClient
 
-ModelWithExplanation = namedtuple(
-    "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]
-)
+
+class ModelWithExplanation(NamedTuple):
+    model: Any
+    X: Any
+    shap_values: Any
+    base_values: Any
 
 
 def yield_artifacts(run_id, path=None):

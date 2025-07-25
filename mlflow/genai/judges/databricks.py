@@ -332,16 +332,12 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from databricks.agents.evals.judges import guideline_adherence
-
-    # Ensure guidelines is a list, as the underlying databricks judge only accepts lists
-    if isinstance(guidelines, str):
-        guidelines = [guidelines]
+    from databricks.agents.evals.judges import guidelines as guidelines_judge
 
     return _sanitize_feedback(
-        guideline_adherence(
+        guidelines_judge(
             guidelines=guidelines,
-            guidelines_context=context,
+            context=context,
             assessment_name=name,
         )
     )

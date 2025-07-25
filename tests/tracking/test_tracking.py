@@ -5,8 +5,8 @@ import pathlib
 import posixpath
 import random
 import re
-from collections import namedtuple
 from datetime import datetime, timezone
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -43,7 +43,10 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 
-MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
+
+class MockExperiment(NamedTuple):
+    experiment_id: str
+    lifecycle_stage: str
 
 
 def test_create_experiment():

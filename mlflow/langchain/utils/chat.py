@@ -14,7 +14,6 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
-from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
 
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
@@ -52,12 +51,16 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMe
     """
     if isinstance(lc_message, AIMessage):
         if tool_calls := _get_tool_calls_from_ai_message(lc_message):
+            content = lc_message.content
+            # For Anthropic model tool calls are returned twice so we need to filter them out
+            if isinstance(content, list):
+                content = [c for c in content if c["type"] != "tool_use"]
             return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string
                 # according to the OpenAI spec, which ChatMessage is following
                 # Ref: https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/partners/openai/langchain_openai/chat_models/base.py#L116-L117
-                content=lc_message.content or None,
+                content=content or None,
                 tool_calls=tool_calls,
             )
         else:
@@ -143,23 +146,6 @@ def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
         }
         for tool_call in message.additional_kwargs.get("tool_calls", [])
     ]
-
-
-def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ChatMessage:
-    """
-    Convert LangChain's generation format to the MLflow's standard chat message format.
-    """
-    if isinstance(lc_gen, ChatGeneration):
-        try:
-            return convert_lc_message_to_chat_message(lc_gen.message)
-        except Exception as e:
-            # When failed to convert the message, return as assistant message
-            _logger.debug(
-                f"Failed to convert the message from ChatGeneration to ResponseMessage: {e}",
-                exc_info=True,
-            )
-
-    return ChatMessage(role="assistant", content=lc_gen.text)
 
 
 def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
@@ -257,7 +243,9 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
+def _convert_chat_request_or_throw(
+    chat_request: dict[str, Any],
+) -> list[Union[BaseMessage]]:
     model = ChatCompletionRequest.validate_compat(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
@@ -383,7 +371,9 @@ def parse_token_usage(
     return dict(aggregated) if aggregated else None
 
 
-def _parse_token_usage_from_generation(generation: Generation) -> Optional[dict[str, int]]:
+def _parse_token_usage_from_generation(
+    generation: Generation,
+) -> Optional[dict[str, int]]:
     message = getattr(generation, "message", None)
     if not message:
         return None

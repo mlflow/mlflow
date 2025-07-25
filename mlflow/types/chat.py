@@ -124,8 +124,17 @@ class ParamType(BaseModel):
 
 
 class ParamProperty(ParamType):
+    """
+    OpenAI uses JSON Schema (https://json-schema.org/) for function parameters.
+    See OpenAI function calling reference:
+    https://platform.openai.com/docs/guides/function-calling?&api-mode=responses#defining-functions
+
+    JSON Schema enum supports any JSON type (str, int, float, bool, null, arrays, objects),
+    but we restrict to basic scalar types for practical use cases and API safety.
+    """
+
     description: Optional[str] = None
-    enum: Optional[list[str]] = None
+    enum: Optional[list[Union[str, int, float, bool]]] = None
     items: Optional[ParamType] = None
 
 

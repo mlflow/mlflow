@@ -13,7 +13,10 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
+from mlflow.genai.evaluation.utils import (
+    _convert_scorer_to_legacy_metric,
+    _convert_to_legacy_eval_set,
+)
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
@@ -415,3 +418,28 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
     ][:row_count]
     # Using set because eval harness runs predict_fn in parallel
     assert set(received_args) == set(expected_contents)
+
+
+def test_convert_scorer_to_legacy_metric():
+    """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
+    # Test with a built-in scorer
+    builtin_scorer = Safety()
+    legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)
+
+    # Verify the metric has the _is_builtin_scorer attribute set to True
+    assert hasattr(legacy_metric, "_is_builtin_scorer")
+    assert legacy_metric._is_builtin_scorer is True
+    assert legacy_metric.name == builtin_scorer.name
+
+    # Test with a custom scorer
+    @scorer(name="custom_scorer")
+    def custom_scorer_func(inputs, outputs=None, expectations=None, **kwargs):
+        return {"score": 1.0}
+
+    custom_scorer_instance = custom_scorer_func
+    legacy_metric_custom = _convert_scorer_to_legacy_metric(custom_scorer_instance)
+
+    # Verify the metric has the _is_builtin_scorer attribute set to False
+    assert hasattr(legacy_metric_custom, "_is_builtin_scorer")
+    assert legacy_metric_custom._is_builtin_scorer is False
+    assert legacy_metric_custom.name == custom_scorer_instance.name

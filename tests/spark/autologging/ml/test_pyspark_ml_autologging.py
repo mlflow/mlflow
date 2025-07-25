@@ -2,7 +2,7 @@ import importlib
 import json
 import math
 import pathlib
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -159,7 +159,12 @@ def get_run_data(run_id):
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
 
-    RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+    class RunData(NamedTuple):
+        params: Any
+        metrics: Any
+        tags: Any
+        artifacts: Any
+
     return RunData(data.params, data.metrics, tags, artifacts)
 
 

@@ -1,10 +1,11 @@
 import inspect
 import logging
+from typing import Any, Optional
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.smolagents.chat import set_span_chat_attributes
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -25,10 +26,8 @@ def patched_class_call(original, self, *args, **kwargs):
 
                 # Need to convert the response of smolagents API for better visualization
                 outputs = result.__dict__ if hasattr(result, "__dict__") else result
-                if span_type == SpanType.CHAT_MODEL:
-                    set_span_chat_attributes(
-                        span=span, messages=inputs.get("messages", []), output=outputs
-                    )
+                if token_usage := _parse_usage(outputs):
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
                 span.set_outputs(outputs)
                 return result
     except Exception as e:
@@ -131,9 +130,26 @@ def _parse_tools(tools):
 
 
 def _get_model_attributes(instance):
-    model = {}
+    model = {SpanAttributeKey.MESSAGE_FORMAT: "smolagents"}
     for key, value in instance.__dict__.items():
         if value is None or key == "api_key":
             continue
         model[key] = str(value)
     return model
+
+
+def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+    try:
+        if isinstance(output, dict) and "raw" in output:
+            output = output["raw"]
+
+        usage = getattr(output, "usage", None)
+        if usage:
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None

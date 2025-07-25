@@ -14,6 +14,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -57,11 +58,6 @@ _DUMMY_GENERATE_CONTENT_RESPONSE = _generate_content_response(_CONTENT)
 _DUMMY_COUNT_TOKENS_RESPONSE = {"total_count": 10}
 
 _DUMMY_EMBEDDING_RESPONSE = {"embedding": [1, 2, 3]}
-
-_CHAT_MESSAGES = [
-    {"role": "user", "content": "test content"},
-    {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-]
 
 
 def _dummy_generate_content(is_async: bool):
@@ -169,7 +165,6 @@ def test_generate_content_enable_disable_autolog(is_async):
             "config": None,
         }
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         span1 = traces[0].data.spans[1]
         assert span1.name == f"{cls}._generate_content"
@@ -180,7 +175,6 @@ def test_generate_content_enable_disable_autolog(is_async):
             "config": None,
         }
         assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span1.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         _call_generate_content(is_async, "test content")
@@ -248,19 +242,6 @@ def test_generate_content_image_autolog():
     }
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"detail": "auto", "url": "data:image/jpeg;base64,b'image'"},
-                },
-                {"type": "text", "text": "Caption this image"},
-            ],
-        },
-        {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-    ]
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -293,25 +274,6 @@ def test_generate_content_tool_calling_autolog(is_async):
     }
 
     response = _generate_content_response(tool_call_content)
-
-    chat_messages = [
-        {
-            "content": "I have 57 cats, each owns 44 mittens, how many mittens is that in total?",
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-    ]
-
     if is_async:
 
         async def _generate_content(self, model, contents, config):
@@ -347,8 +309,8 @@ def test_generate_content_tool_calling_autolog(is_async):
         span.inputs["contents"]
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
-    assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
+    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -358,8 +320,8 @@ def test_generate_content_tool_calling_autolog(is_async):
         span1.inputs["contents"]
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
-    assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span1.get_attribute("mlflow.chat.messages") == chat_messages
+    assert span1.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
+    assert span1.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
 
 def test_generate_content_tool_calling_chat_history_autolog(is_async):
@@ -411,46 +373,6 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
         )
     )
 
-    tool_result = (
-        # https://github.com/googleapis/python-genai/commit/6258dad0f9634b5e40e6562353e1911fe3c2d1a6
-        # added `will_continue` and `scheduling` fields
-        '{"will_continue":null,"scheduling":null,"id":null,"name":"multiply","response":{"result":2508.0}}'
-        if google_gemini_version >= Version("1.16.0")
-        else '{"id":null,"name":"multiply","response":{"result":2508.0}}'
-    )
-    chat_messages = [
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
-                },
-            ],
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": tool_result}],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "text", "text": "57 cats * 44 mittens/cat = 2508 mittens in total."}
-            ],
-        },
-    ]
-
     cls = "AsyncModels" if is_async else "Models"
 
     if is_async:
@@ -489,7 +411,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     ]
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -502,7 +424,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     ]
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span1.get_attribute("mlflow.chat.messages") == chat_messages
+    assert span1.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
 
 def test_chat_session_autolog(is_async):
@@ -522,7 +444,6 @@ def test_chat_session_autolog(is_async):
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         _create_chat_and_send_message(is_async, "test content")

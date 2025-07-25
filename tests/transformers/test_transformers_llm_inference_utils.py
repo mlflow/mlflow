@@ -1,5 +1,5 @@
 import uuid
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pandas as pd
@@ -70,7 +70,11 @@ def test_apply_chat_template():
         convert_messages_to_prompt([["one", "two"]], DummyTokenizer())
 
 
-_TestCase = namedtuple("_TestCase", ["data", "params", "expected_data", "expected_params"])
+class _TestCase(NamedTuple):
+    data: Any
+    params: Any
+    expected_data: Any
+    expected_params: Any
 
 
 @pytest.mark.parametrize(

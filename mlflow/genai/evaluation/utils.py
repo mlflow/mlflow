@@ -201,6 +201,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "Please install it with `pip install databricks-agents`."
         )
 
+    from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
     from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
@@ -238,7 +239,12 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         }
         return scorer.run(**merged)
 
-    return metric(
+    metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
     )
+
+    # Add attribute to indicate if this is a built-in scorer
+    metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)
+
+    return metric_instance

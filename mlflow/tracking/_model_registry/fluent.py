@@ -4,7 +4,7 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -47,9 +47,6 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
-
-if TYPE_CHECKING:
-    from mlflow.types.chat import ContentType
 
 _logger = logging.getLogger(__name__)
 
@@ -537,10 +534,10 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, "ContentType"]]],
-    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+    template: Union[str, list[dict[str, Any]]],
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
+    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -572,14 +569,13 @@ def register_prompt(
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
 
-        response_format: Optional Pydantic class or dictionary defining the expected response
-            structure. This can be used to specify the schema for structured outputs from LLM calls.
-
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -640,9 +636,9 @@ def register_prompt(
     return MlflowClient().register_prompt(
         name=name,
         template=template,
-        response_format=response_format,
         commit_message=commit_message,
         tags=tags,
+        response_format=response_format,
     )
 
 

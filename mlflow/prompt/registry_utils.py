@@ -58,13 +58,13 @@ def model_version_to_prompt_version(
         name=model_version.name,
         version=int(model_version.version),
         template=template,
-        response_format=response_format,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,
+        response_format=response_format,
     )
 
 

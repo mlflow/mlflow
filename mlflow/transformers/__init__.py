@@ -17,9 +17,8 @@ import re
 import shutil
 import string
 import sys
-from collections import namedtuple
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -263,6 +262,15 @@ def get_default_conda_env(model):
         flavor, based on the model instance framework type of the model to be logged.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
+
+
+class _DummyModel(NamedTuple):
+    name_or_path: str
+
+
+class _DummyPipeline(NamedTuple):
+    task: str
+    model: _DummyModel
 
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
@@ -517,9 +525,9 @@ def save_model(
             )
 
         # Create a dummy pipeline object to be used for saving the model
-        DummyModel = namedtuple("DummyModel", ["name_or_path"])
-        DummyPipeline = namedtuple("DummyPipeline", ["task", "model"])
-        built_pipeline = DummyPipeline(task=task, model=DummyModel(name_or_path=transformers_model))
+        built_pipeline = _DummyPipeline(
+            task=task, model=_DummyModel(name_or_path=transformers_model)
+        )
     else:
         raise MlflowException(
             "The `transformers_model` must be one of the following types: \n"

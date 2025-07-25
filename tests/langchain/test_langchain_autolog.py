@@ -220,16 +220,6 @@ def test_llmchain_autolog(async_logging_enabled):
         attrs = spans[1].attributes
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
-        assert attrs[SpanAttributeKey.CHAT_MESSAGES] == [
-            {
-                "role": "user",
-                "content": "What is MLflow?",
-            },
-            {
-                "role": "assistant",
-                "content": "What is MLflow?",
-            },
-        ]
 
 
 @skip_when_testing_trace_sdk
@@ -296,39 +286,7 @@ def test_chat_model_autolog():
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant.",
-        },
-        {
-            "role": "user",
-            "content": "What is the weather in San Francisco?",
-        },
-        {
-            "role": "assistant",
-            "content": "foo",
-            "tool_calls": [
-                {
-                    "function": {
-                        "arguments": '{"location": "San Francisco"}',
-                        "name": "GetWeather",
-                    },
-                    "id": "123",
-                    "type": "function",
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": "Weather in San Francisco is 70F.",
-            "tool_call_id": "123",
-        },
-        {
-            "role": "assistant",
-            "content": response.content,
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @pytest.mark.skipif(
@@ -358,16 +316,6 @@ def test_chat_model_bind_tool_autolog():
 
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "What is the weather in San Francisco?",
-        },
-        {
-            "content": '[{"role": "user", "content": "What is the weather in San Francisco?"}]',
-            "role": "assistant",
-        },
-    ]
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "type": "function",
@@ -386,6 +334,7 @@ def test_chat_model_bind_tool_autolog():
             },
         }
     ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @skip_when_testing_trace_sdk

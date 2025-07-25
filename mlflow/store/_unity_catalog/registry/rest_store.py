@@ -7,9 +7,10 @@ import re
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import google.protobuf.empty_pb2
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities import Run
@@ -17,6 +18,12 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.prompt.constants import (
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
+)
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1416,9 +1423,10 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1433,8 +1441,19 @@ class UcModelRegistryStore(BaseRestStore):
         # We don't set it here as it's generated server-side
         if description:
             prompt_version_proto.description = description
-        if tags:
-            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(tags))
+
+        final_tags = tags.copy() if tags else {}
+        if response_format:
+            final_tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
+                PromptVersion.convert_response_format_to_dict(response_format)
+            )
+        if isinstance(template, str):
+            final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
+        else:
+            final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
+
+        if final_tags:
+            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(final_tags))
 
         req_body = message_to_json(
             CreatePromptVersionRequest(

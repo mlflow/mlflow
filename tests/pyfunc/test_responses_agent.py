@@ -1,3 +1,4 @@
+import functools
 import pathlib
 import pickle
 from typing import Generator
@@ -5,10 +6,9 @@ from typing import Generator
 import pytest
 
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
     pytest.skip(
@@ -207,13 +207,14 @@ def test_responses_agent_log_default_task():
 
 
 def test_responses_agent_predict(tmp_path):
+    model_path = tmp_path / "model"
     model = SimpleResponsesAgent()
     response = model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert response.output[0].content[0]["type"] == "output_text"
     response = model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert next(response).type == "response.output_item.added"
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    mlflow.pyfunc.save_model(python_model=model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
     response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert response["output"][0]["type"] == "message"
     assert response["output"][0]["content"][0]["type"] == "output_text"
@@ -221,9 +222,10 @@ def test_responses_agent_predict(tmp_path):
 
 
 def test_responses_agent_predict_stream(tmp_path):
+    model_path = tmp_path / "model"
     model = SimpleResponsesAgent()
-    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    mlflow.pyfunc.save_model(python_model=model, path=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_path)
     responses = list(loaded_model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE))
     # most of this test is that the predict_stream parsing works in _ResponsesAgentPyfuncWrapper
     for r in responses:
@@ -290,9 +292,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return {"output": [{"type": "message", "content": [{"type": "output_text"}]}]}
 
-        def predict_stream(self, request: ResponsesAgentRequest):
-            pass
-
     model = BadResponsesAgent()
     with pytest.raises(
         MlflowException, match="Failed to save ResponsesAgent. Ensure your model's predict"
@@ -301,7 +300,7 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("input", "outputs", "expected_chat_messages", "expected_chat_tools"),
+    ("input", "outputs"),
     [
         # 1. Normal text input output
         (
@@ -317,17 +316,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ],
             },
-            [
-                {
-                    "content": "Hello!",
-                    "role": "user",
-                },
-                {
-                    "content": [{"text": "Dummy output", "type": "text"}],
-                    "role": "assistant",
-                },
-            ],
-            None,
         ),
         # 2. Image input
         (
@@ -353,29 +341,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ],
             },
-            [
-                {
-                    "content": [
-                        {
-                            "text": "what is in this image?",
-                            "type": "text",
-                        },
-                        {
-                            "image_url": {
-                                "detail": None,
-                                "url": "test.jpg",
-                            },
-                            "type": "image_url",
-                        },
-                    ],
-                    "role": "user",
-                },
-                {
-                    "content": [{"text": "Dummy output", "type": "text"}],
-                    "role": "assistant",
-                },
-            ],
-            None,
         ),
         # 3. Tool calling
         (
@@ -410,51 +375,17 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
                     }
                 ]
             },
-            [
-                {
-                    "role": "user",
-                    "content": "What is the weather like in Boston today?",
-                },
-                {
-                    "role": "assistant",
-                    "tool_calls": [
-                        {
-                            "id": "function_call_1",
-                            "type": "function",
-                            "function": {
-                                "name": "get_current_weather",
-                                "arguments": '{"location":"Boston, MA","unit":"celsius"}',
-                            },
-                        }
-                    ],
-                },
-            ],
-            [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "get_current_weather",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {"location": {"type": "string"}},
-                            "required": ["location", "unit"],
-                        },
-                    },
-                }
-            ],
         ),
     ],
 )
-def test_responses_agent_trace(
-    tmp_path, input, outputs, expected_chat_messages, expected_chat_tools
-):
+def test_responses_agent_trace(input, outputs):
     class TracedResponsesAgent(ResponsesAgent):
-        @mlflow.trace(span_type=SpanType.AGENT)
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
 
-        @mlflow.trace(span_type=SpanType.AGENT)
-        def predict_stream(self, request: ResponsesAgentRequest):
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             for item in outputs["output"]:
                 yield ResponsesAgentStreamEvent(
                     type="response.output_item.done",
@@ -469,12 +400,7 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
-
-    if expected_chat_tools is not None:
-        assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
-    else:
-        assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
+    assert spans[0].span_type == SpanType.AGENT
 
     list(model.predict_stream(ResponsesAgentRequest(**input)))
 
@@ -483,4 +409,98 @@ def test_responses_agent_trace(
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict_stream"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
+    assert spans[0].span_type == SpanType.AGENT
+
+    assert "output" in spans[0].outputs
+    assert spans[0].outputs["output"] == outputs["output"]
+
+
+def test_responses_agent_custom_trace_configurations():
+    """Test that custom trace configurations are preserved when functions are already traced."""
+
+    # Agent with custom span names and attributes
+    class CustomTracedAgent(ResponsesAgent):
+        @mlflow.trace(
+            name="custom_predict", span_type=SpanType.AGENT, attributes={"custom": "value"}
+        )
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+        @mlflow.trace(
+            name="custom_predict_stream",
+            span_type=SpanType.AGENT,
+            attributes={"stream": "true"},
+            output_reducer=ResponsesAgent.responses_agent_output_reducer,
+        )
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+    purge_traces()
+
+    agent = CustomTracedAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces_predict = get_traces()
+    assert len(traces_predict) == 1
+    spans_predict = traces_predict[0].data.spans
+    assert len(spans_predict) == 1
+    assert spans_predict[0].name == "custom_predict"
+    assert spans_predict[0].span_type == SpanType.AGENT
+    assert spans_predict[0].attributes.get("custom") == "value"
+
+    purge_traces()
+    list(agent.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
+
+    traces_stream = get_traces()
+    assert len(traces_stream) == 1
+    spans_stream = traces_stream[0].data.spans
+    assert len(spans_stream) == 1
+    assert spans_stream[0].name == "custom_predict_stream"
+    assert spans_stream[0].span_type == SpanType.AGENT
+    assert spans_stream[0].attributes.get("stream") == "true"
+
+
+def test_responses_agent_non_mlflow_decorators():
+    """Test that the implementation correctly distinguishes MLflow tracing from other decorators."""
+
+    # Create a custom decorator to test with
+    def custom_decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    class MixedDecoratedAgent(ResponsesAgent):
+        @custom_decorator
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**get_mock_response(request))
+
+        # Just a regular method (no decorator) to test that it gets auto-traced
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+    # Both methods should get auto-traced since they don't have __mlflow_traced__
+    agent = MixedDecoratedAgent()
+    agent.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+
+    traces_mixed_predict = get_traces()
+    assert len(traces_mixed_predict) == 1
+    spans_mixed_predict = traces_mixed_predict[0].data.spans
+    assert len(spans_mixed_predict) == 1
+    assert spans_mixed_predict[0].name == "predict"
+    assert spans_mixed_predict[0].span_type == SpanType.AGENT
+
+    purge_traces()
+    list(agent.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
+
+    traces_mixed_stream = get_traces()
+    assert len(traces_mixed_stream) == 1
+    spans_mixed_stream = traces_mixed_stream[0].data.spans
+    assert len(spans_mixed_stream) == 1
+    assert spans_mixed_stream[0].name == "predict_stream"
+    assert spans_mixed_stream[0].span_type == SpanType.AGENT

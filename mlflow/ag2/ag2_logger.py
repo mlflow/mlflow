@@ -126,6 +126,7 @@ class MlflowAg2Logger(BaseLogger):
                     name=original.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
+                    attributes={SpanAttributeKey.MESSAGE_FORMAT: "ag2"},
                 )
                 self._chat_state.session_span = span
                 try:
@@ -182,6 +183,10 @@ class MlflowAg2Logger(BaseLogger):
         if self._chat_state.session_span is None:
             _logger.warning("Failed to start span. No active chat session.")
             return NoOpSpan()
+
+        # Add MESSAGE_FORMAT attribute for AG2 spans
+        attributes = attributes or {}
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "ag2"
 
         return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we

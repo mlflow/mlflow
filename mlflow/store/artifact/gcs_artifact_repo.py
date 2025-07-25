@@ -3,8 +3,7 @@ import importlib.metadata
 import os
 import posixpath
 import urllib.parse
-from collections import namedtuple
-from typing import Optional
+from typing import Any, NamedTuple, Optional
 
 from packaging.version import Version
 
@@ -26,7 +25,12 @@ from mlflow.store.artifact.artifact_repo import (
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
-GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
+
+class GCSMPUArguments(NamedTuple):
+    transport: Any
+    url: str
+    headers: dict[str, str]
+    content_type: str
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):

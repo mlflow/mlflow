@@ -2,8 +2,8 @@ import inspect
 import json
 import logging
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -73,9 +73,11 @@ def spark_custom_env(tmp_path):
     return conda_env
 
 
-SparkModelWithData = namedtuple(
-    "SparkModelWithData", ["model", "spark_df", "pandas_df", "predictions"]
-)
+class SparkModelWithData(NamedTuple):
+    model: Any
+    spark_df: Any
+    pandas_df: Any
+    predictions: Any
 
 
 def _get_spark_session_with_retry(max_tries=3):

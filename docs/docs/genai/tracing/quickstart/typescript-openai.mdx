@@ -33,25 +33,27 @@ For other LLM providers that are not natively integrated with auto-tracing, inst
 
 ```typescript
 import * as mlflow from "mlflow-tracing";
+import Anthropic from '@anthropic-ai/sdk';
 
 // Instantiate the Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Wrap the client method with the `mlflow.trace` wrapper.
-const tracedAnthropic = mlflow.trace(
-  anthropic.messages.create,
-  { spanType: mlflow.SpanType.LLM }
+// Define a traced function that wraps the Anthropic API call.
+const generate = mlflow.trace(
+    (prompt: string) => {
+        return anthropic.messages.create({
+            model: "claude-sonnet-4-latest",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: prompt }],
+        });
+    },
+    { spanType: mlflow.SpanType.LLM }
 );
 
-// Call the wrapped function just like the original function.
-// MLflow will generate a trace that captures inputs, outputs, latency, and exceptions.
-const response = await tracedAnthropic({
-  model: "claude-sonnet-4-20250514",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-});
+// Call the wrapped function as usual.
+const response = await generate("Hello, Claude");
 ```
 
 </details>
@@ -71,8 +73,8 @@ MLflow logs Traces in a tracking server. Connect your application to the trackin
 The Typescript package does not contain the tracking server. To start a self-hosted tracking server from command line using MLflow Python package:
 
 ```bash
-# Install mlflow python package
-pip install mlflow -U
+# Install mlflow python package. Typescript SDK requires MLflow Tracking Server running on version 3.2.0 or later.
+pip install 'mlflow>=3.2.0rc1' -U
 
 # Start MLflow tracking server locally
 mlflow ui --port 5000
@@ -80,21 +82,13 @@ mlflow ui --port 5000
 # This will start the server at http://127.0.0.1:5000
 ```
 
-</TabItem>
+:::tip
 
-<TabItem value="docker" label="Self Host (Docker) ">
+If you want to start quickly without hosting MLflow server, try the cloud-based MLflow powered by Databricks:
 
-The Typescript package does not contain the tracking server. To start a self-hosted tracking server using Docker:
+<ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
 
-```bash
-# Pull the latest mlflow docker image
-docker pull mlflow/mlflow:latest
-
-# Start MLflow tracking server locally
-docker run -p 5000:5000 mlflow/mlflow:latest
-
-# This will start the server at http://127.0.0.1:5000
-```
+:::
 
 </TabItem>
 
@@ -113,21 +107,25 @@ If you use [Databricks managed MLflow](https://docs.databricks.com/aws/en/mlflow
 </Tabs>
 </TabsWrapper>
 
-:::tip
-
-If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
-
-:::
-
 ### Create a new MLflow Experiment
 
 Create a new MLflow experiment in the MLflow UI, or choose an existing experiment.
+
+<ImageBox src="/images/llms/tracing/quickstart/mlflow-ui-new-experiment.png" alt="New Experiment" width="80%" />
+
+1. Navigate to the MLflow UI in your browser. For example, if you started a local MLflow server at port 5000, you can navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000).
+2. Click on the <div className="inline-flex rounded-sm bg-sky-700 px-2 py-1.5 text-sm font-semibold text-white">Create</div> button on the top right.
+3. Enter a name for the experiment and click on "Create".
+
+_You can leave the `Artifact Location` field blank for now. It is an advanced configuration to override where MLflow stores experiment data._
 
 ### Initialize the Tracing SDK
 
 <TabsWrapper>
   <Tabs>
     <TabItem value="self-hosted" label="Self Host" default>
+
+    Call the `init` function with the tracking URI (e.g., `http://127.0.0.1:5000`) and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
 
     ```typescript
     import { init } from "mlflow-tracing";
@@ -137,9 +135,12 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
         experimentId: "<your-experiment-id>",
     });
     ```
+
     </TabItem>
 
     <TabItem value="remote" label="Remote MLflow Server">
+
+    Call the `init` function with the URI of your remote MLflow server and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
 
     ```typescript
     import { init } from "mlflow-tracing";
@@ -154,6 +155,7 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
 
     <TabItem value="databricks" label="Databricks">
 
+    Call the `init` function with the URI of your remote MLflow server and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
 
     **Method 1: Use Databricks config file for authentication.**
 
@@ -187,7 +189,7 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
     import 'dotenv/config';
     ```
 
-    The `init` function will automatically load the above environment variables.
+    The `init` function will automatically load the above environment variables when tracking URI is set to `databricks`.
 
     ```typescript
     import { init } from "mlflow-tracing";
@@ -221,7 +223,8 @@ import { tracedOpenAI } from "mlflow-openai";
 const client = tracedOpenAI(new OpenAI());
 
 // Invoke the client as usual
-const response = await client.chat.completions.create({
+// If you are running this tutorial as a script, remove the `await` keyword.
+await client.chat.completions.create({
     model: "o4-mini",
     messages: [
         {"role": "system", "content": "You are a helpful weather assistant."},
@@ -345,9 +348,8 @@ async function runToolAgent(question: string) {
 Now we can run the application.
 
 ```typescript
-# Run the tool calling agent
-const question = "What's the weather like in Seattle?";
-await runToolAgent(question);
+// If you are running this tutorial as a script, remove the `await` keyword.
+await runToolAgent("What's the weather like in Seattle?")
 ```
 
 ## Step 4: Explore Traces in the UI
@@ -392,6 +394,5 @@ MLflow Tracing provides powerful observability for your GenAI applications, help
 
 Now that you have basic tracing working, explore these advanced features:
 
-- [Integration with Other Libraries](/genai/tracing/integrations/): Use MLflow Tracing with other LLM providers and frameworks, such as LangGraph, Pydantic AI.
+- [Typescript SDK Guide](/genai/tracing/app-instrumentation/typescript-sdk): Learn more about how to use the Typescript SDK.
 - [Automatic Evaluation](/genai/eval-monitor): Learn how to set up automatic evaluation for traces using MLflow's GenAI evaluation feature.
-- [Production Monitoring](/genai/tracing/prod-tracing): Learn how to use MLflow Tracing in production set up with the optimized SDK.

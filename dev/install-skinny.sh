@@ -7,8 +7,6 @@
 #
 # Install from a specific PR:
 # curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s pull/<pr_num>/merge
-set -euo pipefail
-
 REF=${1:-HEAD}
 
 # Fetching the entire repo is slow. Use sparse-checkout to only fetch the necessary files.
@@ -21,5 +19,5 @@ git fetch origin "$REF"
 git config advice.detachedHead false
 git checkout FETCH_HEAD
 OPTIONS=$(if pip freeze | grep -q "mlflow-skinny @"; then echo "--force-reinstall --no-deps"; fi)
-pip install --no-build-isolation $OPTIONS ./libs/skinny
+pip install $OPTIONS ./libs/skinny
 rm -rf $TEMP_DIR

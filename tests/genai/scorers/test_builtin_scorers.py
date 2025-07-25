@@ -226,16 +226,16 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
 
 def test_guidelines():
     # 1. Called with per-row guidelines
-    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
         ExpectationsGuidelines()(
             inputs={"question": "query"},
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
         )
 
-    mock_guideline_adherence.assert_called_once_with(
+    mock_guidelines.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
-        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="expectations_guidelines",
     )
 
@@ -245,28 +245,28 @@ def test_guidelines():
         guidelines=["The response should be in English."],
     )
 
-    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
         is_english(
             inputs={"question": "query"},
             outputs="answer",
         )
 
-    mock_guideline_adherence.assert_called_once_with(
+    mock_guidelines.assert_called_once_with(
         guidelines=["The response should be in English."],
-        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="is_english",
     )
 
     # 3. Test meets_guidelines judge with string input (should wrap in list)
-    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
         meets_guidelines(
             guidelines="Be polite and respectful.",
             context={"response": "Hello, how are you?"},
         )
 
-    mock_guideline_adherence.assert_called_once_with(
-        guidelines=["Be polite and respectful."],
-        guidelines_context={"response": "Hello, how are you?"},
+    mock_guidelines.assert_called_once_with(
+        guidelines="Be polite and respectful.",
+        context={"response": "Hello, how are you?"},
         assessment_name=None,
     )
 

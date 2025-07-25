@@ -1,13 +1,16 @@
 import json
 import time
-from collections import namedtuple
 from datetime import datetime
+from typing import Any, NamedTuple
 
 from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
 from moto.core.responses import BaseResponse
 
-SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
+
+class SageMakerResourceWithArn(NamedTuple):
+    resource: Any
+    arn: str
 
 
 class SageMakerResponse(BaseResponse):

@@ -1,8 +1,8 @@
 import json
 import pathlib
 import pickle
-from collections import namedtuple
 from json import JSONDecodeError
+from typing import NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -116,9 +116,11 @@ _TYPE_TO_ARTIFACT_MAP = {
     plt.Figure: ImageEvaluationArtifact,
 }
 
-_InferredArtifactProperties = namedtuple(
-    "_InferredArtifactProperties", ["from_path", "type", "ext"]
-)
+
+class _InferredArtifactProperties(NamedTuple):
+    from_path: bool
+    type: type[EvaluationArtifact]
+    ext: str
 
 
 def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tuple):

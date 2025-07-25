@@ -6,9 +6,8 @@ import subprocess
 import sys
 import threading
 import time
-from collections import namedtuple
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, NamedTuple
 from unittest import mock
 
 import cloudpickle
@@ -148,7 +147,9 @@ def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
