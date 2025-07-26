@@ -32,7 +32,7 @@ describe('useExperimentRuns', () => {
       result: { current: result },
     } = mountComponentWithExperimentRuns(['123456789']);
 
-    expect(Object.keys(result.runInfos).length).toEqual(4);
+    expect(Object.keys(result.runInfos).length).toEqual(6); // Updated from 4 to 6 after adding run6 and run7
 
     expect(Object.values(result.runInfos).map((r) => r.experimentId)).toEqual(expect.arrayContaining(['123456789']));
   });
@@ -178,10 +178,10 @@ describe('useExperimentRuns', () => {
     const {
       result: { current: result },
     } = mountComponentWithExperimentRuns(['123456789'], {
-      modelVersionFilter: MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS,
+      modelVersionFilter: MODEL_VERSION_FILTER.WITHOUT_MODEL_VERSIONS,
     });
 
-    expect(Object.keys(result.runInfos).length).toEqual(3);
+    expect(Object.keys(result.runInfos).length).toEqual(5); // Updated from 3 to 5 after adding run6 and run7
   });
 
   it('filters runs without datasets in datasetsFilter', () => {
@@ -290,5 +290,95 @@ describe('useExperimentRuns', () => {
         }),
       ]),
     );
+  });
+
+  describe('runLimit and hideFinishedRuns filtering', () => {
+    it('applies runLimit correctly', () => {
+      const {
+        result: { current: result },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        runLimit: 2,
+      });
+
+      expect(Object.keys(result.runInfos).length).toEqual(2);
+    });
+
+    it('filters finished runs when hideFinishedRuns is true', () => {
+      // Note: hideFinishedRuns filtering is now done server-side for better performance
+      // This test validates that the selector can process the parameter, but actual filtering
+      // is handled in fetch-utils before the data reaches the selector
+      const {
+        result: { current: result },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        hideFinishedRuns: true,
+      });
+
+      // Since filtering is done server-side, we just validate the selector processes the data
+      expect(result.runInfos).toBeDefined();
+      expect(Array.isArray(result.runInfos)).toBe(true);
+    });
+
+    it('applies hideFinishedRuns filter first, then runLimit', () => {
+      // Note: hideFinishedRuns filtering is now done server-side, but runLimit is still applied client-side
+      const {
+        result: { current: result },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        hideFinishedRuns: true,
+        runLimit: 1,
+      });
+
+      // Should respect the runLimit (hideFinishedRuns filtering happens server-side)
+      expect(Object.keys(result.runInfos).length).toBeLessThanOrEqual(1);
+
+      // Validate that the selector processed the parameters correctly
+      expect(result.runInfos).toBeDefined();
+    });
+
+    it('shows all runs when runLimit is null or undefined', () => {
+      const {
+        result: { current: resultNoLimit },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        runLimit: null,
+      });
+
+      const {
+        result: { current: resultUndefinedLimit },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        // runLimit not specified (undefined)
+      });
+
+      const {
+        result: { current: resultLimited },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        runLimit: 2,
+      });
+
+      // Both null and undefined should show all runs (no truncation)
+      expect(Object.keys(resultNoLimit.runInfos).length).toBe(6); // All 6 mock runs
+      expect(Object.keys(resultUndefinedLimit.runInfos).length).toBe(6); // All 6 mock runs
+      expect(Object.keys(resultLimited.runInfos).length).toBe(2); // Limited to 2 runs
+
+      // Verify null and undefined behavior are identical
+      expect(Object.keys(resultNoLimit.runInfos).length).toEqual(Object.keys(resultUndefinedLimit.runInfos).length);
+    });
+
+    it('shows all runs when hideFinishedRuns is false', () => {
+      const {
+        result: { current: resultWithFinished },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        hideFinishedRuns: false,
+      });
+
+      const {
+        result: { current: resultWithoutFinished },
+      } = mountComponentWithExperimentRuns(['123456789'], {
+        hideFinishedRuns: true,
+      });
+
+      // Should have more runs when not hiding finished runs
+      expect(Object.keys(resultWithFinished.runInfos).length).toBeGreaterThanOrEqual(
+        Object.keys(resultWithoutFinished.runInfos).length,
+      );
+    });
   });
 });

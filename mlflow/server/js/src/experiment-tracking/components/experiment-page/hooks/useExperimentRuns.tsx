@@ -86,6 +86,8 @@ export const useExperimentRuns = (
           datasetsFilter: requestedFacets.datasetsFilter,
           lifecycleFilter: requestedFacets.lifecycleFilter,
           modelVersionFilter: requestedFacets.modelVersionFilter,
+          hideFinishedRuns: requestedFacets.hideFinishedRuns,
+          runLimit: requestedFacets.runLimit,
           // In the new version of the view state, experiment IDs are used instead of full experiment entities:
           experiments: [],
           experimentIds,

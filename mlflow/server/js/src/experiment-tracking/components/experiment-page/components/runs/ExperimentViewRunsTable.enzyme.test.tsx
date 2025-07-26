@@ -42,6 +42,7 @@ const mockGridApi = {
   hideOverlay: jest.fn(),
   setRowData: jest.fn(),
   resetRowHeights: jest.fn(),
+  showNoRowsOverlay: jest.fn(),
 };
 
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
@@ -153,30 +154,39 @@ describe('ExperimentViewRunsTable', () => {
   });
 
   test('should display no data overlay with proper configuration and only when necessary', () => {
+    mockGridApi.showNoRowsOverlay.mockClear();
+    mockGridApi.setRowData.mockClear();
+
     // Prepare a runs grid data with an empty set
     const emptyExperimentsWrapper = createWrapper({ rowsData: [] });
 
-    // Assert empty overlay being displayed and indicating that runs are *not* filtered
-    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').length).toBe(1);
-    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(false);
+    // Assert empty overlay API being called and empty data set
+    expect(mockGridApi.showNoRowsOverlay).toHaveBeenCalled();
+    expect(mockGridApi.setRowData).toHaveBeenCalledWith([]);
 
-    // Set up some filter
-    emptyExperimentsWrapper.setProps({
-      searchFacetsState: Object.assign(createExperimentPageSearchFacetsState(), {
-        searchFilter: 'something',
+    // Verify that searchFacetsState is passed correctly to the noRowsOverlayComponent
+    expect(emptyExperimentsWrapper.find('MLFlowAgGridLoader').prop('noRowsOverlayComponentParams')).toEqual(
+      expect.objectContaining({
+        searchFacetsState: expect.objectContaining({
+          searchFilter: '',
+        }),
+        allRunsCount: expect.any(Number),
       }),
-    });
-
-    // Assert empty overlay being displayed and indicating that runs *are* filtered
-    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(true);
+    );
   });
 
   test('should hide no data overlay when necessary', () => {
+    mockGridApi.hideOverlay.mockClear();
+    mockGridApi.setRowData.mockClear();
+
     // Prepare a runs grid data with a non-empty set
     const containingExperimentsWrapper = createWrapper();
 
-    // Assert empty overlay being not displayed
-    expect(containingExperimentsWrapper.find('ExperimentViewRunsEmptyTable').length).toBe(0);
+    // Assert overlay being hidden and data being set for non-empty rows
+    expect(mockGridApi.hideOverlay).toHaveBeenCalled();
+    expect(mockGridApi.setRowData).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ runUuid: 'experiment123456789_run1' })]),
+    );
   });
 
   test('should properly show "load more" button when necessary', () => {

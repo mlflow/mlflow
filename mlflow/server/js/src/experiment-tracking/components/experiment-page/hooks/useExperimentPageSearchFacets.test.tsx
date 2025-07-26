@@ -41,6 +41,8 @@ describe('useExperimentPageSearchFacets', () => {
         lifecycleFilter: 'ACTIVE',
         modelVersionFilter: 'All Runs',
         startTime: 'ALL',
+        hideFinishedRuns: false,
+        runLimit: null,
       },
       ['123'],
       false,
@@ -154,6 +156,57 @@ describe('useExperimentPageSearchFacets', () => {
     const { result } = await mountHook('/experiments/123?o=123456&isPreview=true');
 
     expect(result.current).toEqual([null, ['123'], true]);
+  });
+
+  test('handles runLimit parameter correctly', async () => {
+    const { result } = await mountHook('/experiments/123?runLimit=10');
+
+    expect(result.current).toEqual([
+      {
+        ...createExperimentPageSearchFacetsState(),
+        runLimit: 10,
+      },
+      ['123'],
+      false,
+    ]);
+  });
+
+  test('handles hideFinishedRuns parameter correctly', async () => {
+    const { result } = await mountHook('/experiments/123?hideFinishedRuns=true');
+
+    expect(result.current).toEqual([
+      {
+        ...createExperimentPageSearchFacetsState(),
+        hideFinishedRuns: true,
+      },
+      ['123'],
+      false,
+    ]);
+  });
+
+  test('handles both runLimit and hideFinishedRuns parameters together', async () => {
+    const { result } = await mountHook('/experiments/123?runLimit=20&hideFinishedRuns=true');
+
+    expect(result.current).toEqual([
+      {
+        ...createExperimentPageSearchFacetsState(),
+        runLimit: 20,
+        hideFinishedRuns: true,
+      },
+      ['123'],
+      false,
+    ]);
+  });
+
+  test('returns default values when explicit default query parameters are provided', async () => {
+    const { result } = await mountHook('/experiments/123?hideFinishedRuns=false&runLimit=');
+
+    expect(result.current).toEqual([createExperimentPageSearchFacetsState(), ['123'], false]);
+
+    // Explicitly verify the default values for hideFinishedRuns and runLimit
+    const [searchFacets] = result.current;
+    expect(searchFacets?.hideFinishedRuns).toBe(false);
+    expect(searchFacets?.runLimit).toBe(null);
   });
 });
 
