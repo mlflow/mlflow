@@ -118,6 +118,7 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("pydantic_ai", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -483,7 +484,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai and smolagents require Python 3.10+ (our CI runs on Python 3.9).
+    # crewai, smolagents, and semantic_kernel require Python 3.10+ (our CI runs on Python 3.9).
     if flavor in {
         "pytorch-lightning",
         "paddle",
@@ -491,6 +492,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "smolagents",
         "pydantic_ai",
         "autogen",
+        "semantic_kernel",
     }:
         return
 

@@ -77,6 +77,11 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "anthropic",
     "crewai",
     "bedrock",
+    "mistral",
+    "groq",
+    "smolagents",
+    "pydantic_ai",
+    "semantic_kernel",
 ]
 
 # Global lock for turning on / off autologging
