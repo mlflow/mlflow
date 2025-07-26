@@ -61,8 +61,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def source(self) -> DatasetSource:
         """Source information for the dataset."""
-        if isinstance(self._dataset.source, DatasetSource):
-            return self._dataset.source
         return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
 
     @property
