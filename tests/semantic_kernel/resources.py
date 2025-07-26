@@ -135,31 +135,6 @@ async def _create_and_invoke_chat_completion_direct(mock_openai):
     return await chat_service.get_chat_message_content(chat_history, settings)
 
 
-async def _create_and_invoke_kernel_function(mock_openai):
-    """
-    Test kernel.invoke with function - parser extracts
-    {"function_name": "...", "plugin_name": "..."}
-    """
-    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
-    kernel = Kernel()
-    kernel.add_service(
-        OpenAIChatCompletion(
-            service_id="chat",
-            ai_model_id="gpt-4o-mini",
-            async_client=openai_client,
-        )
-    )
-
-    kernel.add_function(
-        plugin_name="TimePlugin",
-        function_name="GetCurrentTime",
-        prompt="What time is it? Please provide a mock time.",
-        template_format="semantic-kernel",
-    )
-
-    return await kernel.invoke(function_name="GetCurrentTime", plugin_name="TimePlugin")
-
-
 async def _create_and_invoke_kernel_function_object(mock_openai):
     """
     Test kernel.invoke with function object and arguments

@@ -434,3 +434,25 @@ async def test_kernel_invoke_function_object(mock_openai):
     # Child span should be chat completion
     assert chat_span.name == "chat.completions gpt-4o-mini"
     assert chat_span.span_type == SpanType.CHAT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_direct(mock_openai):
+    mlflow.semantic_kernel.autolog()
+    result = await _create_and_invoke_chat_completion_direct(mock_openai)
+
+    assert result is not None
+    assert hasattr(result, "content")
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+
+    chat_span = spans[0]
+    assert chat_span.name == "chat.completions gpt-4o-mini"
+    assert chat_span.span_type == SpanType.CHAT_MODEL
+    assert len(chat_span.inputs["messages"]) == 3
+    assert chat_span.outputs["messages"] is not None
+    assert chat_span.get_attribute(SpanAttributeKey.CHAT_USAGE) is not None
