@@ -4,7 +4,6 @@ import openai
 import pytest
 import pytest_asyncio
 from opentelemetry import trace as trace_api
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.util._once import Once
 
 from tests.helper_functions import start_mock_openai_server
