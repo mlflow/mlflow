@@ -116,6 +116,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, the appropriate environment manager is automatically selected based on
