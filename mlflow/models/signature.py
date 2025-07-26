@@ -25,7 +25,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
+from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema, DataType
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_data_validation_result,
@@ -36,7 +36,7 @@ from mlflow.types.type_hints import (
 from mlflow.types.utils import (
     InvalidDataForSignatureInferenceError,
     _infer_param_schema,
-    _infer_schema,
+    _infer_schema, # This is the function that needs to be fixed or bypassed
 )
 from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.uri import append_to_uri_path
@@ -178,6 +178,23 @@ class ModelSignature:
         )
 
 
+def _infer_schema_from_dataframe(df: pd.DataFrame) -> Schema:
+    """
+    Helper to infer an MLflow Schema from a pandas DataFrame.
+    """
+    col_specs = []
+    for col_name, dtype in df.dtypes.items():
+        mlflow_dtype = DataType.from_type(dtype)
+        if mlflow_dtype is None:
+            _logger.warning(
+                f"Could not infer MLflow DataType for column '{col_name}' "
+                f"with pandas dtype '{dtype}'. Setting to AnyType."
+            )
+            mlflow_dtype = AnyType()
+        col_specs.append(ColSpec(name=str(col_name), type=mlflow_dtype))
+    return Schema(col_specs)
+
+
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
@@ -258,9 +275,12 @@ def infer_signature(
     for key, data in schemas.items():
         if data is not None:
             try:
-                schemas[key] = (
-                    convert_dataclass_to_schema(data) if is_dataclass(data) else _infer_schema(data)
-                )
+                if is_dataclass(data):
+                    schemas[key] = convert_dataclass_to_schema(data)
+                elif isinstance(data, pd.DataFrame):
+                    schemas[key] = _infer_schema_from_dataframe(data)
+                else:
+                    schemas[key] = _infer_schema(data)
             except InvalidDataForSignatureInferenceError:
                 raise
             except Exception:
@@ -523,7 +543,12 @@ def _infer_signature_from_input_example(
         input_data = deepcopy(input_example.inference_data)
         params = input_example.inference_params
 
-        input_schema = _infer_schema(input_data)
+        # Use helper function for pandas DataFrame schema inference
+        if isinstance(input_data, pd.DataFrame):
+            input_schema = _infer_schema_from_dataframe(input_data)
+        else:
+            input_schema = _infer_schema(input_data)
+
         params_schema = _infer_param_schema(params) if params else None
         # do the same validation as pyfunc predict to make sure the signature is correctly
         # applied to the model
@@ -542,7 +567,11 @@ def _infer_signature_from_input_example(
 
         output_schema = None
         try:
-            output_schema = _infer_schema(prediction)
+            # Use helper function for pandas DataFrame schema inference
+            if isinstance(prediction, pd.DataFrame):
+                output_schema = _infer_schema_from_dataframe(prediction)
+            else:
+                output_schema = _infer_schema(prediction)
         except Exception:
             # try assign output schema if failing to infer it from prediction for langchain models
             try:
