@@ -117,7 +117,8 @@ class CustomExample2(pydantic.BaseModel):
             [{"a": ["a", "b"]}],
         ),
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # noqa_: UP007
+        (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))]), [[True], ["abc"], [123]]),
@@ -432,25 +433,6 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
 
-def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
-    def predict(model_input: list[int | str]) -> list[int | str]:
-        return model_input
-
-    with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model(
-            name="test_model", python_model=predict, input_example=[123]
-        )
-        model_info2 = mlflow.pyfunc.log_model(
-            name="test_model", python_model=predict, input_example=["string"]
-        )
-
-    assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
-    assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
-    assert model_info1.signature == model_info2.signature
-    assert model_info1.signature._is_signature_from_type_hint is True
-    assert model_info2.signature._is_signature_from_type_hint is True
-
-
 def save_model_file_for_code_based_logging(type_hint, tmp_path, model_type, extra_def=""):
     if model_type == "callable":
         model_def = f"""
@@ -502,6 +484,7 @@ class TypeHintExample(NamedTuple):
         TypeHintExample("list[list[str]]", [["a"], ["b"]]),
         TypeHintExample("list[dict[str, int]]", [{"a": 1}]),
         TypeHintExample("list[Union[int, str]]", [123, "abc"]),
+        TypeHintExample("list[int | str]", [123, "abc"]),
         TypeHintExample(
             "list[CustomExample2]",
             [
