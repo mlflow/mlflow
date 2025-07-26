@@ -60,7 +60,7 @@ class ChatAgentMessage(BaseModel):
             content = values.get("content")
             tool_calls = values.get("tool_calls")
 
-        if not content and not tool_calls:
+        if content is None and tool_calls is None:
             raise ValueError("Either 'content' or 'tool_calls' must be provided.")
         return values
 
