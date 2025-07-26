@@ -153,7 +153,9 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
         (list[dict[str, list[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),
         (list[Dict[str, List[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),  # noqa: UP006
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())])),
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())])),  # _noqa: UP007
+        (list[int | str], Schema([ColSpec(type=AnyType())])),
+        (list[list[int | str]], Schema([ColSpec(type=Array(AnyType()))])),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())])),
         (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))])),
@@ -206,13 +208,22 @@ def test_infer_schema_from_type_hints_errors():
 
     message = r"Input cannot be Optional type"
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(Optional[list[str]])
+        _infer_schema_from_list_type_hint(Optional[list[str]])  # _noqa: UP045
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(list[Optional[str]])
+        _infer_schema_from_list_type_hint(list[str] | None)
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])
+        _infer_schema_from_list_type_hint(list[Optional[str]])  # _noqa: UP045
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[str | None])
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])  # _noqa: UP007
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[str | int | type(None)])
 
     with pytest.raises(
         MlflowException, match=r"Collections must have only a single type definition"
@@ -353,10 +364,13 @@ def test_pydantic_model_validation(type_hint, example):
         (list[list[str]], [["a", "b"], ["c", "d"]]),
         (dict[str, int], {"a": 1, "b": 2}),
         (dict[str, list[str]], {"a": ["a", "b"], "b": ["c", "d"]}),
-        (Union[int, str], 1),
-        (Union[int, str], "a"),
+        (Union[int, str], 1),  # _noqa: UP007
+        (Union[int, str], "a"),  # _noqa: UP007
+        (int | str, 1),
+        (int | str, "a"),
         # Union type is inferred as AnyType, so it accepts double here as well
-        (Union[int, str], 1.2),
+        (Union[int, str], 1.2),  # _noqa: UP007
+        (int | str, 1.2),
         (list[Any], [1, "a"]),
     ],
 )
@@ -405,34 +419,16 @@ def test_type_hints_validation_errors():
         _validate_data_against_type_hint(["a"], list)
 
 
-def test_type_hint_for_python_3_10():
-    assert _infer_schema_from_list_type_hint(list[bool | int | str]) == Schema(
-        [ColSpec(type=AnyType())]
-    )
-    assert _infer_schema_from_list_type_hint(list[list[int | str]]) == Schema(
-        [ColSpec(type=Array(AnyType()))]
-    )
-
-    class ToolDef(pydantic.BaseModel):
-        type: str
-        function: dict[str, str]
-
-    class Tool(pydantic.BaseModel):
-        tool_choice: str | ToolDef
-
-    assert _infer_schema_from_list_type_hint(list[Tool]) == Schema(
-        [ColSpec(type=Object([Property(name="tool_choice", dtype=AnyType())]))]
-    )
-
-
 @pytest.mark.parametrize(
     ("data", "type_hint", "expected_data"),
     [
         ("a", str, "a"),
         (["a", "b"], list[str], ["a", "b"]),
         ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
-        (1, Optional[int], 1),
-        (None, Optional[int], None),
+        (1, Optional[int], 1),  # _noqa: UP045
+        (1, int | None, 1),
+        (None, Optional[int], None),  # _noqa: UP045
+        (None, int | None, None),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
         # This is a temp workaround for evaluate

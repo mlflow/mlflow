@@ -2,6 +2,7 @@ import base64
 import logging
 from datetime import datetime
 from functools import lru_cache
+from types import UnionType
 from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_origin
 
 import pydantic
@@ -25,17 +26,10 @@ from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_dump_comp
 from mlflow.utils.warnings_utils import color_warning
 
 FIELD_TYPE = pydantic.fields.FieldInfo if IS_PYDANTIC_V2_OR_NEWER else pydantic.fields.ModelField
-_logger = logging.getLogger(__name__)
 NONE_TYPE = type(None)
-UNION_TYPES = (Union,)
-try:
-    # this import is only available in Python 3.10+
-    from types import UnionType
+UNION_TYPES = (Union, UnionType)
 
-    UNION_TYPES += (UnionType,)
-except ImportError:
-    pass
-
+_logger = logging.getLogger(__name__)
 # special type hint that can be used to convert data to
 # the input example type after data validation
 TypeFromExample = TypeVar("TypeFromExample")
