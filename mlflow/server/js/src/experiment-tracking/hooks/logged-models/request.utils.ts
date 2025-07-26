@@ -1,4 +1,5 @@
 import { matchPredefinedError } from '@databricks/web-shared/errors';
+import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 
 function serializeRequestBody(payload: any | FormData | Blob) {
   if (payload === undefined) {
@@ -15,10 +16,14 @@ export const loggedModelsDataRequest = async (
   method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,
 ) => {
+  const headers = {
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+    ...getDefaultHeaders(document.cookie),
+  };
   const response = await fetch(url, {
     method,
     body: serializeRequestBody(body),
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers,
   });
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
