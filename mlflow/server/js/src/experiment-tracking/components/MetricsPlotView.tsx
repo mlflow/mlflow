@@ -125,34 +125,85 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
 
   #annotationData = {};
 
+  state = {
+    showEvents: true,
+    showStages: true,
+  };
+
+  handleToggleEvents = () => {
+    this.setState((prev) => ({ showEvents: !prev.showEvents }));
+  };
+  handleToggleStages = () => {
+    this.setState((prev) => ({ showStages: !prev.showStages }));
+  };
+
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
-
     const deselectedCurvesSet = new Set(deselectedCurves);
     const shapes: any = [];
     const annotations: any = [];
+
+    // Load timeline annotations from events.json if available
+    // This is a placeholder for actual artifact loading logic
+    let timelineEvents: any[] = [];
+    if (window && window.mlflowEvents) {
+      timelineEvents = window.mlflowEvents;
+    }
+
+    // Add vertical lines for events and shaded regions for stages
+    timelineEvents.forEach((event) => {
+      if (event.type === 'event' && this.state.showEvents) {
+        shapes.push({
+          type: 'line',
+          x0: event.timestamp,
+          x1: event.timestamp,
+          yref: 'paper',
+          y0: 0,
+          y1: 1,
+          line: { color: 'red', width: 2, dash: 'dot' },
+        });
+        annotations.push({
+          x: event.timestamp,
+          y: 1,
+          yref: 'paper',
+          text: event.name,
+          showarrow: true,
+          arrowhead: 2,
+          ax: 0,
+          ay: -40,
+        });
+      } else if (event.type === 'stage' && event.start_time && this.state.showStages) {
+        shapes.push({
+          type: 'rect',
+          x0: event.start_time,
+          x1: event.timestamp,
+          yref: 'paper',
+          y0: 0,
+          y1: 1,
+          fillcolor: 'rgba(0, 128, 255, 0.2)',
+          line: { width: 0 },
+        });
+        annotations.push({
+          x: (event.start_time + event.timestamp) / 2,
+          y: 1,
+          yref: 'paper',
+          text: event.name,
+          showarrow: false,
+        });
+      }
+    });
 
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const historyValues = history.map((entry: any) =>
         typeof entry.value === 'number' ? entry.value : Number(entry.value),
       );
-      // For metrics with exactly one non-NaN item, we set `isSingleHistory` to `true` in order
-      // to display the item as a point. For metrics with zero non-NaN items (i.e., empty metrics),
-      // we also set `isSingleHistory` to `true` in order to populate the plot legend with a
-      // point-style entry for each empty metric, although no data will be plotted for empty
-      // metrics
       const isSingleHistory = historyValues.filter((value: any) => !isNaN(value)).length <= 1;
-
       const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ? true : 'legendonly';
-
       if (this.#annotationData && metricKey in this.#annotationData && visible === true) {
-        // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
         shapes.push(...this.#annotationData[metricKey].shapes);
-        // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
         annotations.push(...this.#annotationData[metricKey].annotations);
       }
-
       return {
         name: (MetricsPlotView as any).getLineLegend(metricKey, runDisplayName, isComparing),
         x: (MetricsPlotView as any).getXValuesForLineChart(history, xAxis),
@@ -170,14 +221,12 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
       };
     });
     const props = { data };
-
     (props as any).layout = {
       ...(props as any).layout,
       ...this.props.extraLayout,
       shapes,
       annotations,
     };
-
     return props;
   };
 
@@ -241,6 +290,14 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
 
     return (
       <div className="metrics-plot-view-container">
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            <input type="checkbox" checked={this.state.showEvents} onChange={this.handleToggleEvents} /> Show Events
+          </label>
+          <label style={{ marginLeft: 16 }}>
+            <input type="checkbox" checked={this.state.showStages} onChange={this.handleToggleStages} /> Show Stages
+          </label>
+        </div>
         <LazyPlot
           {...plotProps}
           useResizeHandler

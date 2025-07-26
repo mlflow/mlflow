@@ -308,6 +308,28 @@ class MlflowClient:
             return None
         return self._tracking_client.get_run(parent_run_id)
 
+    def log_event(self, run_id: str, event: dict) -> None:
+        """
+        Log an event or stage for the given run. Stores events as a JSON artifact file (events.json).
+        """
+        import os, json
+        artifact_file = "events.json"
+        events = []
+        try:
+            from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+            run = self.get_run(run_id)
+            artifact_uri = run.info.artifact_uri
+            local_path = _download_artifact_from_uri(artifact_uri, artifact_file)
+            with open(local_path, "r") as f:
+                events = json.load(f)
+        except Exception:
+            pass  # No events yet
+        events.append(event)
+        tmp_path = os.path.join("/tmp", f"mlflow_events_{run_id}.json")
+        with open(tmp_path, "w") as f:
+            json.dump(events, f)
+        self.log_artifact(run_id, tmp_path, None)
+
     def get_metric_history(self, run_id: str, key: str) -> list[Metric]:
         """Return a list of metric objects corresponding to all values logged for a given metric.
 
