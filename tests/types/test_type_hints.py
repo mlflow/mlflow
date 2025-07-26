@@ -208,10 +208,16 @@ def test_infer_schema_from_type_hints_errors():
 
     message = r"Input cannot be Optional type"
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(Optional[list[str]])
+        _infer_schema_from_list_type_hint(Optional[list[str]])  # _noqa: UP045
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(list[Optional[str]])
+        _infer_schema_from_list_type_hint(list[str] | None)
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[Optional[str]])  # _noqa: UP045
+
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[str | None])
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])  # _noqa: UP007
@@ -419,8 +425,10 @@ def test_type_hints_validation_errors():
         ("a", str, "a"),
         (["a", "b"], list[str], ["a", "b"]),
         ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
-        (1, Optional[int], 1),
-        (None, Optional[int], None),
+        (1, Optional[int], 1),  # _noqa: UP045
+        (1, int | None, 1),
+        (None, Optional[int], None),  # _noqa: UP045
+        (None, int | None, None),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
         # This is a temp workaround for evaluate
