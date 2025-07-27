@@ -22,7 +22,10 @@ from mlflow.protos.databricks_trace_server_pb2 import (
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,
+    MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
+)
 
 
 def _create_trace_destination_proto(
@@ -347,11 +350,21 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
         table_prefix="trace_logs",
     )
 
-    # Validate set_experiment_tag was called with correct parameters
-    mock_client_instance.set_experiment_tag.assert_called_once_with(
+    # Validate set_experiment_tag was called twice with correct parameters
+    assert mock_client_instance.set_experiment_tag.call_count == 2
+
+    # Verify storage table tag
+    mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
         "catalog.schema.trace_logs_12345",  # tag value (the archival view name)
+    )
+
+    # Verify rolling deletion tag
+    mock_client_instance.set_experiment_tag.assert_any_call(
+        "12345",  # experiment_id
+        MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,  # tag key
+        "true",  # tag value
     )
     assert result == "catalog.schema.trace_logs_12345"
 
@@ -437,11 +450,21 @@ def test_successful_archival_with_prefix(
         expected_events_table,
     )
 
-    # Verify set_experiment_tag was called with correct parameters
-    mock_client_instance.set_experiment_tag.assert_called_once_with(
+    # Verify set_experiment_tag was called twice with correct parameters
+    assert mock_client_instance.set_experiment_tag.call_count == 2
+
+    # Verify storage table tag
+    mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
         expected_view_name,  # tag value (archival location)
+    )
+
+    # Verify rolling deletion tag
+    mock_client_instance.set_experiment_tag.assert_any_call(
+        "12345",  # experiment_id
+        MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,  # tag key
+        "true",  # tag value
     )
     assert result == expected_view_name
 
@@ -488,15 +511,33 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
     # Verify view was recreated 3 times (once per call)
     assert mock_create_view.call_count == 3
 
-    # Verify experiment tag was set 3 times (once per call)
-    assert mock_client_instance.set_experiment_tag.call_count == 3
+    # Verify experiment tag was set 6 times (2 tags per call, 3 calls total)
+    assert mock_client_instance.set_experiment_tag.call_count == 6
 
-    # Verify experiment tag was set with correct parameters
-    mock_client_instance.set_experiment_tag.assert_called_with(
-        "12345",  # experiment_id
-        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
-        "catalog.schema.trace_logs_12345",  # tag value
-    )
+    # Verify both tags were set in each call
+    # Storage table tag should be set 3 times
+    storage_tag_calls = [
+        call
+        for call in mock_client_instance.set_experiment_tag.call_args_list
+        if call[0][1] == MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
+    ]
+    assert len(storage_tag_calls) == 3
+    for call in storage_tag_calls:
+        assert call[0] == (
+            "12345",
+            MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
+            "catalog.schema.trace_logs_12345",
+        )
+
+    # Rolling deletion tag should be set 3 times
+    rolling_deletion_calls = [
+        call
+        for call in mock_client_instance.set_experiment_tag.call_args_list
+        if call[0][1] == MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED
+    ]
+    assert len(rolling_deletion_calls) == 3
+    for call in rolling_deletion_calls:
+        assert call[0] == ("12345", MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED, "true")
 
 
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
@@ -524,3 +565,56 @@ def test_enablement_failure_due_to_storage_config_conflict(
     # Verify view creation and tag setting were not called
     mock_create_view.assert_not_called()
     mock_client_instance.set_experiment_tag.assert_not_called()
+
+
+# Rolling deletion failure tests
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_rolling_deletion_tag_failure(mock_mlflow_client, mock_create_view, mock_trace_client):
+    """Test handling when setting the rolling deletion tag fails."""
+    # Create a valid config
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.spans",
+        events_table_name="catalog.schema.events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client to return valid config
+    mock_trace_client_instance = Mock()
+    mock_trace_client_instance.create_trace_destination.return_value = mock_config
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful view creation
+    mock_create_view.return_value = None
+
+    # Mock client operations - storage tag succeeds, rolling deletion tag fails
+    mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}
+    mock_client_instance.get_experiment.return_value = mock_experiment
+
+    # Configure set_experiment_tag to succeed for storage tag but fail for rolling deletion
+    def side_effect(experiment_id, tag_key, tag_value):
+        if tag_key == MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED:
+            raise Exception("Failed to set rolling deletion tag")
+        return None
+
+    mock_client_instance.set_experiment_tag.side_effect = side_effect
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        with pytest.raises(MlflowException, match="Failed to enable trace rolling deletion"):
+            enable_databricks_trace_archival("12345", "catalog", "schema")
+
+    # Verify that storage tag was attempted before failure
+    assert mock_client_instance.set_experiment_tag.call_count == 2
+    mock_client_instance.set_experiment_tag.assert_any_call(
+        "12345",
+        MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
+        "catalog.schema.trace_logs_12345",
+    )

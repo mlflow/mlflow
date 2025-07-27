@@ -77,6 +77,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 # Tracks the databricks trace storage table name
 MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE = "mlflow.experiment.databricksTraceStorageTable"
 
+# Enables rolling deletion for databricks trace archival
+MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED = "mlflow.experiment.traceRollingDeletionEnabled"
+
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 

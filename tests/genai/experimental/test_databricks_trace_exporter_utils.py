@@ -64,10 +64,11 @@ def test_create_archival_ingest_sdk_success(mock_host_creds, mock_workspace_id, 
         # Call the function
         result = create_archival_ingest_sdk()
 
-        # Verify SDK was created with correct parameters
-        expected_ingest_url = f"https://{mock_workspace_id}.ingest.cloud.databricks.com"
+        # Verify SDK was created with correct parameters (URLs without protocol)
+        expected_ingest_url = f"{mock_workspace_id}.ingest.cloud.databricks.com"
+        expected_workspace_url = "test-workspace.cloud.databricks.com"  # Protocol stripped
         mock_sdk_class.assert_called_once_with(
-            expected_ingest_url, mock_host_creds.host, mock_host_creds.token
+            expected_ingest_url, expected_workspace_url, mock_host_creds.token
         )
 
         # Verify result is the SDK instance
@@ -88,9 +89,9 @@ def test_create_archival_ingest_sdk_import_error():
 
 def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
     """Test SDK creation with environment variable overrides."""
-    # Set environment overrides
-    monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", "https://custom.ingest.url")
-    monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", "https://custom.workspace")
+    # Set environment overrides - these are returned as-is when env vars are set
+    monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", "custom.ingest.url")
+    monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", "custom.workspace")
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", "custom-token")
 
     with mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class:
@@ -98,8 +99,9 @@ def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
         result = create_archival_ingest_sdk()
 
         # Verify SDK was created with overridden values
+        # Note: env override values are used as-is
         mock_sdk_class.assert_called_once_with(
-            "https://custom.ingest.url", "https://custom.workspace", "custom-token"
+            "custom.ingest.url", "custom.workspace", "custom-token"
         )
 
         assert result == mock_sdk_class.return_value
@@ -161,13 +163,13 @@ def test_resolve_ingest_url_patterns(host_url, expected_suffix, mock_workspace_i
         ),
     ):
         result = _resolve_ingest_url()
-        expected = f"https://{mock_workspace_id}{expected_suffix}"
+        expected = f"{mock_workspace_id}{expected_suffix}"
         assert result == expected
 
 
 def test_resolve_ingest_url_with_env_override(monkeypatch):
-    """Test that environment variable override takes precedence."""
-    override_url = "https://override.ingest.url"
+    """Test that environment variable override takes precedence and is returned as-is."""
+    override_url = "override.ingest.url"  # No protocol prefix
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", override_url)
 
     # Should not even call get_databricks_host_creds
@@ -175,7 +177,7 @@ def test_resolve_ingest_url_with_env_override(monkeypatch):
         "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds"
     ) as mock_get_creds:
         result = _resolve_ingest_url()
-        assert result == override_url
+        assert result == override_url  # Returned as-is
         mock_get_creds.assert_not_called()
 
 
@@ -195,7 +197,7 @@ def test_resolve_ingest_url_with_trailing_slash_and_params(mock_workspace_id):
         ),
     ):
         result = _resolve_ingest_url()
-        expected = f"https://{mock_workspace_id}.ingest.cloud.databricks.com"
+        expected = f"{mock_workspace_id}.ingest.cloud.databricks.com"
         assert result == expected
 
 
@@ -250,7 +252,7 @@ def test_resolve_ingest_url_with_provided_workspace_id(mock_host_creds):
         # Should not call get_workspace_id when workspace_id is provided
         with mock.patch("mlflow.utils.databricks_utils.get_workspace_id") as mock_get_workspace_id:
             result = _resolve_ingest_url(workspace_id=provided_workspace_id)
-            expected = f"https://{provided_workspace_id}.ingest.cloud.databricks.com"
+            expected = f"{provided_workspace_id}.ingest.cloud.databricks.com"
             assert result == expected
             mock_get_workspace_id.assert_not_called()
 
@@ -261,26 +263,52 @@ def test_resolve_ingest_url_with_provided_workspace_id(mock_host_creds):
 
 
 def test_resolve_archival_workspace_url_normal(mock_host_creds):
-    """Test normal workspace URL resolution."""
+    """Test normal workspace URL resolution with protocol stripping."""
     with mock.patch(
         "mlflow.utils.databricks_utils.get_databricks_host_creds",
         return_value=mock_host_creds,
     ):
         result = _resolve_archival_workspace_url()
-        assert result == mock_host_creds.host
+        # Should strip https:// from the host URL
+        expected = "test-workspace.cloud.databricks.com"
+        assert result == expected
 
 
 def test_resolve_archival_workspace_url_with_env_override(monkeypatch):
-    """Test workspace URL with environment override."""
-    override_url = "https://override.workspace.url"
+    """Test workspace URL with environment override is returned as-is."""
+    override_url = "override.workspace.url"  # No protocol prefix
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", override_url)
 
     with mock.patch(
         "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds"
     ) as mock_get_creds:
         result = _resolve_archival_workspace_url()
-        assert result == override_url
+        assert result == override_url  # Returned as-is
         mock_get_creds.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("host_url", "expected"),
+    [
+        ("https://test.cloud.databricks.com", "test.cloud.databricks.com"),
+        ("http://test.cloud.databricks.com", "test.cloud.databricks.com"),
+        ("test.cloud.databricks.com", "test.cloud.databricks.com"),
+        ("https://test.cloud.databricks.com/", "test.cloud.databricks.com"),
+        ("https://test.cloud.databricks.com?param=value", "test.cloud.databricks.com"),
+        ("https://test.cloud.databricks.com/path?param=value", "test.cloud.databricks.com"),
+    ],
+)
+def test_resolve_archival_workspace_url_protocol_stripping(host_url, expected):
+    """Test workspace URL protocol stripping with various formats."""
+    mock_creds = mock.Mock()
+    mock_creds.host = host_url
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        return_value=mock_creds,
+    ):
+        result = _resolve_archival_workspace_url()
+        assert result == expected
 
 
 # =============================================================================

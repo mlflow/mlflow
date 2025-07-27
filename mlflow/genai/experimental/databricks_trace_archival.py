@@ -10,7 +10,10 @@ from mlflow.genai.experimental.databricks_trace_exporter_utils import Databricks
 from mlflow.tracking import MlflowClient
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,
+    MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -127,8 +130,20 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
               QUALIFY
                 ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
+            ),
+            -- 5. Extract the root span which contains the full request and response
+            -- and not previews from the trace snapshot event
+            root_span as (
+            SELECT
+                trace_id,
+                attributes['mlflow.spanInputs'] as request,
+                attributes['mlflow.spanOutputs'] as response
+            FROM
+                james_wu.shinkansen.trace_logs_experiment_6051921418418893_229546900166940_otel_spans
+            where
+                parent_span_id = ""
             )
-            -- 5. Main query - join the trace metadata with associated tags, assessments and spans.
+            -- 6. Main query - join the trace metadata with associated tags, assessments and spans.
             -- All transformation are moved here to keep the joins performant
             SELECT
               ts.trace_data:trace_id::STRING AS trace_id,
@@ -141,7 +156,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
               ts.trace_data:trace_metadata AS trace_metadata,
               COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
               ts.trace_data:trace_location AS trace_location,
-              spans,
+              sa.spans,
               COALESCE(
                 TRANSFORM(
                   aa.assessments,
@@ -186,7 +201,8 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
               trace_snapshots ts
               LEFT JOIN latest_tags lt ON ts.trace_id = lt.trace_id
               LEFT JOIN assessments_agg aa ON ts.trace_id = aa.trace_id
-              LEFT JOIN spans_agg sa ON ts.trace_id = sa.trace_id;
+              LEFT JOIN spans_agg sa ON ts.trace_id = sa.trace_id
+              LEFT JOIN root_span rs ON ts.trace_id = rs.trace_id;
             """
 
         spark.sql(query)
@@ -194,6 +210,31 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
 
     except Exception as e:
         raise MlflowException(f"Failed to create trace archival view {view_name}") from e
+
+
+def _enable_trace_rolling_deletion(experiment_id: str) -> None:
+    """
+    Enable rolling deletion for traces in the specified experiment.
+
+    This function sets an experiment tag to enable automatic rolling deletion
+    of traces based on the configured retention policy.
+
+    Args:
+        experiment_id: The MLflow experiment ID to enable rolling deletion for
+
+    Raises:
+        MlflowException: If setting the experiment tag fails
+    """
+    try:
+        _logger.debug(f"Enabling trace rolling deletion for experiment {experiment_id}")
+        MlflowClient().set_experiment_tag(
+            experiment_id, MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED, "true"
+        )
+        _logger.debug(f"Successfully enabled trace rolling deletion for experiment {experiment_id}")
+    except Exception as e:
+        error_msg = f"Failed to enable trace rolling deletion for experiment {experiment_id}: {e!s}"
+        _logger.error(error_msg)
+        raise MlflowException(error_msg) from e
 
 
 def _do_enable_databricks_archival(
@@ -256,6 +297,9 @@ def _do_enable_databricks_archival(
         MlflowClient().set_experiment_tag(
             experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location
         )
+
+        # 6. Enable rolling deletion for the experiment
+        _enable_trace_rolling_deletion(experiment_id)
 
         _logger.info(
             f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "

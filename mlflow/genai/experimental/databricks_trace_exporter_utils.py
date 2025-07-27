@@ -103,7 +103,7 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
     Example:
         >>> ingest_url = resolve_ingest_url()
         >>> print(ingest_url)
-        https://12345.ingest.staging.cloud.databricks.com
+        12345.ingest.staging.cloud.databricks.com
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL
     from mlflow.exceptions import MlflowException
@@ -145,20 +145,20 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
         # AWS patterns - check in order of specificity
         if re.search(r"\.dev\.databricks\.com$", host_url):
             # AWS Dev: *.dev.databricks.com → workspace_id.ingest.dev.cloud.databricks.com
-            ingest_url = f"https://{workspace_id}.ingest.dev.cloud.databricks.com"
+            ingest_url = f"{workspace_id}.ingest.dev.cloud.databricks.com"
             _logger.debug(f"Resolved AWS dev ingest URL: {ingest_url}")
             return ingest_url
 
         elif re.search(r"\.staging\.cloud\.databricks\.com$", host_url):
             # AWS Staging: *.staging.cloud.databricks.com →
             # workspace_id.ingest.staging.cloud.databricks.com
-            ingest_url = f"https://{workspace_id}.ingest.staging.cloud.databricks.com"
+            ingest_url = f"{workspace_id}.ingest.staging.cloud.databricks.com"
             _logger.debug(f"Resolved AWS staging ingest URL: {ingest_url}")
             return ingest_url
 
         elif re.search(r"\.cloud\.databricks\.com$", host_url):
             # AWS Prod: *.cloud.databricks.com → workspace_id.ingest.cloud.databricks.com
-            ingest_url = f"https://{workspace_id}.ingest.cloud.databricks.com"
+            ingest_url = f"{workspace_id}.ingest.cloud.databricks.com"
             _logger.debug(f"Resolved AWS prod ingest URL: {ingest_url}")
             return ingest_url
 
@@ -166,13 +166,13 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
         elif re.search(r"\.staging\.azuredatabricks\.net$", host_url):
             # Azure Staging: *.staging.azuredatabricks.net →
             # workspace_id.ingest.staging.azuredatabricks.net
-            ingest_url = f"https://{workspace_id}.ingest.staging.azuredatabricks.net"
+            ingest_url = f"{workspace_id}.ingest.staging.azuredatabricks.net"
             _logger.debug(f"Resolved Azure staging ingest URL: {ingest_url}")
             return ingest_url
 
         elif re.search(r"\.azuredatabricks\.net$", host_url):
             # Azure Prod: *.azuredatabricks.net → workspace_id.ingest.azuredatabricks.net
-            ingest_url = f"https://{workspace_id}.ingest.azuredatabricks.net"
+            ingest_url = f"{workspace_id}.ingest.azuredatabricks.net"
             _logger.debug(f"Resolved Azure prod ingest URL: {ingest_url}")
             return ingest_url
 
@@ -210,7 +210,7 @@ def _resolve_archival_workspace_url() -> str:
     Example:
         >>> workspace_url = resolve_archival_workspace_url()
         >>> print(workspace_url)
-        https://my-workspace.cloud.databricks.com
+        my-workspace.cloud.databricks.com
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL
     from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -223,8 +223,17 @@ def _resolve_archival_workspace_url() -> str:
 
     # Get workspace URL from Databricks host credentials
     host_creds = get_databricks_host_creds()
-    _logger.debug(f"Using workspace URL from host credentials: {host_creds.host}")
-    return host_creds.host
+    workspace_url = host_creds.host
+
+    # Remove protocol if present to ensure consistency with ingest URL format
+    if workspace_url.startswith(("http://", "https://")):
+        workspace_url = workspace_url.split("://", 1)[1]
+
+    # Remove trailing slash and query parameters
+    workspace_url = workspace_url.split("/")[0].split("?")[0]
+
+    _logger.debug(f"Using workspace URL from host credentials: {workspace_url}")
+    return workspace_url
 
 
 def _resolve_archival_token() -> str:
