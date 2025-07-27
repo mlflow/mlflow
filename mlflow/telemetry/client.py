@@ -317,8 +317,9 @@ class TelemetryClient:
             except Exception:
                 pass
 
-    def _join_threads(self):
+    def _clean_up(self):
         """Join all threads"""
+        self.flush(terminate=True)
         for thread in self._consumer_threads:
             if thread.is_alive():
                 thread.join(timeout=1)

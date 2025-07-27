@@ -463,6 +463,7 @@ def test_set_telemetry_client_non_blocking():
     assert client is not None
     time.sleep(1.1)
     assert not any(thread.name.startswith("GetTelemetryConfig") for thread in threading.enumerate())
+    client._clean_up()
 
 
 @pytest.mark.parametrize(
@@ -554,6 +555,7 @@ def test_client_get_config_not_none():
             disable_events=set(),
             **default_configs,
         )
+        client._clean_up()
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
         mock_requests.return_value = mock.Mock(
@@ -575,7 +577,7 @@ def test_client_get_config_not_none():
             disable_events=set(),
             **default_configs,
         )
-
+        client._clean_up()
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
         mock_requests.return_value = mock.Mock(
             status_code=200,
@@ -608,6 +610,7 @@ def test_client_get_config_not_none():
                 disable_events=set(),
                 **default_configs,
             )
+            client._clean_up()
 
         with mock.patch("mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW):
             client = TelemetryClient()
@@ -617,6 +620,7 @@ def test_client_get_config_not_none():
                 disable_events=set(),
                 **default_configs,
             )
+            client._clean_up()
 
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests:
         mock_requests.return_value = mock.Mock(
@@ -637,6 +641,7 @@ def test_client_get_config_not_none():
         client = TelemetryClient()
         client._get_config()
         assert client._batch_size == 100
+        client._clean_up()
 
 
 @pytest.mark.no_mock_telemetry_client
@@ -686,6 +691,7 @@ def test_get_config_disable_non_windows():
             disable_events=set(),
             **default_configs,
         )
+        client._clean_up()
 
 
 @pytest.mark.no_mock_telemetry_client
@@ -735,6 +741,7 @@ def test_get_config_windows():
             disable_events=set(),
             **default_configs,
         )
+        client._clean_up()
 
 
 @pytest.mark.no_mock_telemetry_client
@@ -787,6 +794,7 @@ def test_records_not_dropped_when_fetching_config(mock_requests, terminate):
         assert client._queue.qsize() == 1
         time.sleep(1)
         assert len(mock_requests) == 1
+        client._clean_up()
 
 
 @pytest.mark.no_mock_telemetry_client
@@ -811,7 +819,7 @@ def test_records_not_processed_when_fetching_config_failed(mock_requests, termin
         assert len(mock_requests) == 0
 
         # clean up
-        client._join_threads()
+        client._clean_up()
 
 
 @pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
@@ -836,7 +844,7 @@ def test_config_fetch_no_retry(mock_requests, error_code):
         assert len(mock_requests) == 0
         mock_requests.clear()
         # clean up
-        client._join_threads()
+        client._clean_up()
         assert get_telemetry_client() is None
 
 
@@ -866,7 +874,7 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
         client.flush(terminate=terminate)
         assert len(mock_requests) == 0
         # clean up
-        client._join_threads()
+        client._clean_up()
         assert get_telemetry_client() is None
 
 
@@ -903,3 +911,4 @@ def test_disable_events(mock_requests):
             validate_telemetry_record(
                 client, mock_requests, CreateRunEvent.name, check_params=False
             )
+        client._clean_up()

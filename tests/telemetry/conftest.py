@@ -5,7 +5,7 @@ import pytest
 
 import mlflow
 import mlflow.telemetry.utils
-from mlflow.telemetry.client import TelemetryClient, get_telemetry_client
+from mlflow.telemetry.client import TelemetryClient, _set_telemetry_client, get_telemetry_client
 from mlflow.version import VERSION
 
 
@@ -14,8 +14,9 @@ def terminate_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
-        client.flush(terminate=True)
-        client._join_threads()
+        client._clean_up()
+        # set to None to avoid side effect in other tests
+        _set_telemetry_client(None)
 
 
 @pytest.fixture
@@ -78,8 +79,7 @@ def mock_telemetry_client(request):
         while not client._is_config_fetched:
             time.sleep(0.1)
         yield client
-        client.flush(terminate=True)
-        client._join_threads()
+        client._clean_up()
 
 
 @pytest.fixture

@@ -23,7 +23,7 @@ class TestEvent(Event):
     name = "test_event"
 
 
-def test_track_api_usage(mock_requests, mock_telemetry_client: TelemetryClient):
+def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClient):
     assert len(mock_requests) == 0
 
     @record_usage_event(TestEvent)
@@ -86,7 +86,7 @@ def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient):
         ("DO_NOT_TRACK", "false", TelemetryClient),
     ],
 )
-def test_track_api_usage_respect_env_var(
+def test_record_usage_event_respect_env_var(
     monkeypatch, env_var, value, expected_result, bypass_env_check
 ):
     monkeypatch.setenv(env_var, value)
@@ -98,27 +98,32 @@ def test_track_api_usage_respect_env_var(
         assert telemetry_client is None
     else:
         assert isinstance(telemetry_client, expected_result)
+        telemetry_client._clean_up()
 
 
-def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests, bypass_env_check):
-    telemetry_client = get_telemetry_client()
-    assert isinstance(telemetry_client, TelemetryClient)
+def test_record_usage_event_update_env_var_after_import(
+    monkeypatch, mock_requests, mock_telemetry_client
+):
+    assert isinstance(mock_telemetry_client, TelemetryClient)
 
     @record_usage_event(TestEvent)
     def test_func():
         pass
 
-    test_func()
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ):
+        test_func()
 
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 1
-    record = mock_requests[0]["data"]
-    assert record["event_name"] == TestEvent.name
+        mock_telemetry_client.flush()
+        assert len(mock_requests) == 1
+        record = mock_requests[0]["data"]
+        assert record["event_name"] == TestEvent.name
 
-    monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
-    test_func()
-    # no new record should be added
-    assert len(mock_requests) == 1
+        monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
+        test_func()
+        # no new record should be added
+        assert len(mock_requests) == 1
 
 
 @pytest.mark.no_mock_telemetry_client
@@ -156,6 +161,8 @@ def test_is_telemetry_disabled_for_event():
             assert _is_telemetry_disabled_for_event(CreateLoggedModelEvent) is False
             # event in disable_events, skip
             assert _is_telemetry_disabled_for_event(TestEvent) is True
+        # clean up
+        client._clean_up()
 
     # test telemetry disabled after config is fetched
     def mock_requests_get(*args, **kwargs):
@@ -180,3 +187,5 @@ def test_is_telemetry_disabled_for_event():
             assert client.config is None
             # global telemetry client is set to None when telemetry is disabled
             mock_set_telemetry_client.assert_called_once_with(None)
+        # clean up
+        client._clean_up()

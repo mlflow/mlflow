@@ -342,5 +342,4 @@ def clean_up_telemetry_threads():
     yield
     client = get_telemetry_client()
     if client:
-        client.flush(terminate=True)
-        client._join_threads()
+        client._clean_up()
