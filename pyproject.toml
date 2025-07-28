@@ -228,13 +228,13 @@ select = [
   "SIM910",  # dict-get-with-none-default
   "T20",     # flake8-print
   "TID251",  # banned-api
-  "TID252",  # relative-improt
+  "TID252",  # relative-import
   "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
   "UP008",   # super-call-with-parameters
   "UP011",   # lru-cache-without-parameters
-  "UP012",   # unecessary-encode-utf8
+  "UP012",   # unnecessary-encode-utf8
   "UP015",   # redundant-open-modes
   "UP030",   # format-literals
   "UP031",   # printf-string-format
