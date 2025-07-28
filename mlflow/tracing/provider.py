@@ -62,6 +62,7 @@ def _init_trace_user_destination():
     if MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get():
         _MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
     else:
+
         class _TraceUserDestination:
             def __init__(self):
                 self.value = None

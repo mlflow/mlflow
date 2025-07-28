@@ -2176,7 +2176,7 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
     assert trace.info.state == TraceState.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 3}'
     assert len(trace.data.spans) == 2
-    assert trace.data.spans[0].inputs == {'x': 3}
+    assert trace.data.spans[0].inputs == {"x": 3}
     assert trace.data.spans[1].inputs == 4
 
     traces = get_traces(experiment_id2)
@@ -2188,5 +2188,5 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
     assert trace.info.state == TraceState.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 40}'
     assert len(trace.data.spans) == 2
-    assert trace.data.spans[0].inputs == {'x': 40}
+    assert trace.data.spans[0].inputs == {"x": 40}
     assert trace.data.spans[1].inputs == 41
