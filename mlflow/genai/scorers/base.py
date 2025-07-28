@@ -388,11 +388,40 @@ class Scorer(BaseModel):
         """
         Register this scorer with the MLflow server.
 
+        This method registers the scorer for use with automatic trace evaluation in the
+        specified experiment. Once registered, the scorer can be started to begin
+        evaluating traces automatically.
+
         Args:
             name: Optional name for the server-side scorer. If not provided, uses the scorer's name.
+            experiment_id: The ID of the MLflow experiment to register the scorer for.
+                If None, uses the currently active experiment.
 
         Returns:
-            A new Scorer instance with server registration.
+            A new Scorer instance with server registration information.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery
+
+                # Register a built-in scorer
+                mlflow.set_experiment("my_genai_app")
+                registered_scorer = RelevanceToQuery.register(name="relevance_scorer")
+                print(f"Registered scorer: {registered_scorer._server_name}")
+
+                # Register a custom scorer
+                from mlflow.genai.scorers import scorer
+
+                @scorer
+                def custom_length_check(outputs) -> bool:
+                    return len(outputs) > 100
+
+                registered_custom = custom_length_check.register(
+                    name="output_length_checker",
+                    experiment_id="12345"
+                )
         """
         from mlflow.genai.scorers.registry import add_registered_scorer
 
@@ -429,12 +458,44 @@ class Scorer(BaseModel):
         """
         Start registered scoring with the specified sampling configuration.
 
+        This method activates automatic trace evaluation for the scorer. The scorer will
+        evaluate traces based on the provided sampling configuration, including the
+        sample rate and optional filter criteria.
+
         Args:
-            sample_rate: Fraction of traces to evaluate (0.0 to 1.0).
-            filter_string: Optional MLflow search_traces compatible filter string.
+            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
+                - filter_string: Optional MLflow search_traces compatible filter string.
 
         Returns:
             A new Scorer instance with updated sampling configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start scorer with 50% sampling rate
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=0.5
+                    )
+                )
+                print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
+
+                # Start scorer with filter to only evaluate specific traces
+                filtered_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=1.0,
+                        filter_string="YOUR_FILTER_STRING"
+                    )
+                )
         """
         from mlflow.genai.scorers.registry import update_registered_scorer
 
@@ -462,12 +523,48 @@ class Scorer(BaseModel):
         """
         Update the sampling configuration for this scorer.
 
+        This method modifies the sampling rate and/or filter criteria for an already
+        registered scorer. It can be used to dynamically adjust how many traces are
+        evaluated or change the filtering criteria without stopping and restarting
+        the scorer.
+
         Args:
-            sample_rate: New fraction of traces to evaluate (0.0 to 1.0).
-            filter_string: New MLflow search_traces compatible filter string.
+            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
+                - filter_string: New MLflow search_traces compatible filter string. Optional.
 
         Returns:
             A new Scorer instance with updated configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start scorer with initial configuration
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.1)
+                )
+
+                # Update to increase sampling rate during high traffic
+                updated_scorer = active_scorer.update(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+                )
+                print(f"Updated sample rate: {updated_scorer.sample_rate}")
+
+                # Update to add filtering criteria
+                filtered_scorer = updated_scorer.update(
+                    sampling_config=ScorerSamplingConfig(
+                        filter_string="YOUR_FILTER_STRING"
+                    )
+                )
+                print(f"Added filter: {filtered_scorer.filter_string}")
         """
         from mlflow.genai.scorers.registry import update_registered_scorer
 
@@ -489,8 +586,39 @@ class Scorer(BaseModel):
         """
         Stop registered scoring by setting sample rate to 0.
 
+        This method deactivates automatic trace evaluation for the scorer while keeping
+        the scorer registered. The scorer can be restarted later using the start() method.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
         Returns:
             A new Scorer instance with sample rate set to 0.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start and then stop a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+                )
+                print(f"Scorer is active: {active_scorer.sample_rate > 0}")
+
+                # Stop the scorer
+                stopped_scorer = active_scorer.stop()
+                print(f"Scorer is active: {stopped_scorer.sample_rate > 0}")
+
+                # The scorer remains registered and can be restarted later
+                restarted_scorer = stopped_scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
+                )
         """
         self._check_can_be_registered()
 
@@ -506,8 +634,41 @@ class Scorer(BaseModel):
         """
         Delete this scorer from the server.
 
+        This method permanently removes the scorer registration from the MLflow server.
+        After deletion, the scorer will no longer evaluate traces automatically and
+        must be registered again if needed.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
         Returns:
-            A new Scorer instance with cleared server registration.
+            None
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, list_scorers
+
+                # Register and start a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register(name="relevance_checker")
+
+                # List current scorers
+                scorers = list_scorers()
+                print(f"Active scorers: {[s.name for s in scorers]}")
+
+                # Delete the scorer
+                scorer.delete()
+
+                # Verify deletion
+                scorers_after = list_scorers()
+                print(f"Active scorers after deletion: {[s.name for s in scorers_after]}")
+
+                # To use the scorer again, it must be re-registered
+                new_scorer = relevance.register(name="relevance_checker_v2")
         """
         self._check_can_be_registered()
 
