@@ -6,6 +6,7 @@ evaluate traces in MLflow experiments.
 """
 from typing import Optional
 
+from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.utils.annotations import experimental
 
@@ -15,8 +16,18 @@ _ERROR_MSG = (
 )
 
 
+def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
+    scorer = scheduled_scorer.scorer
+    scorer._server_name = scheduled_scorer.scheduled_scorer_name
+    scorer._sampling_config = ScorerSamplingConfig(
+        sample_rate=scheduled_scorer.sample_rate,
+        filter_string=scheduled_scorer.filter_string,
+    )
+    return scorer
+
+
 @experimental(version="3.0.0")
-def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Scorer]:
+def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
     """
     List all registered scorers for an experiment.
 
@@ -55,25 +66,18 @@ def list_scorers(*, experiment_id: Optional[str] = None, **kwargs) -> list[Score
         raise ImportError(_ERROR_MSG) from e
     
     # Get scheduled scorers from the server
-    scheduled_scorers = list_scheduled_scorers(experiment_id, **kwargs)
+    scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
     
     # Convert to Scorer instances with registration info
     scorers = []
     for scheduled_scorer in scheduled_scorers:
-        scorer = scheduled_scorer.scorer
-        # Set the registered scorer fields
-        scorer._server_name = scheduled_scorer.scheduled_scorer_name
-        scorer._sampling_config = ScorerSamplingConfig(
-            sample_rate=scheduled_scorer.sample_rate,
-            filter_string=scheduled_scorer.filter_string,
-        )
-        scorers.append(scorer)
+        scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
     
     return scorers
 
 
 @experimental(version="3.0.0")
-def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> Scorer:
+def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
     """
     Retrieve a specific registered scorer by name.
 
@@ -111,70 +115,73 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None, **kwargs) -> S
     scheduled_scorer = get_scheduled_scorer(
         scheduled_scorer_name=name,
         experiment_id=experiment_id,
-        **kwargs
     )
     
     # Extract the scorer and set registration fields
-    scorer = scheduled_scorer.scorer
-    scorer._server_name = scheduled_scorer.scheduled_scorer_name
-    scorer._sampling_config = ScorerSamplingConfig(
-        sample_rate=scheduled_scorer.sample_rate,
-        filter_string=scheduled_scorer.filter_string,
-    )
-    return scorer
+    return _scheduled_scorer_to_scorer(scheduled_scorer)
 
 
 # Private functions for internal use by Scorer methods
-def _add_registered_scorer(
+def add_registered_scorer(
     *,
-    scheduled_scorer_name: str,
+    name: str,
     scorer: Scorer,
     sample_rate: float,
     filter_string: Optional[str] = None,
     experiment_id: Optional[str] = None,
-    **kwargs,
-):
+) -> Scorer:
     """Internal function to add a registered scorer."""
     try:
         from databricks.agents.scorers import add_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
     
-    return add_scheduled_scorer(
-        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
+    scheduled_scorer = add_scheduled_scorer(
+        experiment_id=experiment_id,
+        scheduled_scorer_name=name,
+        scorer=scorer,
+        sample_rate=sample_rate,
+        filter_string=filter_string,
     )
+    return _scheduled_scorer_to_scorer(scheduled_scorer)
 
 
-def _update_registered_scorer(
+def update_registered_scorer(
     *,
-    scheduled_scorer_name: str,
+    name: str,
     scorer: Optional[Scorer] = None,
     sample_rate: Optional[float] = None,
     filter_string: Optional[str] = None,
     experiment_id: Optional[str] = None,
-    **kwargs,
-):
+) -> Scorer:
     """Internal function to update a registered scorer."""
     try:
         from databricks.agents.scorers import update_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
     
-    return update_scheduled_scorer(
-        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
+    scheduled_scorer = update_scheduled_scorer(
+        experiment_id=experiment_id,
+        scheduled_scorer_name=name,
+        scorer=scorer,
+        sample_rate=sample_rate,
+        filter_string=filter_string,
     )
+    return _scheduled_scorer_to_scorer(scheduled_scorer)
 
 
-def _delete_registered_scorer(
+def delete_registered_scorer(
     *,
-    scheduled_scorer_name: str,
+    name: str,
     experiment_id: Optional[str] = None,
-    **kwargs,
-):
+) -> None:
     """Internal function to delete a registered scorer."""
     try:
         from databricks.agents.scorers import delete_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
     
-    return delete_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
+    delete_scheduled_scorer(
+        experiment_id=experiment_id,
+        scheduled_scorer_name=name,
+    )

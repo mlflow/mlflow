@@ -12,9 +12,9 @@ from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.registry import (
-    _add_registered_scorer,
-    _update_registered_scorer,
-    _delete_registered_scorer,
+    add_registered_scorer,
+    update_registered_scorer,
+    delete_registered_scorer,
 )
 from mlflow.utils.annotations import experimental
 
@@ -225,12 +225,6 @@ class Scorer(BaseModel):
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         
-        # Restore registered scorer fields
-        if serialized.server_name:
-            object.__setattr__(scorer_instance, "_server_name", serialized.server_name)
-        if serialized.sampling_config:
-            object.__setattr__(scorer_instance, "_sampling_config", ScorerSamplingConfig(**serialized.sampling_config))
-        
         return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
@@ -382,7 +376,7 @@ class Scorer(BaseModel):
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
-    def register(self, name: Optional[str] = None) -> "Scorer":
+    def register(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
 
@@ -399,20 +393,28 @@ class Scorer(BaseModel):
         new_scorer = self._create_copy()
         
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        _add_registered_scorer(
-            scheduled_scorer_name=server_name,
+        add_registered_scorer(
+            name=server_name,
             scorer=self,
             sample_rate=0.0,
             filter_string=None,
+            experiment_id=experiment_id,
         )
         
         # Set the server name and sampling config on the new instance
         new_scorer._server_name = server_name
-        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0)
+        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
         
         return new_scorer
 
-    def start(self, sample_rate: float, filter_string: Optional[str] = None) -> "Scorer":
+    def start(
+        self,
+        *,
+        name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        sample_rate: float,
+        filter_string: Optional[str] = None,
+    ) -> "Scorer":
         """
         Start registered scoring with the specified sampling configuration.
 
@@ -423,27 +425,35 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with updated sampling configuration.
         """
-        if not self._server_name:
+        if not name and not self._server_name:
             raise MlflowException(
                 "Scorer must be registered before starting. Use scorer.register() first."
             )
         
         # Update the scorer on the server
-        _update_registered_scorer(
-            scheduled_scorer_name=self._server_name,
+        update_registered_scorer(
+            name=self._server_name,
+            scorer=self,
             sample_rate=sample_rate,
             filter_string=filter_string,
+            experiment_id=experiment_id,
         )
         
         # Create a new scorer instance with updated sampling config
         new_scorer = self._create_copy()
-        object.__setattr__(new_scorer, "_server_name", self._server_name)
-        object.__setattr__(new_scorer, "_sampling_config", 
-                         ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string))
+        new_scorer._server_name = self._server_name
+        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string)
         
         return new_scorer
 
-    def update(self, sample_rate: Optional[float] = None, filter_string: Optional[str] = None) -> "Scorer":
+    def update(
+        self,
+        *,
+        name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        sample_rate: Optional[float] = None,
+        filter_string: Optional[str] = None
+    ) -> "Scorer":
         """
         Update the sampling configuration for this scorer.
 
@@ -464,30 +474,28 @@ class Scorer(BaseModel):
         new_filter_string = filter_string if filter_string is not None else self.filter_string
         
         # Update the scorer on the server
-        _update_registered_scorer(
-            scheduled_scorer_name=self._server_name,
+        return update_registered_scorer(
+            name=self._server_name,
+            scorer=self,
             sample_rate=new_sample_rate,
             filter_string=new_filter_string,
+            experiment_id=experiment_id,
         )
-        
-        # Create a new scorer instance with updated sampling config
-        new_scorer = self._create_copy()
-        object.__setattr__(new_scorer, "_server_name", self._server_name)
-        object.__setattr__(new_scorer, "_sampling_config", 
-                         ScorerSamplingConfig(sample_rate=new_sample_rate, filter_string=new_filter_string))
-        
-        return new_scorer
 
-    def stop(self) -> "Scorer":
+    def stop(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
         Returns:
             A new Scorer instance with sample rate set to 0.
         """
-        return self.update(sample_rate=0.0)
+        return self.update(
+            name=name,
+            experiment_id=experiment_id,
+            sample_rate=0.0,
+        )
 
-    def delete(self) -> "Scorer":
+    def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
         """
         Delete this scorer from the server.
 
@@ -499,15 +507,16 @@ class Scorer(BaseModel):
                 "Scorer is not registered on the server."
             )
         
-        from mlflow.genai.scorers.registry import _delete_registered_scorer
-        
         # Delete the scorer from the server
-        _delete_registered_scorer(scheduled_scorer_name=self._server_name)
+        delete_registered_scorer(
+            name=self._server_name,
+            experiment_id=experiment_id,
+        )
         
         # Create a new scorer instance without server registration
         new_scorer = self._create_copy()
-        object.__setattr__(new_scorer, "_server_name", None)
-        object.__setattr__(new_scorer, "_sampling_config", None)
+        new_scorer._server_name = None
+        new_scorer._sampling_config = None
         
         return new_scorer
 
