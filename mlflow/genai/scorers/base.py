@@ -88,11 +88,13 @@ class Scorer(BaseModel):
     _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
 
     @property
+    @experimental(version="3.2.0")
     def sample_rate(self) -> Optional[float]:
         """Get the sample rate for this scorer."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
+    @experimental(version="3.2.0")
     def filter_string(self) -> Optional[str]:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
@@ -379,6 +381,7 @@ class Scorer(BaseModel):
     def kind(self) -> ScorerKind:
         return ScorerKind.CLASS
 
+    @experimental(version="3.2.0")
     def register(
         self, *, name: Optional[str] = None, experiment_id: Optional[str] = None
     ) -> "Scorer":
@@ -415,6 +418,7 @@ class Scorer(BaseModel):
 
         return new_scorer
 
+    @experimental(version="3.2.0")
     def start(
         self,
         *,
@@ -447,6 +451,7 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
+    @experimental(version="3.2.0")
     def update(
         self,
         *,
@@ -479,6 +484,7 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
+    @experimental(version="3.2.0")
     def stop(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -495,6 +501,7 @@ class Scorer(BaseModel):
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 
+    @experimental(version="3.2.0")
     def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> None:
         """
         Delete this scorer from the server.

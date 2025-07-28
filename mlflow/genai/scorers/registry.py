@@ -27,7 +27,7 @@ def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Score
     return scorer
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.2.0")
 def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
     """
     List all registered scorers for an experiment.
@@ -77,7 +77,7 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
     return scorers
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.2.0")
 def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
     """
     Retrieve a specific registered scorer by name.
