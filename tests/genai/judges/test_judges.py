@@ -74,7 +74,7 @@ def test_sanitize_feedback_error():
 
 
 def test_meets_guidelines_happy_path():
-    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_judge:
+    with patch("databricks.agents.evals.judges.guidelines") as mock_judge:
         mock_judge.return_value = create_test_feedback("yes")
         result = judges.meets_guidelines(guidelines="test", context={"response": "test"})
 
@@ -113,7 +113,7 @@ def test_meets_guidelines_happy_path():
         ),
         (
             judges.meets_guidelines,
-            "guideline_adherence",
+            "guidelines",
             {"guidelines": "test", "context": {"response": "test"}},
         ),
     ],

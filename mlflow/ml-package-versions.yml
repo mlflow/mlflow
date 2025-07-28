@@ -297,7 +297,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.2.1"
+    minimum: "3.3.0"
     maximum: "4.0.0"
     java:
       "<= 3.4.1": "11"
@@ -312,9 +312,10 @@ spark:
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
-        python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
+        pushd mlflow/java/spark_2.13
+      else
+        pushd mlflow/java/spark_2.12
       fi
-      pushd mlflow/java/spark
       mvn package -DskipTests -q
       popd
 
