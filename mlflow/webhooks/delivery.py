@@ -12,12 +12,16 @@ import json
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
-from mlflow.environment_variables import MLFLOW_WEBHOOK_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS,
+    MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
+)
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
@@ -31,6 +35,12 @@ from mlflow.webhooks.types import (
 )
 
 _logger = logging.getLogger(__name__)
+
+# Thread pool for non-blocking webhook delivery
+_webhook_delivery_executor = ThreadPoolExecutor(
+    max_workers=MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS.get(),
+    thread_name_prefix="webhook-delivery",
+)
 
 
 def _generate_hmac_signature(secret: str, delivery_id: str, timestamp: str, payload: str) -> str:
@@ -101,22 +111,34 @@ def _send_webhook_request(
     return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=timeout)
 
 
+def _send_webhook_with_error_handling(
+    webhook: Webhook,
+    payload: WebhookPayload,
+    event: WebhookEvent,
+) -> None:
+    try:
+        _send_webhook_request(webhook, payload, event)
+    except Exception as e:
+        _logger.error(
+            f"Failed to send webhook to {webhook.url} for event {event}: {e}",
+            exc_info=True,
+        )
+
+
 def _deliver_webhook_impl(
     *,
     event: WebhookEvent,
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
-    # TODO: Make this non-blocking
     for webhook in store.list_webhooks():
         if webhook.status.is_active() and event in webhook.events:
-            try:
-                _send_webhook_request(webhook, payload, event)
-            except Exception as e:
-                _logger.error(
-                    f"Failed to send webhook to {webhook.url} for event {event}: {e}",
-                    exc_info=True,
-                )
+            _webhook_delivery_executor.submit(
+                _send_webhook_with_error_handling,
+                webhook,
+                payload,
+                event,
+            )
 
 
 def deliver_webhook(
