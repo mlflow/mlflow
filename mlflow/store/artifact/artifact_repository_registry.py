@@ -79,7 +79,7 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri, tracking_uri)
+        return repository(artifact_uri, tracking_uri=tracking_uri)
 
     def get_registered_artifact_repositories(self):
         """

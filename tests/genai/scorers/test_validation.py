@@ -135,7 +135,7 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
     mock_logger.info.assert_not_called()
 
 
-def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
+def test_global_guidelines_do_not_require_expectations(mock_logger):
     """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {

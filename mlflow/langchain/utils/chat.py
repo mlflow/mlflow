@@ -51,12 +51,16 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMe
     """
     if isinstance(lc_message, AIMessage):
         if tool_calls := _get_tool_calls_from_ai_message(lc_message):
+            content = lc_message.content
+            # For Anthropic model tool calls are returned twice so we need to filter them out
+            if isinstance(content, list):
+                content = [c for c in content if c["type"] != "tool_use"]
             return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string
                 # according to the OpenAI spec, which ChatMessage is following
                 # Ref: https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/partners/openai/langchain_openai/chat_models/base.py#L116-L117
-                content=lc_message.content or None,
+                content=content or None,
                 tool_calls=tool_calls,
             )
         else:
@@ -239,7 +243,9 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     return map(_convert, chunk_iter)
 
 
-def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[BaseMessage]]:
+def _convert_chat_request_or_throw(
+    chat_request: dict[str, Any],
+) -> list[Union[BaseMessage]]:
     model = ChatCompletionRequest.validate_compat(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
@@ -365,7 +371,9 @@ def parse_token_usage(
     return dict(aggregated) if aggregated else None
 
 
-def _parse_token_usage_from_generation(generation: Generation) -> Optional[dict[str, int]]:
+def _parse_token_usage_from_generation(
+    generation: Generation,
+) -> Optional[dict[str, int]]:
     message = getattr(generation, "message", None)
     if not message:
         return None
