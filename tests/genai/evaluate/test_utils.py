@@ -1,5 +1,4 @@
 import json
-import os
 from typing import Any, Literal
 from unittest.mock import patch
 
@@ -350,11 +349,6 @@ def test_input_is_optional_if_trace_is_provided(is_in_databricks):
         mock_evaluate.assert_called_once()
 
 
-# TODO: Remove this skip once databricks-agents 1.0 is released
-@pytest.mark.skipif(
-    os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipping test in CI because this test requires Agent SDK pre-release wheel",
-)
 @pytest.mark.parametrize("input_type", ["list", "pandas"])
 def test_scorer_receives_correct_data_with_trace_data(input_type):
     sample_data = get_test_traces(type=input_type)

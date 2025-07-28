@@ -129,8 +129,6 @@ class EvalResult:
     def to_pd_series(self) -> pd.Series:
         """Converts the EvalResult to a flattened pd.Series."""
         inputs = self.eval_item.to_dict()
-        # TODO: Uncomment once we support aggregating metrics
-        # metrics = self.get_metrics_dict()
         assessments = self.get_assessments_dict()
 
         # Merge dictionaries and convert to pd.Series
