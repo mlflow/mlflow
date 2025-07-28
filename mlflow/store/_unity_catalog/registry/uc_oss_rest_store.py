@@ -433,7 +433,7 @@ class UnityCatalogOssStore(BaseRestStore):
             is_oss=True,
         )
 
-    def _get_temporary_model_version_write_credentials_oss(  # noqa: D417
+    def _get_temporary_model_version_write_credentials_oss(
         self, model_name, catalog_name, schema_name, version
     ):
         """

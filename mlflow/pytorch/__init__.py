@@ -657,7 +657,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
+def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
