@@ -203,7 +203,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _upgrade_db(engine):  # noqa: D417
+def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
     Note that schema migrations can be slow and are not guaranteed to be transactional -
