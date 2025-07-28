@@ -52,7 +52,8 @@ class CustomExample(pydantic.BaseModel):
     bool_field: bool
     double_field: float
     any_field: Any
-    optional_str: Optional[str] = None
+    optional_str: Optional[str] = None  # _noqa: UP045
+    str_or_none: str | None = None
 
 
 class Message(pydantic.BaseModel):
@@ -63,7 +64,8 @@ class Message(pydantic.BaseModel):
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
-    optional_int: Optional[int] = None
+    optional_int: Optional[int] = None  # _noqa: UP045
+    int_or_none: int | None = None
 
 
 @pytest.mark.parametrize(
@@ -138,6 +140,7 @@ class CustomExample2(pydantic.BaseModel):
                                 Property(
                                     name="optional_str", dtype=DataType.string, required=False
                                 ),
+                                Property(name="str_or_none", dtype=DataType.string, required=False),
                             ]
                         )
                     ),
@@ -151,6 +154,7 @@ class CustomExample2(pydantic.BaseModel):
                     "double_field": 1.23,
                     "any_field": ["any", 123],
                     "optional_str": "optional",
+                    "str_or_none": "str_or_none",
                 }
             ],
         ),
@@ -174,6 +178,7 @@ class CustomExample2(pydantic.BaseModel):
                                     ),
                                 ),
                                 Property(name="optional_int", dtype=DataType.long, required=False),
+                                Property(name="int_or_none", dtype=DataType.long, required=False),
                             ]
                         )
                     )
@@ -184,6 +189,7 @@ class CustomExample2(pydantic.BaseModel):
                     "custom_field": {"a": 1},
                     "messages": [{"role": "admin", "content": "hello"}],
                     "optional_int": 123,
+                    "int_or_none": 456,
                 }
             ],
         ),
@@ -256,7 +262,8 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 class CustomExample3(pydantic.BaseModel):
     custom_field: dict[str, list[str]]
     messages: list[Message]
-    optional_int: Optional[int] = None
+    optional_int: Optional[int] = None  # _noqa: UP045
+    int_or_none: int | None = None
 
 
 @pytest.mark.parametrize(
@@ -303,6 +310,7 @@ class CustomExample3(pydantic.BaseModel):
                         ),
                     ),
                     StructField("optional_int", IntegerType()),
+                    StructField("int_or_none", IntegerType()),
                 ]
             ),
             [
@@ -313,6 +321,7 @@ class CustomExample3(pydantic.BaseModel):
                         {"role": "user", "content": "hi"},
                     ],
                     "optional_int": 123,
+                    "int_or_none": 456,
                 },
                 {
                     "custom_field": {"a": ["a", "b", "c"]},
@@ -320,6 +329,7 @@ class CustomExample3(pydantic.BaseModel):
                         {"role": "admin", "content": "hello"},
                     ],
                     "optional_int": None,
+                    "int_or_none": None,
                 },
             ],
         ),
