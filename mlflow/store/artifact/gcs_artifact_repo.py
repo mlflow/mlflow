@@ -43,9 +43,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def __init__(
         self,
         artifact_uri: str,
-        tracking_uri: Optional[str] = None,
         client=None,
         credential_refresh_def=None,
+        tracking_uri: Optional[str] = None,
     ) -> None:
         super().__init__(artifact_uri, tracking_uri)
         from google.auth.exceptions import DefaultCredentialsError

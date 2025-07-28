@@ -35,7 +35,7 @@ class SerializedScorer:
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
     builtin_scorer_class: Optional[str] = None
-    builtin_scorer_pydantic_data: Optional[dict[str, Any]] = None
+    builtin_scorer_pydantic_data: Optional[dict] = None
 
     # Decorator scorer fields (for @scorer decorated functions)
     call_source: Optional[str] = None
@@ -43,14 +43,21 @@ class SerializedScorer:
     original_func_name: Optional[str] = None
 
 
-@experimental(version="3.0.0")
+@experimental
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: Optional[list] = None
 
-    def model_dump(self, **kwargs) -> dict[str, Any]:
+    _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
+
+    def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
         # Create serialized scorer with core fields
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        if self._cached_dump is not None:
+            return self._cached_dump
+
         serialized = SerializedScorer(
             name=self.name,
             aggregations=self.aggregations,
@@ -79,7 +86,7 @@ class Scorer(BaseModel):
 
         return asdict(serialized)
 
-    def _extract_source_code_info(self) -> dict[str, Optional[str]]:
+    def _extract_source_code_info(self) -> dict:
         """Extract source code information for the original decorated function."""
         from mlflow.genai.scorers.scorer_utils import extract_function_body
 
@@ -165,7 +172,13 @@ class Scorer(BaseModel):
         # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
-        return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
+        scorer_instance = scorer(
+            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+        )
+        # Cache the serialized data to prevent re-serialization issues with dynamic functions
+        original_serialized_data = asdict(serialized)
+        object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
@@ -317,18 +330,13 @@ class Scorer(BaseModel):
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
 
-@experimental(version="3.0.0")
+@experimental
 def scorer(
     func=None,
     *,
     name: Optional[str] = None,
     aggregations: Optional[
-        list[
-            Union[
-                Literal["min", "max", "mean", "median", "variance", "p90", "p99"],
-                Callable[[list[Union[int, float]]], Union[int, float]],
-            ]
-        ]
+        list[Union[Literal["min", "max", "mean", "median", "variance", "p90", "p99"], Callable]]
     ] = None,
 ):
     """
@@ -464,7 +472,7 @@ def scorer(
 
     class CustomScorer(Scorer):
         # Store reference to the original function
-        _original_func: Optional[Callable[..., Any]] = PrivateAttr(default=None)
+        _original_func: Optional[Callable] = PrivateAttr(default=None)
 
         def __init__(self, **data):
             super().__init__(**data)

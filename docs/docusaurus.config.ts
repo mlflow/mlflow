@@ -267,7 +267,11 @@ const config: Config = {
             from: ['/tracing/faq'],
           },
           {
+<<<<<<< HEAD
             to: '/genai/tracing/data-model',
+=======
+            to: '/genai/tracing/concepts/trace',
+>>>>>>> v3.1.4
             from: ['/tracing/tracing-schema', '/llms/tracing/tracing-schema'],
           },
           {
@@ -385,6 +389,15 @@ const config: Config = {
           {
             to: '/genai',
             from: ['/tracing/tutorials'],
+<<<<<<< HEAD
+=======
+          },
+
+          // Tracing Redirects
+          {
+            to: '/genai/tracing/concepts/trace',
+            from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
+>>>>>>> v3.1.4
           },
 
           // LLM Flavors Redirects

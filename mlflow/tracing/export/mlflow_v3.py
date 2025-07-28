@@ -18,7 +18,6 @@ from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_stats_to_trace_metadata, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
-from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -30,13 +29,15 @@ class MlflowV3SpanExporter(SpanExporter):
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
+        self._client = TracingClient(tracking_uri)
 
-        # Display handler is no-op when running outside of notebooks.
-        self._display_handler = get_display_handler()
+        # Only display traces inline in Databricks notebooks
+        self._should_display_trace = is_in_databricks_notebook()
+        if self._should_display_trace:
+            self._display_handler = get_display_handler()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -64,7 +65,7 @@ class MlflowV3SpanExporter(SpanExporter):
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
                 _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
-            if not maybe_get_request_id(is_evaluate=True):
+            if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
             if self._should_log_async():
@@ -88,7 +89,7 @@ class MlflowV3SpanExporter(SpanExporter):
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
+                returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
@@ -110,11 +111,7 @@ class MlflowV3SpanExporter(SpanExporter):
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self):
-        if (
-            is_in_databricks_notebook()
-            # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
-            or not is_databricks_uri(self._client.tracking_uri)
-        ):
+        if is_in_databricks_notebook():
             # NB: We don't turn on async logging in Databricks notebook by default
             # until we are confident that the async logging is working on the
             # offline workload on Databricks, to derisk the inclusion to the
