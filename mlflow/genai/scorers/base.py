@@ -32,6 +32,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
+
     sample_rate: Optional[float] = None
     filter_string: Optional[str] = None
 
@@ -378,7 +379,9 @@ class Scorer(BaseModel):
     def kind(self) -> ScorerKind:
         return ScorerKind.CLASS
 
-    def register(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
+    def register(
+        self, *, name: Optional[str] = None, experiment_id: Optional[str] = None
+    ) -> "Scorer":
         """
         Register this scorer with the MLflow server.
 
@@ -389,14 +392,14 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration.
         """
         from mlflow.genai.scorers.registry import add_registered_scorer
-        
+
         self._check_can_be_registered()
 
         server_name = name or self.name
-        
+
         # Create a new scorer instance with the server name
         new_scorer = self._create_copy()
-        
+
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         add_registered_scorer(
             name=server_name,
@@ -405,11 +408,11 @@ class Scorer(BaseModel):
             filter_string=None,
             experiment_id=experiment_id,
         )
-        
+
         # Set the server name and sampling config on the new instance
         new_scorer._server_name = server_name
         new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
-        
+
         return new_scorer
 
     def start(
@@ -430,11 +433,11 @@ class Scorer(BaseModel):
             A new Scorer instance with updated sampling configuration.
         """
         from mlflow.genai.scorers.registry import update_registered_scorer
-        
+
         self._check_can_be_registered()
 
         scorer_name = name or self._server_name or self.name
-        
+
         # Update the scorer on the server
         return update_registered_scorer(
             name=scorer_name,
@@ -462,11 +465,11 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
         """
         from mlflow.genai.scorers.registry import update_registered_scorer
-        
+
         self._check_can_be_registered()
 
         scorer_name = name or self._server_name or self.name
-        
+
         # Update the scorer on the server
         return update_registered_scorer(
             name=scorer_name,
@@ -502,7 +505,7 @@ class Scorer(BaseModel):
         self._check_can_be_registered()
 
         from mlflow.genai.scorers.registry import delete_registered_scorer
-        
+
         scorer_name = name or self._server_name or self.name
         # Delete the scorer from the server
         delete_registered_scorer(
@@ -514,17 +517,20 @@ class Scorer(BaseModel):
         """
         Create a copy of this scorer instance.
         """
-        self._check_can_be_registered(error_message="Scorer must be a builtin or decorator scorer to be copied.")
+        self._check_can_be_registered(
+            error_message="Scorer must be a builtin or decorator scorer to be copied."
+        )
 
         return self.model_validate(self.model_dump())
 
     def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
-                error_message = f"Scorer must be a builtin or decorator scorer to be registered. Got {self.kind}."
-            raise MlflowException.invalid_parameter_value(
-                error_message
-            )
+                error_message = (
+                    "Scorer must be a builtin or decorator scorer to be registered. "
+                    f"Got {self.kind}."
+                )
+            raise MlflowException.invalid_parameter_value(error_message)
 
 
 @experimental(version="3.0.0")
@@ -690,7 +696,6 @@ def scorer(
         @property
         def kind(self) -> ScorerKind:
             return ScorerKind.DECORATOR
-
 
     # Update the __call__ method's signature to match the original function
     # but add 'self' as the first parameter. This is required for MLflow to

@@ -4,6 +4,7 @@ Registered scorer functionality for MLflow GenAI.
 This module provides functions to manage registered scorers that automatically
 evaluate traces in MLflow experiments.
 """
+
 from typing import Optional
 
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
@@ -64,15 +65,15 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
         from databricks.agents.scorers import list_scheduled_scorers
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    
+
     # Get scheduled scorers from the server
     scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
-    
+
     # Convert to Scorer instances with registration info
     scorers = []
     for scheduled_scorer in scheduled_scorers:
         scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
-    
+
     return scorers
 
 
@@ -99,10 +100,10 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
 
             # Get a specific scorer
             my_scorer = get_scorer(name="my_safety_scorer")
-            
+
             print(f"Sample rate: {my_scorer.sample_rate}")
             print(f"Filter: {my_scorer.filter_string}")
-            
+
             # Update the scorer
             my_scorer = my_scorer.update(sample_rate=0.5)
     """
@@ -110,13 +111,13 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
         from databricks.agents.scorers import get_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    
+
     # Get the scheduled scorer from the server
     scheduled_scorer = get_scheduled_scorer(
         scheduled_scorer_name=name,
         experiment_id=experiment_id,
     )
-    
+
     # Extract the scorer and set registration fields
     return _scheduled_scorer_to_scorer(scheduled_scorer)
 
@@ -135,7 +136,7 @@ def add_registered_scorer(
         from databricks.agents.scorers import add_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    
+
     scheduled_scorer = add_scheduled_scorer(
         experiment_id=experiment_id,
         scheduled_scorer_name=name,
@@ -159,7 +160,7 @@ def update_registered_scorer(
         from databricks.agents.scorers import update_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    
+
     scheduled_scorer = update_scheduled_scorer(
         experiment_id=experiment_id,
         scheduled_scorer_name=name,
@@ -180,7 +181,7 @@ def delete_registered_scorer(
         from databricks.agents.scorers import delete_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    
+
     delete_scheduled_scorer(
         experiment_id=experiment_id,
         scheduled_scorer_name=name,
