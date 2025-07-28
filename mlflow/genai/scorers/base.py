@@ -12,11 +12,6 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.registry import (
-    add_registered_scorer,
-    update_registered_scorer,
-    delete_registered_scorer,
-)
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -393,6 +388,8 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with server registration.
         """
+        from mlflow.genai.scorers.registry import add_registered_scorer
+        
         self._check_can_be_registered()
 
         server_name = name or self.name
@@ -432,6 +429,8 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with updated sampling configuration.
         """
+        from mlflow.genai.scorers.registry import update_registered_scorer
+        
         self._check_can_be_registered()
 
         scorer_name = name or self._server_name or self.name
@@ -462,6 +461,8 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with updated configuration.
         """
+        from mlflow.genai.scorers.registry import update_registered_scorer
+        
         self._check_can_be_registered()
 
         scorer_name = name or self._server_name or self.name
@@ -488,7 +489,7 @@ class Scorer(BaseModel):
         return self.update(
             name=scorer_name,
             experiment_id=experiment_id,
-            sample_rate=0.0,
+            sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 
     def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> None:
@@ -500,6 +501,8 @@ class Scorer(BaseModel):
         """
         self._check_can_be_registered()
 
+        from mlflow.genai.scorers.registry import delete_registered_scorer
+        
         scorer_name = name or self._server_name or self.name
         # Delete the scorer from the server
         delete_registered_scorer(
