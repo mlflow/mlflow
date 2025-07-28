@@ -971,7 +971,7 @@ def test_autolog_databricks_rm_retriever():
                 docs=["doc1", "doc2"],
                 doc_ids=["id1", "id2"],
                 doc_uris=["uri1", "uri2"] if self.retrieve_uri else None,
-                extra_columns=[{'author': 'Jim'}, {'author': 'tom'}]
+                extra_columns=[{"author": "Jim"}, {"author": "tom"}],
             )
 
     DatabricksRM.__module__ = "dspy.retrieve.databricks_rm"
@@ -994,21 +994,21 @@ def test_autolog_databricks_rm_retriever():
         assert spans[0].inputs == {"query": "test query"}
 
         if retrieve_uri:
-            uri1 = 'uri1'
-            uri2 = 'uri2'
+            uri1 = "uri1"
+            uri2 = "uri2"
         else:
             uri1 = None
             uri2 = None
 
         assert spans[0].outputs == [
             {
-                'page_content': 'doc1',
-                'metadata': {'doc_id': 'id1', 'doc_uri': uri1, 'author': 'Jim'},
-                'id': 'id1'
+                "page_content": "doc1",
+                "metadata": {"doc_id": "id1", "doc_uri": uri1, "author": "Jim"},
+                "id": "id1",
             },
             {
-                'page_content': 'doc2',
-                'metadata': {'doc_id': 'id2', 'doc_uri': uri2, 'author': 'tom'},
-                'id': 'id2'
-            }
+                "page_content": "doc2",
+                "metadata": {"doc_id": "id2", "doc_uri": uri2, "author": "tom"},
+                "id": "id2",
+            },
         ]
