@@ -6,7 +6,6 @@ import time
 from typing import Optional, Sequence
 
 from cachetools import TTLCache
-from ingest_api_sdk import TableProperties
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
@@ -16,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
     create_archival_ingest_sdk,
+    import_ingest_sdk_classes,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -32,6 +32,14 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 minutes
+
+try:
+    TableProperties, _ = import_ingest_sdk_classes()
+except ImportError:
+    # When ingest_api_sdk is not available, create a placeholder for type annotations
+    from typing import Any
+
+    TableProperties = Any
 
 
 class DatabricksDeltaArchivalMixin:
@@ -82,6 +90,11 @@ class DatabricksDeltaArchivalMixin:
 
             # Store configuration for this export
             self._spans_table_name = config.spans_table_name
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            TableProperties, _ = import_ingest_sdk_classes()
             self._spans_table_properties = TableProperties(
                 config.spans_table_name, DeltaProtoSpan.DESCRIPTOR
             )
@@ -350,7 +363,7 @@ class IngestStreamFactory:
     _atexit_registered = False
 
     @classmethod
-    def get_instance(cls, table_properties: TableProperties) -> "IngestStreamFactory":
+    def get_instance(cls, table_properties: "TableProperties") -> "IngestStreamFactory":
         """
         Get or create a singleton factory instance for the given table.
 
@@ -401,7 +414,11 @@ class IngestStreamFactory:
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
 
-            from ingest_api_sdk.shared.definitions import StreamState
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            _, StreamState = import_ingest_sdk_classes()
 
             # Invalidate the bad stream from the cache if stream is in a valid state
             if stream.get_state() not in [StreamState.OPENED, StreamState.FLUSHING]:

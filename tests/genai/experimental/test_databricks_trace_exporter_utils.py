@@ -94,7 +94,9 @@ def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", "custom.workspace")
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", "custom-token")
 
-    with mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class:
+    with (
+        mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
+    ):
         # Call the function
         result = create_archival_ingest_sdk()
 
