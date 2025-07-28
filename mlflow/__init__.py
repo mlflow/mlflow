@@ -30,12 +30,9 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 import contextlib
 from typing import TYPE_CHECKING
 
-from mlflow.telemetry import set_telemetry_client
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 __version__ = VERSION
-
-set_telemetry_client()
 
 import mlflow.mismatch
 
@@ -411,3 +408,7 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+from mlflow.telemetry import set_telemetry_client
+
+set_telemetry_client()
