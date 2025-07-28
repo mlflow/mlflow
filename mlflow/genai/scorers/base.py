@@ -2,6 +2,7 @@ import functools
 import inspect
 import logging
 from dataclasses import asdict, dataclass
+from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import BaseModel, PrivateAttr
@@ -22,6 +23,15 @@ _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+
+
+class ScorerKind(Enum):
+    CLASS = "class"
+    BUILTIN = "builtin"
+    DECORATOR = "decorator"
+
+
+_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
 @dataclass
@@ -53,10 +63,6 @@ class SerializedScorer:
     call_source: Optional[str] = None
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
-
-    # Registered scorer fields
-    server_name: Optional[str] = None
-    sampling_config: Optional[dict[str, Any]] = None
 
     def __post_init__(self):
         """Validate that either builtin scorer fields or decorator scorer fields are present."""
@@ -127,8 +133,6 @@ class Scorer(BaseModel):
             call_source=source_info.get("call_source"),
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
-            server_name=self._server_name,
-            sampling_config=asdict(self._sampling_config) if self._sampling_config else None,
         )
         return asdict(serialized)
 
@@ -376,6 +380,10 @@ class Scorer(BaseModel):
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.CLASS
+
     def register(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
@@ -386,7 +394,8 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with server registration.
         """
-        
+        self._check_can_be_registered()
+
         server_name = name or self.name
         
         # Create a new scorer instance with the server name
@@ -425,26 +434,18 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with updated sampling configuration.
         """
-        if not name and not self._server_name:
-            raise MlflowException(
-                "Scorer must be registered before starting. Use scorer.register() first."
-            )
+        self._check_can_be_registered()
+
+        scorer_name = name or self._server_name or self.name
         
         # Update the scorer on the server
-        update_registered_scorer(
-            name=self._server_name,
+        return update_registered_scorer(
+            name=scorer_name,
             scorer=self,
             sample_rate=sample_rate,
             filter_string=filter_string,
             experiment_id=experiment_id,
         )
-        
-        # Create a new scorer instance with updated sampling config
-        new_scorer = self._create_copy()
-        new_scorer._server_name = self._server_name
-        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=sample_rate, filter_string=filter_string)
-        
-        return new_scorer
 
     def update(
         self,
@@ -464,21 +465,16 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with updated configuration.
         """
-        if not self._server_name:
-            raise MlflowException(
-                "Scorer must be registered before updating. Use scorer.register() first."
-            )
-        
-        # Use current values if not provided
-        new_sample_rate = sample_rate if sample_rate is not None else (self.sample_rate or 0.0)
-        new_filter_string = filter_string if filter_string is not None else self.filter_string
+        self._check_can_be_registered()
+
+        scorer_name = name or self._server_name or self.name
         
         # Update the scorer on the server
         return update_registered_scorer(
-            name=self._server_name,
+            name=scorer_name,
             scorer=self,
-            sample_rate=new_sample_rate,
-            filter_string=new_filter_string,
+            sample_rate=sample_rate,
+            filter_string=filter_string,
             experiment_id=experiment_id,
         )
 
@@ -489,36 +485,30 @@ class Scorer(BaseModel):
         Returns:
             A new Scorer instance with sample rate set to 0.
         """
+        self._check_can_be_registered()
+
+        scorer_name = name or self._server_name or self.name
         return self.update(
-            name=name,
+            name=scorer_name,
             experiment_id=experiment_id,
             sample_rate=0.0,
         )
 
-    def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
+    def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> None:
         """
         Delete this scorer from the server.
 
         Returns:
             A new Scorer instance with cleared server registration.
         """
-        if not self._server_name:
-            raise MlflowException(
-                "Scorer is not registered on the server."
-            )
-        
+        self._check_can_be_registered()
+
+        scorer_name = name or self._server_name or self.name
         # Delete the scorer from the server
         delete_registered_scorer(
-            name=self._server_name,
+            name=scorer_name,
             experiment_id=experiment_id,
         )
-        
-        # Create a new scorer instance without server registration
-        new_scorer = self._create_copy()
-        new_scorer._server_name = None
-        new_scorer._sampling_config = None
-        
-        return new_scorer
 
     def _create_copy(self) -> "Scorer":
         """
@@ -534,6 +524,13 @@ class Scorer(BaseModel):
         # For builtin scorers, use model_copy
         else:
             return self.model_copy()
+
+    def _check_can_be_registered(self) -> None:
+        if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer must be a builtin or decorator scorer to be registered. "
+                f"Got {self.kind}."
+            )
 
 
 @experimental(version="3.0.0")
@@ -695,6 +692,11 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def kind(self) -> ScorerKind:
+            return ScorerKind.DECORATOR
+
 
     # Update the __call__ method's signature to match the original function
     # but add 'self' as the first parameter. This is required for MLflow to

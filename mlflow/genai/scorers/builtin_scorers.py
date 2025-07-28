@@ -7,7 +7,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer, ScorerKind
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -93,6 +93,10 @@ class BuiltInScorer(Scorer):
         missing_columns = self.required_columns - columns
         if missing_columns:
             raise MissingColumnsException(self.name, missing_columns)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.BUILTIN
 
 
 # === Builtin Scorers ===
