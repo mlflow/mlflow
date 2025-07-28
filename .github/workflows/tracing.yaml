@@ -45,7 +45,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install pytest pytest-asyncio pyyaml requests sqlparse typing-extensions
+          pip install pytest pytest-asyncio
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3

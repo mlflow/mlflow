@@ -189,9 +189,9 @@ def set_destination(destination: TraceDestination):
     A destination specified by this function will take precedence over
     other configurations, such as tracking URI, OTLP environment variables.
 
-    If you set environment variable 'MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION' to 'true',
-    then the destination setting only takes effect in current thread,
-    otherwise the destination is set globally.
+    By default, the specified destination is applied globally. To set different destinations
+    per thread in multi-threaded application, set the environment variable
+    'MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION' to 'true',
 
     To reset the destination, call the :py:func:`mlflow.tracing.reset()` function.
 

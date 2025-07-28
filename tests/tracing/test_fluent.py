@@ -2117,7 +2117,6 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
 
 
 def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch):
-    from mlflow.client import MlflowClient
     from mlflow.tracing.destination import MlflowExperiment
     from mlflow.tracing.provider import _init_trace_user_destination
 
@@ -2160,10 +2159,10 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
         time.sleep(0.5)
         model.predict(x)
 
-    experiment_id1 = MlflowClient().create_experiment(uuid.uuid4().hex)
+    experiment_id1 = TracingClient().store.create_experiment(uuid.uuid4().hex)
     thread1 = threading.Thread(target=func, args=(experiment_id1, 3))
 
-    experiment_id2 = MlflowClient().create_experiment(uuid.uuid4().hex)
+    experiment_id2 = TracingClient().store.create_experiment(uuid.uuid4().hex)
     thread2 = threading.Thread(target=func, args=(experiment_id2, 40))
 
     thread1.start()
@@ -2174,8 +2173,6 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
-
-    time.sleep(0.2)
 
     traces = get_traces(experiment_id1)
     print(f"got trace #1")
