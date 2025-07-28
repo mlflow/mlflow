@@ -2152,10 +2152,10 @@ def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch
         time.sleep(0.5)
         model.predict(x)
 
-    experiment_id1 = TracingClient().store.create_experiment(uuid.uuid4().hex)
+    experiment_id1 = mlflow.set_experiment(uuid.uuid4().hex).experiment_id
     thread1 = threading.Thread(target=func, args=(experiment_id1, 3))
 
-    experiment_id2 = TracingClient().store.create_experiment(uuid.uuid4().hex)
+    experiment_id2 = mlflow.set_experiment(uuid.uuid4().hex).experiment_id
     thread2 = threading.Thread(target=func, args=(experiment_id2, 40))
 
     thread1.start()
