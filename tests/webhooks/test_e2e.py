@@ -107,8 +107,12 @@ class AppClient:
             if len(logs) >= expected_count:
                 return logs
             time.sleep(0.1)
-        # Return whatever we have after timeout
-        return self.get_logs()
+        # Raise timeout error if expected count not reached
+        logs = self.get_logs()
+        raise TimeoutError(
+            f"Timeout waiting for {expected_count} webhook logs. "
+            f"Got {len(logs)} logs after {timeout}s timeout."
+        )
 
 
 @contextlib.contextmanager
@@ -176,7 +180,6 @@ def test_registered_model_created(mlflow_client: MlflowClient, app_client: AppCl
         description="test_description",
         tags={"test_tag_key": "test_tag_value"},
     )
-    # Wait for async webhook delivery
     logs = app_client.wait_for_logs(expected_count=1)
     assert len(logs) == 1
     assert logs[0].endpoint == "/insecure-webhook"
