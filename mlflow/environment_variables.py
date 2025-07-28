@@ -874,6 +874,12 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
+#: Whether to allow setting thread local tracing destination.
+#: (default: ``False``)
+MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
+)
+
 
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
