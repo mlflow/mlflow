@@ -1101,7 +1101,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
-def evaluate(  # noqa: D417
+def evaluate(
     model=None,
     data=None,
     *,
