@@ -1832,7 +1832,7 @@ def test_convert_dataclass_to_schema_for_rag():
 def test_convert_dataclass_to_schema_complex():
     @dataclass
     class Settings:
-        baz: Optional[bool] = True  # noqa_: UP045
+        baz: Optional[bool] = True  # _noqa: UP045
         qux: bool | None = None
 
     @dataclass
