@@ -1,7 +1,7 @@
 import functools
 import inspect
 import time
-from typing import Any, Callable, Optional, ParamSpec, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.events import Event
@@ -54,7 +54,7 @@ def _generate_telemetry_record(
     success: bool,
     duration_ms: int,
     event: type[Event],
-) -> Optional[Record]:
+) -> Record | None:
     try:
         signature = inspect.signature(func)
         bound_args = signature.bind(*args, **kwargs)

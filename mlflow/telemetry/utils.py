@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from packaging.version import Version
 
@@ -77,7 +76,7 @@ def is_telemetry_disabled() -> bool:
         return True
 
 
-def _get_config_url(version: str) -> Optional[str]:
+def _get_config_url(version: str) -> str | None:
     """
     Get the config URL for the given MLflow version.
     """

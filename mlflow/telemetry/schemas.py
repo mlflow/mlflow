@@ -4,7 +4,7 @@ import sys
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
@@ -19,9 +19,9 @@ class Status(str, Enum):
 class Record:
     event_name: str
     timestamp_ns: int
-    params: Optional[dict[str, Any]] = None
+    params: dict[str, Any] | None = None
     status: Status = Status.UNKNOWN
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,7 +59,7 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
-    tracking_uri_scheme: Optional[str] = None
+    tracking_uri_scheme: str | None = None
 
 
 @dataclass

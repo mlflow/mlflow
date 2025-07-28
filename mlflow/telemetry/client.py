@@ -7,7 +7,6 @@ import uuid
 import warnings
 from dataclasses import asdict
 from queue import Empty, Full, Queue
-from typing import Optional
 
 import requests
 
@@ -361,6 +360,6 @@ def _set_telemetry_client(value: TelemetryClient | None):
         _MLFLOW_TELEMETRY_CLIENT = value
 
 
-def get_telemetry_client() -> Optional[TelemetryClient]:
+def get_telemetry_client() -> TelemetryClient | None:
     with _client_lock:
         return _MLFLOW_TELEMETRY_CLIENT
