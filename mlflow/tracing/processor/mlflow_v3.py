@@ -1,5 +1,3 @@
-from typing import Optional
-
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -21,9 +19,8 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        experiment_id: Optional[str] = None,
     ):
-        super().__init__(span_exporter, experiment_id)
+        super().__init__(span_exporter)
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """
