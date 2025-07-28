@@ -18,13 +18,16 @@ In all cases, you can choose to opt out by following the guidance provided in ou
 :::
 
 ## Why is data being collected?
+
 MLflow uses anonymous telemetry to understand feature usage, which helps guide development priorities and improve the library.
 This data helps us identify which features are most valuable and where to focus on bug fixes or enhancements.
 
 ### GDPR Compliance
+
 Under the General Data Protection Regulation (GDPR), data controllers and processors are responsible for handling personal data with care, transparency, and accountability.
 
 MLflow complies with GDPR in the following ways:
+
 - **No Personal Data Collected**: The telemetry data collected is fully anonymized and does not include any personal or sensitive information (e.g., usernames, IP addresses, file names, parameters, or model content). MLflow generates a random UUID for each session for aggregating usage events, which cannot be used to identify or track individual users.
 - **Purpose Limitation**: Data is only used to improve the MLflow project based on aggregate feature usage patterns.
 - **Data Minimization**: Only the minimum necessary metadata is collected to inform project priorities (e.g., feature toggle state, SDK/platform used, version info).
@@ -166,6 +169,7 @@ The below section outlines the data currently collected in this version of MLflo
 
 MLflow uses an opt-out telemetry model to help improve the platform for all users based on real-world usage patterns.
 Collecting anonymous usage data by default allows us to:
+
 - Understand how MLflow is being used across a wide range of environments and workflows
 - Identify common pain points and identify feature improvements area more effectively
 - Measure the impact of changes and ensure they improve the experience for the broader community
@@ -177,6 +181,7 @@ This approach helps us make MLflow better for everyone, while giving you full co
 ## How to opt-out?
 
 MLflow supports opt-out telemetry through either of the following environment variables:
+
 - **MLFLOW_DISABLE_TELEMETRY=true**
 - **DO_NOT_TRACK=true**
 
@@ -185,6 +190,7 @@ Setting either of these will **immediately disable telemetry**, no need to re-im
 :::note
 MLflow automatically disables telemetry in the following CI environments.
 If you’d like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
+
 - CI
 - Github Actions
 - Circle CI
@@ -195,7 +201,7 @@ If you’d like support for additional CI environments, please [open an issue on
 - BitBucket
 - CodeBuild
 - BuildKite
-:::
+  :::
 
 ### Scope of the setting
 
@@ -203,6 +209,7 @@ If you’d like support for additional CI environments, please [open an issue on
 - If you spawn subprocesses (e.g., via subprocess.run) from a clean environment, those subprocesses may not inherit your shell’s environment, and telemetry could remain enabled.
 
 Recommendations to ensure telemetry is consistently disabled across all environments:
+
 - Add the variable to your shell startup file (~/.bashrc, ~/.zshrc, etc.): `export MLFLOW_DISABLE_TELEMETRY=true`
 - If you’re using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
 
@@ -217,4 +224,5 @@ When it fails to fetch the configuration, MLflow will not track any telemetry fo
 With this, you can block requests to this endpoint to prevent telemetry from being enabled.
 
 ## What are we doing with this data?
+
 We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You’ll be able to see how MLflow features are used and help improve them by contributing.
