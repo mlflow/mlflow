@@ -15,3 +15,4 @@ scikit-learn<2
 pyarrow<21,>=4.0.0
 matplotlib<4
 graphene<4
+narwhals<3,>=1.32.0
