@@ -963,7 +963,6 @@ def test_autolog_databricks_rm_retriever():
 
     class DatabricksRM(dspy.Retrieve):
         def __init__(self, retrieve_uri):
-            self.use_with_databricks_agent_framework = False
             self.retrieve_uri = retrieve_uri
 
         def forward(self, query) -> list[str]:
@@ -1002,6 +1001,14 @@ def test_autolog_databricks_rm_retriever():
             uri2 = None
 
         assert spans[0].outputs == [
-            {'page_content': 'doc1', 'metadata': {'doc_id': 'id1', 'doc_uri': uri1, 'author': 'Jim'}, 'id': 'id1'},
-            {'page_content': 'doc2', 'metadata': {'doc_id': 'id2', 'doc_uri': uri2, 'author': 'tom'}, 'id': 'id2'}
+            {
+                'page_content': 'doc1',
+                'metadata': {'doc_id': 'id1', 'doc_uri': uri1, 'author': 'Jim'},
+                'id': 'id1'
+            },
+            {
+                'page_content': 'doc2',
+                'metadata': {'doc_id': 'id2', 'doc_uri': uri2, 'author': 'tom'},
+                'id': 'id2'
+            }
         ]

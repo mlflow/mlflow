@@ -94,7 +94,7 @@ class MlflowCallback(BaseCallback):
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
             from mlflow.entities.document import Document
 
-            if not instance.use_with_databricks_agent_framework:
+            if isinstance(outputs, dspy.Prediction):
                 # Convert outputs to MLflow document format to make it compatible with
                 # agent evaluation.
                 num_docs = len(outputs.doc_ids)
