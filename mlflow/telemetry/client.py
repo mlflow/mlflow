@@ -16,6 +16,8 @@ from mlflow.telemetry.constant import (
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    RETRYABLE_ERRORS,
+    UNRECOVERABLE_ERRORS,
 )
 from mlflow.telemetry.events import ImportMlflowEvent
 from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
@@ -107,7 +109,10 @@ class TelemetryClient:
                 if random.randint(0, 100) > rollout_percentage:
                     return
 
-                self.config = TelemetryConfig.from_dict(config)
+                self.config = TelemetryConfig(
+                    ingestion_url=config["ingestion_url"],
+                    disable_events=set(config.get("disable_events", [])),
+                )
             except Exception:
                 return
 
@@ -178,7 +183,7 @@ class TelemetryClient:
                         headers={"Content-Type": "application/json"},
                         timeout=request_timeout,
                     )
-                    should_retry = response.status_code in self.config.retryable_error_codes
+                    should_retry = response.status_code in RETRYABLE_ERRORS
                 except (ConnectionError, TimeoutError):
                     should_retry = True
                 # NB: DO NOT retry when terminating
@@ -189,7 +194,7 @@ class TelemetryClient:
                     # we do not use exponential backoff to avoid increasing
                     # the processing time significantly
                     time.sleep(sleep_time)
-                elif response and response.status_code in self.config.unrecoverable_error_codes:
+                elif response and response.status_code in UNRECOVERABLE_ERRORS:
                     self._is_stopped = True
                     self.is_active = False
                     # this is executed in the consumer thread, so

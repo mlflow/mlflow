@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from mlflow.telemetry.constant import RETRYABLE_ERRORS, STOP_COLLECTION_ERRORS
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
 
@@ -67,16 +66,3 @@ class TelemetryInfo:
 class TelemetryConfig:
     ingestion_url: str
     disable_events: set[str]
-    retryable_error_codes: set[int]
-    unrecoverable_error_codes: set[int]
-
-    @classmethod
-    def from_dict(cls, config: dict[str, Any]) -> "TelemetryConfig":
-        return TelemetryConfig(
-            ingestion_url=config["ingestion_url"],
-            disable_events=set(config.get("disable_events", [])),
-            retryable_error_codes=set(config.get("retryable_error_codes", RETRYABLE_ERRORS)),
-            unrecoverable_error_codes=set(
-                config.get("unrecoverable_error_codes", STOP_COLLECTION_ERRORS)
-            ),
-        )

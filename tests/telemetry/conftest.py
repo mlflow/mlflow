@@ -35,15 +35,18 @@ def mock_requests():
             mock_response = Mock()
             mock_response.status_code = url_status_code_map[url]
             return mock_response
-        if json and "records" in json:
-            captured_records.extend(json["records"])
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "status": "success",
-            "count": len(json.get("records", [])) if json else 0,
-        }
-        return mock_response
+        if url == "http://localhost:9999":
+            if json and "records" in json:
+                captured_records.extend(json["records"])
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "status": "success",
+                "count": len(json.get("records", [])) if json else 0,
+            }
+            return mock_response
+        # avoid ImportMlflowEvent being sent when importing MLflow
+        return Mock(status_code=404)
 
     with patch("requests.post", side_effect=mock_post):
         yield captured_records
