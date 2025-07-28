@@ -51,9 +51,8 @@ def mock_requests():
 
 
 @pytest.fixture(autouse=True)
-def mock_telemetry_client(request):
-    """Fixture to mock requests.get and capture telemetry records."""
-    if request.node.get_closest_marker("no_mock_telemetry_client"):
+def mock_requests_get(request):
+    if request.node.get_closest_marker("no_mock_requests_get"):
         yield
         return
 
@@ -68,18 +67,20 @@ def mock_telemetry_client(request):
                     "rollout_percentage": 100,
                     "disable_events": [],
                     "disable_sdks": [],
-                    "batch_time_interval_seconds": 30,
-                    "retryable_error_codes": [429, 500],
-                    "stop_on_error_codes": [400, 401, 403, 404],
                 }
             ),
         )
-        client = TelemetryClient()
-        # ensure config is fetched before the test
-        while not client._is_config_fetched:
-            time.sleep(0.1)
-        yield client
-        client._clean_up()
+        yield
+
+
+@pytest.fixture
+def mock_telemetry_client(mock_requests_get, mock_requests):
+    client = TelemetryClient()
+    # ensure config is fetched before the test
+    while not client._is_config_fetched:
+        time.sleep(0.1)
+    yield client
+    client._clean_up()
 
 
 @pytest.fixture

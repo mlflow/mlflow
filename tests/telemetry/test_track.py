@@ -24,7 +24,7 @@ class TestEvent(Event):
 
 
 def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClient):
-    assert len(mock_requests) == 0
+    assert len(mock_requests) == 1
 
     @record_usage_event(TestEvent)
     def succeed_func():
@@ -46,15 +46,15 @@ def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClien
 
     mock_telemetry_client.flush()
 
-    assert len(mock_requests) == 2
-    succeed_record = mock_requests[0]["data"]
+    assert len(mock_requests) == 3
+    succeed_record = mock_requests[1]["data"]
     assert succeed_record["schema_version"] == 1
     assert succeed_record["event_name"] == TestEvent.name
     assert succeed_record["status"] == Status.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
-    fail_record = mock_requests[1]["data"]
+    fail_record = mock_requests[2]["data"]
     assert fail_record["schema_version"] == 1
     assert fail_record["event_name"] == TestEvent.name
     assert fail_record["status"] == Status.FAILURE.value
@@ -116,17 +116,17 @@ def test_record_usage_event_update_env_var_after_import(
         test_func()
 
         mock_telemetry_client.flush()
-        assert len(mock_requests) == 1
-        record = mock_requests[0]["data"]
+        assert len(mock_requests) == 2
+        record = mock_requests[1]["data"]
         assert record["event_name"] == TestEvent.name
 
         monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
         test_func()
         # no new record should be added
-        assert len(mock_requests) == 1
+        assert len(mock_requests) == 2
 
 
-@pytest.mark.no_mock_telemetry_client
+@pytest.mark.no_mock_requests_get
 def test_is_telemetry_disabled_for_event():
     def mock_requests_get(*args, **kwargs):
         time.sleep(1)
@@ -139,9 +139,6 @@ def test_is_telemetry_disabled_for_event():
                     "ingestion_url": "http://localhost:9999",
                     "rollout_percentage": 100,
                     "disable_events": ["test_event"],
-                    "batch_time_interval_seconds": 30,
-                    "retryable_error_codes": [429, 500],
-                    "stop_on_error_codes": [400, 401, 403, 404],
                 }
             ),
         )

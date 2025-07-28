@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
+from mlflow.telemetry.constant import RETRYABLE_ERRORS, STOP_COLLECTION_ERRORS
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
 
@@ -66,7 +67,6 @@ class TelemetryInfo:
 class TelemetryConfig:
     ingestion_url: str
     disable_events: set[str]
-    batch_time_interval_seconds: int
     retryable_error_codes: set[int]
     stop_on_error_codes: set[int]
 
@@ -75,7 +75,6 @@ class TelemetryConfig:
         return TelemetryConfig(
             ingestion_url=config["ingestion_url"],
             disable_events=set(config.get("disable_events", [])),
-            batch_time_interval_seconds=int(config["batch_time_interval_seconds"]),
-            retryable_error_codes=set(config["retryable_error_codes"]),
-            stop_on_error_codes=set(config["stop_on_error_codes"]),
+            retryable_error_codes=set(config.get("retryable_error_codes", RETRYABLE_ERRORS)),
+            stop_on_error_codes=set(config.get("stop_on_error_codes", STOP_COLLECTION_ERRORS)),
         )

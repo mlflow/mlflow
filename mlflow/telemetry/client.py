@@ -12,11 +12,13 @@ from typing import Optional
 import requests
 
 from mlflow.telemetry.constant import (
-    DEFAULT_BATCH_SIZE,
+    BATCH_SIZE,
+    BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
 )
-from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.events import ImportMlflowEvent
+from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -33,7 +35,8 @@ class TelemetryClient:
         self._is_active = False
         self._atexit_callback_registered = False
 
-        self._batch_size = DEFAULT_BATCH_SIZE
+        self._batch_size = BATCH_SIZE
+        self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
         self._pending_records: list[Record] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
@@ -51,6 +54,18 @@ class TelemetryClient:
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
+                else:
+                    # send the import record immediately after config is fetched
+                    # do not add if config is None
+                    self.add_record(
+                        Record(
+                            event_name=ImportMlflowEvent.name,
+                            timestamp_ns=time.time_ns(),
+                            status=Status.SUCCESS,
+                            duration_ms=0,
+                        ),
+                        should_send=True,
+                    )
                 self._is_config_fetched = True
             except Exception:
                 self._is_stopped = True
@@ -93,17 +108,14 @@ class TelemetryClient:
                     return
 
                 self.config = TelemetryConfig.from_dict(config)
-                if "batch_size" in config:
-                    self._batch_size = int(config["batch_size"])
             except Exception:
                 return
 
-    def add_record(self, record: Record):
+    def add_record(self, record: Record, should_send: bool = False):
         """
         Add a record to be batched and sent to the telemetry server.
         """
         if not self.is_active:
-            self._is_first_record = True
             self.activate()
 
         if self._is_stopped:
@@ -113,12 +125,9 @@ class TelemetryClient:
             self._pending_records.append(record)
 
             # Only send immediately if we've reached the batch size,
-            # time-based sending is handled by the batch checker thread
-            # send the first record immediately to make sure the current session
-            # is tracked
-            if self._is_first_record or len(self._pending_records) >= self._batch_size:
+            # time-based sending is handled by the batch checker thread.
+            if should_send or len(self._pending_records) >= self._batch_size:
                 self._send_batch()
-                self._is_first_record = False
 
     def _send_batch(self):
         """Send the current batch of records."""
@@ -206,7 +215,7 @@ class TelemetryClient:
                 records = self._queue.get(timeout=1)
             except Empty:
                 # check if batch time interval has passed and send data if needed
-                if time.time() - self._last_batch_time >= self.config.batch_time_interval_seconds:
+                if time.time() - self._last_batch_time >= self._batch_time_interval:
                     self._last_batch_time = time.time()
                     with self._batch_lock:
                         if self._pending_records:
