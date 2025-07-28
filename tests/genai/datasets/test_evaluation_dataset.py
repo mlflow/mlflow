@@ -131,6 +131,24 @@ def test_evaluation_dataset_to_mlflow_entity(mock_managed_dataset):
     assert entity.profile == "test-profile"
 
 
+def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
+    existing_source = DatabricksEvaluationDatasetSource(
+        table_name="existing.table", dataset_id="existing-id"
+    )
+    dataset = create_dataset_with_source(existing_source)
+
+    entity = dataset._to_mlflow_entity()
+    assert entity.name == "existing.table"
+    assert entity.digest == "test-digest"
+    assert entity.source_type == "databricks-uc-table"
+
+    source_dict = json.loads(entity.source)
+    assert source_dict["table_name"] == "existing.table"
+    assert source_dict["dataset_id"] == "existing-id"
+    assert entity.schema == "test-schema"
+    assert entity.profile == "test-profile"
+
+
 def test_evaluation_dataset_set_profile(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
