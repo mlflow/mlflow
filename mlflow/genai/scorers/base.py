@@ -514,22 +514,16 @@ class Scorer(BaseModel):
         """
         Create a copy of this scorer instance.
         """
-        # For decorator scorers
-        if hasattr(self, "_original_func"):
-            return scorer(
-                self._original_func,
-                name=self.name,
-                aggregations=self.aggregations,
-            )
-        # For builtin scorers, use model_copy
-        else:
-            return self.model_copy()
+        self._check_can_be_registered(error_message="Scorer must be a builtin or decorator scorer to be copied.")
 
-    def _check_can_be_registered(self) -> None:
+        return self.model_validate(self.model_dump())
+
+    def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
+            if error_message is None:
+                error_message = f"Scorer must be a builtin or decorator scorer to be registered. Got {self.kind}."
             raise MlflowException.invalid_parameter_value(
-                f"Scorer must be a builtin or decorator scorer to be registered. "
-                f"Got {self.kind}."
+                error_message
             )
 
 
