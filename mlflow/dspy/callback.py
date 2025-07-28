@@ -19,10 +19,10 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import maybe_set_prediction_context
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
-from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
