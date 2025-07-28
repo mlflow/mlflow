@@ -2,7 +2,7 @@
 import importlib.metadata
 import re
 
-VERSION = "3.1.4"
+VERSION = "3.1.5"
 
 
 def is_release_version():
@@ -21,4 +21,4 @@ def _is_package_installed(package_name: str) -> bool:
 # installed, or includes the full MLflow or mlflow-skinny package.
 # This is used to determine whether to import modules that require
 # dependencies that are not included in the tracing SDK.
-IS_TRACING_SDK_ONLY = not any(_is_package_installed(pkg) for pkg in ["mlflow", "mlflow-skinny"])
+IS_TRACING_SDK_ONLY = not any(_is_package_installed(pkg) for pkg in ["mlflow", "mlflow-skinny", "genesis-flow"])
