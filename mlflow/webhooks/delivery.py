@@ -1,4 +1,4 @@
-"""Webhook dispatch implementation following Standard Webhooks conventions.
+"""Webhook delivery implementation following Standard Webhooks conventions.
 
 This module implements webhook delivery patterns similar to the Standard Webhooks
 specification (https://www.standardwebhooks.com), providing consistent and secure
@@ -101,7 +101,7 @@ def _send_webhook_request(
     return requests.post(webhook.url, data=payload_bytes, headers=headers, timeout=timeout)
 
 
-def _dispatch_webhook_impl(
+def _deliver_webhook_impl(
     *,
     event: WebhookEvent,
     payload: WebhookPayload,
@@ -119,17 +119,17 @@ def _dispatch_webhook_impl(
                 )
 
 
-def dispatch_webhook(
+def deliver_webhook(
     *,
     event: WebhookEvent,
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
     try:
-        _dispatch_webhook_impl(event=event, payload=payload, store=store)
+        _deliver_webhook_impl(event=event, payload=payload, store=store)
     except Exception as e:
         _logger.error(
-            f"Failed to dispatch webhook for event {event}: {e}",
+            f"Failed to deliver webhook for event {event}: {e}",
             exc_info=True,
         )
 
