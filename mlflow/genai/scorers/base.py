@@ -414,13 +414,14 @@ class Scorer(BaseModel):
                 # Register a custom scorer
                 from mlflow.genai.scorers import scorer
 
+
                 @scorer
                 def custom_length_check(outputs) -> bool:
                     return len(outputs) > 100
 
+
                 registered_custom = custom_length_check.register(
-                    name="output_length_checker",
-                    experiment_id="12345"
+                    name="output_length_checker", experiment_id="12345"
                 )
         """
         from mlflow.genai.scorers.registry import add_registered_scorer
@@ -482,18 +483,13 @@ class Scorer(BaseModel):
                 # Start scorer with 50% sampling rate
                 mlflow.set_experiment("my_genai_app")
                 scorer = relevance.register()
-                active_scorer = scorer.start(
-                    sampling_config=ScorerSamplingConfig(
-                        sample_rate=0.5
-                    )
-                )
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
                 print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
 
                 # Start scorer with filter to only evaluate specific traces
                 filtered_scorer = scorer.start(
                     sampling_config=ScorerSamplingConfig(
-                        sample_rate=1.0,
-                        filter_string="YOUR_FILTER_STRING"
+                        sample_rate=1.0, filter_string="YOUR_FILTER_STRING"
                     )
                 )
         """
@@ -548,9 +544,7 @@ class Scorer(BaseModel):
                 # Start scorer with initial configuration
                 mlflow.set_experiment("my_genai_app")
                 scorer = relevance.register()
-                active_scorer = scorer.start(
-                    sampling_config=ScorerSamplingConfig(sample_rate=0.1)
-                )
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
 
                 # Update to increase sampling rate during high traffic
                 updated_scorer = active_scorer.update(
@@ -560,9 +554,7 @@ class Scorer(BaseModel):
 
                 # Update to add filtering criteria
                 filtered_scorer = updated_scorer.update(
-                    sampling_config=ScorerSamplingConfig(
-                        filter_string="YOUR_FILTER_STRING"
-                    )
+                    sampling_config=ScorerSamplingConfig(filter_string="YOUR_FILTER_STRING")
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
@@ -606,9 +598,7 @@ class Scorer(BaseModel):
                 # Start and then stop a scorer
                 mlflow.set_experiment("my_genai_app")
                 scorer = relevance.register()
-                active_scorer = scorer.start(
-                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
-                )
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
                 print(f"Scorer is active: {active_scorer.sample_rate > 0}")
 
                 # Stop the scorer
