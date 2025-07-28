@@ -656,6 +656,11 @@ const sidebarsGenAI: SidebarsConfig = {
         id: 'data-model/index',
       },
     },
+    {
+      type: 'doc',
+      id: 'usage-tracking/index',
+      label: 'Usage Tracking',
+    },
   ],
 };
 
