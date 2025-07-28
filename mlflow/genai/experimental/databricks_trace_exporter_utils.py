@@ -415,3 +415,23 @@ class DatabricksTraceServerClient:
             spans_schema_version=proto.spans_schema_version,
             events_schema_version=proto.events_schema_version,
         )
+
+
+def import_ingest_sdk_classes():
+    """
+    Import ingest_api_sdk classes needed for trace archival.
+
+    This helper function centralizes all ingest_api_sdk imports to make it easy
+    to mock in tests when the package is not available. Eventually, the ingest_api_sdk
+    package will be released and this function can be removed.
+
+    Returns:
+        tuple: (TableProperties, StreamState) classes from ingest_api_sdk
+
+    Raises:
+        ImportError: If ingest_api_sdk package is not available
+    """
+    from ingest_api_sdk import TableProperties
+    from ingest_api_sdk.shared.definitions import StreamState
+
+    return TableProperties, StreamState

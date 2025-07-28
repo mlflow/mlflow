@@ -6,7 +6,6 @@ import time
 from unittest import mock
 
 import pytest
-from ingest_api_sdk.shared.definitions import StreamState
 
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
@@ -424,10 +423,11 @@ def test_archive_trace_ingest_stream_error_handling(
 
 def test_ingest_stream_factory_singleton_behavior():
     """Test that IngestStreamFactory maintains singleton behavior per table."""
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
+    from ingest_api_sdk import TableProperties
+
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
-    # Create table properties for testing
+    # Create table properties for testing using mock class
     table_props1 = TableProperties("table1", DeltaProtoSpan.DESCRIPTOR)
     table_props2 = TableProperties("table2", DeltaProtoSpan.DESCRIPTOR)
 
@@ -446,11 +446,11 @@ def test_ingest_stream_factory_singleton_behavior():
 
 def test_ingest_stream_factory_get_or_create_stream():
     """Test stream creation and caching behavior."""
+    from ingest_api_sdk import TableProperties
 
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
-    # Create table properties for testing
+    # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
@@ -476,16 +476,15 @@ def test_ingest_stream_factory_get_or_create_stream():
         mock_sdk_instance.create_stream.assert_called_once_with(table_props)
 
 
-@pytest.mark.parametrize(
-    "invalid_state", [s for s in StreamState if s not in [StreamState.OPENED, StreamState.FLUSHING]]
-)
+@pytest.mark.parametrize("invalid_state", ["UNINITIALIZED", "CLOSED", "RECOVERING", "FAILED"])
 def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     """Test that factory recreates streams when cached streams are in invalid states."""
+    from ingest_api_sdk import TableProperties
+    from ingest_api_sdk.shared.definitions import StreamState
 
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
-    # Create table properties for testing
+    # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
@@ -495,7 +494,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 
     # Mock streams with configurable state
     old_mock_stream = mock.Mock()
-    old_mock_stream.get_state.return_value = invalid_state
+    old_mock_stream.get_state.return_value = getattr(StreamState, invalid_state)
 
     new_mock_stream = mock.Mock()
     new_mock_stream.get_state.return_value = StreamState.OPENED
@@ -525,18 +524,20 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
         # Verify debug logging about invalid state
         mock_logger.debug.assert_called()
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-        assert any(f"Stream in invalid state {invalid_state}" in msg for msg in debug_calls)
+        expected_state = getattr(StreamState, invalid_state)
+        assert any(f"Stream in invalid state {expected_state}" in msg for msg in debug_calls)
         assert any("Creating new thread-local stream" in msg for msg in debug_calls)
 
 
-@pytest.mark.parametrize("valid_state", [StreamState.OPENED, StreamState.FLUSHING])
+@pytest.mark.parametrize("valid_state", ["OPENED", "FLUSHING"])
 def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     """Test that factory reuses cached streams when they are in valid states."""
+    from ingest_api_sdk import TableProperties
+    from ingest_api_sdk.shared.definitions import StreamState
 
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
-    # Create table properties for testing
+    # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
@@ -544,9 +545,9 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
     factory = IngestStreamFactory.get_instance(table_props)
 
-    # Mock stream with configurable state
+    # Mock stream with configurable state - use actual enum value
     mock_stream = mock.Mock()
-    mock_stream.get_state.return_value = valid_state
+    mock_stream.get_state.return_value = getattr(StreamState, valid_state)
 
     with (
         mock.patch(
@@ -584,7 +585,8 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
 def test_ingest_stream_factory_atexit_registration():
     """Test that atexit handler is registered once."""
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
+    from ingest_api_sdk import TableProperties
+
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Reset atexit registration flag
@@ -606,7 +608,8 @@ def test_ingest_stream_factory_atexit_registration():
 
 def test_ingest_stream_factory_thread_safety():
     """Test concurrent access to factory instances."""
-    from mlflow.genai.experimental.databricks_trace_exporter import TableProperties
+    from ingest_api_sdk import TableProperties
+
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Clear existing instances
