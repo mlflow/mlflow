@@ -167,7 +167,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):  # noqa: D417
+def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Compute and record various common metrics for classifiers
 
@@ -308,7 +308,7 @@ def _get_class_labels_from_estimator(estimator):
     return estimator.classes_ if hasattr(estimator, "classes_") else None
 
 
-def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):  # noqa: D417
+def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
 
@@ -420,7 +420,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     return classifier_artifacts
 
 
-def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):  # noqa: D417
+def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Compute and record various common metrics for regressors
 
@@ -786,7 +786,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
 
 
-def _create_child_runs_for_parameter_search(  # noqa: D417
+def _create_child_runs_for_parameter_search(
     autologging_client,
     cv_estimator,
     parent_run,

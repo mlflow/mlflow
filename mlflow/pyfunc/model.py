@@ -994,7 +994,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             }
 
 
-def _save_model_with_class_artifacts_params(  # noqa: D417
+def _save_model_with_class_artifacts_params(
     path,
     python_model,
     signature=None,

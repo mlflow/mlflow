@@ -385,7 +385,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
-    def _get_experiment(self, session, experiment_id, view_type, eager=False):  # noqa: D417
+    def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -557,7 +557,7 @@ class SqlAlchemyStore(AbstractStore):
             dataset_inputs = inputs_list[0] if inputs_list else []
             return Run(run.info, run.data, RunInputs(dataset_inputs=dataset_inputs))
 
-    def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
+    def _get_run(self, session, run_uuid, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
