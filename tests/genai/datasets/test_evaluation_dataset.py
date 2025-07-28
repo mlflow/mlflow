@@ -23,8 +23,8 @@ def create_test_source_json(table_name: str = "main.default.testtable") -> str:
 def create_mock_managed_dataset(source_value: Any) -> Mock:
     """Create a mock Databricks Agent Evaluation ManagedDataset for testing"""
     mock_dataset = Mock()
-    mock_dataset.dataset_id = "test-dataset-id"
-    mock_dataset.name = "catalog.schema.table"
+    mock_dataset.dataset_id = getattr(source_value, "dataset_id", "test-dataset-id")
+    mock_dataset.name = getattr(source_value, "_table_name", "catalog.schema.table")
     mock_dataset.digest = "test-digest"
     mock_dataset.schema = "test-schema"
     mock_dataset.profile = "test-profile"
@@ -86,6 +86,24 @@ def test_evaluation_dataset_source_with_none():
 
     assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
     assert dataset.source.table_name == "catalog.schema.table"
+    assert dataset.source.dataset_id == "test-dataset-id"
+
+
+def test_evaluation_dataset_source_always_returns_databricks_evaluation_dataset_source():
+    existing_source = DatabricksEvaluationDatasetSource(
+        table_name="existing.table", dataset_id="existing-id"
+    )
+    dataset = create_dataset_with_source(existing_source)
+
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "existing.table"
+    assert dataset.source.dataset_id == "existing-id"
+
+    spark_source = SparkDatasetSource(table_name="spark.table")
+    dataset = create_dataset_with_source(spark_source)
+
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "spark.table"
     assert dataset.source.dataset_id == "test-dataset-id"
 
 
