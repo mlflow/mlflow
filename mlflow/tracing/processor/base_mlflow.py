@@ -117,7 +117,8 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             return experiment_id
 
         if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-            return destination.experiment_id or _get_experiment_id()
+            if destination.experiment_id:
+                return destination.experiment_id
 
         if run := _get_latest_active_run():
             return run.info.experiment_id
