@@ -759,27 +759,6 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
 
 
 @pytest.mark.no_mock_requests_get
-def test_records_not_processed_when_fetching_config_failed(mock_requests):
-    record = Record(
-        event_name="test_event",
-        timestamp_ns=time.time_ns(),
-        status=Status.SUCCESS,
-    )
-
-    def mock_requests_get(*args, **kwargs):
-        time.sleep(1)
-        return mock.Mock(status_code=403)
-
-    with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
-        client = TelemetryClient()
-        client.add_record(record)
-        assert len(client._pending_records) == 1
-        client.flush()
-        assert len(mock_requests) == 0
-        client._clean_up()
-
-
-@pytest.mark.no_mock_requests_get
 @pytest.mark.parametrize("error_code", [400, 401, 403, 404, 412, 500, 502, 503, 504])
 def test_config_fetch_no_retry(mock_requests, error_code):
     record = Record(
@@ -798,7 +777,7 @@ def test_config_fetch_no_retry(mock_requests, error_code):
         assert len(client._pending_records) == 1
         # wait for config to be fetched
         client._config_thread.join()
-        client.flush(terminate=True)
+        client.flush()
         assert len(mock_requests) == 0
         mock_requests.clear()
         # clean up
