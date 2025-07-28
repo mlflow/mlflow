@@ -583,7 +583,6 @@ class TrackingServiceClient:
         Returns:
             None
         """
-        print("@@@ logging inputs", datasets, models)
         self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
     def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
