@@ -83,7 +83,7 @@ def _get_config_url(version: str) -> Optional[str]:
     """
     version_obj = Version(version)
 
-    if version_obj.is_devrelease:
+    if version_obj.is_devrelease or _IS_MLFLOW_TESTING:
         return f"{CONFIG_STAGING_URL}/{version}.json"
 
     if version_obj.base_version == version or (

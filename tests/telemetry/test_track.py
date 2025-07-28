@@ -24,8 +24,6 @@ class TestEvent(Event):
 
 
 def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClient):
-    assert len(mock_requests) == 1
-
     @record_usage_event(TestEvent)
     def succeed_func():
         # sleep to make sure duration_ms > 0
@@ -46,15 +44,18 @@ def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClien
 
     mock_telemetry_client.flush()
 
-    assert len(mock_requests) == 3
-    succeed_record = mock_requests[1]["data"]
+    records = [
+        record["data"] for record in mock_requests if record["data"]["event_name"] == TestEvent.name
+    ]
+    assert len(records) == 2
+    succeed_record = records[0]
     assert succeed_record["schema_version"] == 1
     assert succeed_record["event_name"] == TestEvent.name
     assert succeed_record["status"] == Status.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
-    fail_record = mock_requests[2]["data"]
+    fail_record = records[1]
     assert fail_record["schema_version"] == 1
     assert fail_record["event_name"] == TestEvent.name
     assert fail_record["status"] == Status.FAILURE.value
@@ -116,14 +117,14 @@ def test_record_usage_event_update_env_var_after_import(
         test_func()
 
         mock_telemetry_client.flush()
-        assert len(mock_requests) == 2
-        record = mock_requests[1]["data"]
-        assert record["event_name"] == TestEvent.name
+        events = {record["data"]["event_name"] for record in mock_requests}
+        assert TestEvent.name in events
+        mock_requests.clear()
 
         monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
         test_func()
         # no new record should be added
-        assert len(mock_requests) == 2
+        assert len(mock_requests) == 0
 
 
 @pytest.mark.no_mock_requests_get

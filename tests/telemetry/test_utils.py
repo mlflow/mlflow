@@ -19,7 +19,7 @@ def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
         assert is_telemetry_disabled() is True
 
 
-def test_get_config_url():
+def test_get_config_url(bypass_env_check):
     assert _get_config_url("1.0.0") == f"{CONFIG_URL}/1.0.0.json"
     assert _get_config_url("1.0.0.rc0") == f"{CONFIG_URL}/1.0.0.rc0.json"
     assert _get_config_url("1.0.0.dev0") == f"{CONFIG_STAGING_URL}/1.0.0.dev0.json"

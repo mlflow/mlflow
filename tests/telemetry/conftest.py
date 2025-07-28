@@ -1,4 +1,3 @@
-import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -77,9 +76,9 @@ def mock_requests_get(request):
 def mock_telemetry_client(mock_requests_get, mock_requests):
     client = TelemetryClient()
     # ensure config is fetched before the test
-    while not client._is_config_fetched:
-        time.sleep(0.1)
+    client._config_thread.join(timeout=1)
     yield client
+    # TODO: add a context manager to always clean up the threads for tests
     client._clean_up()
 
 

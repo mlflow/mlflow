@@ -64,7 +64,7 @@ class TelemetryClient:
                             status=Status.SUCCESS,
                             duration_ms=0,
                         ),
-                        should_send=True,
+                        send_immediately=True,
                     )
                 self._is_config_fetched = True
             except Exception:
@@ -111,7 +111,7 @@ class TelemetryClient:
             except Exception:
                 return
 
-    def add_record(self, record: Record, should_send: bool = False):
+    def add_record(self, record: Record, send_immediately: bool = False):
         """
         Add a record to be batched and sent to the telemetry server.
         """
@@ -126,7 +126,7 @@ class TelemetryClient:
 
             # Only send immediately if we've reached the batch size,
             # time-based sending is handled by the batch checker thread.
-            if should_send or len(self._pending_records) >= self._batch_size:
+            if send_immediately or len(self._pending_records) >= self._batch_size:
                 self._send_batch()
 
     def _send_batch(self):
@@ -189,7 +189,7 @@ class TelemetryClient:
                     # we do not use exponential backoff to avoid increasing
                     # the processing time significantly
                     time.sleep(sleep_time)
-                elif response and response.status_code in self.config.stop_on_error_codes:
+                elif response and response.status_code in self.config.unrecoverable_error_codes:
                     self._is_stopped = True
                     self.is_active = False
                     # this is executed in the consumer thread, so

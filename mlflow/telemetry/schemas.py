@@ -68,7 +68,7 @@ class TelemetryConfig:
     ingestion_url: str
     disable_events: set[str]
     retryable_error_codes: set[int]
-    stop_on_error_codes: set[int]
+    unrecoverable_error_codes: set[int]
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "TelemetryConfig":
@@ -76,5 +76,7 @@ class TelemetryConfig:
             ingestion_url=config["ingestion_url"],
             disable_events=set(config.get("disable_events", [])),
             retryable_error_codes=set(config.get("retryable_error_codes", RETRYABLE_ERRORS)),
-            stop_on_error_codes=set(config.get("stop_on_error_codes", STOP_COLLECTION_ERRORS)),
+            unrecoverable_error_codes=set(
+                config.get("unrecoverable_error_codes", STOP_COLLECTION_ERRORS)
+            ),
         )
