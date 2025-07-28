@@ -76,9 +76,7 @@ class BuiltInScorer(Scorer):
         # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
 
-        scorer_instance = scorer_class(**constructor_args)
-
-        return scorer_instance
+        return scorer_class(**constructor_args)
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns

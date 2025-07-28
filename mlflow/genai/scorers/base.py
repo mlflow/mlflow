@@ -37,7 +37,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
-    sample_rate: float = 1.0
+    sample_rate: Optional[float] = None
     filter_string: Optional[str] = None
 
 
@@ -228,7 +228,6 @@ class Scorer(BaseModel):
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
-        
         return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
@@ -421,8 +420,7 @@ class Scorer(BaseModel):
         *,
         name: Optional[str] = None,
         experiment_id: Optional[str] = None,
-        sample_rate: float,
-        filter_string: Optional[str] = None,
+        sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
         Start registered scoring with the specified sampling configuration.
@@ -442,8 +440,8 @@ class Scorer(BaseModel):
         return update_registered_scorer(
             name=scorer_name,
             scorer=self,
-            sample_rate=sample_rate,
-            filter_string=filter_string,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
             experiment_id=experiment_id,
         )
 
@@ -452,8 +450,7 @@ class Scorer(BaseModel):
         *,
         name: Optional[str] = None,
         experiment_id: Optional[str] = None,
-        sample_rate: Optional[float] = None,
-        filter_string: Optional[str] = None
+        sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
         Update the sampling configuration for this scorer.
@@ -473,8 +470,8 @@ class Scorer(BaseModel):
         return update_registered_scorer(
             name=scorer_name,
             scorer=self,
-            sample_rate=sample_rate,
-            filter_string=filter_string,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
             experiment_id=experiment_id,
         )
 
