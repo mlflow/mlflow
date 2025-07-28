@@ -9,7 +9,7 @@ RETRYABLE_ERRORS = [
     429,  # Throttled
     500,  # Interval Server Error
 ]
-STOP_COLLECTION_ERRORS = [
+UNRECOVERABLE_ERRORS = [
     400,  # Bad Request
     401,  # Unauthorized
     403,  # Forbidden

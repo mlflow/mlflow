@@ -1,11 +1,10 @@
-import time
 from unittest.mock import Mock, patch
 
 import pytest
 
 import mlflow
 import mlflow.telemetry.utils
-from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
+from mlflow.telemetry.client import TelemetryClient, _set_telemetry_client, get_telemetry_client
 from mlflow.version import VERSION
 
 
@@ -14,7 +13,9 @@ def terminate_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
-        client.flush(terminate=True)
+        client._clean_up()
+        # set to None to avoid side effect in other tests
+        _set_telemetry_client(None)
 
 
 @pytest.fixture
@@ -34,35 +35,29 @@ def mock_requests():
             mock_response = Mock()
             mock_response.status_code = url_status_code_map[url]
             return mock_response
-        if json and "records" in json:
-            captured_records.extend(json["records"])
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "status": "success",
-            "count": len(json.get("records", [])) if json else 0,
-        }
-        return mock_response
+        if url == "http://localhost:9999":
+            if json and "records" in json:
+                captured_records.extend(json["records"])
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "status": "success",
+                "count": len(json.get("records", [])) if json else 0,
+            }
+            return mock_response
+        # avoid ImportMlflowEvent being sent when importing MLflow
+        return Mock(status_code=404)
 
     with patch("requests.post", side_effect=mock_post):
         yield captured_records
 
 
 @pytest.fixture(autouse=True)
-def enable_telemetry(monkeypatch):
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
-
-
-@pytest.fixture(autouse=True)
-def mock_requests_get(request, monkeypatch):
-    """Fixture to mock requests.get and capture telemetry records."""
+def mock_requests_get(request):
     if request.node.get_closest_marker("no_mock_requests_get"):
         yield
         return
 
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
-    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)
     with patch("mlflow.telemetry.client.requests.get") as mock_get:
         mock_get.return_value = Mock(
             status_code=200,
@@ -77,10 +72,21 @@ def mock_requests_get(request, monkeypatch):
                 }
             ),
         )
-        set_telemetry_client()
-        client = get_telemetry_client()
-        # ensure config is fetched before the test
-        while not client._is_config_fetched:
-            time.sleep(0.1)
         yield
-        client.flush(terminate=True)
+
+
+@pytest.fixture
+def mock_telemetry_client(mock_requests_get, mock_requests):
+    client = TelemetryClient()
+    # ensure config is fetched before the test
+    client._config_thread.join(timeout=1)
+    yield client
+    # TODO: add a context manager to always clean up the threads for tests
+    client._clean_up()
+
+
+@pytest.fixture
+def bypass_env_check(monkeypatch):
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_CI_ENV_OR_TESTING", False)
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_DEV_VERSION", False)

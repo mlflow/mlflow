@@ -3,7 +3,7 @@ from typing import Optional
 
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
+from mlflow.environment_variables import _MLFLOW_TESTING_TELEMETRY, MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
 from mlflow.version import VERSION
 
@@ -59,10 +59,13 @@ def _is_in_databricks() -> bool:
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
+_IS_MLFLOW_TESTING = _MLFLOW_TESTING_TELEMETRY.get()
 
 
 def is_telemetry_disabled() -> bool:
     try:
+        if _IS_MLFLOW_TESTING:
+            return False
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
@@ -80,7 +83,7 @@ def _get_config_url(version: str) -> Optional[str]:
     """
     version_obj = Version(version)
 
-    if version_obj.is_devrelease:
+    if version_obj.is_devrelease or _IS_MLFLOW_TESTING:
         return f"{CONFIG_STAGING_URL}/{version}.json"
 
     if version_obj.base_version == version or (
