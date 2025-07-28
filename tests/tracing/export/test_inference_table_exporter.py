@@ -8,6 +8,7 @@ import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
@@ -83,13 +84,13 @@ def test_export(dual_write_enabled, monkeypatch):
     if dual_write_enabled:
         exporter._async_queue.flush(terminate=True)
 
-        assert mock_tracing_client.start_trace.call_count == 1
-        trace_info = mock_tracing_client.start_trace.call_args[0][0]
-        assert isinstance(trace_info, TraceInfo)
+        assert mock_tracing_client.start_trace_v3.call_count == 1
+        trace = mock_tracing_client.start_trace_v3.call_args[0][0]
+        assert isinstance(trace.info, TraceInfo)
         # The trace ID should be updated to the format that MLflow backend accept
-        assert trace_info.trace_id == trace_id
+        assert trace.info.trace_id == trace_id
         # The databricks request ID should be set to the client request ID
-        assert trace_info.client_request_id == _DATABRICKS_REQUEST_ID_1
+        assert trace.info.client_request_id == _DATABRICKS_REQUEST_ID_1
     else:
         assert mock_tracing_client.log_trace.call_count == 0
 
@@ -178,7 +179,22 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
     # Register with experiment_id to ensure dual write happens (the code checks for this)
     _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id="123")
 
+    # Set up mocks to capture the trace sent to MLflow backend
+    captured_trace = None
+
+    def mock_log_trace_to_mlflow_backend(trace):
+        nonlocal captured_trace
+        # Store a copy of the trace before it's modified by the log_trace method
+        captured_trace = Trace(
+            info=TraceInfo.from_proto(TraceInfo.to_proto(trace.info)), data=trace.data
+        )
+        # Mock implementation continues
+        return pb.StartTraceV3.Response()
+
+    # Create mock client that captures the trace
     mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.start_trace_v3.side_effect = mock_log_trace_to_mlflow_backend
+
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
     ):
@@ -187,7 +203,7 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
         # Ensure async queue is processed
         exporter._async_queue.flush(terminate=True)
 
-    trace_info = mock_tracing_client.start_trace.call_args[0][0]
+    trace_info = mock_tracing_client.start_trace_v3.call_args[0][0].info
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
 
     # Using pop() to exclude the size of these fields when computing the expected size
@@ -278,10 +294,10 @@ def test_prompt_linking_with_dual_write(monkeypatch):
         mock_link_prompt_versions_to_trace
     )
 
-    # Mock start_trace to return a mock trace info with the correct trace_id
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace.return_value = mock_trace_info
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
 
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
@@ -350,7 +366,7 @@ def test_prompt_linking_disabled_without_dual_write(monkeypatch):
         exporter.export([otel_span])
 
     # Verify that no dual write methods were called
-    mock_tracing_client.start_trace.assert_not_called()
+    mock_tracing_client.start_trace_v3.assert_not_called()
     mock_tracing_client.link_prompt_versions_to_trace.assert_not_called()
 
     # But the trace should still be in the inference table buffer
@@ -395,10 +411,10 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
         mock_link_prompt_versions_to_trace
     )
 
-    # Mock start_trace to return a mock trace info with the correct trace_id
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace.return_value = mock_trace_info
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
 
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
@@ -454,10 +470,10 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
         "Prompt linking failed"
     )
 
-    # Mock start_trace to return a mock trace info with the correct trace_id
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace.return_value = mock_trace_info
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
 
     with (
         mock.patch(
@@ -478,7 +494,7 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
     )
 
     # Verify other client methods were still called (trace export should succeed)
-    mock_tracing_client.start_trace.assert_called_once()
+    mock_tracing_client.start_trace_v3.assert_called_once()
     mock_tracing_client._upload_trace_data.assert_called_once()
 
     # Verify that the error was logged but didn't crash the export

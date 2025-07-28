@@ -20,9 +20,14 @@
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
     "prettier": "prettier",
+<<<<<<< HEAD
     "prettier:fix": "prettier '**/*.{ts,tsx,md,mdx,css}' --write",
     "prettier:check": "prettier '**/*.{ts,tsx,md,mdx,css}' --check",
     "check-links": "tsx scripts/check-links.mts",
+=======
+    "prettier:fix": "prettier \"{**/*.(ts|tsx),**/*.(md|mdx)}\" --write",
+    "prettier:check": "prettier \"{**/*.(ts|tsx),**/*.(md|mdx)}\" --check",
+>>>>>>> v3.1.4
     "sitemap": "tsx scripts/compare-sitemaps.ts"
   },
   "dependencies": {

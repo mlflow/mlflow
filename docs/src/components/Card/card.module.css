@@ -225,10 +225,14 @@
 }
 
 @media (max-width: 750px) {
+<<<<<<< HEAD
   .Cols6,
   .Cols5,
   .Cols4,
   .Cols3 {
+=======
+  .Cols6, .Cols5, .Cols4, .Cols3 {
+>>>>>>> v3.1.4
     grid-template-columns: repeat(2, 1fr);
   }
   .Cols2 {

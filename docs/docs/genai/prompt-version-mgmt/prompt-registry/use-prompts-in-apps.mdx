@@ -7,16 +7,6 @@ description: Learn how to integrate prompts from the MLflow Prompt Registry into
 
 Once you have created and versioned your prompts in the MLflow Prompt Registry, the next crucial step is to integrate them into your GenAI applications. This page guides you on how to load prompts, bind variables, handle versioning, and ensure complete lineage by linking prompt versions to your logged MLflow Models.
 
-You will learn:
-
-- How to load specific prompt versions or aliases using `mlflow.genai.load_prompt()`.
-- The process of formatting prompts with dynamic data using `prompt.format()`.
-- Strategies for managing prompt versions within your application code.
-- How to use MLflow prompts with other popular frameworks like LangChain or LlamaIndex via `prompt.to_single_brace_format()`.
-- The importance of logging the specific prompt version used when logging an MLflow Model.
-- How this linkage aids reproducibility, debugging, and inspection of models.
-- Best practices for error handling.
-
 ## Loading Prompts from the Registry
 
 The primary way to access a registered prompt in your application code is by using the `mlflow.genai.load_prompt()` function. This function retrieves a specific prompt version (or a version pointed to by an alias) from the registry.
@@ -123,6 +113,7 @@ MLflow is designed to facilitate this. When a model is logged, and that model's 
 - **Debugging**: If a model version starts behaving unexpectedly, you can easily check if a change in an underlying prompt (even if updated via an alias) is the cause.
 - **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
 - **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
+<<<<<<< HEAD
 
 ### How to Ensure Linkage (Conceptual)
 
@@ -157,3 +148,5 @@ When integrating prompts, implement robust error handling:
 - Familiarity with MLflow Model Logging concepts if you plan to link prompts to models.
 
 By following these guidelines, you can effectively integrate version-controlled prompts from the MLflow Prompt Registry into your applications, enhancing their maintainability, reliability, and traceability.
+=======
+>>>>>>> v3.1.4

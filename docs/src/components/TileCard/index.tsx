@@ -6,6 +6,7 @@ import styles from './styles.module.css';
 
 export interface TileCardProps {
   /**
+<<<<<<< HEAD
    * The icon component to display at the top of the card
    */
   icon: LucideIcon;
@@ -14,6 +15,24 @@ export interface TileCardProps {
    */
   iconSize?: number;
   /**
+=======
+   * The icon component to display at the top of the card (optional if image is provided)
+   */
+  icon?: LucideIcon;
+  /**
+   * The image source to display at the top of the card (optional if icon is provided)
+   */
+  image?: string;
+  /**
+   * The size of the icon (default: 32) - only used when icon is provided
+   */
+  iconSize?: number;
+  /**
+   * The height of the icon/image container in pixels (optional)
+   */
+  containerHeight?: number;
+  /**
+>>>>>>> v3.1.4
    * The title of the card
    */
   title: string;
@@ -40,17 +59,37 @@ export interface TileCardProps {
  */
 export default function TileCard({
   icon: Icon,
+<<<<<<< HEAD
   iconSize = 32,
+=======
+  image,
+  iconSize = 32,
+  containerHeight,
+>>>>>>> v3.1.4
   title,
   description,
   href,
   linkText = 'Learn more →',
   className,
 }: TileCardProps): JSX.Element {
+<<<<<<< HEAD
   return (
     <Link href={href} className={clsx(styles.tileCard, className)}>
       <div className={styles.tileIcon}>
         <Icon size={iconSize} />
+=======
+  // Ensure either icon or image is provided
+  if (!Icon && !image) {
+    throw new Error('TileCard requires either an icon or image prop');
+  }
+
+  const containerStyle = containerHeight ? { height: `${containerHeight}px` } : {};
+
+  return (
+    <Link href={href} className={clsx(styles.tileCard, className)}>
+      <div className={styles.tileIcon} style={containerStyle}>
+        {Icon ? <Icon size={iconSize} /> : <img src={image} alt={title} className={styles.tileImage} />}
+>>>>>>> v3.1.4
       </div>
       <h3>{title}</h3>
       <p>{description}</p>

@@ -335,8 +335,13 @@ kbd {
   --ifm-color-primary-lightest: #54cef0;
 
   /* Dark mode colors */
+<<<<<<< HEAD
   --ifm-border-color: #9ca3af;
   --ifm-color-emphasis-hover: #ffffff;
+=======
+  --ifm-border-color: #9CA3AF;
+  --ifm-color-emphasis-hover: #FFFFFF;
+>>>>>>> v3.1.4
   --ifm-link-color: #43c9ed;
 
   /* Dark mode shadow colors */
@@ -413,7 +418,11 @@ html[data-genai-theme='true'] {
 }
 
 .navbar__item:hover::before {
+<<<<<<< HEAD
   content: '';
+=======
+  content: "";
+>>>>>>> v3.1.4
   position: absolute;
   bottom: 0;
   left: 0;
@@ -495,6 +504,7 @@ html[data-theme='dark'] .menu__link--active {
  * -------------------------------- */
 
 /* Align breadcrumb items */
+<<<<<<< HEAD
 .breadcrumbs {
   display: flex;
 }
@@ -503,6 +513,16 @@ html[data-theme='dark'] .menu__link--active {
   display: inline-flex;
   align-items: center;
 }
+=======
+ .breadcrumbs {
+   display: flex;
+ }
+
+ .breadcrumbs__item {
+   display: inline-flex;
+   align-items: center;
+ }
+>>>>>>> v3.1.4
 
 /* Breadcrumbs - make uniform with the link color scheme */
 .breadcrumbs__link {
@@ -657,6 +677,10 @@ html[data-theme='dark'] .menu__link--active {
   margin-bottom: 2.5rem;
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> v3.1.4
 .hero-image {
   flex: 1;
   max-width: 500px;
@@ -682,6 +706,7 @@ html[data-theme='dark'] .menu__link--active {
   padding: 2rem;
 }
 
+<<<<<<< HEAD
 /* Feature Highlights */
 .feature-highlights {
   display: grid;
@@ -717,6 +742,8 @@ html[data-theme='dark'] .menu__link--active {
   margin-bottom: 0;
 }
 
+=======
+>>>>>>> v3.1.4
 /* Responsive Design */
 @media (max-width: 996px) {
   .hero-content {
@@ -724,25 +751,45 @@ html[data-theme='dark'] .menu__link--active {
     text-align: center;
     gap: 2rem;
   }
+<<<<<<< HEAD
 
   .hero-text h1 {
     font-size: 2.5rem;
   }
 
+=======
+  
+  .hero-text h1 {
+    font-size: 2.5rem;
+  }
+  
+>>>>>>> v3.1.4
   .tiles-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> v3.1.4
   .why-content {
     flex-direction: column;
     gap: 2rem;
   }
+<<<<<<< HEAD
 
   .value-prop-badge {
     justify-content: center;
   }
 
+=======
+  
+  .value-prop-badge {
+    justify-content: center;
+  }
+  
+>>>>>>> v3.1.4
   .feature-highlights {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -753,17 +800,29 @@ html[data-theme='dark'] .menu__link--active {
   .hero-section {
     padding: 2rem 1rem;
   }
+<<<<<<< HEAD
 
   .hero-text h1 {
     font-size: 2rem;
   }
 
+=======
+  
+  .hero-text h1 {
+    font-size: 2rem;
+  }
+  
+>>>>>>> v3.1.4
   .tiles-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
     padding: 1rem;
   }
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> v3.1.4
   .tile-card {
     padding: 1.5rem;
   }
