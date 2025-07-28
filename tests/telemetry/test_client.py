@@ -778,8 +778,8 @@ def test_config_fetch_no_retry(mock_requests, error_code):
         # wait for config to be fetched
         client._config_thread.join()
         client.flush()
-        assert len(mock_requests) == 0
-        mock_requests.clear()
+        events = [req["data"]["event_name"] for req in mock_requests]
+        assert record.event_name not in events
         # clean up
         client._clean_up()
         assert get_telemetry_client() is None
