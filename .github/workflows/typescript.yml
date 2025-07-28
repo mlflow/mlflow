@@ -36,6 +36,7 @@ jobs:
         working-directory: libs/typescript
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -45,19 +46,19 @@ jobs:
           cache-dependency-path: libs/typescript/core/package-lock.json
 
       - name: Install dependencies
-        run: yarn install
+        run: npm install
 
       - name: Run format check
-        run: yarn format:check
+        run: npm run format:check
 
       - name: Run linting
-        run: yarn lint
+        run: npm run lint
 
       - name: Run build
-        run: yarn build
+        run: npm run build
 
       - name: Run core tests
-        run: yarn test:core
+        run: npm run test:core
 
       - name: Run tests for integrations
-        run: yarn test:integrations
+        run: npm run test:integrations
