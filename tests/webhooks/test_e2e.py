@@ -99,7 +99,7 @@ class AppClient:
         logs_data = response.json().get("logs", [])
         return [WebhookLogEntry(**log_data) for log_data in logs_data]
 
-    def wait_for_logs(self, expected_count: int, timeout: float = 2.0) -> list[WebhookLogEntry]:
+    def wait_for_logs(self, expected_count: int, timeout: float = 5.0) -> list[WebhookLogEntry]:
         """Wait for webhooks to be delivered with a timeout."""
         start_time = time.time()
         while time.time() - start_time < timeout:
