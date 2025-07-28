@@ -1,6 +1,6 @@
 ---
 sidebarTitle: Haystack
-title: Tracing with Haystack
+title: Haystack
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -42,13 +42,6 @@ pipeline.connect("prompt_builder", "llm")
 question = "Who lives in Paris?"
 results = pipeline.run({"prompt_builder": {"question": question}})
 ```
-
-## Features
-
-- **Automatic Pipeline Tracing**: Traces are automatically generated for pipeline runs
-- **Component-Level Tracing**: Individual components within pipelines are traced as spans
-- **Token Usage Tracking**: For LLM components, token usage is automatically tracked
-- **Rich Metadata**: Component types, parameters, and configurations are captured
 
 ## Disable auto-tracing
 
