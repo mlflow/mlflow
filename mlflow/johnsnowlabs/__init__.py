@@ -766,7 +766,7 @@ def _load_pyfunc(path, spark=None):
     )
 
 
-def _get_or_create_sparksession(model_path=None):  # noqa: D417
+def _get_or_create_sparksession(model_path=None):
     """Check if SparkSession running and get it.
 
     If none exists, create a new one using jars in model_path. If model_path not defined, rely on
