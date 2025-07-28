@@ -109,7 +109,7 @@ def _deliver_webhook_impl(
 ) -> None:
     # TODO: Make this non-blocking
     for webhook in store.list_webhooks():
-        if event in webhook.events:
+        if webhook.status.is_active() and event in webhook.events:
             try:
                 _send_webhook_request(webhook, payload, event)
             except Exception as e:
