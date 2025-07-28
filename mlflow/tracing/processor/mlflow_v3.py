@@ -1,5 +1,3 @@
-from typing import Optional
-
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 

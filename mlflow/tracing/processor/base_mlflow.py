@@ -110,8 +110,8 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
           3. An experiment ID of an active run.
           4. The default experiment ID
         """
-        from mlflow.tracking.fluent import _get_latest_active_run
         from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+        from mlflow.tracking.fluent import _get_latest_active_run
 
         if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
             return experiment_id

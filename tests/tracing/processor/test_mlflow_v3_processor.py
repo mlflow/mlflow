@@ -12,7 +12,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 from tests.tracing.helper import (
     create_mock_otel_span,
