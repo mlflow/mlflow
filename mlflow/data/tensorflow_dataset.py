@@ -77,7 +77,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
-    def _compute_tensorflow_dataset_digest(  # noqa: D417
+    def _compute_tensorflow_dataset_digest(
         self,
         dataset,
         targets=None,

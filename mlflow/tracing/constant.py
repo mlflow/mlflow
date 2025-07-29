@@ -53,15 +53,13 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
-    # these attributes are for standardized chat messages and tool definitions
-    # in CHAT_MODEL and LLM spans. they are used for rendering the rich chat
-    # display in the trace UI, as well as downstream consumers of trace data
-    # such as evaluation
-    CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
+    # This attribute indicates which flavor/format generated the LLM span. This is
+    # used by downstream (e.g., UI) to determine the message format for parsing.
+    MESSAGE_FORMAT = "mlflow.message.format"
     # This attribute is used to populate `intermediate_outputs` property of a trace data
     # representing intermediate outputs of the trace. This attribute is not empty only on
     # the root span of a trace created by the `mlflow.log_trace` API. The `intermediate_outputs`

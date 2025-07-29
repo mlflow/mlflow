@@ -5,7 +5,9 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
+
+from pydantic import BaseModel
 
 from mlflow.entities.model_registry import (
     ModelVersionTag,
@@ -24,6 +26,12 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.events import (
+    CreateModelVersionEvent,
+    CreatePromptEvent,
+    CreateRegisteredModelEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -55,6 +63,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
+    @record_usage_event(CreateRegisteredModelEvent)
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
@@ -141,7 +150,11 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
-        if is_prompt_supported_registry(self.registry_uri):
+        # Add prompt filter for prompt-supported registries that also support filter_string
+        # Unity Catalog supports prompts but not filter_string parameter
+        if is_prompt_supported_registry(self.registry_uri) and not (
+            self.registry_uri or ""
+        ).startswith("databricks-uc"):
             # Adjust filter string to include or exclude prompts
             filter_string = add_prompt_filter_string(filter_string, False)
 
@@ -199,6 +212,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
+    @record_usage_event(CreateModelVersionEvent)
     def create_model_version(
         self,
         name,
@@ -450,6 +464,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
+    @record_usage_event(CreatePromptEvent)
     def create_prompt(
         self,
         name: str,
@@ -536,9 +551,10 @@ class ModelRegistryClient:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -548,14 +564,22 @@ class ModelRegistryClient:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text for this version.
+            template: The prompt template content for this version. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
             description: Optional description of this version.
             tags: Optional dictionary of version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, description, tags)
+        return self.store.create_prompt_version(name, template, description, tags, response_format)
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """

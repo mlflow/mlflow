@@ -76,9 +76,9 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_datab
             return_value=Feedback(name="correctness", value=CategoricalRating.YES),
         ) as mock_correctness,
         patch(
-            "databricks.agents.evals.judges.guideline_adherence",
-            return_value=Feedback(name="guideline_adherence", value=CategoricalRating.YES),
-        ) as mock_guideline,
+            "databricks.agents.evals.judges.guidelines",
+            return_value=Feedback(name="guidelines", value=CategoricalRating.YES),
+        ) as mock_guidelines,
         patch(
             "databricks.agents.evals.judges.groundedness",
             return_value=Feedback(name="groundedness", value=CategoricalRating.YES),
@@ -96,7 +96,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_datab
         )
 
     assert mock_correctness.call_count == 1
-    assert mock_guideline.call_count == 1
+    assert mock_guidelines.call_count == 1
     assert mock_groundedness.call_count == 2  # Called per retriever span
 
     mock_correctness.assert_called_once_with(
@@ -106,9 +106,9 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_datab
         expected_response="expected answer",
         assessment_name="correctness",
     )
-    mock_guideline.assert_called_once_with(
+    mock_guidelines.assert_called_once_with(
         guidelines=["write in english"],
-        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="english",
     )
     mock_groundedness.assert_has_calls(

@@ -68,6 +68,9 @@ SETUP_MINICONDA = """# Setup miniconda
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
+# Remove default channels to avoid `CondaToSNonInteractiveError`.
+# See https://github.com/mlflow/mlflow/pull/16752 for more details.
+RUN conda config --system --remove channels defaults && conda config --system --add channels conda-forge
 """  # noqa: E501
 
 

@@ -42,7 +42,7 @@ pip install mlflow-tracing
 To install from the source code, run the following command:
 
 ```bash
-pip install git+https://github.com/mlflow/mlflow.git#subdirectory=packages/tracing
+pip install git+https://github.com/mlflow/mlflow.git#subdirectory=libs/tracing
 ```
 
 > **NOTE:** It is **not** recommended to co-install this package with the full MLflow package together, as it may cause version mismatches issues.

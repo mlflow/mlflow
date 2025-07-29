@@ -877,3 +877,18 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: Whether to disable schema details in error messages for MLflow schema enforcement.
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+#: Whether to allow setting thread local tracing destination.
+#: (default: ``False``)
+MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
+)
