@@ -424,8 +424,8 @@ def test_evaluation_dataset_merge_records_from_traces_edge_cases():
     assert record.inputs == {}
 
     assert record.expectations == {
-        "expected_response": "Expected value",  # From trace1
-        "direct_value": "Direct expectation value",  # From trace4
+        "expected_response": "Expected value",
+        "direct_value": "Direct expectation value",
     }
 
     assert record.source.source_data["trace_id"] == "trace1"
@@ -581,7 +581,7 @@ def test_evaluation_dataset_merge_records_from_traces_with_duplicates(tracking_u
     traces.append(mlflow.get_trace(trace_id1))
 
     with mlflow.start_span(name="trace2") as span:
-        span.set_inputs({"question": "What is MLflow?"})  # Same input
+        span.set_inputs({"question": "What is MLflow?"})
         span.set_outputs({"answer": "MLflow helps with ML lifecycle"})
         trace_id2 = span.trace_id
 
