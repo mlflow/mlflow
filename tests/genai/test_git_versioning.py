@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from mlflow.genai import disable_git_model_versioning, enable_git_model_versioning
-from mlflow.genai.git_versioning import _get_active_context
+from mlflow.genai.git_versioning import _get_active_git_context
 
 
 @pytest.fixture(autouse=True)
@@ -61,26 +61,26 @@ def test_enable_git_model_versioning_git_unavailable(tmp_git_repo: Path):
 
 
 def test_enable_git_model_versioning_context_manager(tmp_git_repo: Path):
-    assert _get_active_context() is None
+    assert _get_active_git_context() is None
 
     with enable_git_model_versioning() as context:
-        assert _get_active_context() is context
+        assert _get_active_git_context() is context
 
-    assert _get_active_context() is None
+    assert _get_active_git_context() is None
 
 
 def test_disable_git_model_versioning_resets_context(tmp_git_repo: Path):
     with enable_git_model_versioning() as context:
-        assert _get_active_context() is context
+        assert _get_active_git_context() is context
         disable_git_model_versioning()
-        assert _get_active_context() is None
+        assert _get_active_git_context() is None
 
 
 def test_enable_git_model_versioning_sets_active_context(tmp_git_repo: Path):
-    assert _get_active_context() is None
+    assert _get_active_git_context() is None
 
     context = enable_git_model_versioning()
-    assert _get_active_context() is context
+    assert _get_active_git_context() is context
 
     disable_git_model_versioning()
-    assert _get_active_context() is None
+    assert _get_active_git_context() is None

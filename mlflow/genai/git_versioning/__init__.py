@@ -47,7 +47,7 @@ def disable_git_model_versioning() -> None:
     _active_context = None
 
 
-def _get_active_context() -> GitContext | None:
+def _get_active_git_context() -> GitContext | None:
     """
     Get the currently active git context, if any.
 
