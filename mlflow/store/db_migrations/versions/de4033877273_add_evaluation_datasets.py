@@ -5,13 +5,13 @@ Revises: 770bee3ae1dd
 Create Date: 2025-07-28 13:05:53.982327
 
 """
-from alembic import op
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'de4033877273'
-down_revision = '770bee3ae1dd'
+revision = "de4033877273"
+down_revision = "770bee3ae1dd"
 branch_labels = None
 depends_on = None
 
@@ -32,7 +32,7 @@ def upgrade():
         sa.Column("created_by", sa.String(255), nullable=True),
         sa.Column("last_updated_by", sa.String(255), nullable=True),
     )
-    
+
     # Create indexes on evaluation_datasets
     with op.batch_alter_table("evaluation_datasets", schema=None) as batch_op:
         batch_op.create_index(
@@ -45,7 +45,7 @@ def upgrade():
             ["created_time"],
             unique=False,
         )
-    
+
     # Create evaluation_dataset_records table
     op.create_table(
         "evaluation_dataset_records",
@@ -69,7 +69,7 @@ def upgrade():
             ondelete="CASCADE",
         ),
     )
-    
+
     # Create indexes and unique constraint on evaluation_dataset_records
     with op.batch_alter_table("evaluation_dataset_records", schema=None) as batch_op:
         batch_op.create_index(
@@ -81,7 +81,7 @@ def upgrade():
             "unique_dataset_input",
             ["dataset_id", "input_hash"],
         )
-    
+
     # Create entity_associations table
     op.create_table(
         "entity_associations",
@@ -92,11 +92,14 @@ def upgrade():
         sa.Column("destination_id", sa.String(36), nullable=False),
         sa.Column("created_time", sa.BigInteger(), nullable=True),
         sa.PrimaryKeyConstraint(
-            "source_type", "source_id", "destination_type", "destination_id",
+            "source_type",
+            "source_id",
+            "destination_type",
+            "destination_id",
             name="entity_associations_pk",
         ),
     )
-    
+
     # Create indexes on entity_associations
     with op.batch_alter_table("entity_associations", schema=None) as batch_op:
         batch_op.create_index(
