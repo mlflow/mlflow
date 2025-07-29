@@ -8,6 +8,7 @@ from mlflow.genai.datasets import (
     get_dataset,
 )
 from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.labeling import (
     Agent,
     LabelingSession,
@@ -68,4 +69,7 @@ __all__ = [
     "get_labeling_sessions",
     "get_labeling_session",
     "delete_labeling_session",
+    # git versioning
+    "disable_git_model_versioning",
+    "enable_git_model_versioning",
 ]
