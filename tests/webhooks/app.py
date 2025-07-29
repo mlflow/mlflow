@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import hmac
+import itertools
 import json
 import sys
 from pathlib import Path
@@ -47,13 +48,15 @@ async def insecure_webhook(request: Request):
 @app.post("/reset")
 async def reset():
     """Reset both logs and counters for testing"""
+    global flaky_counter, rate_limited_counter
+
     # Clear logs
     if LOG_FILE.exists():
         LOG_FILE.open("w").close()
 
     # Reset all counters
-    flaky_counter.reset()
-    rate_limited_counter.reset()
+    flaky_counter = itertools.count(1)
+    rate_limited_counter = itertools.count(1)
 
     return {"status": "reset complete", "logs": "cleared", "counters": "reset"}
 
@@ -159,28 +162,15 @@ async def secure_webhook(request: Request):
     return {"status": "received", "signature": "verified"}
 
 
-# Simple counter class for individual endpoints
-class Counter:
-    def __init__(self):
-        self.value = 0
-
-    def increment(self) -> int:
-        self.value += 1
-        return self.value
-
-    def reset(self) -> None:
-        self.value = 0
-
-
-# Create separate counters for each endpoint
-flaky_counter = Counter()
-rate_limited_counter = Counter()
+# Create separate counters for each endpoint using itertools.count
+flaky_counter = itertools.count(1)
+rate_limited_counter = itertools.count(1)
 
 
 @app.post("/flaky-webhook")
 async def flaky_webhook(request: Request):
     """Endpoint that fails initially but succeeds after retries"""
-    attempt = flaky_counter.increment()
+    attempt = next(flaky_counter)
 
     payload = await request.json()
     actual_payload = payload.get("data", payload)
@@ -213,7 +203,7 @@ async def flaky_webhook(request: Request):
 @app.post("/rate-limited-webhook")
 async def rate_limited_webhook(request: Request):
     """Endpoint that returns 429 with Retry-After header"""
-    attempt = rate_limited_counter.increment()
+    attempt = next(rate_limited_counter)
 
     payload = await request.json()
     actual_payload = payload.get("data", payload)
