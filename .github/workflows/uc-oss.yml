@@ -25,6 +25,7 @@ defaults:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 jobs:
   uc-oss-integration-test:

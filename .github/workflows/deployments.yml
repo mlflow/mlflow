@@ -20,6 +20,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+env:
+  _MLFLOW_TESTING_TELEMETRY: "true"
+
 jobs:
   deployments:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

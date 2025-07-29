@@ -19,6 +19,7 @@ on:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
