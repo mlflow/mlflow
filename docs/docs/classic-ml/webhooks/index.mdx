@@ -246,19 +246,16 @@ To prevent replay attacks, it's recommended to verify that webhook timestamps ar
 
 MLflow implements automatic retry logic to ensure reliable webhook delivery. When a webhook request fails, MLflow will automatically retry the request based on the following rules:
 
-**Retryable Status Codes:**
-
-- **429 Too Many Requests**: Rate limit errors
-- **500 Internal Server Error**: Server errors that may be temporary
-- **502 Bad Gateway**: Gateway errors
-- **503 Service Unavailable**: Service temporarily unavailable
-- **504 Gateway Timeout**: Gateway timeout errors
-
-**Non-Retryable Status Codes:**
-
-- **2xx** (200-299): Success responses
-- **3xx** (300-399): Redirects
-- **4xx** (400-499, except 429): Client errors that won't be resolved by retrying
+| Status Code                   | Category     | Retry Behavior | Description                                                 |
+| ----------------------------- | ------------ | -------------- | ----------------------------------------------------------- |
+| **2xx** (200-299)             | Success      | ❌ No Retry    | Success responses                                           |
+| **3xx** (300-399)             | Redirect     | ❌ No Retry    | Redirects                                                   |
+| **4xx** (400-499, except 429) | Client Error | ❌ No Retry    | Client errors that won't be resolved by retrying            |
+| **429**                       | Rate Limit   | ✅ Retry       | Too Many Requests - Rate limit errors                       |
+| **500**                       | Server Error | ✅ Retry       | Internal Server Error - Server errors that may be temporary |
+| **502**                       | Server Error | ✅ Retry       | Bad Gateway - Gateway errors                                |
+| **503**                       | Server Error | ✅ Retry       | Service Unavailable - Service temporarily unavailable       |
+| **504**                       | Server Error | ✅ Retry       | Gateway Timeout - Gateway timeout errors                    |
 
 ### Retry Behavior
 
