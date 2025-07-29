@@ -238,6 +238,7 @@ To prevent replay attacks, it's recommended to verify that webhook timestamps ar
 - `MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY`: Encryption key for storing webhook secrets securely
 - `MLFLOW_WEBHOOK_REQUEST_TIMEOUT`: Timeout in seconds for webhook HTTP requests (default: 30)
 - `MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES`: Maximum number of retry attempts for failed webhook requests (default: 3)
+- `MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS`: Maximum number of worker threads for webhook delivery (default: 10)
 
 ## Webhook Delivery Reliability
 
@@ -247,8 +248,11 @@ MLflow implements automatic retry logic to ensure reliable webhook delivery. Whe
 
 **Retryable Status Codes:**
 
-- **5xx errors** (500-599): Server errors that may be temporary
 - **429 Too Many Requests**: Rate limit errors
+- **500 Internal Server Error**: Server errors that may be temporary
+- **502 Bad Gateway**: Gateway errors
+- **503 Service Unavailable**: Service temporarily unavailable
+- **504 Gateway Timeout**: Gateway timeout errors
 
 **Non-Retryable Status Codes:**
 
@@ -262,7 +266,8 @@ When a retryable error occurs, MLflow:
 
 1. **Exponential Backoff**: Uses exponential backoff with jitter to prevent thundering herd issues
    - Base delays: 1s, 2s, 4s, 8s, etc.
-   - Jitter: Adds up to 10% random jitter to each delay
+   - Maximum backoff: Capped at 60 seconds
+   - Jitter: Adds up to 1 second of random jitter to each delay (requires urllib3 >= 2.0)
 2. **Respects Rate Limits**: For 429 responses, MLflow checks the `Retry-After` header and uses the larger of:
    - The value specified in `Retry-After` header
    - The calculated exponential backoff time
