@@ -101,6 +101,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.pydantic_ai*",
     "mlflow.smolagents*",
     "mlflow.store*",
+    "mlflow.telemetry*",
     "mlflow.tracing*",
     "mlflow.tracking*",
     "mlflow.types*",
