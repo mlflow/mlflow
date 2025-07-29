@@ -6,6 +6,9 @@ from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.data.dataset import Dataset
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
@@ -29,6 +32,7 @@ from mlflow.tracing.constant import (
     RETURN_TRACE_OPTION_KEY,
 )
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
+from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
@@ -269,24 +273,31 @@ def evaluate(
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
-    # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
-    # This is a temporary hack to avoid branching _convert_to_eval_set()
-    # into OSS and DBX implementation.
-    data = data.rename(
-        columns={
-            "request": InputDatasetColumn.INPUTS,
-            "response": InputDatasetColumn.OUTPUTS,
-        }
-    )
+    if isinstance(data, EvaluationDataset):
+        mlflow_dataset = data
+        df = data.to_df()
+    else:
+        # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
+        # This is a temporary hack to avoid branching _convert_to_eval_set()
+        # into OSS and DBX implementation.
+        data = data.rename(
+            columns={
+                "request": InputDatasetColumn.INPUTS,
+                "response": InputDatasetColumn.OUTPUTS,
+            }
+        )
+        mlflow_dataset = mlflow.data.from_pandas(df=data)
+        df = data
 
-    # TODO: Log input dataset to the run
     with (
         _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
     ):
+        _log_dataset_input(mlflow_dataset, run_id, model_id)
+
         return harness.run(
             predict_fn=predict_fn,
-            dataset=data,
+            eval_df=df,
             scorers=scorers,
             run_id=run_id,
         )
@@ -334,6 +345,20 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
+
+
+def _log_dataset_input(
+    data: Dataset,
+    run_id: str,
+    model_id: Optional[str] = None,
+):
+    client = MlflowClient()
+    dataset_input = DatasetInput(dataset=data._to_mlflow_entity())
+    client.log_inputs(
+        run_id=run_id,
+        datasets=[dataset_input],
+        models=[LoggedModelInput(model_id=model_id)] if model_id else None,
+    )
 
 
 @experimental(version="3.0.0")
