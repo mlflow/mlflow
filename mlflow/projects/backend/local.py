@@ -60,7 +60,6 @@ from mlflow.utils.virtualenv import (
 _logger = logging.getLogger(__name__)
 
 
-# spellchecker: off
 def _env_type_to_env_manager(env_typ):
     if env_typ == env_type.CONDA:
         return _EnvManager.CONDA
@@ -68,9 +67,6 @@ def _env_type_to_env_manager(env_typ):
         return _EnvManager.VIRTUALENV
     elif env_typ == env_type.DOCKER:
         return _EnvManager.LOCAL
-
-
-# spellchecker: on
 
 
 class LocalBackend(AbstractBackend):
