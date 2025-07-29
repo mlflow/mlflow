@@ -290,7 +290,6 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
             scorers=scorers,
             run_id=run_id,
         )
-        # TODO: Support logging aggregated metrics to the logged model
 
 
 def _evaluate_dbx(data, scorers, predict_fn, model_id):

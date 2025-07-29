@@ -178,6 +178,10 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
 
+    # Metrics should be logged to the model ID as well
+    model = mlflow.get_logged_model(model_id)
+    assert metrics == {m.key: m.value for m in model.metrics}
+
     # Exact number of traces should be generated
     traces = get_traces()
     assert len(traces) == len(data)
