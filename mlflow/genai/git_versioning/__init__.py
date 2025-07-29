@@ -22,17 +22,36 @@ class GitContext:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        pass
+        disable_git_model_versioning()
+
+
+# Global variable to track the active git context
+_active_context: GitContext | None = None
 
 
 def enable_git_model_versioning() -> GitContext:
     """
-    TODO
+    Enable git model versioning and set the active context.
     """
-    return GitContext()
+    global _active_context
+    context = GitContext()
+    _active_context = context
+    return context
 
 
 def disable_git_model_versioning() -> None:
     """
-    TODO
+    Disable git model versioning and reset the active context.
     """
+    global _active_context
+    _active_context = None
+
+
+def _get_active_context() -> GitContext | None:
+    """
+    Get the currently active git context, if any.
+
+    Returns:
+        The active GitContext instance or None if no context is active.
+    """
+    return _active_context
