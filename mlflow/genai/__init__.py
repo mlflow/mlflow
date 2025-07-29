@@ -69,7 +69,7 @@ __all__ = [
     "get_labeling_sessions",
     "get_labeling_session",
     "delete_labeling_session",
-    # git versioning
+    # git model versioning
     "disable_git_model_versioning",
     "enable_git_model_versioning",
 ]
