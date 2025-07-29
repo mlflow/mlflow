@@ -95,7 +95,7 @@ class TestScorerMethods:
         # Should work fine - start doesn't require pre-registration
         with patch("mlflow.genai.scorers.registry.update_registered_scorer") as mock_update:
             mock_update.return_value = my_scorer._create_copy()
-            started = my_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+            my_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
             assert mock_update.called
 
     @patch("mlflow.genai.scorers.registry.update_registered_scorer")
@@ -165,7 +165,7 @@ class TestScorerMethods:
     def test_scorer_register_with_experiment_id(self, mock_add):
         """Test registering a scorer with experiment_id."""
         my_scorer = length_check
-        registered = my_scorer.register(name="test_scorer", experiment_id="exp123")
+        my_scorer.register(name="test_scorer", experiment_id="exp123")
 
         mock_add.assert_called_once()
         call_args = mock_add.call_args.kwargs
@@ -204,7 +204,7 @@ class TestScorerMethods:
             sample_rate=0.9, filter_string="new_filter"
         )
 
-        updated = my_scorer.update(
+        my_scorer.update(
             name="override_name",
             experiment_id="exp456",
             sampling_config=ScorerSamplingConfig(sample_rate=0.9, filter_string="new_filter"),

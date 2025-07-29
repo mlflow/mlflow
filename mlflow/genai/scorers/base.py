@@ -464,7 +464,8 @@ class Scorer(BaseModel):
         sample rate and optional filter criteria.
 
         Args:
-            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            name: Optional scorer name. If not provided, uses the scorer's registered
+                name or default name.
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
@@ -525,7 +526,8 @@ class Scorer(BaseModel):
         the scorer.
 
         Args:
-            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
@@ -582,7 +584,8 @@ class Scorer(BaseModel):
         the scorer registered. The scorer can be restarted later using the start() method.
 
         Args:
-            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
 
@@ -629,7 +632,8 @@ class Scorer(BaseModel):
         must be registered again if needed.
 
         Args:
-            name: Optional scorer name. If not provided, uses the scorer's registered name or default name.
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
 
