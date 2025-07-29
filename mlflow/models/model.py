@@ -420,7 +420,7 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.now())
+        self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
