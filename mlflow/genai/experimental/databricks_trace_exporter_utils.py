@@ -417,6 +417,7 @@ class DatabricksTraceServerClient:
         )
 
 
+# TODO: Remove this once the ingest SDK is made public
 def import_ingest_sdk_classes():
     """
     Import ingest_api_sdk classes needed for trace archival.

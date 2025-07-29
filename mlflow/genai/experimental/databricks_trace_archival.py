@@ -102,18 +102,28 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 trace_id,
                 -- Collect and parse the JSON body as a VARIANT
                 COLLECT_LIST(parse_json(body)) AS assessments
-              FROM (
-                SELECT trace_id, body
+              FROM
+                (
+                -- Select the latest assessment snapshot for each trace
+                SELECT
+                  trace_id,
+                  body,
+                  attributes['valid'] AS is_valid,
+                  attributes['assessment_id'] AS assessment_id,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY attributes['assessment_id']
+                    ORDER BY time_unix_nano DESC
+                  ) AS rn
                 FROM
-                {events_table}
-                WHERE event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
-                  AND attributes['valid'] = 'true'
-                QUALIFY ROW_NUMBER() OVER (
-                  PARTITION BY trace_id, attributes['assessment_id']
-                  ORDER BY time_unix_nano DESC
-                ) = 1
-              )
-              GROUP BY trace_id
+                  {events_table}
+                WHERE
+                  event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
+                )
+              WHERE
+                -- only keep the latest assessment snapshots that are still valid
+                rn = 1 AND is_valid = 'true'
+              GROUP BY
+                trace_id
             ),
             -- 4. Latest tags grouped by trace_id
             latest_tags AS (
@@ -139,9 +149,9 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 attributes['mlflow.spanInputs'] as request,
                 attributes['mlflow.spanOutputs'] as response
             FROM
-                james_wu.shinkansen.trace_logs_experiment_6051921418418893_229546900166940_otel_spans
+                {spans_table}
             where
-                parent_span_id = ""
+                parent_span_id = "" or parent_span_id is null
             )
             -- 6. Main query - join the trace metadata with associated tags, assessments and spans.
             -- All transformation are moved here to keep the joins performant
@@ -235,7 +245,6 @@ def _enable_trace_rolling_deletion(experiment_id: str) -> None:
         _logger.debug(f"Successfully enabled trace rolling deletion for experiment {experiment_id}")
     except Exception as e:
         error_msg = f"Failed to enable trace rolling deletion for experiment {experiment_id}: {e!s}"
-        _logger.error(error_msg)
         raise MlflowException(error_msg) from e
 
 
