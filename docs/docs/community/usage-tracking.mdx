@@ -106,6 +106,12 @@ The below section outlines the data currently collected in this version of MLflo
       <td>To identify common failure points and improve reliability and error handling</td>
     </tr>
     <tr>
+      <td>Timestamp (nanoseconds)</td>
+      <td>Time when the event occurred</td>
+      <td>1753760188623715000</td>
+      <td>As an identifier for the event</td>
+    </tr>
+    <tr>
       <td>Duration</td>
       <td>The time the event call takes, in milliseconds</td>
       <td>1000</td>
@@ -130,47 +136,58 @@ For events with None in the `Tracked Parameters` column, only the event name is 
     <tr>
       <th>Event Name</th>
       <th>Tracked Parameters</th>
+      <th>Example</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>import_mlflow</td>
       <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>create_experiment</td>
+      <td>None</td>
       <td>None</td>
     </tr>
     <tr>
       <td>create_run</td>
       <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
+      <td>`{"imports": ["sklearn"]}`</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
       <td>Flavor of the model (e.g. langchain, sklearn)</td>
+      <td>`{"flavor": "langchain"}`</td>
     </tr>
     <tr>
       <td>create_registered_model</td>
+      <td>None</td>
       <td>None</td>
     </tr>
     <tr>
       <td>create_model_version</td>
       <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>create_prompt</td>
+      <td>None</td>
       <td>None</td>
     </tr>
     <tr>
       <td>start_trace</td>
       <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>log_assessment</td>
       <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>evaluate</td>
+      <td>None</td>
       <td>None</td>
     </tr>
   </tbody>
@@ -205,19 +222,19 @@ If you’d like support for additional CI environments, please [open an issue on
 - CI
 - Github Actions
 - CircleCI
-- GitLab CI
-- Jenkins
-- Travis
-- Azure Pipeline
+- GitLab CI/CD
+- Jenkins Pipeline
+- Travis CI
+- Azure Pipelines
 - BitBucket
-- CodeBuild
+- AWS CodeBuild
 - BuildKite
   :::
 
 ### Scope of the setting
 
 - The environment variable only takes effect in processes where it is explicitly set or inherited.
-- If you spawn subprocesses (e.g., via subprocess.run) from a clean environment, those subprocesses may not inherit your shell’s environment, and telemetry could remain enabled.
+- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell’s environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
 
 Recommendations to ensure telemetry is consistently disabled across all environments:
 
@@ -230,9 +247,7 @@ Use `mlflow.telemetry.get_telemetry_client()` to retrieve the current telemetry 
 
 ### How to opt-out for your organization?
 
-MLflow fetches telemetry configuration from `https://config.mlflow-telemetry.io`.
-When it fails to fetch the configuration, MLflow will not track any telemetry for the session.
-With this, you can block requests to this endpoint to prevent telemetry from being enabled.
+Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry.
 
 ## What are we doing with this data?
 
