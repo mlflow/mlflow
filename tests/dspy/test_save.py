@@ -485,3 +485,36 @@ def test_predict_stream_success(dummy_model):
             "chunk": "reason",
         },
     ]
+
+
+def test_predict_output(dummy_model):
+    class MockModelReturningNonPrediction(dspy.Module):
+        def forward(self, question):
+            # Return a plain dict instead of dspy.Prediction
+            return {"answer": "4", "custom_field": "custom_value"}
+
+    class MockModelReturningPrediction(dspy.Module):
+        def forward(self, question):
+            # Return a dspy.Prediction
+            prediction = dspy.Prediction()
+            prediction.answer = "4"
+            prediction.custom_field = "custom_value"
+            return prediction
+
+    dspy.settings.configure(lm=dummy_model)
+
+    non_prediction_model = MockModelReturningNonPrediction()
+    model_info = mlflow.dspy.log_model(non_prediction_model, name="non_prediction_model")
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = loaded_model.predict("What is 2 + 2?")
+
+    assert isinstance(result, dict)
+    assert result == {"answer": "4", "custom_field": "custom_value"}
+
+    prediction_model = MockModelReturningPrediction()
+    model_info = mlflow.dspy.log_model(prediction_model, name="prediction_model")
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    result = loaded_model.predict("What is 2 + 2?")
+
+    assert isinstance(result, dict)
+    assert result == {"answer": "4", "custom_field": "custom_value"}
