@@ -7,6 +7,7 @@ import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracking.client import MlflowClient
@@ -18,7 +19,13 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
-    with NoOpTracerPatcher() as counter:
+    with (
+        NoOpTracerPatcher() as counter,
+        # Enable auto-tracing before checking if the predict_fn produces traces, so that
+        # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
+        # identified as traced functions
+        configure_autologging_for_evaluation(enable_tracing=True),
+    ):
         check_model_prediction(predict_fn, sample_input)
 
     if counter.count == 0:

@@ -74,12 +74,15 @@ def mock_openai_env(monkeypatch):
 
 @pytest.mark.usefixtures("mock_openai_env")
 @pytest.mark.parametrize(
-    ("predict_fn_generator", "with_tracing"),
+    ("predict_fn_generator", "with_tracing", "should_be_wrapped"),
     [
-        (get_dummy_predict_fn, False),
-        (get_dummy_predict_fn, True),
-        (get_openai_predict_fn, False),
-        (get_openai_predict_fn, True),
+        (get_dummy_predict_fn, False, True),
+        # If the function is already traced, it should not be wrapped with @mlflow.trace.
+        (get_dummy_predict_fn, True, False),
+        # OpenAI autologging is automatically enabled during evaluation,
+        # so we don't need to wrap the function with @mlflow.trace.
+        (get_openai_predict_fn, False, False),
+        (get_openai_predict_fn, True, False),
     ],
     ids=[
         "dummy predict_fn without tracing",
@@ -88,7 +91,7 @@ def mock_openai_env(monkeypatch):
         "openai predict_fn with tracing",
     ],
 )
-def test_convert_predict_fn(predict_fn_generator, with_tracing):
+def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrapped):
     predict_fn = predict_fn_generator(with_tracing=with_tracing)
     sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
 
@@ -105,7 +108,8 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing):
     assert result == "test"
 
     # Trace should be generated
-    assert len(get_traces()) == 1
+    if with_tracing or should_be_wrapped:
+        assert len(get_traces()) == 1
 
 
 def create_span(
