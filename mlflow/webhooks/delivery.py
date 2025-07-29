@@ -10,13 +10,17 @@ import hashlib
 import hmac
 import json
 import logging
-import random
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import requests
+import urllib3
+from packaging.version import Version
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.environment_variables import (
@@ -44,20 +48,58 @@ _webhook_delivery_executor = ThreadPoolExecutor(
     thread_name_prefix="webhook-delivery",
 )
 
+# Shared session for webhook requests (thread-safe)
+_webhook_session: requests.Session | None = None
+_webhook_session_lock: threading.Lock = threading.Lock()
 
-def _calculate_backoff_with_jitter(attempt: int, jitter_fraction: float = 0.1) -> float:
-    """Calculate exponential backoff time with jitter.
 
-    Args:
-        attempt: The retry attempt number (0-based)
-        jitter_fraction: Fraction of base backoff to use as maximum jitter (default: 0.1)
+def _create_webhook_session() -> requests.Session:
+    """Create a new webhook session with retry configuration.
 
     Returns:
-        Backoff time in seconds with jitter applied
+        Configured requests.Session object
     """
-    base_backoff = 2**attempt  # Exponential backoff: 1s, 2s, 4s, 8s...
-    jitter = random.uniform(0, base_backoff * jitter_fraction)
-    return base_backoff + jitter
+    max_retries = MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES.get()
+
+    # urllib3 >= 2.0 supports additional features
+    extra_kwargs = {}
+    if Version(urllib3.__version__) >= Version("2.0"):
+        extra_kwargs["backoff_jitter"] = 1.0  # Add up to 1 second of jitter
+
+    retry_strategy = Retry(
+        total=max_retries,
+        status_forcelist=[429, 500, 502, 503, 504],  # Retry on these status codes
+        allowed_methods=["POST"],  # Only retry POST requests
+        backoff_factor=1.0,  # Exponential backoff: 1s, 2s, 4s, etc.
+        backoff_max=60.0,  # Cap maximum backoff at 60 seconds
+        respect_retry_after_header=True,  # Automatically handle Retry-After headers
+        raise_on_status=False,  # Don't raise on these status codes
+        **extra_kwargs,
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session = requests.Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    return session
+
+
+def _get_or_create_webhook_session() -> requests.Session:
+    """Get or create a shared webhook session with retry configuration.
+
+    Returns:
+        Configured requests.Session object
+    """
+    global _webhook_session
+
+    if _webhook_session is None:
+        with _webhook_session_lock:
+            # Double-check locking pattern
+            if _webhook_session is None:
+                _webhook_session = _create_webhook_session()
+
+    return _webhook_session
 
 
 def _generate_hmac_signature(secret: str, delivery_id: str, timestamp: str, payload: str) -> str:
@@ -85,6 +127,7 @@ def _send_webhook_request(
     webhook: Webhook,
     payload: WebhookPayload,
     event: WebhookEvent,
+    session: requests.Session,
 ) -> requests.Response:
     """Send a webhook request to the specified URL with retry logic.
 
@@ -92,6 +135,7 @@ def _send_webhook_request(
         webhook: The webhook object containing the URL and secret
         payload: The payload to send
         event: The webhook event type
+        session: Configured requests session with retry logic
 
     Returns:
         requests.Response object from the webhook request
@@ -125,67 +169,28 @@ def _send_webhook_request(
         headers[WEBHOOK_SIGNATURE_HEADER] = signature
 
     timeout = MLFLOW_WEBHOOK_REQUEST_TIMEOUT.get()
-    max_retries = MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES.get()
 
-    # Retry logic with exponential backoff and jitter
-    for attempt in range(max_retries + 1):
-        try:
-            response = requests.post(
-                webhook.url, data=payload_bytes, headers=headers, timeout=timeout
-            )
-
-            should_retry = response.status_code >= 500 or response.status_code == 429
-            if not should_retry:
-                # Return successful response or non-retryable errors
-                return response
-
-            if attempt < max_retries:
-                backoff_time = _calculate_backoff_with_jitter(attempt)
-
-                # For 429, check if there's a Retry-After header
-                if response.status_code == 429 and (
-                    retry_after := response.headers.get("Retry-After")
-                ):
-                    try:
-                        retry_after = int(retry_after)
-                        backoff_time = max(backoff_time, retry_after)
-                    except (ValueError, TypeError):
-                        # If Retry-After is not a valid integer, use calculated backoff
-                        pass
-
-                _logger.warning(
-                    f"Webhook request to {webhook.url} failed with status {response.status_code}. "
-                    f"Retrying in {backoff_time:.2f}s (attempt {attempt + 1}/{max_retries})"
-                )
-                time.sleep(backoff_time)
-            else:
-                # Last attempt failed, return the response
-                return response
-
-        except requests.RequestException as e:
-            if attempt < max_retries:
-                backoff_time = _calculate_backoff_with_jitter(attempt)
-
-                _logger.warning(
-                    f"Webhook request to {webhook.url} failed: {e}. "
-                    f"Retrying in {backoff_time:.2f}s (attempt {attempt + 1}/{max_retries})"
-                )
-                time.sleep(backoff_time)
-            else:
-                # Last attempt failed, re-raise the exception
-                raise
-
-    # This should never be reached, but included for completeness
-    raise RuntimeError("Unexpected error in webhook retry logic")
+    try:
+        return session.post(webhook.url, data=payload_bytes, headers=headers, timeout=timeout)
+    except requests.exceptions.RetryError as e:
+        # urllib3 exhausted all retries
+        max_retries = MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES.get()
+        _logger.error(f"Webhook request to {webhook.url} failed after {max_retries} retries: {e}")
+        raise
+    except requests.RequestException as e:
+        # Other request errors
+        _logger.error(f"Webhook request to {webhook.url} failed: {e}")
+        raise
 
 
 def _send_webhook_with_error_handling(
     webhook: Webhook,
     payload: WebhookPayload,
     event: WebhookEvent,
+    session: requests.Session,
 ) -> None:
     try:
-        _send_webhook_request(webhook, payload, event)
+        _send_webhook_request(webhook, payload, event, session)
     except Exception as e:
         _logger.error(
             f"Failed to send webhook to {webhook.url} for event {event}: {e}",
@@ -199,6 +204,7 @@ def _deliver_webhook_impl(
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
+    session = _get_or_create_webhook_session()
     for webhook in store.list_webhooks():
         if webhook.status.is_active() and event in webhook.events:
             _webhook_delivery_executor.submit(
@@ -206,6 +212,7 @@ def _deliver_webhook_impl(
                 webhook,
                 payload,
                 event,
+                session,
             )
 
 
@@ -236,9 +243,12 @@ def test_webhook(webhook: Webhook, event: WebhookEvent | None = None) -> Webhook
     """
     # Use provided event or the first event type for testing
     test_event = event or webhook.events[0]
+    session = _get_or_create_webhook_session()
     try:
         test_payload = get_example_payload_for_event(test_event)
-        response = _send_webhook_request(webhook=webhook, payload=test_payload, event=test_event)
+        response = _send_webhook_request(
+            webhook=webhook, payload=test_payload, event=test_event, session=session
+        )
         return WebhookTestResult(
             success=response.status_code < 400,
             response_status=response.status_code,
