@@ -6114,3 +6114,264 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+#######################################################################################
+# Evaluation Dataset Tests
+#######################################################################################
+
+
+def test_create_and_get_evaluation_dataset(store):
+    """Test creating and retrieving an evaluation dataset."""
+    from mlflow.entities import EvaluationDataset
+    
+    dataset = EvaluationDataset(
+        name="test_eval_dataset",
+        source="test_source",
+        source_type="UC_VOLUME",
+        schema='{"fields": ["question", "answer"]}',
+        profile='{"num_rows": 100}',
+        digest="abcd1234",
+        created_by="test_user",
+    )
+    
+    # Create dataset with experiment associations
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1", "2"])
+    
+    assert created_dataset.dataset_id is not None
+    assert created_dataset.dataset_id.startswith("d-")
+    assert created_dataset.name == "test_eval_dataset"
+    assert created_dataset.source == "test_source"
+    assert created_dataset.source_type == "UC_VOLUME"
+    assert created_dataset.created_time is not None
+    assert created_dataset.last_update_time is not None
+    
+    # Get dataset by ID
+    retrieved_dataset = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    assert retrieved_dataset.dataset_id == created_dataset.dataset_id
+    assert retrieved_dataset.name == created_dataset.name
+    assert retrieved_dataset.source == created_dataset.source
+    assert retrieved_dataset.experiment_ids == ["1", "2"]
+    assert retrieved_dataset._tracking_store is store
+    assert not retrieved_dataset.has_records()  # Records not loaded yet
+    
+    # Get dataset by name
+    retrieved_by_name = store.get_evaluation_dataset(name="test_eval_dataset")
+    assert retrieved_by_name.dataset_id == created_dataset.dataset_id
+    assert retrieved_by_name.name == created_dataset.name
+
+
+def test_get_evaluation_dataset_errors(store):
+    """Test error cases for getting evaluation datasets."""
+    from mlflow.exceptions import MlflowException
+    
+    # Test missing parameters
+    with pytest.raises(MlflowException, match="Either dataset_id or name must be provided"):
+        store.get_evaluation_dataset()
+    
+    # Test non-existent dataset by ID
+    with pytest.raises(MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"):
+        store.get_evaluation_dataset(dataset_id="d-nonexistent")
+    
+    # Test non-existent dataset by name
+    with pytest.raises(MlflowException, match="Evaluation dataset with name 'nonexistent' not found"):
+        store.get_evaluation_dataset(name="nonexistent")
+
+
+def test_delete_evaluation_dataset(store):
+    """Test deleting an evaluation dataset."""
+    from mlflow.entities import EvaluationDataset
+    from mlflow.exceptions import MlflowException
+    
+    # Create dataset
+    dataset = EvaluationDataset(name="dataset_to_delete")
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1"])
+    
+    # Delete dataset
+    store.delete_evaluation_dataset(created_dataset.dataset_id)
+    
+    # Verify it's deleted
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    
+    # Test deleting non-existent dataset
+    with pytest.raises(MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"):
+        store.delete_evaluation_dataset("d-nonexistent")
+
+
+def test_search_evaluation_datasets(store):
+    """Test searching evaluation datasets."""
+    from mlflow.entities import EvaluationDataset
+    
+    # Create multiple datasets
+    datasets = []
+    for i in range(3):
+        dataset = EvaluationDataset(
+            name=f"search_dataset_{i}",
+            created_by=f"user_{i}",
+        )
+        created = store.create_evaluation_dataset(dataset, experiment_ids=[str(i)])
+        datasets.append(created)
+    
+    # Search all datasets
+    results = store.search_evaluation_datasets()
+    assert len(results) >= 3
+    
+    # Search by experiment ID
+    results = store.search_evaluation_datasets(experiment_ids=["1"])
+    assert any(d.name == "search_dataset_1" for d in results)
+    
+    # Test ordering
+    results = store.search_evaluation_datasets(order_by=["name"])
+    names = [d.name for d in results if d.name.startswith("search_dataset_")]
+    assert names == sorted(names)
+    
+    # Test reverse ordering
+    results = store.search_evaluation_datasets(order_by=["-name"])
+    names = [d.name for d in results if d.name.startswith("search_dataset_")]
+    assert names == sorted(names, reverse=True)
+    
+    # Test max results
+    results = store.search_evaluation_datasets(max_results=2)
+    assert len(results) <= 2
+
+
+def test_upsert_evaluation_dataset_records(store):
+    """Test upserting evaluation dataset records."""
+    from mlflow.entities import EvaluationDataset
+    from mlflow.exceptions import MlflowException
+    
+    # Create dataset
+    dataset = EvaluationDataset(name="records_dataset")
+    created_dataset = store.create_evaluation_dataset(dataset)
+    
+    # Insert new records
+    records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an open source platform"},
+            "tags": {"version": "1.0"},
+        },
+        {
+            "inputs": {"question": "What is tracking?"},
+            "expectations": {"answer": "Tracking experiments"},
+        },
+    ]
+    
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records, "test_user")
+    assert result["inserted"] == 2
+    assert result["updated"] == 0
+    
+    # Update existing record and add new one
+    updated_records = [
+        {
+            "inputs": {"question": "What is MLflow?"},  # Same input
+            "expectations": {"answer": "MLflow is an ML platform", "confidence": "high"},  # Updated
+            "tags": {"version": "2.0", "reviewed": "true"},  # Updated
+        },
+        {
+            "inputs": {"question": "What is a model?"},  # New
+            "expectations": {"answer": "A trained ML algorithm"},
+        },
+    ]
+    
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, updated_records, "test_user")
+    assert result["inserted"] == 1
+    assert result["updated"] == 1
+    
+    # Verify records were loaded correctly
+    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
+    assert len(loaded_records) == 3
+    
+    # Find the updated record
+    updated_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
+    assert updated_record.expectations["answer"] == "MLflow is an ML platform"
+    assert updated_record.expectations["confidence"] == "high"
+    assert updated_record.tags["version"] == "2.0"
+    assert updated_record.tags["reviewed"] == "true"
+    
+    # Test with non-existent dataset
+    with pytest.raises(MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"):
+        store.upsert_evaluation_dataset_records("d-nonexistent", records)
+
+
+def test_lazy_loading_dataset_records(store):
+    """Test lazy loading of dataset records."""
+    from mlflow.entities import EvaluationDataset
+    
+    # Create dataset
+    dataset = EvaluationDataset(name="lazy_load_dataset")
+    created_dataset = store.create_evaluation_dataset(dataset)
+    
+    # Add records
+    records = [
+        {"inputs": {"q": f"Question {i}"}, "expectations": {"a": f"Answer {i}"}}
+        for i in range(5)
+    ]
+    store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
+    
+    # Get dataset - records should not be loaded
+    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    assert not retrieved.has_records()
+    assert retrieved._tracking_store is store
+    
+    # Access records - should trigger lazy loading
+    loaded_records = retrieved.records
+    assert len(loaded_records) == 5
+    assert retrieved.has_records()
+    
+    # Verify record contents
+    for i, record in enumerate(loaded_records):
+        assert record.inputs["q"] == f"Question {i}"
+        assert record.expectations["a"] == f"Answer {i}"
+
+
+def test_dataset_record_deduplication(store):
+    """Test that records are deduplicated by inputs."""
+    from mlflow.entities import EvaluationDataset
+    
+    # Create dataset
+    dataset = EvaluationDataset(name="dedup_dataset")
+    created_dataset = store.create_evaluation_dataset(dataset)
+    
+    # Insert records with duplicate inputs
+    records = [
+        {"inputs": {"q": "Same question"}, "expectations": {"a": "Answer 1"}},
+        {"inputs": {"q": "Same question"}, "expectations": {"a": "Answer 2"}},  # Duplicate input
+        {"inputs": {"q": "Different question"}, "expectations": {"a": "Answer 3"}},
+    ]
+    
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
+    assert result["inserted"] == 2  # Only 2 unique inputs
+    assert result["updated"] == 1  # One duplicate was updated
+    
+    # Verify final state
+    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
+    assert len(loaded_records) == 2
+    
+    # Check that the duplicate was updated with the latest value
+    same_q_record = next(r for r in loaded_records if r.inputs["q"] == "Same question")
+    assert same_q_record.expectations["a"] == "Answer 2"  # Latest value
+
+
+def test_dataset_with_entity_associations(store):
+    """Test dataset with multiple experiment associations."""
+    from mlflow.entities import EvaluationDataset
+    
+    # Create dataset with multiple experiments
+    dataset = EvaluationDataset(name="multi_exp_dataset")
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1", "2", "3"])
+    
+    # Retrieve and verify associations
+    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    assert set(retrieved.experiment_ids) == {"1", "2", "3"}
+    
+    # Search by experiment
+    results = store.search_evaluation_datasets(experiment_ids=["2"])
+    assert any(d.dataset_id == created_dataset.dataset_id for d in results)
+    
+    # Search by multiple experiments
+    results = store.search_evaluation_datasets(experiment_ids=["1", "3"])
+    matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
+    assert len(matching) == 1
+    assert set(matching[0].experiment_ids) == {"1", "2", "3"}

@@ -23,6 +23,9 @@ from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Dataset,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -1347,6 +1350,66 @@ class SqlEvaluationDataset(Base):
         Index("index_evaluation_datasets_created_time", "created_time"),
     )
 
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.EvaluationDataset`.
+        """
+        from mlflow.entities import EvaluationDataset
+        
+        # Convert records if they're loaded
+        records = None
+        if self.records:
+            records = [record.to_mlflow_entity() for record in self.records]
+        
+        dataset = EvaluationDataset(
+            dataset_id=self.dataset_id,
+            name=self.name,
+            source=self.source,
+            source_type=self.source_type,
+            schema=self.schema,
+            profile=self.profile,
+            digest=self.digest,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            experiment_ids=[],  # Will be populated from entity associations
+        )
+        
+        # Set internal records if loaded
+        if records is not None:
+            dataset._records = records
+        
+        return dataset
+
+    @classmethod
+    def from_mlflow_entity(cls, dataset: EvaluationDataset):
+        """
+        Create SqlEvaluationDataset from EvaluationDataset entity.
+
+        Args:
+            dataset: EvaluationDataset entity
+
+        Returns:
+            SqlEvaluationDataset instance
+        """
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            source=dataset.source,
+            source_type=dataset.source_type,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time or get_current_time_millis(),
+            last_update_time=dataset.last_update_time or get_current_time_millis(),
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+        )
+
 
 class SqlEvaluationDatasetRecord(Base):
     """
@@ -1436,6 +1499,78 @@ class SqlEvaluationDatasetRecord(Base):
             ondelete="CASCADE",
         ),
     )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.DatasetRecord`.
+        """
+        from mlflow.entities import DatasetRecord, DatasetRecordSource
+
+        # Parse JSON fields
+        inputs = json.loads(self.inputs) if self.inputs else {}
+        expectations = json.loads(self.expectations) if self.expectations else None
+        tags = json.loads(self.tags) if self.tags else None
+        
+        # Parse source if present
+        source = None
+        if self.source:
+            source_dict = json.loads(self.source)
+            source = DatasetRecordSource.from_dict(source_dict)
+        
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=inputs,
+            expectations=expectations,
+            tags=tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+    @classmethod 
+    def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
+        """
+        Create SqlEvaluationDatasetRecord from DatasetRecord entity.
+
+        Args:
+            record: DatasetRecord entity
+            input_hash: SHA256 hash of inputs for deduplication
+
+        Returns:
+            SqlEvaluationDatasetRecord instance
+        """
+        # Serialize JSON fields
+        inputs_json = json.dumps(record.inputs, sort_keys=True)
+        expectations_json = json.dumps(record.expectations, sort_keys=True) if record.expectations else None
+        tags_json = json.dumps(record.tags, sort_keys=True) if record.tags else None
+        
+        # Serialize source if present
+        source_json = None
+        if record.source:
+            source_json = json.dumps(record.source.to_dict(), sort_keys=True)
+        
+        return cls(
+            dataset_record_id=record.dataset_record_id,
+            dataset_id=record.dataset_id,
+            inputs=inputs_json,
+            expectations=expectations_json,
+            tags=tags_json,
+            source=source_json,
+            source_id=record.source_id,
+            source_type=record.source.source_type if record.source else None,
+            created_time=record.created_time or get_current_time_millis(),
+            last_update_time=record.last_update_time or get_current_time_millis(),
+            created_by=record.created_by,
+            last_updated_by=record.last_updated_by,
+            input_hash=input_hash,
+        )
 
 
 class SqlEntityAssociation(Base):
