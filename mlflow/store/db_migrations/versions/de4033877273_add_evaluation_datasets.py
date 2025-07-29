@@ -31,7 +31,7 @@ def upgrade():
         sa.Column("last_update_time", sa.BigInteger(), nullable=True),
         sa.Column("created_by", sa.String(255), nullable=True),
         sa.Column("last_updated_by", sa.String(255), nullable=True),
-        sa.PrimaryKeyConstraint("dataset_id", name="pk_evaluation_datasets"),
+        sa.PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
     )
 
     # Create indexes on evaluation_datasets
@@ -63,7 +63,7 @@ def upgrade():
         sa.Column("created_by", sa.String(255), nullable=True),
         sa.Column("last_updated_by", sa.String(255), nullable=True),
         sa.Column("input_hash", sa.String(64), nullable=False),
-        sa.PrimaryKeyConstraint("dataset_record_id", name="pk_evaluation_dataset_records"),
+        sa.PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
         sa.ForeignKeyConstraint(
             ["dataset_id"],
             ["evaluation_datasets.dataset_id"],

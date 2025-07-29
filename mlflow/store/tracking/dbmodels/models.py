@@ -1343,6 +1343,7 @@ class SqlEvaluationDataset(Base):
     )
 
     __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
         Index("index_evaluation_datasets_name", "name"),
         Index("index_evaluation_datasets_created_time", "created_time"),
     )
@@ -1427,6 +1428,7 @@ class SqlEvaluationDatasetRecord(Base):
     dataset = relationship("SqlEvaluationDataset", back_populates="records")
 
     __table_args__ = (
+        PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
         Index("index_evaluation_dataset_records_dataset_id", "dataset_id"),
         UniqueConstraint("dataset_id", "input_hash", name="unique_dataset_input"),
         ForeignKeyConstraint(
