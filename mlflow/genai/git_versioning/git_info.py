@@ -26,29 +26,21 @@ class GitInfo:
 
     @staticmethod
     def _is_git_available() -> bool:
-        try:
-            subprocess.check_output(["git", "--version"], stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
+        return subprocess.call(["git", "--version"], stderr=subprocess.DEVNULL) == 0
 
     @staticmethod
     def _is_in_git_repo() -> bool:
-        try:
-            subprocess.check_output(["git", "rev-parse", "--git-dir"], stderr=subprocess.DEVNULL)
-            return True
-        except subprocess.CalledProcessError:
-            return False
+        return subprocess.call(["git", "rev-parse", "--git-dir"], stderr=subprocess.DEVNULL) == 0
 
     @staticmethod
     def _get_current_branch() -> str | None:
         try:
-            result = subprocess.check_output(
+            stdout = subprocess.check_output(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 stderr=subprocess.DEVNULL,
                 text=True,
             )
-            branch = result.strip()
+            branch = stdout.strip()
             return branch if branch != "HEAD" else None
         except subprocess.CalledProcessError:
             return None
@@ -56,10 +48,10 @@ class GitInfo:
     @staticmethod
     def _get_current_commit() -> str | None:
         try:
-            result = subprocess.check_output(
+            stdout = subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
             )
-            return result.strip()
+            return stdout.strip()
         except subprocess.CalledProcessError:
             return None
 
