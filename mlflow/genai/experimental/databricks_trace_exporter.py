@@ -275,7 +275,10 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
         super()._log_trace(trace, prompts)
 
         # Archive trace to Delta table using mixin functionality
-        self.archive_trace(trace)
+        try:
+            self.archive_trace(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
 @experimental(version="3.2.0")
@@ -291,65 +294,22 @@ class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDelt
     def __init__(self):
         super().__init__()
 
-    def export(self, spans: Sequence[ReadableSpan]):
+    def _export_trace(self, trace: Trace, manager_trace):
         """
-        Export the spans to Inference Table and optionally to Databricks Delta.
+        Export a single trace to the Inference Table buffer and archive to Databricks Delta.
 
         Args:
-            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
-                a span processor. Only root spans for each trace should be exported.
+            trace: The MLflow Trace object to export.
+            manager_trace: The manager trace object containing prompts and other metadata.
         """
-        # Process each span and extract traces for both inference table and delta archiving
-        for span in spans:
-            if span._parent is not None:
-                _logger.debug("Received a non-root span. Skipping export.")
-                continue
+        # Call parent implementation for inference table export
+        super()._export_trace(trace, manager_trace)
 
-            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
-            if manager_trace is None:
-                _logger.debug(f"Trace for span {span} not found. Skipping export.")
-                continue
-
-            trace = manager_trace.trace
-
-            # Handle inference table export (copied from parent implementation)
-            from mlflow.tracing.fluent import _set_last_active_trace_id
-
-            _set_last_active_trace_id(trace.info.trace_id)
-
-            # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            # The key is Databricks request ID.
-            from mlflow.tracing.export.inference_table import _TRACE_BUFFER
-
-            _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
-
-            # Handle dual write to MLflow backend if enabled
-            if self._should_write_to_mlflow_backend:
-                if trace.info.experiment_id is None:
-                    _logger.warning(
-                        "Dual write to MLflow backend is enabled, but experiment ID is not set "
-                        "for the trace. Skipping trace export to MLflow backend."
-                    )
-                else:
-                    try:
-                        # Log the trace to the MLflow backend asynchronously
-                        from mlflow.tracing.export.async_export_queue import Task
-
-                        self._async_queue.put(
-                            task=Task(
-                                handler=self._log_trace_to_mlflow_backend,
-                                args=(trace, manager_trace.prompts),
-                                error_msg=f"Failed to log trace {trace.info.trace_id}.",
-                            )
-                        )
-                    except Exception as e:
-                        _logger.warning(
-                            f"Failed to export trace to MLflow backend. Error: {e}",
-                            stack_info=_logger.isEnabledFor(logging.DEBUG),
-                        )
-
-            # Archive trace to Delta table using mixin functionality
+        # Archive trace to Delta table using mixin functionality
+        try:
             self.archive_trace(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
 class IngestStreamFactory:
