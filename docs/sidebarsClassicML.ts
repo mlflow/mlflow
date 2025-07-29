@@ -708,11 +708,6 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'doc',
-      id: 'usage-tracking/index',
-      label: 'Usage Tracking',
-    },
-    {
       type: 'category',
       label: 'Team Collaboration',
       className: 'sidebar-top-level-category',

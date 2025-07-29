@@ -1,3 +1,7 @@
+---
+id: usage-tracking
+---
+
 import { Table } from "@site/src/components/Table";
 
 # Telemetry
@@ -39,7 +43,7 @@ For further inquiries or data protection questions, users can file an issue on t
 ## What data is collected?
 
 MLflow collects only non-sensitive, anonymized data to help us better understand usage patterns.
-The below section outlines the data currently collected in this version of MLflow. You can view the exact data collected in the source code (add link to code).
+The below section outlines the data currently collected in this version of MLflow. You can view the exact data collected [in the source code](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/schemas.py).
 
 ### Data Explanation
 
@@ -118,6 +122,9 @@ The below section outlines the data currently collected in this version of MLflo
 
 #### Tracked Events
 
+**No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
+For events with None in the `Tracked Parameters` column, only the event name is recorded.
+
 <Table>
   <thead>
     <tr>
@@ -132,7 +139,7 @@ The below section outlines the data currently collected in this version of MLflo
     </tr>
     <tr>
       <td>create_run</td>
-      <td>Whether the packages in PACKAGES_TO_CHECK_IMPORT (add link to code) is imported or not</td>
+      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) is imported or not</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
@@ -215,7 +222,7 @@ Recommendations to ensure telemetry is consistently disabled across all environm
 
 ### How to validate telemetry is disabled?
 
-Use `mlflow.telemetry.get_telemetry_client` to retrieve the current telemetry client. If it returns None, telemetry is disabled for the current session.
+Use `mlflow.telemetry.get_telemetry_client()` to retrieve the current telemetry client. If it returns None, telemetry is disabled for the current session.
 
 ### How to opt-out for your organization?
 
