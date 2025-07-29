@@ -4,8 +4,6 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import pandas as pd
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
@@ -15,6 +13,8 @@ from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEval
 from mlflow.utils.time import get_current_time_millis
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from mlflow.entities.trace import Trace
 
 
@@ -65,7 +65,7 @@ class EvaluationDataset(_MlflowObject):
         return self._records is not None
 
     def merge_records(
-        self, records: Union[list[dict[str, Any]], pd.DataFrame, list["Trace"]]
+        self, records: Union[list[dict[str, Any]], "pd.DataFrame", list["Trace"]]
     ) -> "EvaluationDataset":
         """
         Merge new records with existing ones.
@@ -82,7 +82,15 @@ class EvaluationDataset(_MlflowObject):
         """
         from mlflow.entities.trace import Trace
 
-        if isinstance(records, pd.DataFrame):
+        # Check if records is a DataFrame without importing pandas
+        if hasattr(records, "to_dict") and hasattr(records, "columns"):
+            # Lazy import pandas only when needed
+            import pandas as pd
+
+            if not isinstance(records, pd.DataFrame):
+                raise MlflowException.invalid_parameter_value(
+                    "Records appears to be DataFrame-like but is not a pandas DataFrame"
+                )
             record_dicts = records.to_dict("records")
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = []
@@ -177,7 +185,7 @@ class EvaluationDataset(_MlflowObject):
 
         return self
 
-    def to_df(self) -> pd.DataFrame:
+    def to_df(self) -> "pd.DataFrame":
         """
         Convert dataset records to a pandas DataFrame.
 
@@ -186,6 +194,9 @@ class EvaluationDataset(_MlflowObject):
         Returns:
             DataFrame with columns for inputs, expectations, tags, and metadata
         """
+        # Lazy import pandas only when needed
+        import pandas as pd
+
         records = self.records
 
         if not records:
