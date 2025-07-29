@@ -517,7 +517,4 @@ def test_predict_output(dummy_model):
     result = loaded_model.predict("What is 2 + 2?")
 
     assert isinstance(result, dict)
-    assert "answer" in result
-    assert result["answer"] == "4"
-    assert "custom_field" in result
-    assert result["custom_field"] == "custom_value"
+    assert result == {"answer": "4", "custom_field": "custom_value"}
