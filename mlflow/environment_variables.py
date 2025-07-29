@@ -901,6 +901,12 @@ MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS", int, 10
 )
 
+#: Specifies the maximum number of retries for webhook HTTP requests
+#: (default: ``3``)
+MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES", int, 3
+)
+
 
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)

@@ -26,6 +26,7 @@ class WebhookLogEntry:
     status_code: int
     payload: dict[str, Any]
     error: str | None = None
+    attempt: int | None = None
 
 
 def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
@@ -60,6 +61,8 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             | {
                 "MLFLOW_WEBHOOK_ALLOWED_SCHEMES": "http",
                 "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": Fernet.generate_key().decode(),
+                "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES": "3",
+                "MLFLOW_WEBHOOK_REQUEST_TIMEOUT": "10",
             }
         ),
     ) as prc:
@@ -89,8 +92,9 @@ class AppClient:
     def get_url(self, endpoint: str) -> str:
         return f"{self._base}{endpoint}"
 
-    def clear_logs(self) -> None:
-        resp = requests.delete(self.get_url("/logs"))
+    def reset(self) -> None:
+        """Reset both logs and counters"""
+        resp = requests.post(self.get_url("/reset"))
         resp.raise_for_status()
 
     def get_logs(self) -> list[WebhookLogEntry]:
@@ -166,7 +170,7 @@ def cleanup(mlflow_client: MlflowClient, app_client: AppClient) -> Generator[Non
     for webhook in mlflow_client.list_webhooks():
         mlflow_client.delete_webhook(webhook.webhook_id)
 
-    app_client.clear_logs()
+    app_client.reset()
 
 
 def test_registered_model_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
@@ -548,3 +552,71 @@ def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client:
     assert logs[0].endpoint == "/secure-webhook"
     assert logs[0].error == "Invalid signature"
     assert logs[0].status_code == 401
+
+
+def test_webhook_retry_on_5xx_error(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test that webhooks retry on 5xx errors"""
+    # Create webhook pointing to flaky endpoint
+    mlflow_client.create_webhook(
+        name="retry_test_webhook",
+        url=app_client.get_url("/flaky-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+    )
+
+    # Create a registered model to trigger the webhook
+    registered_model = mlflow_client.create_registered_model(
+        name="test_retry_model",
+        description="Testing retry logic",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=3, timeout=15)
+
+    # First two attempts should fail with 500
+    assert logs[0].endpoint == "/flaky-webhook"
+    assert logs[0].status_code == 500
+    assert logs[0].error == "Server error (will retry)"
+    assert logs[0].payload["name"] == registered_model.name
+
+    assert logs[1].endpoint == "/flaky-webhook"
+    assert logs[1].status_code == 500
+    assert logs[1].error == "Server error (will retry)"
+
+    # Third attempt should succeed
+    assert logs[2].endpoint == "/flaky-webhook"
+    assert logs[2].status_code == 200
+    assert logs[2].error is None
+    assert logs[2].payload["name"] == registered_model.name
+
+
+def test_webhook_retry_on_429_rate_limit(
+    mlflow_client: MlflowClient, app_client: AppClient
+) -> None:
+    """Test that webhooks retry on 429 rate limit errors and respect Retry-After header"""
+    # Create webhook pointing to rate-limited endpoint
+    mlflow_client.create_webhook(
+        name="rate_limit_test_webhook",
+        url=app_client.get_url("/rate-limited-webhook"),
+        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+    )
+
+    # Create a registered model to trigger the webhook
+    registered_model = mlflow_client.create_registered_model(
+        name="test_rate_limit_model",
+        description="Testing 429 retry logic",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=2, timeout=10)
+
+    # First attempt should fail with 429
+    assert logs[0].endpoint == "/rate-limited-webhook"
+    assert logs[0].status_code == 429
+    assert logs[0].error == "Rate limited"
+    assert logs[0].payload["name"] == registered_model.name
+    assert logs[0].attempt == 1
+
+    # Second attempt should succeed
+    assert logs[1].endpoint == "/rate-limited-webhook"
+    assert logs[1].status_code == 200
+    assert logs[1].error is None
+    assert logs[1].payload["name"] == registered_model.name
+    assert logs[1].attempt == 2
