@@ -3,6 +3,7 @@ import warnings
 from typing_extensions import Self
 
 from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
+from mlflow.utils.annotations import experimental
 
 
 class GitContext:
@@ -28,6 +29,7 @@ class GitContext:
 _active_context: GitContext | None = None
 
 
+@experimental(version="3.3.0")
 def enable_git_model_versioning() -> GitContext:
     """
     Enable git model versioning and set the active context.
@@ -38,6 +40,7 @@ def enable_git_model_versioning() -> GitContext:
     return context
 
 
+@experimental(version="3.3.0")
 def disable_git_model_versioning() -> None:
     """
     Disable git model versioning and reset the active context.
