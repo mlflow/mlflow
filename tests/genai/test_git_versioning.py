@@ -20,6 +20,8 @@ def tmp_git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     path = tmp_path / "test_repo"
     path.mkdir()
     subprocess.check_call(["git", "init"], cwd=path)
+    subprocess.check_call(["git", "config", "user.name", "test"], cwd=path)
+    subprocess.check_call(["git", "config", "user.email", "test@example.com"], cwd=path)
     subprocess.check_call(["git", "commit", "--allow-empty", "-m", "test"], cwd=path)
     monkeypatch.chdir(path)
     return path
