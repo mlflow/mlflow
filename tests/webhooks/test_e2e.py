@@ -569,8 +569,7 @@ def test_webhook_retry_on_5xx_error(mlflow_client: MlflowClient, app_client: App
         description="Testing retry logic",
     )
 
-    # Wait for all retry attempts to complete (should be 3 attempts)
-    logs = app_client.wait_for_logs(expected_count=3, max_wait_seconds=15)
+    logs = app_client.wait_for_logs(expected_count=3, timeout=15)
 
     # First two attempts should fail with 500
     assert logs[0].endpoint == "/flaky-webhook"
@@ -606,7 +605,7 @@ def test_webhook_retry_on_429_rate_limit(
         description="Testing 429 retry logic",
     )
 
-    logs = app_client.wait_for_logs(expected_count=2, max_wait_seconds=10)
+    logs = app_client.wait_for_logs(expected_count=2, timeout=10)
 
     # First attempt should fail with 429
     assert logs[0].endpoint == "/rate-limited-webhook"
