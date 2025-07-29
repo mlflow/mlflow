@@ -59,7 +59,7 @@ The below section outlines the data currently collected in this version of MLflo
   <tbody>
     <tr>
       <td>Unique session ID</td>
-      <td>A randomly generated, non-customer/non-personally identifiable UUID is created for each session—defined as each time MLflow is imported</td>
+      <td>A randomly generated, non-personally identifiable UUID is created for each session—defined as each time MLflow is imported</td>
       <td>45e2751243e84c7e87aca6ac25d75a0d</td>
       <td>As an identifier for the data in current MLflow session</td>
     </tr>
@@ -114,7 +114,7 @@ The below section outlines the data currently collected in this version of MLflo
     <tr>
       <td>Parameters (boolean or enumerated values)</td>
       <td>See [below table](#tracked-events) for collected parameters for each event</td>
-      <td>-</td>
+      <td>create_logged_model event: `{"flavor": "langchain"}`</td>
       <td>To better understand the usage pattern for each event</td>
     </tr>
   </tbody>
@@ -134,12 +134,16 @@ For events with None in the `Tracked Parameters` column, only the event name is 
   </thead>
   <tbody>
     <tr>
+      <td>import_mlflow</td>
+      <td>None</td>
+    </tr>
+    <tr>
       <td>create_experiment</td>
       <td>None</td>
     </tr>
     <tr>
       <td>create_run</td>
-      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) is imported or not</td>
+      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
@@ -200,7 +204,7 @@ If you’d like support for additional CI environments, please [open an issue on
 
 - CI
 - Github Actions
-- Circle CI
+- CircleCI
 - GitLab CI
 - Jenkins
 - Travis
