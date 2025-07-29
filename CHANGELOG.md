@@ -53,7 +53,6 @@ Bug fixes:
 - [UI] Add back video artifact preview (#16620, @daniellok-db)
 - [Tracing] Proper chat message reconstruction from OAI streaming response (#16519, @B-Step62)
 - [Tracing] Convert trace column in search_traces() response to JSON string (#16523, @B-Step62)
-- [Models] Refactor: Replace datetime.utcnow() with datetime.now() for consistency in mlflow/models/model.py Resolves #16510 (#16529, @shushantrishav)
 - [Evaluation] Fix mlflow.evaluate crashes in \_get_binary_classifier_metrics due to … (#16485, @mohammadsubhani)
 
 Documentation updates:
