@@ -352,7 +352,10 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
     # Traces should only be generated for predict_fn
     traces = get_traces()
     assert len(traces) == 100
-    assert all(trace.data.spans[0].name == "predict" for trace in traces)
+    trace_names = [trace.data.spans[0].name for trace in traces]
+    assert all(trace_name == "predict" for trace_name in trace_names), (
+        f"Traces include unexpected names: {[n for n in trace_names if n != 'predict']}"
+    )
     purge_traces()
 
     # When invoked directly, the scorer should generate traces

@@ -6,7 +6,7 @@ import logging
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -33,7 +33,7 @@ def run(
     dataset: pd.DataFrame,
     predict_fn=None,
     scorers=None,
-    run_id: Optional[str] = None,
+    run_id: str | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -83,8 +83,8 @@ def run(
 def _run_single(
     eval_item: EvalItem,
     scorers: list[Scorer],
-    run_id: Optional[str],
-    predict_fn: Optional[Callable[..., Any]] = None,
+    run_id: str | None,
+    predict_fn: Callable[..., Any] | None = None,
 ) -> EvalResult:
     """Run the logic of the eval harness for a single eval item."""
     # Set the MLflow run ID in the context for this thread
@@ -183,7 +183,7 @@ def _compute_eval_scores(
 
 
 def _log_assessments(
-    run_id: Optional[str],
+    run_id: str | None,
     trace: Trace,
     assessments: list[Assessment],
 ) -> Trace:
