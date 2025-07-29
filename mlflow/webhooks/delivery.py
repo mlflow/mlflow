@@ -93,9 +93,8 @@ def _get_or_create_webhook_session() -> requests.Session:
     """
     global _webhook_session
 
-    if _webhook_session is None:
+    if _webhook_session is None:  # To avoid unnecessary locking
         with _webhook_session_lock:
-            # Double-check locking pattern
             if _webhook_session is None:
                 _webhook_session = _create_webhook_session()
 
