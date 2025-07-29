@@ -1,10 +1,12 @@
 import logging
+import os
 import time
 import warnings
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
@@ -296,6 +298,17 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     the mlflow.evaluate() function. This is a temporary migration state and we will
     eventually unify this into OSS flow.
     """
+
+    # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
+    # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
+    # one is not publicly documented, but we keep it for backward compatibility.
+    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set() and os.environ.get("RAG_EVAL_MAX_WORKERS") is None:
+        logger.warning(
+            "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
+            "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
+        )
+        os.environ["RAG_EVAL_MAX_WORKERS"] = str(MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",

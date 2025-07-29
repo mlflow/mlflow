@@ -461,3 +461,40 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
 
     # Harness should run without an error
     mlflow.genai.evaluate(data=traces, scorers=[Safety()])
+
+
+def test_max_workers_env_var(is_in_databricks, monkeypatch):
+    harness_module = (
+        "databricks.rag_eval.evaluation" if is_in_databricks else "mlflow.genai.evaluation"
+    )
+
+    def _validate_max_workers(expected_max_workers):
+        with (
+            mock.patch(f"{harness_module}.harness.ThreadPoolExecutor") as mock_executor,
+            mock.patch(f"{harness_module}.harness.as_completed") as mock_as_completed,
+        ):
+            mock_executor().submit.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+            mock_as_completed().side_effect = lambda futures: futures
+
+            mlflow.genai.evaluate(
+                data=[
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "outputs": "MLflow is a tool for ML",
+                    }
+                ],
+                scorers=[Safety()],
+            )
+            assert mock_executor.call_args.kwargs["max_workers"] == expected_max_workers
+
+    # default workers is 10
+    _validate_max_workers(10)
+
+    # override workers with env var
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "20")
+    _validate_max_workers(20)
+
+    # legacy env var is supported for databricks
+    if is_in_databricks:
+        monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
+        _validate_max_workers(30)

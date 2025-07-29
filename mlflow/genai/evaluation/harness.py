@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,6 +14,7 @@ import mlflow
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.utils import make_code_type_assessment_source, standardize_scorer_value
@@ -53,8 +53,7 @@ def run(
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
     with ThreadPoolExecutor(
-        # TODO: Add new MLflow environment variable for this
-        max_workers=int(os.environ.get("RAG_EVAL_MAX_WORKERS", "10")),
+        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
         thread_name_prefix="MlflowGenAIEvalHarness",
     ) as executor:
         futures = [
@@ -69,7 +68,6 @@ def run(
         ]
         # TODO: Port the fancy tqdm progress bar from the DBX agent harness.
         eval_results = [future.result() for future in as_completed(futures)]
-
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
