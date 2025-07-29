@@ -3,7 +3,7 @@ import json
 import logging
 import threading
 import time
-from typing import Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from cachetools import TTLCache
 
@@ -25,13 +25,14 @@ _logger = logging.getLogger(__name__)
 
 TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 minutes
 
-try:
-    TableProperties, _ = import_ingest_sdk_classes()
-except ImportError:
-    # When ingest_api_sdk is not available, create a placeholder for type annotations
-    from typing import Any
+if TYPE_CHECKING:
+    try:
+        TableProperties, _ = import_ingest_sdk_classes()
+    except ImportError:
+        # When ingest_api_sdk is not available, create a placeholder for type annotations
+        from typing import Any
 
-    TableProperties = Any
+        TableProperties = Any
 
 
 @experimental(version="3.2.0")
@@ -320,7 +321,7 @@ class IngestStreamFactory:
                         _logger.debug("Registered atexit handler for IngestStreamFactory cleanup")
         return cls._instances[table_name]
 
-    def __init__(self, table_properties: TableProperties):
+    def __init__(self, table_properties: "TableProperties"):
         """
         Initialize factory with table properties.
         Encapsulates SDK creation and stream lifecycle management.

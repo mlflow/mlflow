@@ -149,9 +149,9 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 attributes['mlflow.spanInputs'] as request,
                 attributes['mlflow.spanOutputs'] as response
             FROM
-                james_wu.shinkansen.trace_logs_experiment_6051921418418893_229546900166940_otel_spans
+                {spans_table}
             where
-                parent_span_id = ""
+                parent_span_id = "" or parent_span_id is null
             )
             -- 6. Main query - join the trace metadata with associated tags, assessments and spans.
             -- All transformation are moved here to keep the joins performant
@@ -245,7 +245,6 @@ def _enable_trace_rolling_deletion(experiment_id: str) -> None:
         _logger.debug(f"Successfully enabled trace rolling deletion for experiment {experiment_id}")
     except Exception as e:
         error_msg = f"Failed to enable trace rolling deletion for experiment {experiment_id}: {e!s}"
-        _logger.error(error_msg)
         raise MlflowException(error_msg) from e
 
 
