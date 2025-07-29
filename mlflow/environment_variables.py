@@ -895,7 +895,6 @@ MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
 #: (default: ``30``)
 MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TIMEOUT", int, 30)
 
-
 #: Specifies the maximum number of threads for webhook delivery thread pool
 #: (default: ``10``)
 MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
