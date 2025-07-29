@@ -243,7 +243,13 @@ Recommendations to ensure telemetry is consistently disabled across all environm
 
 ### How to validate telemetry is disabled?
 
-Use `mlflow.telemetry.get_telemetry_client()` to retrieve the current telemetry client. If it returns None, telemetry is disabled for the current session.
+Use the following code to validate telemetry is disabled.
+
+```python
+from mlflow.telemetry import get_telemetry_client
+
+assert get_telemetry_client() is None, "Telemetry is enabled"
+```
 
 ### How to opt-out for your organization?
 
