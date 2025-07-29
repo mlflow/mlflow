@@ -1,0 +1,171 @@
+name: Update Release Labels
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  update-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for commit analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Update release labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get the release information
+            const release = context.payload.release;
+            const releaseTag = release.tag_name;
+            const releaseVersion = releaseTag.replace(/^v/, ''); // Remove 'v' prefix if present
+            
+            console.log(`Processing release: ${releaseTag} (${releaseVersion})`);
+            
+            // Parse version components
+            const versionMatch = releaseVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
+            if (!versionMatch) {
+              console.log(`Skipping unoffical release: ${releaseVersion}`);
+              return;
+            }
+            
+            const [, major, minor, patch] = versionMatch;
+            const nextPatchVersion = `${major}.${minor}.${parseInt(patch) + 1}`;
+            const releaseLabel = `v${releaseVersion}`;
+            const nextPatchLabel = `v${nextPatchVersion}`;
+            
+            console.log(`Release label: ${releaseLabel}`);
+            console.log(`Next patch label: ${nextPatchLabel}`);
+            
+            // Get the release commit SHA
+            const releaseCommit = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${releaseTag}`
+            });
+            const releaseCommitSha = releaseCommit.data.object.sha;
+            console.log(`Release commit SHA: ${releaseCommitSha}`);
+            
+            // Get all commits included in this release
+            // We'll compare against the previous tag to get the commit range
+            let previousTag = null;
+            try {
+              const tags = await github.rest.repos.listTags({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              });
+              
+              // Find the previous tag (assume tags are sorted by creation date)
+              const tagNames = tags.data.map(tag => tag.name);
+              const currentTagIndex = tagNames.indexOf(releaseTag);
+              if (currentTagIndex > 0) {
+                previousTag = tagNames[currentTagIndex + 1];
+              }
+            } catch (error) {
+              console.log(`Error getting previous tag: ${error.message}`);
+            }
+            
+            let releaseCommits = new Set();
+            
+            if (previousTag) {
+              console.log(`Comparing against previous tag: ${previousTag}`);
+              try {
+                const comparison = await github.rest.repos.compareCommits({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  base: previousTag,
+                  head: releaseTag
+                });
+                
+                releaseCommits = new Set(comparison.data.commits.map(commit => commit.sha));
+                console.log(`Found ${releaseCommits.size} commits in release`);
+              } catch (error) {
+                console.log(`Error comparing commits: ${error.message}`);
+                // Fallback: just use the release commit
+                releaseCommits.add(releaseCommitSha);
+              }
+            } else {
+              console.log(`No previous tag found, using release commit only`);
+              releaseCommits.add(releaseCommitSha);
+            }
+            
+            // Find all PRs with the release label
+            const prsWithReleaseLabel = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: releaseLabel,
+              state: 'all',
+              per_page: 100
+            });
+            
+            console.log(`Found ${prsWithReleaseLabel.data.length} PRs with label ${releaseLabel}`);
+            
+            // Check each PR to see if it was actually included in the release
+            for (const pr of prsWithReleaseLabel.data) {
+              if (!pr.pull_request) continue; // Skip issues
+              
+              console.log(`Checking PR #${pr.number}: ${pr.title}`);
+              
+              // Get the PR details to find the merge commit
+              const prDetails = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_request_number: pr.number
+              });
+              
+              let prIncludedInRelease = false;
+              
+              if (prDetails.data.merged && prDetails.data.merge_commit_sha) {
+                // Check if the merge commit is in the release
+                prIncludedInRelease = releaseCommits.has(prDetails.data.merge_commit_sha);
+              }
+              
+              if (!prIncludedInRelease) {
+                console.log(`PR #${pr.number} was not included in release ${releaseVersion}, updating label`);
+                
+                // Remove the old release label
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    name: releaseLabel
+                  });
+                  console.log(`Removed label ${releaseLabel} from PR #${pr.number}`);
+                } catch (error) {
+                  console.log(`Error removing label from PR #${pr.number}: ${error.message}`);
+                }
+                
+                // Add the next patch version label
+                try {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    labels: [nextPatchLabel]
+                  });
+                  console.log(`Added label ${nextPatchLabel} to PR #${pr.number}`);
+                } catch (error) {
+                  console.log(`Error adding label to PR #${pr.number}: ${error.message}`);
+                }
+                
+              } else {
+                console.log(`PR #${pr.number} was correctly included in release ${releaseVersion}`);
+              }
+            }
+            
+            console.log('Release label update process completed');
