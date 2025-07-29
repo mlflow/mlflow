@@ -27,7 +27,14 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.events import (
+    CreateModelVersionEvent,
+    CreatePromptEvent,
+    CreateRegisteredModelEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
@@ -58,6 +65,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
+    @record_usage_event(CreateRegisteredModelEvent)
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
@@ -206,6 +214,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
+    @record_usage_event(CreateModelVersionEvent)
     def create_model_version(
         self,
         name,
@@ -457,6 +466,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
+    @record_usage_event(CreatePromptEvent)
     def create_prompt(
         self,
         name: str,
@@ -780,6 +790,7 @@ class ModelRegistryClient:
         self.store.delete_prompt_version_tag(name, version, key)
 
     # Webhook APIs
+    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -805,6 +816,7 @@ class ModelRegistryClient:
         """
         return self.store.create_webhook(name, url, events, description, secret, status)
 
+    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -817,6 +829,7 @@ class ModelRegistryClient:
         """
         return self.store.get_webhook(webhook_id)
 
+    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: Optional[int] = None,
@@ -834,6 +847,7 @@ class ModelRegistryClient:
         """
         return self.store.list_webhooks(max_results, page_token)
 
+    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -861,6 +875,7 @@ class ModelRegistryClient:
         """
         return self.store.update_webhook(webhook_id, name, description, url, events, secret, status)
 
+    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -873,6 +888,7 @@ class ModelRegistryClient:
         """
         self.store.delete_webhook(webhook_id)
 
+    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: Optional[WebhookEvent] = None
     ) -> WebhookTestResult:

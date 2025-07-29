@@ -3,9 +3,7 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Callable, Optional, TypeVar, overload
-
-from typing_extensions import ParamSpec
+from typing import Callable, Optional, ParamSpec, TypeVar, overload
 
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:

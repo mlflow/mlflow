@@ -22,6 +22,9 @@ class WebhookStatus(str, Enum):
     def to_proto(self) -> int:
         return ProtoWebhookStatus.Value(self.name)
 
+    def is_active(self) -> bool:
+        return self == WebhookStatus.ACTIVE
+
 
 class WebhookEvent(str, Enum):
     # Registered Model Events

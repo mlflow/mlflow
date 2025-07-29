@@ -178,7 +178,7 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
-from mlflow.webhooks.dispatch import dispatch_webhook, test_webhook
+from mlflow.webhooks.delivery import deliver_webhook, test_webhook
 from mlflow.webhooks.types import (
     ModelVersionAliasCreatedPayload,
     ModelVersionAliasDeletedPayload,
@@ -1795,7 +1795,7 @@ def _create_registered_model():
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
 
-    dispatch_webhook(
+    deliver_webhook(
         event=WebhookEvent.REGISTERED_MODEL_CREATED,
         payload=RegisteredModelCreatedPayload(
             name=request_message.name,
@@ -2087,7 +2087,7 @@ def _create_model_version():
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
     if not is_prompt:
-        dispatch_webhook(
+        deliver_webhook(
             event=WebhookEvent.MODEL_VERSION_CREATED,
             payload=ModelVersionCreatedPayload(
                 name=request_message.name,
@@ -2274,7 +2274,7 @@ def _set_model_version_tag():
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
     if not _is_prompt(request_message.name):
-        dispatch_webhook(
+        deliver_webhook(
             event=WebhookEvent.MODEL_VERSION_TAG_SET,
             payload=ModelVersionTagSetPayload(
                 name=request_message.name,
@@ -2307,7 +2307,7 @@ def _delete_model_version_tag():
     )
 
     if not _is_prompt(request_message.name):
-        dispatch_webhook(
+        deliver_webhook(
             event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
             payload=ModelVersionTagDeletedPayload(
                 name=request_message.name,
@@ -2339,7 +2339,7 @@ def _set_registered_model_alias():
     )
 
     if not _is_prompt(request_message.name):
-        dispatch_webhook(
+        deliver_webhook(
             event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
             payload=ModelVersionAliasCreatedPayload(
                 name=request_message.name,
@@ -2366,7 +2366,7 @@ def _delete_registered_model_alias():
     store.delete_registered_model_alias(name=request_message.name, alias=request_message.alias)
 
     if not _is_prompt(request_message.name):
-        dispatch_webhook(
+        deliver_webhook(
             event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
             payload=ModelVersionAliasDeletedPayload(
                 name=request_message.name,

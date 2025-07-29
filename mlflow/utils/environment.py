@@ -209,7 +209,7 @@ class _PythonEnv:
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
-def _mlflow_conda_env(  # noqa: D417
+def _mlflow_conda_env(
     path=None,
     additional_conda_deps=None,
     additional_pip_deps=None,
@@ -608,7 +608,11 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
+        return Requirement(requirement_string).name.lower() in [
+            "mlflow",
+            "mlflow-skinny",
+            "mlflow-tracing",
+        ]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 

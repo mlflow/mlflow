@@ -895,8 +895,31 @@ MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
 #: (default: ``30``)
 MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TIMEOUT", int, 30)
 
+
+#: Specifies the maximum number of threads for webhook delivery thread pool
+#: (default: ``10``)
+MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS", int, 10
+)
+
 #: Specifies the maximum number of retries for webhook HTTP requests
 #: (default: ``3``)
 MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES", int, 3
+)
+
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+#: Whether to allow setting thread local tracing destination.
+#: (default: ``False``)
+MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
 )

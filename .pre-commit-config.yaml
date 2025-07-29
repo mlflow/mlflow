@@ -74,37 +74,14 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: generate-skinny-requirements
-        name: generate-skinny-requirements
+      - id: generate-requirements
+        name: generate-requirements
         entry: >
           python dev/generate_requirements.py
-            --requirements-yaml-location requirements/skinny-requirements.yaml
-            --requirements-txt-output-location requirements/skinny-requirements.txt
-        files: "^requirements/skinny-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: generate-core-requirements
-        name: generate-core-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/core-requirements.yaml
-            --requirements-txt-output-location requirements/core-requirements.txt
-        files: "^requirements/core-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: generate-gateway-requirements
-        name: generate-gateway-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/gateway-requirements.yaml
-            --requirements-txt-output-location requirements/gateway-requirements.txt
-        files: "^requirements/gateway-requirements.yaml$"
+            --package-names tracing skinny core gateway
+            --requirements-yaml-location requirements
+            --requirements-txt-output-location requirements
+        files: "^requirements/"
         language: system
         stages: [pre-commit]
         require_serial: true

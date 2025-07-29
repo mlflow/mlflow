@@ -1,4 +1,4 @@
-"""Webhook dispatch implementation following Standard Webhooks conventions.
+"""Webhook delivery implementation following Standard Webhooks conventions.
 
 This module implements webhook delivery patterns similar to the Standard Webhooks
 specification (https://www.standardwebhooks.com), providing consistent and secure
@@ -13,12 +13,14 @@ import logging
 import random
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import requests
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.environment_variables import (
+    MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS,
     MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES,
     MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
 )
@@ -35,6 +37,12 @@ from mlflow.webhooks.types import (
 )
 
 _logger = logging.getLogger(__name__)
+
+# Thread pool for non-blocking webhook delivery
+_webhook_delivery_executor = ThreadPoolExecutor(
+    max_workers=MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS.get(),
+    thread_name_prefix="webhook-delivery",
+)
 
 
 def _calculate_backoff_with_jitter(attempt: int, jitter_fraction: float = 0.1) -> float:
@@ -171,35 +179,47 @@ def _send_webhook_request(
     raise RuntimeError("Unexpected error in webhook retry logic")
 
 
-def _dispatch_webhook_impl(
+def _send_webhook_with_error_handling(
+    webhook: Webhook,
+    payload: WebhookPayload,
+    event: WebhookEvent,
+) -> None:
+    try:
+        _send_webhook_request(webhook, payload, event)
+    except Exception as e:
+        _logger.error(
+            f"Failed to send webhook to {webhook.url} for event {event}: {e}",
+            exc_info=True,
+        )
+
+
+def _deliver_webhook_impl(
     *,
     event: WebhookEvent,
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
-    # TODO: Make this non-blocking
     for webhook in store.list_webhooks():
-        if event in webhook.events:
-            try:
-                _send_webhook_request(webhook, payload, event)
-            except Exception as e:
-                _logger.error(
-                    f"Failed to send webhook to {webhook.url} for event {event}: {e}",
-                    exc_info=True,
-                )
+        if webhook.status.is_active() and event in webhook.events:
+            _webhook_delivery_executor.submit(
+                _send_webhook_with_error_handling,
+                webhook,
+                payload,
+                event,
+            )
 
 
-def dispatch_webhook(
+def deliver_webhook(
     *,
     event: WebhookEvent,
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
     try:
-        _dispatch_webhook_impl(event=event, payload=payload, store=store)
+        _deliver_webhook_impl(event=event, payload=payload, store=store)
     except Exception as e:
         _logger.error(
-            f"Failed to dispatch webhook for event {event}: {e}",
+            f"Failed to deliver webhook for event {event}: {e}",
             exc_info=True,
         )
 

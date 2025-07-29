@@ -3631,7 +3631,7 @@ def log_model(
     )
 
 
-def _save_model_with_loader_module_and_data_path(  # noqa: D417
+def _save_model_with_loader_module_and_data_path(
     path,
     loader_module,
     data_path=None,
