@@ -85,6 +85,7 @@ class InferenceTableSpanExporter(SpanExporter):
                 continue
 
             trace = manager_trace.trace
+            _set_last_active_trace_id(trace.info.trace_id)
             self._export_trace(trace, manager_trace)
 
     def _export_trace(self, trace: Trace, manager_trace):
@@ -97,8 +98,6 @@ class InferenceTableSpanExporter(SpanExporter):
             trace: The MLflow Trace object to export.
             manager_trace: The manager trace object containing prompts and other metadata.
         """
-        _set_last_active_trace_id(trace.info.trace_id)
-
         # Add the trace to the in-memory buffer so it can be retrieved by upstream
         # The key is Databricks request ID.
         _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
