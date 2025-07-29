@@ -1,4 +1,5 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
@@ -473,13 +474,9 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
     )
 
     def _validate_max_workers(expected_max_workers):
-        with (
-            mock.patch(f"{harness_module}.harness.ThreadPoolExecutor") as mock_executor,
-            mock.patch(f"{harness_module}.harness.as_completed") as mock_as_completed,
-        ):
-            mock_executor().submit.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
-            mock_as_completed().side_effect = lambda futures: futures
-
+        with mock.patch(
+            f"{harness_module}.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+        ) as mock_executor:
             mlflow.genai.evaluate(
                 data=[
                     {
@@ -489,7 +486,9 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
                 ],
                 scorers=[Safety()],
             )
-            assert mock_executor.call_args.kwargs["max_workers"] == expected_max_workers
+            # ThreadPoolExecutor is called twice in OSS (harness + scorers)
+            first_call = mock_executor.call_args_list[0]
+            assert first_call[1]["max_workers"] == expected_max_workers
 
     # default workers is 10
     _validate_max_workers(10)
