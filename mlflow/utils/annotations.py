@@ -46,7 +46,9 @@ def experimental(
 
 def experimental(
     f: Optional[Callable[P, R]] = None,
+    *,
     version: Optional[str] = None,
+    skip_removal: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
@@ -55,6 +57,8 @@ def experimental(
         version: The version in which the API was introduced as experimental.
             The version is used to determine whether the API should be considered
             as stable or not when releasing a new version of MLflow.
+        skip_removal: If True, prevents automatic removal by `dev/remove_experimental_decorators.py`
+            even after the 6-month experimental period has elapsed.
 
     Returns:
         A decorator that adds a note to the docstring of the decorated API,

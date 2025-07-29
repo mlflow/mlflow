@@ -73,6 +73,10 @@ def find_experimental_decorators(
             if not (isinstance(decorator.func, ast.Name) and decorator.func.id == "experimental"):
                 continue
 
+            # Skip decorators with `skip_removal=True` flag
+            if _has_skip_removal_flag(decorator):
+                continue
+
             version = _extract_version_from_ast_decorator(decorator)
             if not version or version not in release_dates:
                 continue
@@ -99,6 +103,14 @@ def _extract_version_from_ast_decorator(decorator: ast.Call) -> Optional[str]:
         if keyword.arg == "version" and isinstance(keyword.value, ast.Constant):
             return str(keyword.value.value)
     return None
+
+
+def _has_skip_removal_flag(decorator: ast.Call) -> bool:
+    """Check if decorator has skip_removal=True flag."""
+    for keyword in decorator.keywords:
+        if keyword.arg == "skip_removal" and isinstance(keyword.value, ast.Constant):
+            return keyword.value.value is True
+    return False
 
 
 def remove_decorators_from_file(
