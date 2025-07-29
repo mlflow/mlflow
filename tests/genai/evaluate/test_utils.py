@@ -380,9 +380,6 @@ def test_scorer_receives_correct_data_with_trace_data(input_type):
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("The predict_fn arg is not supported in OSS MLflow yet")
-
     sample_data = request.getfixturevalue(data_fixture)
 
     received_args = []

@@ -84,7 +84,7 @@ def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
     ):
         return float(assessment.value.lower() == CategoricalRating.YES)
     else:
-        _logger.error(f"Invalid assessment value: {assessment.value}")
+        _logger.error(f"Invalid assessment value for {assessment.name}: {assessment.value}")
 
 
 def _compute_aggregations(

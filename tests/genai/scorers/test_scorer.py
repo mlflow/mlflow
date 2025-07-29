@@ -321,9 +321,6 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
 
 
 def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support predict_fn yet")
-
     @scorer
     def my_scorer_1(inputs, outputs):
         with mlflow.start_span(name="scorer_trace_1") as span:
@@ -355,7 +352,10 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
     # Traces should only be generated for predict_fn
     traces = get_traces()
     assert len(traces) == 100
-    assert all(trace.data.spans[0].name == "predict" for trace in traces)
+    trace_names = [trace.data.spans[0].name for trace in traces]
+    assert all(trace_name == "predict" for trace_name in trace_names), (
+        f"Traces include unexpected names: {[n for n in trace_names if n != 'predict']}"
+    )
     purge_traces()
 
     # When invoked directly, the scorer should generate traces
@@ -365,9 +365,6 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
 
 
 def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up(is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support predict_fn yet")
-
     def predict(question: str) -> str:
         return "output: " + str(question)
 

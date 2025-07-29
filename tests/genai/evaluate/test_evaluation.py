@@ -1,4 +1,5 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
 from unittest.mock import patch
@@ -144,9 +145,6 @@ def test_evaluate_with_static_dataset(is_in_databricks):
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS genai evaluator doesn't support predict_fn yet")
-
     model_id = mlflow.set_active_model(name="test-model-id").model_id
 
     data = [
@@ -180,6 +178,10 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
     assert metrics["is_concise/mean"] == 0.5
     assert metrics["relevance/mean"] == 1.0
     assert metrics["has_trace/mean"] == 1.0
+
+    # Metrics should be logged to the model ID as well
+    model = mlflow.get_logged_model(model_id)
+    assert metrics == {m.key: m.value for m in model.metrics}
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -383,11 +385,6 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
 
 @mock.patch("mlflow.deployments.get_deploy_client")
 def test_model_from_deployment_endpoint(mock_get_deploy_client, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip(
-            "OSS genai evaluator doesn't support model from deployment endpoint evaluation yet"
-        )
-
     mock_client = mock_get_deploy_client.return_value
     mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
 
@@ -469,3 +466,38 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
 
     # Harness should run without an error
     mlflow.genai.evaluate(data=traces, scorers=[Safety()])
+
+
+def test_max_workers_env_var(is_in_databricks, monkeypatch):
+    harness_module = (
+        "databricks.rag_eval.evaluation" if is_in_databricks else "mlflow.genai.evaluation"
+    )
+
+    def _validate_max_workers(expected_max_workers):
+        with mock.patch(
+            f"{harness_module}.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+        ) as mock_executor:
+            mlflow.genai.evaluate(
+                data=[
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "outputs": "MLflow is a tool for ML",
+                    }
+                ],
+                scorers=[Safety()],
+            )
+            # ThreadPoolExecutor is called twice in OSS (harness + scorers)
+            first_call = mock_executor.call_args_list[0]
+            assert first_call[1]["max_workers"] == expected_max_workers
+
+    # default workers is 10
+    _validate_max_workers(10)
+
+    # override workers with env var
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "20")
+    _validate_max_workers(20)
+
+    # legacy env var is supported for databricks
+    if is_in_databricks:
+        monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
+        _validate_max_workers(30)
