@@ -7,7 +7,7 @@ from mlflow.genai.git_versioning.git_info import GitInfo
 
 class GitContext:
     def __init__(self) -> None:
-        self.info: GitInfo | None = GitInfo.from_env()
+        self.info = GitInfo.from_env()
         if self.info is None:
             warnings.warn(
                 (
