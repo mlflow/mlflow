@@ -7,15 +7,15 @@ MLflow 3.2.0rc0 includes several major features and improvements
 ### Major New Features
 
 - 🧭 **Tracing TypeScript SDK**: MLflow Tracing now supports the [TypeScript SDK](https://github.com/mlflow/mlflow/tree/master/libs/typescript), allowing developers to trace GenAI applications in TypeScript environments. (#16871, @B-Step62)
-- 🔗 **Semantic Kernel Tracing**: MLflow now provides [automatic tracing support for Semantic Kernel](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/semantic_kernel/), simplifying trace capture for SK-based workflows. (#16469, @michael-berk)
-- 🧪 **Feedback Tracking**: MLflow OSS now natively supports tracking [human feedbacks](https://mlflow.org/docs/latest/genai/assessments/feedback/), [ground truths](https://mlflow.org/docs/latest/genai/assessments/expectations/), LLM judges on traces, providing integrated quality monitoring and feedback management capabilities. (#16743, @BenWilson2)
+- 🔗 **Semantic Kernel Tracing**: MLflow now provides [automatic tracing support for Semantic Kernel](https://mlflow.org/docs/3.2.0rc0/genai/tracing/integrations/listing/semantic_kernel/), simplifying trace capture for SK-based workflows. (#16469, @michael-berk)
+- 🧪 **Feedback Tracking**: MLflow OSS now natively supports tracking [human feedbacks](https://mlflow.org/docs/3.2.0rc0/genai/assessments/feedback/), [ground truths](https://mlflow.org/docs/3.2.0rc0/genai/assessments/expectations/), LLM judges on traces, providing integrated quality monitoring and feedback management capabilities. (#16743, @BenWilson2)
 - 🖥️ **MLflow UI Improvements**: The MLflow UI now features **a redesigned experiment home view** and includes enhancements like pagination on the model page for better usability. (#16464, @frontsideair, #15801, @Flametaa)
-- 🛡️ **PII Masking in Tracing**: Added support for [masking personally identifiable information (PII) via a custom span post-processor](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/masking). (#16344, @B-Step62)
-- 🐻‍❄️ **Polars Dataset Support**: MLflow now supports [Polars datasets](https://mlflow.org/docs/latest/ml/dataset/#dataset), expanding compatibility with performant DataFrame libraries. (#13006, @AlpAribal)
+- 🛡️ **PII Masking in Tracing**: Added support for [masking personally identifiable information (PII) via a custom span post-processor](https://mlflow.org/docs/3.2.0rc0/genai/tracing/observe-with-traces/masking). (#16344, @B-Step62)
+- 🐻‍❄️ **Polars Dataset Support**: MLflow now supports [Polars datasets](https://mlflow.org/docs/3.2.0rc0/ml/dataset/#dataset), expanding compatibility with performant DataFrame libraries. (#13006, @AlpAribal)
 
 ### 📊 Usage Tracking (New in 3.2.0)
 
-- Starting with version 3.2.0, MLflow will begin collecting anonymized usage data about how core features of the platform are used. This data contains **no sensitive or personally identifiable information**, and users can opt out of data collection at any time. Check [MLflow documentation](https://mlflow.org/docs/latest/community/usage-tracking) for more details. (#16439, @serena-ruan)
+- Starting with version 3.2.0, MLflow will begin collecting anonymized usage data about how core features of the platform are used. This data contains **no sensitive or personally identifiable information**, and users can opt out of data collection at any time. Check [MLflow documentation](https://mlflow.org/docs/3.2.0rc0/community/usage-tracking/) for more details. (#16439, @serena-ruan)
 
 Features:
 
