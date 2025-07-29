@@ -20,7 +20,7 @@ def upgrade():
     # Create evaluation_datasets table
     op.create_table(
         "evaluation_datasets",
-        sa.Column("dataset_id", sa.String(36), primary_key=True),
+        sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("source", sa.String(255), nullable=True),
         sa.Column("source_type", sa.String(50), nullable=True),
@@ -31,6 +31,7 @@ def upgrade():
         sa.Column("last_update_time", sa.BigInteger(), nullable=True),
         sa.Column("created_by", sa.String(255), nullable=True),
         sa.Column("last_updated_by", sa.String(255), nullable=True),
+        sa.PrimaryKeyConstraint("dataset_id", name="pk_evaluation_datasets"),
     )
 
     # Create indexes on evaluation_datasets
@@ -49,7 +50,7 @@ def upgrade():
     # Create evaluation_dataset_records table
     op.create_table(
         "evaluation_dataset_records",
-        sa.Column("dataset_record_id", sa.String(36), primary_key=True),
+        sa.Column("dataset_record_id", sa.String(36), nullable=False),
         sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("inputs", sa.Text(), nullable=False),
         sa.Column("expectations", sa.Text(), nullable=True),
@@ -62,6 +63,7 @@ def upgrade():
         sa.Column("created_by", sa.String(255), nullable=True),
         sa.Column("last_updated_by", sa.String(255), nullable=True),
         sa.Column("input_hash", sa.String(64), nullable=False),
+        sa.PrimaryKeyConstraint("dataset_record_id", name="pk_evaluation_dataset_records"),
         sa.ForeignKeyConstraint(
             ["dataset_id"],
             ["evaluation_datasets.dataset_id"],
