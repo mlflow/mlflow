@@ -1,4 +1,4 @@
-from mlflow.genai.scorers.base import Scorer, scorer
+from mlflow.genai.scorers.base import Scorer, scorer, ScorerSamplingConfig
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
     ExpectationsGuidelines,
@@ -23,6 +23,7 @@ __all__ = [
     "Safety",
     "Scorer",
     "scorer",
+    "ScorerSamplingConfig",
     "get_all_scorers",
     "get_scorer",
     "list_scorers",
