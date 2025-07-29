@@ -270,10 +270,23 @@ def _setup_tracer_provider(disabled=False):
             _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
             return
 
-        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+        # Try to use the delta archiving exporter if databricks-agents is available
+        try:
+            from mlflow.genai.experimental import InferenceTableDeltaSpanExporter
+
+            exporter = InferenceTableDeltaSpanExporter()
+            _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta archiving")
+        except ImportError:
+            # databricks-agents not available, use base exporter
+            from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+
+            exporter = InferenceTableSpanExporter()
+            _logger.debug(
+                "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
+            )
+
         from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 
-        exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
 
     else:
@@ -334,7 +347,7 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 
         exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-        _logger.debug("Defaulint to MlflowV3SpanExporter (databricks-agents not available)")
+        _logger.debug("Defaulting to MlflowV3SpanExporter (databricks-agents not available)")
 
     return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
 

@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from unittest import mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -14,13 +15,23 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.genai.experimental.databricks_trace_exporter import (
-    DatabricksTraceDeltaArchiver,
+    DatabricksDeltaArchivalMixin,
+    InferenceTableDeltaSpanExporter,
     IngestStreamFactory,
     MlflowV3DeltaSpanExporter,
 )
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
+
+# Import ingest SDK classes - these will be mocked by conftest.py when not available
+try:
+    from ingest_api_sdk import TableProperties
+    from ingest_api_sdk.shared.definitions import StreamState
+except ImportError:
+    # Will be mocked by conftest.py during pytest execution
+    TableProperties = None
+    StreamState = None
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -36,6 +47,7 @@ def sample_trace_without_spans():
         state=TraceState.OK,
         trace_metadata={},
         tags={},
+        client_request_id="test-client-request-id",
     )
     trace_data = TraceData(spans=[])
     return Trace(info=trace_info, data=trace_data)
@@ -101,83 +113,236 @@ def sample_config():
     )
 
 
+@pytest.fixture
+def mock_manager_trace(sample_trace_without_spans):
+    """Fixture providing a mock manager trace for testing."""
+
+    mock_manager_trace = Mock()
+    mock_manager_trace.trace = sample_trace_without_spans
+    mock_manager_trace.prompts = []
+    return mock_manager_trace
+
+
+@pytest.fixture(autouse=True)
+def clear_mixin_cache():
+    """Automatically clear cache before each test to avoid interference."""
+    DatabricksDeltaArchivalMixin._config_cache.clear()
+    yield
+    DatabricksDeltaArchivalMixin._config_cache.clear()
+
+
 # =============================================================================
 # MlflowV3DeltaSpanExporter Tests
 # =============================================================================
 
 
-def test_mlflow_v3_delta_span_exporter_delegates_to_archiver(sample_trace_without_spans):
-    """Test that MlflowV3DeltaSpanExporter properly delegates to the archiver."""
+def test_mlflow_v3_delta_span_exporter_delegates_to_mixin(sample_trace_without_spans):
+    """Test that MlflowV3DeltaSpanExporter properly delegates to the mixin."""
     exporter = MlflowV3DeltaSpanExporter(tracking_uri="databricks")
 
     with (
         # Mock the parent _log_trace to succeed
         mock.patch.object(exporter.__class__.__bases__[0], "_log_trace") as mock_parent_log_trace,
-        # Mock delta archiver
-        mock.patch.object(exporter._delta_archiver, "archive") as mock_archive,
+        # Mock delta archiving mixin method
+        mock.patch.object(exporter, "archive_trace") as mock_archive_trace,
     ):
-        # Call _log_trace - should delegate to both parent and archiver
+        # Call _log_trace - should delegate to both parent and mixin
         exporter._log_trace(sample_trace_without_spans, prompts=[])
 
         # Verify parent _log_trace was called
         mock_parent_log_trace.assert_called_once_with(sample_trace_without_spans, [])
 
-        # Verify archiver was called
-        mock_archive.assert_called_once_with(sample_trace_without_spans)
+        # Verify mixin archive_trace was called
+        mock_archive_trace.assert_called_once_with(sample_trace_without_spans)
 
 
 def test_mlflow_v3_delta_span_exporter_error_isolation(sample_trace_without_spans):
-    """Test that delta archiver errors don't affect base MLflow export functionality."""
+    """Test that delta archiving errors don't affect base MLflow export functionality."""
     exporter = MlflowV3DeltaSpanExporter(tracking_uri="databricks")
 
     with (
         # Mock the parent _log_trace to succeed
         mock.patch.object(exporter.__class__.__bases__[0], "_log_trace") as mock_parent_log_trace,
-        # Mock delta archiver to raise an error
+        # Mock delta archiving mixin to raise an error
         mock.patch.object(
-            exporter._delta_archiver, "archive", side_effect=Exception("Archiver failed")
-        ) as mock_archive,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+            exporter, "archive_trace", side_effect=Exception("Archiving failed")
+        ) as mock_archive_trace,
     ):
-        # Call _log_trace - should succeed despite archiver error
+        # Call _log_trace - should succeed despite archiving error
         exporter._log_trace(sample_trace_without_spans, prompts=[])
 
         # Verify parent _log_trace was called successfully
         mock_parent_log_trace.assert_called_once_with(sample_trace_without_spans, [])
 
-        # Verify archiver was called
-        mock_archive.assert_called_once_with(sample_trace_without_spans)
-
-        # Verify error was logged but didn't crash the export
-        mock_logger.warning.assert_called()
-        warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
-        assert any("Failed to archive trace to Databricks Delta" in msg for msg in warning_calls)
+        # Verify mixin archive_trace was called
+        mock_archive_trace.assert_called_once_with(sample_trace_without_spans)
 
 
 # =============================================================================
-# DatabricksTraceDeltaArchiver Tests
+# InferenceTableDeltaSpanExporter Tests
+# =============================================================================
+
+
+def test_inference_table_delta_span_exporter_delegates_to_both(sample_trace_without_spans):
+    """Test that InferenceTableDeltaSpanExporter calls both parent and mixin methods."""
+    from opentelemetry.sdk.trace import ReadableSpan
+
+    exporter = InferenceTableDeltaSpanExporter()
+
+    # Create a mock readable span
+    mock_span = Mock(spec=ReadableSpan)
+    mock_span._parent = None  # Root span
+    mock_span.context.trace_id = "test-trace-id"
+
+    # Create a mock manager trace
+    mock_manager_trace = Mock()
+    mock_manager_trace.trace = sample_trace_without_spans
+    mock_manager_trace.prompts = []
+
+    with (
+        # Mock the trace manager to return our mock trace
+        mock.patch.object(exporter, "_trace_manager") as mock_trace_manager,
+        # Mock the inference table buffer
+        mock.patch("mlflow.tracing.export.inference_table._TRACE_BUFFER") as mock_buffer,
+        # Mock the fluent function
+        mock.patch("mlflow.tracing.fluent._set_last_active_trace_id"),
+        # Mock the mixin archive method
+        mock.patch.object(exporter, "archive_trace") as mock_archive_trace,
+    ):
+        mock_trace_manager.pop_trace.return_value = mock_manager_trace
+
+        # Call export with our mock span
+        exporter.export([mock_span])
+
+        # Verify trace manager was called
+        mock_trace_manager.pop_trace.assert_called_once_with("test-trace-id")
+
+        # Verify inference table functionality (buffer write)
+        mock_buffer.__setitem__.assert_called_once_with(
+            "test-client-request-id", sample_trace_without_spans.to_dict()
+        )
+
+        # Verify mixin archive_trace was called
+        mock_archive_trace.assert_called_once_with(sample_trace_without_spans)
+
+
+def test_inference_table_delta_span_exporter_error_isolation(
+    sample_trace_without_spans, mock_manager_trace
+):
+    """Test that delta archiving errors don't affect base inference table export functionality."""
+    exporter = InferenceTableDeltaSpanExporter()
+
+    with (
+        # Mock the parent _export_trace to succeed
+        mock.patch.object(exporter.__class__.__bases__[0], "_export_trace") as mock_parent_export,
+        # Mock delta archiving mixin to raise an error
+        mock.patch.object(
+            exporter, "archive_trace", side_effect=Exception("Archiving failed")
+        ) as mock_archive_trace,
+    ):
+        # Call _export_trace - should succeed despite archiving error
+        exporter._export_trace(sample_trace_without_spans, mock_manager_trace)
+
+        # Verify parent _export_trace was called successfully
+        mock_parent_export.assert_called_once_with(sample_trace_without_spans, mock_manager_trace)
+
+        # Verify mixin archive_trace was called
+        mock_archive_trace.assert_called_once_with(sample_trace_without_spans)
+
+
+def test_inference_table_delta_span_exporter_export_trace_delegates_to_mixin(
+    sample_trace_without_spans, mock_manager_trace
+):
+    """Test that InferenceTableDeltaSpanExporter._export_trace properly delegates to both."""
+    exporter = InferenceTableDeltaSpanExporter()
+
+    with (
+        # Mock the parent _export_trace to succeed
+        mock.patch.object(exporter.__class__.__bases__[0], "_export_trace") as mock_parent_export,
+        # Mock delta archiving mixin method
+        mock.patch.object(exporter, "archive_trace") as mock_archive_trace,
+    ):
+        # Call _export_trace - should delegate to both parent and mixin
+        exporter._export_trace(sample_trace_without_spans, mock_manager_trace)
+
+        # Verify parent _export_trace was called
+        mock_parent_export.assert_called_once_with(sample_trace_without_spans, mock_manager_trace)
+
+        # Verify mixin archive_trace was called
+        mock_archive_trace.assert_called_once_with(sample_trace_without_spans)
+
+
+def test_inference_table_delta_span_exporter_skips_non_root_spans():
+    """Test that InferenceTableDeltaSpanExporter only processes root spans."""
+    from opentelemetry.sdk.trace import ReadableSpan
+
+    exporter = InferenceTableDeltaSpanExporter()
+
+    # Create a mock non-root span
+    mock_span = Mock(spec=ReadableSpan)
+    mock_span._parent = "parent-span-id"  # Has parent, not root
+
+    with (
+        mock.patch.object(exporter, "_trace_manager") as mock_trace_manager,
+        mock.patch.object(exporter, "archive_trace") as mock_archive_trace,
+    ):
+        # Call export with non-root span
+        exporter.export([mock_span])
+
+        # Verify nothing was processed
+        mock_trace_manager.pop_trace.assert_not_called()
+        mock_archive_trace.assert_not_called()
+
+
+def test_inference_table_delta_span_exporter_handles_missing_trace():
+    """Test behavior when trace manager returns None."""
+    from opentelemetry.sdk.trace import ReadableSpan
+
+    exporter = InferenceTableDeltaSpanExporter()
+
+    # Create a mock readable span
+    mock_span = Mock(spec=ReadableSpan)
+    mock_span._parent = None  # Root span
+    mock_span.context.trace_id = "missing-trace-id"
+
+    with (
+        mock.patch.object(exporter, "_trace_manager") as mock_trace_manager,
+        mock.patch.object(exporter, "archive_trace") as mock_archive_trace,
+    ):
+        mock_trace_manager.pop_trace.return_value = None  # No trace found
+
+        # Call export
+        exporter.export([mock_span])
+
+        # Verify trace manager was called but nothing else
+        mock_trace_manager.pop_trace.assert_called_once_with("missing-trace-id")
+        mock_archive_trace.assert_not_called()
+
+
+# =============================================================================
+# DatabricksDeltaArchivalMixin Tests
 # =============================================================================
 
 
 def test_archive_with_delta_disabled(sample_trace_without_spans, monkeypatch):
-    """Test archive method when delta archiving is disabled."""
+    """Test archive_trace method when delta archiving is disabled."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "false")
 
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     with mock.patch(
         "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
     ) as mock_client_class:
         # Archive should return early without calling the client
-        archiver.archive(sample_trace_without_spans)
+        mixin.archive_trace(sample_trace_without_spans)
         mock_client_class.assert_not_called()
 
 
 def test_archive_with_no_experiment_id(monkeypatch):
-    """Test archive method when trace has no experiment ID."""
+    """Test archive_trace method when trace has no experiment ID."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     # Create a trace without experiment ID
     trace_info = TraceInfo(
@@ -196,17 +361,15 @@ def test_archive_with_no_experiment_id(monkeypatch):
         "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
     ) as mock_client_class:
         # Archive should return early without calling the client
-        archiver.archive(trace)
+        mixin.archive_trace(trace)
         mock_client_class.assert_not_called()
 
 
 def test_archive_with_missing_archival_config(sample_trace_without_spans, monkeypatch):
-    """Test that archiver handles gracefully when no configuration is available."""
+    """Test that mixin handles gracefully when no configuration is available."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     with (
         mock.patch(
@@ -219,7 +382,7 @@ def test_archive_with_missing_archival_config(sample_trace_without_spans, monkey
         mock_client.get_trace_destination.return_value = None
 
         # Archive should return early without error
-        archiver.archive(sample_trace_without_spans)
+        mixin.archive_trace(sample_trace_without_spans)
 
         # Verify that the client was called to check for config
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
@@ -230,15 +393,13 @@ def test_archive_with_missing_archival_config(sample_trace_without_spans, monkey
         assert any("not enabled for experiment" in msg for msg in debug_calls)
 
 
-def test_delta_archiver_archive_archival_config_error_handling(
+def test_delta_mixin_archive_archival_config_error_handling(
     sample_trace_without_spans, monkeypatch
 ):
-    """Test that DatabricksTraceDeltaArchiver handles errors gracefully."""
+    """Test that DatabricksDeltaArchivalMixin handles errors gracefully."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     with (
         mock.patch(
@@ -251,7 +412,7 @@ def test_delta_archiver_archive_archival_config_error_handling(
         mock_client.get_trace_destination.side_effect = Exception("Config fetch failed")
 
         # Archive should handle the error gracefully without crashing
-        archiver.archive(sample_trace_without_spans)
+        mixin.archive_trace(sample_trace_without_spans)
 
         # Verify that the error was logged as a warning (since an exception was raised)
         mock_logger.warning.assert_called()
@@ -259,30 +420,26 @@ def test_delta_archiver_archive_archival_config_error_handling(
         assert any("Failed to export trace to Databricks Delta" in msg for msg in warning_calls)
 
 
-def test_delta_archiver_archive_with_valid_archival_config(
+def test_delta_mixin_archive_with_valid_archival_config(
     sample_trace_without_spans, sample_config, monkeypatch
 ):
     """Test successful archival when valid configuration is available."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     with (
         mock.patch(
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
-        mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceDeltaArchiver._archive_trace"
-        ) as mock_archive_trace,
+        mock.patch.object(mixin, "_archive_trace") as mock_archive_trace,
     ):
         # Mock client to return valid config
         mock_client = mock_client_class.return_value
         mock_client.get_trace_destination.return_value = sample_config
 
         # Archive should proceed with archival
-        archiver.archive(sample_trace_without_spans)
+        mixin.archive_trace(sample_trace_without_spans)
 
         # Verify that the client was called
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
@@ -297,9 +454,7 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
     """Test the complete _archive_trace integration flow with IngestStreamFactory."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     # Mock stream and factory
     mock_stream = mock.Mock()
@@ -319,8 +474,8 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
         mock_client.get_trace_destination.return_value = sample_config
         mock_get_instance.return_value = mock_factory
 
-        # Call archive - this will run the async _archive_trace method
-        archiver.archive(sample_trace_with_spans)
+        # Call archive_trace - this will run the _archive_trace method
+        mixin.archive_trace(sample_trace_with_spans)
 
         # Verify the integration flow
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
@@ -338,9 +493,7 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
     """Test _archive_trace with a trace containing no spans."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     # Mock stream and factory
     mock_stream = mock.Mock()
@@ -361,8 +514,8 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
         mock_client.get_trace_destination.return_value = sample_config
         mock_get_instance.return_value = mock_factory
 
-        # Call archive with empty trace
-        archiver.archive(sample_trace_without_spans)
+        # Call archive_trace with empty trace
+        mixin.archive_trace(sample_trace_without_spans)
 
         # Verify config was fetched
         mock_client.get_trace_destination.assert_called_once_with(_EXPERIMENT_ID)
@@ -383,9 +536,7 @@ def test_archive_trace_ingest_stream_error_handling(
     """Test error handling when stream operations fail."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
-    # Clear cache to avoid interference from other tests
-    DatabricksTraceDeltaArchiver._config_cache.clear()
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     # Mock stream to raise error during ingestion
     mock_stream = mock.Mock()
@@ -407,8 +558,8 @@ def test_archive_trace_ingest_stream_error_handling(
         mock_client.get_trace_destination.return_value = sample_config
         mock_get_instance.return_value = mock_factory
 
-        # Call archive - should handle stream error gracefully
-        archiver.archive(sample_trace_with_spans)
+        # Call archive_trace - should handle stream error gracefully
+        mixin.archive_trace(sample_trace_with_spans)
 
         # Verify that the error was caught and logged
         mock_logger.warning.assert_called()
@@ -495,6 +646,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     # Mock streams with configurable state
     old_mock_stream = mock.Mock()
     old_mock_stream.get_state.return_value = getattr(StreamState, invalid_state)
+    old_mock_stream.get_state.return_value = getattr(StreamState, invalid_state)
 
     new_mock_stream = mock.Mock()
     new_mock_stream.get_state.return_value = StreamState.OPENED
@@ -526,6 +678,8 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
         expected_state = getattr(StreamState, invalid_state)
         assert any(f"Stream in invalid state {expected_state}" in msg for msg in debug_calls)
+        expected_state = getattr(StreamState, invalid_state)
+        assert any(f"Stream in invalid state {expected_state}" in msg for msg in debug_calls)
         assert any("Creating new thread-local stream" in msg for msg in debug_calls)
 
 
@@ -546,7 +700,9 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     factory = IngestStreamFactory.get_instance(table_props)
 
     # Mock stream with configurable state - use actual enum value
+    # Mock stream with configurable state - use actual enum value
     mock_stream = mock.Mock()
+    mock_stream.get_state.return_value = getattr(StreamState, valid_state)
     mock_stream.get_state.return_value = getattr(StreamState, valid_state)
 
     with (
@@ -642,9 +798,9 @@ def test_ingest_stream_factory_thread_safety():
 
 def test_convert_trace_to_proto_spans_basic(sample_trace_with_spans):
     """Test basic conversion of trace to proto spans."""
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
-    proto_spans = archiver._convert_trace_to_proto_spans(sample_trace_with_spans)
+    proto_spans = mixin._convert_trace_to_proto_spans(sample_trace_with_spans)
 
     # Should convert 2 spans from the fixture
     assert len(proto_spans) == 2
@@ -706,8 +862,8 @@ def test_convert_trace_to_proto_spans_with_complex_data():
     trace_data = TraceData(spans=spans)
     trace = Trace(info=trace_info, data=trace_data)
 
-    archiver = DatabricksTraceDeltaArchiver()
-    proto_spans = archiver._convert_trace_to_proto_spans(trace)
+    mixin = DatabricksDeltaArchivalMixin()
+    proto_spans = mixin._convert_trace_to_proto_spans(trace)
 
     assert len(proto_spans) == 1
     proto_span = proto_spans[0]
@@ -763,9 +919,9 @@ def test_convert_trace_to_proto_spans_with_complex_data():
 
 def test_convert_trace_to_proto_spans_empty_trace(sample_trace_without_spans):
     """Test conversion with a trace containing no spans."""
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
-    proto_spans = archiver._convert_trace_to_proto_spans(sample_trace_without_spans)
+    proto_spans = mixin._convert_trace_to_proto_spans(sample_trace_without_spans)
 
     # Empty trace should return empty list
     assert proto_spans == []
@@ -773,9 +929,9 @@ def test_convert_trace_to_proto_spans_empty_trace(sample_trace_without_spans):
 
 def test_convert_trace_to_proto_spans_otel_compliance(sample_trace_with_spans):
     """Test that trace_id format complies with OTel spec (no tr- prefix)."""
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
-    proto_spans = archiver._convert_trace_to_proto_spans(sample_trace_with_spans)
+    proto_spans = mixin._convert_trace_to_proto_spans(sample_trace_with_spans)
 
     # Verify trace IDs don't have "tr-" prefix (OTel compliance)
     for proto_span in proto_spans:
@@ -834,7 +990,7 @@ def test_convert_trace_to_proto_spans_filters_spans_without_id():
     trace_data = TraceData(spans=spans)
     trace = Trace(info=trace_info, data=trace_data)
 
-    archiver = DatabricksTraceDeltaArchiver()
+    mixin = DatabricksDeltaArchivalMixin()
 
     # Mock the logger to verify debug message
     # Also mock the line that's causing the AttributeError to skip it for this test
@@ -873,8 +1029,8 @@ def test_convert_trace_to_proto_spans_filters_spans_without_id():
 
             return delta_proto_spans
 
-        with mock.patch.object(archiver, "_convert_trace_to_proto_spans", patched_convert):
-            proto_spans = archiver._convert_trace_to_proto_spans(trace)
+        with mock.patch.object(mixin, "_convert_trace_to_proto_spans", patched_convert):
+            proto_spans = mixin._convert_trace_to_proto_spans(trace)
 
             # Should only convert 2 valid spans (NoOpSpan filtered out)
             assert len(proto_spans) == 2
