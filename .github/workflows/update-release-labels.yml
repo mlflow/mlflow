@@ -1,8 +1,8 @@
 name: Update Release Labels
 
 on:
-  release:
-    types: [published]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -28,24 +28,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Get the release information
-            const release = context.payload.release;
-            const releaseTag = release.tag_name;
-            const releaseVersion = releaseTag.replace(/^v/, ''); // Remove 'v' prefix if present
-            
-            console.log(`Processing release: ${releaseTag} (${releaseVersion})`);
-            
-            // Parse version components
-            const versionMatch = releaseVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
-            if (!versionMatch) {
-              console.log(`Skipping unoffical release: ${releaseVersion}`);
-              return;
-            }
-            
-            const [, major, minor, patch] = versionMatch;
-            const nextPatchVersion = `${major}.${minor}.${parseInt(patch) + 1}`;
-            const releaseLabel = `v${releaseVersion}`;
-            const nextPatchLabel = `v${nextPatchVersion}`;
+            const releaseVersion = "3.1.3";
+            const releaseTag = "v3.1.3";
+            const releaseLabel = `v3.1.3`;
+            const nextPatchLabel = `v3.1.4`;
             
             console.log(`Release label: ${releaseLabel}`);
             console.log(`Next patch label: ${nextPatchLabel}`);
@@ -69,10 +55,9 @@ jobs:
                 per_page: 100
               });
               
-              // Find the previous tag (assume tags are sorted by creation date)
               const tagNames = tags.data.map(tag => tag.name);
               const currentTagIndex = tagNames.indexOf(releaseTag);
-              if (currentTagIndex > 0) {
+              if (currentTagIndex >= 0) {
                 previousTag = tagNames[currentTagIndex + 1];
               }
             } catch (error) {
@@ -113,6 +98,7 @@ jobs:
             });
             
             console.log(`Found ${prsWithReleaseLabel.data.length} PRs with label ${releaseLabel}`);
+            console.log(`Found released commits:`, Array.from(releaseCommits));
             
             // Check each PR to see if it was actually included in the release
             for (const pr of prsWithReleaseLabel.data) {
@@ -124,13 +110,14 @@ jobs:
               const prDetails = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_request_number: pr.number
+                pull_number: pr.number
               });
               
               let prIncludedInRelease = false;
               
               if (prDetails.data.merged && prDetails.data.merge_commit_sha) {
                 // Check if the merge commit is in the release
+                console.log(`Checking if commit #${prDetails.data.merge_commit_sha} is included in release ${releaseCommits}`);
                 prIncludedInRelease = releaseCommits.has(prDetails.data.merge_commit_sha);
               }
               
