@@ -14,7 +14,6 @@ from typing import Any, Optional, TypedDict, Union, get_args, get_origin
 import numpy as np
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
@@ -677,7 +676,6 @@ class Map(BaseType):
         raise MlflowException(f"Map type {self!r} and {other!r} are incompatible")
 
 
-@experimental(version="2.19.0")
 class AnyType(BaseType):
     def __init__(self):
         """
@@ -1398,7 +1396,6 @@ def _is_union(t: type) -> bool:
     return get_origin(t) in [Union, UnionType]
 
 
-@experimental(version="2.13.0")
 def convert_dataclass_to_schema(dataclass):
     """
     Converts a given dataclass into a Schema object. The dataclass must include type hints

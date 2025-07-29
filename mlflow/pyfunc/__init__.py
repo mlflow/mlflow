@@ -545,7 +545,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
-from mlflow.utils.annotations import deprecated, developer_stable, experimental
+from mlflow.utils.annotations import deprecated, developer_stable
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     get_dbconnect_udf_sandbox_info,
@@ -1053,7 +1053,6 @@ class PyFuncModel:
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
-    @experimental(version="2.16.0")
     def get_raw_model(self):
         """
         Get the underlying raw model if the model wrapper implemented `get_raw_model` function.

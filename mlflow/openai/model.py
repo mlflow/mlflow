@@ -24,7 +24,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -62,7 +61,6 @@ _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="2.3.0")
 def get_default_pip_requirements():
     """
     Returns:
@@ -73,7 +71,6 @@ def get_default_pip_requirements():
     return list(map(_get_pinned_requirement, ["openai", "tiktoken", "tenacity"]))
 
 
-@experimental(version="2.3.0")
 def get_default_conda_env():
     """
     Returns:
@@ -231,7 +228,6 @@ def _get_input_schema(task, content):
         return Schema([ColSpec(type="string")])
 
 
-@experimental(version="2.3.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -430,7 +426,6 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental(version="2.3.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
@@ -838,7 +833,6 @@ def _load_pyfunc(path):
     return _OpenAIWrapper(_load_model(path))
 
 
-@experimental(version="2.3.0")
 def load_model(model_uri, dst_path=None):
     """
     Load an OpenAI model from a local file or a run.

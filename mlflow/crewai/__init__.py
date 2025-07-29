@@ -10,7 +10,6 @@ from packaging.version import Version
 from mlflow.crewai.autolog import (
     patched_class_call,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 _logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "crewai"
 
 
-@experimental(version="2.19.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
