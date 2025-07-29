@@ -2248,6 +2248,7 @@ def _create_logged_model(
     params: Optional[dict[str, str]] = None,
     model_type: Optional[str] = None,
     experiment_id: Optional[str] = None,
+    flavor: Optional[str] = None,
 ) -> LoggedModel:
     """
     Create a new LoggedModel in the ``PENDING`` state.
@@ -2263,6 +2264,7 @@ def _create_logged_model(
                     enables you to easily search for this model and compare it to other models of
                     type ``"agent"`` in the future.
         experiment_id: The experiment ID of the experiment to which the model belongs.
+        flavor: The flavor of the model.
 
     Returns:
         A new LoggedModel in the ``PENDING`` state.
@@ -2277,13 +2279,14 @@ def _create_logged_model(
             get_run(source_run_id).info.experiment_id if source_run_id else None
         )
     resolved_tags = context_registry.resolve_tags(tags)
-    return MlflowClient().create_logged_model(
+    return MlflowClient()._create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
         tags=resolved_tags,
         params=params,
         model_type=model_type,
+        flavor=flavor,
     )
 
 
@@ -3390,6 +3393,8 @@ class ActiveModel(LoggedModel):
 # active model ID. MLflow internally should NEVER call this function directly,
 # since we need to differentiate between user and system set active model IDs.
 # For MLflow internal usage, use `_set_active_model` instead.
+
+
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     """
     Set the active model with the specified name or model ID, and it will be used for linking
