@@ -2,21 +2,20 @@ import warnings
 
 from typing_extensions import Self
 
-from mlflow.genai.git_versioning.git_info import GitInfo
+from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
 
 
 class GitContext:
     def __init__(self) -> None:
-        self.info = GitInfo.from_env()
-        if self.info is None:
+        try:
+            self.info = GitInfo.from_env()
+        except GitOperationError as e:
             warnings.warn(
-                (
-                    "Git information is not available. Make sure git is installed "
-                    "and you are in a git repository."
-                ),
+                f"Git operation failed: {e}",
                 UserWarning,
                 stacklevel=2,
             )
+            self.info = None
 
     def __enter__(self) -> Self:
         return self

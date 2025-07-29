@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.genai import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.git_versioning import _get_active_git_context
+from mlflow.genai.git_versioning.git_info import GitOperationError
 
 
 @pytest.fixture(autouse=True)
@@ -45,16 +46,17 @@ def test_disable_git_model_versioning_in_non_git_repo(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.chdir(tmp_path)
-    with pytest.warns(UserWarning, match=r"Git information is not available"):
+    with pytest.warns(UserWarning, match=r"Git operation failed"):
         context = enable_git_model_versioning()
     assert context.info is None
 
 
 def test_enable_git_model_versioning_git_unavailable(tmp_git_repo: Path):
     with mock.patch(
-        "mlflow.genai.git_versioning.GitInfo._is_git_available", return_value=False
+        "mlflow.genai.git_versioning.git_info.GitInfo._is_git_available",
+        side_effect=GitOperationError("Git is not available or not installed"),
     ) as m:
-        with pytest.warns(UserWarning, match=r"Git information is not available"):
+        with pytest.warns(UserWarning, match=r"Git operation failed"):
             context = enable_git_model_versioning()
         assert context.info is None
         m.assert_called_once()

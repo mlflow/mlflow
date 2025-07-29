@@ -4,19 +4,30 @@ from dataclasses import dataclass
 from typing_extensions import Self
 
 
+class GitOperationError(Exception):
+    """Raised when a git operation fails"""
+
+    @classmethod
+    def from_called_process_error(
+        cls, operation: str, error: subprocess.CalledProcessError
+    ) -> Self:
+        """Create GitOperationError from CalledProcessError with stderr details"""
+        message = f"{operation}: {error}"
+        if error.stderr and error.stderr.strip():
+            message += f" (stderr: {error.stderr.strip()})"
+        return cls(message)
+
+
 @dataclass(kw_only=True)
 class GitInfo:
-    branch: str | None = None
-    commit: str | None = None
+    branch: str
+    commit: str
     dirty: bool = False
 
     @classmethod
-    def from_env(cls) -> Self | None:
-        if not cls._is_git_available():
-            return None
-
-        if not cls._is_in_git_repo():
-            return None
+    def from_env(cls) -> Self:
+        cls._is_git_available()
+        cls._is_in_git_repo()
 
         return cls(
             branch=cls._get_current_branch(),
@@ -26,41 +37,65 @@ class GitInfo:
 
     @staticmethod
     def _is_git_available() -> bool:
-        return subprocess.call(["git", "--version"], stderr=subprocess.DEVNULL) == 0
+        try:
+            subprocess.check_call(
+                ["git", "--version"], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError.from_called_process_error(
+                "Git is not available or not installed", e
+            ) from e
 
     @staticmethod
     def _is_in_git_repo() -> bool:
-        return subprocess.call(["git", "rev-parse", "--git-dir"], stderr=subprocess.DEVNULL) == 0
+        try:
+            subprocess.check_call(
+                ["git", "rev-parse", "--git-dir"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError.from_called_process_error("Not in a git repository", e) from e
 
     @staticmethod
-    def _get_current_branch() -> str | None:
+    def _get_current_branch() -> str:
         try:
             stdout = subprocess.check_output(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 text=True,
             )
             branch = stdout.strip()
-            return branch if branch != "HEAD" else None
-        except subprocess.CalledProcessError:
-            return None
+            if branch == "HEAD":
+                raise GitOperationError("In detached HEAD state, no branch name available")
+            return branch
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError.from_called_process_error(
+                "Failed to get current branch", e
+            ) from e
 
     @staticmethod
-    def _get_current_commit() -> str | None:
+    def _get_current_commit() -> str:
         try:
             stdout = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
+                ["git", "rev-parse", "HEAD"], stderr=subprocess.PIPE, text=True
             )
             return stdout.strip()
-        except subprocess.CalledProcessError:
-            return None
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError.from_called_process_error(
+                "Failed to get current commit", e
+            ) from e
 
     @staticmethod
     def _is_repo_dirty() -> bool:
         try:
             result = subprocess.check_output(
-                ["git", "status", "--porcelain"], stderr=subprocess.DEVNULL, text=True
+                ["git", "status", "--porcelain"], stderr=subprocess.PIPE, text=True
             )
             return bool(result.strip())
-        except subprocess.CalledProcessError:
-            return False
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError.from_called_process_error(
+                "Failed to check repository status", e
+            ) from e
