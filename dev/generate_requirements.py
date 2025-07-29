@@ -81,7 +81,6 @@ def generate_requirements_txt_content(requirements_yaml):
         requirement_str = f"{pip_release}{extras}{','.join(version_specs)}{markers}"
         requirement_strs.append(requirement_str)
 
-    # Sort requirements alphabetically before returning
     requirement_strs.sort()
     return "\n".join(requirement_strs)
 
