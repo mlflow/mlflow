@@ -103,4 +103,3 @@ message DatasetRecordSource {
   // Source-specific data as JSON
   optional string source_data = 2;
 }
-

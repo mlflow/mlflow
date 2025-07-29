@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pandas as pd
 
@@ -11,9 +10,8 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
-from mlflow.utils.proto_json_utils import dataframe_from_raw_json
+from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 from mlflow.utils.time import get_current_time_millis
 
 if TYPE_CHECKING:
@@ -24,11 +22,11 @@ if TYPE_CHECKING:
 class EvaluationDataset(_MlflowObject):
     """
     Evaluation dataset for storing inputs and expectations for GenAI evaluation.
-    
+
     This class supports lazy loading of records - when retrieved via get_evaluation_dataset(),
     only metadata is loaded. Records are fetched when to_df() or merge_records() is called.
     """
-    
+
     dataset_id: Optional[str] = None
     name: Optional[str] = None
     source: Optional[str] = None
@@ -40,102 +38,95 @@ class EvaluationDataset(_MlflowObject):
     last_update_time: Optional[int] = None
     created_by: Optional[str] = None
     last_updated_by: Optional[str] = None
-    experiment_ids: List[str] = field(default_factory=list)
-    _records: Optional[List[DatasetRecord]] = field(default=None, init=False, repr=False)
+    experiment_ids: list[str] = field(default_factory=list)
+    _records: Optional[list[DatasetRecord]] = field(default=None, init=False, repr=False)
     _tracking_store: Optional[Any] = field(default=None, init=False, repr=False)
-    
+
     def __post_init__(self):
         if self.created_time is None:
             self.created_time = get_current_time_millis()
         if self.last_update_time is None:
             self.last_update_time = get_current_time_millis()
-    
+
     @property
-    def records(self) -> List[DatasetRecord]:
+    def records(self) -> list[DatasetRecord]:
         """
         Get dataset records, loading them if necessary.
-        
+
         This property implements lazy loading - records are only fetched from the backend
         when accessed for the first time.
         """
         if self._records is None and self._tracking_store is not None:
             self._records = self._tracking_store._load_dataset_records(self.dataset_id)
         return self._records or []
-    
+
     def has_records(self) -> bool:
         """Check if dataset records are loaded without triggering a load."""
         return self._records is not None
-    
+
     def merge_records(
-        self, 
-        records: Union[List[Dict[str, Any]], pd.DataFrame, List["Trace"]]
+        self, records: Union[list[dict[str, Any]], pd.DataFrame, list["Trace"]]
     ) -> "EvaluationDataset":
         """
         Merge new records with existing ones.
-        
+
         Args:
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
-                - List of Trace objects (will extract inputs from root span, expectations from assessments)
-        
+                - List of Trace objects (will extract inputs from root span, expectations from
+                  assessments)
+
         Returns:
             Self for method chaining
         """
         from mlflow.entities.trace import Trace
-        
+
         if isinstance(records, pd.DataFrame):
             record_dicts = records.to_dict("records")
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = []
-            for trace in records:
-                root_span = None
-                if hasattr(trace, 'data') and hasattr(trace.data, 'spans'):
-                    for span in trace.data.spans:
-                        if span.parent_id is None:
-                            root_span = span
-                            break
-                
-                inputs = {}
-                if root_span:
-                    inputs = root_span.inputs if root_span.inputs is not None else {}
-                
+            for i, trace in enumerate(records):
+                if not isinstance(trace, Trace):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Mixed types in trace list. Expected all elements to be Trace objects, "
+                        f"but element at index {i} is {type(trace).__name__}"
+                    )
+                root_span = trace.data._get_root_span() if hasattr(trace, "data") else None
+                inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+
                 expectations = {}
-                if hasattr(trace, 'info') and hasattr(trace.info, 'assessments'):
-                    for assessment in trace.info.assessments or []:
-                        if hasattr(assessment, 'expectation') and assessment.expectation is not None:
-                            if hasattr(assessment, 'name'):
-                                expectations[assessment.name] = assessment.expectation.value if hasattr(assessment.expectation, 'value') else assessment.expectation
-                
-                trace_id = trace.info.trace_id if hasattr(trace, 'info') and hasattr(trace.info, 'trace_id') else None
-                
+                if hasattr(trace, "search_assessments"):
+                    expectation_assessments = trace.search_assessments(type="expectation")
+                    for expectation in expectation_assessments:
+                        expectations[expectation.name] = expectation.value
+
+                trace_id = (
+                    trace.info.trace_id
+                    if hasattr(trace, "info") and hasattr(trace.info, "trace_id")
+                    else None
+                )
+
                 record_dict = {
                     "inputs": inputs,
                     "expectations": expectations,
-                    "source": {
-                        "source_type": "TRACE",
-                        "source_data": {"trace_id": trace_id}
-                    }
+                    "source": {"source_type": "TRACE", "source_data": {"trace_id": trace_id}},
                 }
                 record_dicts.append(record_dict)
         else:
             record_dicts = records
-        
+
         for record in record_dicts:
             if not isinstance(record, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Each record must be a dictionary"
-                )
+                raise MlflowException.invalid_parameter_value("Each record must be a dictionary")
             if "inputs" not in record:
                 raise MlflowException.invalid_parameter_value(
                     "Each record must have an 'inputs' field"
                 )
-        
+
         if self._tracking_store is not None:
             self._tracking_store.upsert_evaluation_dataset_records(
-                dataset_id=self.dataset_id,
-                records=record_dicts,
-                updated_by=self.last_updated_by
+                dataset_id=self.dataset_id, records=record_dicts, updated_by=self.last_updated_by
             )
             # Invalidate the cache to ensure that we don't have consistency issues
             self._records = None
@@ -143,45 +134,35 @@ class EvaluationDataset(_MlflowObject):
             # Local in-memory capabilities with deduplication
             if self._records is None:
                 self._records = []
-            
-            # Create a map to deduplicate by inputs
+
             existing_records_map = {}
             for existing_record in self._records:
-                # Use JSON serialization of inputs as the key for deduplication
                 inputs_key = json.dumps(existing_record.inputs, sort_keys=True)
                 existing_records_map[inputs_key] = existing_record
-            
-            # Process new records, deduplicating within the batch as well
+
             for record_dict in record_dicts:
                 inputs = record_dict.get("inputs", {})
                 inputs_key = json.dumps(inputs, sort_keys=True)
-                
+
                 if inputs_key in existing_records_map:
-                    # Merge with existing record
                     existing_record = existing_records_map[inputs_key]
-                    
-                    # Merge expectations
-                    new_expectations = record_dict.get("expectations")
-                    if new_expectations:
+
+                    if new_expectations := record_dict.get("expectations"):
                         if existing_record.expectations is None:
                             existing_record.expectations = {}
                         existing_record.expectations.update(new_expectations)
-                    
-                    # Merge tags
-                    new_tags = record_dict.get("tags")
-                    if new_tags:
+
+                    if new_tags := record_dict.get("tags"):
                         if existing_record.tags is None:
                             existing_record.tags = {}
                         existing_record.tags.update(new_tags)
-                    
-                    # Update timestamp
+
                     existing_record.last_update_time = get_current_time_millis()
                 else:
-                    # Create new record
                     source = record_dict.get("source")
                     if source and isinstance(source, dict):
                         source = DatasetRecordSource.from_dict(source)
-                    
+
                     record = DatasetRecord(
                         dataset_id=self.dataset_id,
                         inputs=inputs,
@@ -189,28 +170,29 @@ class EvaluationDataset(_MlflowObject):
                         tags=record_dict.get("tags"),
                         source=source,
                         created_by=self.created_by,
-                        last_updated_by=self.last_updated_by
+                        last_updated_by=self.last_updated_by,
                     )
                     self._records.append(record)
-                    # Add to map for deduplication within this batch
                     existing_records_map[inputs_key] = record
-        
+
         return self
-    
+
     def to_df(self) -> pd.DataFrame:
         """
         Convert dataset records to a pandas DataFrame.
-        
+
         This method triggers lazy loading of records if they haven't been loaded yet.
-        
+
         Returns:
             DataFrame with columns for inputs, expectations, tags, and metadata
         """
         records = self.records
-        
+
         if not records:
-            return pd.DataFrame(columns=["inputs", "expectations", "tags", "source_type", "source_id"])
-        
+            return pd.DataFrame(
+                columns=["inputs", "expectations", "tags", "source_type", "source_id"]
+            )
+
         data = []
         for record in records:
             row = {
@@ -220,16 +202,16 @@ class EvaluationDataset(_MlflowObject):
                 "source_type": record.source.get("source_type") if record.source else None,
                 "source_id": record.source_id,
                 "created_time": record.created_time,
-                "dataset_record_id": record.dataset_record_id
+                "dataset_record_id": record.dataset_record_id,
             }
             data.append(row)
-        
+
         return pd.DataFrame(data)
-    
+
     def to_proto(self) -> ProtoEvaluationDataset:
         """Convert to protobuf representation."""
         proto = ProtoEvaluationDataset()
-        
+
         if self.dataset_id is not None:
             proto.dataset_id = self.dataset_id
         if self.name is not None:
@@ -252,11 +234,11 @@ class EvaluationDataset(_MlflowObject):
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
             proto.last_updated_by = self.last_updated_by
-        
+
         proto.experiment_ids.extend(self.experiment_ids)
-        
+
         return proto
-    
+
     @classmethod
     def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
@@ -264,7 +246,9 @@ class EvaluationDataset(_MlflowObject):
             dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
             name=proto.name if proto.HasField("name") else None,
             source=proto.source if proto.HasField("source") else None,
-            source_type=DatasetRecordSourceType.from_proto(proto.source_type) if proto.HasField("source_type") else None,
+            source_type=DatasetRecordSourceType.from_proto(proto.source_type)
+            if proto.HasField("source_type")
+            else None,
             schema=proto.schema if proto.HasField("schema") else None,
             profile=proto.profile if proto.HasField("profile") else None,
             digest=proto.digest if proto.HasField("digest") else None,
@@ -272,10 +256,10 @@ class EvaluationDataset(_MlflowObject):
             last_update_time=proto.last_update_time if proto.HasField("last_update_time") else None,
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
-            experiment_ids=list(proto.experiment_ids)
+            experiment_ids=list(proto.experiment_ids),
         )
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         result = {
             "dataset_id": self.dataset_id,
@@ -289,16 +273,16 @@ class EvaluationDataset(_MlflowObject):
             "last_update_time": self.last_update_time,
             "created_by": self.created_by,
             "last_updated_by": self.last_updated_by,
-            "experiment_ids": self.experiment_ids
+            "experiment_ids": self.experiment_ids,
         }
-        
+
         if self._records is not None:
             result["records"] = [record.to_dict() for record in self._records]
-        
+
         return result
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvaluationDataset":
+    def from_dict(cls, data: dict[str, Any]) -> "EvaluationDataset":
         """Create instance from dictionary representation."""
         dataset = cls(
             dataset_id=data.get("dataset_id"),
@@ -312,13 +296,12 @@ class EvaluationDataset(_MlflowObject):
             last_update_time=data.get("last_update_time"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
-            experiment_ids=data.get("experiment_ids", [])
+            experiment_ids=data.get("experiment_ids", []),
         )
-        
-        if "records" in data:
+
+        if records_data := data.get("records"):
             dataset._records = [
-                DatasetRecord.from_dict(record_data) 
-                for record_data in data["records"]
+                DatasetRecord.from_dict(record_data) for record_data in records_data
             ]
-        
+
         return dataset

@@ -1,5 +1,4 @@
 import json
-from unittest import mock
 
 import pytest
 
@@ -11,8 +10,7 @@ from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDa
 
 def test_dataset_record_creation():
     source = DatasetRecordSource(
-        source_type="HUMAN",
-        source_data={"user_id": "user1", "timestamp": "2024-01-01"}
+        source_type="HUMAN", source_data={"user_id": "user1", "timestamp": "2024-01-01"}
     )
     record = DatasetRecord(
         dataset_record_id="rec123",
@@ -24,9 +22,9 @@ def test_dataset_record_creation():
         source_id="user1",
         source_type="HUMAN",
         created_by="user1",
-        last_updated_by="user2"
+        last_updated_by="user2",
     )
-    
+
     assert record.dataset_record_id == "rec123"
     assert record.dataset_id == "dataset123"
     assert record.inputs == {"question": "What is MLflow?", "context": "MLflow is a platform"}
@@ -42,7 +40,7 @@ def test_dataset_record_creation():
 
 def test_dataset_record_auto_generation():
     record = DatasetRecord()
-    
+
     assert record.dataset_record_id is not None
     assert len(record.dataset_record_id) == 36
     assert record.created_time is not None
@@ -53,27 +51,47 @@ def test_dataset_record_auto_generation():
     assert record.tags == {}
 
 
-@pytest.mark.parametrize("source_type,source_data,explicit_source_id,explicit_source_type,expected_source_id,expected_source_type", [
-    ("TRACE", {"trace_id": "trace123", "span_id": "span456"}, None, None, "trace123", "TRACE"),
-    ("DOCUMENT", {"source_id": "doc123", "doc_uri": "s3://bucket/doc.txt"}, None, None, "doc123", "DOCUMENT"),
-    ("HUMAN", {"source_id": "human123", "user_id": "user1"}, None, None, "human123", "HUMAN"),
-    ("CODE", {"source_id": "code123", "function": "evaluate"}, None, None, "code123", "CODE"),
-    ("TRACE", {"trace_id": "trace123"}, "override123", None, "override123", "TRACE"),
-    ("HUMAN", {"user_id": "user1"}, None, "CUSTOM_TYPE", None, "CUSTOM_TYPE"),
-    ("TRACE", {"some_other_key": "value"}, None, None, None, "TRACE"),
-])
+@pytest.mark.parametrize(
+    (
+        "source_type",
+        "source_data",
+        "explicit_source_id",
+        "explicit_source_type",
+        "expected_source_id",
+        "expected_source_type",
+    ),
+    [
+        ("TRACE", {"trace_id": "trace123", "span_id": "span456"}, None, None, "trace123", "TRACE"),
+        (
+            "DOCUMENT",
+            {"source_id": "doc123", "doc_uri": "s3://bucket/doc.txt"},
+            None,
+            None,
+            "doc123",
+            "DOCUMENT",
+        ),
+        ("HUMAN", {"source_id": "human123", "user_id": "user1"}, None, None, "human123", "HUMAN"),
+        ("CODE", {"source_id": "code123", "function": "evaluate"}, None, None, "code123", "CODE"),
+        ("TRACE", {"trace_id": "trace123"}, "override123", None, "override123", "TRACE"),
+        ("HUMAN", {"user_id": "user1"}, None, "CUSTOM_TYPE", None, "CUSTOM_TYPE"),
+        ("TRACE", {"some_other_key": "value"}, None, None, None, "TRACE"),
+    ],
+)
 def test_dataset_record_source_id_and_type_extraction(
-    source_type, source_data, explicit_source_id, explicit_source_type, expected_source_id, expected_source_type
+    source_type,
+    source_data,
+    explicit_source_id,
+    explicit_source_type,
+    expected_source_id,
+    expected_source_type,
 ):
     """Test extraction of source_id and source_type from DatasetRecordSource."""
-    kwargs = {
-        "source": DatasetRecordSource(source_type=source_type, source_data=source_data)
-    }
+    kwargs = {"source": DatasetRecordSource(source_type=source_type, source_data=source_data)}
     if explicit_source_id is not None:
         kwargs["source_id"] = explicit_source_id
     if explicit_source_type is not None:
         kwargs["source_type"] = explicit_source_type
-    
+
     record = DatasetRecord(**kwargs)
     assert record.source_id == expected_source_id
     assert record.source_type == expected_source_type
@@ -86,18 +104,15 @@ def test_dataset_record_to_from_proto():
         inputs={"question": "What is MLflow?"},
         expectations={"answer": "MLflow is a platform"},
         tags={"source": "manual"},
-        source=DatasetRecordSource(
-            source_type="HUMAN",
-            source_data={"user_id": "user1"}
-        ),
+        source=DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user1"}),
         source_id="user1",
         source_type="HUMAN",
         created_time=123456789,
         last_update_time=987654321,
         created_by="user1",
-        last_updated_by="user2"
+        last_updated_by="user2",
     )
-    
+
     proto = record.to_proto()
     assert isinstance(proto, ProtoDatasetRecord)
     assert proto.dataset_record_id == "rec123"
@@ -112,7 +127,7 @@ def test_dataset_record_to_from_proto():
     assert proto.last_update_time == 987654321
     assert proto.created_by == "user1"
     assert proto.last_updated_by == "user2"
-    
+
     record2 = DatasetRecord.from_proto(proto)
     assert record2.dataset_record_id == record.dataset_record_id
     assert record2.dataset_id == record.dataset_id
@@ -129,14 +144,11 @@ def test_dataset_record_to_from_proto():
 
 
 def test_dataset_record_to_from_proto_with_none_values():
-    record = DatasetRecord(
-        dataset_record_id="rec123",
-        inputs={"question": "test"}
-    )
-    
+    record = DatasetRecord(dataset_record_id="rec123", inputs={"question": "test"})
+
     proto = record.to_proto()
     record2 = DatasetRecord.from_proto(proto)
-    
+
     assert record2.dataset_record_id == "rec123"
     assert record2.inputs == {"question": "test"}
     assert record2.expectations is None
@@ -151,18 +163,15 @@ def test_dataset_record_to_from_dict():
         inputs={"question": "What is MLflow?"},
         expectations={"answer": "MLflow is a platform"},
         tags={"source": "manual"},
-        source=DatasetRecordSource(
-            source_type="HUMAN",
-            source_data={"user_id": "user1"}
-        ),
+        source=DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user1"}),
         source_id="user1",
         source_type="HUMAN",
         created_time=123456789,
         last_update_time=987654321,
         created_by="user1",
-        last_updated_by="user2"
+        last_updated_by="user2",
     )
-    
+
     data = record.to_dict()
     assert data["dataset_record_id"] == "rec123"
     assert data["dataset_id"] == "dataset123"
@@ -176,16 +185,13 @@ def test_dataset_record_to_from_dict():
     assert data["last_update_time"] == 987654321
     assert data["created_by"] == "user1"
     assert data["last_updated_by"] == "user2"
-    
+
     record2 = DatasetRecord.from_dict(data)
     assert record2 == record
 
 
 def test_dataset_record_equality():
-    source = DatasetRecordSource(
-        source_type="HUMAN",
-        source_data={"user_id": "user1"}
-    )
+    source = DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user1"})
     record1 = DatasetRecord(
         dataset_record_id="rec123",
         dataset_id="dataset123",
@@ -194,9 +200,9 @@ def test_dataset_record_equality():
         tags={"source": "manual"},
         source=source,
         source_id="user1",
-        source_type="HUMAN"
+        source_type="HUMAN",
     )
-    
+
     record2 = DatasetRecord(
         dataset_record_id="rec123",
         dataset_id="dataset123",
@@ -205,9 +211,9 @@ def test_dataset_record_equality():
         tags={"source": "manual"},
         source=source,
         source_id="user1",
-        source_type="HUMAN"
+        source_type="HUMAN",
     )
-    
+
     record3 = DatasetRecord(
         dataset_record_id="rec456",
         dataset_id="dataset123",
@@ -216,32 +222,48 @@ def test_dataset_record_equality():
         tags={"source": "manual"},
         source=source,
         source_id="user1",
-        source_type="HUMAN"
+        source_type="HUMAN",
     )
-    
+
     assert record1 == record2
     assert record1 != record3
     assert record1 != "not a record"
 
 
-@pytest.mark.parametrize("test_case,kwargs,expected_source,expected_source_id,expected_source_type", [
-    ("none_source", 
-     {"inputs": {"question": "test"}, "source": None},
-     None, None, None),
-     ("dict_source",
-     {"inputs": {"question": "test"}, "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}}},
-     {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}}, None, None),
-    ("explicit_override",
-     {
-         "source": DatasetRecordSource(source_type="TRACE", source_data={"trace_id": "trace123"}),
-         "source_id": "explicit_id",
-         "source_type": "EXPLICIT_TYPE"
-     },
-     DatasetRecordSource(source_type="TRACE", source_data={"trace_id": "trace123"}), "explicit_id", "EXPLICIT_TYPE"),
-])
-def test_dataset_record_source_edge_cases(test_case, kwargs, expected_source, expected_source_id, expected_source_type):
+@pytest.mark.parametrize(
+    ("test_case", "kwargs", "expected_source", "expected_source_id", "expected_source_type"),
+    [
+        ("none_source", {"inputs": {"question": "test"}, "source": None}, None, None, None),
+        (
+            "dict_source",
+            {
+                "inputs": {"question": "test"},
+                "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}},
+            },
+            {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}},
+            None,
+            None,
+        ),
+        (
+            "explicit_override",
+            {
+                "source": DatasetRecordSource(
+                    source_type="TRACE", source_data={"trace_id": "trace123"}
+                ),
+                "source_id": "explicit_id",
+                "source_type": "EXPLICIT_TYPE",
+            },
+            DatasetRecordSource(source_type="TRACE", source_data={"trace_id": "trace123"}),
+            "explicit_id",
+            "EXPLICIT_TYPE",
+        ),
+    ],
+)
+def test_dataset_record_source_edge_cases(
+    test_case, kwargs, expected_source, expected_source_id, expected_source_type
+):
     record = DatasetRecord(**kwargs)
-    
+
     if expected_source is None:
         assert record.source is None
     elif isinstance(expected_source, dict):
@@ -249,17 +271,15 @@ def test_dataset_record_source_edge_cases(test_case, kwargs, expected_source, ex
     else:
         assert record.source.source_type == expected_source.source_type
         assert record.source.source_data == expected_source.source_data
-    
+
     assert record.source_id == expected_source_id
     assert record.source_type == expected_source_type
 
 
 def test_dataset_record_from_dict_with_missing_keys():
-    minimal_data = {
-        "inputs": {"question": "test"}
-    }
+    minimal_data = {"inputs": {"question": "test"}}
     record = DatasetRecord.from_dict(minimal_data)
-    
+
     assert record.dataset_record_id is not None
     assert len(record.dataset_record_id) == 36
     assert record.dataset_id is None
@@ -273,24 +293,19 @@ def test_dataset_record_from_dict_with_missing_keys():
     assert record.last_update_time is not None
     assert record.created_by is None
     assert record.last_updated_by is None
-    
+
     empty_data = {}
     record2 = DatasetRecord.from_dict(empty_data)
-    
+
     assert record2.dataset_record_id is not None
     assert record2.inputs == {}
     assert record2.tags == {}
     assert record2.created_time is not None
     assert record2.last_update_time is not None
-    
-    data_with_source = {
-        "source": {
-            "source_type": "TRACE",
-            "source_data": {"trace_id": "trace123"}
-        }
-    }
+
+    data_with_source = {"source": {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}}}
     record3 = DatasetRecord.from_dict(data_with_source)
-    
+
     assert record3.source.source_type == "TRACE"
     assert record3.source_id == "trace123"
     assert record3.source_type == "TRACE"
@@ -300,35 +315,31 @@ def test_dataset_record_complex_inputs():
     complex_data = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant"},
-            {"role": "user", "content": "What is MLflow?"}
+            {"role": "user", "content": "What is MLflow?"},
         ],
-        "metadata": {
-            "temperature": 0.7,
-            "max_tokens": 100,
-            "model": "gpt-4"
-        },
-        "context": ["doc1", "doc2", "doc3"]
+        "metadata": {"temperature": 0.7, "max_tokens": 100, "model": "gpt-4"},
+        "context": ["doc1", "doc2", "doc3"],
     }
-    
+
     record = DatasetRecord(
         inputs=complex_data,
         expectations={
             "response": "MLflow is an open source platform for ML lifecycle",
             "confidence": 0.95,
-            "sources": ["doc1", "doc2"]
-        }
+            "sources": ["doc1", "doc2"],
+        },
     )
-    
+
     proto = record.to_proto()
     record2 = DatasetRecord.from_proto(proto)
-    
+
     assert record2.inputs == complex_data
     assert record2.expectations["response"] == "MLflow is an open source platform for ML lifecycle"
     assert record2.expectations["confidence"] == 0.95
     assert record2.expectations["sources"] == ["doc1", "doc2"]
-    
+
     data = record.to_dict()
     record3 = DatasetRecord.from_dict(data)
-    
+
     assert record3.inputs == complex_data
     assert record3.expectations == record.expectations

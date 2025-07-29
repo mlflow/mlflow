@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -38,8 +38,7 @@ class DatasetRecordSourceType:
 
             # Direct constant usage
             source = DatasetRecordSource(
-                source_type=DatasetRecordSourceType.TRACE,
-                source_data={"trace_id": "trace123"}
+                source_type=DatasetRecordSourceType.TRACE, source_data={"trace_id": "trace123"}
             )
 
         String validation through instance creation:
@@ -49,24 +48,24 @@ class DatasetRecordSourceType:
             # String input - case insensitive
             source = DatasetRecordSource(
                 source_type="trace",  # Will be standardized to "TRACE"
-                source_data={"trace_id": "trace123"}
+                source_data={"trace_id": "trace123"},
             )
     """
-    
+
     SOURCE_TYPE_UNSPECIFIED = "SOURCE_TYPE_UNSPECIFIED"
     TRACE = "TRACE"
     HUMAN = "HUMAN"
     DOCUMENT = "DOCUMENT"
     CODE = "CODE"
     _SOURCE_TYPES = [SOURCE_TYPE_UNSPECIFIED, TRACE, HUMAN, DOCUMENT, CODE]
-    
+
     def __init__(self, source_type: str):
         self._source_type = DatasetRecordSourceType._parse(source_type)
-    
+
     @staticmethod
     def _parse(source_type: str) -> str:
         source_type = source_type.upper()
-        
+
         if source_type not in DatasetRecordSourceType._SOURCE_TYPES:
             raise MlflowException(
                 message=(
@@ -76,14 +75,14 @@ class DatasetRecordSourceType:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return source_type
-    
+
     def __str__(self):
         return self._source_type
-    
+
     @staticmethod
     def _standardize(source_type: str) -> str:
         return str(DatasetRecordSourceType(source_type))
-    
+
     @classmethod
     def from_proto(cls, proto_source_type) -> str:
         return ProtoDatasetRecordSource.SourceType.Name(proto_source_type)
@@ -93,7 +92,7 @@ class DatasetRecordSourceType:
 class DatasetRecordSource(_MlflowObject):
     """
     Source of a dataset record (trace, human annotation, document, etc).
-    
+
     Args:
         source_type: The type of the dataset record source. Must be one of the values in
             the DatasetRecordSourceType enum or an instance of the enumerator value.
@@ -102,18 +101,16 @@ class DatasetRecordSource(_MlflowObject):
             - For HUMAN sources: {"user_id": "...", "timestamp": "..."}
             - For DOCUMENT sources: {"doc_uri": "...", "content": "..."}
     """
-    
+
     source_type: str
-    source_data: Optional[Dict[str, Any]] = None
-    
+    source_data: Optional[dict[str, Any]] = None
+
     def __post_init__(self):
-        # Standardize source type using the same pattern as AssessmentSource
         self.source_type = DatasetRecordSourceType._standardize(self.source_type)
-        
-        # Initialize empty dict if None
+
         if self.source_data is None:
             self.source_data = {}
-    
+
     def to_proto(self) -> ProtoDatasetRecordSource:
         """Convert to protobuf representation."""
         proto = ProtoDatasetRecordSource()
@@ -121,33 +118,28 @@ class DatasetRecordSource(_MlflowObject):
         if self.source_data:
             proto.source_data = json.dumps(self.source_data)
         return proto
-    
+
     @classmethod
     def from_proto(cls, proto: ProtoDatasetRecordSource) -> "DatasetRecordSource":
         """Create instance from protobuf representation."""
         source_data = json.loads(proto.source_data) if proto.HasField("source_data") else {}
-        source_type = DatasetRecordSourceType.from_proto(proto.source_type) if proto.HasField("source_type") else None
-        
-        return cls(
-            source_type=source_type,
-            source_data=source_data
+        source_type = (
+            DatasetRecordSourceType.from_proto(proto.source_type)
+            if proto.HasField("source_type")
+            else None
         )
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+        return cls(source_type=source_type, source_data=source_data)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
-        return {
-            "source_type": self.source_type,
-            "source_data": self.source_data
-        }
-    
+        return {"source_type": self.source_type, "source_data": self.source_data}
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRecordSource":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRecordSource":
         """Create instance from dictionary representation."""
-        return cls(
-            source_type=data.get("source_type"),
-            source_data=data.get("source_data", {})
-        )
-    
+        return cls(source_type=data.get("source_type"), source_data=data.get("source_data", {}))
+
     def __eq__(self, other: object) -> bool:
         """Check equality based on type and data."""
         if not isinstance(other, DatasetRecordSource):
