@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
-from mlflow.utils.annotations import experimental
-
 if TYPE_CHECKING:
     from mlflow.models.model import Model
 
@@ -22,7 +20,6 @@ class DependenciesSchemasType(Enum):
     RETRIEVERS = "retrievers"
 
 
-@experimental(version="2.13.0")
 def set_retriever_schema(
     *,
     primary_key: str,

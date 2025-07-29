@@ -39,7 +39,6 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -71,7 +70,6 @@ def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=N
         _raise_unsupported_arg(arg_name, message)
 
 
-@experimental(version="2.17.0")
 class UnityCatalogOssStore(BaseRestStore):
     """
     Client for an Open Source Unity Catalog Server accessed via REST API calls.
