@@ -50,9 +50,14 @@ class DspyModelWrapper(PythonModel):
             if isinstance(converted_inputs, dict):
                 # We pass a dict as keyword args and don't allow DSPy models
                 # to receive a single dict.
-                return self.model(**converted_inputs).toDict()
+                result = self.model(**converted_inputs)
             else:
-                return self.model(converted_inputs).toDict()
+                result = self.model(converted_inputs)
+
+            if isinstance(result, dspy.Prediction):
+                return result.toDict()
+            else:
+                return result
 
     def predict_stream(self, inputs: Any, params=None):
         import dspy
