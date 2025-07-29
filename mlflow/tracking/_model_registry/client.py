@@ -5,7 +5,9 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional, Union
+
+from pydantic import BaseModel
 
 from mlflow.entities.model_registry import (
     ModelVersionTag,
@@ -24,6 +26,12 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.events import (
+    CreateModelVersionEvent,
+    CreatePromptEvent,
+    CreateRegisteredModelEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -55,6 +63,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
+    @record_usage_event(CreateRegisteredModelEvent)
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
@@ -141,7 +150,11 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
-        if is_prompt_supported_registry(self.registry_uri):
+        # Add prompt filter for prompt-supported registries that also support filter_string
+        # Unity Catalog supports prompts but not filter_string parameter
+        if is_prompt_supported_registry(self.registry_uri) and not (
+            self.registry_uri or ""
+        ).startswith("databricks-uc"):
             # Adjust filter string to include or exclude prompts
             filter_string = add_prompt_filter_string(filter_string, False)
 
@@ -199,6 +212,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
+    @record_usage_event(CreateModelVersionEvent)
     def create_model_version(
         self,
         name,
@@ -450,8 +464,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
-    # Store-Direct Prompt Methods (Unity Catalog Compatible)
-
+    @record_usage_event(CreatePromptEvent)
     def create_prompt(
         self,
         name: str,
@@ -538,9 +551,10 @@ class ModelRegistryClient:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, Any]]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -550,14 +564,22 @@ class ModelRegistryClient:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text for this version.
+            template: The prompt template content for this version. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
             description: Optional description of this version.
             tags: Optional dictionary of version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, description, tags)
+        return self.store.create_prompt_version(name, template, description, tags, response_format)
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """
@@ -672,3 +694,95 @@ class ModelRegistryClient:
             None
         """
         self.store.delete_prompt_alias(name, alias)
+
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method delegates directly to the store. Only supported in Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt to search versions for.
+            max_results: Maximum number of versions to return.
+            page_token: Token for pagination.
+
+        Returns:
+            SearchPromptVersionsResponse containing the list of versions.
+
+        Raises:
+            MlflowException: If used with non-Unity Catalog registries.
+        """
+        return self.store.search_prompt_versions(name, max_results, page_token)
+
+    def link_prompt_version_to_model(
+        self, name: str, version: Union[int, str], model_id: str
+    ) -> None:
+        """
+        Link a prompt version to a model.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            model_id: The ID of the model to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_model(name, str(version), model_id)
+
+    def link_prompt_version_to_run(self, name: str, version: Union[int, str], run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            run_id: The ID of the run to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_run(name, str(version), run_id)
+
+    def link_prompt_versions_to_trace(
+        self, prompt_versions: list[PromptVersion], trace_id: str
+    ) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link the prompt versions to.
+        """
+        return self.store.link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
+
+    def set_prompt_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_version_tag(name, version, key, value)
+
+    def delete_prompt_version_tag(self, name: str, version: str, key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version_tag(name, version, key)

@@ -79,7 +79,7 @@ def create_label_schema(
         name=name,
         type=type,
         title=title,
-        input=input,
+        input=input._to_databricks_input(),
         instruction=instruction,
         enable_comment=enable_comment,
         overwrite=overwrite,
@@ -111,7 +111,7 @@ def get_label_schema(name: str) -> LabelSchema:
     )
     if label_schema is None:
         raise ValueError(f"Label schema with name `{name}` not found")
-    return LabelSchema(label_schema)
+    return LabelSchema._from_databricks_label_schema(label_schema)
 
 
 def delete_label_schema(name: str) -> "ReviewApp":

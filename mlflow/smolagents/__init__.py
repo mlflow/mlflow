@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "smolagents"
 
 
-@experimental
+@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -24,7 +24,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Smolagents to MLflow.
-    Note that asynchnorous APIs and Tool calling are not recorded now.
+    Note that asynchronous APIs and Tool calling are not recorded now.
 
     Args:
         log_traces: If ``True``, traces are logged for Smolagents agents.

@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import uuid
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
@@ -77,7 +78,7 @@ class _LlamaIndexModelWrapperBase:
     def _format_predict_input(self, data):
         raise NotImplementedError
 
-    def _do_inference(self, input, params: Optional[dict[str, Any]]) -> dict:
+    def _do_inference(self, input, params: Optional[dict[str, Any]]) -> dict[str, Any]:
         """
         Perform engine inference on a single engine input e.g. not an iterable of
         engine inputs. The engine inputs must already be preprocessed/cleaned.
@@ -106,7 +107,9 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
         return self._llama_model.chat(*args, **kwargs).response
 
     @staticmethod
-    def _convert_chat_message_history_to_chat_message_objects(data: dict) -> dict:
+    def _convert_chat_message_history_to_chat_message_objects(
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
         from llama_index.core.llms import ChatMessage
 
         if chat_message_history := data.get(_CHAT_MESSAGE_HISTORY_PARAMETER_NAME):
@@ -123,7 +126,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
 
         return data
 
-    def _format_predict_input(self, data) -> Union[str, dict, list]:
+    def _format_predict_input(self, data) -> Union[str, dict[str, Any], list[Any]]:
         data = _convert_llm_input_data_with_unwrapping(data)
 
         if isinstance(data, str):
@@ -158,7 +161,7 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
     def engine_type(self):
         return RETRIEVER_ENGINE_NAME
 
-    def _predict_single(self, *args, **kwargs) -> list[dict]:
+    def _predict_single(self, *args, **kwargs) -> list[dict[str, Any]]:
         response = self._llama_model.retrieve(*args, **kwargs)
         return [node.dict() for node in response]
 
@@ -187,7 +190,9 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         should_unwrap = len(data) == 1 and isinstance(predictions, list)
         return predictions[0] if should_unwrap else predictions
 
-    def _format_predict_input(self, data, params: Optional[dict[str, Any]] = None) -> list[dict]:
+    def _format_predict_input(
+        self, data, params: Optional[dict[str, Any]] = None
+    ) -> list[dict[str, Any]]:
         inputs = _convert_llm_input_data_with_unwrapping(data)
         params = params or {}
         if isinstance(inputs, dict):
@@ -236,7 +241,9 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
                 finally:
                     loop.close()
 
-            thread = threading.Thread(target=_run)
+            thread = threading.Thread(
+                target=_run, name=f"mlflow_llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}"
+            )
             thread.start()
             thread.join()
 

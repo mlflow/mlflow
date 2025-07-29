@@ -5,6 +5,7 @@ import urllib.parse
 from datetime import datetime
 from functools import lru_cache
 from mimetypes import guess_type
+from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -121,12 +122,55 @@ def _get_s3_client(
 
 
 class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
-    """Stores artifacts on Amazon S3."""
+    """
+    Stores artifacts on Amazon S3.
+
+    This repository provides MLflow artifact storage using Amazon S3 as the backend.
+    It supports both single-file uploads and multipart uploads for large files,
+    with automatic content type detection and configurable upload parameters.
+
+    The repository uses boto3 for S3 operations and supports various authentication
+    methods including AWS credentials, IAM roles, and environment variables.
+
+    Environment Variables:
+        AWS_ACCESS_KEY_ID: AWS access key ID for authentication
+        AWS_SECRET_ACCESS_KEY: AWS secret access key for authentication
+        AWS_SESSION_TOKEN: AWS session token for temporary credentials
+        AWS_DEFAULT_REGION: Default AWS region for S3 operations
+        MLFLOW_S3_ENDPOINT_URL: Custom S3 endpoint URL (for S3-compatible storage)
+        MLFLOW_S3_IGNORE_TLS: Set to 'true' to disable TLS verification
+        MLFLOW_S3_UPLOAD_EXTRA_ARGS: JSON string of extra arguments for S3 uploads
+        MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE: S3 addressing style ('path' or 'virtual')
+
+    Note:
+        This class inherits from both ArtifactRepository and MultipartUploadMixin,
+        providing full artifact management capabilities including efficient large file uploads.
+    """
 
     def __init__(
-        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
-    ):
-        super().__init__(artifact_uri)
+        self,
+        artifact_uri: str,
+        access_key_id=None,
+        secret_access_key=None,
+        session_token=None,
+        tracking_uri: Optional[str] = None,
+    ) -> None:
+        """
+        Initialize an S3 artifact repository.
+
+        Args:
+            artifact_uri: S3 URI in the format 's3://bucket-name/path/to/artifacts'.
+                The URI must be a valid S3 URI with a bucket that exists and is accessible.
+            access_key_id: Optional AWS access key ID. If None, uses default AWS credential
+                resolution (environment variables, IAM roles, etc.).
+            secret_access_key: Optional AWS secret access key. Must be provided if
+                access_key_id is provided.
+            session_token: Optional AWS session token for temporary credentials.
+                Used with STS tokens or IAM roles.
+            tracking_uri: Optional URI for the MLflow tracking server.
+                If None, uses the current tracking URI context.
+        """
+        super().__init__(artifact_uri, tracking_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -139,7 +183,17 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def parse_s3_compliant_uri(self, uri):
-        """Parse an S3 URI, returning (bucket, path)"""
+        """
+        Parse an S3 URI into bucket and path components.
+
+        Args:
+            uri: S3 URI in the format 's3://bucket-name/path/to/object'
+
+        Returns:
+            A tuple containing (bucket_name, object_path) where:
+            - bucket_name: The S3 bucket name
+            - object_path: The path within the bucket (without leading slash)
+        """
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "s3":
             raise Exception(f"Not an S3 URI: {uri}")
@@ -150,6 +204,17 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     @staticmethod
     def get_s3_file_upload_extra_args():
+        """
+        Get additional S3 upload arguments from environment variables.
+
+        Returns:
+            Dictionary of extra arguments for S3 uploads, or None if not configured.
+            These arguments are passed to boto3's upload_file method.
+
+        Environment Variables:
+            MLFLOW_S3_UPLOAD_EXTRA_ARGS: JSON string containing extra arguments
+                for S3 uploads (e.g., '{"ServerSideEncryption": "AES256"}')
+        """
         s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)
@@ -169,6 +234,19 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
+        """
+        Log a local file as an artifact to S3.
+
+        This method uploads a single file to S3 with automatic content type detection
+        and optional extra upload arguments from environment variables.
+
+        Args:
+            local_file: Absolute path to the local file to upload. The file must
+                exist and be readable.
+            artifact_path: Optional relative path within the S3 bucket where the
+                artifact should be stored. If None, the file is stored in the root
+                of the configured S3 path. Use forward slashes (/) for path separators.
+        """
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -178,6 +256,20 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        """
+        Log all files in a local directory as artifacts to S3.
+
+        This method recursively uploads all files in the specified directory,
+        preserving the directory structure in S3. Each file is uploaded with
+        automatic content type detection.
+
+        Args:
+            local_dir: Absolute path to the local directory containing files to upload.
+                The directory must exist and be readable.
+            artifact_path: Optional relative path within the S3 bucket where the
+                artifacts should be stored. If None, files are stored in the root
+                of the configured S3 path. Use forward slashes (/) for path separators.
+        """
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -199,6 +291,25 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 )
 
     def list_artifacts(self, path=None):
+        """
+        List all artifacts directly under the specified S3 path.
+
+        This method uses S3's list_objects_v2 API with pagination to efficiently
+        list artifacts. It treats S3 prefixes as directories and returns both
+        files and directories as FileInfo objects.
+
+        Args:
+            path: Optional relative path within the S3 bucket to list. If None,
+                lists artifacts in the root of the configured S3 path. If the path
+                refers to a single file, returns an empty list per MLflow convention.
+
+        Returns:
+            A list of FileInfo objects representing artifacts directly under the
+            specified path. Each FileInfo contains:
+            - path: Relative path of the artifact from the repository root
+            - is_dir: True if the artifact represents a directory (S3 prefix)
+            - file_size: Size in bytes for files, None for directories
+        """
         (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
@@ -241,6 +352,18 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             )
 
     def _download_file(self, remote_file_path, local_path):
+        """
+        Download a file from S3 to the local filesystem.
+
+        This method downloads a single file from S3 to the specified local path.
+        It's used internally by the download_artifacts method.
+
+        Args:
+            remote_file_path: Relative path of the file within the S3 bucket,
+                relative to the repository's root path.
+            local_path: Absolute path where the file should be saved locally.
+                The parent directory must exist.
+        """
         (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
@@ -267,6 +390,28 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 s3_client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        """
+        Initiate a multipart upload for efficient large file uploads to S3.
+
+        This method creates a multipart upload session in S3 and generates
+        presigned URLs for uploading each part. This is more efficient than
+        single-part uploads for large files and provides better error recovery.
+
+        Args:
+            local_file: Absolute path to the local file to upload. The file must
+                exist and be readable.
+            num_parts: Number of parts to split the upload into. Must be between
+                1 and 10,000 (S3 limit). More parts allow greater parallelism
+                but increase overhead.
+            artifact_path: Optional relative path within the S3 bucket where the
+                artifact should be stored. If None, the file is stored in the root
+                of the configured S3 path.
+
+        Returns:
+            CreateMultipartUploadResponse containing:
+            - credentials: List of MultipartUploadCredential objects with presigned URLs
+            - upload_id: S3 upload ID for tracking this multipart upload
+        """
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -301,6 +446,23 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
+        """
+        Complete a multipart upload by combining all parts into a single S3 object.
+
+        This method should be called after all parts have been successfully uploaded
+        using the presigned URLs from create_multipart_upload. It tells S3 to combine
+        all the parts into the final object.
+
+        Args:
+            local_file: Absolute path to the local file that was uploaded. Must match
+                the local_file used in create_multipart_upload.
+            upload_id: The S3 upload ID returned by create_multipart_upload.
+            parts: List of MultipartUploadPart objects containing metadata for each
+                successfully uploaded part. Must include part_number and etag for each part.
+                Parts must be provided in order (part 1, part 2, etc.).
+            artifact_path: Optional relative path where the artifact should be stored.
+                Must match the artifact_path used in create_multipart_upload.
+        """
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -312,6 +474,20 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+        """
+        Abort a multipart upload and clean up any uploaded parts.
+
+        This method should be called if a multipart upload fails or is cancelled.
+        It cleans up any parts that were successfully uploaded and cancels the
+        multipart upload session in S3.
+
+        Args:
+            local_file: Absolute path to the local file that was being uploaded.
+                Must match the local_file used in create_multipart_upload.
+            upload_id: The S3 upload ID returned by create_multipart_upload.
+            artifact_path: Optional relative path where the artifact would have been stored.
+                Must match the artifact_path used in create_multipart_upload.
+        """
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)

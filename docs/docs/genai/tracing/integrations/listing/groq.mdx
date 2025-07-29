@@ -1,0 +1,105 @@
+---
+sidebar_position: 11
+sidebar_label: Groq
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing Groq
+
+![Groq tracing via autolog](/images/llms/groq/groq-tracing.png)
+
+MLflow Tracing provides automatic tracing capability when using Groq.
+When Groq auto-tracing is enabled by calling the <APILink fn="mlflow.groq.autolog" /> function,
+usage of the Groq SDK will automatically record generated traces during interactive development.
+
+Note that only synchronous calls are supported, and that asynchronous API and streaming methods are not traced.
+
+### Example Usage
+
+```python
+import groq
+
+import mlflow
+
+# Turn on auto tracing for Groq by calling mlflow.groq.autolog()
+mlflow.groq.autolog()
+
+client = groq.Groq()
+
+# Use the create method to create new message
+message = client.chat.completions.create(
+    model="llama3-8b-8192",
+    messages=[
+        {
+            "role": "user",
+            "content": "Explain the importance of low latency LLMs.",
+        }
+    ],
+)
+
+print(message.choices[0].message.content)
+```
+
+## Token usage
+
+MLflow >= 3.2.0 supports token usage tracking for Groq. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.groq.autolog()
+
+client = groq.Groq()
+
+# Use the create method to create new message
+message = client.chat.completions.create(
+    model="llama3-8b-8192",
+    messages=[
+        {
+            "role": "user",
+            "content": "Explain the importance of low latency LLMs.",
+        }
+    ],
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 21
+  Output tokens: 628
+  Total tokens: 649
+
+== Detailed usage for each LLM call: ==
+Completions:
+  Input tokens: 21
+  Output tokens: 628
+```
+
+Currently, groq token usage doesn't support token usage tracking for Audio transcription and Audio translation.
+
+## Disable auto-tracing
+
+Auto tracing for Groq can be disabled globally by calling `mlflow.groq.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

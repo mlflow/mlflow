@@ -1,0 +1,439 @@
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Track Versions & Environments
+
+Tracking environments, application versions, and custom contextual information in your GenAI application enables comprehensive observability across different deployment stages, versions, and business-specific dimensions. MLflow provides flexible mechanisms to attach rich metadata to your traces using tags.
+
+## Why Track Environments & Context?
+
+Attaching this metadata to your traces provides critical insights for:
+
+**Environment-specific analysis**: Compare behavior across `development`, `staging`, and `production` environments
+
+**Version management**: Track performance and regressions across different application versions (e.g., `v1.0.1`, `v1.2.0`)
+
+**Custom categorization**: Add business-specific context (e.g., `customer_tier: "premium"`, `feature_flag: "new_algorithm"`)
+
+**Deployment validation**: Ensure consistent behavior across different deployment targets
+
+**Root cause analysis**: Quickly narrow down issues to specific environments, versions, or configurations
+
+## Standard & Custom Tags for Context
+
+MLflow uses tags (key-value string pairs) to store contextual information on traces.
+
+### Automatically Populated Tags
+
+These standard tags are automatically captured by MLflow based on your execution environment:
+
+- **`mlflow.source.name`**: The entry point or script that generated the trace (automatically populated with the filename for Python scripts, notebook name for Jupyter notebooks)
+- **`mlflow.source.git.commit`**: If run from a Git repository, the commit hash is automatically detected and populated
+- **`mlflow.source.type`**: `NOTEBOOK` if running in Jupyter notebook, `LOCAL` if running a local Python script, else `UNKNOWN` (automatically detected)
+
+You can override these automatically populated tags manually if needed using <APILink fn="mlflow.update_current_trace" /> or <APILink fn="mlflow.set_trace_tag" /> for more granular control.
+
+### Reserved Standard Tags
+
+Some standard tags have special meaning but must be set manually:
+
+- **`mlflow.trace.session`**: Groups traces from multi-turn conversations or user sessions together
+- **`mlflow.trace.user`**: Associates traces with specific users for user-centric analysis
+
+### Custom Tags
+
+You can define **custom tags** to capture any business-specific or application-specific context. Common examples include:
+
+- **`environment`**: e.g., `"production"`, `"staging"` (from `DEPLOY_ENV` environment variable)
+- **`app_version`**: e.g., `"1.0.0"` (from `APP_VERSION` environment variable)
+- **`deployment_id`**: e.g., `"deploy-abc-123"` (from `DEPLOYMENT_ID` environment variable)
+- **`region`**: e.g., `"us-east-1"` (from `REGION` environment variable)
+- **Feature flags and A/B test variants**
+
+## Basic Implementation
+
+Here's how to add various types of context as tags to your traces:
+
+<Tabs>
+  <TabItem value="basic-example" label="Basic Example" default>
+
+    {/* prettier-ignore-start */}
+    ```python
+    import mlflow
+    import os
+    import platform
+
+
+    @mlflow.trace
+    def process_data_with_context(data: dict, app_config: dict):
+        """Process data and add environment, version, and custom context."""
+
+        current_env = os.getenv("APP_ENVIRONMENT", "development")
+        current_app_version = app_config.get("version", "unknown")
+        current_model_version = app_config.get("model_in_use", "gpt-3.5-turbo")
+
+        # Define custom context tags
+        context_tags = {
+            "environment": current_env,
+            "app_version": current_app_version,
+            "model_version": current_model_version,
+            "python_version": platform.python_version(),
+            "operating_system": platform.system(),
+            "data_source": data.get("source", "batch"),
+            "processing_mode": "online" if current_env == "production" else "offline",
+        }
+
+        # Add tags to the current trace
+        mlflow.update_current_trace(tags=context_tags)
+
+        # Your application logic here...
+        result = (
+            f"Processed '{data['input']}' in {current_env} with app {current_app_version}"
+        )
+
+        return result
+
+
+    # Example usage
+    config = {"version": "1.1.0", "model_in_use": "claude-3-sonnet-20240229"}
+    input_data = {"input": "Summarize this document...", "source": "realtime_api"}
+
+    processed_result = process_data_with_context(input_data, config)
+    print(processed_result)
+    ```
+    {/* prettier-ignore-start */}
+
+    **Key points:**
+    - Use `os.getenv()` to fetch environment variables (e.g., `APP_ENVIRONMENT`, `APP_VERSION`)
+    - Pass application or model configurations into your traced functions
+    - Use `platform` module for system information
+    - <APILink fn="mlflow.update_current_trace" /> adds all key-value pairs to the active trace
+
+  </TabItem>
+  <TabItem value="context-manager" label="Using Context Managers">
+    For more complex scenarios, you can use context managers to ensure consistent tagging:
+
+    ```python
+    import mlflow
+    import os
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def trace_with_environment(operation_name: str):
+        """Context manager that automatically adds environment context to traces"""
+
+        # Environment context
+        env_tags = {
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "app_version": os.getenv("APP_VERSION", "unknown"),
+            "deployment_id": os.getenv("DEPLOYMENT_ID", "local"),
+            "region": os.getenv("AWS_REGION", "local"),
+            "kubernetes_namespace": os.getenv("KUBERNETES_NAMESPACE"),
+            "container_image": os.getenv("CONTAINER_IMAGE"),
+        }
+
+        # Filter out None values
+        env_tags = {k: v for k, v in env_tags.items() if v is not None}
+
+        with mlflow.start_span(name=operation_name, attributes=env_tags) as span:
+            # Add tags to the trace level as well
+            mlflow.update_current_trace(tags=env_tags)
+            yield span
+
+
+    # Usage
+    def my_genai_pipeline(user_input: str):
+        with trace_with_environment("genai_pipeline"):
+            # Your pipeline logic here
+            return f"Processed: {user_input}"
+
+
+    result = my_genai_pipeline("What is the weather like?")
+    ```
+
+  </TabItem>
+  <TabItem value="web-app" label="Web Application Example">
+    In a production web application, context can be derived from environment variables, request headers, or application configuration:
+
+    ```python
+    import mlflow
+    import os
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+    import uvicorn
+
+    app = FastAPI()
+
+
+    @mlflow.trace
+    @app.post("/chat")
+    async def handle_chat(request: Request):
+        # Get request data
+        data = await request.json()
+        message = data.get("message", "")
+
+        # Retrieve context from request headers
+        client_request_id = request.headers.get("X-Request-ID")
+        session_id = request.headers.get("X-Session-ID")
+        user_id = request.headers.get("X-User-ID")
+        user_agent = request.headers.get("User-Agent")
+
+        # Update the current trace with all context and environment metadata
+        mlflow.update_current_trace(
+            client_request_id=client_request_id,
+            tags={
+                # Session context - groups traces from multi-turn conversations
+                "mlflow.trace.session": session_id,
+                # User context - associates traces with specific users
+                "mlflow.trace.user": user_id,
+                # Environment metadata - tracks deployment context
+                "environment": os.getenv("ENVIRONMENT", "development"),
+                "app_version": os.getenv("APP_VERSION", "1.0.0"),
+                "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),
+                "region": os.getenv("REGION", "us-east-1"),
+                # Request context
+                "user_agent": user_agent,
+                "request_method": request.method,
+                "endpoint": request.url.path,
+            },
+        )
+
+        # Your application logic for processing the chat message
+        response_text = f"Processed message: '{message}'"
+
+        return JSONResponse(content={"response": response_text})
+
+
+    if __name__ == "__main__":
+        uvicorn.run(app, host="127.0.0.1", port=5000, debug=True)
+    ```
+
+    **Example request with context headers:**
+    ```bash
+    curl -X POST "http://127.0.0.1:5000/chat" \
+         -H "Content-Type: application/json" \
+         -H "X-Request-ID: req-abc-123-xyz-789" \
+         -H "X-Session-ID: session-def-456-uvw-012" \
+         -H "X-User-ID: user-jane-doe-12345" \
+         -d '{"message": "What is my account balance?"}'
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Querying and Analyzing Context Data
+
+### Using the MLflow UI
+
+In the MLflow UI (Traces tab), use the search functionality to filter traces by context tags:
+
+- `tags.environment = 'production'`
+- `tags.app_version = '2.1.0'`
+- `tags.model_used = 'advanced_model' AND tags.client_variant = 'treatment'`
+- `tags.feature_flag_new_ui = 'true'`
+
+You can group traces by tags to compare performance or error rates across different contexts.
+
+### Programmatic Analysis
+
+Use the MLflow SDK for more complex analysis or to integrate with other tools:
+
+<Tabs>
+  <TabItem value="version-comparison" label="Version Comparison" default>
+    Compare error rates and performance across different application versions:
+
+    ```python
+    import mlflow
+    from mlflow import MlflowClient
+
+
+    def compare_version_metrics(experiment_id: str, versions: list):
+        """Compare error rates and performance across app versions"""
+
+        version_metrics = {}
+
+        for version in versions:
+            traces = mlflow.search_traces(
+                experiment_ids=[experiment_id],
+                filter_string=f"tags.environment = 'production' AND tags.app_version = '{version}'",
+            )
+
+            if traces.empty:
+                version_metrics[version] = {
+                    "error_rate": None,
+                    "avg_latency": None,
+                    "total_traces": 0,
+                }
+                continue
+
+            # Calculate metrics
+            error_count = len(traces[traces["status"] == "ERROR"])
+            total_traces = len(traces)
+            error_rate = (error_count / total_traces) * 100
+
+            successful_traces = traces[traces["status"] == "OK"]
+            avg_latency = (
+                successful_traces["execution_time_ms"].mean()
+                if not successful_traces.empty
+                else 0
+            )
+
+            version_metrics[version] = {
+                "error_rate": error_rate,
+                "avg_latency": avg_latency,
+                "total_traces": total_traces,
+            }
+
+        return version_metrics
+
+
+    # Usage
+    metrics = compare_version_metrics("1", ["1.0.0", "1.1.0", "1.2.0"])
+    for version, data in metrics.items():
+        print(
+            f"Version {version}: {data['error_rate']:.1f}% errors, {data['avg_latency']:.1f}ms avg latency"
+        )
+    ```
+
+  </TabItem>
+  <TabItem value="environment-analysis" label="Environment Analysis">
+    Analyze performance differences across environments:
+
+    ```python
+    def analyze_environment_performance(experiment_id: str):
+        """Compare performance across different environments"""
+
+        environments = ["development", "staging", "production"]
+        env_metrics = {}
+
+        for env in environments:
+            traces = mlflow.search_traces(
+                experiment_ids=[experiment_id],
+                filter_string=f"tags.environment = '{env}' AND status = 'OK'",
+            )
+
+            if not traces.empty:
+                env_metrics[env] = {
+                    "count": len(traces),
+                    "avg_latency": traces["execution_time_ms"].mean(),
+                    "p95_latency": traces["execution_time_ms"].quantile(0.95),
+                    "p99_latency": traces["execution_time_ms"].quantile(0.99),
+                }
+
+        return env_metrics
+
+
+    # Usage
+    env_performance = analyze_environment_performance("1")
+    for env, metrics in env_performance.items():
+        print(
+            f"{env}: {metrics['count']} traces, "
+            f"avg: {metrics['avg_latency']:.1f}ms, "
+            f"p95: {metrics['p95_latency']:.1f}ms"
+        )
+    ```
+
+  </TabItem>
+  <TabItem value="feature-flags" label="Feature Flag Analysis">
+    Analyze the impact of feature flags on performance:
+
+    ```python
+    def analyze_feature_flag_impact(experiment_id: str, flag_name: str):
+        """Analyze performance impact of a feature flag"""
+
+        # Get traces with feature flag enabled
+        flag_on_traces = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"tags.feature_flag_{flag_name} = 'true' AND status = 'OK'",
+        )
+
+        # Get traces with feature flag disabled
+        flag_off_traces = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"tags.feature_flag_{flag_name} = 'false' AND status = 'OK'",
+        )
+
+        results = {}
+
+        if not flag_on_traces.empty:
+            results["flag_on"] = {
+                "count": len(flag_on_traces),
+                "avg_latency": flag_on_traces["execution_time_ms"].mean(),
+                "error_rate": 0,  # Only looking at successful traces
+            }
+
+        if not flag_off_traces.empty:
+            results["flag_off"] = {
+                "count": len(flag_off_traces),
+                "avg_latency": flag_off_traces["execution_time_ms"].mean(),
+                "error_rate": 0,  # Only looking at successful traces
+            }
+
+        # Calculate performance impact
+        if "flag_on" in results and "flag_off" in results:
+            latency_change = (
+                results["flag_on"]["avg_latency"] - results["flag_off"]["avg_latency"]
+            )
+            latency_change_pct = (latency_change / results["flag_off"]["avg_latency"]) * 100
+            results["impact"] = {
+                "latency_change_ms": latency_change,
+                "latency_change_percent": latency_change_pct,
+            }
+
+        return results
+
+
+    # Usage
+    flag_analysis = analyze_feature_flag_impact("1", "new_retriever")
+    if "impact" in flag_analysis:
+        impact = flag_analysis["impact"]
+        print(
+            f"Feature flag impact: {impact['latency_change_ms']:.1f}ms "
+            f"({impact['latency_change_percent']:.1f}% change)"
+        )
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Best Practices
+
+### Tagging Strategy
+
+**Standardize tag keys**: Use a consistent naming convention (e.g., `snake_case`) for your custom tags
+
+**Environment variables for deployment context**: Use environment variables set during your CI/CD or deployment process for version and environment information
+
+**Automate context attachment**: Ensure context tags are automatically applied by your application or deployment scripts
+
+**Balance granularity and simplicity**: Capture enough context for useful analysis, but avoid excessive tagging that makes traces hard to manage
+
+### Performance Considerations
+
+**Minimize tag volume**: While adding tags has minimal overhead, avoid attaching excessively large numbers of tags in high-throughput systems
+
+**Use short tag values**: Keep tag values concise to reduce storage overhead
+
+**Consistent tagging**: Ensure your tagging strategy is applied consistently across all services and deployment environments
+
+### Security and Privacy
+
+**Avoid sensitive data**: Do not store PII or sensitive information directly in tags
+
+**Use anonymized identifiers**: When tracking users, use anonymized identifiers rather than personal information
+
+**Review tag content**: Regularly audit your tags to ensure they don't contain sensitive information
+
+## Next Steps
+
+**[MLflow Tracing UI](/genai/tracing/observe-with-traces/ui)**: Learn to use the UI for filtering and analyzing traces by environment and version
+
+**[Search Traces](/genai/tracing/search-traces)**: Master advanced search syntax for complex context-based queries
+
+**[Query Traces via SDK](/genai/tracing/observe-with-traces/query-via-sdk)**: Build custom analysis and monitoring workflows
+
+**[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Add detailed instrumentation with context-aware spans
+
+By implementing comprehensive environment and version tracking, you can build robust observability into your GenAI applications that scales from development through production deployment.

@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -16,7 +16,7 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -28,19 +28,16 @@ class MlflowExperiment(TraceDestination):
     Attributes:
         experiment_id: The ID of the experiment to log traces to. If not specified,
             the current active experiment will be used.
-        tracking_uri: The tracking URI of the MLflow server to log traces to.
-            If not specified, the current tracking URI will be used.
     """
 
     experiment_id: Optional[str] = None
-    tracking_uri: Optional[str] = None
 
     @property
     def type(self) -> str:
         return "experiment"
 
 
-@experimental
+@experimental(version="2.22.0")
 @dataclass
 class Databricks(TraceDestination):
     """

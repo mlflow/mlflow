@@ -12,7 +12,7 @@ FLAVOR_NAME = "pydantic_ai"
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
@@ -26,6 +26,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     class_map = {
         "pydantic_ai.Agent": ["run", "run_sync"],
         "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
+        "pydantic_ai._tool_manager.ToolManager": ["handle_call"],
         "pydantic_ai.Tool": ["run"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }

@@ -36,6 +36,8 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
@@ -132,6 +134,7 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
+    @record_usage_event(CreateRunEvent)
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -257,6 +260,7 @@ class TrackingServiceClient:
         """
         return self.store.get_experiment_by_name(name)
 
+    @record_usage_event(CreateExperimentEvent)
     def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
@@ -404,6 +408,15 @@ class TrackingServiceClient:
         """
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """Delete a tag from the experiment with the specified ID.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            key: Name of the tag to be deleted.
+        """
+        self.store.delete_experiment_tag(experiment_id, key)
 
     def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
         """Set a tag on the run with the specified ID. Value is converted to a string.
@@ -674,7 +687,9 @@ class TrackingServiceClient:
             List of :py:class:`mlflow.entities.FileInfo`
 
         """
-        return self._get_artifact_repo(run_id).list_artifacts(path)
+        from mlflow.artifacts import list_artifacts
+
+        return list_artifacts(run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri)
 
     def list_logged_model_artifacts(
         self, model_id: str, path: Optional[str] = None
@@ -810,6 +825,7 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
+    @record_usage_event(CreateLoggedModelEvent)
     def create_logged_model(
         self,
         experiment_id: str,
@@ -818,6 +834,9 @@ class TrackingServiceClient:
         tags: Optional[dict[str, str]] = None,
         params: Optional[dict[str, str]] = None,
         model_type: Optional[str] = None,
+        # This parameter is only used for telemetry purposes, and
+        # does not affect the logged model.
+        flavor: Optional[str] = None,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,

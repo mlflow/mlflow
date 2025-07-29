@@ -2,7 +2,7 @@ import logging
 import os
 from collections import OrderedDict
 from contextlib import contextmanager
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Generator, Union
 
@@ -15,7 +15,11 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
+    get_uri_scheme,
+)
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -209,6 +213,26 @@ _register_tracking_stores()
 
 def _get_store(store_uri=None, artifact_uri=None):
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
+
+
+def _get_tracking_scheme(store_uri=None) -> str:
+    resolved_store_uri = _resolve_tracking_uri(store_uri)
+    return _get_tracking_scheme_with_resolved_uri(resolved_store_uri)
+
+
+@lru_cache(maxsize=100)
+def _get_tracking_scheme_with_resolved_uri(resolved_store_uri: str) -> str:
+    scheme = (
+        resolved_store_uri
+        if resolved_store_uri in {"databricks", "databricks-uc", "uc"}
+        else get_uri_scheme(resolved_store_uri)
+    )
+    builder = _tracking_store_registry._registry.get(scheme)
+    if builder is None:
+        return "None"
+    if builder.__module__.split(".", 1)[0] != "mlflow":
+        return "custom_scheme"
+    return scheme
 
 
 _artifact_repos_cache = OrderedDict()

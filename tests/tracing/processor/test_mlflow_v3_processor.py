@@ -12,7 +12,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 from tests.tracing.helper import (
     create_mock_otel_span,
@@ -88,24 +87,6 @@ def test_on_start_during_run(monkeypatch):
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
-def test_on_start_with_experiment_id_override(monkeypatch):
-    mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
-
-    mock_logger = mock.MagicMock()
-    monkeypatch.setattr("mlflow.tracing.processor.mlflow_v2._logger", mock_logger)
-
-    processor = MlflowV3SpanProcessor(
-        span_exporter=mock.MagicMock(), experiment_id="another_experiment"
-    )
-
-    span = create_mock_otel_span(trace_id=123, span_id=1)
-    processor.on_start(span)
-
-    trace_id = "tr-" + encode_trace_id(span.context.trace_id)
-    trace = InMemoryTraceManager.get_instance()._traces[trace_id]
-    assert trace.info.experiment_id == "another_experiment"
-
-
 def test_on_end():
     trace_info = create_test_trace_info("request_id", 0)
     trace_manager = InMemoryTraceManager.get_instance()
@@ -133,7 +114,8 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
-    trace_info = trace_manager.pop_trace("trace_id").info
+    manager_trace = trace_manager.pop_trace("trace_id")
+    trace_info = manager_trace.trace.info
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}

@@ -91,6 +91,7 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
+semantic_kernel = LazyLoader("mlflow.semantic_kernel", globals(), "mlflow.semantic_kernel")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -143,6 +144,7 @@ if TYPE_CHECKING:
         pyspark,
         pytorch,
         rfunc,
+        semantic_kernel,
         sentence_transformers,
         shap,
         sklearn,
@@ -247,6 +249,8 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
+        # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
+        # imports from mlflow will be deprecated in the future.
         delete_prompt_alias,
         load_prompt,
         register_model,
@@ -265,6 +269,7 @@ if not IS_TRACING_SDK_ONLY:
         create_experiment,
         create_external_model,
         delete_experiment,
+        delete_experiment_tag,
         delete_logged_model_tag,
         delete_run,
         delete_tag,
@@ -374,6 +379,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",
+        "delete_experiment_tag",
         "set_model_version_tag",
         "set_registry_uri",
         "set_system_metrics_node_id",
@@ -385,8 +391,11 @@ if not IS_TRACING_SDK_ONLY:
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
+        # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
+        # imports from mlflow will be deprecated in the future.
         "load_prompt",
         "register_prompt",
+        "search_prompts",
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",
@@ -401,3 +410,7 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+from mlflow.telemetry import set_telemetry_client
+
+set_telemetry_client()

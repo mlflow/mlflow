@@ -14,13 +14,9 @@ from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Get an assessment entity from the backend store.
 
     Args:
@@ -33,13 +29,9 @@ def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     return TracingClient().get_assessment(trace_id, assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Logs an assessment to a Trace. The assessment can be an expectation or a feedback.
 
     - Expectation: A label that represents the expected value for a particular operation.
@@ -134,10 +126,10 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
 
 
     """
-    TracingClient().log_assessment(trace_id, assessment)
+    return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_expectation(
     *,
     trace_id: str,
@@ -148,10 +140,6 @@ def log_expectation(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Logs an expectation (e.g. ground truth label) to a Trace. This API only takes keyword arguments.
 
     Args:
@@ -167,6 +155,34 @@ def log_expectation(
 
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created expectation assessment.
+
+    Examples:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+            # Log simple expected answer
+            expectation = mlflow.log_expectation(
+                trace_id="tr-1234567890abcdef",
+                name="expected_answer",
+                value="The capital of France is Paris.",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+                ),
+                metadata={"question_type": "factual", "difficulty": "easy"},
+            )
+
+            # Log expected classification label
+            mlflow.log_expectation(
+                trace_id="tr-1234567890abcdef",
+                name="expected_category",
+                value="positive",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="data_labeler_001"
+                ),
+                metadata={"labeling_session": "batch_01", "confidence": 0.95},
+            )
     """
     assessment = Expectation(
         name=name,
@@ -178,26 +194,22 @@ def log_expectation(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="2.21.0")
 def update_assessment(
     trace_id: str,
     assessment_id: str,
     assessment: Assessment,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Updates an existing expectation (ground truth) in a Trace.
 
     Args:
         trace_id: The ID of the trace.
-        assessment_id: The ID of the expectation assessment to update.
+        assessment_id: The ID of the expectation or feedback assessment to update.
         assessment: The updated assessment.
 
     Returns:
-        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
+        :py:class:`~mlflow.entities.Assessment`: The updated feedback or expectation assessment.
 
     Example:
 
@@ -230,13 +242,9 @@ def update_assessment(
     )
 
 
-@experimental
+@experimental(version="2.21.0")
 def delete_assessment(trace_id: str, assessment_id: str):
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Deletes an assessment associated with a trace.
 
     Args:
@@ -246,7 +254,7 @@ def delete_assessment(trace_id: str, assessment_id: str):
     return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_feedback(
     *,
     trace_id: str,
@@ -259,10 +267,6 @@ def log_feedback(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Logs feedback to a Trace. This API only takes keyword arguments.
 
     Args:
@@ -290,6 +294,32 @@ def log_feedback(
 
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
+
+    Examples:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+            # Log simple feedback score
+            feedback = mlflow.log_feedback(
+                trace_id="tr-1234567890abcdef",
+                name="relevance",
+                value=0.9,
+                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                rationale="Response directly addresses the user's question",
+            )
+
+            # Log detailed feedback with structured data
+            mlflow.log_feedback(
+                trace_id="tr-1234567890abcdef",
+                name="quality_metrics",
+                value={"accuracy": 0.95, "completeness": 0.88, "clarity": 0.92, "overall": 0.92},
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="expert_evaluator"
+                ),
+                rationale="High accuracy and clarity, slightly incomplete coverage",
+            )
     """
     assessment = Feedback(
         name=name,
@@ -303,7 +333,7 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def override_feedback(
     *,
     trace_id: str,
@@ -314,10 +344,6 @@ def override_feedback(
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
-    .. important::
-
-        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
-
     Overrides an existing feedback assessment with a new assessment. This API
     logs a new assessment with the `overrides` field set to the provided assessment ID.
     The original assessment will be marked as invalid, but will otherwise be unchanged.
@@ -336,6 +362,37 @@ def override_feedback(
 
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created assessment.
+
+    Examples:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+            # First, log an initial LLM-generated feedback as a simulation
+            llm_feedback = mlflow.log_feedback(
+                trace_id="tr-1234567890abcdef",
+                name="relevance",
+                value=0.6,
+                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                rationale="Response partially addresses the question",
+            )
+
+            # Later, a human reviewer disagrees and wants to override
+            corrected_assessment = mlflow.override_feedback(
+                trace_id="tr-1234567890abcdef",
+                assessment_id=llm_feedback.assessment_id,
+                value=0.9,
+                rationale="Response fully addresses the question with good examples",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="expert_reviewer@company.com"
+                ),
+                metadata={
+                    "override_reason": "LLM underestimated relevance",
+                    "review_date": "2024-01-15",
+                    "confidence": "high",
+                },
+            )
     """
     old_assessment = get_assessment(trace_id, assessment_id)
     if not isinstance(old_assessment, Feedback):

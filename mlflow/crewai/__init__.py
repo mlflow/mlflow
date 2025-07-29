@@ -18,7 +18,7 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "crewai"
 
 
-@experimental
+@experimental(version="2.19.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -27,7 +27,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from CrewAI to MLflow.
-    Note that asynchnorous APIs and Tool calling are not recorded now.
+    Note that asynchronous APIs and Tool calling are not recorded now.
 
     Args:
         log_traces: If ``True``, traces are logged for CrewAI agents.

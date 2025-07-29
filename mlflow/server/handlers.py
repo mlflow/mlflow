@@ -19,8 +19,11 @@ from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     FileInfo,
     Metric,
     Param,
@@ -36,6 +39,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -87,10 +91,13 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    DeleteAssessment,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -99,6 +106,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTag,
     EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -106,6 +114,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetTraceInfo,
+    GetTraceInfoV3,
     ListArtifacts,
     ListLoggedModelArtifacts,
     LogBatch,
@@ -123,14 +132,18 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchTracesV3,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
+    StartTraceV3,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
 )
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -227,7 +240,7 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_trace_artifact_repo(trace_info: TraceInfoV2):
+def _get_trace_artifact_repo(trace_info: TraceInfo):
     """
     Resolve the artifact repository for fetching data for the given trace.
 
@@ -985,6 +998,23 @@ def _set_experiment_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _delete_experiment_tag():
+    request_message = _get_request_message(
+        DeleteExperimentTag(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_experiment_tag(request_message.experiment_id, request_message.key)
+    response_message = DeleteExperimentTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _set_tag():
     request_message = _get_request_message(
         SetTag(),
@@ -1163,12 +1193,24 @@ def _get_metric_history():
         schema={
             "run_id": [_assert_string, _assert_required],
             "metric_key": [_assert_string, _assert_required],
+            "page_token": [_assert_string],
         },
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+
+    max_results = request_message.max_results if request_message.max_results is not None else None
+    page_token = request_message.page_token if request_message.page_token else None
+
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
+    )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
+
+    # Set next_page_token if available
+    if next_page_token := metric_entities.token:
+        response_message.next_page_token = next_page_token
+
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -2347,6 +2389,9 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 @catch_mlflow_exception
 def _graphql():
+    from graphql import parse
+
+    from mlflow.server.graphql.graphql_no_batching import check_query_safety
     from mlflow.server.graphql.graphql_schema_extensions import schema
 
     # Extracting the query, variables, and operationName from the request
@@ -2355,8 +2400,12 @@ def _graphql():
     variables = request_json.get("variables")
     operation_name = request_json.get("operationName")
 
-    # Executing the GraphQL query using the Graphene schema
-    result = schema.execute(query, variables=variables, operation_name=operation_name)
+    node = parse(query)
+    if check_result := check_query_safety(node):
+        result = check_result
+    else:
+        # Executing the GraphQL query using the Graphene schema
+        result = schema.execute(query, variables=variables, operation_name=operation_name)
 
     # Convert execution result into json.
     result_data = {
@@ -2474,88 +2523,42 @@ def _abort_multipart_upload_artifact(artifact_path):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _start_trace():
+def _start_trace_v3():
     """
     A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
     """
     request_message = _get_request_message(
-        StartTrace(),
-        schema={
-            "experiment_id": [_assert_string],
-            "timestamp_ms": [_assert_intlike],
-            "request_metadata": [_assert_map_key_present],
-            "tags": [_assert_map_key_present],
-        },
+        StartTraceV3(),
+        schema={"trace": [_assert_required]},
     )
-    request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
-
-    trace_info = _get_tracking_store().start_trace(
-        experiment_id=request_message.experiment_id,
-        timestamp_ms=request_message.timestamp_ms,
-        request_metadata=request_metadata,
-        tags=tags,
-    )
-    response_message = StartTrace.Response(trace_info=trace_info.to_proto())
+    trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
+    trace_info = _get_tracking_store().start_trace(trace_info)
+    response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _end_trace(request_id):
+def _get_trace_info_v3(trace_id):
     """
-    A request handler for `PATCH /mlflow/traces/{request_id}` to mark an existing TraceInfo
-    record completed in tracking store.
-    """
-    request_message = _get_request_message(
-        EndTrace(),
-        schema={
-            "timestamp_ms": [_assert_intlike],
-            "status": [_assert_string],
-            "request_metadata": [_assert_map_key_present],
-            "tags": [_assert_map_key_present],
-        },
-    )
-    request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
-
-    trace_info = _get_tracking_store().end_trace(
-        request_id=request_id,
-        timestamp_ms=request_message.timestamp_ms,
-        status=TraceStatus.from_proto(request_message.status),
-        request_metadata=request_metadata,
-        tags=tags,
-    )
-    response_message = EndTrace.Response(trace_info=trace_info.to_proto())
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _get_trace_info(request_id):
-    """
-    A request handler for `GET /mlflow/traces/{request_id}/info` to retrieve
+    A request handler for `GET /mlflow/traces/{trace_id}/info` to retrieve
     an existing TraceInfo record from tracking store.
     """
-    trace_info = _get_tracking_store().get_trace_info(request_id)
-    response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
+    trace_info = _get_tracking_store().get_trace_info(trace_id)
+    response_message = GetTraceInfoV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _search_traces():
+def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
     """
     request_message = _get_request_message(
-        SearchTraces(),
+        SearchTracesV3(),
         schema={
-            "experiment_ids": [
-                _assert_array,
-                _assert_item_type_string,
-                _assert_required,
-            ],
+            "locations": [_assert_array, _assert_required],
             "filter": [_assert_string],
             "max_results": [
                 _assert_intlike,
@@ -2565,14 +2568,19 @@ def _search_traces():
             "page_token": [_assert_string],
         },
     )
+    experiment_ids = []
+    for location in request_message.locations:
+        if location.HasField("mlflow_experiment"):
+            experiment_ids.append(location.mlflow_experiment.experiment_id)
+
     traces, token = _get_tracking_store().search_traces(
-        experiment_ids=request_message.experiment_ids,
+        experiment_ids=experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         page_token=request_message.page_token,
     )
-    response_message = SearchTraces.Response()
+    response_message = SearchTracesV3.Response()
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
         response_message.next_page_token = token
@@ -2611,7 +2619,7 @@ def _delete_traces():
         experiment_id=request_message.experiment_id,
         max_timestamp_millis=_get_nullable_field("max_timestamp_millis"),
         max_traces=_get_nullable_field("max_traces"),
-        request_ids=request_message.request_ids,
+        trace_ids=request_message.request_ids,
     )
     return _wrap_response(DeleteTraces.Response(traces_deleted=traces_deleted))
 
@@ -2676,6 +2684,216 @@ def get_trace_artifact_handler():
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+# Assessments API handlers
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_assessment(trace_id):
+    """
+    A request handler for `POST /mlflow/traces/{assessment.trace_id}/assessments`
+    to create a new assessment.
+    """
+    request_message = _get_request_message(
+        CreateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+        },
+    )
+
+    assessment = Assessment.from_proto(request_message.assessment)
+    assessment.trace_id = trace_id
+    created_assessment = _get_tracking_store().create_assessment(assessment)
+
+    response_message = CreateAssessment.Response(assessment=created_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_assessment(trace_id, assessment_id):
+    """
+    A request handler for `GET /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to get an assessment.
+    """
+    assessment = _get_tracking_store().get_assessment(trace_id, assessment_id)
+
+    response_message = GetAssessmentRequest.Response(assessment=assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_assessment(trace_id, assessment_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to update an assessment.
+    """
+    request_message = _get_request_message(
+        UpdateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+            "update_mask": [_assert_required],
+        },
+    )
+
+    assessment_proto = request_message.assessment
+    update_mask = request_message.update_mask
+
+    kwargs = {}
+
+    for path in update_mask.paths:
+        if path == "assessment_name":
+            kwargs["name"] = assessment_proto.assessment_name
+        elif path == "expectation":
+            kwargs["expectation"] = Expectation.from_proto(assessment_proto)
+        elif path == "feedback":
+            kwargs["feedback"] = Feedback.from_proto(assessment_proto)
+        elif path == "rationale":
+            kwargs["rationale"] = assessment_proto.rationale
+        elif path == "metadata":
+            kwargs["metadata"] = dict(assessment_proto.metadata)
+        elif path == "valid":
+            kwargs["valid"] = assessment_proto.valid
+
+    updated_assessment = _get_tracking_store().update_assessment(
+        trace_id=trace_id, assessment_id=assessment_id, **kwargs
+    )
+
+    response_message = UpdateAssessment.Response(assessment=updated_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_assessment(trace_id, assessment_id):
+    """
+    A request handler for `DELETE /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to delete an assessment.
+    """
+    _get_tracking_store().delete_assessment(trace_id, assessment_id)
+
+    response_message = DeleteAssessment.Response()
+    return _wrap_response(response_message)
+
+
+# Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _deprecated_start_trace_v2():
+    """
+    A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
+    """
+    request_message = _get_request_message(
+        StartTrace(),
+        schema={
+            "experiment_id": [_assert_string],
+            "timestamp_ms": [_assert_intlike],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().deprecated_start_trace_v2(
+        experiment_id=request_message.experiment_id,
+        timestamp_ms=request_message.timestamp_ms,
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+    response_message = StartTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _deprecated_end_trace_v2(request_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{request_id}` to mark an existing TraceInfo
+    record completed in tracking store.
+    """
+    request_message = _get_request_message(
+        EndTrace(),
+        schema={
+            "timestamp_ms": [_assert_intlike],
+            "status": [_assert_string],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().deprecated_end_trace_v2(
+        request_id=request_id,
+        timestamp_ms=request_message.timestamp_ms,
+        status=TraceStatus.from_proto(request_message.status),
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
+    response_message = EndTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _deprecated_get_trace_info_v2(request_id):
+    """
+    A request handler for `GET /mlflow/traces/{request_id}/info` to retrieve
+    an existing TraceInfo record from tracking store.
+    """
+    trace_info = _get_tracking_store().get_trace_info(request_id)
+    trace_info = TraceInfoV2.from_v3(trace_info)
+    response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _deprecated_search_traces_v2():
+    """
+    A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
+    """
+    request_message = _get_request_message(
+        SearchTraces(),
+        schema={
+            "experiment_ids": [
+                _assert_array,
+                _assert_item_type_string,
+                _assert_required,
+            ],
+            "filter": [_assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 500),
+            ],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    traces, token = _get_tracking_store().search_traces(
+        experiment_ids=request_message.experiment_ids,
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
+    traces = [TraceInfoV2.from_v3(t) for t in traces]
+    response_message = SearchTraces.Response()
+    response_message.traces.extend([e.to_proto() for e in traces])
+    if token:
+        response_message.next_page_token = token
+    return _wrap_response(response_message)
+
+
+# Logged Models APIs
 
 
 @catch_mlflow_exception
@@ -2820,6 +3038,7 @@ def _search_logged_models():
                 _assert_required,
             ],
             "filter": [_assert_string],
+            "datasets": [_assert_array],
             "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
@@ -2830,6 +3049,17 @@ def _search_logged_models():
         # to avoid serialization issues
         experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
+        datasets=(
+            [
+                {
+                    "dataset_name": d.dataset_name,
+                    "dataset_digest": d.dataset_digest or None,
+                }
+                for d in request_message.datasets
+            ]
+            if request_message.datasets
+            else None
+        ),
         max_results=request_message.max_results or None,
         order_by=(
             [
@@ -2888,12 +3118,12 @@ def _list_logged_model_artifacts_impl(
     return _wrap_response(response)
 
 
-def _get_rest_path(base_path):
-    return f"/api/2.0{base_path}"
+def _get_rest_path(base_path, version=2):
+    return f"/api/{version}.0{base_path}"
 
 
-def _get_ajax_path(base_path):
-    return _add_static_prefix(f"/ajax-api/2.0{base_path}")
+def _get_ajax_path(base_path, version=2):
+    return _add_static_prefix(f"/ajax-api/{version}.0{base_path}")
 
 
 def _add_static_prefix(route: str) -> str:
@@ -2902,14 +3132,14 @@ def _add_static_prefix(route: str) -> str:
     return route
 
 
-def _get_paths(base_path):
+def _get_paths(base_path, version=2):
     """
     A service endpoints base path is typically something like /mlflow/experiment.
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
     base_path = _convert_path_parameter_to_flask_format(base_path)
-    return [_get_rest_path(base_path), _get_ajax_path(base_path)]
+    return [_get_rest_path(base_path, version), _get_ajax_path(base_path, version)]
 
 
 def _convert_path_parameter_to_flask_format(path):
@@ -2921,7 +3151,13 @@ def _convert_path_parameter_to_flask_format(path):
     not understand it. Instead, we need to specify it with a different format,
     like /mlflow/trace/<request_id>.
     """
-    return re.sub(r"{(\w+)}", r"<\1>", path)
+    # Handle simple parameters like {trace_id}
+    path = re.sub(r"{(\w+)}", r"<\1>", path)
+
+    # Handle Databricks-specific syntax like {assessment.trace_id} -> <trace_id>
+    # This is needed because Databricks can extract trace_id from request body,
+    # but Flask needs it in the URL path
+    return re.sub(r"{assessment\.trace_id}", r"<trace_id>", path)
 
 
 def get_handler(request_class):
@@ -2937,7 +3173,7 @@ def get_service_endpoints(service, get_handler):
     for service_method in service.DESCRIPTOR.methods:
         endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
         for endpoint in endpoints:
-            for http_path in _get_paths(endpoint.path):
+            for http_path in _get_paths(endpoint.path, version=endpoint.since.major):
                 handler = get_handler(service().GetRequestClass(service_method))
                 ret.append((http_path, handler, [endpoint.method]))
     return ret
@@ -2971,6 +3207,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetExperimentTag: _set_experiment_tag,
+    DeleteExperimentTag: _delete_experiment_tag,
     SetTag: _set_tag,
     DeleteTag: _delete_tag,
     LogBatch: _log_batch,
@@ -3013,14 +3250,23 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
-    # MLflow Tracing APIs
-    StartTrace: _start_trace,
-    EndTrace: _end_trace,
-    GetTraceInfo: _get_trace_info,
-    SearchTraces: _search_traces,
+    # MLflow Tracing APIs (V3)
+    StartTraceV3: _start_trace_v3,
+    GetTraceInfoV3: _get_trace_info_v3,
+    SearchTracesV3: _search_traces_v3,
     DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
+    # Assessment APIs
+    CreateAssessment: _create_assessment,
+    GetAssessmentRequest: _get_assessment,
+    UpdateAssessment: _update_assessment,
+    DeleteAssessment: _delete_assessment,
+    # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
+    StartTrace: _deprecated_start_trace_v2,
+    EndTrace: _deprecated_end_trace_v2,
+    GetTraceInfo: _deprecated_get_trace_info_v2,
+    SearchTraces: _deprecated_search_traces_v2,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,

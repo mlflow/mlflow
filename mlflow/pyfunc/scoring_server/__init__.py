@@ -403,7 +403,7 @@ def invocations(data, content_type, model, input_schema):
 
 class ParsedJsonInput(NamedTuple):
     data: Any
-    params: Optional[dict]
+    params: Optional[dict[str, Any]]
     is_unified_llm_input: bool
 
 

@@ -50,7 +50,7 @@ def _sanitize_feedback(feedback: Feedback) -> Feedback:
     Returns:
         A new Feedback object with our CategoricalRating.
     """
-    feedback.value = CategoricalRating(feedback.value.value)
+    feedback.value = CategoricalRating(feedback.value) if feedback.value else feedback.value
     return feedback
 
 
@@ -332,22 +332,18 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from databricks.agents.evals.judges import guideline_adherence
-
-    # Ensure guidelines is a list, as the underlying databricks judge only accepts lists
-    if isinstance(guidelines, str):
-        guidelines = [guidelines]
+    from databricks.agents.evals.judges import guidelines as guidelines_judge
 
     return _sanitize_feedback(
-        guideline_adherence(
+        guidelines_judge(
             guidelines=guidelines,
-            guidelines_context=context,
+            context=context,
             assessment_name=name,
         )
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 @requires_databricks_agents
 def custom_prompt_judge(
     *,

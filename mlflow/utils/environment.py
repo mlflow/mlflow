@@ -209,7 +209,7 @@ class _PythonEnv:
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
-def _mlflow_conda_env(  # noqa: D417
+def _mlflow_conda_env(
     path=None,
     additional_conda_deps=None,
     additional_pip_deps=None,
@@ -525,11 +525,15 @@ def _lock_requirements(
         in_file = tmp_dir_path / "requirements.in"
         in_file.write_text("\n".join(requirements))
         out_file = tmp_dir_path / "requirements.out"
-        constraints_opt: list = []
+        constraints_opt: list[str] = []
         if constraints:
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))
             constraints_opt = [f"--constraints={constraints_file}"]
+        elif pip_constraint := os.environ.get("PIP_CONSTRAINT"):
+            # If PIP_CONSTRAINT is set, use it as a constraint file
+            constraints_opt = [f"--constraints={pip_constraint}"]
+
         try:
             uv_options, uv_envs = _get_uv_options_for_databricks()
             out = subprocess.check_output(
@@ -604,7 +608,11 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
+        return Requirement(requirement_string).name.lower() in [
+            "mlflow",
+            "mlflow-skinny",
+            "mlflow-tracing",
+        ]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 
@@ -650,9 +658,7 @@ def _generate_mlflow_version_pinning() -> str:
     # is always a micro-version ahead of the latest release (unless it's manually modified)
     # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
     # tests.
-    # TODO: Remove this hardcoded version once we released the stable 3.0.0 version.
-    return "mlflow@git+https://github.com/mlflow/mlflow.git"
-    # return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
+    return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
 
 
 def _contains_mlflow_requirement(requirements):

@@ -58,4 +58,4 @@ def test_callback_with_evals(callback):
         "eval_full": 100.0,
     }
     prompt = mlflow.load_prompt("prompts:/test_prompt/1")
-    assert prompt.version_metadata["overall_eval_score"] == "100.0"
+    assert prompt.tags["overall_eval_score"] == "100.0"

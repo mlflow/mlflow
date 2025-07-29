@@ -7,6 +7,7 @@ import numpy
 import pytest
 import requests
 
+from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
@@ -23,6 +24,7 @@ from mlflow.utils.rest_utils import (
     augmented_raise_for_status,
     call_endpoint,
     call_endpoints,
+    get_workspace_client,
     http_request,
     http_request_safe,
 )
@@ -788,6 +790,8 @@ def test_databricks_sdk_retry_non_retryable_error():
 
 def test_databricks_sdk_retry_backoff_calculation():
     """Test that Databricks SDK uses correct exponential backoff timing."""
+    from databricks.sdk.errors import DatabricksError
+
     from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
     from mlflow.utils.rest_utils import _retry_databricks_sdk_call_with_exponential_backoff
 
@@ -796,12 +800,11 @@ def test_databricks_sdk_retry_backoff_calculation():
     def mock_failing_call():
         nonlocal call_count
         call_count += 1
-        from databricks.sdk.errors import DatabricksError
 
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
-    with mock.patch("time.sleep") as mock_sleep:
-        try:
+    with mock.patch("mlflow.utils.rest_utils._time_sleep") as mock_sleep:
+        with pytest.raises(DatabricksError, match="Mock error"):
             _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=mock_failing_call,
                 retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -810,8 +813,6 @@ def test_databricks_sdk_retry_backoff_calculation():
                 backoff_jitter=0,  # No jitter for predictable calculation
                 max_retries=3,
             )
-        except Exception:
-            pass  # Expected to fail
 
     # Verify sleep was called with correct intervals
     # attempt 0 (1st retry): 0 seconds (immediate)
@@ -821,3 +822,98 @@ def test_databricks_sdk_retry_backoff_calculation():
     actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
     assert actual_sleep_times == expected_sleep_times
     assert call_count == 4  # Initial + 3 retries
+
+
+@pytest.mark.skip
+def test_timeout_parameter_propagation_with_timeout():
+    """Test timeout parameter propagation from http_request to get_workspace_client with timeout."""
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+        mock.patch("databricks.sdk.config.Config") as mock_config,
+    ):
+        # Test http_request with timeout via get_workspace_client directly
+        mock_workspace_client_instance = mock.MagicMock()
+        mock_workspace_client_instance.api_client.do.return_value = {"contents": mock.MagicMock()}
+        mock_workspace_client.return_value = mock_workspace_client_instance
+
+        get_workspace_client(
+            use_secret_scope_token=False,
+            host="http://my-host",
+            token=None,
+            databricks_auth_profile="my-profile",
+            retry_timeout_seconds=None,
+            timeout=180,
+        )
+
+        mock_config.assert_called_once_with(
+            profile="my-profile",
+            http_timeout_seconds=180,
+            retry_timeout_seconds=mock.ANY,
+        )
+
+
+@pytest.mark.skip
+def test_timeout_parameter_propagation_without_timeout():
+    """Test timeout param propagation from http_request to get_workspace_client without timeout."""
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+        mock.patch("databricks.sdk.config.Config") as mock_config,
+    ):
+        # Test http_request without timeout via get_workspace_client directly
+        mock_workspace_client_instance = mock.MagicMock()
+        mock_workspace_client_instance.api_client.do.return_value = {"contents": mock.MagicMock()}
+        mock_workspace_client.return_value = mock_workspace_client_instance
+
+        get_workspace_client(
+            use_secret_scope_token=False,
+            host="http://my-host",
+            token=None,
+            databricks_auth_profile="my-profile",
+            retry_timeout_seconds=None,
+            timeout=None,
+        )
+
+        mock_config.assert_called_once_with(
+            profile="my-profile",
+            retry_timeout_seconds=mock.ANY,
+        )
+
+
+def test_deployment_client_timeout_propagation(monkeypatch):
+    """Test deployment client propagates timeout to workspace client."""
+
+    with (
+        mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds"
+        ) as mock_get_databricks_host_creds,
+        mock.patch(
+            "mlflow.deployments.databricks.get_databricks_host_creds"
+        ) as mock_deployment_host_creds,
+    ):
+        # Mock the host creds to use Databricks SDK
+        mock_host_creds = MlflowHostCreds("http://my-host", use_databricks_sdk=True)
+        mock_get_databricks_host_creds.return_value = mock_host_creds
+        mock_deployment_host_creds.return_value = mock_host_creds
+
+        # Mock workspace client and its response
+        mock_workspace_client_instance = mock.MagicMock()
+        mock_workspace_client_instance.api_client.do.return_value = {"contents": mock.MagicMock()}
+        mock_get_workspace_client.return_value = mock_workspace_client_instance
+
+        # Set the environment variable to a custom value using monkeypatch
+        monkeypatch.setenv("MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", "300")
+
+        # Create deployment client and call predict
+        client = DatabricksDeploymentClient("databricks")
+        client.predict(endpoint="test-endpoint", inputs={"test": "data"})
+
+        # Verify get_workspace_client was called with the deployment predict timeout
+        mock_get_workspace_client.assert_called_once_with(
+            False,  # use_secret_scope_token
+            "http://my-host",  # host
+            None,  # token
+            None,  # databricks_auth_profile
+            retry_timeout_seconds=None,
+            timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
+        )

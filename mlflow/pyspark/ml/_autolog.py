@@ -15,7 +15,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import types as t
 
 
-def cast_spark_df_with_vector_to_array(input_spark_df):  # noqa: D417
+def cast_spark_df_with_vector_to_array(input_spark_df):
     """
     Finds columns of vector type in a spark dataframe and
     casts them to array<double> type.
@@ -36,7 +36,7 @@ def cast_spark_df_with_vector_to_array(input_spark_df):  # noqa: D417
     )
 
 
-def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, PipelineModel]):  # noqa: D417
+def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, PipelineModel]):
     """
     A util method that runs transform on a pipeline model/transformer
 

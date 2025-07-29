@@ -100,7 +100,10 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
-from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    _compare_logged_code_paths,
+    pyfunc_serve_and_score_model,
+)
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -482,33 +485,20 @@ def test_save_model_with_partner_package(tmp_path):
     from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
     from langchain_openai import ChatOpenAI as ChatOpenAIPartner
 
-    def _is_partner_pkg_warning_issued(ws):
-        # Dummy warning to ensure at least one warning is issued. Otherwise the pytest.warns
-        # context manager will raise an exception at exit.
-        warnings.warn("dummy")
-        return any(
-            str(w.message).startswith(
-                "Your model contains a class imported from the LangChain "
-                "partner package `langchain-openai`."
-            )
-            for w in ws
-        )
-
     # 1. Saving a model with LLM from a community package
     #    -> no warning should be raised
     chain = ChatOpenAICommunity() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(chain, tmp_path / "community-model")
-        assert not _is_partner_pkg_warning_issued(ws)
 
     # 2. Saving a model with LLM from a partner package
     #    -> a warning should be raised and incorrect class is loaded
     chain = ChatOpenAIPartner() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with pytest.warns(match=r".*LangChain partner package.*"):
         mlflow.langchain.save_model(chain, tmp_path / "partner-model")
-        assert _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "partner-model")
     loaded_llm = loaded_model.steps[0]
@@ -528,12 +518,12 @@ mlflow.models.set_model(chain)
 """
         )
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(
             lc_model=str(tmp_path / "model.py"),
             path=tmp_path / "model-from-code",
         )
-        assert not _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "model-from-code")
     loaded_llm = loaded_model.steps[0]
@@ -3664,16 +3654,21 @@ def test_log_langchain_model_with_prompt():
             prompts=["prompts:/another_prompt/1"],
         )
 
-    logged_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
-    assert len(logged_prompts) == 2
-    assert {p.name for p in logged_prompts} == {"qa_prompt", "another_prompt"}
+    # Check that prompts were linked to the run via the linkedPrompts tag
+    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+
+    run = mlflow.MlflowClient().get_run(model_info.run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+    assert {p["name"] for p in linked_prompts} == {"qa_prompt", "another_prompt"}
 
     prompt = mlflow.load_prompt("qa_prompt", 1)
-    assert prompt.run_ids == [model_info.run_id]
     assert prompt.aliases == ["production"]
 
     prompt = mlflow.load_prompt("another_prompt", 1)
-    assert prompt.run_ids == [model_info.run_id]
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = pyfunc_model.predict({"product": "shoe"})
@@ -3710,12 +3705,12 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
     input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
 
-    with mock.patch("mlflow.tracing.client.TracingClient.start_trace_v3") as mock_start_trace_v3:
+    with mock.patch("mlflow.tracing.client.TracingClient.start_trace") as mock_start_trace:
         pyfunc_model._model_impl._predict_with_callbacks(
             data=input_example, callback_handlers=[tracer]
         )
         mlflow.flush_trace_async_logging()
-        mock_start_trace_v3.assert_called_once()
-        trace = mock_start_trace_v3.call_args[0][0]
-        assert trace.info.client_request_id == request_id
-        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+        mock_start_trace.assert_called_once()
+        trace_info = mock_start_trace.call_args[0][0]
+        assert trace_info.client_request_id == request_id
+        assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id

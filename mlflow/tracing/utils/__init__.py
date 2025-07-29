@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -17,10 +17,12 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import (
+    ASSESSMENT_ID_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
+    TraceSizeStatsKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -32,7 +34,7 @@ SPANS_COLUMN_NAME = "spans"
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
-    from mlflow.types.chat import ChatMessage, ChatTool
+    from mlflow.types.chat import ChatTool
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
@@ -199,7 +201,9 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
     """Aggregate token usage information from all spans in the trace."""
-    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -255,7 +259,7 @@ def _try_get_prediction_context():
     #     relies on numpy, which is not installed in skinny.
     try:
         from mlflow.pyfunc.context import get_prediction_context
-    except ImportError:
+    except (ImportError, KeyError):
         return
 
     return get_prediction_context()
@@ -278,7 +282,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
@@ -345,66 +349,6 @@ def maybe_set_prediction_context(context: Optional["Context"]):
             yield
     else:
         yield
-
-
-def set_span_chat_messages(
-    span: LiveSpan,
-    messages: list[Union[dict, ChatMessage]],
-    append=False,
-):
-    """
-    Set the `mlflow.chat.messages` attribute on the specified span. This
-    attribute is used in the UI, and also by downstream applications that
-    consume trace data, such as MLflow evaluate.
-
-    Args:
-        span: The LiveSpan to add the attribute to
-        messages: A list of standardized chat messages (refer to the
-                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
-                 for details)
-        append: If True, the messages will be appended to the existing messages. Otherwise,
-                the attribute will be overwritten entirely. Default is False.
-                This is useful when you want to record messages incrementally, e.g., log
-                input messages first, and then log output messages later.
-
-    Example:
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-        from mlflow.tracing import set_span_chat_messages
-
-
-        @mlflow.trace
-        def f():
-            messages = [{"role": "user", "content": "hello"}]
-            span = mlflow.get_current_active_span()
-            set_span_chat_messages(span, messages)
-            return 0
-
-
-        f()
-    """
-    from mlflow.types.chat import ChatMessage
-
-    sanitized_messages = []
-    for message in messages:
-        if isinstance(message, dict):
-            ChatMessage.validate_compat(message)
-            sanitized_messages.append(message)
-        elif isinstance(message, ChatMessage):
-            # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
-            #   some fields are only present in either the request or response (e.g., tool_call_id).
-            #   Those fields should not be recorded unless set explicitly, so we set
-            #   exclude_unset=True here to avoid recording unset fields.
-            sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
-
-    if append:
-        existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
-        sanitized_messages = existing_messages + sanitized_messages
-
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
 
 
 def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
@@ -474,53 +418,85 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 
 
-def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
+def _calculate_percentile(sorted_data: list[float], percentile: float) -> float:
     """
-    Set the `mlflow.chat.messages` and `mlflow.chat.tools` attributes on the specified span
-    based on the inputs and outputs of the function.
+    Calculate the percentile value from sorted data.
 
-    Usually those attributes are set by autologging integrations. This utility function handles
-    special cases where we want to set chat attributes for manually created spans via @mlflow.trace
-    decorator, such as ResponsesAgent tracing spans.
+    Args:
+        sorted_data: A sorted list of numeric values
+        percentile: The percentile to calculate (e.g., 0.25 for 25th percentile)
+
+    Returns:
+        The percentile value
     """
-    try:
-        from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
+    if not sorted_data:
+        return 0.0
 
-        if isinstance(outputs, ResponsesAgentResponse):
-            inputs = inputs["request"].model_dump_compat()
-            set_span_chat_attributes(span, inputs, outputs)
-        elif isinstance(outputs, list) and all(
-            isinstance(o, ResponsesAgentStreamEvent) for o in outputs
-        ):
-            inputs = inputs["request"].model_dump_compat()
-            output_items = []
-            custom_outputs = None
-            for o in outputs:
-                if o.type == "response.output_item.done":
-                    output_items.append(o.item)
-                if o.custom_outputs:
-                    custom_outputs = o.custom_outputs
-            output = ResponsesAgentResponse(
-                output=output_items,
-                custom_outputs=custom_outputs,
-            )
-            set_span_chat_attributes(span, inputs, output)
-    except Exception:
-        pass
+    n = len(sorted_data)
+    index = percentile * (n - 1)
+    lower = int(index)
+    upper = lower + 1
+
+    if upper >= n:
+        return sorted_data[-1]
+
+    # Linear interpolation between two nearest values
+    weight = index - lower
+    return sorted_data[lower] * (1 - weight) + sorted_data[upper] * weight
 
 
-def add_size_bytes_to_trace_metadata(trace: Trace):
+def add_size_stats_to_trace_metadata(trace: Trace):
     """
-    Calculate the size of the trace in bytes and add it as a tag to the trace.
+    Calculate the stats of trace and span sizes and add it as a metadata to the trace.
 
     This method modifies the trace object in place by adding a new tag.
 
     Note: For simplicity, we calculate the size without considering the size metadata itself.
     This provides a close approximation without requiring complex calculations.
+
+    This function must not throw an exception.
     """
-    trace_size_bytes = len(trace.to_json().encode("utf-8"))
-    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    from mlflow.entities import Trace, TraceData
+
+    try:
+        span_sizes = []
+        for span in trace.data.spans:
+            span_json = json.dumps(span.to_dict(), cls=TraceJSONEncoder)
+            span_sizes.append(len(span_json.encode("utf-8")))
+
+        # NB: To compute the size of the total trace, we need to include the size of the
+        # the trace info and the parent dicts for the spans. To avoid serializing spans
+        # again (which can be expensive), we compute the size of the trace without spans
+        # and combine it with the total size of the spans.
+        empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
+        metadata_size = len(empty_trace.to_json().encode("utf-8"))
+
+        # NB: the third term is the size of comma separators between spans (", ").
+        trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
+
+        # Sort span sizes for percentile calculation
+        sorted_span_sizes = sorted(span_sizes)
+
+        size_stats = {
+            TraceSizeStatsKey.TOTAL_SIZE_BYTES: trace_size_bytes,
+            TraceSizeStatsKey.NUM_SPANS: len(span_sizes),
+            TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES: max(span_sizes),
+            TraceSizeStatsKey.P25_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.25)
+            ),
+            TraceSizeStatsKey.P50_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.50)
+            ),
+            TraceSizeStatsKey.P75_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.75)
+            ),
+        }
+
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(size_stats)
+        # Keep the total size as a separate metadata for backward compatibility
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    except Exception:
+        _logger.warning("Failed to add size stats to trace metadata.", exc_info=True)
 
 
 def update_trace_state_from_span_conditionally(trace, root_span):
@@ -543,3 +519,14 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
         trace.info.state = TraceState.from_otel_status(root_span.status)
+
+
+def generate_assessment_id() -> str:
+    """
+    Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
+
+    Returns:
+        A unique identifier for an assessment that will be logged to a trace tag.
+    """
+    id = uuid.uuid4().hex
+    return f"{ASSESSMENT_ID_PREFIX}{id}"

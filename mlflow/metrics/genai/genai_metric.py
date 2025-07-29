@@ -132,7 +132,9 @@ def _score_model_on_payloads(
 ) -> tuple[list[int], list[str]]:
     scores = [None] * len(grading_payloads)
     justifications = [None] * len(grading_payloads)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowGenAiScoring"
+    ) as executor:
         futures = {
             executor.submit(
                 _score_model_on_one_payload,
@@ -193,7 +195,7 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-@experimental
+@experimental(version="2.13.0")
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,
@@ -584,7 +586,9 @@ def make_genai_metric(
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MlflowGenAiEvaluation"
+        ) as executor:
             futures = {
                 executor.submit(
                     _score_model_on_one_payload,

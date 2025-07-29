@@ -10,14 +10,15 @@ _ERROR_MSG = (
 )
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass()
 class ScorerScheduleConfig:
     """
     A scheduled scorer configuration for automated monitoring of generative AI applications.
 
     Scheduled scorers are used to automatically evaluate traces logged to MLflow experiments
-    by production applications. They are part of [Databricks Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring),
+    by production applications. They are part of `Databricks Lakehouse Monitoring for GenAI
+    <https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring>`_,
     which helps track quality metrics like groundedness, safety, and guideline adherence
     alongside operational metrics like volume, latency, and cost.
 
@@ -85,8 +86,8 @@ class ScorerScheduleConfig:
 
 
 # Scheduled Scorer CRUD operations
-@experimental
-def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def add_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     scorer: Scorer,
@@ -163,8 +164,8 @@ def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
     )
 
 
-@experimental
-def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def update_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     scorer: Optional[Scorer] = None,
@@ -223,8 +224,8 @@ def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
     )
 
 
-@experimental
-def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def delete_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -273,8 +274,8 @@ def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
     return delete_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
-@experimental
-def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def get_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -317,8 +318,8 @@ def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
     return get_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
-@experimental
-def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def list_scheduled_scorers(  # clint: disable=missing-docstring-param
     *, experiment_id: Optional[str] = None, **kwargs
 ) -> list[ScorerScheduleConfig]:
     """
@@ -363,8 +364,8 @@ def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D
     return list_scheduled_scorers(experiment_id, **kwargs)
 
 
-@experimental
-def set_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
+@experimental(version="3.0.0")
+def set_scheduled_scorers(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorers: list[ScorerScheduleConfig],
     experiment_id: Optional[str] = None,

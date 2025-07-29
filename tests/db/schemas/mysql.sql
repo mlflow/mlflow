@@ -152,8 +152,33 @@ CREATE TABLE trace_info (
 	timestamp_ms BIGINT NOT NULL,
 	execution_time_ms BIGINT,
 	status VARCHAR(50) NOT NULL,
+	client_request_id VARCHAR(50),
+	request_preview VARCHAR(1000),
+	response_preview VARCHAR(1000),
 	PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE assessments (
+	assessment_id VARCHAR(50) NOT NULL,
+	trace_id VARCHAR(50) NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	assessment_type VARCHAR(20) NOT NULL,
+	value TEXT NOT NULL,
+	error TEXT,
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	source_type VARCHAR(50) NOT NULL,
+	source_id VARCHAR(250),
+	run_id VARCHAR(32),
+	span_id VARCHAR(50),
+	rationale TEXT,
+	overrides VARCHAR(50),
+	valid TINYINT NOT NULL,
+	assessment_metadata TEXT,
+	PRIMARY KEY (assessment_id),
+	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
@@ -226,7 +251,7 @@ CREATE TABLE metrics (
 
 CREATE TABLE model_version_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	PRIMARY KEY (key, name, version),

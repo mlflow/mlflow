@@ -30,7 +30,7 @@ PbValueType = Union[float, int, str, bool]
 FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Assessment(_MlflowObject):
     """
@@ -52,6 +52,7 @@ class Assessment(_MlflowObject):
     #   assessment to a trace in the backend eventually.
     #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics#-metric-decorator
     trace_id: Optional[str] = None
+    run_id: Optional[str] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
     span_id: Optional[str] = None
@@ -75,6 +76,8 @@ class Assessment(_MlflowObject):
     valid: Optional[bool] = None
 
     def __post_init__(self):
+        from mlflow.tracing.constant import AssessmentMetadataKey
+
         if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
@@ -104,6 +107,13 @@ class Assessment(_MlflowObject):
                 "`source` must be an instance of `AssessmentSource`. "
                 f"Got {type(self.source)} instead."
             )
+        # Extract and set run_id from metadata but don't modify the proto representation
+        if (
+            self.run_id is None
+            and self.metadata
+            and AssessmentMetadataKey.SOURCE_RUN_ID in self.metadata
+        ):
+            self.run_id = self.metadata[AssessmentMetadataKey.SOURCE_RUN_ID]
 
     def to_proto(self):
         assessment = ProtoAssessment()
@@ -129,7 +139,8 @@ class Assessment(_MlflowObject):
             assessment.feedback.CopyFrom(self.feedback.to_proto())
 
         if self.metadata:
-            assessment.metadata.update(self.metadata)
+            for key, value in self.metadata.items():
+                assessment.metadata[key] = str(value)
         if self.overrides:
             assessment.overrides = self.overrides
         if self.valid is not None:
@@ -168,7 +179,7 @@ class Assessment(_MlflowObject):
 DEFAULT_FEEDBACK_NAME = "feedback"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class Feedback(Assessment):
     """
@@ -335,7 +346,7 @@ class Feedback(Assessment):
         return self.feedback.error.error_message if self.feedback.error else None
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Expectation(Assessment):
     """
@@ -456,7 +467,7 @@ class Expectation(Assessment):
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class ExpectationValue(_MlflowObject):
     """Represents an expectation value."""
@@ -513,7 +524,7 @@ class ExpectationValue(_MlflowObject):
         return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""

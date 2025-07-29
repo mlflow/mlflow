@@ -1,0 +1,214 @@
+import { APILink } from "@site/src/components/APILink";
+import Link from "@docusaurus/Link";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Shield, Globe, Zap, Settings, Code, Book, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
+
+# MLflow AI Gateway
+
+:::warning
+MLflow AI Gateway does not support Windows.
+:::
+
+MLflow AI Gateway provides a unified interface for deploying and managing multiple LLM providers within your organization. It simplifies interactions with services like OpenAI, Anthropic, and others through a single, secure endpoint.
+
+The gateway server excels in production environments where organizations need to manage multiple LLM providers securely while maintaining operational flexibility and developer productivity.
+
+<FeatureHighlights features={[
+  {
+    icon: Globe,
+    title: "Unified Interface",
+    description: "Access multiple LLM providers through a single endpoint, eliminating the need to integrate with each provider individually."
+  },
+  {
+    icon: Shield,
+    title: "Centralized Security",
+    description: "Store API keys in one secure location with request/response logging for audit trails and compliance."
+  },
+  {
+    icon: Database,
+    title: "Provider Abstraction",
+    description: "Switch between OpenAI, Anthropic, Azure OpenAI, and other providers without changing your application code."
+  },
+  {
+    icon: Zap,
+    title: "Zero-Downtime Updates",
+    description: "Add, remove, or modify endpoints dynamically without restarting the server or disrupting running applications."
+  },
+  {
+    icon: BarChart3,
+    title: "Cost Optimization",
+    description: "Monitor usage across providers and optimize costs by routing requests to the most efficient models."
+  },
+  {
+    icon: Users,
+    title: "Team Collaboration",
+    description: "Shared endpoint configurations and standardized access patterns across development teams."
+  }
+]} />
+
+## Getting Started
+
+Choose your path to get up and running with MLflow AI Gateway:
+
+<TilesGrid>
+  <TileCard
+    icon={Wrench}
+    title="Setup"
+    description="Install MLflow, configure environment, and start your gateway server"
+    href="./setup"
+    linkText="Start setup →"
+  />
+  <TileCard
+    icon={Settings}
+    title="Configuration"
+    description="Configure providers, endpoints, and advanced gateway settings"
+    href="./configuration"
+    linkText="Configure providers →"
+  />
+  <TileCard
+    icon={Play}
+    title="Usage"
+    description="Query endpoints with Python client and REST APIs"
+    href="./usage"
+    linkText="Start using →"
+  />
+  <TileCard
+    icon={Code}
+    title="Integration"
+    description="Integrate with applications, frameworks, and production systems"
+    href="./integration"
+    linkText="Learn integrations →"
+  />
+</TilesGrid>
+
+## Quick Start
+
+Get your AI Gateway running with OpenAI in under 5 minutes:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="install" label="1. Install" default>
+
+Install MLflow with gateway dependencies:
+
+```bash
+pip install 'mlflow[gateway]'
+```
+
+</TabItem>
+<TabItem value="configure" label="2. Configure">
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY=your_api_key_here
+```
+
+Create a simple configuration file `config.yaml`:
+
+```yaml
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+```
+
+</TabItem>
+<TabItem value="start" label="3. Start Server">
+
+Start the gateway server:
+
+```bash
+mlflow gateway start --config-path config.yaml --port 5000
+```
+
+Your gateway is now running at `http://localhost:5000`
+
+</TabItem>
+<TabItem value="test" label="4. Test">
+
+Test your endpoint:
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Supported Providers
+
+MLflow AI Gateway supports a comprehensive range of LLM providers:
+
+| Provider      | Chat | Completions | Embeddings | Notes                                    |
+| ------------- | ---- | ----------- | ---------- | ---------------------------------------- |
+| OpenAI        | ✅   | ✅          | ✅         | GPT-3.5, GPT-4, text-embedding models    |
+| Azure OpenAI  | ✅   | ✅          | ✅         | Enterprise OpenAI with Azure integration |
+| Anthropic     | ✅   | ✅          | ❌         | Claude models via Anthropic API          |
+| Cohere        | ✅   | ✅          | ✅         | Command and embedding models             |
+| AWS Bedrock   | ✅   | ✅          | ✅         | Claude, Titan, and other Bedrock models  |
+| PaLM          | ✅   | ✅          | ✅         | Google's PaLM models                     |
+| MosaicML      | ✅   | ✅          | ❌         | MPT models and custom deployments        |
+| MLflow Models | ✅   | ✅          | ✅         | Your own deployed MLflow models          |
+
+## Core Concepts
+
+Understanding these key concepts will help you effectively use the AI Gateway:
+
+### Endpoints
+
+Endpoints are named configurations that define how to access a specific model from a provider. Each endpoint specifies the model, provider settings, and access parameters.
+
+### Providers
+
+Providers are the underlying LLM services (OpenAI, Anthropic, etc.) that actually serve the models. The gateway abstracts away provider-specific details.
+
+### Routes
+
+Routes define the URL structure for accessing endpoints. The gateway automatically creates routes based on your endpoint configurations.
+
+### Dynamic Updates
+
+The gateway supports hot-reloading of configurations, allowing you to add, modify, or remove endpoints without restarting the server.
+
+## Next Steps
+
+Ready to dive deeper? Explore these resources:
+
+<TilesGrid>
+  <TileCard
+    icon={Wrench}
+    title="Setup Guide"
+    description="Get started with installation, environment setup, and server configuration"
+    href="./setup"
+    linkText="Start setup →"
+  />
+  <TileCard
+    icon={Play}
+    title="Usage Guide"
+    description="Learn basic querying patterns with Python client and REST APIs"
+    href="./usage"
+    linkText="Learn usage →"
+  />
+  <TileCard
+    icon={Code}
+    title="Integration Guide"
+    description="Integrate with applications, frameworks, and production systems"
+    href="./integration"
+    linkText="View integrations →"
+  />
+</TilesGrid>

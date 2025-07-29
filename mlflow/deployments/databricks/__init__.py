@@ -556,7 +556,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
             )
 
-    @experimental
+    @experimental(version="2.19.0")
     def update_endpoint_config(self, endpoint, config):
         """
         Update the configuration of a specified serving endpoint. See
@@ -616,7 +616,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
         )
 
-    @experimental
+    @experimental(version="2.19.0")
     def update_endpoint_tags(self, endpoint, config):
         """
         Update the tags of a specified serving endpoint. See
@@ -646,7 +646,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PATCH", route=posixpath.join(endpoint, "tags"), json_body=config
         )
 
-    @experimental
+    @experimental(version="2.19.0")
     def update_endpoint_rate_limits(self, endpoint, config):
         """
         Update the rate limits of a specified serving endpoint.
@@ -682,7 +682,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
         )
 
-    @experimental
+    @experimental(version="2.19.0")
     def update_endpoint_ai_gateway(self, endpoint, config):
         """
         Update the AI Gateway configuration of a specified serving endpoint.

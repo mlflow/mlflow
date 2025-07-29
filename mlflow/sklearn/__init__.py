@@ -1290,7 +1290,7 @@ def autolog(
             the best 5 search parameter sets. If `max_tuning_runs=None`, then
             a child run is created for each search parameter set. Note: The best k
             results is based on ordering in `rank_test_score`. In the case of
-            multi-metric evaluation with a custom scorer, the first scorer’s
+            multi-metric evaluation with a custom scorer, the first scorer's
             `rank_test_score_<scorer_name>` will be used to select the best k
             results. To change metric used for selecting best k results, change
             ordering of dict passed as `scoring` parameter for estimator.
@@ -1328,7 +1328,7 @@ def autolog(
     )
 
 
-def _autolog(  # noqa: D417
+def _autolog(
     flavor_name=FLAVOR_NAME,
     log_input_examples=False,
     log_model_signatures=True,
@@ -1465,7 +1465,7 @@ def _autolog(  # noqa: D417
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(autologging_client, estimator, X, y):  # noqa: D417
+    def _log_pretraining_metadata(autologging_client, estimator, X, y):
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine

@@ -360,8 +360,7 @@ def log_model(
             These values are not applied to a returned model from a call to
             ``mlflow.sentence_transformers.load_model()``
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -430,7 +429,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 

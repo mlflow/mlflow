@@ -421,7 +421,7 @@ class _PromptflowModelWrapper:
         self,
         data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]]],
         params: Optional[dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ) -> Union[dict, list]:
+    ) -> Union[dict[str, Any], list[Any]]:
         """
         Args:
             data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
@@ -450,7 +450,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

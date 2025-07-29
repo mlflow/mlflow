@@ -1,17 +1,15 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import mlflow
 import mlflow.anthropic
-from mlflow.anthropic.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
+from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
-    set_span_chat_messages,
     set_span_chat_tools,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -61,12 +59,11 @@ class TracingSession:
         config = AutoLoggingConfig.init(flavor_name=mlflow.anthropic.FLAVOR_NAME)
 
         if config.log_traces:
-            attributes = {}
             self.span = start_span_no_context(
                 name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
                 span_type=_get_span_type(self.original.__name__),
                 inputs=self.inputs,
-                attributes=attributes,
+                attributes={SpanAttributeKey.MESSAGE_FORMAT: "anthropic"},
             )
             _set_tool_attribute(self.span, self.inputs)
 
@@ -75,13 +72,10 @@ class TracingSession:
     def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
         if self.span:
             if exc_val:
-                self.span.add_event(SpanEvent.from_exception(exc_val))
-                status = SpanStatusCode.ERROR
-            else:
-                status = SpanStatusCode.OK
+                self.span.record_exception(exc_val)
 
-            _set_chat_message_attribute(self.span, self.inputs, self.output)
-            self.span.end(status=status, outputs=self.output)
+            _set_token_usage_attribute(self.span, self.output)
+            self.span.end(outputs=self.output)
 
 
 def _get_span_type(task_name: str) -> str:
@@ -102,11 +96,23 @@ def _set_tool_attribute(span: LiveSpan, inputs: dict[str, Any]):
             _logger.debug(f"Failed to set tools for {span}. Error: {e}")
 
 
-def _set_chat_message_attribute(span: LiveSpan, inputs: dict[str, Any], output: Any):
+def _set_token_usage_attribute(span: LiveSpan, output: Any):
     try:
-        messages = [convert_message_to_mlflow_chat(msg) for msg in inputs.get("messages", [])]
-        if output is not None:
-            messages.append(convert_message_to_mlflow_chat(output))
-        set_span_chat_messages(span, messages)
+        if usage := _parse_usage(output):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
     except Exception as e:
-        _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+        _logger.debug(f"Failed to set token usage for {span}. Error: {e}")
+
+
+def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+    try:
+        usage = getattr(output, "usage", None)
+        if usage:
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
+            }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None

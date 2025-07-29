@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import catboost as cb
@@ -39,7 +39,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("catboost") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: Any
 
 
 def get_iris():

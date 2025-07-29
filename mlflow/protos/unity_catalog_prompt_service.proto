@@ -127,10 +127,16 @@ service UnityCatalogPromptService {
   rpc SearchPromptVersions (SearchPromptVersionsRequest) returns (SearchPromptVersionsResponse) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
-        path: "/mlflow/unity-catalog/prompts/{name}/versions"
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/search"
         since {major: 2, minor: 0},
       }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        PERMISSION_DENIED,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Search Prompt Versions",
     };
@@ -217,6 +223,42 @@ service UnityCatalogPromptService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Delete Prompt Version Tag",
+    };
+  }
+
+  rpc LinkPromptVersionsToModels (LinkPromptVersionsToModelsRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-models"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Models",
+    };
+  }
+
+  rpc LinkPromptsToTraces (LinkPromptsToTracesRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-traces"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompts to Traces",
+    };
+  }
+
+  rpc LinkPromptVersionsToRuns (LinkPromptVersionsToRunsRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-runs"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Runs",
     };
   }
 }

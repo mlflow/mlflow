@@ -252,7 +252,7 @@ def update(skip_yml=False):
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         for flavor_key, config in config_dict.items():
             # We currently don't have bandwidth to support newer versions of these flavors.
-            if flavor_key in ["litellm", "autogen"]:
+            if flavor_key in ["litellm"]:
                 continue
             package_name = config["package_info"]["pip_release"]
             versions_and_upload_times = get_package_version_infos(package_name)

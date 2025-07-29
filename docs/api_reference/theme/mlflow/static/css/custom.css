@@ -161,7 +161,6 @@
 
 body,
 body.wy-body-for-nav {
-  font-family: "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
   background: #fff;
   background-image: none;
 }
@@ -399,7 +398,6 @@ table > colgroup:first-child {
 
 .wy-nav-top .change-cloud-link a {
   color: #2980b9;
-  font-weight: lighter;
   margin-right: 14px;
   line-height: 62px;
   /* For aligning the bottom of this text with the menu toggle and logo */
@@ -451,6 +449,8 @@ table > colgroup:first-child {
  */
 
 .wy-nav-side {
+  display: flex;
+  flex-direction: column;
   background-color: #fff;
   color: #000;
   border-right: 1px solid #dadde1;
@@ -465,19 +465,9 @@ table > colgroup:first-child {
   }
 }
 
-.wy-side-nav-search {
-  padding: 30px 30px 0;
-  margin-bottom: 30px;
-  background-color: transparent;
-}
-
 .wy-nav-side [role="contentinfo"] {
-  padding-left: 30px;
-  font-weight: lighter;
+  padding: 24px 16px;
   width: 300px;
-  /* Hack to stop text overflow until it sidebar is cleaned up */
-  padding-top: 20px;
-  padding-bottom: 20px;
   border-top: 1px solid #c9c9c9;
 }
 
@@ -561,6 +551,7 @@ table > colgroup:first-child {
 .wy-menu-vertical li.on a,
 .wy-menu-vertical li.current a,
 .wy-menu-vertical li.current > a {
+  width: 100%;
   color: #606770;
   padding: 6px 30px !important;
   font-size: 14px;
@@ -580,10 +571,8 @@ table > colgroup:first-child {
 .wy-menu-vertical > ul.current > li.current > ul.current > li.current > a,
 .wy-menu-vertical > ul.current > li.current > a {
   padding-bottom: 6px;
-  margin-bottom: 6px;
   background-color: #0000000d !important;
   color: #0194e2;
-  font-size: 0.9rem;
   line-height: 1.25;
   border-radius: 0.25rem;
 }
@@ -623,7 +612,6 @@ table > colgroup:first-child {
 
 .wy-menu-vertical li span.toctree-expand:before {
   vertical-align: middle;
-  font-size: 1.25em !important;
   line-height: 1em !important;
   position: relative;
   top: -0.33em;
@@ -716,13 +704,13 @@ table > colgroup:first-child {
 
 .wy-nav-content-wrap h1 {
   font-size: 48px;
-  font-weight: 700;
+  font-weight: 400;
   margin-top: 0;
   margin-bottom: 0.25em;
 }
 
 .wy-nav-content-wrap h2 {
-  font-weight: 500;
+  font-weight: 400;
   font-size: 34px;
   margin-top: 1.2em;
   /* Was 1.5 but decreased to 1.2 to account for .section:before scroll fix. */
@@ -730,21 +718,21 @@ table > colgroup:first-child {
 }
 
 .wy-nav-content-wrap h3 {
-  font-weight: 500;
+  font-weight: 400;
   font-size: 28px;
   margin-top: 0.5em;
   margin-bottom: 0.5em;
 }
 
 .wy-nav-content-wrap h4 {
-  font-weight: 500;
+  font-weight: 400;
   font-size: 24px;
   margin-top: 0.5em;
   margin-bottom: 0.5em;
 }
 
 .wy-nav-content-wrap h5 {
-  font-weight: 500;
+  font-weight: 400;
   font-size: 20px;
   margin-top: 0.5em;
   margin-bottom: 0.5em;
@@ -1290,7 +1278,6 @@ div[class^="highlight"] pre {
   padding: 0;
   border-radius: 0;
   white-space: nowrap;
-  font-family: "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
   font-weight: 400;
   color: darkslategrey;
   transform: translateY(-10%);
@@ -1380,7 +1367,6 @@ a.download-btn {
   text-decoration: none;
   border-radius: 4px;
   margin-bottom: 10px;
-  font-family: "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
 }
 
 a.download-btn i.fas {
@@ -1400,7 +1386,6 @@ a.notebook-download-btn {
   text-decoration: none;
   border-radius: 4px;
   margin-bottom: 10px;
-  font-family: "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
   transition: background-color 0.3s ease;
 }
 

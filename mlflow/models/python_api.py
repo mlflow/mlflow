@@ -98,7 +98,7 @@ _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
 
-@experimental
+@experimental(version="2.18.0")
 def predict(
     model_uri,
     input_data=None,
@@ -145,7 +145,7 @@ def predict(
                 `mlflow.models.convert_input_example_to_serving_input` to manually validate
                 your input data.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
-        content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
+        content_type: Content type of the input data. Can be one of {'json', 'csv'}.
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 

@@ -11,15 +11,23 @@ import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromp
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
-import type { KeyValueEntity, RunInfoEntity } from '../../types';
+import type { RunInfoEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
+import { shouldEnableGraphQLRunDetailsPage } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
+}));
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableGraphQLRunDetailsPage: jest.fn(),
 }));
 
 jest.mock('../../../common/components/Prompt', () => ({
@@ -31,15 +39,9 @@ jest.mock('../../actions', () => ({
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
 }));
 
-jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
-    '@mlflow/mlflow/src/common/utils/FeatureUtils',
-  ),
-  shouldEnableGraphQLRunDetailsPage: () => false,
-}));
-
 const testPromptName = 'test-prompt';
 const testPromptVersion = 1;
+const testPromptName2 = 'test-prompt-2';
 
 jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
   usePromptVersionsForRunQuery: jest.fn(() => ({
@@ -107,6 +109,7 @@ describe('RunViewOverview integration', () => {
     jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
       usingUnifiedDetailsLayout: false,
     });
+    jest.mocked(shouldEnableGraphQLRunDetailsPage).mockReturnValue(false);
   });
   const renderComponent = ({
     tags = {},
@@ -205,7 +208,7 @@ describe('RunViewOverview integration', () => {
     await userEvent.type(screen.getByTestId('text-area'), 'hello');
     await userEvent.click(screen.getByTestId('editable-note-save-button'));
 
-    expect(setTagApi).toBeCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
+    expect(setTagApi).toHaveBeenCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
   });
 
   test.each([
@@ -316,7 +319,7 @@ describe('RunViewOverview integration', () => {
     expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
-  test('Render child run and check for the existing parent run link', () => {
+  test('Render child run and check for the existing parent run link', async () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
@@ -357,11 +360,35 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
-      expect(getRunApi).toBeCalledWith(testParentRunUuid);
+      expect(getRunApi).toHaveBeenCalledWith(testParentRunUuid);
     });
   });
 
   test('Run overview contains prompts', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
+      expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
+    });
+  });
+
+  test('Run overview contains prompts from run tags', async () => {
+    renderComponent({
+      tags: {
+        [LINKED_PROMPTS_TAG_KEY]: {
+          key: LINKED_PROMPTS_TAG_KEY,
+          value: JSON.stringify([{ name: testPromptName2, version: testPromptVersion.toString() }]),
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName2} (v${testPromptVersion})`)).toBeInTheDocument();
+    });
+  });
+
+  test('Run overview contains prompts from prompt version tags', async () => {
     renderComponent();
 
     await waitFor(() => {

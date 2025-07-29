@@ -71,7 +71,7 @@ def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=N
         _raise_unsupported_arg(arg_name, message)
 
 
-@experimental
+@experimental(version="2.17.0")
 class UnityCatalogOssStore(BaseRestStore):
     """
     Client for an Open Source Unity Catalog Server accessed via REST API calls.
@@ -433,7 +433,7 @@ class UnityCatalogOssStore(BaseRestStore):
             is_oss=True,
         )
 
-    def _get_temporary_model_version_write_credentials_oss(  # noqa: D417
+    def _get_temporary_model_version_write_credentials_oss(
         self, model_name, catalog_name, schema_name, version
     ):
         """

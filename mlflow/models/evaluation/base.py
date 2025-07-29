@@ -27,6 +27,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.telemetry.events import EvaluateEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
@@ -883,7 +885,7 @@ def resolve_evaluators_and_configs(
             # If evaluator config is passed but any of available evaluator key is not
             # in the evaluator config, we assume the evaluator config to be a flat dict,
             # which is globally applied to all evaluators.
-            evaluator_config = {ev: evaluator_config for ev in evaluators}
+            evaluator_config = dict.fromkeys(evaluators, evaluator_config)
 
         # Filter out evaluators that cannot evaluate the model type.
         resolved = []
@@ -990,6 +992,7 @@ def _get_last_failed_evaluator():
 # DO NOT CHANGE THE ORDER OF THE ARGUMENTS
 # The order of the arguments need to be preserved. You can add new arguments at the end
 # of the argument list, but do not change the order of the existing arguments.
+@record_usage_event(EvaluateEvent)
 def _evaluate(
     *,
     model,
@@ -1098,7 +1101,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
-def evaluate(  # noqa: D417
+def evaluate(
     model=None,
     data=None,
     *,
@@ -1371,7 +1374,7 @@ def evaluate(  # noqa: D417
             - A Pandas DataFrame containing evaluation features, labels, and optionally model
                 outputs. Model outputs are required to be provided when model is unspecified.
                 If ``feature_names`` argument not specified, all columns except for the label
-                column and model_output column are regarded as feature columns. Otherwise,
+                column and predictions column are regarded as feature columns. Otherwise,
                 only column names present in ``feature_names`` are regarded as feature columns.
             -  A Spark DataFrame containing evaluation features and labels. If
                 ``feature_names`` argument not specified, all columns except for the label
@@ -1381,7 +1384,7 @@ def evaluate(  # noqa: D417
             - A :py:class:`mlflow.data.dataset.Dataset` instance containing evaluation
                 features, labels, and optionally model outputs. Model outputs are only supported
                 with a PandasDataset. Model outputs are required when model is unspecified, and
-                should be specified via the ``predictions`` prerty of the PandasDataset.
+                should be specified via the ``predictions`` property of the PandasDataset.
 
         model_type: (Optional) A string describing the model type. The default evaluator
             supports the following model types:

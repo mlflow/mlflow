@@ -1,10 +1,7 @@
-from typing import Optional
-
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
@@ -22,11 +19,10 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        experiment_id: Optional[str] = None,
     ):
-        super().__init__(span_exporter, experiment_id)
+        super().__init__(span_exporter)
 
-    def _start_trace(self, root_span: OTelSpan) -> TraceInfoV2:
+    def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """
         Create a new TraceInfo object and register it with the trace manager.
 

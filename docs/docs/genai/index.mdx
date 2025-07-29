@@ -1,0 +1,138 @@
+---
+title: MLflow for GenAI
+sidebar_label: MLflow for GenAI
+sidebar_position: 1
+hide_title: true
+---
+
+import { Play, Settings, BookOpen, Search, CheckCircle, Edit3, Rocket, BarChart3, Link, Globe } from 'lucide-react';
+import TileCard from '@site/src/components/TileCard';
+import SearchBox from '@site/src/components/SearchBox';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { CardGroup, SmallLogoCard } from '@site/src/components/Card';
+import FeatureHighlights from '@site/src/components/FeatureHighlights';
+import Platform from "@site/src/content/platform.mdx"
+import TraceUIImageUrl from '@site/static/images/mlflow-3-trace-ui.png';
+
+<div className="hero-section">
+  <div className="hero-content">
+    <div className="hero-text">
+      <h1>Build with MLflow GenAI</h1>
+      <p>Learn how to get started with MLflow for building production-ready GenAI applications.</p>
+
+      <SearchBox placeholder="What do you want to know about MLflow?" />
+    </div>
+
+    <div className="hero-image">
+      <img src={TraceUIImageUrl} alt="MLflow GenAI Platform" />
+    </div>
+
+  </div>
+</div>
+
+<TilesGrid>
+  <TileCard
+    icon={Play}
+    title="Get Started"
+    description="Build your first GenAI app with MLflow"
+    href="/genai/getting-started"
+    linkText="Start building →"
+  />
+
+  <TileCard
+    icon={Settings}
+    title="Environment Setup"
+    description="Install and configure MLflow"
+    href="/genai/getting-started/connect-environment"
+    linkText="Setup guide →"
+  />
+
+  <TileCard
+    icon={BookOpen}
+    title="API Reference"
+    description="Complete API documentation"
+    href="https://mlflow.org/docs/latest/api_reference/index.html"
+    linkText="Browse APIs →"
+  />
+
+  <TileCard
+    icon={Search}
+    title="Tracing & Debug"
+    description="Observe AI application flows"
+    href="/genai/tracing"
+    linkText="Start tracing →"
+  />
+
+  <TileCard
+    icon={CheckCircle}
+    title="Evaluation"
+    description="Test and improve AI quality"
+    href="/genai/eval-monitor/"
+    linkText="Evaluate apps →"
+  />
+
+  <TileCard
+    icon={Edit3}
+    title="Prompt Engineering"
+    description="Design and version prompts"
+    href="/genai/prompt-registry/"
+    linkText="Engineer prompts →"
+  />
+
+  <TileCard
+    icon={Rocket}
+    title="Deploy & Serve"
+    description="Production deployment guide"
+    href="/genai/serving"
+    linkText="Deploy apps →"
+  />
+
+  <TileCard
+    icon={Globe}
+    title="AI Gateway"
+    description="Unified API for AI providers"
+    href="/genai/governance/ai-gateway"
+    linkText="Learn more →"
+  />
+
+  <TileCard
+    icon={Link}
+    title="Integrations"
+    description="Framework connections"
+    href="/genai/tracing/integrations"
+    linkText="View integrations →"
+  />
+</TilesGrid>
+
+## Why choose MLflow?
+
+<FeatureHighlights features={[
+  {
+    title: "Open Source",
+    description: "Join thousands of teams building GenAI with MLflow. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral."
+  },
+  {
+    title: "Production-Ready Platform",
+    description: "Deploy anywhere with confidence. From local servers to cloud platforms, MLflow handles the complexity of GenAI deployment, monitoring, and optimization."
+  },
+  {
+    title: "End-to-End Lifecycle",
+    description: "Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform."
+  },
+  {
+    title: "Framework Integration",
+    description: "Use any GenAI framework or model provider. With 20+ native integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around."
+  },
+  {
+    title: "Complete Observability",
+    description: "See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence."
+  },
+  {
+    title: "Automated Quality Assurance",
+    description: "Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications."
+  }
+]} />
+
+## Running Anywhere
+
+<Platform />

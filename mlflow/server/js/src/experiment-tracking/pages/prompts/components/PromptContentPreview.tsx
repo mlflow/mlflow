@@ -165,7 +165,7 @@ client = OpenAI(api_key="<YOUR_API_KEY>")
 mlflow.set_tracking_uri("<YOUR_TRACKING_URI>")
 
 # Example of loading and using the prompt
-prompt = mlflow.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`;
+prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersion?.version}")`;
 
   // Null variables mean that there was a parsing error
   if (variables === null) {

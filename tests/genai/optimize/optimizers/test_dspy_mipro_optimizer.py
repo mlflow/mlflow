@@ -174,7 +174,7 @@ def test_optimize_scenarios(
     # Verify optimization result
     assert isinstance(result, PromptVersion)
     assert result.version == 2
-    assert result.version_metadata["overall_eval_score"] == "1.0"
+    assert result.tags["overall_eval_score"] == "1.0"
 
     # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]
@@ -187,18 +187,11 @@ def test_optimize_scenarios(
 
     # Verify logging
     captured = capsys.readouterr()
-    assert "Started optimizing prompt" in captured.err
-    assert "Please wait as this process typically takes several minutes" in captured.err
+    assert "Starting prompt optimization" in captured.err
     if initial_score == 1.0 == optimized_program.score:
-        assert (
-            "Prompt optimization completed. Evaluation score did not change. Score 1.0"
-            in captured.err
-        )
+        assert "Optimization complete! Score remained stable at: 1.0" in captured.err
     else:
-        assert (
-            "Prompt optimization completed. Evaluation score changed from 0.0 to 1.0."
-            in captured.err
-        )
+        assert "Optimization complete! Initial score: 0.0. Final score: 1.0" in captured.err
 
 
 def test_convert_to_dspy_metric():
@@ -267,7 +260,7 @@ def test_validate_input_fields_with_missing_variables():
 
     with pytest.raises(
         MlflowException,
-        match=r"The following variables of the prompt are missing from the dataset: {'style'}",
+        match=r"Validation failed. Missing prompt variables in dataset: {'style'}",
     ):
         optimizer._validate_input_fields(input_fields, prompt)
 
@@ -376,3 +369,27 @@ def test_optimize_with_autolog(
         assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
     else:
         assert len(callbacks) == 0
+
+
+def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_extractor):
+    import dspy
+
+    optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
+    mock_mipro.return_value.compile.return_value = optimized_program
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
+
+    with patch(
+        "mlflow.genai.optimize.optimizers.dspy_mipro_optimizer.register_prompt",
+        wraps=register_prompt,
+    ) as spy_register:
+        optimizer.optimize(
+            prompt=sample_prompt,
+            target_llm_params=LLMParams(model_name="agent/model"),
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+    assert spy_register.called
+    _, kwargs = spy_register.call_args
+    assert kwargs["tags"]["overall_eval_score"] == "1.0"
+    assert kwargs["name"] == "test_prompt"

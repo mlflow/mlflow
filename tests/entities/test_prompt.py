@@ -7,6 +7,7 @@ from mlflow.entities.model_registry.prompt_version import (
     PromptVersion,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import model_version_to_prompt_version
 from mlflow.protos.model_registry_pb2 import ModelVersionTag
 
 
@@ -87,7 +88,7 @@ def test_prompt_from_model_version():
         aliases=["alias"],
     )
 
-    prompt = PromptVersion.from_model_version(model_version)
+    prompt = model_version_to_prompt_version(model_version)
     assert prompt.name == "my-prompt"
     assert prompt.version == 1
     assert prompt.description == "test"
@@ -105,7 +106,7 @@ def test_prompt_from_model_version():
     )
 
     with pytest.raises(MlflowException, match="Name `my-prompt` is registered as a model"):
-        PromptVersion.from_model_version(invalid_model_version)
+        model_version_to_prompt_version(invalid_model_version)
 
     invalid_model_version = ModelVersion(
         name="my-prompt",
@@ -116,4 +117,4 @@ def test_prompt_from_model_version():
     )
 
     with pytest.raises(MlflowException, match="Prompt `my-prompt` does not contain a prompt text"):
-        PromptVersion.from_model_version(invalid_model_version)
+        model_version_to_prompt_version(invalid_model_version)

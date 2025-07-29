@@ -1,5 +1,6 @@
 import uuid
 from importlib import import_module
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -7,9 +8,10 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities.assessment import Expectation, Feedback
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
@@ -151,34 +153,45 @@ def test_evaluate_with_traces(pass_full_dataframe):
     assert len(data) == len(questions)
 
     # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
-    data.iloc[0]["trace"].info.assessments = [
-        Expectation(
-            name="expected_response",
-            trace_id="tr-123",
-            value="MLflow is a tool for ML",
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-        Expectation(
-            name="max_length",
-            trace_id="tr-123",
-            value=100,
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-    ]
-    data.iloc[1]["trace"].info.assessments = [
-        Expectation(
-            name="expected_response",
-            trace_id="tr-123",
-            value="Spark is a fast data processing engine",
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-        Expectation(
-            name="max_length",
-            trace_id="tr-123",
-            value=1,
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-    ]
+    def add_assessment_to_trace_json(trace_json: str, assessments: list[Assessment]):
+        trace = Trace.from_json(trace_json)
+        trace.info.assessments = assessments
+        return trace.to_json()
+
+    data.at[0, "trace"] = add_assessment_to_trace_json(
+        data.at[0, "trace"],
+        [
+            Expectation(
+                name="expected_response",
+                trace_id="tr-123",
+                value="MLflow is a tool for ML",
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+            Expectation(
+                name="max_length",
+                trace_id="tr-123",
+                value=100,
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+        ],
+    )
+    data.at[1, "trace"] = add_assessment_to_trace_json(
+        data.at[1, "trace"],
+        [
+            Expectation(
+                name="expected_response",
+                trace_id="tr-123",
+                value="Spark is a fast data processing engine",
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+            Expectation(
+                name="max_length",
+                trace_id="tr-123",
+                value=1,
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+        ],
+    )
 
     if not pass_full_dataframe:
         data = data[["trace"]]
@@ -226,7 +239,7 @@ def test_evaluate_with_managed_dataset():
             self.records[dataset_id].extend(records)
 
         def upsert_dataset_record_expectations(
-            self, name: str, dataset_id: str, record_id: str, expectations: list[dict]
+            self, name: str, dataset_id: str, record_id: str, expectations: list[dict[str, Any]]
         ):
             for record in self.records[dataset_id]:
                 if record.id == record_id:
@@ -284,7 +297,6 @@ def test_evaluate_with_managed_dataset():
 def test_model_from_deployment_endpoint(mock_get_deploy_client):
     mock_client = mock_get_deploy_client.return_value
     mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_client.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
     data = [
         {
@@ -304,34 +316,22 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
             }
         },
     ]
-
     predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
-
-    # predict_fn should be callable with a single input
-    response = predict_fn(**data[0]["inputs"])
-
-    mock_client.predict.assert_called_once_with(
-        endpoint="chat",
-        inputs=data[0]["inputs"],
-    )
-    assert response == _DUMMY_CHAT_RESPONSE  # Chat response should not be parsed
-    mock_client.reset_mock()
-
-    # Running evaluation
     result = mlflow.genai.evaluate(
         data=data,
         predict_fn=predict_fn,
         scorers=[has_trace],
     )
 
+    databricks_options = {"databricks_options": {"return_trace": True}}
     mock_client.predict.assert_has_calls(
         [
             # Test call to check if the function is traced or not
-            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
             # First evaluation call
-            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
             # Second evaluation call
-            mock.call(endpoint="chat", inputs=data[1]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[1]["inputs"], **databricks_options}),
         ],
         any_order=True,
     )
@@ -343,7 +343,6 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes["endpoint"] == "endpoints:/chat"
     # Eval harness runs prediction in parallel, so the order is not deterministic
     assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE

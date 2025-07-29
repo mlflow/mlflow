@@ -15,6 +15,7 @@ from groq.types.chat.chat_completion import (
 
 import mlflow.groq
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -82,6 +83,20 @@ def test_chat_completion_autolog():
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.to_dict(exclude_unset=False)
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
 
     mlflow.groq.autolog(disable=True)
     client = groq.Groq()
@@ -170,10 +185,20 @@ def test_tool_calling_autolog():
     assert span.inputs == DUMMY_TOOL_CALL_REQUEST
     assert span.outputs == DUMMY_TOOL_CALL_RESPONSE.to_dict(exclude_unset=False)
     assert span.get_attribute("mlflow.chat.tools") == TOOLS
-    assert span.get_attribute("mlflow.chat.messages") == [
-        *DUMMY_TOOL_CALL_REQUEST["messages"],
-        DUMMY_TOOL_CALL_RESPONSE.choices[0].message.to_dict(exclude_unset=False),
-    ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
 
 
 DUMMY_TOOL_RESPONSE_REQUEST = {
@@ -239,10 +264,20 @@ def test_tool_response_autolog():
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_TOOL_RESPONSE_REQUEST
     assert span.outputs == DUMMY_TOOL_RESPONSE_RESPONSE.to_dict(exclude_unset=False)
-    assert span.get_attribute("mlflow.chat.messages") == [
-        *DUMMY_TOOL_RESPONSE_REQUEST["messages"],
-        DUMMY_TOOL_RESPONSE_RESPONSE.choices[0].message.to_dict(exclude_unset=False),
-    ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 20,
+        "output_tokens": 648,
+        "total_tokens": 668,
+    }
 
 
 BINARY_CONTENT = b"\x00\x00\x00\x14ftypM4A \x00\x00\x00\x00mdat\x00\x01\x02\x03"

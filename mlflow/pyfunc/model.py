@@ -20,6 +20,7 @@ import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
+from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -831,7 +832,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ResponsesAgentStreamEvent,
     )
 
-    @experimental
+    @experimental(version="3.0.0")
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         """
         A base class for creating ResponsesAgent models. It can be used as a wrapper around any
@@ -844,21 +845,55 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         _skip_type_hint_validation = True
 
+        @staticmethod
+        def responses_agent_output_reducer(
+            chunks: list[Union[ResponsesAgentStreamEvent, dict[str, Any]]],
+        ):
+            output_items = []
+            for chunk in chunks:
+                # Handle both dict and pydantic object formats
+                if isinstance(chunk, dict):
+                    chunk_type = chunk.get("type")
+                    if chunk_type == "response.output_item.done":
+                        output_items.append(chunk.get("item"))
+                else:
+                    # Pydantic object (ResponsesAgentStreamEvent)
+                    if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
+                        output_items.append(chunk.item)
+
+            return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
+
         def __init_subclass__(cls, **kwargs) -> None:
             super().__init_subclass__(**kwargs)
             for attr_name in ("predict", "predict_stream"):
                 attr = cls.__dict__.get(attr_name)
                 if callable(attr):
-                    setattr(
-                        cls,
-                        attr_name,
-                        wrap_non_list_predict_pydantic(
-                            attr,
-                            ResponsesAgentRequest,
-                            "Invalid dictionary input for a ResponsesAgent. "
-                            "Expected a dictionary with the ResponsesRequest schema.",
-                        ),
+                    # Only apply trace decorator if it is not already traced with mlflow.trace
+                    if getattr(attr, "__mlflow_traced__", False):
+                        mlflow.pyfunc._logger.warning(
+                            f"You have manually traced {attr_name} with @mlflow.trace, but this is "
+                            "unnecessary with ResponsesAgent subclasses. You can remove the "
+                            "@mlflow.trace decorator and it will be automatically traced."
+                        )
+                        traced_attr = attr
+                    else:
+                        # Apply trace decorator first
+                        if attr_name == "predict_stream":
+                            traced_attr = mlflow.trace(
+                                span_type=SpanType.AGENT,
+                                output_reducer=cls.responses_agent_output_reducer,
+                            )(attr)
+                        else:
+                            traced_attr = mlflow.trace(span_type=SpanType.AGENT)(attr)
+
+                    # Then wrap with pydantic wrapper
+                    wrapped_attr = wrap_non_list_predict_pydantic(
+                        traced_attr,
+                        ResponsesAgentRequest,
+                        "Invalid dictionary input for a ResponsesAgent. "
+                        "Expected a dictionary with the ResponsesRequest schema.",
                     )
+                    setattr(cls, attr_name, wrapped_attr)
 
         @abstractmethod
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -959,7 +994,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             }
 
 
-def _save_model_with_class_artifacts_params(  # noqa: D417
+def _save_model_with_class_artifacts_params(
     path,
     python_model,
     signature=None,

@@ -9,7 +9,7 @@ BUILDDIR      = build
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-	$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
+    $(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don\'t have Sphinx installed, grab it from http://sphinx-doc.org/)
 endif
 
 # Internal variables.
@@ -64,6 +64,10 @@ javadocs:
 rdocs:
 	./build-rdoc.sh
 
+.PHONY: tsdocs
+tsdocs:
+	./build-tsdoc.sh
+
 .PHONY: test-examples
 test-examples:
 	@pytest --no-cov .examples
@@ -85,7 +89,7 @@ view:
 	python -m http.server --directory build/html
 
 .PHONY: html
-html: rdocs rsthtml javadocs
+html: rdocs rsthtml javadocs tsdocs
 
 .PHONY: dirhtml
 dirhtml:
@@ -104,7 +108,7 @@ livehtml:
 	# Remove `--keep-going` option because `sphinx-autobuild` doesn't support it and raises an error.
 	# See: https://github.com/executablebooks/sphinx-autobuild/blob/master/src/sphinx_autobuild/build.py#L7
 	sphinx-autobuild -b html $(shell echo $(ALLSPHINXOPTS) | sed -e "s/--keep-going//g") $(BUILDDIR)/html
-		
+
 .PHONY: pickle
 pickle:
 	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle

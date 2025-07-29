@@ -29,7 +29,12 @@ mlflow
         set_active_model,
         set_logged_model_tags,
         log_model_params,
-        clear_active_model
+        clear_active_model,
+        load_prompt,
+        register_prompt,
+        search_prompts,
+        set_prompt_alias,
+        delete_prompt_alias,
 
 .. _mlflow-tracing-fluent-python-apis:
 
@@ -48,6 +53,8 @@ guidance on how to use these tracing APIs, please refer to the `Tracing Fluent A
 .. autofunction:: mlflow.get_last_active_trace_id
 .. autofunction:: mlflow.add_trace
 .. autofunction:: mlflow.log_assessment
+.. autofunction:: mlflow.log_expectation
+.. autofunction:: mlflow.log_feedback
 .. autofunction:: mlflow.update_assessment
 .. autofunction:: mlflow.delete_assessment
 

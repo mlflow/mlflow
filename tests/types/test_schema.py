@@ -1141,7 +1141,7 @@ def test_object_construction_with_errors():
         Property("p2", DataType.binary),
         Property("p2", DataType.boolean),
     ]
-    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: `p2`"):
         Object(properties)
 
 
@@ -1832,7 +1832,8 @@ def test_convert_dataclass_to_schema_for_rag():
 def test_convert_dataclass_to_schema_complex():
     @dataclass
     class Settings:
-        baz: Optional[bool] = True
+        baz: Optional[bool] = True  # _noqa: UP045
+        qux: bool | None = None
 
     @dataclass
     class Config:
@@ -1856,7 +1857,10 @@ def test_convert_dataclass_to_schema_complex():
                     "bar": {"type": "long", "required": True},
                     "config_settings": {
                         "type": "object",
-                        "properties": {"baz": {"type": "boolean", "required": False}},
+                        "properties": {
+                            "baz": {"type": "boolean", "required": False},
+                            "qux": {"type": "boolean", "required": False},
+                        },
                         "required": True,
                     },
                 },
