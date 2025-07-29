@@ -5364,8 +5364,22 @@ class MlflowClient:
         Returns:
             The created model.
         """
-        return self._tracking_client.create_logged_model(
+        return self._create_logged_model(
             experiment_id, name, source_run_id, tags, params, model_type
+        )
+
+    def _create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
+        model_type: Optional[str] = None,
+        flavor: Optional[str] = None,
+    ) -> LoggedModel:
+        return self._tracking_client.create_logged_model(
+            experiment_id, name, source_run_id, tags, params, model_type, flavor
         )
 
     @experimental(version="3.0.0")

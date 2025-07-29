@@ -60,6 +60,7 @@ def pytest_configure(config):
         "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
     )
     config.addinivalue_line("markers", "classification")
+    config.addinivalue_line("markers", "no_mock_requests_get")
 
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
@@ -201,6 +202,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",
+            "tests/semantic_kernel",
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",

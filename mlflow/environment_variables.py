@@ -874,12 +874,6 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
-#: Whether to allow setting thread local tracing destination.
-#: (default: ``False``)
-MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
-)
-
 
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
@@ -905,4 +899,20 @@ MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TI
 #: (default: ``10``)
 MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS", int, 10
+)
+
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+#: Whether to allow setting thread local tracing destination.
+#: (default: ``False``)
+MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
 )

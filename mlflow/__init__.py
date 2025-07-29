@@ -91,6 +91,7 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
+semantic_kernel = LazyLoader("mlflow.semantic_kernel", globals(), "mlflow.semantic_kernel")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -143,6 +144,7 @@ if TYPE_CHECKING:
         pyspark,
         pytorch,
         rfunc,
+        semantic_kernel,
         sentence_transformers,
         shap,
         sklearn,
@@ -408,3 +410,7 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+from mlflow.telemetry import set_telemetry_client
+
+set_telemetry_client()

@@ -209,7 +209,7 @@ class _PythonEnv:
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
-def _mlflow_conda_env(  # noqa: D417
+def _mlflow_conda_env(
     path=None,
     additional_conda_deps=None,
     additional_pip_deps=None,
