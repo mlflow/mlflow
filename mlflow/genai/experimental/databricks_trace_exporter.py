@@ -3,10 +3,9 @@ import json
 import logging
 import threading
 import time
-from typing import Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from cachetools import TTLCache
-from ingest_api_sdk import TableProperties
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
@@ -16,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
     create_archival_ingest_sdk,
+    import_ingest_sdk_classes,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -24,6 +24,15 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 minutes
+
+if TYPE_CHECKING:
+    try:
+        TableProperties, _ = import_ingest_sdk_classes()
+    except ImportError:
+        # When ingest_api_sdk is not available, create a placeholder for type annotations
+        from typing import Any
+
+        TableProperties = Any
 
 
 @experimental(version="3.2.0")
@@ -104,6 +113,11 @@ class DatabricksTraceDeltaArchiver:
 
             # Store configuration for this export
             self._spans_table_name = config.spans_table_name
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            TableProperties, _ = import_ingest_sdk_classes()
             self._spans_table_properties = TableProperties(
                 config.spans_table_name, DeltaProtoSpan.DESCRIPTOR
             )
@@ -283,7 +297,7 @@ class IngestStreamFactory:
     _atexit_registered = False
 
     @classmethod
-    def get_instance(cls, table_properties: TableProperties) -> "IngestStreamFactory":
+    def get_instance(cls, table_properties: "TableProperties") -> "IngestStreamFactory":
         """
         Get or create a singleton factory instance for the given table.
 
@@ -307,7 +321,7 @@ class IngestStreamFactory:
                         _logger.debug("Registered atexit handler for IngestStreamFactory cleanup")
         return cls._instances[table_name]
 
-    def __init__(self, table_properties: TableProperties):
+    def __init__(self, table_properties: "TableProperties"):
         """
         Initialize factory with table properties.
         Encapsulates SDK creation and stream lifecycle management.
@@ -334,7 +348,11 @@ class IngestStreamFactory:
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
 
-            from ingest_api_sdk.shared.definitions import StreamState
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            _, StreamState = import_ingest_sdk_classes()
 
             # Invalidate the bad stream from the cache if stream is in a valid state
             if stream.get_state() not in [StreamState.OPENED, StreamState.FLUSHING]:
