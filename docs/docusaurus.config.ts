@@ -117,6 +117,13 @@ const config: Config = {
           ],
         },
         {
+          type: 'doc',
+          position: 'left',
+          label: 'Community',
+          docId: 'usage-tracking',
+          docsPluginId: 'community',
+        },
+        {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
@@ -226,6 +233,16 @@ const config: Config = {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
+      },
+    ],
+    // Community docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'community',
+        path: 'docs/community',
+        routeBasePath: 'community',
+        sidebarPath: false,
       },
     ],
     [
