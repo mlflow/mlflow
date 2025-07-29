@@ -74,8 +74,7 @@ class EvaluationDataset(_MlflowObject):
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
-                - List of Trace objects (will extract inputs from root span, expectations from
-                  assessments)
+                - List of Trace objects
 
         Returns:
             Self for method chaining
