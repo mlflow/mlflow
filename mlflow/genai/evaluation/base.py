@@ -301,12 +301,13 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
     # one is not publicly documented, but we keep it for backward compatibility.
-    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set() and "RAG_EVAL_MAX_WORKERS" in os.environ:
+    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set() and "RAG_EVAL_MAX_WORKERS" not in os.environ:
+        os.environ["RAG_EVAL_MAX_WORKERS"] = str(MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+    elif "RAG_EVAL_MAX_WORKERS" in os.environ:
         logger.warning(
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
-        os.environ["RAG_EVAL_MAX_WORKERS"] = str(MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
