@@ -1263,7 +1263,6 @@ class MlflowClient:
         if root_span:
             root_span.end(outputs, attributes, status, end_time_ns)
 
-    @experimental(version="2.20.0")
     def _log_trace(self, trace: Trace) -> str:
         """
         Log the complete Trace object to the backend store.

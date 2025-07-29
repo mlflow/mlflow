@@ -7,7 +7,6 @@ from typing import ForwardRef, get_args, get_origin
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_connect
 from mlflow.utils.file_utils import TempDir
 
@@ -98,7 +97,6 @@ _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
 
-@experimental(version="2.18.0")
 def predict(
     model_uri,
     input_data=None,
