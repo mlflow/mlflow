@@ -2,16 +2,16 @@
 # manually modify this file. Instead, modify the corresponding requirements YAML file and run the
 # dev/generate_requirements.py script to regenerate this file.
 
+Flask<4
 alembic<2,!=1.10.0
 docker<8,>=4.0.0
-Flask<4
-numpy<3
-scipy<2
-pandas<3
-sqlalchemy<3,>=1.4.0
-gunicorn<24; platform_system != 'Windows'
-waitress<4; platform_system == 'Windows'
-scikit-learn<2
-pyarrow<21,>=4.0.0
-matplotlib<4
 graphene<4
+gunicorn<24; platform_system != 'Windows'
+matplotlib<4
+numpy<3
+pandas<3
+pyarrow<21,>=4.0.0
+scikit-learn<2
+scipy<2
+sqlalchemy<3,>=1.4.0
+waitress<4; platform_system == 'Windows'
