@@ -6,9 +6,12 @@ MLflow 3.2.0rc0 includes several major features and improvements
 
 ### Major New Features
 
-- 🧭 **Tracing TypeScript SDK**: MLflow Tracing now supports the TypeScript SDK, making it easier to trace LLM workflows in server-side JavaScript environments like Node. (#16871, @B-Step62)
+- 🧭 **Tracing TypeScript SDK**: MLflow Tracing now supports the TypeScript SDK, allowing developers to trace GenAI applications in TypeScript environments. (#16871, @B-Step62)
+- 🔗 **Semantic Kernel Tracing**: MLflow now provides automatic tracing support for Semantic Kernel, simplifying trace capture for SK-based workflows. (#16469, @michael-berk)
 - 🧪 **Assessment Backend**: MLflow OSS now supports tracking assessments, enabling structured evaluation of LLM workflows. (#16743, @BenWilson2)
 - 🖥️ **MLflow UI Improvements**: The MLflow UI now features **a redesigned experiment home view** and includes enhancements like pagination on the model page for better usability. (#16464, @frontsideair, #15801, @Flametaa)
+- 🛡️ **PII Masking in Tracing**: Added support for masking personally identifiable information (PII) via a custom span post-processor. (#16344, @B-Step62)
+- 🐻‍❄️ **Polars Dataset Support**: MLflow now supports [Polars datasets](https://mlflow.org/docs/latest/ml/dataset/#dataset), expanding compatibility with performant DataFrame libraries. (#13006, @AlpAribal)
 
 ### 📊 Usage Tracking (New in 3.2.0)
 
@@ -16,22 +19,18 @@ MLflow 3.2.0rc0 includes several major features and improvements
 
 Features:
 
-- [Tracing] Semantic Kernel Tracing (#16469, @michael-berk)
 - [Tracing] Include mlflow-tracing as a dependency of mlflow (#16589, @B-Step62)
 - [Tracing] Convert DatabricksRM output to MLflow document format (#16866, @WeichenXu123)
 - [Tracing] Add unified token usage tracking for Bedrock LLMs (#16351, @mohammadsubhani)
-- [Tracing] Token usage tracking for agent frameworks including PydanticAI, Anthropic, Autogen etc. (#16251, #16362, #16246, #16258, #16313, #16312, #16340, @joelrobin18)
-- [Tracking] Token usage tracking for LlamaIndex (#16387, @sanatb187)
+- [Tracing] Token usage tracking for agent frameworks including Anthropic, Autogen, LlamaIndex etc. (#16251, #16362, #16246, #16258, #16313, #16312, #16340, #16357, #16358, @joelrobin18, #16387, @sanatb187)
 - [Tracing] Render multi-modal trace for LangChain (#16799, @B-Step62)
 - [Tracing] Support async tracing for Gemini (#16632, @B-Step62)
 - [Tracing] Support global sampling for tracing (#16700, @B-Step62)
-- [Tracing] Support PII masking via custom span post-processor (#16344, @B-Step62)
 - [Tracing] ResponsesAgent tracing aggregation (#16787, @bbqiu)
 - [Tracing] Add Agent and LLM complete name (#16613, @joelrobin18)
 - [Tracking] Allow setting thread-local tracing destination via mlflow.tracing.set_destination (#16859, @WeichenXu123)
 - [Tracking] Introduce MLFLOW_DISABLE_SCHEMA_DETAILS environment variable to toggle detailed schema errors (#16631, @NJAHNAVI2907)
 - [Tracking] Add support for chat-style prompts with structured output with prompt object (#16341, @harshilprajapati96)
-- [Tracking] Add polars dataset (#13006, @AlpAribal)
 - [Tracking] Add support for responses.parse calls in oai autologger (#16245, @dipakkrishnan)
 - [Evaluation] Replace guideline_adherence to guidelines (#16856, @smoorjani)
 - [UI] Add tag filter to the experiments page (#16648, @frontsideair)
@@ -61,8 +60,6 @@ Documentation updates:
 
 - [Docs] Overhaul of top level version management GenAI docs (#16728, @BenWilson2)
 - [Docs] Fix Additional GenAI Docs pages (#16691, @BenWilson2)
-- [Tracking] Ollama Token Doc Update (#16357, @joelrobin18)
-- [Tracking] Deepseek Token Usage Tracking Doc Update (#16358, @joelrobin18)
 - [Docs] Update the docs selector dropdown (#16280, @BenWilson2)
 - [Docs] Update docs font sizing and link coloring (#16281, @BenWilson2)
 
