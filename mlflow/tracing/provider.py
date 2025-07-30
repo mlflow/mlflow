@@ -417,10 +417,23 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors
 
-        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
         from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 
-        exporter = InferenceTableSpanExporter()
+        # Try to use the delta archiving exporter if databricks-agents is available
+        try:
+            from mlflow.genai.experimental import InferenceTableDeltaSpanExporter
+
+            exporter = InferenceTableDeltaSpanExporter()
+            _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta archiving")
+        except ImportError:
+            # databricks-agents not available, use base exporter
+            from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+
+            exporter = InferenceTableSpanExporter()
+            _logger.debug(
+                "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
+            )
+
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
     else:
