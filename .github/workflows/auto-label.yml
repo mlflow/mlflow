@@ -12,7 +12,7 @@ jobs:
       models: read
     timeout-minutes: 10
     steps:
-      - name: List labels
+      - name: Select labels
         uses: actions/ai-inference@9693b137b6566bb66055a713613bf4f0493701eb # v1.2.3
         id: inference
         with:
