@@ -1,0 +1,23 @@
+name: auto-label
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  inference:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      models: read
+    timeout-minutes: 10
+    steps:
+      - name: List labels
+        uses: actions/ai-inference@9693b137b6566bb66055a713613bf4f0493701eb # v1.2.3
+        id: inference
+        with:
+          prompt: "Read this issue ${{ github.event.issue.html_url }} and select appropriate area labels (e.g., `area/tracing`)"
+          enable-github-mcp: true
+
+      - name: Print Output
+        run: echo "${{ steps.inference.outputs.response }}"
