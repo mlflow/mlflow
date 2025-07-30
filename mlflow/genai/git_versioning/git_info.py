@@ -1,21 +1,11 @@
-import subprocess
 from dataclasses import dataclass
 
+import git
 from typing_extensions import Self
 
 
 class GitOperationError(Exception):
     """Raised when a git operation fails"""
-
-    @classmethod
-    def from_called_process_error(
-        cls, operation: str, error: subprocess.CalledProcessError
-    ) -> Self:
-        """Create GitOperationError from CalledProcessError with stderr details"""
-        message = f"{operation}: {error}"
-        if error.stderr and error.stderr.strip():
-            message += f" (stderr: {error.stderr.strip()})"
-        return cls(message)
 
 
 @dataclass(kw_only=True)
@@ -38,64 +28,41 @@ class GitInfo:
     @staticmethod
     def _is_git_available() -> bool:
         try:
-            subprocess.check_call(
-                ["git", "--version"], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL
-            )
+            git.cmd.Git().version()
             return True
-        except subprocess.CalledProcessError as e:
-            raise GitOperationError.from_called_process_error(
-                "Git is not available or not installed", e
-            ) from e
+        except git.GitCommandError as e:
+            raise GitOperationError(f"Git is not available or not installed: {e}") from e
 
     @staticmethod
     def _is_in_git_repo() -> bool:
         try:
-            subprocess.check_call(
-                ["git", "rev-parse", "--git-dir"],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-            )
+            git.Repo()
             return True
-        except subprocess.CalledProcessError as e:
-            raise GitOperationError.from_called_process_error("Not in a git repository", e) from e
+        except git.InvalidGitRepositoryError as e:
+            raise GitOperationError(f"Not in a git repository: {e}") from e
 
     @staticmethod
     def _get_current_branch() -> str:
         try:
-            stdout = subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            branch = stdout.strip()
-            if branch == "HEAD":
+            repo = git.Repo()
+            if repo.head.is_detached:
                 raise GitOperationError("In detached HEAD state, no branch name available")
-            return branch
-        except subprocess.CalledProcessError as e:
-            raise GitOperationError.from_called_process_error(
-                "Failed to get current branch", e
-            ) from e
+            return repo.active_branch.name
+        except git.GitError as e:
+            raise GitOperationError(f"Failed to get current branch: {e}") from e
 
     @staticmethod
     def _get_current_commit() -> str:
         try:
-            stdout = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], stderr=subprocess.PIPE, text=True
-            )
-            return stdout.strip()
-        except subprocess.CalledProcessError as e:
-            raise GitOperationError.from_called_process_error(
-                "Failed to get current commit", e
-            ) from e
+            repo = git.Repo()
+            return repo.head.commit.hexsha
+        except git.GitError as e:
+            raise GitOperationError(f"Failed to get current commit: {e}") from e
 
     @staticmethod
     def _is_repo_dirty() -> bool:
         try:
-            result = subprocess.check_output(
-                ["git", "status", "--porcelain"], stderr=subprocess.PIPE, text=True
-            )
-            return bool(result.strip())
-        except subprocess.CalledProcessError as e:
-            raise GitOperationError.from_called_process_error(
-                "Failed to check repository status", e
-            ) from e
+            repo = git.Repo()
+            return repo.is_dirty(untracked_files=False)
+        except git.GitError as e:
+            raise GitOperationError(f"Failed to check repository status: {e}") from e

@@ -36,7 +36,8 @@ def test_enable_git_model_versioning(monkeypatch: pytest.MonkeyPatch, tmp_git_re
     # Create a dummy file to make the repo dirty
     Path(tmp_git_repo / "dummy.txt").touch()
     context = enable_git_model_versioning()
-    assert context.info.dirty is True
+    # Untracked files should not be considered dirty
+    assert context.info.dirty is False
 
     # Checkout a new branch
     subprocess.check_call(["git", "checkout", "-b", "new-branch"], cwd=tmp_git_repo)
