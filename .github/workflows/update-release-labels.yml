@@ -64,15 +64,18 @@ jobs:
               page++;
               
               // Extract PR numbers from commit messages using regex (same as check_patch_prs.py)
-              const prRegex = /\(#(\d+)\)$/;
+              const prRegex = /\(#(\d+)\)/;
               
               for (const commit of branchCommits.data) {
-                console.log(`Checking commit: ${commit.commit.message}`);
-                const match = commit.commit.message.match(prRegex);
-                if (match) {
-                  const prNumber = parseInt(match[1]);
-                  releasePRNumbers.add(prNumber);
-                  console.log(`Found PR #${prNumber} in release branch: ${commit.commit.message.split('\n')[0]}`);
+                const lines = commit.commit.message.split('\n');
+                for (const line of lines) {
+                  const match = line.match(prRegex);
+                  if (match) {
+                    const prNumber = parseInt(match[1]);
+                    releasePRNumbers.add(prNumber);
+                    console.log(`Found PR #${prNumber} in release branch: ${line.trim()}`);
+                    break; // Stop after finding the first PR number in the commit
+                  }
                 }
               }
             }
