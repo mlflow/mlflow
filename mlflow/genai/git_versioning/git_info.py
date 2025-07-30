@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-import git
 from typing_extensions import Self
 
 
@@ -16,53 +15,30 @@ class GitInfo:
 
     @classmethod
     def from_env(cls) -> Self:
-        cls._is_git_available()
-        cls._is_in_git_repo()
-
-        return cls(
-            branch=cls._get_current_branch(),
-            commit=cls._get_current_commit(),
-            dirty=cls._is_repo_dirty(),
-        )
-
-    @staticmethod
-    def _is_git_available() -> bool:
         try:
-            git.cmd.Git().version()
-            return True
-        except git.GitCommandError as e:
-            raise GitOperationError(f"Git is not available or not installed: {e}") from e
+            import git
+        except ImportError as e:
+            raise GitOperationError("GitPython is not installed") from e
 
-    @staticmethod
-    def _is_in_git_repo() -> bool:
+        # Create repo object once and extract all info
         try:
-            git.Repo()
-            return True
+            repo = git.Repo()
         except git.InvalidGitRepositoryError as e:
             raise GitOperationError(f"Not in a git repository: {e}") from e
 
-    @staticmethod
-    def _get_current_branch() -> str:
         try:
-            repo = git.Repo()
+            # Get branch info
             if repo.head.is_detached:
                 raise GitOperationError("In detached HEAD state, no branch name available")
-            return repo.active_branch.name
-        except git.GitError as e:
-            raise GitOperationError(f"Failed to get current branch: {e}") from e
+            branch = repo.active_branch.name
 
-    @staticmethod
-    def _get_current_commit() -> str:
-        try:
-            repo = git.Repo()
-            return repo.head.commit.hexsha
-        except git.GitError as e:
-            raise GitOperationError(f"Failed to get current commit: {e}") from e
+            # Get commit info
+            commit = repo.head.commit.hexsha
 
-    @staticmethod
-    def _is_repo_dirty() -> bool:
-        try:
-            repo = git.Repo()
-            return repo.is_dirty(untracked_files=False)
+            # Check if repo is dirty
+            dirty = repo.is_dirty(untracked_files=False)
+
+            return cls(branch=branch, commit=commit, dirty=dirty)
+
         except git.GitError as e:
-            raise GitOperationError(f"Failed to check repository status: {e}") from e
+            raise GitOperationError(f"Failed to get repository information: {e}") from e
