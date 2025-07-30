@@ -725,7 +725,7 @@ def retrieve_custom_metrics(
                 ],
             )
             custom_metric = make_genai_metric_from_prompt(
-                name="custom llm judge",
+                name="custom_llm_judge",
                 judge_prompt="This is a custom judge prompt.",
                 greater_is_better=False,
                 parameters={"temperature": 0.0},
@@ -740,7 +740,7 @@ def retrieve_custom_metrics(
             )
         metrics = retrieve_custom_metrics(
             run_id=run.info.run_id,
-            name="custom llm judge",
+            name="custom_llm_judge",
         )
     """
     client = mlflow.MlflowClient()
