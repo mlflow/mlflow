@@ -18,7 +18,8 @@ class GitInfo:
         try:
             import git
         except ImportError as e:
-            raise GitOperationError("GitPython is not installed") from e
+            # GitPython throws `ImportError` if `git` is unavailable.
+            raise GitOperationError(str(e))
 
         # Create repo object once and extract all info
         try:
