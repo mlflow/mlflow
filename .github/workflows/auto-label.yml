@@ -16,7 +16,7 @@ jobs:
         uses: actions/ai-inference@9693b137b6566bb66055a713613bf4f0493701eb # v1.2.3
         id: inference
         with:
-          prompt: "Read this issue ${{ github.event.issue.html_url }} and select appropriate area labels (e.g., `area/tracing`)"
+          prompt: "Read this issue ${{ github.event.issue.html_url }} and select appropriate area labels (e.g., `area/tracing`) and domain labels (e.g., `domain/genai`)"
           enable-github-mcp: true
           token: ${{ secrets.AUTO_LABEL_GITHUB_TOKEN }}
 
