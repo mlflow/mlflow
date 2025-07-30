@@ -86,37 +86,48 @@ class InferenceTableSpanExporter(SpanExporter):
 
             trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.trace_id)
+            self._export_trace(trace, manager_trace)
 
-            # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            # The key is Databricks request ID.
-            _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+    def _export_trace(self, trace: Trace, manager_trace):
+        """
+        Export a single trace to the Inference Table buffer and optionally to MLflow backend.
 
-            if self._should_write_to_mlflow_backend:
-                if trace.info.experiment_id is None:
-                    # NB: The experiment ID is set based on the MLFLOW_EXPERIMENT_ID env var
-                    #   populated in the scoring server by Agent Framework. If the model is not
-                    #   deployed via agents.deploy(), the env var will not be set and the
-                    #   experiment will be empty, even if the dual write itself is enabled.
-                    _logger.warning(
-                        "Dual write to MLflow backend is enabled, but experiment ID is not set "
-                        "for the trace. Skipping trace export to MLflow backend."
-                    )
-                    continue
+        This method can be overridden by subclasses to add additional export functionality.
 
-                try:
-                    # Log the trace to the MLflow backend asynchronously
-                    self._async_queue.put(
-                        task=Task(
-                            handler=self._log_trace_to_mlflow_backend,
-                            args=(trace, manager_trace.prompts),
-                            error_msg=f"Failed to log trace {trace.info.trace_id}.",
-                        )
+        Args:
+            trace: The MLflow Trace object to export.
+            manager_trace: The manager trace object containing prompts and other metadata.
+        """
+        # Add the trace to the in-memory buffer so it can be retrieved by upstream
+        # The key is Databricks request ID.
+        _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+
+        if self._should_write_to_mlflow_backend:
+            if trace.info.experiment_id is None:
+                # NB: The experiment ID is set based on the MLFLOW_EXPERIMENT_ID env var
+                #   populated in the scoring server by Agent Framework. If the model is not
+                #   deployed via agents.deploy(), the env var will not be set and the
+                #   experiment will be empty, even if the dual write itself is enabled.
+                _logger.warning(
+                    "Dual write to MLflow backend is enabled, but experiment ID is not set "
+                    "for the trace. Skipping trace export to MLflow backend."
+                )
+                return
+
+            try:
+                # Log the trace to the MLflow backend asynchronously
+                self._async_queue.put(
+                    task=Task(
+                        handler=self._log_trace_to_mlflow_backend,
+                        args=(trace, manager_trace.prompts),
+                        error_msg=f"Failed to log trace {trace.info.trace_id}.",
                     )
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to export trace to MLflow backend. Error: {e}",
-                        stack_info=_logger.isEnabledFor(logging.DEBUG),
-                    )
+                )
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to export trace to MLflow backend. Error: {e}",
+                    stack_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
     def _log_trace_to_mlflow_backend(self, trace: Trace, prompts: Sequence[PromptVersion]):
         add_size_stats_to_trace_metadata(trace)

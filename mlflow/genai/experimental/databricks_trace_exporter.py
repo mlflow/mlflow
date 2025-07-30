@@ -21,6 +21,14 @@ from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaPro
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.utils.annotations import experimental
 
+try:
+    from opentelemetry.sdk.trace import ReadableSpan
+
+    from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+except ImportError:
+    InferenceTableSpanExporter = None
+    ReadableSpan = None
+
 _logger = logging.getLogger(__name__)
 
 TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 minutes
@@ -35,47 +43,17 @@ if TYPE_CHECKING:
         TableProperties = Any
 
 
-@experimental(version="3.2.0")
-class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter):
+class DatabricksDeltaArchivalMixin:
     """
-    An exporter implementation that extends the standard MLflow V3 span export functionality
-    to additionally archive traces to Databricks Delta tables when databricks-agents is available.
-
-    This exporter provides the same core functionality as MlflowV3SpanExporter but with
-    additional Databricks Delta archiving capabilities for long-term trace storage and analysis.
-    """
-
-    def __init__(self, tracking_uri: Optional[str] = None):
-        super().__init__(tracking_uri)
-
-        # Delta archiver for Databricks archiving functionality
-        self._delta_archiver = DatabricksTraceDeltaArchiver()
-
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
-        """
-        Handles exporting a trace via the MlflowV3SpanExporter with additional archiving to
-        Databricks Delta tables.
-        """
-        # Call parent implementation for existing MlflowV3SpanExporter functionality
-        super()._log_trace(trace, prompts)
-
-        try:
-            self._delta_archiver.archive(trace)
-        except Exception as e:
-            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
-
-
-class DatabricksTraceDeltaArchiver:
-    """
-    An exporter implementation that sends OpenTelemetry spans to Databricks Delta tables
-    using the IngestApi.
+    Mixin class that provides Databricks Delta archiving functionality for span exporters.
+    This mixin can be used with any span exporter to add Delta table archiving capabilities.
     """
 
     # Class-level cache for experiment configs
     _config_cache = TTLCache(maxsize=100, ttl=TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS)
     _config_cache_lock = threading.Lock()
 
-    def archive(self, trace: Trace):
+    def archive_trace(self, trace: Trace):
         """
         Try to export a trace to Databricks Delta if archival is configured for the experiment.
         This method handles all enablement checking, configuration resolution, and authentication.
@@ -113,6 +91,11 @@ class DatabricksTraceDeltaArchiver:
 
             # Store configuration for this export
             self._spans_table_name = config.spans_table_name
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            TableProperties, _ = import_ingest_sdk_classes()
             from mlflow.genai.experimental.databricks_trace_exporter_utils import (
                 import_ingest_sdk_classes,
             )
@@ -272,17 +255,66 @@ class DatabricksTraceDeltaArchiver:
 
         return delta_proto_spans
 
-    def shutdown(self):
-        """
-        Shutdown the archiver and clean up resources.
-        """
-        try:
-            # Stream factory cleanup is handled by singleton pattern
-            # Individual factories are cleaned up via IngestStreamFactory.reset()
-            IngestStreamFactory.reset()
 
+@experimental(version="3.2.0")
+class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMixin):
+    """
+    An exporter implementation that extends the standard MLflow V3 span export functionality
+    to additionally archive traces to Databricks Delta tables when databricks-agents is available.
+
+    This exporter provides the same core functionality as MlflowV3SpanExporter but with
+    additional Databricks Delta archiving capabilities for long-term trace storage and analysis.
+    """
+
+    def __init__(self, tracking_uri: Optional[str] = None):
+        super().__init__(tracking_uri)
+
+        # Delta archiving functionality is now provided by the mixin
+
+    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
+        """
+        Handles exporting a trace via the MlflowV3SpanExporter with additional archiving to
+        Databricks Delta tables.
+        """
+        # Call parent implementation for existing MlflowV3SpanExporter functionality
+        super()._log_trace(trace, prompts)
+
+        # Archive trace to Delta table using mixin functionality
+        try:
+            self.archive_trace(trace)
         except Exception as e:
-            _logger.warning(f"Error shutting down archiver: {e}")
+            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
+
+
+@experimental(version="3.2.0")
+class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDeltaArchivalMixin):
+    """
+    An exporter implementation that extends the standard InferenceTableSpanExporter functionality
+    to additionally archive traces to Databricks Delta tables when databricks-agents is available.
+
+    This exporter provides the same core functionality as InferenceTableSpanExporter but with
+    additional Databricks Delta archiving capabilities for long-term trace storage and analysis.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def _export_trace(self, trace: Trace, manager_trace):
+        """
+        Export a single trace to the Inference Table buffer and archive to Databricks Delta.
+
+        Args:
+            trace: The MLflow Trace object to export.
+            manager_trace: The manager trace object containing prompts and other metadata.
+        """
+        # Call parent implementation for inference table export
+        super()._export_trace(trace, manager_trace)
+
+        # Archive trace to Delta table using mixin functionality
+        try:
+            self.archive_trace(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
 class IngestStreamFactory:
@@ -348,6 +380,11 @@ class IngestStreamFactory:
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
 
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_ingest_sdk_classes,
+            )
+
+            _, StreamState = import_ingest_sdk_classes()
             from mlflow.genai.experimental.databricks_trace_exporter_utils import (
                 import_ingest_sdk_classes,
             )
