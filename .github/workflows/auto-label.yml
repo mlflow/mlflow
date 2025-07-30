@@ -1,0 +1,50 @@
+name: auto-label
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  inference:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      models: read
+    timeout-minutes: 10
+    steps:
+      - name: Create a prompt file
+        run: |
+          mkdir -p /tmp/auto-label
+          cat > /tmp/auto-label/prompt.txt << 'EOF'
+          You're an issue triage assistant for GitHub issues. Your task is to analyze the issue and list appropriate labels from the provided list.
+
+          Issue Information:
+          - REPOSITORY: ${{ github.repository }}
+          - ISSUE_NUMBER: ${{ github.event.issue.number }}
+          - ISSUE_URL: ${{ github.event.issue.html_url }}
+
+          TASK OVERVIEW:
+
+          1. First, fetch the list of labels available in this repository.
+          2. Next, fetch the issue content.
+          3. Analyze the issue content and list appropriate area labels (e.g., `area/tracing`) and domain labels (e.g., `domain/genai`)
+
+          IMPORTANT GUIDELINES:
+
+          - Be thorough in your analysis
+          - Only list labels from the provided list fetched in step 1
+          - It's okay to not add any labels if none are clearly applicable
+
+          EOF
+
+      - name: Run AI inference
+        uses: actions/ai-inference@9693b137b6566bb66055a713613bf4f0493701eb # v1.2.3
+        id: inference
+        with:
+          model: openai/gpt-4o
+          prompt-file: /tmp/auto-label/prompt.txt
+          enable-github-mcp: true
+          token: ${{ secrets.AUTO_LABEL_GITHUB_TOKEN }}
+
+      - name: Print Output
+        run: echo "${{ steps.inference.outputs.response }}"
