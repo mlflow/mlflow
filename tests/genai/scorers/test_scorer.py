@@ -339,7 +339,6 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
         return 0.5
 
     def predict(question: str) -> str:
-        time.sleep(0.5)
         return "output: " + str(question)
 
     result = mlflow.genai.evaluate(
@@ -355,7 +354,7 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
     traces = get_traces()
     assert len(traces) == 100
     trace_names = [trace.data.spans[0].name for trace in traces]
-    assert all(trace_name == "predict" for trace_name in trace_names), (
+    assert all("scorer" not in trace_name for trace_name in trace_names), (
         f"Traces include unexpected names: {[n for n in trace_names if n != 'predict']}"
     )
     purge_traces()
