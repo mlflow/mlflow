@@ -32,8 +32,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "prepare": "npm run build"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
