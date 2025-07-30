@@ -16,12 +16,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch full history for commit analysis
+          fetch-depth: 0 # Fetch full history for commit analysis
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Update release labels
         uses: actions/github-script@v7
@@ -32,112 +32,58 @@ jobs:
             const releaseTag = "v3.1.3";
             const releaseLabel = `v3.1.3`;
             const nextPatchLabel = `v3.1.4`;
-            
+
             console.log(`Release label: ${releaseLabel}`);
             console.log(`Next patch label: ${nextPatchLabel}`);
-            
-            // Get the release commit SHA
-            const releaseCommit = await github.rest.git.getRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `tags/${releaseTag}`
-            });
-            const releaseCommitSha = releaseCommit.data.object.sha;
-            console.log(`Release commit SHA: ${releaseCommitSha}`);
-            
+
             // Get release branch name (e.g., branch-3.1 for v3.1.4)
             const majorMinorVersion = releaseVersion.split('.').slice(0, 2).join('.');
             const releaseBranch = `branch-${majorMinorVersion}`;
             console.log(`Release branch: ${releaseBranch}`);
-            
-            // Get commits from the release branch to handle cherry-picked commits
+
+            // Get PR numbers from the release branch commits (similar to check_patch_prs.py)
             let releasePRNumbers = new Set();
-            
-            try {
-              // Get commits from the release branch with pagination
-              let page = 1;
-              let hasMore = true;
-              let totalCommits = 0;
+
+            // Get commits from the release branch with pagination
+            let page = 1;
+            let hasMore = true;
+            let totalCommits = 0;
+
+            while (hasMore) {
+              const branchCommits = await github.rest.repos.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: releaseBranch,
+                per_page: 100,
+                page: page,
+                since: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() // Last 3 months
+              });
               
-              while (hasMore) {
-                const branchCommits = await github.rest.repos.listCommits({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  sha: releaseBranch,
-                  per_page: 100,
-                  page: page,
-                  since: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() // Last 3 months
-                });
-                
-                totalCommits += branchCommits.data.length;
-                hasMore = branchCommits.data.length === 100;
-                page++;
-                
-                // Extract PR numbers from commit messages using regex
-                const prRegex = /\(#(\d+)\)$/;
-                
-                for (const commit of branchCommits.data) {
-                  const match = commit.commit.message.match(prRegex);
-                  if (match) {
-                    const prNumber = parseInt(match[1]);
-                    releasePRNumbers.add(prNumber);
-                    console.log(`Found PR #${prNumber} in release branch: ${commit.commit.message.split('\n')[0]}`);
-                  }
-                }
-              }
+              totalCommits += branchCommits.data.length;
+              hasMore = branchCommits.data.length === 100;
+              page++;
               
-              console.log(`Found ${totalCommits} total commits in ${releaseBranch}`);
-              console.log(`Extracted ${releasePRNumbers.size} PR numbers from release branch commits`);
-            } catch (error) {
-              console.log(`Error getting release branch commits: ${error.message}`);
-              console.log('Falling back to tag comparison method...');
+              // Extract PR numbers from commit messages using regex (same as check_patch_prs.py)
+              const prRegex = /\(#(\d+)\)$/;
               
-              // Fallback to original logic if release branch doesn't exist
-              let previousTag = null;
-              try {
-                const tags = await github.rest.repos.listTags({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  per_page: 100
-                });
-                
-                const tagNames = tags.data.map(tag => tag.name);
-                const currentTagIndex = tagNames.indexOf(releaseTag);
-                if (currentTagIndex >= 0) {
-                  previousTag = tagNames[currentTagIndex + 1];
-                }
-              } catch (tagError) {
-                console.log(`Error getting previous tag: ${tagError.message}`);
-              }
-              
-              if (previousTag) {
-                try {
-                  const comparison = await github.rest.repos.compareCommits({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    base: previousTag,
-                    head: releaseTag
-                  });
-                  
-                  // Extract PR numbers from commit messages
-                  const prRegex = /\(#(\d+)\)$/;
-                  for (const commit of comparison.data.commits) {
-                    const match = commit.commit.message.match(prRegex);
-                    if (match) {
-                      releasePRNumbers.add(parseInt(match[1]));
-                    }
-                  }
-                } catch (compareError) {
-                  console.log(`Error comparing commits: ${compareError.message}`);
+              for (const commit of branchCommits.data) {
+                const match = commit.commit.message.match(prRegex);
+                if (match) {
+                  const prNumber = parseInt(match[1]);
+                  releasePRNumbers.add(prNumber);
+                  console.log(`Found PR #${prNumber} in release branch: ${commit.commit.message.split('\n')[0]}`);
                 }
               }
             }
-            
+
+            console.log(`Found ${totalCommits} total commits in ${releaseBranch}`);
+            console.log(`Extracted ${releasePRNumbers.size} PR numbers from release branch commits`);
+
             // Find all PRs with the release label with pagination
             let prsWithReleaseLabel = [];
             let page = 1;
             let hasMorePRs = true;
-            
+
             while (hasMorePRs) {
               const prPage = await github.rest.issues.listForRepo({
                 owner: context.repo.owner,
@@ -152,10 +98,10 @@ jobs:
               hasMorePRs = prPage.data.length === 100;
               page++;
             }
-            
+
             console.log(`Found ${prsWithReleaseLabel.length} PRs with label ${releaseLabel}`);
             console.log(`Found released PR numbers:`, Array.from(releasePRNumbers));
-            
+
             // Check each PR to see if it was actually included in the release
             for (const pr of prsWithReleaseLabel) {
               if (!pr.pull_request) continue; // Skip issues
@@ -199,5 +145,5 @@ jobs:
                 console.log(`PR #${pr.number} was correctly included in release ${releaseVersion}`);
               }
             }
-            
+
             console.log('Release label update process completed');
