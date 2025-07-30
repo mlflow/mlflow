@@ -1,5 +1,4 @@
 import importlib
-import time
 from collections import defaultdict
 from unittest.mock import call, patch
 
