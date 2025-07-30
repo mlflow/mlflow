@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, computed_field
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -87,12 +87,14 @@ class Scorer(BaseModel):
     _server_name: Optional[str] = PrivateAttr(default=None)
     _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
 
+    @computed_field
     @property
     @experimental(version="3.2.0")
     def sample_rate(self) -> Optional[float]:
         """Get the sample rate for this scorer."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
+    @computed_field
     @property
     @experimental(version="3.2.0")
     def filter_string(self) -> Optional[str]:
