@@ -67,6 +67,7 @@ jobs:
               const prRegex = /\(#(\d+)\)$/;
               
               for (const commit of branchCommits.data) {
+                console.log(`Checking commit: ${commit.commit.message}`);
                 const match = commit.commit.message.match(prRegex);
                 if (match) {
                   const prNumber = parseInt(match[1]);
