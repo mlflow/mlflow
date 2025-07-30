@@ -129,6 +129,10 @@ const config: Config = {
           label: 'API Reference',
         },
         {
+          type: 'custom-versionSelector',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',
