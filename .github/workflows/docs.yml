@@ -72,7 +72,7 @@ jobs:
           GTM_ID: "GTM-TEST"
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
         run: |
-          yarn build-all -- --no-r
+          npm run build-all -- --no-r --use-npm
       - name: Test examples
         working-directory: docs/api_reference
         run: |
