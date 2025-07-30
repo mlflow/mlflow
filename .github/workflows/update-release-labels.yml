@@ -81,22 +81,22 @@ jobs:
 
             // Find all PRs with the release label with pagination
             let prsWithReleaseLabel = [];
-            let page = 1;
+            let prPageNum = 1;
             let hasMorePRs = true;
 
             while (hasMorePRs) {
-              const prPage = await github.rest.issues.listForRepo({
+              const prPageData = await github.rest.issues.listForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 labels: releaseLabel,
                 state: 'all',
                 per_page: 100,
-                page: page
+                page: prPageNum
               });
               
-              prsWithReleaseLabel.push(...prPage.data);
-              hasMorePRs = prPage.data.length === 100;
-              page++;
+              prsWithReleaseLabel.push(...prPageData.data);
+              hasMorePRs = prPageData.data.length === 100;
+              prPageNum++;
             }
 
             console.log(`Found ${prsWithReleaseLabel.length} PRs with label ${releaseLabel}`);
