@@ -155,7 +155,7 @@ jobs:
       - if: steps.diff.outputs.docs == 'true'
         working-directory: docs
         run: |
-          npm run install
+          npm ci
       - if: steps.diff.outputs.docs == 'true'
         working-directory: docs
         run: |
