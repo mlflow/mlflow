@@ -79,7 +79,7 @@ jobs:
           make test-examples
       - name: Check sitemap
         run: |
-          npm run sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
+          npm run sitemap -- https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
       - name: Move build artifacts
         run: |
           mkdir -p /tmp/docs-build/docs
