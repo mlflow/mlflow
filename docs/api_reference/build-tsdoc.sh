@@ -44,17 +44,7 @@ DOCS_OUTPUT_BASE="build/html/typescript_api"
 # First ensure dependencies are installed at workspace root
 echo "Ensuring TypeScript workspace dependencies are installed..."
 pushd "$TYPESCRIPT_BASE"
-
-# Install with --ignore-scripts to prevent prepare scripts from running before workspace linking
-npm install --ignore-scripts
-
-# Now build packages in the correct order - core first, then integrations
-echo "Building core package first..."
-cd core && npm run build && cd ..
-
-echo "Building integrations..."
-cd integrations/openai && npm run build && cd ../..
-
+npm install
 popd
 
 # Remove existing docs if they exist
