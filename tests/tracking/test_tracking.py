@@ -5,8 +5,8 @@ import pathlib
 import posixpath
 import random
 import re
-from collections import namedtuple
 from datetime import datetime, timezone
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -43,7 +43,10 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 
-MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
+
+class MockExperiment(NamedTuple):
+    experiment_id: str
+    lifecycle_stage: str
 
 
 def test_create_experiment():
@@ -316,8 +319,7 @@ def test_log_batch_with_many_elements():
 
 
 def test_log_metric():
-    with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+    with start_run() as active_run, mock.patch("time.time", return_value=123):
         run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)

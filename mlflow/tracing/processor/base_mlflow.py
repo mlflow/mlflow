@@ -44,10 +44,8 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
-        self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._env_metadata = resolve_env_metadata()
 
@@ -108,17 +106,19 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
         The experiment ID can be configured in multiple ways, in order of precedence:
           1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
-          2. An experiment ID specified via the processor constructor
+          2. An experiment ID specified via `mlflow.tracing.set_destination`
           3. An experiment ID of an active run.
           4. The default experiment ID
         """
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
         from mlflow.tracking.fluent import _get_latest_active_run
 
         if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
             return experiment_id
 
-        if self._experiment_id:
-            return self._experiment_id
+        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+            if exp_id := getattr(destination, "experiment_id"):
+                return exp_id
 
         if run := _get_latest_active_run():
             return run.info.experiment_id
@@ -173,6 +173,9 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # Update trace state from span status, but only if the user hasn't explicitly set
         # a different trace status
         update_trace_state_from_span_conditionally(trace, root_span)
+
+        # TODO: Remove this once the new trace table UI is available that is based on V3 trace.
+        # Until then, these two are still used to render the "request" and "response" columns.
         trace.info.trace_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(

@@ -100,7 +100,10 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
-from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    _compare_logged_code_paths,
+    pyfunc_serve_and_score_model,
+)
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 
 # this kwarg was added in langchain_community 0.0.27, and

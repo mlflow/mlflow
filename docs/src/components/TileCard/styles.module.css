@@ -13,7 +13,7 @@
 .tileCard:hover {
   transform: translateY(-4px);
   box-shadow: var(--ifm-shadow-tile-hover);
-  border-color: var(--ifm-color-primary);
+  border-color: #0194e2;
   opacity: 1;
 }
 
@@ -27,7 +27,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  color: var(--ifm-color-primary);
+  color: #0194e2;
 }
 
 .tileCard h3 {
@@ -47,7 +47,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--ifm-link-color);
+  color: #0194e2;
   text-decoration: none;
   font-weight: 500;
   font-size: 0.9rem;
@@ -55,7 +55,7 @@
 }
 
 .tileLink:hover {
-  color: var(--ifm-link-hover-color);
+  color: #0066cc;
   text-decoration: none;
 }
 

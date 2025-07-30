@@ -80,9 +80,12 @@ export function ModelTraceExplorerChatMessage({
   // tool call responses can be JSON, and in these cases
   // it's more helpful to display the message as JSON
   const shouldDisplayCodeSnippet = isJson && (message.role === 'tool' || message.role === 'function');
+
+  const isImageContent = message.content?.startsWith('![');
+
   // if the content is JSON, truncation will be handled by the code
   // snippet. otherwise, we need to truncate the content manually.
-  const isExpandable = !shouldDisplayCodeSnippet && content.length > CONTENT_TRUNCATION_LIMIT;
+  const isExpandable = !shouldDisplayCodeSnippet && !isImageContent && content.length > CONTENT_TRUNCATION_LIMIT;
 
   const displayedContent = isExpandable && !expanded ? `${content.slice(0, CONTENT_TRUNCATION_LIMIT)}...` : content;
 

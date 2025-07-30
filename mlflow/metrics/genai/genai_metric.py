@@ -25,7 +25,6 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.version import VERSION
 
@@ -195,7 +194,6 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-@experimental(version="2.13.0")
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,

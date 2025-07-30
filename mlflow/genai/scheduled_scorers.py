@@ -87,7 +87,7 @@ class ScorerScheduleConfig:
 
 # Scheduled Scorer CRUD operations
 @experimental(version="3.0.0")
-def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+def add_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     scorer: Scorer,
@@ -165,7 +165,7 @@ def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
 
 
 @experimental(version="3.0.0")
-def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+def update_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     scorer: Optional[Scorer] = None,
@@ -225,7 +225,7 @@ def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
 
 
 @experimental(version="3.0.0")
-def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+def delete_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -275,7 +275,7 @@ def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
 
 
 @experimental(version="3.0.0")
-def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
+def get_scheduled_scorer(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -319,7 +319,7 @@ def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
 
 
 @experimental(version="3.0.0")
-def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
+def list_scheduled_scorers(  # clint: disable=missing-docstring-param
     *, experiment_id: Optional[str] = None, **kwargs
 ) -> list[ScorerScheduleConfig]:
     """
@@ -365,7 +365,7 @@ def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D
 
 
 @experimental(version="3.0.0")
-def set_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
+def set_scheduled_scorers(  # clint: disable=missing-docstring-param
     *,
     scheduled_scorers: list[ScorerScheduleConfig],
     experiment_id: Optional[str] = None,

@@ -33,12 +33,18 @@ import {
   decodeSpanId,
   prettyPrintToolCall,
 } from './ModelTraceExplorer.utils';
-import {
-  MOCK_OPENAI_RESPONSES_INPUT,
-  MOCK_OPENAI_RESPONSES_OUTPUT,
-  MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT,
-} from './chat-utils/openai.test-utils';
+import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './chat-utils/openai.test-utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
+import { MOCK_GEMINI_INPUT, MOCK_GEMINI_OUTPUT } from './chat-utils/gemini.test-utils';
+import { MOCK_DSPY_INPUT, MOCK_DSPY_OUTPUT } from './chat-utils/dspy.test-utils';
+import {
+  MOCK_LANGCHAIN_INPUT,
+  MOCK_LANGCHAIN_OUTPUT,
+  MOCK_LANGCHAIN_IMAGE_INPUT,
+  MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT,
+} from './chat-utils/langchain.test-utils';
+import { MOCK_LLAMAINDEX_INPUT, MOCK_LLAMAINDEX_OUTPUT } from './chat-utils/llamaindex.test-utils';
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -308,11 +314,21 @@ describe('normalizeConversation', () => {
     ]);
   });
 
-  it('handles a LlamaIndex chat output', () => {
-    expect(normalizeConversation(MOCK_LLAMA_INDEX_CHAT_OUTPUT)).toEqual([
+  it('handles a LlamaIndex chat', () => {
+    expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT)).toEqual([
+      expect.objectContaining({
+        role: 'system',
+        content: expect.stringMatching(/you are an expert q&a system/i),
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringMatching(/what was the first program the author wrote/i),
+      }),
+    ]);
+    expect(normalizeConversation(MOCK_LLAMAINDEX_OUTPUT)).toEqual([
       expect.objectContaining({
         role: 'assistant',
-        content: 'Test',
+        content: expect.stringMatching(/the first program the author wrote was/i),
       }),
     ]);
   });
@@ -345,62 +361,106 @@ describe('normalizeConversation', () => {
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT)).toEqual([
       expect.objectContaining({
         role: 'user',
-        content: 'Test content',
+        content: 'Generate an image of gray tabby cat hugging an otter with an orange scarf',
       }),
     ]);
 
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT)).toEqual([
       expect.objectContaining({
-        role: 'assistant',
-        tool_calls: [
-          prettyPrintToolCall({
-            id: MOCK_OPENAI_RESPONSES_OUTPUT[0].call_id ?? '',
-            function: {
-              arguments: MOCK_OPENAI_RESPONSES_OUTPUT[0].arguments ?? '',
-              name: MOCK_OPENAI_RESPONSES_OUTPUT[0].name ?? '',
-            },
-          }),
-        ],
-      }),
-      expect.objectContaining({
+        content: '![](data:image/png;base64,<base64_encoded_image_data>)',
         role: 'tool',
-        tool_call_id: MOCK_OPENAI_RESPONSES_OUTPUT[1].call_id,
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[1].output,
+        tool_calls: undefined,
+        type: 'message',
       }),
       expect.objectContaining({
         role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[2]?.content?.[0]?.text,
-      }),
-      expect.objectContaining({
-        role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_OUTPUT[3]?.content?.[0]?.text,
-      }),
-    ]);
-
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT)).toEqual([
-      expect.objectContaining({
-        role: 'assistant',
-        tool_calls: [
-          prettyPrintToolCall({
-            id: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.call_id ?? '',
-            function: {
-              arguments: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.arguments ?? '',
-              name: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[0].item.name ?? '',
-            },
-          }),
-        ],
-      }),
-      expect.objectContaining({
-        role: 'tool',
-        tool_call_id: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[1].item.call_id,
-        content: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[1].item.output,
-      }),
-      expect.objectContaining({
-        role: 'assistant',
-        content: MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT[2]?.item?.content?.[0]?.text,
+        content: MOCK_OPENAI_RESPONSES_OUTPUT.output[1].content?.[0].text,
       }),
     ]);
   });
+});
+
+it('should handle anthropic input and outputs', () => {
+  expect(normalizeConversation(MOCK_ANTHROPIC_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/describe this image/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/this is a close-up macro photograph of an ant/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle gemini input and outputs', () => {
+  expect(normalizeConversation(MOCK_GEMINI_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/explain how ai works/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_GEMINI_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle dspy input and outputs', () => {
+  expect(normalizeConversation(MOCK_DSPY_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/what is the capital of france/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_DSPY_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/capital of france is paris/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle langchain input and outputs', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: expect.stringMatching(/can I just set everyone's access to sudo/i),
+    }),
+  ]);
+
+  expect(normalizeConversation(MOCK_LANGCHAIN_OUTPUT)).toEqual([
+    expect.objectContaining({
+      content: expect.stringMatching(/oh, for crying out loud, no! that's just asking for a disaster/i),
+      role: 'assistant',
+    }),
+  ]);
+});
+
+it('should handle langchain input with image content', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_IMAGE_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content:
+        'Describe the weather in this image:\n\n![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',
+    }),
+  ]);
+});
+
+it('should handle langchain input with single image content (no separator)', () => {
+  expect(normalizeConversation(MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT)).toEqual([
+    expect.objectContaining({
+      role: 'user',
+      content: '![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',
+    }),
+  ]);
 });
 
 describe('isModelTraceChatTool', () => {
@@ -516,25 +576,6 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
-  });
-
-  it('should defer to the attribute value if present', () => {
-    const modifiedMessages = [{ role: 'user', content: 'different content' }];
-    const modifiedTools = [{ type: 'function', function: { name: 'different tool' } }];
-
-    const modifiedChatInput = {
-      ...MOCK_CHAT_TOOL_CALL_SPAN,
-      attributes: {
-        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
-        'mlflow.chat.messages': JSON.stringify(modifiedMessages),
-        'mlflow.chat.tools': JSON.stringify(modifiedTools),
-      },
-    };
-
-    const normalized = normalizeNewSpanData(modifiedChatInput, 0, 0, [], {}, '');
-
-    expect(normalized.chatMessages).toEqual(modifiedMessages);
-    expect(normalized.chatTools).toEqual(modifiedTools);
   });
 
   it('return undefined chat messages when either input or output is not chat', () => {

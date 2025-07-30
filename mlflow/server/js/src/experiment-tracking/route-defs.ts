@@ -26,7 +26,7 @@ const getExperimentPageRouteDefs = () => {
       {
         path: RoutePaths.experimentObservatory,
         element: createLazyRouteElement(() => {
-          return import('./components/ExperimentListPage');
+          return import('./components/ExperimentListView');
         }),
         pageId: 'mlflow.experiment.list',
       },
@@ -62,7 +62,7 @@ const getExperimentPageRouteDefs = () => {
     {
       path: RoutePaths.experimentObservatory,
       element: createLazyRouteElement(() => {
-        return import('./components/ExperimentListPage');
+        return import('./components/ExperimentListView');
       }),
       pageId: 'mlflow.experiment.list',
     },
