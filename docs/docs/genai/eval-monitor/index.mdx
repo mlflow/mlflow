@@ -6,9 +6,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
-# Evaluating LLM/Agents with MLflow
+# Evaluating LLMs/Agents with MLflow
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
@@ -17,7 +17,9 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
 
 ## Evaluation Driven Development
 
-**Evaluation-Driven Development** is an emerging practice that
+**Evaluation-Driven Development** is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" />
 
 
 <TabsWrapper>
@@ -44,16 +46,16 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
     </div>
 
   </TabItem>
-  <TabItem value="evaluation" label="Automatic Evaluation">
+  <TabItem value="evaluation" label="Systematic Evaluation">
     <div class="flex-column">
       <div class="flex-row">
         <div class="flex-item">
 
-        #### Evaluate and Enhance Quality
+        #### Evaluate and Enhance quality
 
-        Systematically assessing and improving the quality of GenAI applications is a challenge. Combined with [MLflow GenAI Evaluation](/genai/eval-monitor), MLflow offers a seamless experience for evaluating your applications.
+        Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
 
-        Tracing helps by allowing you to track quality assessment and inspect the evaluation results with visibility into the internals of the system.
+        Being the industry most-trusted experiment tracking platform, MLflow provides a strong foundation tracking your evaluation results and effectively collaborate with your team.
 
         [Learn more →](/genai/eval-monitor)
 
@@ -71,11 +73,11 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
       <div class="flex-row">
         <div class="flex-item">
 
-        #### Evaluate and Enhance Quality
+        #### Scale Quality Assessment with Automation
 
-        Systematically assessing and improving the quality of GenAI applications is a challenge. Combined with [MLflow GenAI Evaluation](/genai/eval-monitor), MLflow offers a seamless experience for evaluating your applications.
+        Quality assessment is a critical part of building high-quality GenAI applications, however, it is often time-consuming and requires human expertise. LLMs are powerful tools to automate quality assessment.
 
-        Tracing helps by allowing you to track quality assessment and inspect the evaluation results with visibility into the internals of the system.
+        MLflow offers various built-in LLM-as-a-Judge scorers to help automating the process, as well as a flexible toolset to build you own LLM judges with ease.
 
         [Learn more →](/genai/eval-monitor)
 
@@ -89,7 +91,7 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
 
   </TabItem>
 
-  <TabItem value="production-monitoring" label="Online Monitoring">
+  <TabItem value="production-monitoring" label="Production Monitoring">
     <div class="flex-column">
       <div class="flex-row">
         <div class="flex-item">
@@ -136,13 +138,85 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
 
 ## Running an Evaluation
 
+Each evaluation is defined by three components:
 
-1. Dataset
-2. Predict function
-3. Scorers
+1. **Dataset**: A collection of inputs and expectations (ground truth) to evaluate.
+2. **Scorers**: A list of evaluation criteria to evaluate the dataset, defined as a scorer function.
+3. **Predict function (Optional)**: A generic function that produces outputs to be evaluated by the scorers. Alternatively, you can pass the pre-generated outputs or traces in the form of a dataset, which is useful for evaluating existing apps.
 
-## Reviewing Evaluation results
+The following example shows a simple evaluation of a dataset of questions and expected answers.
+
+```python
+import mlflow
+from mlflow.genai.evaluation import scorer
+from mlflow.genai.scorers import Correctness
+import openai
+
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Simple QA dataset
+dataset = [
+  {"inputs": { "question": "Can MLflow manage prompts?" }, "expectations": { "expected_answer": "Yes!" }},
+  {"inputs": { "question": "Can MLflow create a taco for my lunch?" }, "expectations": { "expected_answer": "No, unfortunately, MLflow is not a taco maker." }}
+]
+
+# Define a prediction function to generate responses
+def predict_fn(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[{"role": "user", "content": question}]
+    )
+    return response.choices[0].message.content
+
+# Run the evaluation
+results = mlflow.genai.evaluate(
+  data=dataset,
+  predict_fn=predict_fn,
+  scorers=[Correctness()], # Built-in LLM judge scorer
+)
+```
+
+## Review the results
+
+Open the MLflow UI to review the evaluation results. If you are using OSS MLflow, you can use the following command to start the UI:
+
+```bash
+mlflow ui --port 5000
+```
+
+If you are using cloud-based MLflow, open the experiment page in the platform.
+
+<ImageBox src="/images/llms/tracing/genai-trace-evaluation.png" alt="Evaluation Results" />
 
 
 ## Next Steps
 
+<TilesGrid>
+  <TileCard
+    icon={CheckCircle}
+    iconSize={48}
+    title="Evaluation Concepts"
+    description="Understand the core concepts of evaluation in MLflow."
+    href="/genai/eval-monitor/concepts"
+    linkText="View the concepts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={CheckCircle}
+    iconSize={48}
+    title="Define Scorers"
+    description="Learn how to implement advanced scoring criteria for your applications."
+    href="/genai/eval-monitor/scorers"
+    linkText="Learn about scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={CheckCircle}
+    iconSize={48}
+    title="Collect User Feedback"
+    description="Understand how to collect user feedbacks for your applications."
+    href="/genai/eval-monitor/collect-user-feedback"
+    linkText="Learn about feedback tracking →"
+    containerHeight={64}
+  />
+</TilesGrid>
