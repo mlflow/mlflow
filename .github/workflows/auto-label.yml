@@ -18,6 +18,7 @@ jobs:
         with:
           prompt: "Read this issue ${{ github.event.issue.html_url }} and select appropriate area labels (e.g., `area/tracing`)"
           enable-github-mcp: true
+          token: ${{ secrets.AUTO_LABEL_GITHUB_TOKEN }}
 
       - name: Print Output
         run: echo "${{ steps.inference.outputs.response }}"
