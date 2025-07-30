@@ -5,7 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "preview": "yarn build && yarn serve",
+    "preview": "npm run build && npm run serve",
     "build": "docusaurus build",
     "build-api-docs": "python scripts/build-api-docs.py --with-r && tsx scripts/update-api-modules.ts",
     "build-api-docs:no-r": "python scripts/build-api-docs.py && tsx scripts/update-api-modules.ts",
