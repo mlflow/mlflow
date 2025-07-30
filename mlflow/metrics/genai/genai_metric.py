@@ -262,11 +262,27 @@ def make_genai_metric_from_prompt(
             greater_is_better=True,
         )
 
+        data = pd.DataFrame(
+            {
+                "input": ["Where is the capital of France."],
+                "ground_truth": ["Paris"],
+                "output": ["The capital of France is Paris."],
+            }
+        )
+
+        mlflow.evaluate(
+            data=data,
+            targets="ground_truth",
+            predictions="output",
+            evaluators="default",
+            extra_metrics=[metric],
+        )
     """
     import numpy as np
 
     prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
     allowed_variables = prompt_template.variables
+    additional_variables = list(allowed_variables - {"predictions", "targets"})
 
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
@@ -293,7 +309,13 @@ def make_genai_metric_from_prompt(
     ) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
+        Note that default evaluator only passes positional arguments.
         """
+        for i, arg in enumerate(args):
+            if i == 0:
+                kwargs["predictions"] = arg
+            else:
+                kwargs[additional_variables[i - 1]] = arg
         if missing_variables := allowed_variables - set(kwargs.keys()):
             raise MlflowException(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
@@ -310,12 +332,15 @@ def make_genai_metric_from_prompt(
 
         return MetricValue(scores, justifications, aggregate_scores)
 
-    if allowed_variables:
-        eval_fn.__signature__ = Signature(
-            parameters=[
-                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
-            ]
-        )
+    # Add `predictions` to the parameters to be compatible with `eval_fn`` interface
+    eval_fn_parameters = [
+        Parameter(name="predictions", kind=Parameter.POSITIONAL_ONLY),
+        *[
+            Parameter(name=var, kind=Parameter.POSITIONAL_ONLY, default=None)
+            for var in additional_variables
+        ],
+    ]
+    eval_fn.__signature__ = Signature(parameters=eval_fn_parameters)
 
     return make_metric(
         eval_fn=eval_fn,
