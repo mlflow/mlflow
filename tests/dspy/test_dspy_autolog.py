@@ -548,6 +548,38 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.parametrize("save_program_with_pickle", [True, False])
+def test_autolog_save_program_configuration(save_program_with_pickle):
+    """Test that autolog respects the save_program_with_pickle configuration."""
+
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, **kwargs):
+            return program
+
+    mlflow.dspy.autolog(log_compiles=True, save_program_with_pickle=save_program_with_pickle)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+    optimizer.compile(program)
+
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    client = MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
+
+    if save_program_with_pickle:
+        # Should have saved as directory when save_program_with_pickle=True
+        assert "best_model" in artifacts
+        assert "best_model.json" not in artifacts
+    else:
+        # Should have saved as JSON with fallback when save_program_with_pickle=False (default)
+        assert "best_model.json" in artifacts
+        assert "best_model" not in artifacts
+
+
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("log_compiles", [True, False])
 def test_autolog_log_compile(log_compiles):
     class DummyOptimizer(dspy.teleprompt.Teleprompter):

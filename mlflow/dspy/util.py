@@ -11,21 +11,43 @@ import mlflow
 _logger = logging.getLogger(__name__)
 
 
-def save_dspy_module_state(program, file_name: str = "model.json"):
+def save_dspy_module_state(program, file_name: str = "model.json", force_pickle: bool = False):
     """
     Save states of dspy `Module` to a temporary directory and log it as an artifact.
 
     Args:
         program: The dspy `Module` to be saved.
         file_name: The name of the file to save the dspy module state. Default is `model.json`.
+        force_pickle: If True, forces pickle serialization with save_program=True.
     """
-    try:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            path = Path(tmp_dir, file_name)
-            program.save(path)
-            mlflow.log_artifact(path)
-    except Exception as e:
-        _logger.warning(f"Failed to save dspy module state: {e}")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir, file_name)
+
+        # If force_pickle is True, use pickle serialization directly
+        if force_pickle:
+            save_dir = path.with_suffix("") if path.suffix else path
+            program.save(save_dir, save_program=True)
+            path = save_dir
+        else:
+            # Try JSON first, raise error with guidance if it fails
+            try:
+                program.save(path)
+            except Exception as e:
+                if file_name.endswith(".json"):
+                    # Extract just the core error message without DSPy's suggestions
+                    error_msg = (
+                        str(e).split(". Your DSPy program")[0]
+                        if ". Your DSPy program" in str(e)
+                        else str(e)
+                    )
+                    raise RuntimeError(
+                        f"JSON serialization failed: {error_msg}\n\n"
+                        "To resolve this, use: mlflow.dspy.autolog(save_program_with_pickle=True)"
+                    ) from e
+                else:
+                    raise
+
+        mlflow.log_artifact(path)
 
 
 def log_dspy_module_params(program):

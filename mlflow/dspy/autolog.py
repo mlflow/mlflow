@@ -19,6 +19,7 @@ def autolog(
     log_traces_from_eval: bool = True,
     log_compiles: bool = False,
     log_evals: bool = False,
+    save_program_with_pickle: bool = False,
     disable: bool = False,
     silent: bool = False,
 ):
@@ -40,6 +41,10 @@ def autolog(
             `Teleprompter.compile()` is called.
         log_evals: If ``True``, information about the evaluation call is logged when
             `Evaluate.__call__()` is called.
+        save_program_with_pickle: If ``True``, forces the use of pickle serialization format with
+            ``save_program=True`` when saving DSPy module states. This enables saving
+            complete program information but may not be JSON-readable. If ``False`` (default),
+            attempts JSON serialization and raises an informative error if it fails.
         disable: If ``True``, disables the DSPy autologging integration. If ``False``,
             enables the DSPy autologging integration.
         silent: If ``True``, suppress all event logs and warnings from MLflow during DSPy
@@ -57,6 +62,7 @@ def autolog(
         log_traces_from_eval=log_traces_from_eval,
         log_compiles=log_compiles,
         log_evals=log_evals,
+        save_program_with_pickle=save_program_with_pickle,
         disable=disable,
         silent=silent,
     )
@@ -105,9 +111,13 @@ def autolog(
                 return _compile_fn(self, *args, **kwargs)
 
             program = _compile_fn(self, *args, **kwargs)
-            # Save the state of the best model in json format
-            # so that users can see the demonstrations and instructions.
-            save_dspy_module_state(program, "best_model.json")
+            # Save the state of the best model
+            # Use the configuration to determine the serialization format
+            if get_autologging_config(FLAVOR_NAME, "save_program_with_pickle"):
+                save_dspy_module_state(program, "best_model", force_pickle=True)
+            else:
+                # Use the default JSON attempt (raises error if it fails)
+                save_dspy_module_state(program, "best_model.json")
 
             # Teleprompter.get_params is introduced in dspy 2.6.15
             params = (
@@ -179,6 +189,7 @@ def _autolog(
     log_traces_from_eval: bool,
     log_compiles: bool,
     log_evals: bool,
+    save_program_with_pickle: bool,
     disable: bool = False,
     silent: bool = False,
 ):
