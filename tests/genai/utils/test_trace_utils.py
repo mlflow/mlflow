@@ -107,9 +107,8 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrappe
     result = converted_fn(request=sample_input)
     assert result == "test"
 
-    # Trace should be generated
-    if with_tracing or should_be_wrapped:
-        assert len(get_traces()) == 1
+    # Trace should be generated if decorated or wrapped with @mlflow.trace
+    assert len(get_traces()) == (1 if with_tracing or should_be_wrapped else 0)
 
 
 def create_span(
