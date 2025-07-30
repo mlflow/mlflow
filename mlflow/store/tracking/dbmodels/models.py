@@ -16,6 +16,7 @@ from sqlalchemy import (
     UnicodeText,
     UniqueConstraint,
 )
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
@@ -1340,7 +1341,6 @@ class SqlEvaluationDataset(Base):
     Last updater user ID: `String` (limit 255 characters).
     """
 
-    # Relationship to records
     records = relationship(
         "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
     )
@@ -1358,13 +1358,15 @@ class SqlEvaluationDataset(Base):
         Returns:
             :py:class:`mlflow.entities.EvaluationDataset`.
         """
-        from mlflow.entities import EvaluationDataset
         
-        # Convert records if they're loaded
         records = None
-        if self.records:
+        # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
+        # or not as calling .records on the EvaluationDataset object will trigger
+        # lazy-loading of the records.
+        state = inspect(self)
+        if "records" in state.dict:
             records = [record.to_mlflow_entity() for record in self.records]
-        
+
         dataset = EvaluationDataset(
             dataset_id=self.dataset_id,
             name=self.name,
@@ -1379,11 +1381,10 @@ class SqlEvaluationDataset(Base):
             last_updated_by=self.last_updated_by,
             experiment_ids=[],  # Will be populated from entity associations
         )
-        
-        # Set internal records if loaded
+
         if records is not None:
             dataset._records = records
-        
+
         return dataset
 
     @classmethod
@@ -1487,7 +1488,6 @@ class SqlEvaluationDatasetRecord(Base):
     Hash of inputs for deduplication: `String` (limit 64 characters).
     """
 
-    # Relationship to dataset
     dataset = relationship("SqlEvaluationDataset", back_populates="records")
 
     __table_args__ = (
@@ -1509,19 +1509,16 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             :py:class:`mlflow.entities.DatasetRecord`.
         """
-        from mlflow.entities import DatasetRecord, DatasetRecordSource
 
-        # Parse JSON fields
         inputs = json.loads(self.inputs) if self.inputs else {}
         expectations = json.loads(self.expectations) if self.expectations else None
         tags = json.loads(self.tags) if self.tags else None
-        
-        # Parse source if present
+
         source = None
         if self.source:
             source_dict = json.loads(self.source)
             source = DatasetRecordSource.from_dict(source_dict)
-        
+
         return DatasetRecord(
             dataset_record_id=self.dataset_record_id,
             dataset_id=self.dataset_id,
@@ -1536,7 +1533,7 @@ class SqlEvaluationDatasetRecord(Base):
             last_updated_by=self.last_updated_by,
         )
 
-    @classmethod 
+    @classmethod
     def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
         """
         Create SqlEvaluationDatasetRecord from DatasetRecord entity.
@@ -1548,16 +1545,16 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             SqlEvaluationDatasetRecord instance
         """
-        # Serialize JSON fields
         inputs_json = json.dumps(record.inputs, sort_keys=True)
-        expectations_json = json.dumps(record.expectations, sort_keys=True) if record.expectations else None
+        expectations_json = (
+            json.dumps(record.expectations, sort_keys=True) if record.expectations else None
+        )
         tags_json = json.dumps(record.tags, sort_keys=True) if record.tags else None
-        
-        # Serialize source if present
+
         source_json = None
         if record.source:
             source_json = json.dumps(record.source.to_dict(), sort_keys=True)
-        
+
         return cls(
             dataset_record_id=record.dataset_record_id,
             dataset_id=record.dataset_id,
