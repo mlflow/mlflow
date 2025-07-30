@@ -47,9 +47,18 @@ def use_dev_mlflow_for_projects():
 
 
 @spy_on_create_virtualenv
-def test_virtualenv_project_execution(create_virtualenv_spy):
+def test_virtualenv_project_execution_virtualenv(create_virtualenv_spy):
     submitted_run = mlflow.projects.run(
         TEST_VIRTUALENV_PROJECT_DIR, entry_point="test", env_manager="virtualenv"
+    )
+    submitted_run.wait()
+    create_virtualenv_spy.assert_called_once()
+
+
+@spy_on_create_virtualenv
+def test_virtualenv_project_execution_uv(create_virtualenv_spy):
+    submitted_run = mlflow.projects.run(
+        TEST_VIRTUALENV_PROJECT_DIR, entry_point="test", env_manager="uv"
     )
     submitted_run.wait()
     create_virtualenv_spy.assert_called_once()
