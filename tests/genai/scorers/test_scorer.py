@@ -1,4 +1,5 @@
 import importlib
+import time
 from collections import defaultdict
 from unittest.mock import call, patch
 
@@ -338,6 +339,7 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
         return 0.5
 
     def predict(question: str) -> str:
+        time.sleep(0.5)
         return "output: " + str(question)
 
     result = mlflow.genai.evaluate(
