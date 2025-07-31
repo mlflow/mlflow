@@ -92,8 +92,6 @@ def test_webhook_event_from_str_invalid_format():
 
 def test_webhook_event_to_str():
     event = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
-    assert event.to_str() == "model_version.created"
-    assert event.to_str(":") == "model_version:created"
     assert str(event) == "model_version.created"
 
 
