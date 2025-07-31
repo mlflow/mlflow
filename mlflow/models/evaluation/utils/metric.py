@@ -13,11 +13,16 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class MetricDefinition:
     """
-    A namedtuple representing a metric function and its properties.
+    A dataclass representing a metric definition used in model evaluation.
 
-    function : the metric function
-    name : the name of the metric function
-    index : the index of the function in the ``extra_metrics`` argument of mlflow.evaluate
+    Attributes:
+        function: The metric function to be called for evaluation.
+        name: The name of the metric.
+        index: The index of the metric in the ``extra_metrics`` argument of ``mlflow.evaluate``.
+        version: (Optional) The metric version. For example v1.
+        genai_metric_args: (Optional) A dictionary containing arguments specified by users when
+            calling make_genai_metric or make_genai_metric_from_prompt.
+            Those args are persisted so that we can deserialize the same metric object later.
     """
 
     function: Callable[..., Any]
