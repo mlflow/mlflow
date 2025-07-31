@@ -1209,7 +1209,7 @@ class AbstractStore:
         raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
 
     def test_webhook(
-        self, webhook_id: str, event: Optional[Union[WebhookEvent, str]] = None
+        self, webhook_id: str, event: Optional[WebhookEvent] = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test event to the specified URL.

@@ -6090,7 +6090,4 @@ class MlflowClient:
         Returns:
             WebhookTestResult indicating success/failure and response details.
         """
-        # Convert string to WebhookEvent if needed
-        if isinstance(event, str):
-            event = WebhookEvent.from_str(event)
         return self._get_registry_client().test_webhook(webhook_id, event)
