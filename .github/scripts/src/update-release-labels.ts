@@ -174,9 +174,7 @@ async function updatePRLabels(
   const prsToUpdate: number[] = [];
 
   for (const pr of pullRequests) {
-    const prIncludedInRelease = releasePRNumbers.has(pr.number);
-    if (prIncludedInRelease) continue;
-    
+    if (releasePRNumbers.has(pr.number)) continue;
     prsToUpdate.push(pr.number);
   }
 
