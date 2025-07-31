@@ -139,7 +139,7 @@ async function fetchPRsWithLabel(
   github: GitHub,
   context: Context,
   releaseLabel: string
-): Promise<Array<{ number: number; pull_request?: any; title?: string; state: string }>> {
+): Promise<Array<{ number: number; pull_request?: any; state: string }>> {
   const allIssues = await github.paginate(github.rest.issues.listForRepo, {
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -163,7 +163,7 @@ async function fetchPRsWithLabel(
 async function updatePRLabels(
   github: GitHub,
   context: Context,
-  prsWithReleaseLabel: Array<{ number: number; pull_request?: any; title?: string; state: string }>,
+  prsWithReleaseLabel: Array<{ number: number; pull_request?: any; state: string }>,
   releasePRNumbers: Set<number>,
   releaseLabel: string,
   nextPatchLabel: string
@@ -243,5 +243,3 @@ export async function updateReleaseLabels({
     throw error;
   }
 }
-
-export default updateReleaseLabels;
