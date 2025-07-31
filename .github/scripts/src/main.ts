@@ -1,3 +1,4 @@
 import { autoLabel } from "./auto-label";
+import { updateReleaseLabels } from "./update-release-labels";
 
-export { autoLabel };
+export { autoLabel, updateReleaseLabels };
