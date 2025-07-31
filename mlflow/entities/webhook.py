@@ -201,21 +201,8 @@ class WebhookEvent:
         event.action = self.action.to_proto()
         return event
 
-    def to_str(self, separator: str = ".") -> str:
-        """
-        Convert the WebhookEvent to a string representation.
-
-        Args:
-            separator: Separator to use between entity and action (default: ".")
-
-        Returns:
-            String representation like "registered_model.created"
-        """
-        return f"{self.entity.value}{separator}{self.action.value}"
-
     def __str__(self) -> str:
-        """String representation using dot separator."""
-        return self.to_str()
+        return f"{self.entity.value}.{self.action.value}"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, WebhookEvent):
