@@ -9,6 +9,9 @@ on:
         description: "Target release version (e.g., 3.1.4)"
         required: true
         type: string
+  # Temporary trigger for testing
+  pull_request:
+    types: [opened, synchronize]
 
 jobs:
   update-labels:

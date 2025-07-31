@@ -5,7 +5,7 @@ import type { components } from "@octokit/openapi-webhooks-types";
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
 type WorkflowDispatch = components["schemas"]["webhook-workflow-dispatch"];
-type ReleaseEvent = components["schemas"]["webhook-release"];
+type ReleaseEvent = { release: { tag_name: string } };
 
 interface ReleaseInfo {
   releaseVersion: string;
@@ -31,13 +31,18 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
   if (context.eventName === "workflow_dispatch") {
     // Manual trigger with version parameter
     const payload = context.payload as WorkflowDispatch;
-    releaseVersion = payload.inputs?.release_version;
+    releaseVersion = payload.inputs?.release_version as string;
     if (!releaseVersion) {
       throw new Error("release_version input is required for workflow_dispatch");
     }
     releaseTag = releaseVersion.startsWith("v") ? releaseVersion : `v${releaseVersion}`;
     releaseVersion = releaseVersion.replace(/^v/, ""); // Remove 'v' prefix if present
     console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
+  } else if (context.eventName === "pull_request") {
+    // Temporary: hardcode version for PR testing
+    releaseVersion = "3.1.3";
+    releaseTag = "v3.1.3";
+    console.log(`Processing PR test with hardcoded version: ${releaseTag} (${releaseVersion})`);
   } else {
     // Automatic trigger from release event
     const payload = context.payload as ReleaseEvent;
