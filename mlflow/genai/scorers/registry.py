@@ -19,7 +19,6 @@ _ERROR_MSG = (
 
 def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
     scorer = scheduled_scorer.scorer
-    scorer._server_name = scheduled_scorer.scheduled_scorer_name
     scorer._sampling_config = ScorerSamplingConfig(
         sample_rate=scheduled_scorer.sample_rate,
         filter_string=scheduled_scorer.filter_string,

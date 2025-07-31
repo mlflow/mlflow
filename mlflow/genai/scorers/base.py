@@ -84,7 +84,6 @@ class Scorer(BaseModel):
     aggregations: Optional[list[str]] = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
-    _server_name: Optional[str] = PrivateAttr(default=None)
     _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
 
     @computed_field
@@ -411,7 +410,7 @@ class Scorer(BaseModel):
                 # Register a built-in scorer
                 mlflow.set_experiment("my_genai_app")
                 registered_scorer = RelevanceToQuery.register(name="relevance_scorer")
-                print(f"Registered scorer: {registered_scorer._server_name}")
+                print(f"Registered scorer: {registered_scorer.name}")
 
                 # Register a custom scorer
                 from mlflow.genai.scorers import scorer
@@ -430,22 +429,23 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        server_name = name or self.name
-
-        # Create a new scorer instance with the server name
+        # Create a new scorer instance
         new_scorer = self._create_copy()
+
+        # If name is provided, update the copy's name
+        if name:
+            new_scorer.name = name
 
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         add_registered_scorer(
-            name=server_name,
-            scorer=self,
+            name=new_scorer.name,
+            scorer=new_scorer,
             sample_rate=0.0,
             filter_string=None,
             experiment_id=experiment_id,
         )
 
-        # Set the server name and sampling config on the new instance
-        new_scorer._server_name = server_name
+        # Set the sampling config on the new instance
         new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
 
         return new_scorer
@@ -500,7 +500,7 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        scorer_name = name or self._server_name or self.name
+        scorer_name = name or self.name
 
         # Update the scorer on the server
         return update_registered_scorer(
@@ -566,7 +566,7 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        scorer_name = name or self._server_name or self.name
+        scorer_name = name or self.name
 
         # Update the scorer on the server
         return update_registered_scorer(
@@ -617,7 +617,7 @@ class Scorer(BaseModel):
         """
         self._check_can_be_registered()
 
-        scorer_name = name or self._server_name or self.name
+        scorer_name = name or self.name
         return self.update(
             name=scorer_name,
             experiment_id=experiment_id,

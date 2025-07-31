@@ -27,12 +27,12 @@ class TestScorerMethods:
 
         # Check immutability - returns new instance
         assert registered is not my_scorer
-        assert registered._server_name == "my_length_check"
+        assert registered.name == "my_length_check"
         assert registered._sampling_config.sample_rate == 0.0
         assert registered._sampling_config.filter_string is None
 
         # Check that the original scorer is unchanged
-        assert my_scorer._server_name is None
+        assert my_scorer.name == "length_check"
         assert my_scorer._sampling_config is None
 
         # Check the mock was called correctly
@@ -48,7 +48,7 @@ class TestScorerMethods:
         my_scorer = length_check
         registered = my_scorer.register()
 
-        assert registered._server_name == "length_check"  # Uses scorer's name
+        assert registered.name == "length_check"  # Uses scorer's name
         mock_add.assert_called_once()
         assert mock_add.call_args.kwargs["name"] == "length_check"
 
@@ -56,12 +56,13 @@ class TestScorerMethods:
     def test_scorer_start(self, mock_update):
         """Test starting a scorer."""
         my_scorer = length_check
-        my_scorer._server_name = "my_length_check"
+        my_scorer = my_scorer._create_copy()
+        my_scorer.name = "my_length_check"
         my_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0)
 
         # Mock the return value
         mock_update.return_value = my_scorer._create_copy()
-        mock_update.return_value._server_name = "my_length_check"
+        mock_update.return_value.name = "my_length_check"
         mock_update.return_value._sampling_config = ScorerSamplingConfig(
             sample_rate=0.5, filter_string="trace.status = 'OK'"
         )
@@ -74,7 +75,7 @@ class TestScorerMethods:
 
         # Check immutability
         assert started is not my_scorer
-        assert started._server_name == "my_length_check"
+        assert started.name == "my_length_check"
         assert started._sampling_config.sample_rate == 0.5
         assert started._sampling_config.filter_string == "trace.status = 'OK'"
 
@@ -102,7 +103,8 @@ class TestScorerMethods:
     def test_scorer_update(self, mock_update):
         """Test updating a scorer."""
         my_scorer = length_check
-        my_scorer._server_name = "my_length_check"
+        my_scorer = my_scorer._create_copy()
+        my_scorer.name = "my_length_check"
         my_scorer._sampling_config = ScorerSamplingConfig(
             sample_rate=0.5, filter_string="old filter"
         )
@@ -132,7 +134,8 @@ class TestScorerMethods:
     def test_scorer_stop(self, mock_update):
         """Test stopping a scorer."""
         my_scorer = length_check
-        my_scorer._server_name = "my_length_check"
+        my_scorer = my_scorer._create_copy()
+        my_scorer.name = "my_length_check"
         my_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.5)
 
         # Mock the return value
@@ -145,21 +148,6 @@ class TestScorerMethods:
         mock_update.assert_called_once()
         assert mock_update.call_args.kwargs["sample_rate"] == 0.0
 
-    @patch("mlflow.genai.scorers.registry.delete_registered_scorer")
-    def test_scorer_delete(self, mock_delete):
-        """Test deleting a scorer."""
-        my_scorer = length_check
-        my_scorer._server_name = "my_length_check"
-        my_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.5)
-
-        my_scorer.delete()
-
-        # delete() returns None, not a new scorer
-        # Original unchanged
-        assert my_scorer._server_name == "my_length_check"
-
-        mock_delete.assert_called_once()
-        assert mock_delete.call_args.kwargs["name"] == "my_length_check"
 
     @patch("mlflow.genai.scorers.registry.add_registered_scorer")
     def test_scorer_register_with_experiment_id(self, mock_add):
@@ -176,17 +164,17 @@ class TestScorerMethods:
     def test_scorer_start_with_name_param(self, mock_update):
         """Test starting a scorer using name parameter."""
         my_scorer = length_check
-        # Scorer doesn't need _server_name set
+        # Scorer doesn't need name modification
 
         mock_update.return_value = my_scorer._create_copy()
-        mock_update.return_value._server_name = "different_name"
+        mock_update.return_value.name = "different_name"
         mock_update.return_value._sampling_config = ScorerSamplingConfig(sample_rate=0.7)
 
         started = my_scorer.start(
             name="different_name", sampling_config=ScorerSamplingConfig(sample_rate=0.7)
         )
 
-        assert started._server_name == "different_name"
+        assert started.name == "different_name"
         assert started._sampling_config.sample_rate == 0.7
 
         mock_update.assert_called_once()
@@ -197,7 +185,8 @@ class TestScorerMethods:
     def test_scorer_update_with_all_params(self, mock_update):
         """Test updating with all parameters."""
         my_scorer = length_check
-        my_scorer._server_name = "original_name"
+        my_scorer = my_scorer._create_copy()
+        my_scorer.name = "original_name"
 
         mock_update.return_value = my_scorer._create_copy()
         mock_update.return_value._sampling_config = ScorerSamplingConfig(
@@ -217,17 +206,6 @@ class TestScorerMethods:
         assert call_args["sample_rate"] == 0.9
         assert call_args["filter_string"] == "new_filter"
 
-    @patch("mlflow.genai.scorers.registry.delete_registered_scorer")
-    def test_scorer_delete_with_experiment_id(self, mock_delete):
-        """Test deleting with experiment_id."""
-        my_scorer = length_check
-        my_scorer._server_name = "test_scorer"
-
-        my_scorer.delete(experiment_id="exp789")
-
-        mock_delete.assert_called_once()
-        call_args = mock_delete.call_args.kwargs
-        assert call_args["experiment_id"] == "exp789"
 
 
 class TestBuiltinScorerMethods:
@@ -240,7 +218,7 @@ class TestBuiltinScorerMethods:
         registered = guidelines_scorer.register(name="my_guidelines")
 
         assert registered is not guidelines_scorer
-        assert registered._server_name == "my_guidelines"
+        assert registered.name == "my_guidelines"
         assert registered._sampling_config.sample_rate == 0.0
 
         # Check original fields preserved
@@ -250,7 +228,8 @@ class TestBuiltinScorerMethods:
     def test_builtin_scorer_update(self, mock_update):
         """Test updating a builtin scorer."""
         guidelines_scorer = Guidelines(guidelines="Be helpful")
-        guidelines_scorer._server_name = "my_guidelines"
+        guidelines_scorer = guidelines_scorer._create_copy()
+        guidelines_scorer.name = "my_guidelines"
         guidelines_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.5)
 
         # Mock the return value
@@ -285,14 +264,15 @@ class TestImmutability:
         original = length_check
 
         # Set up some state
-        original._server_name = "original_name"
+        original = original._create_copy()
+        original.name = "original_name"
         original._sampling_config = ScorerSamplingConfig(sample_rate=0.1, filter_string="original")
 
         # Test each method
         with patch("mlflow.genai.scorers.registry.add_registered_scorer"):
             registered = original.register(name="new_name")
             assert registered is not original
-            assert original._server_name == "original_name"  # Unchanged
+            assert original.name == "original_name"  # Unchanged
 
         with patch("mlflow.genai.scorers.registry.update_registered_scorer") as mock_update:
             # Mock return values
@@ -321,11 +301,6 @@ class TestImmutability:
             assert stopped is not original
             assert original._sampling_config.sample_rate == 0.1  # Unchanged
 
-        with patch("mlflow.genai.scorers.registry.delete_registered_scorer"):
-            # delete() returns None, not a new instance
-            result = original.delete()
-            assert result is None
-            assert original._server_name == "original_name"  # Unchanged
 
 
 class TestValidation:
@@ -354,9 +329,6 @@ class TestValidation:
 
         with pytest.raises(MlflowException, match="Scorer must be a builtin or decorator scorer"):
             custom_scorer.stop()
-
-        with pytest.raises(MlflowException, match="Scorer must be a builtin or decorator scorer"):
-            custom_scorer.delete()
 
     def test_decorator_scorer_can_be_registered(self):
         """Test that decorator scorers can be registered."""
