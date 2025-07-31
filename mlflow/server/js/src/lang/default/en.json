@@ -2759,9 +2759,9 @@
     "defaultMessage": "Absolute date and time",
     "description": "A tooltip line chart configuration for the step function of wall time"
   },
-  "npHb2a": {
-    "defaultMessage": "Show more columns {count, select, 0 {} other {({count} total)}}",
-    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
+  "npKSv/": {
+    "defaultMessage": "No description",
+    "description": "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",
@@ -3266,6 +3266,26 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
+  },
+  "xnr5KT": {
+    "defaultMessage": "No events found",
+    "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
+  },
+  "xq0Rde": {
+    "defaultMessage": "New",
+    "description": "Sidebar create popover button to create new experiment, model or prompt"
+  },
+  "xwe7WH": {
+    "defaultMessage": "Default rendering",
+    "description": "Tooltip content for a button that changes the render mode to default"
+  },
+  "y2oQyU": {
+    "defaultMessage": "Model name",
+    "description": "Header title for the model name column in the logged model list table"
+  },
+  "y3JM9B": {
+    "defaultMessage": "Show more columns",
+    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "y56Vz9": {
     "defaultMessage": "In progress",

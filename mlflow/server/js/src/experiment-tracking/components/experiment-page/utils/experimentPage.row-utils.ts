@@ -586,7 +586,9 @@ export const extractRunRowParamFloat = (run: RunRowType, paramName: string, fall
   if (!paramEntity) {
     return fallback;
   }
-  return parseFloat(paramEntity) || fallback;
+
+  const parsed = parseFloat(paramEntity);
+  return isNaN(parsed) ? fallback : parsed;
 };
 
 export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fallback = undefined) => {
@@ -594,7 +596,9 @@ export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fa
   if (!paramEntity) {
     return fallback;
   }
-  return parseInt(paramEntity, 10) || fallback;
+
+  const parsed = parseInt(paramEntity, 10);
+  return isNaN(parsed) ? fallback : parsed;
 };
 
 export const extractRunRowParam = (run: RunRowType, paramName: string, fallback = undefined) => {

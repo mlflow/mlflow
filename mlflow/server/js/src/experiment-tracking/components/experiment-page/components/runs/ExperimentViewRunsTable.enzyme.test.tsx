@@ -12,8 +12,11 @@ import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils'
  * Mock all expensive utility functions
  */
 jest.mock('../../utils/experimentPage.column-utils', () => ({
-  ...jest.requireActual('../../utils/experimentPage.column-utils'),
-  useRunsColumnDefinitions: jest.fn().mockImplementation(() => []),
+  ...jest.requireActual<typeof import('../../utils/experimentPage.column-utils')>(
+    '../../utils/experimentPage.column-utils',
+  ),
+  useRunsColumnDefinitions: jest.fn(() => []),
+  makeCanonicalSortKey: jest.requireActual('../../utils/experimentPage.common-utils').makeCanonicalSortKey,
 }));
 
 /**
@@ -117,9 +120,9 @@ describe('ExperimentViewRunsTable', () => {
       expect.objectContaining({
         selectedColumns: expect.anything(),
         compareExperiments: false,
-        metricKeyList: ['m1', 'm2', 'm3'],
-        paramKeyList: ['p1', 'p2', 'p3'],
-        tagKeyList: mockTagKeys,
+        metricKeyList: [],
+        paramKeyList: [],
+        tagKeyList: [],
         columnApi: expect.anything(),
       }),
     );
@@ -142,10 +145,10 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert that "newparam" parameter is being included in calls
-    // for new columns
-    expect(useRunsColumnDefinitions).toBeCalledWith(
+    // for new columns - but only if it's in the selected columns
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
-        paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
+        paramKeyList: [],
       }),
     );
   });
@@ -260,6 +263,15 @@ describe('ExperimentViewRunsTable', () => {
         selectedColumns: newSelectedColumns,
       }),
     });
+
+    // With the selected columns including 'params.`p1`' and 'metrics.`m1`',
+    // the filtered paramKeyList and metricKeyList should now include these values
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramKeyList: ['p1'],
+        metricKeyList: ['m1'],
+      }),
+    );
 
     // Assert "show more columns" CTA button not being displayed anymore
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
