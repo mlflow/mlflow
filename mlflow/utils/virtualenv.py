@@ -285,7 +285,8 @@ def _create_virtualenv(
             f"version {python_env.python} using uv"
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
-        # Allow pre-release versions if explicitly enabled via environment variable or during testing
+        # Allow pre-release versions if explicitly enabled via environment variable
+        # or during testing
         if MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE.get() or _MLFLOW_TESTING.get():
             install_deps_cmd_prefix = "uv pip install --prerelease=allow"
         else:
