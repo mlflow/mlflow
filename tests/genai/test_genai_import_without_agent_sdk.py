@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
-from mlflow.genai.scheduled_scorers import (
+from mlflow.genai.scorers import (
     delete_scorer,
     get_scorer,
     list_scorers,
@@ -59,15 +59,11 @@ class MockScorer(Scorer):
 
 
 def test_list_scorers_raises_when_agents_not_installed():
-    mock_scorer = MockScorer()
-
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
         list_scorers(experiment_id="test_experiment")
 
 
 def test_get_scorer_raises_when_agents_not_installed():
-    mock_scorer = MockScorer()
-
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
         get_scorer(name="test_scorer", experiment_id="test_experiment")
 
