@@ -45,7 +45,6 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
     console.log(`Processing release event: ${releaseTag} (${releaseVersion})`);
   }
 
-  // Parse version components
   const versionMatch = releaseVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!versionMatch) {
     console.log(`Skipping unofficial release: ${releaseVersion}`);
@@ -102,7 +101,6 @@ async function extractPRNumbersFromBranch(
   let totalCommits = 0;
 
   try {
-    // Use github.paginate for better pagination handling
     const commits: CommitInfo[] = await github.paginate(github.rest.repos.listCommits, {
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -112,7 +110,6 @@ async function extractPRNumbersFromBranch(
 
     totalCommits = commits.length;
 
-    // Extract PR numbers from commit messages using helper function
     for (const commit of commits) {
       const prNumber = extractPRNumberFromCommitMessage(commit.commit.message);
       if (prNumber) {
@@ -166,17 +163,13 @@ async function updatePRLabels(
 ): Promise<number> {
   let updatedPRs = 0;
   
-  // Filter out issues beforehand to only work with PRs
   const pullRequests = prsWithReleaseLabel.filter(item => item.pull_request);
   console.log(`Processing ${pullRequests.length} PRs (filtered out ${prsWithReleaseLabel.length - pullRequests.length} issues)`);
 
   const prsToUpdate: number[] = [];
 
   for (const pr of pullRequests) {
-    // Check if this PR number is in the release branch commits
     const prIncludedInRelease = releasePRNumbers.has(pr.number);
-    
-    // Use early continue for cleaner logic
     if (prIncludedInRelease) continue;
     
     prsToUpdate.push(pr.number);
@@ -184,10 +177,8 @@ async function updatePRLabels(
 
   console.log(`Found ${prsToUpdate.length} PRs that need label updates: ${prsToUpdate.join(", ")}`);
 
-  // Update labels for PRs not included in release
   for (const prNumber of prsToUpdate) {
     try {
-      // Remove the old release label
       await github.rest.issues.removeLabel({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -195,7 +186,6 @@ async function updatePRLabels(
         name: releaseLabel,
       });
 
-      // Add the next patch version label
       await github.rest.issues.addLabels({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -255,5 +245,4 @@ export async function updateReleaseLabels({
   }
 }
 
-// Export for backwards compatibility with existing workflow
 export default updateReleaseLabels;
