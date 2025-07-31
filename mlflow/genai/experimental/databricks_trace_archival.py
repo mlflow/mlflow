@@ -165,9 +165,22 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
               ts.trace_data:response_preview::STRING AS response_preview,
               rs.request AS request,
               rs.response AS response,
-              ts.trace_data:trace_metadata AS trace_metadata,
+              FROM_JSON(
+                ts.trace_data:trace_metadata::STRING, 'MAP<STRING, STRING>'
+              ) AS trace_metadata,
               COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
-              ts.trace_data:trace_location AS trace_location,
+              FROM_JSON(
+                ts.trace_data:trace_location::STRING,
+                'STRUCT<
+                  type: STRING,
+                  mlflow_experiment: STRUCT<
+                    experiment_id: STRING
+                  >,
+                  inference_table: STRUCT<
+                    full_table_name: STRING
+                  >
+                >'
+              ) AS trace_location,
               sa.spans,
               COALESCE(
                 TRANSFORM(
