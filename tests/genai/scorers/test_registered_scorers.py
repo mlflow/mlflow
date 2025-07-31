@@ -220,8 +220,14 @@ class TestBuiltinScorerMethods:
 
     @patch("mlflow.genai.scorers.registry.add_registered_scorer")
     def test_builtin_scorer_register(self, mock_add):
-        """Test registering a builtin scorer."""
+        """Test registering a builtin scorer with custom name."""
         guidelines_scorer = Guidelines(guidelines="Be helpful")
+        
+        # Verify original serialization
+        original_dump = guidelines_scorer.model_dump()
+        assert original_dump["name"] == "guidelines"
+        
+        # Register with custom name
         registered = guidelines_scorer.register(name="my_guidelines")
 
         assert registered is not guidelines_scorer
@@ -230,6 +236,15 @@ class TestBuiltinScorerMethods:
 
         # Check original fields preserved
         assert registered.guidelines == "Be helpful"
+        
+        # Verify serialization reflects the new name (key test for BuiltinScorers)
+        registered_dump = registered.model_dump()
+        assert registered_dump["name"] == "my_guidelines"
+        
+        # Verify original scorer is unchanged
+        assert guidelines_scorer.name == "guidelines"
+        original_dump_after = guidelines_scorer.model_dump()
+        assert original_dump_after["name"] == "guidelines"
 
     @patch("mlflow.genai.scorers.registry.update_registered_scorer")
     def test_builtin_scorer_update(self, mock_update):
