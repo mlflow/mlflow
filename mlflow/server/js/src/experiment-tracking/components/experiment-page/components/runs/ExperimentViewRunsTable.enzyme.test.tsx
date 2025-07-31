@@ -15,15 +15,7 @@ jest.mock('../../utils/experimentPage.column-utils', () => ({
   ...jest.requireActual<typeof import('../../utils/experimentPage.column-utils')>(
     '../../utils/experimentPage.column-utils',
   ),
-  useRunsColumnDefinitions: jest.fn((params) => {
-    // If isComparingRuns is true, return only 2 columns (checkbox and run name)
-    if (params.isComparingRuns) {
-      return [];
-    }
-
-    // Otherwise, return columns based on selected columns or all columns if no filtering
-    return [];
-  }),
+  useRunsColumnDefinitions: jest.fn(() => []),
   makeCanonicalSortKey: jest.requireActual('../../utils/experimentPage.common-utils').makeCanonicalSortKey,
 }));
 
