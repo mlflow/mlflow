@@ -3,6 +3,12 @@ name: Update Release Labels
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Target release version (e.g., 3.1.4)"
+        required: true
+        type: string
 
 jobs:
   update-labels:

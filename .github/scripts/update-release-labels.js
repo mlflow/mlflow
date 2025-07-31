@@ -7,12 +7,23 @@
  */
 
 module.exports = async ({ github, context }) => {
-  // Get the release information
-  const release = context.payload.release;
-  const releaseTag = release.tag_name;
-  const releaseVersion = releaseTag.replace(/^v/, ""); // Remove 'v' prefix if present
+  // Get the release information from either release event or workflow_dispatch input
+  let releaseVersion;
+  let releaseTag;
 
-  console.log(`Processing release: ${releaseTag} (${releaseVersion})`);
+  if (context.eventName === "workflow_dispatch") {
+    // Manual trigger with version parameter
+    releaseVersion = context.payload.inputs.release_version;
+    releaseTag = releaseVersion.startsWith("v") ? releaseVersion : `v${releaseVersion}`;
+    releaseVersion = releaseVersion.replace(/^v/, ""); // Remove 'v' prefix if present
+    console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
+  } else {
+    // Automatic trigger from release event
+    const release = context.payload.release;
+    releaseTag = release.tag_name;
+    releaseVersion = releaseTag.replace(/^v/, ""); // Remove 'v' prefix if present
+    console.log(`Processing release event: ${releaseTag} (${releaseVersion})`);
+  }
 
   // Parse version components
   const versionMatch = releaseVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
