@@ -1209,14 +1209,16 @@ class AbstractStore:
         raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
 
     def test_webhook(
-        self, webhook_id: str, event: Optional[WebhookEvent] = None
+        self, webhook_id: str, event: Optional[Union[WebhookEvent, str]] = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test event to the specified URL.
 
         Args:
             webhook_id: Webhook ID.
-            event: Optional event type to test. If not specified, uses the first event from webhook.
+            event: Optional event type to test. Can be a WebhookEvent object or a string in
+                "entity.action" format (e.g., "model_version.created"). If not specified, uses
+                the first event from webhook.
 
         Returns:
             WebhookTestResult indicating success/failure and response details

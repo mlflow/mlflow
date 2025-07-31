@@ -141,7 +141,8 @@ def _send_webhook_request(
     """
     # Create webhook payload with metadata
     webhook_payload = {
-        "type": event.value,
+        "entity": event.entity.value,
+        "action": event.action.value,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "data": payload,
     }

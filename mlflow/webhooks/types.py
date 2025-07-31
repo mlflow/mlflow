@@ -6,7 +6,7 @@ that are sent when various model registry events occur.
 
 from typing import TypeAlias, TypedDict
 
-from mlflow.entities.webhook import WebhookEvent
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
 
 class RegisteredModelCreatedPayload(TypedDict):
@@ -38,6 +38,58 @@ class RegisteredModelCreatedPayload(TypedDict):
             tags={"example_key": "example_value"},
             description="An example registered model",
         )
+
+
+class RegisteredModelUpdatedPayload(TypedDict):
+    """Payload sent when a registered model is updated.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "tags": {"updated_key": "updated_value"},
+            "description": "Updated description",
+        }
+
+    """
+
+    name: str
+    """The name of the registered model."""
+    tags: dict[str, str]
+    """Updated tags associated with the registered model."""
+    description: str | None
+    """Updated description of the registered model."""
+
+    @classmethod
+    def example(cls) -> "RegisteredModelUpdatedPayload":
+        return cls(
+            name="example_model",
+            tags={"updated_key": "updated_value"},
+            description="Updated description",
+        )
+
+
+class RegisteredModelDeletedPayload(TypedDict):
+    """Payload sent when a registered model is deleted.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+        }
+
+    """
+
+    name: str
+    """The name of the registered model being deleted."""
+
+    @classmethod
+    def example(cls) -> "RegisteredModelDeletedPayload":
+        return cls(name="example_model")
 
 
 class ModelVersionCreatedPayload(TypedDict):
@@ -80,6 +132,76 @@ class ModelVersionCreatedPayload(TypedDict):
             run_id="abcd1234abcd5678",
             tags={"example_key": "example_value"},
             description="An example model version",
+        )
+
+
+class ModelVersionUpdatedPayload(TypedDict):
+    """Payload sent when a model version is updated.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+            "source": "models:/123",
+            "run_id": "abcd1234abcd5678",
+            "tags": {"updated_key": "updated_value"},
+            "description": "Updated model version description",
+        }
+
+    """
+
+    name: str
+    """The name of the registered model."""
+    version: str
+    """The version of the model."""
+    source: str
+    """The source URI of the model version."""
+    run_id: str | None
+    """The run ID associated with the model version, if applicable."""
+    tags: dict[str, str]
+    """Updated tags associated with the model version."""
+    description: str | None
+    """Updated description of the model version."""
+
+    @classmethod
+    def example(cls) -> "ModelVersionUpdatedPayload":
+        return cls(
+            name="example_model",
+            version="1",
+            source="models:/123",
+            run_id="abcd1234abcd5678",
+            tags={"updated_key": "updated_value"},
+            description="Updated model version description",
+        )
+
+
+class ModelVersionDeletedPayload(TypedDict):
+    """Payload sent when a model version is deleted.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "name": "example_model",
+            "version": "1",
+        }
+
+    """
+
+    name: str
+    """The name of the registered model."""
+    version: str
+    """The version of the model being deleted."""
+
+    @classmethod
+    def example(cls) -> "ModelVersionDeletedPayload":
+        return cls(
+            name="example_model",
+            version="1",
         )
 
 
@@ -210,21 +332,29 @@ class ModelVersionAliasDeletedPayload(TypedDict):
 
 WebhookPayload: TypeAlias = (
     RegisteredModelCreatedPayload
+    | RegisteredModelUpdatedPayload
+    | RegisteredModelDeletedPayload
     | ModelVersionCreatedPayload
+    | ModelVersionUpdatedPayload
+    | ModelVersionDeletedPayload
     | ModelVersionTagSetPayload
     | ModelVersionTagDeletedPayload
     | ModelVersionAliasCreatedPayload
     | ModelVersionAliasDeletedPayload
 )
 
-# Mapping of event types to their corresponding payload classes
-EVENT_TO_PAYLOAD_CLASS = {
-    WebhookEvent.REGISTERED_MODEL_CREATED: RegisteredModelCreatedPayload,
-    WebhookEvent.MODEL_VERSION_CREATED: ModelVersionCreatedPayload,
-    WebhookEvent.MODEL_VERSION_TAG_SET: ModelVersionTagSetPayload,
-    WebhookEvent.MODEL_VERSION_TAG_DELETED: ModelVersionTagDeletedPayload,
-    WebhookEvent.MODEL_VERSION_ALIAS_CREATED: ModelVersionAliasCreatedPayload,
-    WebhookEvent.MODEL_VERSION_ALIAS_DELETED: ModelVersionAliasDeletedPayload,
+# Mapping of (entity, action) tuples to their corresponding payload classes
+EVENT_TO_PAYLOAD_CLASS: dict[tuple[WebhookEntity, WebhookAction], type[WebhookPayload]] = {
+    (WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED): RegisteredModelCreatedPayload,
+    (WebhookEntity.REGISTERED_MODEL, WebhookAction.UPDATED): RegisteredModelUpdatedPayload,
+    (WebhookEntity.REGISTERED_MODEL, WebhookAction.DELETED): RegisteredModelDeletedPayload,
+    (WebhookEntity.MODEL_VERSION, WebhookAction.CREATED): ModelVersionCreatedPayload,
+    (WebhookEntity.MODEL_VERSION, WebhookAction.UPDATED): ModelVersionUpdatedPayload,
+    (WebhookEntity.MODEL_VERSION, WebhookAction.DELETED): ModelVersionDeletedPayload,
+    (WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET): ModelVersionTagSetPayload,
+    (WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED): ModelVersionTagDeletedPayload,
+    (WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED): ModelVersionAliasCreatedPayload,
+    (WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED): ModelVersionAliasDeletedPayload,
 }
 
 
@@ -232,7 +362,7 @@ def get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
     """Get an example payload for the given webhook event type.
 
     Args:
-        event: The webhook event type
+        event: The webhook event instance
 
     Returns:
         Example payload for the event type
@@ -240,7 +370,21 @@ def get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
     Raises:
         ValueError: If the event type is unknown
     """
-    if payload_class := EVENT_TO_PAYLOAD_CLASS.get(event):
+    event_key = (event.entity, event.action)
+    if payload_class := EVENT_TO_PAYLOAD_CLASS.get(event_key):
         return payload_class.example()
 
-    raise ValueError(f"Unknown event type: {event}")
+    raise ValueError(f"Unknown event type: {event.entity}.{event.action}")
+
+
+def get_payload_class_for_event(event: WebhookEvent) -> type[WebhookPayload] | None:
+    """Get the payload class for the given webhook event type.
+
+    Args:
+        event: The webhook event instance
+
+    Returns:
+        Payload class for the event type, or None if unknown
+    """
+    event_key = (event.entity, event.action)
+    return EVENT_TO_PAYLOAD_CLASS.get(event_key)

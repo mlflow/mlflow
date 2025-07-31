@@ -33,18 +33,41 @@ def upgrade():
         sa.PrimaryKeyConstraint("webhook_id", name="webhook_pk"),
     )
 
+    # Create indexes for webhooks table
+    op.create_index("idx_webhooks_status", SqlWebhook.__tablename__, ["status"])
+    op.create_index("idx_webhooks_name", SqlWebhook.__tablename__, ["name"])
+
     op.create_table(
         SqlWebhookEvent.__tablename__,
         sa.Column("webhook_id", sa.String(length=256), nullable=False),
-        sa.Column("event", sa.String(length=50), nullable=False),
+        sa.Column("entity", sa.String(length=50), nullable=False),
+        sa.Column("action", sa.String(length=50), nullable=False),
         sa.ForeignKeyConstraint(
             ["webhook_id"], [f"{SqlWebhook.__tablename__}.webhook_id"], ondelete="cascade"
         ),
-        sa.PrimaryKeyConstraint("webhook_id", "event", name="webhook_event_pk"),
+        sa.PrimaryKeyConstraint("webhook_id", "entity", "action", name="webhook_event_pk"),
+    )
+
+    # Create indexes for webhook_events table
+    op.create_index("idx_webhook_events_entity", SqlWebhookEvent.__tablename__, ["entity"])
+    op.create_index("idx_webhook_events_action", SqlWebhookEvent.__tablename__, ["action"])
+    op.create_index(
+        "idx_webhook_events_entity_action", SqlWebhookEvent.__tablename__, ["entity", "action"]
     )
 
 
 def downgrade():
+    # Drop indexes for webhook_events table
+    op.drop_index("idx_webhook_events_entity_action", SqlWebhookEvent.__tablename__)
+    op.drop_index("idx_webhook_events_action", SqlWebhookEvent.__tablename__)
+    op.drop_index("idx_webhook_events_entity", SqlWebhookEvent.__tablename__)
+
     # Drop webhook_events table first due to foreign key constraint
     op.drop_table(SqlWebhookEvent.__tablename__)
+
+    # Drop indexes for webhooks table
+    op.drop_index("idx_webhooks_name", SqlWebhook.__tablename__)
+    op.drop_index("idx_webhooks_status", SqlWebhook.__tablename__)
+
+    # Drop webhooks table
     op.drop_table(SqlWebhook.__tablename__)
