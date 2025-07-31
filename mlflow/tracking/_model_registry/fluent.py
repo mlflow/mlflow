@@ -8,8 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pydantic import BaseModel
-
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel

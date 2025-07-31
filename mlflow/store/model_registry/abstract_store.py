@@ -7,8 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pydantic import BaseModel
-
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus

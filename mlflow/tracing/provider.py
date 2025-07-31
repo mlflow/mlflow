@@ -37,7 +37,6 @@ from mlflow.tracing.destination import (
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
-from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -463,7 +462,7 @@ def _get_mlflow_span_processor(tracking_uri: str):
         exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
         _logger.debug("Defaulting to MlflowV3SpanExporter (databricks-agents not available)")
 
-    return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
+    return MlflowV3SpanProcessor(exporter)
 
 
 @raise_as_trace_exception
