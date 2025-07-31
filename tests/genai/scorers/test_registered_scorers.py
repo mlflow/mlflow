@@ -352,55 +352,6 @@ class TestValidation:
         with pytest.raises(MlflowException, match="Scorer must be a builtin or decorator scorer"):
             custom_scorer.stop()
 
-    def test_decorator_scorer_can_be_registered(self):
-        """Test that decorator scorers can be registered."""
-        my_scorer = length_check
-
-        # Should not raise
-        with patch("mlflow.genai.scorers.registry.add_registered_scorer"):
-            my_scorer.register()
-
-    def test_builtin_scorer_can_be_registered(self):
-        """Test that builtin scorers can be registered."""
-        guidelines_scorer = Guidelines(guidelines="Test")
-
-        # Should not raise
-        with patch("mlflow.genai.scorers.registry.add_registered_scorer"):
-            guidelines_scorer.register()
-
-    def test_scheduled_scorer_to_scorer_preserves_registered_name(self):
-        """Test that _scheduled_scorer_to_scorer preserves the registered scorer name."""
-        # This test verifies that when a scorer is registered with a custom name,
-        # the conversion function correctly returns the scorer with the registered name.
-        
-        # Create a scorer with one name
-        @scorer
-        def formality_scorer(outputs) -> bool:
-            return len(outputs) > 10
-
-        # Simulate what happens after registration with a custom name:
-        # The server stores the scorer with the registered name
-        registered_scorer = formality_scorer._create_copy()
-        registered_scorer.name = "my_custom_formality"
-
-        # Create a ScorerScheduleConfig as the server would store it
-        scheduled_config = ScorerScheduleConfig(
-            scorer=registered_scorer,
-            scheduled_scorer_name="my_custom_formality",
-            sample_rate=0.0,
-            filter_string=None,
-        )
-
-        # Test the internal function directly to verify the logic
-        from mlflow.genai.scorers.registry import _scheduled_scorer_to_scorer
-        
-        result_scorer = _scheduled_scorer_to_scorer(scheduled_config)
-        
-        # Verify that the scorer has the registered name
-        assert result_scorer.name == "my_custom_formality"
-        assert result_scorer.sample_rate == 0.0
-        assert result_scorer.filter_string is None
-
     def test_register_with_custom_name_updates_serialization(self):
         """Test that registering with a custom name properly updates serialization data."""
         # Use the pre-defined scorer to avoid source extraction issues

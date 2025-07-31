@@ -90,7 +90,7 @@ class Scorer(BaseModel):
     @property
     @experimental(version="3.2.0")
     def sample_rate(self) -> Optional[float]:
-        """Get the sample rate for this scorer. Only available when the scorer is regsitered for monitoring."""
+        """Get the sample rate for this scorer. Only available when the scorer is registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @computed_field
