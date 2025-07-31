@@ -16,6 +16,12 @@ def length_check(outputs):
     return len(str(outputs)) > 100
 
 
+@scorer
+def serialization_scorer(outputs) -> bool:
+    """Scorer for serialization tests"""
+    return len(outputs) > 5
+
+
 class TestScorerMethods:
     """Test the new methods on the Scorer class."""
 
@@ -382,14 +388,12 @@ class TestValidation:
 
     def test_register_with_custom_name_updates_serialization(self):
         """Test that registering with a custom name properly updates serialization data."""
-        # Create a scorer and trigger serialization to populate cache
-        @scorer  
-        def test_scorer(outputs) -> bool:
-            return len(outputs) > 5
+        # Use the pre-defined scorer to avoid source extraction issues
+        test_scorer = serialization_scorer
 
         # Serialize to populate cache
         original_dump = test_scorer.model_dump()
-        assert original_dump["name"] == "test_scorer"
+        assert original_dump["name"] == "serialization_scorer"
 
         # Register with custom name
         with patch("mlflow.genai.scorers.registry.add_registered_scorer") as mock_add:
@@ -403,7 +407,7 @@ class TestValidation:
         assert registered_dump["name"] == "custom_test_name"
 
         # Verify original scorer is unchanged
-        assert test_scorer.name == "test_scorer"
+        assert test_scorer.name == "serialization_scorer"
 
         # Verify the server was called with the correct name
         mock_add.assert_called_once()

@@ -437,7 +437,6 @@ class Scorer(BaseModel):
             new_scorer.name = name
             # Update cached dump to reflect the new name
             if new_scorer._cached_dump is not None:
-                new_scorer._cached_dump = dict(new_scorer._cached_dump)
                 new_scorer._cached_dump["name"] = name
 
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
@@ -636,15 +635,11 @@ class Scorer(BaseModel):
             error_message="Scorer must be a builtin or decorator scorer to be copied."
         )
 
-        # Temporarily clear cached dump to ensure fresh serialization
-        original_cached_dump = self._cached_dump
-        self._cached_dump = None
-        try:
-            dump = self.model_dump()
-            return self.model_validate(dump)
-        finally:
-            # Restore original cached dump
-            self._cached_dump = original_cached_dump
+        copy = self.model_validate(self.model_dump())
+        # Duplicate the cached dump so modifications to the copy don't affect the original
+        if self._cached_dump is not None:
+            object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
+        return copy
 
     def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
