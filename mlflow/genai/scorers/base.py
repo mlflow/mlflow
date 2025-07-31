@@ -636,7 +636,7 @@ class Scorer(BaseModel):
             error_message="Scorer must be a builtin or decorator scorer to be copied."
         )
 
-        copy = self.model_validate(self.model_dump())
+        copy = self.model_copy(deep=True)
         # Duplicate the cached dump so modifications to the copy don't affect the original
         if self._cached_dump is not None:
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
