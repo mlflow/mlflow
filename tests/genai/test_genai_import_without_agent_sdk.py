@@ -2,10 +2,9 @@ import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.scheduled_scorers import (
-    ScorerScheduleConfig,
-    list_scorers,
-    get_scorer,
     delete_scorer,
+    get_scorer,
+    list_scorers,
 )
 from mlflow.genai.scorers.base import Scorer
 
@@ -75,6 +74,4 @@ def test_get_scorer_raises_when_agents_not_installed():
 
 def test_delete_scorer_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        delete_scorer(
-            experiment_id="test_experiment", name="test_scorer"
-        )
+        delete_scorer(experiment_id="test_experiment", name="test_scorer")

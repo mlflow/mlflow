@@ -395,7 +395,7 @@ class Scorer(BaseModel):
 
         Args:
             name: Optional registered name for the scorer. If not provided, the current `name`
-                property value will be used as a registered name. 
+                property value will be used as a registered name.
             experiment_id: The ID of the MLflow experiment to register the scorer for.
                 If None, uses the currently active experiment.
 
