@@ -432,7 +432,7 @@ def test_convert_scorer_to_legacy_metric():
     assert legacy_metric.name == builtin_scorer.name
 
     # Test with a custom scorer
-    @scorer(name="custom_scorer")
+    @scorer(name="custom_scorer", aggregations=["mean", "max"])
     def custom_scorer_func(inputs, outputs=None, expectations=None, **kwargs):
         return {"score": 1.0}
 
@@ -443,3 +443,4 @@ def test_convert_scorer_to_legacy_metric():
     assert hasattr(legacy_metric_custom, "_is_builtin_scorer")
     assert legacy_metric_custom._is_builtin_scorer is False
     assert legacy_metric_custom.name == custom_scorer_instance.name
+    assert legacy_metric_custom.aggregations == custom_scorer_instance.aggregations
