@@ -8254,10 +8254,6 @@
     "defaultMessage" : "レート制限を変更",
     "description" : "Text for change rate limits button on the endpoints page header"
   },
-  "npHb2a" : {
-    "defaultMessage" : "さらに列を表示 ",
-    "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
-  },
   "npKSv/" : {
     "defaultMessage" : "説明なし",
     "description" : "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
@@ -9927,6 +9923,10 @@
   "y2sSNa" : {
     "defaultMessage" : "テーブルARN",
     "description" : "Title text for the online store table ARN metadata field."
+  },
+  "y3JM9B" : {
+    "defaultMessage" : "さらに列を表示 ",
+    "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "y56Vz9" : {
     "defaultMessage" : "進行中",
