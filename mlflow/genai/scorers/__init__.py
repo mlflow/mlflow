@@ -10,7 +10,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     Safety,
     get_all_scorers,
 )
-from mlflow.genai.scorers.registry import get_scorer, list_scorers
+from mlflow.genai.scorers.registry import get_scorer, list_scorers, delete_scorer
 
 __all__ = [
     "Correctness",
@@ -27,4 +27,5 @@ __all__ = [
     "get_all_scorers",
     "get_scorer",
     "list_scorers",
+    "delete_scorer",
 ]

@@ -624,59 +624,6 @@ class Scorer(BaseModel):
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 
-    @experimental(version="3.2.0")
-    def delete(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> None:
-        """
-        Delete this scorer from the server.
-
-        This method permanently removes the scorer registration from the MLflow server.
-        After deletion, the scorer will no longer evaluate traces automatically and
-        must be registered again if needed.
-
-        Args:
-            name: Optional scorer name. If not provided, uses the scorer's registered name
-                or default name.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
-
-        Returns:
-            None
-
-        Example:
-            .. code-block:: python
-
-                import mlflow
-                from mlflow.genai.scorers import relevance, list_scorers
-
-                # Register and start a scorer
-                mlflow.set_experiment("my_genai_app")
-                scorer = relevance.register(name="relevance_checker")
-
-                # List current scorers
-                scorers = list_scorers()
-                print(f"Active scorers: {[s.name for s in scorers]}")
-
-                # Delete the scorer
-                scorer.delete()
-
-                # Verify deletion
-                scorers_after = list_scorers()
-                print(f"Active scorers after deletion: {[s.name for s in scorers_after]}")
-
-                # To use the scorer again, it must be re-registered
-                new_scorer = relevance.register(name="relevance_checker_v2")
-        """
-        self._check_can_be_registered()
-
-        from mlflow.genai.scorers.registry import delete_registered_scorer
-
-        scorer_name = name or self._server_name or self.name
-        # Delete the scorer from the server
-        delete_registered_scorer(
-            name=scorer_name,
-            experiment_id=experiment_id,
-        )
-
     def _create_copy(self) -> "Scorer":
         """
         Create a copy of this scorer instance.

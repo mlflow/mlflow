@@ -122,6 +122,62 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
     return _scheduled_scorer_to_scorer(scheduled_scorer)
 
 
+@experimental(version="3.2.0")
+def delete_scorer(
+    *,
+    name: str,
+    experiment_id: Optional[str] = None,
+) -> None:
+    """
+    Delete scorer with given name from the server.
+
+    This method permanently removes the scorer registration from the MLflow server.
+    After deletion, the scorer will no longer evaluate traces automatically and
+    must be registered again if needed.
+
+    Args:
+        name: Name of the scorer to delete.
+        experiment_id: The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment.
+
+    Returns:
+        None
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.scorers import relevance, list_scorers, delete_scorer
+
+            # Register and start a scorer
+            mlflow.set_experiment("my_genai_app")
+            scorer = relevance.register(name="relevance_checker")
+
+            # List current scorers
+            scorers = list_scorers()
+            print(f"Active scorers: {[s.name for s in scorers]}")
+
+            # Delete the scorer
+            delete_scorer(name="relevance_checker")
+
+            # Verify deletion
+            scorers_after = list_scorers()
+            print(f"Active scorers after deletion: {[s.name for s in scorers_after]}")
+
+            # To use the scorer again, it must be re-registered
+            new_scorer = relevance.register(name="relevance_checker_v2")
+    """
+    try:
+        from databricks.agents.scorers import delete_scheduled_scorer
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+
+    delete_scheduled_scorer(
+        experiment_id=experiment_id,
+        scheduled_scorer_name=name,
+    )
+
+
 # Private functions for internal use by Scorer methods
 def add_registered_scorer(
     *,
@@ -169,20 +225,3 @@ def update_registered_scorer(
         filter_string=filter_string,
     )
     return _scheduled_scorer_to_scorer(scheduled_scorer)
-
-
-def delete_registered_scorer(
-    *,
-    name: str,
-    experiment_id: Optional[str] = None,
-) -> None:
-    """Internal function to delete a registered scorer."""
-    try:
-        from databricks.agents.scorers import delete_scheduled_scorer
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
-
-    delete_scheduled_scorer(
-        experiment_id=experiment_id,
-        scheduled_scorer_name=name,
-    )
