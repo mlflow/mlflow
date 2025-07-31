@@ -55,6 +55,7 @@ import {
 import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
 import { normalizeOpenAIAgentInput, normalizeOpenAIAgentOutput } from './chat-utils/openai';
 import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
+import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -983,6 +984,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const autogenChatOutput = normalizeAutogenChatOutput(input);
     if (autogenChatOutput) {
       return autogenChatOutput;
+    }
+
+    const bedrockChatInput = normalizeBedrockChatInput(input);
+    if (bedrockChatInput) {
+      return bedrockChatInput;
+    }
+
+    const bedrockChatOutput = normalizeBedrockChatOutput(input);
+    if (bedrockChatOutput) {
+      return bedrockChatOutput;
     }
 
     return null;
