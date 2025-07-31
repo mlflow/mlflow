@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Optional, Union
 
+from typing_extensions import Self
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import Webhook as ProtoWebhook
 from mlflow.protos.webhooks_pb2 import WebhookAction as ProtoWebhookAction
@@ -18,11 +20,15 @@ class WebhookStatus(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: int) -> "WebhookStatus":
-        return WebhookStatus(ProtoWebhookStatus.Name(proto))
+    def from_proto(cls, proto: int) -> Self:
+        proto_name = ProtoWebhookStatus.Name(proto)
+        try:
+            return cls(proto_name)
+        except ValueError:
+            raise ValueError(f"Unknown proto status: {proto_name}")
 
     def to_proto(self) -> int:
-        return ProtoWebhookStatus.Value(self.name)
+        return ProtoWebhookStatus.Value(self.value)
 
     def is_active(self) -> bool:
         return self == WebhookStatus.ACTIVE
@@ -38,26 +44,14 @@ class WebhookEntity(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: int) -> "WebhookEntity":
+    def from_proto(cls, proto: int) -> Self:
         proto_name = ProtoWebhookEntity.Name(proto)
-        mapping = {
-            "REGISTERED_MODEL": cls.REGISTERED_MODEL,
-            "MODEL_VERSION": cls.MODEL_VERSION,
-            "MODEL_VERSION_TAG": cls.MODEL_VERSION_TAG,
-            "MODEL_VERSION_ALIAS": cls.MODEL_VERSION_ALIAS,
-        }
-        if proto_name not in mapping:
-            raise ValueError(f"Unknown proto entity: {proto_name}")
-        return mapping[proto_name]
+        entity_value = proto_name.lower()
+        return cls(entity_value)
 
     def to_proto(self) -> int:
-        mapping = {
-            self.REGISTERED_MODEL: "REGISTERED_MODEL",
-            self.MODEL_VERSION: "MODEL_VERSION",
-            self.MODEL_VERSION_TAG: "MODEL_VERSION_TAG",
-            self.MODEL_VERSION_ALIAS: "MODEL_VERSION_ALIAS",
-        }
-        return ProtoWebhookEntity.Value(mapping[self])
+        proto_name = self.value.upper()
+        return ProtoWebhookEntity.Value(proto_name)
 
 
 class WebhookAction(str, Enum):
@@ -70,39 +64,28 @@ class WebhookAction(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: int) -> "WebhookAction":
+    def from_proto(cls, proto: int) -> Self:
         proto_name = ProtoWebhookAction.Name(proto)
-        mapping = {
-            "CREATED": cls.CREATED,
-            "UPDATED": cls.UPDATED,
-            "DELETED": cls.DELETED,
-            "SET": cls.SET,
-        }
-        if proto_name not in mapping:
+        # Convert UPPER_CASE to lowercase
+        action_value = proto_name.lower()
+        try:
+            return cls(action_value)
+        except ValueError:
             raise ValueError(f"Unknown proto action: {proto_name}")
-        return mapping[proto_name]
 
     def to_proto(self) -> int:
-        mapping = {
-            self.CREATED: "CREATED",
-            self.UPDATED: "UPDATED",
-            self.DELETED: "DELETED",
-            self.SET: "SET",
-        }
-        return ProtoWebhookAction.Value(mapping[self])
+        # Convert lowercase to UPPER_CASE
+        proto_name = self.value.upper()
+        return ProtoWebhookAction.Value(proto_name)
 
 
 # Valid actions for each entity type
 VALID_ENTITY_ACTIONS: dict[WebhookEntity, set[WebhookAction]] = {
     WebhookEntity.REGISTERED_MODEL: {
         WebhookAction.CREATED,
-        WebhookAction.UPDATED,
-        WebhookAction.DELETED,
     },
     WebhookEntity.MODEL_VERSION: {
         WebhookAction.CREATED,
-        WebhookAction.UPDATED,
-        WebhookAction.DELETED,
     },
     WebhookEntity.MODEL_VERSION_TAG: {
         WebhookAction.SET,
@@ -169,42 +152,15 @@ class WebhookEvent:
         valid_actions = VALID_ENTITY_ACTIONS.get(entity, set())
         return action in valid_actions
 
-    @staticmethod
-    def get_valid_actions(entity: WebhookEntity) -> set[WebhookAction]:
-        """
-        Get all valid actions for a given entity.
-
-        Args:
-            entity: The webhook entity
-
-        Returns:
-            Set of valid actions for the entity
-        """
-        return VALID_ENTITY_ACTIONS.get(entity, set()).copy()
-
-    @staticmethod
-    def get_all_valid_combinations() -> list[tuple[WebhookEntity, WebhookAction]]:
-        """
-        Get all valid entity/action combinations.
-
-        Returns:
-            List of (entity, action) tuples representing all valid combinations
-        """
-        combinations = []
-        for entity, actions in VALID_ENTITY_ACTIONS.items():
-            for action in actions:
-                combinations.append((entity, action))
-        return combinations
-
     @classmethod
-    def from_proto(cls, proto: ProtoWebhookEvent) -> "WebhookEvent":
+    def from_proto(cls, proto: ProtoWebhookEvent) -> Self:
         return cls(
             entity=WebhookEntity.from_proto(proto.entity),
             action=WebhookAction.from_proto(proto.action),
         )
 
     @classmethod
-    def from_str(cls, event_str: str) -> "WebhookEvent":
+    def from_str(cls, event_str: str) -> Self:
         """
         Create a WebhookEvent from a dot-separated string representation.
 
@@ -213,9 +169,6 @@ class WebhookEvent:
 
         Returns:
             A WebhookEvent instance
-
-        Raises:
-            MlflowException: If the string format is invalid
         """
         match event_str.split("."):
             case [entity_str, action_str]:
@@ -348,7 +301,7 @@ class Webhook:
         return self._last_updated_timestamp
 
     @classmethod
-    def from_proto(cls, proto: ProtoWebhook) -> "Webhook":
+    def from_proto(cls, proto: ProtoWebhook) -> Self:
         return cls(
             webhook_id=proto.webhook_id,
             name=proto.name,
@@ -430,7 +383,7 @@ class WebhookTestResult:
         return self._error_message
 
     @classmethod
-    def from_proto(cls, proto: ProtoWebhookTestResult) -> "WebhookTestResult":
+    def from_proto(cls, proto: ProtoWebhookTestResult) -> Self:
         return cls(
             success=proto.success,
             response_status=proto.response_status or None,

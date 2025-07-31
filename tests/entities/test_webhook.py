@@ -1,7 +1,6 @@
 import pytest
 
 from mlflow.entities.webhook import (
-    VALID_ENTITY_ACTIONS,
     Webhook,
     WebhookAction,
     WebhookEntity,
@@ -117,24 +116,11 @@ def test_webhook_event_equality():
     assert hash(event1) != hash(event3)
 
 
-def test_webhook_event_validation_helpers():
-    # Test valid combination
-    assert WebhookEvent.is_valid_combination(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
-
-    # Test invalid combination
-    assert not WebhookEvent.is_valid_combination(
-        WebhookEntity.MODEL_VERSION_TAG, WebhookAction.UPDATED
-    )
-
-    # Test get valid actions
-    valid_actions = WebhookEvent.get_valid_actions(WebhookEntity.REGISTERED_MODEL)
-    expected_actions = {WebhookAction.CREATED, WebhookAction.UPDATED, WebhookAction.DELETED}
-    assert valid_actions == expected_actions
-
-    # Test get all valid combinations
-    all_combinations = WebhookEvent.get_all_valid_combinations()
-    expected_count = sum(len(actions) for actions in VALID_ENTITY_ACTIONS.values())
-    assert len(all_combinations) == expected_count
+def test_webhook_event_invalid_entity_action_combination():
+    with pytest.raises(
+        MlflowException, match="Invalid action 'deleted' for entity 'registered_model'"
+    ):
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.DELETED)
 
 
 def test_webhook_proto_conversion():
