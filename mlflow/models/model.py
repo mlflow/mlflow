@@ -420,7 +420,7 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.now())
+        self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -619,7 +619,6 @@ class Model:
     def model_size_bytes(self, value: Optional[int]) -> None:
         self._model_size_bytes = value
 
-    @experimental(version="2.13.0")
     @property
     def resources(self) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         """
@@ -631,7 +630,6 @@ class Model:
         """
         return self._resources
 
-    @experimental(version="2.13.0")
     @resources.setter
     def resources(self, value: Optional[Union[str, list[Resource]]]) -> None:
         if isinstance(value, (Path, str)):
@@ -1598,7 +1596,6 @@ def _validate_llama_index_model(model):
     return _validate_and_prepare_llama_index_model_or_path(model, None)
 
 
-@experimental(version="2.13.0")
 def set_model(model) -> None:
     """
     When logging model as code, this function can be used to set the model object
