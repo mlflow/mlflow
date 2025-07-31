@@ -1216,9 +1216,7 @@ class AbstractStore:
 
         Args:
             webhook_id: Webhook ID.
-            event: Optional event type to test. Can be a WebhookEvent object or a string in
-                "entity.action" format (e.g., "model_version.created"). If not specified, uses
-                the first event from webhook.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
 
         Returns:
             WebhookTestResult indicating success/failure and response details

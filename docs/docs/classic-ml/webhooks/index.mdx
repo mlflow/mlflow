@@ -81,7 +81,7 @@ client = MlflowClient()
 webhook = client.create_webhook(
     name="model-version-notifier",
     url="https://your-app.com/webhook",
-    events=[WebhookEvent.from_str("model_version.created")],
+    events=["model_version.created"],
     description="Notifies when new model versions are created",
     secret="your-secret-key",  # Optional: for HMAC signature verification
 )
@@ -129,9 +129,9 @@ webhook = client.create_webhook(
     name="multi-event-webhook",
     url="https://your-domain.com/webhook",
     events=[
-        WebhookEvent.from_str("registered_model.created"),
-        WebhookEvent.from_str("model_version.created"),
-        WebhookEvent.from_str("model_version_tag.set"),
+        "registered_model.created",
+        "model_version.created",
+        "model_version_tag.set",
     ],
     secret="your-secret-key",
 )
@@ -142,7 +142,7 @@ result = client.test_webhook(webhook.webhook_id)
 # Test with specific event
 result = client.test_webhook(
     webhook.webhook_id,
-    event=WebhookEvent.from_str("model_version_tag.set"),
+    event=("model_version_tag.set"),
 )
 ```
 
@@ -208,8 +208,8 @@ client.update_webhook(
     webhook_id=webhook.webhook_id,
     status="DISABLED",  # Temporarily disable the webhook
     events=[
-        WebhookEvent.from_str("model_version.created"),
-        WebhookEvent.from_str("model_version_tag.set"),
+        "model_version.created",
+        "model_version_tag.set",
     ],
 )
 ```
