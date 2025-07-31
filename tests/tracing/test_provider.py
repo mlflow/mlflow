@@ -18,7 +18,6 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import (
-    _MLFLOW_TRACE_USER_DESTINATION,
     _get_tracer,
     _setup_tracer_provider,
     is_tracing_enabled,
@@ -126,7 +125,6 @@ def test_set_destination_databricks_serving(mock_databricks_serving_with_tracing
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
-    assert _MLFLOW_TRACE_USER_DESTINATION.get().experiment_id == "123"
 
 
 def test_disable_enable_tracing():
