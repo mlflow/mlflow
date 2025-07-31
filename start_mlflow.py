@@ -1,22 +1,19 @@
 import os
 import subprocess
 
-# Optional: pull secrets or set up environment here
-# For example: inject from Vault, SSM, or custom logic
+backend_uri = os.environ.get("MLFLOW_BACKEND_STORE_URI", "/home/mlflow/mlruns")
+artifact_root = os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT", "/home/mlflow/mlruns")
+
 print("Starting MLflow Tracking Server...")
+print(f"Backend URI: {backend_uri}")
+print(f"Artifact Root: {artifact_root}")
 
-# Ensure local run directory exists
-mlruns_path = os.environ.get("MLFLOW_DATA_DIR", "/mlflow/mlruns")
-os.makedirs(mlruns_path, exist_ok=True)
-
-# Run MLflow server
 cmd = [
     "mlflow", "server",
-    "--backend-store-uri", mlruns_path,
-    "--default-artifact-root", mlruns_path,
+    "--backend-store-uri", backend_uri,
+    "--default-artifact-root", artifact_root,
     "--host", "0.0.0.0",
     "--port", "5000"
 ]
 
-print("Running:", " ".join(cmd))
 subprocess.run(cmd)
