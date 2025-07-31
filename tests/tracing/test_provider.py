@@ -117,7 +117,8 @@ def test_set_destination_databricks(monkeypatch):
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
-def test_set_destination_databricks_serving(mock_databricks_serving_with_tracing_env):
+def test_set_destination_databricks_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
     mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
 
     tracer = _get_tracer("test")
