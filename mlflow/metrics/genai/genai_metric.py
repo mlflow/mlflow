@@ -247,6 +247,7 @@ def make_genai_metric_from_prompt(
         :caption: Example for creating a genai metric
 
         import pandas as pd
+        import mlflow
         from mlflow.metrics.genai import make_genai_metric_from_prompt
 
         metric = make_genai_metric_from_prompt(
