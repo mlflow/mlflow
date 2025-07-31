@@ -444,3 +444,25 @@ def test_convert_scorer_to_legacy_metric():
     assert legacy_metric_custom._is_builtin_scorer is False
     assert legacy_metric_custom.name == custom_scorer_instance.name
     assert legacy_metric_custom.aggregations == custom_scorer_instance.aggregations
+
+
+@pytest.mark.parametrize(
+    "aggregations",
+    [
+        ["mean", "max", "mean", "median", "variance", "p90"],
+        [lambda x: sum(x) / len(x), lambda x: max(x)],
+    ],
+)
+def test_scorer_pass_though_aggregations(aggregations):
+    @scorer(name="custom_scorer", aggregations=aggregations)
+    def custom_scorer_func(outputs):
+        return {"score": 1.0}
+
+    legacy_metric_custom = _convert_scorer_to_legacy_metric(custom_scorer_func)
+    assert legacy_metric_custom.name == "custom_scorer"
+    assert legacy_metric_custom.aggregations == aggregations
+
+    builtin_scorer = Safety(aggregations=aggregations)
+    legacy_metric_builtin = _convert_scorer_to_legacy_metric(builtin_scorer)
+    assert legacy_metric_builtin.name == "safety"
+    assert legacy_metric_builtin.aggregations == builtin_scorer.aggregations
