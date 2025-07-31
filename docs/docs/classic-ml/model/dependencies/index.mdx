@@ -586,6 +586,41 @@ The Python API is available since MLflow 2.10.0. If you are using an older versi
   </TabItem>
 </Tabs>
 
+#### Using UV for faster environment creation
+
+You can use `uv` as the environment manager for significantly faster environment creation:
+
+```python
+import mlflow
+
+mlflow.models.predict(
+    model_uri="runs:/<run_id>/model",
+    input_data="<input_data>",
+    env_manager="uv",  # Use uv for faster environment creation
+)
+```
+
+:::warning
+When using `uv` as the environment manager, MLflow only installs stable release versions of dependencies by default.
+If your model requires pre-release dependencies (alpha, beta, or release candidate versions), you must explicitly enable them:
+
+```python
+import os
+import mlflow
+
+# Enable pre-release dependencies for uv (not recommended for production)
+os.environ["MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE"] = "true"
+
+mlflow.models.predict(
+    model_uri="runs:/<run_id>/model",
+    input_data="<input_data>",
+    env_manager="uv",
+)
+```
+
+Pre-release versions may contain breaking changes and should be avoided in production environments.
+:::
+
 Using the <APILink fn="mlflow.models.predict" /> API is convenient for testing your model and inference environment quickly.
 However, it may not be a perfect simulation of the serving because it does not start the online inference server. That
 said, it's a great way to test whether your prediction inputs are correctly formatted.

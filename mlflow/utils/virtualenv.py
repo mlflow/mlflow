@@ -11,7 +11,11 @@ from typing import Literal, Optional
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENV_ROOT,
+    MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
@@ -281,7 +285,11 @@ def _create_virtualenv(
             f"version {python_env.python} using uv"
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
-        install_deps_cmd_prefix = "uv pip install --prerelease=allow"
+        # Allow pre-release versions if explicitly enabled via environment variable or during testing
+        if MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE.get() or _MLFLOW_TESTING.get():
+            install_deps_cmd_prefix = "uv pip install --prerelease=allow"
+        else:
+            install_deps_cmd_prefix = "uv pip install"
         if _MLFLOW_TESTING.get():
             os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(

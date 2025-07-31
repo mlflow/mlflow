@@ -887,3 +887,16 @@ _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMET
 MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
 )
+
+#: Whether to allow pre-release versions when installing dependencies in UV-managed
+#: virtual environments created by MLflow. When set to True, UV will use the
+#: --prerelease=allow flag during pip install operations, which may install alpha,
+#: beta, or release candidate versions of packages.
+#: NOTE: Pre-release versions are also automatically allowed when MLFLOW_TESTING is set,
+#: to support testing with development versions of MLflow and its dependencies.
+#: WARNING: Pre-release versions may contain breaking changes and are not recommended
+#: for production use.
+#: (default: ``False``)
+MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE = _BooleanEnvironmentVariable(
+    "MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE", False
+)

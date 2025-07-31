@@ -152,6 +152,13 @@ def predict(
             - "local": use the local environment
             - "conda": use conda
 
+            .. note::
+                When using "uv" as the environment manager, MLflow will by default only install
+                stable release versions of dependencies. To allow pre-release versions (alpha, beta,
+                release candidates), set the environment variable
+                ``MLFLOW_VIRTUALENV_UV_ALLOW_PRERELEASE=true``. This is not recommended for
+                production use as pre-release versions may contain breaking changes.
+
         install_mlflow: If specified and there is a conda or virtualenv environment to be activated
             mlflow will be installed into the environment after it has been activated. The version
             of installed mlflow will be the same as the one used to invoke this command.
