@@ -1,10 +1,8 @@
 FROM python:3.10-bullseye
 
-
-# Add protoc to PATH
+# Set environment variables
 ENV PATH="/home/mlflow/.local/protoc/bin:$PATH"
 ENV MLFLOW_DATA_DIR=/home/mlflow/mlruns
-
 
 WORKDIR /home/mlflow
 
@@ -23,11 +21,17 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     && groupadd --gid 10001 mlflow \
     && useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
 
-# Install MLflow and dependencies
-RUN pip install --no-cache-dir mlflow==1.30.0
+# Install MLflow with PostgreSQL and GCS support
+RUN pip install --no-cache-dir \
+    mlflow==1.30.0 \
+    psycopg2-binary \
+    google-cloud-storage
 
 # Copy Python entrypoint
 COPY start_mlflow.py /home/mlflow/start_mlflow.py
+
+# Set ownership (optional, if start_mlflow.py isn't readable by UID 10001)
+RUN chown mlflow:mlflow /home/mlflow/start_mlflow.py
 
 # Switch to unprivileged user (K8s best practice)
 USER 10001
