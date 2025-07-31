@@ -282,7 +282,7 @@ def make_genai_metric_from_prompt(
 
     prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
     allowed_variables = prompt_template.variables
-    additional_variables = list(allowed_variables - {"predictions", "targets"})
+    additional_variables = list(allowed_variables - {"predictions"})
 
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
