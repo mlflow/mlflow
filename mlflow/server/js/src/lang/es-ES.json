@@ -6472,7 +6472,7 @@
     "description" : "Text for change rate limits button on the endpoints page header"
   },
   "npHb2a" : {
-    "defaultMessage" : "{count, select, 0 {Mostrar más columnas } other {Mostrar más columnas ({count} en total)}}",
+    "defaultMessage" : "Mostrar más columnas ",
     "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "npKSv/" : {

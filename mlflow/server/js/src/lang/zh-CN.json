@@ -6472,7 +6472,7 @@
     "description" : "Text for change rate limits button on the endpoints page header"
   },
   "npHb2a" : {
-    "defaultMessage" : "{count, select, 0 {显示更多列 } other {显示更多列（共 {count} 列）}}",
+    "defaultMessage" : "显示更多列 ",
     "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "npKSv/" : {
