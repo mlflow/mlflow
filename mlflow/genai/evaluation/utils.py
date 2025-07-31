@@ -4,8 +4,6 @@ import math
 from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection, Optional, Union
 
-from tqdm import tqdm
-
 from mlflow.entities import Assessment, Trace
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -19,13 +17,12 @@ from mlflow.models import EvaluationMetric
 try:
     # `pandas` is not required for `mlflow-skinny`.
     import pandas as pd
-
-    from mlflow.genai.evaluation.entities import EvalResult
 except ImportError:
     pass
 
 if TYPE_CHECKING:
     from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -344,15 +341,23 @@ def is_none_or_nan(value: Any) -> bool:
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
     """Wraps the as_completed function with a progress bar."""
     futures_as_completed = as_completed(futures)
-    futures_as_completed = tqdm(
-        futures_as_completed,
-        total=len(futures),
-        disable=False,
-        desc="Evaluating",
-        smoothing=0,  # 0 means using average speed for remaining time estimates
-        bar_format=(
-            "{l_bar}{bar}| {n_fmt}/{total_fmt} "
-            "[Elapsed: {elapsed}, Remaining: {remaining}] {postfix}",
-        ),
-    )
+
+    try:
+        from tqdm.auto import tqdm
+
+        futures_as_completed = tqdm(
+            futures_as_completed,
+            total=len(futures),
+            disable=False,
+            desc="Evaluating",
+            smoothing=0,  # 0 means using average speed for remaining time estimates
+            bar_format=(
+                "{l_bar}{bar}| {n_fmt}/{total_fmt} "
+                "[Elapsed: {elapsed}, Remaining: {remaining}] {postfix}",
+            ),
+        )
+    except ImportError:
+        # If tqdm is not installed, we don't show a progress bar
+        pass
+
     return [future.result() for future in futures_as_completed]
