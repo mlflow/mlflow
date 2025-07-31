@@ -1,4 +1,4 @@
-import { has } from 'lodash';
+import { has, isArray, isString } from 'lodash';
 import { ModelTraceChatMessage } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 

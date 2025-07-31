@@ -54,6 +54,7 @@ import {
 } from './chat-utils';
 import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
 import { normalizeOpenAIAgentInput, normalizeOpenAIAgentOutput } from './chat-utils/openai';
+import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
 
 export const getCurrentUser = () => {
   return 'User';
@@ -972,6 +973,16 @@ export const normalizeConversation = (input: any): ModelTraceChatMessage[] | nul
     const anthropicChatOutput = normalizeAnthropicChatOutput(input);
     if (anthropicChatOutput) {
       return anthropicChatOutput;
+    }
+
+    const autogenChatInput = normalizeAutogenChatInput(input);
+    if (autogenChatInput) {
+      return autogenChatInput;
+    }
+
+    const autogenChatOutput = normalizeAutogenChatOutput(input);
+    if (autogenChatOutput) {
+      return autogenChatOutput;
     }
 
     return null;
