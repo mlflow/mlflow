@@ -548,7 +548,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
+        target: Optional[np.ndarray] = None,
     ):
         """Evaluate custom artifacts provided by users."""
         if not custom_artifacts:
@@ -642,7 +642,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.array] = None):
+    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.ndarray] = None):
         """
         Create a DataFrame with "prediction" and "target" columns.
 
@@ -730,7 +730,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
+        target: Optional[np.ndarray] = None,
         other_output_df: Optional[pd.DataFrame] = None,
     ):
         """
