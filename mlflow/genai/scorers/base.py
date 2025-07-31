@@ -2,9 +2,10 @@ import functools
 import inspect
 import logging
 from dataclasses import asdict, dataclass
+from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, computed_field
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -17,6 +18,23 @@ _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+
+
+class ScorerKind(Enum):
+    CLASS = "class"
+    BUILTIN = "builtin"
+    DECORATOR = "decorator"
+
+
+_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+
+
+@dataclass
+class ScorerSamplingConfig:
+    """Configuration for registered scorer sampling."""
+
+    sample_rate: Optional[float] = None
+    filter_string: Optional[str] = None
 
 
 @dataclass
@@ -66,6 +84,21 @@ class Scorer(BaseModel):
     aggregations: Optional[list[str]] = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
+    _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
+
+    @computed_field
+    @property
+    @experimental(version="3.2.0")
+    def sample_rate(self) -> Optional[float]:
+        """Get the sample rate for this scorer."""
+        return self._sampling_config.sample_rate if self._sampling_config else None
+
+    @computed_field
+    @property
+    @experimental(version="3.2.0")
+    def filter_string(self) -> Optional[str]:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
@@ -345,6 +378,278 @@ class Scorer(BaseModel):
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.CLASS
+
+    @experimental(version="3.2.0")
+    def register(
+        self, *, name: Optional[str] = None, experiment_id: Optional[str] = None
+    ) -> "Scorer":
+        """
+        Register this scorer with the MLflow server.
+
+        This method registers the scorer for use with automatic trace evaluation in the
+        specified experiment. Once registered, the scorer can be started to begin
+        evaluating traces automatically.
+
+        Args:
+            name: Optional name for the server-side scorer. If not provided, uses the scorer's name.
+            experiment_id: The ID of the MLflow experiment to register the scorer for.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with server registration information.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery
+
+                # Register a built-in scorer
+                mlflow.set_experiment("my_genai_app")
+                registered_scorer = RelevanceToQuery.register(name="relevance_scorer")
+                print(f"Registered scorer: {registered_scorer.name}")
+
+                # Register a custom scorer
+                from mlflow.genai.scorers import scorer
+
+
+                @scorer
+                def custom_length_check(outputs) -> bool:
+                    return len(outputs) > 100
+
+
+                registered_custom = custom_length_check.register(
+                    name="output_length_checker", experiment_id="12345"
+                )
+        """
+        from mlflow.genai.scorers.registry import add_registered_scorer
+
+        self._check_can_be_registered()
+
+        # Create a new scorer instance
+        new_scorer = self._create_copy()
+
+        # If name is provided, update the copy's name
+        if name:
+            new_scorer.name = name
+            # Update cached dump to reflect the new name
+            if new_scorer._cached_dump is not None:
+                new_scorer._cached_dump["name"] = name
+
+        # Add the scorer to the server with sample_rate=0 (not actively sampling)
+        add_registered_scorer(
+            name=new_scorer.name,
+            scorer=new_scorer,
+            sample_rate=0.0,
+            filter_string=None,
+            experiment_id=experiment_id,
+        )
+
+        # Set the sampling config on the new instance
+        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+
+        return new_scorer
+
+    @experimental(version="3.2.0")
+    def start(
+        self,
+        *,
+        name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Start registered scoring with the specified sampling configuration.
+
+        This method activates automatic trace evaluation for the scorer. The scorer will
+        evaluate traces based on the provided sampling configuration, including the
+        sample rate and optional filter criteria.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered
+                name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
+                - filter_string: Optional MLflow search_traces compatible filter string.
+
+        Returns:
+            A new Scorer instance with updated sampling configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start scorer with 50% sampling rate
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
+
+                # Start scorer with filter to only evaluate specific traces
+                filtered_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=1.0, filter_string="YOUR_FILTER_STRING"
+                    )
+                )
+        """
+        from mlflow.genai.scorers.registry import update_registered_scorer
+
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+
+        # Update the scorer on the server
+        return update_registered_scorer(
+            name=scorer_name,
+            scorer=self,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+            experiment_id=experiment_id,
+        )
+
+    @experimental(version="3.2.0")
+    def update(
+        self,
+        *,
+        name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Update the sampling configuration for this scorer.
+
+        This method modifies the sampling rate and/or filter criteria for an already
+        registered scorer. It can be used to dynamically adjust how many traces are
+        evaluated or change the filtering criteria without stopping and restarting
+        the scorer.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
+                - filter_string: New MLflow search_traces compatible filter string. Optional.
+
+        Returns:
+            A new Scorer instance with updated configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start scorer with initial configuration
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
+
+                # Update to increase sampling rate during high traffic
+                updated_scorer = active_scorer.update(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+                )
+                print(f"Updated sample rate: {updated_scorer.sample_rate}")
+
+                # Update to add filtering criteria
+                filtered_scorer = updated_scorer.update(
+                    sampling_config=ScorerSamplingConfig(filter_string="YOUR_FILTER_STRING")
+                )
+                print(f"Added filter: {filtered_scorer.filter_string}")
+        """
+        from mlflow.genai.scorers.registry import update_registered_scorer
+
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+
+        # Update the scorer on the server
+        return update_registered_scorer(
+            name=scorer_name,
+            scorer=self,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+            experiment_id=experiment_id,
+        )
+
+    @experimental(version="3.2.0")
+    def stop(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
+        """
+        Stop registered scoring by setting sample rate to 0.
+
+        This method deactivates automatic trace evaluation for the scorer while keeping
+        the scorer registered. The scorer can be restarted later using the start() method.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with sample rate set to 0.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+
+                # Start and then stop a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer = relevance.register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is active: {active_scorer.sample_rate > 0}")
+
+                # Stop the scorer
+                stopped_scorer = active_scorer.stop()
+                print(f"Scorer is active: {stopped_scorer.sample_rate > 0}")
+
+                # The scorer remains registered and can be restarted later
+                restarted_scorer = stopped_scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
+                )
+        """
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+        return self.update(
+            name=scorer_name,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(sample_rate=0.0),
+        )
+
+    def _create_copy(self) -> "Scorer":
+        """
+        Create a copy of this scorer instance.
+        """
+        self._check_can_be_registered(
+            error_message="Scorer must be a builtin or decorator scorer to be copied."
+        )
+
+        copy = self.model_validate(self.model_dump())
+        # Duplicate the cached dump so modifications to the copy don't affect the original
+        if self._cached_dump is not None:
+            object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
+        return copy
+
+    def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
+        if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
+            if error_message is None:
+                error_message = (
+                    "Scorer must be a builtin or decorator scorer to be registered. "
+                    f"Got {self.kind}."
+                )
+            raise MlflowException.invalid_parameter_value(error_message)
+
 
 @experimental(version="3.0.0")
 def scorer(
@@ -505,6 +810,10 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def kind(self) -> ScorerKind:
+            return ScorerKind.DECORATOR
 
     # Update the __call__ method's signature to match the original function
     # but add 'self' as the first parameter. This is required for MLflow to
