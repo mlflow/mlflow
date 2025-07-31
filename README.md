@@ -5,22 +5,21 @@
 </h1>
 <h2 align="center" style="border-bottom: none">Open-Source Platform for Productionizing AI</h2>
 
-
-MLflow is an open source developer platform to build AI/LLM applications and models with confidence. Enhance your AI applications with end-to-end **experiment tracking**, **observability**, and **evaluations**, all in one integrated platform.
-
+MLflow is an open-source developer platform to build AI/LLM applications and models with confidence. Enhance your AI applications with end-to-end **experiment tracking**, **observability**, and **evaluations**, all in one integrated platform.
 
 <div align="center">
 
 [![Python SDK](https://img.shields.io/pypi/v/mlflow)](https://pypi.org/project/mlflow/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/mlflow)](https://pypi.org/project/mlflow/)
 [![License](https://img.shields.io/github/license/mlflow/mlflow)](https://github.com/mlflow/mlflow/blob/main/LICENSE)
-   <a href="https://twitter.com/intent/follow?screen_name=mlflow" target="_blank">
-   <img src="https://img.shields.io/twitter/follow/mlflow?logo=X&color=%20%23f5f5f5"
+<a href="https://twitter.com/intent/follow?screen_name=mlflow" target="_blank">
+<img src="https://img.shields.io/twitter/follow/mlflow?logo=X&color=%20%23f5f5f5"
       alt="follow on X(Twitter)"></a>
-   <a href="https://www.linkedin.com/company/mlflow-org/" target="_blank">
-   <img src="https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff"
+<a href="https://www.linkedin.com/company/mlflow-org/" target="_blank">
+<img src="https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff"
       alt="follow on LinkedIn"></a>
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mlflow/mlflow)
+
 </div>
 
 <div align="center">
@@ -34,30 +33,27 @@ MLflow is an open source developer platform to build AI/LLM applications and mod
    </div>
 </div>
 
-
-
 ## 📦 Core Components
 
-MLflow is an **only platform that provides unified platform for all your AI/LLM needs**, including LLMs, Agents, Deep Learning, and traditional machine learning.
+MLflow is an **only platform that provides a unified solution for all your AI/ML needs**, including LLMs, Agents, Deep Learning, and traditional machine learning.
 
 ### 💡 For LLM / GenAI Developers
 
-
 <div style="display: flex; flex-direction: row; gap: 20px;">
   <div>
-    <img src="./assets/readme-tracing.png" alt="Tracing" width=100%>
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-tracing.png" alt="Tracing" width=100%>
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/llms/tracing/index.html">🔍 Tracing / Observability</a>
         <br>
-        <div style="margin-top: 10px;">Trace the internal states of your LLM / agentic applications for debugging quality issues and monitoring performance with ease.</div>
+        <div style="margin-top: 10px;">Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div>
     </div>
   </div>
   <div>
-    <img src="./assets/readme-llm-eval.png" alt="LLM Evaluation" width=100%>
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-llm-eval.png" alt="LLM Evaluation" width=100%>
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">📊 LLM Evaluation</a>
         <br>
-        <div style="margin-top: 10px;">A suite of automated model evaluation tools, seamlessly integrated with experiment tracking for compare results across multiple versions.</div>
+        <div style="margin-top: 10px;">A suite of automated model evaluation tools, seamlessly integrated with experiment tracking to compare across multiple versions.</div>
     </div>
   </div>
 </div>
@@ -65,30 +61,28 @@ MLflow is an **only platform that provides unified platform for all your AI/LLM 
 <br>
 <div style="display: flex; flex-direction: row; gap: 20px;">
   <div>
-    <img src="./assets/readme-prompt.png" alt="Prompt Management" width=95% style="margin-left: 20px;">
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-prompt.png" alt="Prompt Management" width=95% style="margin-left: 20px;">
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/prompt-registry/">🤖 Prompt Management</a>
         <br>
-        <div style="margin-top: 10px;">Version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.</div>
+        <div style="margin-top: 10px;">Version, track, and reuse prompts across your organization, helping maintain consistency and improve collaboration in prompt development.</div>
     </div>
   </div>
   <div>
-    <img src="./assets/readme-logged-model.png" alt="MLflow Hero" width=95% style="margin-left: 20px;">
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-logged-model.png" alt="MLflow Hero" width=95% style="margin-left: 20px;">
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/version-tracking/">📦 App Version Tracking</a>
         <br>
-        <div style="margin-top: 10px;">MLflow keeps track of many moving parts in your AI applications, such as models, prompts, tools, code, and provide end-to-end lineage.</div>
+        <div style="margin-top: 10px;">MLflow keeps track of many moving parts in your AI applications, such as models, prompts, tools, and code, with end-to-end lineage.</div>
     </div>
   </div>
 </div>
-
-
 
 ### 🎓 For Data Scientists
 
 <div style="text-align: center; width: 100%;">
   <div style="width: 60%; margin: 0 auto;">
-    <img src="./assets/readme-traditional-ml.png" alt="Tracking" width=100%>
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-traditional-ml.png" alt="Tracking" width=100%>
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/ml/tracking/"> 📝 Experiment Tracking</a>
         <br>
@@ -97,18 +91,17 @@ MLflow is an **only platform that provides unified platform for all your AI/LLM 
   </div>
 </div>
 
-
 <div style="display: flex; flex-direction: row; gap: 20px;">
   <div>
-    <img src="./assets/readme-model-registry.png" alt="Model Registry" width=100%>
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-model-registry.png" alt="Model Registry" width=100%>
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/ml/model-registry/"> 💾 Model Registry</a>
         <br>
-        <div style="margin-top: 10px;"> Centralized model store designed to collaboratively manage the full lifecycle and deployment of machine learning models.</div>
+        <div style="margin-top: 10px;"> A centralized model store designed to collaboratively manage the full lifecycle and deployment of machine learning models.</div>
     </div>
   </div>
   <div>
-    <img src="./assets/readme-deployment.png" alt="Deployment" width=100%>
+    <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-deployment.png" alt="Deployment" width=100%>
     <div style="text-align: center; ">
         <a href="https://mlflow.org/docs/latest/ml/deployment/"> 🚀 Deployment</a>
         <br>
@@ -116,7 +109,6 @@ MLflow is an **only platform that provides unified platform for all your AI/LLM 
     </div>
   </div>
 </div>
-
 
 ## 🚀 Installation
 
@@ -132,13 +124,13 @@ pip install mlflow
   <img src="./assets/readme-providers.png" alt="Providers" width=100%>
 </div>
 
-You can run MLflow on many different environments, including local machine, on-premise servers, and cloud infrastructure.
+You can run MLflow in many different environments, including local machines, on-premise servers, and cloud infrastructure.
 
-Trusted by thousands of organizations, MLflow is now offered as managed services by most major cloud providers:
+Trusted by thousands of organizations, MLflow is now offered as a managed service by most major cloud providers:
 
 - [Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/)
 - [Azure ML](https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2)
-- [Databricks](hhttps://www.databricks.com/product/managed-mlflow)
+- [Databricks](https://www.databricks.com/product/managed-mlflow)
 - [Nebius](https://nebius.com/services/managed-mlflow)
 
 For hosting MLflow on your own infrastructure, please refer to [this guidance](https://mlflow.org/docs/latest/ml/tracking/#tracking-setup).
@@ -146,10 +138,9 @@ For hosting MLflow on your own infrastructure, please refer to [this guidance](h
 ## 🗣️ Multi-Language Support
 
 - [Python](https://pypi.org/project/mlflow/)
-- [Typescript / Javascript](https://www.npmjs.com/package/mlflow-tracing)
+- [TypeScript / JavaScript](https://www.npmjs.com/package/mlflow-tracing)
 - [Java](https://mvnrepository.com/artifact/org.mlflow/mlflow-client)
 - [R](https://cran.r-project.org/web/packages/mlflow/readme/README.html)
-
 
 ## 🔗 Integrations
 
@@ -292,7 +283,6 @@ MLflow is natively integrated with many popular machine learning frameworks and 
 </table>
 </div>
 
-
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest/index.html).
@@ -311,7 +301,6 @@ We happily welcome contributions to MLflow!
 - Writing about MLflow and sharing your experience
 
 Please see our [contribution guide](CONTRIBUTING.md) to learn more about contributing to MLflow.
-
 
 ## ⭐️ Star History
 
@@ -340,3 +329,11 @@ MLflow is currently maintained by the following core members with significant co
 - [Weichen Xu](https://github.com/WeichenXu123)
 - [Yuki Watanabe](https://github.com/B-Step62)
 - [Tomu Hirata](https://github.com/TomeHirata)
+
+<style>
+@media (max-width: 768px) {
+  div[style*="flex-direction: row"] {
+    flex-direction: column !important;
+  }
+}
+</style>
