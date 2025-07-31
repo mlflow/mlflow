@@ -1325,6 +1325,7 @@ def test_genai_metrics_with_llm_judge_callable():
         "p90": 3,
     }
     assert set(inspect.signature(custom_judge_prompt_metric).parameters.keys()) == {
+        "predictions",
         "input",
         "output",
     }
