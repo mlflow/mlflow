@@ -20,8 +20,8 @@ class MetricDefinition:
         name: The name of the metric.
         index: The index of the metric in the ``extra_metrics`` argument of ``mlflow.evaluate``.
         version: (Optional) The metric version. For example v1.
-        genai_metric_args: (Optional) A dictionary containing arguments specified by users when 
-            calling make_genai_metric or make_genai_metric_from_prompt. 
+        genai_metric_args: (Optional) A dictionary containing arguments specified by users when
+            calling make_genai_metric or make_genai_metric_from_prompt.
             Those args are persisted so that we can deserialize the same metric object later.
     """
 
