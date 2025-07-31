@@ -1,5 +1,11 @@
 FROM python:3.10-bullseye
 
+
+# Add protoc to PATH
+ENV PATH="/home/mlflow/.local/protoc/bin:$PATH"
+ENV MLFLOW_DATA_DIR=/home/mlflow/mlruns
+
+
 WORKDIR /home/mlflow
 
 # Install Node.js, Java, Yarn, and Protoc
@@ -16,9 +22,6 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     # Create unprivileged user
     && groupadd --gid 10001 mlflow \
     && useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
-
-# Add protoc to PATH
-ENV PATH="/home/mlflow/.local/protoc/bin:$PATH"
 
 # Install MLflow and dependencies
 RUN pip install --no-cache-dir mlflow==1.30.0
