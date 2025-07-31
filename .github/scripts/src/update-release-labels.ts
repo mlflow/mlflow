@@ -58,8 +58,7 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
   const nextPatchLabel = `v${nextPatchVersion}`;
 
   // Get release branch name (e.g., branch-3.1 for v3.1.4)
-  const majorMinorVersion = releaseVersion.split(".").slice(0, 2).join(".");
-  const releaseBranch = `branch-${majorMinorVersion}`;
+  const releaseBranch = `branch-${major}.${minor}`;
 
   console.log(`Release label: ${releaseLabel}`);
   console.log(`Next patch label: ${nextPatchLabel}`);
@@ -72,6 +71,23 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
     nextPatchLabel,
     releaseBranch,
   };
+}
+
+/**
+ * Helper function to extract PR number from commit message
+ */
+function extractPRNumberFromCommitMessage(commitMessage: string): number | null {
+  const prRegex = /\(#(\d+)\)/;
+  const lines = commitMessage.split("\n");
+  
+  for (const line of lines) {
+    const match = line.match(prRegex);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -96,18 +112,11 @@ async function extractPRNumbersFromBranch(
 
     totalCommits = commits.length;
 
-    // Extract PR numbers from commit messages using regex (same as check_patch_prs.py)
-    const prRegex = /\(#(\d+)\)/;
-
+    // Extract PR numbers from commit messages using helper function
     for (const commit of commits) {
-      const lines = commit.commit.message.split("\n");
-      for (const line of lines) {
-        const match = line.match(prRegex);
-        if (match) {
-          const prNumber = parseInt(match[1], 10);
-          releasePRNumbers.add(prNumber);
-          break; // Stop after finding the first PR number in the commit
-        }
+      const prNumber = extractPRNumberFromCommitMessage(commit.commit.message);
+      if (prNumber) {
+        releasePRNumbers.add(prNumber);
       }
     }
   } catch (error: any) {
@@ -156,17 +165,21 @@ async function updatePRLabels(
   releaseVersion: string
 ): Promise<number> {
   let updatedPRs = 0;
+  
+  // Filter out issues beforehand to only work with PRs
+  const pullRequests = prsWithReleaseLabel.filter(item => item.pull_request);
+  console.log(`Processing ${pullRequests.length} PRs (filtered out ${prsWithReleaseLabel.length - pullRequests.length} issues)`);
+
   const prsToUpdate: number[] = [];
 
-  for (const pr of prsWithReleaseLabel) {
-    if (!pr.pull_request) continue; // Skip issues
-
+  for (const pr of pullRequests) {
     // Check if this PR number is in the release branch commits
     const prIncludedInRelease = releasePRNumbers.has(pr.number);
-
-    if (!prIncludedInRelease) {
-      prsToUpdate.push(pr.number);
-    }
+    
+    // Use early continue for cleaner logic
+    if (prIncludedInRelease) continue;
+    
+    prsToUpdate.push(pr.number);
   }
 
   console.log(`Found ${prsToUpdate.length} PRs that need label updates: ${prsToUpdate.join(", ")}`);
