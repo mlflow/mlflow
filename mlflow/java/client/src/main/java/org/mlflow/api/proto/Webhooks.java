@@ -132,63 +132,95 @@ public final class Webhooks {
 
   /**
    * <pre>
-   * Webhook events enumeration
+   * Webhook entity types
    * </pre>
    *
-   * Protobuf enum {@code mlflow.WebhookEvent}
+   * Protobuf enum {@code mlflow.WebhookEntity}
    */
-  public enum WebhookEvent
+  public enum WebhookEntity
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     * <code>REGISTERED_MODEL_CREATED = 1;</code>
+     * <pre>
+     * Default/unknown entity
+     * </pre>
+     *
+     * <code>ENTITY_UNSPECIFIED = 0;</code>
      */
-    REGISTERED_MODEL_CREATED(1),
+    ENTITY_UNSPECIFIED(0),
     /**
-     * <code>MODEL_VERSION_CREATED = 2;</code>
+     * <pre>
+     * Registered model entity
+     * </pre>
+     *
+     * <code>REGISTERED_MODEL = 1;</code>
      */
-    MODEL_VERSION_CREATED(2),
+    REGISTERED_MODEL(1),
     /**
-     * <code>MODEL_VERSION_TAG_SET = 3;</code>
+     * <pre>
+     * Model version entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION = 2;</code>
      */
-    MODEL_VERSION_TAG_SET(3),
+    MODEL_VERSION(2),
     /**
-     * <code>MODEL_VERSION_TAG_DELETED = 4;</code>
+     * <pre>
+     * Model version tag entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION_TAG = 3;</code>
      */
-    MODEL_VERSION_TAG_DELETED(4),
+    MODEL_VERSION_TAG(3),
     /**
-     * <code>MODEL_VERSION_ALIAS_CREATED = 5;</code>
+     * <pre>
+     * Model version alias entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION_ALIAS = 4;</code>
      */
-    MODEL_VERSION_ALIAS_CREATED(5),
-    /**
-     * <code>MODEL_VERSION_ALIAS_DELETED = 6;</code>
-     */
-    MODEL_VERSION_ALIAS_DELETED(6),
+    MODEL_VERSION_ALIAS(4),
     ;
 
     /**
-     * <code>REGISTERED_MODEL_CREATED = 1;</code>
+     * <pre>
+     * Default/unknown entity
+     * </pre>
+     *
+     * <code>ENTITY_UNSPECIFIED = 0;</code>
      */
-    public static final int REGISTERED_MODEL_CREATED_VALUE = 1;
+    public static final int ENTITY_UNSPECIFIED_VALUE = 0;
     /**
-     * <code>MODEL_VERSION_CREATED = 2;</code>
+     * <pre>
+     * Registered model entity
+     * </pre>
+     *
+     * <code>REGISTERED_MODEL = 1;</code>
      */
-    public static final int MODEL_VERSION_CREATED_VALUE = 2;
+    public static final int REGISTERED_MODEL_VALUE = 1;
     /**
-     * <code>MODEL_VERSION_TAG_SET = 3;</code>
+     * <pre>
+     * Model version entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION = 2;</code>
      */
-    public static final int MODEL_VERSION_TAG_SET_VALUE = 3;
+    public static final int MODEL_VERSION_VALUE = 2;
     /**
-     * <code>MODEL_VERSION_TAG_DELETED = 4;</code>
+     * <pre>
+     * Model version tag entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION_TAG = 3;</code>
      */
-    public static final int MODEL_VERSION_TAG_DELETED_VALUE = 4;
+    public static final int MODEL_VERSION_TAG_VALUE = 3;
     /**
-     * <code>MODEL_VERSION_ALIAS_CREATED = 5;</code>
+     * <pre>
+     * Model version alias entity
+     * </pre>
+     *
+     * <code>MODEL_VERSION_ALIAS = 4;</code>
      */
-    public static final int MODEL_VERSION_ALIAS_CREATED_VALUE = 5;
-    /**
-     * <code>MODEL_VERSION_ALIAS_DELETED = 6;</code>
-     */
-    public static final int MODEL_VERSION_ALIAS_DELETED_VALUE = 6;
+    public static final int MODEL_VERSION_ALIAS_VALUE = 4;
 
 
     public final int getNumber() {
@@ -201,7 +233,7 @@ public final class Webhooks {
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
-    public static WebhookEvent valueOf(int value) {
+    public static WebhookEntity valueOf(int value) {
       return forNumber(value);
     }
 
@@ -209,27 +241,26 @@ public final class Webhooks {
      * @param value The numeric wire value of the corresponding enum entry.
      * @return The enum associated with the given numeric wire value.
      */
-    public static WebhookEvent forNumber(int value) {
+    public static WebhookEntity forNumber(int value) {
       switch (value) {
-        case 1: return REGISTERED_MODEL_CREATED;
-        case 2: return MODEL_VERSION_CREATED;
-        case 3: return MODEL_VERSION_TAG_SET;
-        case 4: return MODEL_VERSION_TAG_DELETED;
-        case 5: return MODEL_VERSION_ALIAS_CREATED;
-        case 6: return MODEL_VERSION_ALIAS_DELETED;
+        case 0: return ENTITY_UNSPECIFIED;
+        case 1: return REGISTERED_MODEL;
+        case 2: return MODEL_VERSION;
+        case 3: return MODEL_VERSION_TAG;
+        case 4: return MODEL_VERSION_ALIAS;
         default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<WebhookEvent>
+    public static com.google.protobuf.Internal.EnumLiteMap<WebhookEntity>
         internalGetValueMap() {
       return internalValueMap;
     }
     private static final com.google.protobuf.Internal.EnumLiteMap<
-        WebhookEvent> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<WebhookEvent>() {
-            public WebhookEvent findValueByNumber(int number) {
-              return WebhookEvent.forNumber(number);
+        WebhookEntity> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<WebhookEntity>() {
+            public WebhookEntity findValueByNumber(int number) {
+              return WebhookEntity.forNumber(number);
             }
           };
 
@@ -246,9 +277,9 @@ public final class Webhooks {
       return org.mlflow.api.proto.Webhooks.getDescriptor().getEnumTypes().get(1);
     }
 
-    private static final WebhookEvent[] VALUES = values();
+    private static final WebhookEntity[] VALUES = values();
 
-    public static WebhookEvent valueOf(
+    public static WebhookEntity valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
         throw new java.lang.IllegalArgumentException(
@@ -259,11 +290,894 @@ public final class Webhooks {
 
     private final int value;
 
-    private WebhookEvent(int value) {
+    private WebhookEntity(int value) {
       this.value = value;
     }
 
-    // @@protoc_insertion_point(enum_scope:mlflow.WebhookEvent)
+    // @@protoc_insertion_point(enum_scope:mlflow.WebhookEntity)
+  }
+
+  /**
+   * <pre>
+   * Webhook action types
+   * </pre>
+   *
+   * Protobuf enum {@code mlflow.WebhookAction}
+   */
+  public enum WebhookAction
+      implements com.google.protobuf.ProtocolMessageEnum {
+    /**
+     * <pre>
+     * Default/unknown action
+     * </pre>
+     *
+     * <code>ACTION_UNSPECIFIED = 0;</code>
+     */
+    ACTION_UNSPECIFIED(0),
+    /**
+     * <pre>
+     * Entity was created
+     * </pre>
+     *
+     * <code>CREATED = 1;</code>
+     */
+    CREATED(1),
+    /**
+     * <pre>
+     * Entity was updated
+     * </pre>
+     *
+     * <code>UPDATED = 2;</code>
+     */
+    UPDATED(2),
+    /**
+     * <pre>
+     * Entity was deleted
+     * </pre>
+     *
+     * <code>DELETED = 3;</code>
+     */
+    DELETED(3),
+    /**
+     * <pre>
+     * Entity was set (e.g., tag set)
+     * </pre>
+     *
+     * <code>SET = 4;</code>
+     */
+    SET(4),
+    ;
+
+    /**
+     * <pre>
+     * Default/unknown action
+     * </pre>
+     *
+     * <code>ACTION_UNSPECIFIED = 0;</code>
+     */
+    public static final int ACTION_UNSPECIFIED_VALUE = 0;
+    /**
+     * <pre>
+     * Entity was created
+     * </pre>
+     *
+     * <code>CREATED = 1;</code>
+     */
+    public static final int CREATED_VALUE = 1;
+    /**
+     * <pre>
+     * Entity was updated
+     * </pre>
+     *
+     * <code>UPDATED = 2;</code>
+     */
+    public static final int UPDATED_VALUE = 2;
+    /**
+     * <pre>
+     * Entity was deleted
+     * </pre>
+     *
+     * <code>DELETED = 3;</code>
+     */
+    public static final int DELETED_VALUE = 3;
+    /**
+     * <pre>
+     * Entity was set (e.g., tag set)
+     * </pre>
+     *
+     * <code>SET = 4;</code>
+     */
+    public static final int SET_VALUE = 4;
+
+
+    public final int getNumber() {
+      return value;
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static WebhookAction valueOf(int value) {
+      return forNumber(value);
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
+    public static WebhookAction forNumber(int value) {
+      switch (value) {
+        case 0: return ACTION_UNSPECIFIED;
+        case 1: return CREATED;
+        case 2: return UPDATED;
+        case 3: return DELETED;
+        case 4: return SET;
+        default: return null;
+      }
+    }
+
+    public static com.google.protobuf.Internal.EnumLiteMap<WebhookAction>
+        internalGetValueMap() {
+      return internalValueMap;
+    }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        WebhookAction> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<WebhookAction>() {
+            public WebhookAction findValueByNumber(int number) {
+              return WebhookAction.forNumber(number);
+            }
+          };
+
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
+      return getDescriptor().getValues().get(ordinal());
+    }
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
+      return getDescriptor();
+    }
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Webhooks.getDescriptor().getEnumTypes().get(2);
+    }
+
+    private static final WebhookAction[] VALUES = values();
+
+    public static WebhookAction valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+      if (desc.getType() != getDescriptor()) {
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
+      }
+      return VALUES[desc.getIndex()];
+    }
+
+    private final int value;
+
+    private WebhookAction(int value) {
+      this.value = value;
+    }
+
+    // @@protoc_insertion_point(enum_scope:mlflow.WebhookAction)
+  }
+
+  public interface WebhookEventOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.WebhookEvent)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Entity type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the entity field is set.
+     */
+    boolean hasEntity();
+    /**
+     * <pre>
+     * Entity type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The entity.
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEntity getEntity();
+
+    /**
+     * <pre>
+     * Action type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the action field is set.
+     */
+    boolean hasAction();
+    /**
+     * <pre>
+     * Action type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The action.
+     */
+    org.mlflow.api.proto.Webhooks.WebhookAction getAction();
+  }
+  /**
+   * <pre>
+   * Webhook event definition
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.WebhookEvent}
+   */
+  public static final class WebhookEvent extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.WebhookEvent)
+      WebhookEventOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use WebhookEvent.newBuilder() to construct.
+    private WebhookEvent(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private WebhookEvent() {
+      entity_ = 0;
+      action_ = 0;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new WebhookEvent();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private WebhookEvent(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Webhooks.WebhookEntity value = org.mlflow.api.proto.Webhooks.WebhookEntity.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(1, rawValue);
+              } else {
+                bitField0_ |= 0x00000001;
+                entity_ = rawValue;
+              }
+              break;
+            }
+            case 16: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Webhooks.WebhookAction value = org.mlflow.api.proto.Webhooks.WebhookAction.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(2, rawValue);
+              } else {
+                bitField0_ |= 0x00000002;
+                action_ = rawValue;
+              }
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Webhooks.internal_static_mlflow_WebhookEvent_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Webhooks.internal_static_mlflow_WebhookEvent_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Webhooks.WebhookEvent.class, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int ENTITY_FIELD_NUMBER = 1;
+    private int entity_;
+    /**
+     * <pre>
+     * Entity type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the entity field is set.
+     */
+    @java.lang.Override public boolean hasEntity() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Entity type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The entity.
+     */
+    @java.lang.Override public org.mlflow.api.proto.Webhooks.WebhookEntity getEntity() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.Webhooks.WebhookEntity result = org.mlflow.api.proto.Webhooks.WebhookEntity.valueOf(entity_);
+      return result == null ? org.mlflow.api.proto.Webhooks.WebhookEntity.ENTITY_UNSPECIFIED : result;
+    }
+
+    public static final int ACTION_FIELD_NUMBER = 2;
+    private int action_;
+    /**
+     * <pre>
+     * Action type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the action field is set.
+     */
+    @java.lang.Override public boolean hasAction() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Action type (required)
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The action.
+     */
+    @java.lang.Override public org.mlflow.api.proto.Webhooks.WebhookAction getAction() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.Webhooks.WebhookAction result = org.mlflow.api.proto.Webhooks.WebhookAction.valueOf(action_);
+      return result == null ? org.mlflow.api.proto.Webhooks.WebhookAction.ACTION_UNSPECIFIED : result;
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeEnum(1, entity_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeEnum(2, action_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, entity_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(2, action_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Webhooks.WebhookEvent)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Webhooks.WebhookEvent other = (org.mlflow.api.proto.Webhooks.WebhookEvent) obj;
+
+      if (hasEntity() != other.hasEntity()) return false;
+      if (hasEntity()) {
+        if (entity_ != other.entity_) return false;
+      }
+      if (hasAction() != other.hasAction()) return false;
+      if (hasAction()) {
+        if (action_ != other.action_) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasEntity()) {
+        hash = (37 * hash) + ENTITY_FIELD_NUMBER;
+        hash = (53 * hash) + entity_;
+      }
+      if (hasAction()) {
+        hash = (37 * hash) + ACTION_FIELD_NUMBER;
+        hash = (53 * hash) + action_;
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Webhooks.WebhookEvent prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Webhook event definition
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.WebhookEvent}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.WebhookEvent)
+        org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Webhooks.internal_static_mlflow_WebhookEvent_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Webhooks.internal_static_mlflow_WebhookEvent_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Webhooks.WebhookEvent.class, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Webhooks.WebhookEvent.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        entity_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        action_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Webhooks.internal_static_mlflow_WebhookEvent_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Webhooks.WebhookEvent getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Webhooks.WebhookEvent build() {
+        org.mlflow.api.proto.Webhooks.WebhookEvent result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Webhooks.WebhookEvent buildPartial() {
+        org.mlflow.api.proto.Webhooks.WebhookEvent result = new org.mlflow.api.proto.Webhooks.WebhookEvent(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.entity_ = entity_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.action_ = action_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Webhooks.WebhookEvent) {
+          return mergeFrom((org.mlflow.api.proto.Webhooks.WebhookEvent)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Webhooks.WebhookEvent other) {
+        if (other == org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance()) return this;
+        if (other.hasEntity()) {
+          setEntity(other.getEntity());
+        }
+        if (other.hasAction()) {
+          setAction(other.getAction());
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Webhooks.WebhookEvent parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Webhooks.WebhookEvent) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private int entity_ = 0;
+      /**
+       * <pre>
+       * Entity type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the entity field is set.
+       */
+      @java.lang.Override public boolean hasEntity() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Entity type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The entity.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Webhooks.WebhookEntity getEntity() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.Webhooks.WebhookEntity result = org.mlflow.api.proto.Webhooks.WebhookEntity.valueOf(entity_);
+        return result == null ? org.mlflow.api.proto.Webhooks.WebhookEntity.ENTITY_UNSPECIFIED : result;
+      }
+      /**
+       * <pre>
+       * Entity type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The entity to set.
+       * @return This builder for chaining.
+       */
+      public Builder setEntity(org.mlflow.api.proto.Webhooks.WebhookEntity value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000001;
+        entity_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Entity type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEntity entity = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearEntity() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        entity_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private int action_ = 0;
+      /**
+       * <pre>
+       * Action type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the action field is set.
+       */
+      @java.lang.Override public boolean hasAction() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Action type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The action.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Webhooks.WebhookAction getAction() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.Webhooks.WebhookAction result = org.mlflow.api.proto.Webhooks.WebhookAction.valueOf(action_);
+        return result == null ? org.mlflow.api.proto.Webhooks.WebhookAction.ACTION_UNSPECIFIED : result;
+      }
+      /**
+       * <pre>
+       * Action type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The action to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAction(org.mlflow.api.proto.Webhooks.WebhookAction value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000002;
+        action_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Action type (required)
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookAction action = 2 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAction() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        action_ = 0;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.WebhookEvent)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.WebhookEvent)
+    private static final org.mlflow.api.proto.Webhooks.WebhookEvent DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Webhooks.WebhookEvent();
+    }
+
+    public static org.mlflow.api.proto.Webhooks.WebhookEvent getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<WebhookEvent>
+        PARSER = new com.google.protobuf.AbstractParser<WebhookEvent>() {
+      @java.lang.Override
+      public WebhookEvent parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new WebhookEvent(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<WebhookEvent> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<WebhookEvent> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEvent getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
   }
 
   public interface WebhookOrBuilder extends
@@ -388,32 +1302,47 @@ public final class Webhooks {
 
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return A list containing the events.
      */
-    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList();
+    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> 
+        getEventsList();
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return The count of events.
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    /**
+     * <pre>
+     * List of events this webhook is subscribed to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      */
     int getEventsCount();
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
-    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList();
+    /**
+     * <pre>
+     * List of events this webhook is subscribed to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index);
 
     /**
      * <pre>
@@ -552,39 +1481,13 @@ public final class Webhooks {
               url_ = bs;
               break;
             }
-            case 40: {
-              int rawValue = input.readEnum();
-              @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(5, rawValue);
-              } else {
-                if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                  events_ = new java.util.ArrayList<java.lang.Integer>();
-                  mutable_bitField0_ |= 0x00000010;
-                }
-                events_.add(rawValue);
-              }
-              break;
-            }
             case 42: {
-              int length = input.readRawVarint32();
-              int oldLimit = input.pushLimit(length);
-              while(input.getBytesUntilLimit() > 0) {
-                int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-                if (value == null) {
-                  unknownFields.mergeVarintField(5, rawValue);
-                } else {
-                  if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                    events_ = new java.util.ArrayList<java.lang.Integer>();
-                    mutable_bitField0_ |= 0x00000010;
-                  }
-                  events_.add(rawValue);
-                }
+              if (!((mutable_bitField0_ & 0x00000010) != 0)) {
+                events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>();
+                mutable_bitField0_ |= 0x00000010;
               }
-              input.popLimit(oldLimit);
+              events_.add(
+                  input.readMessage(org.mlflow.api.proto.Webhooks.WebhookEvent.PARSER, extensionRegistry));
               break;
             }
             case 48: {
@@ -886,37 +1789,36 @@ public final class Webhooks {
     }
 
     public static final int EVENTS_FIELD_NUMBER = 5;
-    private java.util.List<java.lang.Integer> events_;
-    private static final com.google.protobuf.Internal.ListAdapter.Converter<
-        java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent> events_converter_ =
-            new com.google.protobuf.Internal.ListAdapter.Converter<
-                java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>() {
-              public org.mlflow.api.proto.Webhooks.WebhookEvent convert(java.lang.Integer from) {
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(from);
-                return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
-              }
-            };
+    private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_;
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return A list containing the events.
      */
     @java.lang.Override
     public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-      return new com.google.protobuf.Internal.ListAdapter<
-          java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
+      return events_;
     }
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return The count of events.
+     */
+    @java.lang.Override
+    public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList() {
+      return events_;
+    }
+    /**
+     * <pre>
+     * List of events this webhook is subscribed to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      */
     @java.lang.Override
     public int getEventsCount() {
@@ -924,16 +1826,26 @@ public final class Webhooks {
     }
     /**
      * <pre>
-     * List of event types this webhook is subscribed to
+     * List of events this webhook is subscribed to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
     @java.lang.Override
     public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-      return events_converter_.convert(events_.get(index));
+      return events_.get(index);
+    }
+    /**
+     * <pre>
+     * List of events this webhook is subscribed to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index) {
+      return events_.get(index);
     }
 
     public static final int STATUS_FIELD_NUMBER = 6;
@@ -1044,7 +1956,7 @@ public final class Webhooks {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, url_);
       }
       for (int i = 0; i < events_.size(); i++) {
-        output.writeEnum(5, events_.get(i));
+        output.writeMessage(5, events_.get(i));
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         output.writeEnum(6, status_);
@@ -1076,14 +1988,9 @@ public final class Webhooks {
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, url_);
       }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < events_.size(); i++) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeEnumSizeNoTag(events_.get(i));
-        }
-        size += dataSize;
-        size += 1 * events_.size();
+      for (int i = 0; i < events_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(5, events_.get(i));
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.CodedOutputStream
@@ -1132,7 +2039,8 @@ public final class Webhooks {
         if (!getUrl()
             .equals(other.getUrl())) return false;
       }
-      if (!events_.equals(other.events_)) return false;
+      if (!getEventsList()
+          .equals(other.getEventsList())) return false;
       if (hasStatus() != other.hasStatus()) return false;
       if (hasStatus()) {
         if (status_ != other.status_) return false;
@@ -1176,7 +2084,7 @@ public final class Webhooks {
       }
       if (getEventsCount() > 0) {
         hash = (37 * hash) + EVENTS_FIELD_NUMBER;
-        hash = (53 * hash) + events_.hashCode();
+        hash = (53 * hash) + getEventsList().hashCode();
       }
       if (hasStatus()) {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
@@ -1324,6 +2232,7 @@ public final class Webhooks {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getEventsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -1337,8 +2246,12 @@ public final class Webhooks {
         bitField0_ = (bitField0_ & ~0x00000004);
         url_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000010);
+        } else {
+          eventsBuilder_.clear();
+        }
         status_ = 1;
         bitField0_ = (bitField0_ & ~0x00000020);
         creationTimestamp_ = 0L;
@@ -1389,11 +2302,15 @@ public final class Webhooks {
           to_bitField0_ |= 0x00000008;
         }
         result.url_ = url_;
-        if (((bitField0_ & 0x00000010) != 0)) {
-          events_ = java.util.Collections.unmodifiableList(events_);
-          bitField0_ = (bitField0_ & ~0x00000010);
+        if (eventsBuilder_ == null) {
+          if (((bitField0_ & 0x00000010) != 0)) {
+            events_ = java.util.Collections.unmodifiableList(events_);
+            bitField0_ = (bitField0_ & ~0x00000010);
+          }
+          result.events_ = events_;
+        } else {
+          result.events_ = eventsBuilder_.build();
         }
-        result.events_ = events_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
@@ -1475,15 +2392,31 @@ public final class Webhooks {
           url_ = other.url_;
           onChanged();
         }
-        if (!other.events_.isEmpty()) {
-          if (events_.isEmpty()) {
-            events_ = other.events_;
-            bitField0_ = (bitField0_ & ~0x00000010);
-          } else {
-            ensureEventsIsMutable();
-            events_.addAll(other.events_);
+        if (eventsBuilder_ == null) {
+          if (!other.events_.isEmpty()) {
+            if (events_.isEmpty()) {
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000010);
+            } else {
+              ensureEventsIsMutable();
+              events_.addAll(other.events_);
+            }
+            onChanged();
           }
-          onChanged();
+        } else {
+          if (!other.events_.isEmpty()) {
+            if (eventsBuilder_.isEmpty()) {
+              eventsBuilder_.dispose();
+              eventsBuilder_ = null;
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000010);
+              eventsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getEventsFieldBuilder() : null;
+            } else {
+              eventsBuilder_.addAllMessages(other.events_);
+            }
+          }
         }
         if (other.hasStatus()) {
           setStatus(other.getStatus());
@@ -1956,118 +2889,316 @@ public final class Webhooks {
         return this;
       }
 
-      private java.util.List<java.lang.Integer> events_ =
+      private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_ =
         java.util.Collections.emptyList();
       private void ensureEventsIsMutable() {
         if (!((bitField0_ & 0x00000010) != 0)) {
-          events_ = new java.util.ArrayList<java.lang.Integer>(events_);
+          events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>(events_);
           bitField0_ |= 0x00000010;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> eventsBuilder_;
+
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
+        if (eventsBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(events_);
+        } else {
+          return eventsBuilder_.getMessageList();
         }
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return A list containing the events.
-       */
-      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-        return new com.google.protobuf.Internal.ListAdapter<
-            java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
-      }
-      /**
-       * <pre>
-       * List of event types this webhook is subscribed to
-       * </pre>
-       *
-       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return The count of events.
        */
       public int getEventsCount() {
-        return events_.size();
+        if (eventsBuilder_ == null) {
+          return events_.size();
+        } else {
+          return eventsBuilder_.getCount();
+        }
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param index The index of the element to return.
-       * @return The events at the given index.
        */
       public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-        return events_converter_.convert(events_.get(index));
+        if (eventsBuilder_ == null) {
+          return events_.get(index);
+        } else {
+          return eventsBuilder_.getMessage(index);
+        }
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param index The index to set the value at.
-       * @param value The events to set.
-       * @return This builder for chaining.
        */
       public Builder setEvents(
           int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.set(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, value);
         }
-        ensureEventsIsMutable();
-        events_.set(index, value.getNumber());
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param value The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder setEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        */
       public Builder addEvents(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(value);
         }
-        ensureEventsIsMutable();
-        events_.add(value.getNumber());
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param values The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder addEvents(
+          org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        */
       public Builder addAllEvents(
           java.lang.Iterable<? extends org.mlflow.api.proto.Webhooks.WebhookEvent> values) {
-        ensureEventsIsMutable();
-        for (org.mlflow.api.proto.Webhooks.WebhookEvent value : values) {
-          events_.add(value.getNumber());
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, events_);
+          onChanged();
+        } else {
+          eventsBuilder_.addAllMessages(values);
         }
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types this webhook is subscribed to
+       * List of events this webhook is subscribed to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return This builder for chaining.
        */
       public Builder clearEvents() {
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
-        onChanged();
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000010);
+          onChanged();
+        } else {
+          eventsBuilder_.clear();
+        }
         return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder removeEvents(int index) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.remove(index);
+          onChanged();
+        } else {
+          eventsBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder getEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+          int index) {
+        if (eventsBuilder_ == null) {
+          return events_.get(index);  } else {
+          return eventsBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+           getEventsOrBuilderList() {
+        if (eventsBuilder_ != null) {
+          return eventsBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(events_);
+        }
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder() {
+        return getEventsFieldBuilder().addBuilder(
+            org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * List of events this webhook is subscribed to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent.Builder> 
+           getEventsBuilderList() {
+        return getEventsFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+          getEventsFieldBuilder() {
+        if (eventsBuilder_ == null) {
+          eventsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder>(
+                  events_,
+                  ((bitField0_ & 0x00000010) != 0),
+                  getParentForChildren(),
+                  isClean());
+          events_ = null;
+        }
+        return eventsBuilder_;
       }
 
       private int status_ = 1;
@@ -3539,32 +4670,47 @@ public final class Webhooks {
 
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @return A list containing the events.
      */
-    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList();
+    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> 
+        getEventsList();
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The count of events.
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    /**
+     * <pre>
+     * List of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
      */
     int getEventsCount();
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
-    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList();
+    /**
+     * <pre>
+     * List of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index);
 
     /**
      * <pre>
@@ -3688,39 +4834,13 @@ public final class Webhooks {
               url_ = bs;
               break;
             }
-            case 32: {
-              int rawValue = input.readEnum();
-              @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                if (!((mutable_bitField0_ & 0x00000008) != 0)) {
-                  events_ = new java.util.ArrayList<java.lang.Integer>();
-                  mutable_bitField0_ |= 0x00000008;
-                }
-                events_.add(rawValue);
-              }
-              break;
-            }
             case 34: {
-              int length = input.readRawVarint32();
-              int oldLimit = input.pushLimit(length);
-              while(input.getBytesUntilLimit() > 0) {
-                int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-                if (value == null) {
-                  unknownFields.mergeVarintField(4, rawValue);
-                } else {
-                  if (!((mutable_bitField0_ & 0x00000008) != 0)) {
-                    events_ = new java.util.ArrayList<java.lang.Integer>();
-                    mutable_bitField0_ |= 0x00000008;
-                  }
-                  events_.add(rawValue);
-                }
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+                events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>();
+                mutable_bitField0_ |= 0x00000008;
               }
-              input.popLimit(oldLimit);
+              events_.add(
+                  input.readMessage(org.mlflow.api.proto.Webhooks.WebhookEvent.PARSER, extensionRegistry));
               break;
             }
             case 42: {
@@ -4590,37 +5710,36 @@ public final class Webhooks {
     }
 
     public static final int EVENTS_FIELD_NUMBER = 4;
-    private java.util.List<java.lang.Integer> events_;
-    private static final com.google.protobuf.Internal.ListAdapter.Converter<
-        java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent> events_converter_ =
-            new com.google.protobuf.Internal.ListAdapter.Converter<
-                java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>() {
-              public org.mlflow.api.proto.Webhooks.WebhookEvent convert(java.lang.Integer from) {
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(from);
-                return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
-              }
-            };
+    private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_;
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @return A list containing the events.
      */
     @java.lang.Override
     public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-      return new com.google.protobuf.Internal.ListAdapter<
-          java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
+      return events_;
     }
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The count of events.
+     */
+    @java.lang.Override
+    public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList() {
+      return events_;
+    }
+    /**
+     * <pre>
+     * List of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
      */
     @java.lang.Override
     public int getEventsCount() {
@@ -4628,16 +5747,26 @@ public final class Webhooks {
     }
     /**
      * <pre>
-     * List of event types to subscribe to
+     * List of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
     @java.lang.Override
     public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-      return events_converter_.convert(events_.get(index));
+      return events_.get(index);
+    }
+    /**
+     * <pre>
+     * List of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index) {
+      return events_.get(index);
     }
 
     public static final int SECRET_FIELD_NUMBER = 5;
@@ -4751,7 +5880,7 @@ public final class Webhooks {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, url_);
       }
       for (int i = 0; i < events_.size(); i++) {
-        output.writeEnum(4, events_.get(i));
+        output.writeMessage(4, events_.get(i));
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, secret_);
@@ -4777,14 +5906,9 @@ public final class Webhooks {
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, url_);
       }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < events_.size(); i++) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeEnumSizeNoTag(events_.get(i));
-        }
-        size += dataSize;
-        size += 1 * events_.size();
+      for (int i = 0; i < events_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(4, events_.get(i));
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, secret_);
@@ -4823,7 +5947,8 @@ public final class Webhooks {
         if (!getUrl()
             .equals(other.getUrl())) return false;
       }
-      if (!events_.equals(other.events_)) return false;
+      if (!getEventsList()
+          .equals(other.getEventsList())) return false;
       if (hasSecret() != other.hasSecret()) return false;
       if (hasSecret()) {
         if (!getSecret()
@@ -4858,7 +5983,7 @@ public final class Webhooks {
       }
       if (getEventsCount() > 0) {
         hash = (37 * hash) + EVENTS_FIELD_NUMBER;
-        hash = (53 * hash) + events_.hashCode();
+        hash = (53 * hash) + getEventsList().hashCode();
       }
       if (hasSecret()) {
         hash = (37 * hash) + SECRET_FIELD_NUMBER;
@@ -5000,6 +6125,7 @@ public final class Webhooks {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getEventsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -5011,8 +6137,12 @@ public final class Webhooks {
         bitField0_ = (bitField0_ & ~0x00000002);
         url_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000008);
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000008);
+        } else {
+          eventsBuilder_.clear();
+        }
         secret_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
         status_ = 1;
@@ -5057,11 +6187,15 @@ public final class Webhooks {
           to_bitField0_ |= 0x00000004;
         }
         result.url_ = url_;
-        if (((bitField0_ & 0x00000008) != 0)) {
-          events_ = java.util.Collections.unmodifiableList(events_);
-          bitField0_ = (bitField0_ & ~0x00000008);
+        if (eventsBuilder_ == null) {
+          if (((bitField0_ & 0x00000008) != 0)) {
+            events_ = java.util.Collections.unmodifiableList(events_);
+            bitField0_ = (bitField0_ & ~0x00000008);
+          }
+          result.events_ = events_;
+        } else {
+          result.events_ = eventsBuilder_.build();
         }
-        result.events_ = events_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
@@ -5134,15 +6268,31 @@ public final class Webhooks {
           url_ = other.url_;
           onChanged();
         }
-        if (!other.events_.isEmpty()) {
-          if (events_.isEmpty()) {
-            events_ = other.events_;
-            bitField0_ = (bitField0_ & ~0x00000008);
-          } else {
-            ensureEventsIsMutable();
-            events_.addAll(other.events_);
+        if (eventsBuilder_ == null) {
+          if (!other.events_.isEmpty()) {
+            if (events_.isEmpty()) {
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000008);
+            } else {
+              ensureEventsIsMutable();
+              events_.addAll(other.events_);
+            }
+            onChanged();
           }
-          onChanged();
+        } else {
+          if (!other.events_.isEmpty()) {
+            if (eventsBuilder_.isEmpty()) {
+              eventsBuilder_.dispose();
+              eventsBuilder_ = null;
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000008);
+              eventsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getEventsFieldBuilder() : null;
+            } else {
+              eventsBuilder_.addAllMessages(other.events_);
+            }
+          }
         }
         if (other.hasSecret()) {
           bitField0_ |= 0x00000010;
@@ -5506,118 +6656,316 @@ public final class Webhooks {
         return this;
       }
 
-      private java.util.List<java.lang.Integer> events_ =
+      private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_ =
         java.util.Collections.emptyList();
       private void ensureEventsIsMutable() {
         if (!((bitField0_ & 0x00000008) != 0)) {
-          events_ = new java.util.ArrayList<java.lang.Integer>(events_);
+          events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>(events_);
           bitField0_ |= 0x00000008;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> eventsBuilder_;
+
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
+        if (eventsBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(events_);
+        } else {
+          return eventsBuilder_.getMessageList();
         }
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @return A list containing the events.
-       */
-      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-        return new com.google.protobuf.Internal.ListAdapter<
-            java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
-      }
-      /**
-       * <pre>
-       * List of event types to subscribe to
-       * </pre>
-       *
-       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @return The count of events.
        */
       public int getEventsCount() {
-        return events_.size();
+        if (eventsBuilder_ == null) {
+          return events_.size();
+        } else {
+          return eventsBuilder_.getCount();
+        }
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @param index The index of the element to return.
-       * @return The events at the given index.
        */
       public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-        return events_converter_.convert(events_.get(index));
+        if (eventsBuilder_ == null) {
+          return events_.get(index);
+        } else {
+          return eventsBuilder_.getMessage(index);
+        }
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @param index The index to set the value at.
-       * @param value The events to set.
-       * @return This builder for chaining.
        */
       public Builder setEvents(
           int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.set(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, value);
         }
-        ensureEventsIsMutable();
-        events_.set(index, value.getNumber());
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @param value The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder setEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
        */
       public Builder addEvents(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(value);
         }
-        ensureEventsIsMutable();
-        events_.add(value.getNumber());
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @param values The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder addEvents(
+          org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
        */
       public Builder addAllEvents(
           java.lang.Iterable<? extends org.mlflow.api.proto.Webhooks.WebhookEvent> values) {
-        ensureEventsIsMutable();
-        for (org.mlflow.api.proto.Webhooks.WebhookEvent value : values) {
-          events_.add(value.getNumber());
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, events_);
+          onChanged();
+        } else {
+          eventsBuilder_.addAllMessages(values);
         }
-        onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of event types to subscribe to
+       * List of events to subscribe to
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
        */
       public Builder clearEvents() {
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000008);
-        onChanged();
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000008);
+          onChanged();
+        } else {
+          eventsBuilder_.clear();
+        }
         return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder removeEvents(int index) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.remove(index);
+          onChanged();
+        } else {
+          eventsBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder getEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+          int index) {
+        if (eventsBuilder_ == null) {
+          return events_.get(index);  } else {
+          return eventsBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+           getEventsOrBuilderList() {
+        if (eventsBuilder_ != null) {
+          return eventsBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(events_);
+        }
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder() {
+        return getEventsFieldBuilder().addBuilder(
+            org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * List of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 4 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent.Builder> 
+           getEventsBuilderList() {
+        return getEventsFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+          getEventsFieldBuilder() {
+        if (eventsBuilder_ == null) {
+          eventsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder>(
+                  events_,
+                  ((bitField0_ & 0x00000008) != 0),
+                  getParentForChildren(),
+                  isClean());
+          events_ = null;
+        }
+        return eventsBuilder_;
       }
 
       private java.lang.Object secret_ = "";
@@ -9191,16 +10539,23 @@ public final class Webhooks {
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return A list containing the events.
      */
-    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList();
+    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> 
+        getEventsList();
     /**
      * <pre>
      * New list of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return The count of events.
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    /**
+     * <pre>
+     * New list of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      */
     int getEventsCount();
     /**
@@ -9209,10 +10564,18 @@ public final class Webhooks {
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
-    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
+    java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList();
+    /**
+     * <pre>
+     * New list of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index);
 
     /**
      * <pre>
@@ -9343,39 +10706,13 @@ public final class Webhooks {
               url_ = bs;
               break;
             }
-            case 40: {
-              int rawValue = input.readEnum();
-              @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(5, rawValue);
-              } else {
-                if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                  events_ = new java.util.ArrayList<java.lang.Integer>();
-                  mutable_bitField0_ |= 0x00000010;
-                }
-                events_.add(rawValue);
-              }
-              break;
-            }
             case 42: {
-              int length = input.readRawVarint32();
-              int oldLimit = input.pushLimit(length);
-              while(input.getBytesUntilLimit() > 0) {
-                int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-                if (value == null) {
-                  unknownFields.mergeVarintField(5, rawValue);
-                } else {
-                  if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                    events_ = new java.util.ArrayList<java.lang.Integer>();
-                    mutable_bitField0_ |= 0x00000010;
-                  }
-                  events_.add(rawValue);
-                }
+              if (!((mutable_bitField0_ & 0x00000010) != 0)) {
+                events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>();
+                mutable_bitField0_ |= 0x00000010;
               }
-              input.popLimit(oldLimit);
+              events_.add(
+                  input.readMessage(org.mlflow.api.proto.Webhooks.WebhookEvent.PARSER, extensionRegistry));
               break;
             }
             case 50: {
@@ -10305,29 +11642,17 @@ public final class Webhooks {
     }
 
     public static final int EVENTS_FIELD_NUMBER = 5;
-    private java.util.List<java.lang.Integer> events_;
-    private static final com.google.protobuf.Internal.ListAdapter.Converter<
-        java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent> events_converter_ =
-            new com.google.protobuf.Internal.ListAdapter.Converter<
-                java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>() {
-              public org.mlflow.api.proto.Webhooks.WebhookEvent convert(java.lang.Integer from) {
-                @SuppressWarnings("deprecation")
-                org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(from);
-                return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
-              }
-            };
+    private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_;
     /**
      * <pre>
      * New list of events to subscribe to
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return A list containing the events.
      */
     @java.lang.Override
     public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-      return new com.google.protobuf.Internal.ListAdapter<
-          java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
+      return events_;
     }
     /**
      * <pre>
@@ -10335,7 +11660,18 @@ public final class Webhooks {
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @return The count of events.
+     */
+    @java.lang.Override
+    public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+        getEventsOrBuilderList() {
+      return events_;
+    }
+    /**
+     * <pre>
+     * New list of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      */
     @java.lang.Override
     public int getEventsCount() {
@@ -10347,12 +11683,22 @@ public final class Webhooks {
      * </pre>
      *
      * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-     * @param index The index of the element to return.
-     * @return The events at the given index.
      */
     @java.lang.Override
     public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-      return events_converter_.convert(events_.get(index));
+      return events_.get(index);
+    }
+    /**
+     * <pre>
+     * New list of events to subscribe to
+     * </pre>
+     *
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+        int index) {
+      return events_.get(index);
     }
 
     public static final int SECRET_FIELD_NUMBER = 6;
@@ -10469,7 +11815,7 @@ public final class Webhooks {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, url_);
       }
       for (int i = 0; i < events_.size(); i++) {
-        output.writeEnum(5, events_.get(i));
+        output.writeMessage(5, events_.get(i));
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, secret_);
@@ -10498,14 +11844,9 @@ public final class Webhooks {
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, url_);
       }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < events_.size(); i++) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeEnumSizeNoTag(events_.get(i));
-        }
-        size += dataSize;
-        size += 1 * events_.size();
+      for (int i = 0; i < events_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(5, events_.get(i));
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, secret_);
@@ -10549,7 +11890,8 @@ public final class Webhooks {
         if (!getUrl()
             .equals(other.getUrl())) return false;
       }
-      if (!events_.equals(other.events_)) return false;
+      if (!getEventsList()
+          .equals(other.getEventsList())) return false;
       if (hasSecret() != other.hasSecret()) return false;
       if (hasSecret()) {
         if (!getSecret()
@@ -10588,7 +11930,7 @@ public final class Webhooks {
       }
       if (getEventsCount() > 0) {
         hash = (37 * hash) + EVENTS_FIELD_NUMBER;
-        hash = (53 * hash) + events_.hashCode();
+        hash = (53 * hash) + getEventsList().hashCode();
       }
       if (hasSecret()) {
         hash = (37 * hash) + SECRET_FIELD_NUMBER;
@@ -10730,6 +12072,7 @@ public final class Webhooks {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getEventsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -10743,8 +12086,12 @@ public final class Webhooks {
         bitField0_ = (bitField0_ & ~0x00000004);
         url_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000010);
+        } else {
+          eventsBuilder_.clear();
+        }
         secret_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
         status_ = 1;
@@ -10793,11 +12140,15 @@ public final class Webhooks {
           to_bitField0_ |= 0x00000008;
         }
         result.url_ = url_;
-        if (((bitField0_ & 0x00000010) != 0)) {
-          events_ = java.util.Collections.unmodifiableList(events_);
-          bitField0_ = (bitField0_ & ~0x00000010);
+        if (eventsBuilder_ == null) {
+          if (((bitField0_ & 0x00000010) != 0)) {
+            events_ = java.util.Collections.unmodifiableList(events_);
+            bitField0_ = (bitField0_ & ~0x00000010);
+          }
+          result.events_ = events_;
+        } else {
+          result.events_ = eventsBuilder_.build();
         }
-        result.events_ = events_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
@@ -10875,15 +12226,31 @@ public final class Webhooks {
           url_ = other.url_;
           onChanged();
         }
-        if (!other.events_.isEmpty()) {
-          if (events_.isEmpty()) {
-            events_ = other.events_;
-            bitField0_ = (bitField0_ & ~0x00000010);
-          } else {
-            ensureEventsIsMutable();
-            events_.addAll(other.events_);
+        if (eventsBuilder_ == null) {
+          if (!other.events_.isEmpty()) {
+            if (events_.isEmpty()) {
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000010);
+            } else {
+              ensureEventsIsMutable();
+              events_.addAll(other.events_);
+            }
+            onChanged();
           }
-          onChanged();
+        } else {
+          if (!other.events_.isEmpty()) {
+            if (eventsBuilder_.isEmpty()) {
+              eventsBuilder_.dispose();
+              eventsBuilder_ = null;
+              events_ = other.events_;
+              bitField0_ = (bitField0_ & ~0x00000010);
+              eventsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getEventsFieldBuilder() : null;
+            } else {
+              eventsBuilder_.addAllMessages(other.events_);
+            }
+          }
         }
         if (other.hasSecret()) {
           bitField0_ |= 0x00000020;
@@ -11355,12 +12722,30 @@ public final class Webhooks {
         return this;
       }
 
-      private java.util.List<java.lang.Integer> events_ =
+      private java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> events_ =
         java.util.Collections.emptyList();
       private void ensureEventsIsMutable() {
         if (!((bitField0_ & 0x00000010) != 0)) {
-          events_ = new java.util.ArrayList<java.lang.Integer>(events_);
+          events_ = new java.util.ArrayList<org.mlflow.api.proto.Webhooks.WebhookEvent>(events_);
           bitField0_ |= 0x00000010;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> eventsBuilder_;
+
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
+        if (eventsBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(events_);
+        } else {
+          return eventsBuilder_.getMessageList();
         }
       }
       /**
@@ -11369,22 +12754,13 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return A list containing the events.
-       */
-      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
-        return new com.google.protobuf.Internal.ListAdapter<
-            java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
-      }
-      /**
-       * <pre>
-       * New list of events to subscribe to
-       * </pre>
-       *
-       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return The count of events.
        */
       public int getEventsCount() {
-        return events_.size();
+        if (eventsBuilder_ == null) {
+          return events_.size();
+        } else {
+          return eventsBuilder_.getCount();
+        }
       }
       /**
        * <pre>
@@ -11392,11 +12768,13 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param index The index of the element to return.
-       * @return The events at the given index.
        */
       public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
-        return events_converter_.convert(events_.get(index));
+        if (eventsBuilder_ == null) {
+          return events_.get(index);
+        } else {
+          return eventsBuilder_.getMessage(index);
+        }
       }
       /**
        * <pre>
@@ -11404,18 +12782,19 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param index The index to set the value at.
-       * @param value The events to set.
-       * @return This builder for chaining.
        */
       public Builder setEvents(
           int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.set(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, value);
         }
-        ensureEventsIsMutable();
-        events_.set(index, value.getNumber());
-        onChanged();
         return this;
       }
       /**
@@ -11424,16 +12803,36 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param value The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder setEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        */
       public Builder addEvents(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(value);
         }
-        ensureEventsIsMutable();
-        events_.add(value.getNumber());
-        onChanged();
         return this;
       }
       /**
@@ -11442,16 +12841,74 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @param values The events to add.
-       * @return This builder for chaining.
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
+        if (eventsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureEventsIsMutable();
+          events_.add(index, value);
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder addEvents(
+          org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder addEvents(
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          eventsBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        */
       public Builder addAllEvents(
           java.lang.Iterable<? extends org.mlflow.api.proto.Webhooks.WebhookEvent> values) {
-        ensureEventsIsMutable();
-        for (org.mlflow.api.proto.Webhooks.WebhookEvent value : values) {
-          events_.add(value.getNumber());
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, events_);
+          onChanged();
+        } else {
+          eventsBuilder_.addAllMessages(values);
         }
-        onChanged();
         return this;
       }
       /**
@@ -11460,13 +12917,121 @@ public final class Webhooks {
        * </pre>
        *
        * <code>repeated .mlflow.WebhookEvent events = 5;</code>
-       * @return This builder for chaining.
        */
       public Builder clearEvents() {
-        events_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
-        onChanged();
+        if (eventsBuilder_ == null) {
+          events_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000010);
+          onChanged();
+        } else {
+          eventsBuilder_.clear();
+        }
         return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public Builder removeEvents(int index) {
+        if (eventsBuilder_ == null) {
+          ensureEventsIsMutable();
+          events_.remove(index);
+          onChanged();
+        } else {
+          eventsBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder getEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventsOrBuilder(
+          int index) {
+        if (eventsBuilder_ == null) {
+          return events_.get(index);  } else {
+          return eventsBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+           getEventsOrBuilderList() {
+        if (eventsBuilder_ != null) {
+          return eventsBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(events_);
+        }
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder() {
+        return getEventsFieldBuilder().addBuilder(
+            org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder addEventsBuilder(
+          int index) {
+        return getEventsFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * New list of events to subscribe to
+       * </pre>
+       *
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent.Builder> 
+           getEventsBuilderList() {
+        return getEventsFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+          getEventsFieldBuilder() {
+        if (eventsBuilder_ == null) {
+          eventsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder>(
+                  events_,
+                  ((bitField0_ & 0x00000010) != 0),
+                  getParentForChildren(),
+                  isClean());
+          events_ = null;
+        }
+        return eventsBuilder_;
       }
 
       private java.lang.Object secret_ = "";
@@ -12829,6 +14394,15 @@ public final class Webhooks {
      * @return The event.
      */
     org.mlflow.api.proto.Webhooks.WebhookEvent getEvent();
+    /**
+     * <pre>
+     * Optional event type to test. If not specified, defaults to the first event type
+     * in the webhook's subscribed events.
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEvent event = 2;</code>
+     */
+    org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventOrBuilder();
   }
   /**
    * <pre>
@@ -12848,7 +14422,6 @@ public final class Webhooks {
     }
     private TestWebhook() {
       webhookId_ = "";
-      event_ = 1;
     }
 
     @java.lang.Override
@@ -12888,16 +14461,17 @@ public final class Webhooks {
               webhookId_ = bs;
               break;
             }
-            case 16: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(2, rawValue);
-              } else {
-                bitField0_ |= 0x00000002;
-                event_ = rawValue;
+            case 18: {
+              org.mlflow.api.proto.Webhooks.WebhookEvent.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000002) != 0)) {
+                subBuilder = event_.toBuilder();
               }
+              event_ = input.readMessage(org.mlflow.api.proto.Webhooks.WebhookEvent.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(event_);
+                event_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000002;
               break;
             }
             default: {
@@ -13626,7 +15200,7 @@ public final class Webhooks {
     }
 
     public static final int EVENT_FIELD_NUMBER = 2;
-    private int event_;
+    private org.mlflow.api.proto.Webhooks.WebhookEvent event_;
     /**
      * <pre>
      * Optional event type to test. If not specified, defaults to the first event type
@@ -13636,7 +15210,8 @@ public final class Webhooks {
      * <code>optional .mlflow.WebhookEvent event = 2;</code>
      * @return Whether the event field is set.
      */
-    @java.lang.Override public boolean hasEvent() {
+    @java.lang.Override
+    public boolean hasEvent() {
       return ((bitField0_ & 0x00000002) != 0);
     }
     /**
@@ -13648,10 +15223,21 @@ public final class Webhooks {
      * <code>optional .mlflow.WebhookEvent event = 2;</code>
      * @return The event.
      */
-    @java.lang.Override public org.mlflow.api.proto.Webhooks.WebhookEvent getEvent() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(event_);
-      return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEvent getEvent() {
+      return event_ == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance() : event_;
+    }
+    /**
+     * <pre>
+     * Optional event type to test. If not specified, defaults to the first event type
+     * in the webhook's subscribed events.
+     * </pre>
+     *
+     * <code>optional .mlflow.WebhookEvent event = 2;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventOrBuilder() {
+      return event_ == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance() : event_;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -13672,7 +15258,7 @@ public final class Webhooks {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, webhookId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        output.writeEnum(2, event_);
+        output.writeMessage(2, getEvent());
       }
       unknownFields.writeTo(output);
     }
@@ -13688,7 +15274,7 @@ public final class Webhooks {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, event_);
+          .computeMessageSize(2, getEvent());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -13712,7 +15298,8 @@ public final class Webhooks {
       }
       if (hasEvent() != other.hasEvent()) return false;
       if (hasEvent()) {
-        if (event_ != other.event_) return false;
+        if (!getEvent()
+            .equals(other.getEvent())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -13731,7 +15318,7 @@ public final class Webhooks {
       }
       if (hasEvent()) {
         hash = (37 * hash) + EVENT_FIELD_NUMBER;
-        hash = (53 * hash) + event_;
+        hash = (53 * hash) + getEvent().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -13865,6 +15452,7 @@ public final class Webhooks {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getEventFieldBuilder();
         }
       }
       @java.lang.Override
@@ -13872,7 +15460,11 @@ public final class Webhooks {
         super.clear();
         webhookId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        event_ = 1;
+        if (eventBuilder_ == null) {
+          event_ = null;
+        } else {
+          eventBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
@@ -13907,9 +15499,13 @@ public final class Webhooks {
         }
         result.webhookId_ = webhookId_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
+          if (eventBuilder_ == null) {
+            result.event_ = event_;
+          } else {
+            result.event_ = eventBuilder_.build();
+          }
           to_bitField0_ |= 0x00000002;
         }
-        result.event_ = event_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -13965,7 +15561,7 @@ public final class Webhooks {
           onChanged();
         }
         if (other.hasEvent()) {
-          setEvent(other.getEvent());
+          mergeEvent(other.getEvent());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -14105,7 +15701,9 @@ public final class Webhooks {
         return this;
       }
 
-      private int event_ = 1;
+      private org.mlflow.api.proto.Webhooks.WebhookEvent event_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> eventBuilder_;
       /**
        * <pre>
        * Optional event type to test. If not specified, defaults to the first event type
@@ -14115,7 +15713,7 @@ public final class Webhooks {
        * <code>optional .mlflow.WebhookEvent event = 2;</code>
        * @return Whether the event field is set.
        */
-      @java.lang.Override public boolean hasEvent() {
+      public boolean hasEvent() {
         return ((bitField0_ & 0x00000002) != 0);
       }
       /**
@@ -14127,11 +15725,12 @@ public final class Webhooks {
        * <code>optional .mlflow.WebhookEvent event = 2;</code>
        * @return The event.
        */
-      @java.lang.Override
       public org.mlflow.api.proto.Webhooks.WebhookEvent getEvent() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(event_);
-        return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
+        if (eventBuilder_ == null) {
+          return event_ == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance() : event_;
+        } else {
+          return eventBuilder_.getMessage();
+        }
       }
       /**
        * <pre>
@@ -14140,16 +15739,18 @@ public final class Webhooks {
        * </pre>
        *
        * <code>optional .mlflow.WebhookEvent event = 2;</code>
-       * @param value The event to set.
-       * @return This builder for chaining.
        */
       public Builder setEvent(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
-        if (value == null) {
-          throw new NullPointerException();
+        if (eventBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          event_ = value;
+          onChanged();
+        } else {
+          eventBuilder_.setMessage(value);
         }
         bitField0_ |= 0x00000002;
-        event_ = value.getNumber();
-        onChanged();
         return this;
       }
       /**
@@ -14159,13 +15760,110 @@ public final class Webhooks {
        * </pre>
        *
        * <code>optional .mlflow.WebhookEvent event = 2;</code>
-       * @return This builder for chaining.
+       */
+      public Builder setEvent(
+          org.mlflow.api.proto.Webhooks.WebhookEvent.Builder builderForValue) {
+        if (eventBuilder_ == null) {
+          event_ = builderForValue.build();
+          onChanged();
+        } else {
+          eventBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional event type to test. If not specified, defaults to the first event type
+       * in the webhook's subscribed events.
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEvent event = 2;</code>
+       */
+      public Builder mergeEvent(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
+        if (eventBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0) &&
+              event_ != null &&
+              event_ != org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance()) {
+            event_ =
+              org.mlflow.api.proto.Webhooks.WebhookEvent.newBuilder(event_).mergeFrom(value).buildPartial();
+          } else {
+            event_ = value;
+          }
+          onChanged();
+        } else {
+          eventBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional event type to test. If not specified, defaults to the first event type
+       * in the webhook's subscribed events.
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEvent event = 2;</code>
        */
       public Builder clearEvent() {
+        if (eventBuilder_ == null) {
+          event_ = null;
+          onChanged();
+        } else {
+          eventBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000002);
-        event_ = 1;
-        onChanged();
         return this;
+      }
+      /**
+       * <pre>
+       * Optional event type to test. If not specified, defaults to the first event type
+       * in the webhook's subscribed events.
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEvent event = 2;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEvent.Builder getEventBuilder() {
+        bitField0_ |= 0x00000002;
+        onChanged();
+        return getEventFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * Optional event type to test. If not specified, defaults to the first event type
+       * in the webhook's subscribed events.
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEvent event = 2;</code>
+       */
+      public org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder getEventOrBuilder() {
+        if (eventBuilder_ != null) {
+          return eventBuilder_.getMessageOrBuilder();
+        } else {
+          return event_ == null ?
+              org.mlflow.api.proto.Webhooks.WebhookEvent.getDefaultInstance() : event_;
+        }
+      }
+      /**
+       * <pre>
+       * Optional event type to test. If not specified, defaults to the first event type
+       * in the webhook's subscribed events.
+       * </pre>
+       *
+       * <code>optional .mlflow.WebhookEvent event = 2;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder> 
+          getEventFieldBuilder() {
+        if (eventBuilder_ == null) {
+          eventBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Webhooks.WebhookEvent, org.mlflow.api.proto.Webhooks.WebhookEvent.Builder, org.mlflow.api.proto.Webhooks.WebhookEventOrBuilder>(
+                  getEvent(),
+                  getParentForChildren(),
+                  isClean());
+          event_ = null;
+        }
+        return eventBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -14220,6 +15918,11 @@ public final class Webhooks {
 
   }
 
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_WebhookEvent_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_WebhookEvent_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_Webhook_descriptor;
   private static final 
@@ -14300,71 +16003,74 @@ public final class Webhooks {
   static {
     java.lang.String[] descriptorData = {
       "\n\016webhooks.proto\022\006mlflow\032\025scalapb/scalap" +
-      "b.proto\032\020databricks.proto\"\326\001\n\007Webhook\022\022\n" +
-      "\nwebhook_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\023\n\013descr" +
-      "iption\030\003 \001(\t\022\013\n\003url\030\004 \001(\t\022$\n\006events\030\005 \003(" +
-      "\0162\024.mlflow.WebhookEvent\022%\n\006status\030\006 \001(\0162" +
-      "\025.mlflow.WebhookStatus\022\032\n\022creation_times" +
-      "tamp\030\007 \001(\003\022\036\n\026last_updated_timestamp\030\010 \001" +
-      "(\003\"k\n\021WebhookTestResult\022\017\n\007success\030\001 \001(\010" +
-      "\022\027\n\017response_status\030\002 \001(\005\022\025\n\rresponse_bo" +
-      "dy\030\003 \001(\t\022\025\n\rerror_message\030\004 \001(\t\"\211\002\n\rCrea" +
-      "teWebhook\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\013descrip" +
-      "tion\030\002 \001(\t\022\021\n\003url\030\003 \001(\tB\004\370\206\031\001\022*\n\006events\030" +
-      "\004 \003(\0162\024.mlflow.WebhookEventB\004\370\206\031\001\022\016\n\006sec" +
-      "ret\030\005 \001(\t\022%\n\006status\030\006 \001(\0162\025.mlflow.Webho" +
-      "okStatus\032,\n\010Response\022 \n\007webhook\030\001 \001(\0132\017." +
-      "mlflow.Webhook:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\261\001\n\014ListWebhooks\022\030\n\013" +
-      "max_results\030\001 \001(\005:\003100\022\022\n\npage_token\030\002 \001" +
-      "(\t\032F\n\010Response\022!\n\010webhooks\030\001 \003(\0132\017.mlflo" +
-      "w.Webhook\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\201\001\n\nGetWebhook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001" +
-      "\032,\n\010Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow.W" +
-      "ebhook:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\221\002\n\rUpdateWebhook\022\030\n\nwebhook" +
-      "_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013descrip" +
-      "tion\030\003 \001(\t\022\013\n\003url\030\004 \001(\t\022$\n\006events\030\005 \003(\0162" +
-      "\024.mlflow.WebhookEvent\022\016\n\006secret\030\006 \001(\t\022%\n" +
-      "\006status\030\007 \001(\0162\025.mlflow.WebhookStatus\032,\n\010" +
-      "Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webho" +
-      "ok:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"b\n\rDeleteWebhook\022\030\n\nwebhook_id\030\001" +
-      " \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\260\001\n\013TestWebh" +
-      "ook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001\022#\n\005event\030\002" +
-      " \001(\0162\024.mlflow.WebhookEvent\0325\n\010Response\022)" +
-      "\n\006result\030\001 \001(\0132\031.mlflow.WebhookTestResul" +
-      "t:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]*)\n\rWebhookStatus\022\n\n\006ACTIVE\020\001\022\014\n\010D" +
-      "ISABLED\020\002*\303\001\n\014WebhookEvent\022\034\n\030REGISTERED" +
-      "_MODEL_CREATED\020\001\022\031\n\025MODEL_VERSION_CREATE" +
-      "D\020\002\022\031\n\025MODEL_VERSION_TAG_SET\020\003\022\035\n\031MODEL_" +
-      "VERSION_TAG_DELETED\020\004\022\037\n\033MODEL_VERSION_A" +
-      "LIAS_CREATED\020\005\022\037\n\033MODEL_VERSION_ALIAS_DE" +
-      "LETED\020\0062\265\006\n\016WebhookService\022~\n\rcreateWebh" +
-      "ook\022\025.mlflow.CreateWebhook\032\036.mlflow.Crea" +
-      "teWebhook.Response\"6\362\206\0312\n\036\n\004POST\022\020/mlflo" +
-      "w/webhooks\032\004\010\002\020\000\020\001*\016Create Webhook\022y\n\014li" +
-      "stWebhooks\022\024.mlflow.ListWebhooks\032\035.mlflo" +
-      "w.ListWebhooks.Response\"4\362\206\0310\n\035\n\003GET\022\020/m" +
-      "lflow/webhooks\032\004\010\002\020\000\020\001*\rList Webhooks\022~\n" +
-      "\ngetWebhook\022\022.mlflow.GetWebhook\032\033.mlflow" +
-      ".GetWebhook.Response\"?\362\206\031;\n*\n\003GET\022\035/mlfl" +
-      "ow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\013Get We" +
-      "bhook\022\214\001\n\rupdateWebhook\022\025.mlflow.UpdateW" +
-      "ebhook\032\036.mlflow.UpdateWebhook.Response\"D" +
-      "\362\206\031@\n,\n\005PATCH\022\035/mlflow/webhooks/{webhook" +
-      "_id}\032\004\010\002\020\000\020\001*\016Update Webhook\022\215\001\n\rdeleteW" +
-      "ebhook\022\025.mlflow.DeleteWebhook\032\036.mlflow.D" +
-      "eleteWebhook.Response\"E\362\206\031A\n-\n\006DELETE\022\035/" +
-      "mlflow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\016De" +
-      "lete Webhook\022\210\001\n\013testWebhook\022\023.mlflow.Te" +
-      "stWebhook\032\034.mlflow.TestWebhook.Response\"" +
-      "F\362\206\031B\n0\n\004POST\022\"/mlflow/webhooks/{webhook" +
-      "_id}/test\032\004\010\002\020\000\020\001*\014Test WebhookB!\n\024org.m" +
-      "lflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "b.proto\032\020databricks.proto\"h\n\014WebhookEven" +
+      "t\022+\n\006entity\030\001 \001(\0162\025.mlflow.WebhookEntity" +
+      "B\004\370\206\031\001\022+\n\006action\030\002 \001(\0162\025.mlflow.WebhookA" +
+      "ctionB\004\370\206\031\001\"\326\001\n\007Webhook\022\022\n\nwebhook_id\030\001 " +
+      "\001(\t\022\014\n\004name\030\002 \001(\t\022\023\n\013description\030\003 \001(\t\022\013" +
+      "\n\003url\030\004 \001(\t\022$\n\006events\030\005 \003(\0132\024.mlflow.Web" +
+      "hookEvent\022%\n\006status\030\006 \001(\0162\025.mlflow.Webho" +
+      "okStatus\022\032\n\022creation_timestamp\030\007 \001(\003\022\036\n\026" +
+      "last_updated_timestamp\030\010 \001(\003\"k\n\021WebhookT" +
+      "estResult\022\017\n\007success\030\001 \001(\010\022\027\n\017response_s" +
+      "tatus\030\002 \001(\005\022\025\n\rresponse_body\030\003 \001(\t\022\025\n\rer" +
+      "ror_message\030\004 \001(\t\"\211\002\n\rCreateWebhook\022\022\n\004n" +
+      "ame\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\022\021\n\003" +
+      "url\030\003 \001(\tB\004\370\206\031\001\022*\n\006events\030\004 \003(\0132\024.mlflow" +
+      ".WebhookEventB\004\370\206\031\001\022\016\n\006secret\030\005 \001(\t\022%\n\006s" +
+      "tatus\030\006 \001(\0162\025.mlflow.WebhookStatus\032,\n\010Re" +
+      "sponse\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webhook" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]\"\261\001\n\014ListWebhooks\022\030\n\013max_results\030\001 " +
+      "\001(\005:\003100\022\022\n\npage_token\030\002 \001(\t\032F\n\010Response" +
+      "\022!\n\010webhooks\030\001 \003(\0132\017.mlflow.Webhook\022\027\n\017n" +
+      "ext_page_token\030\002 \001(\t:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"\201\001\n\nGetWebhook" +
+      "\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001\032,\n\010Response\022 " +
+      "\n\007webhook\030\001 \001(\0132\017.mlflow.Webhook:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\221\002" +
+      "\n\rUpdateWebhook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031" +
+      "\001\022\014\n\004name\030\002 \001(\t\022\023\n\013description\030\003 \001(\t\022\013\n\003" +
+      "url\030\004 \001(\t\022$\n\006events\030\005 \003(\0132\024.mlflow.Webho" +
+      "okEvent\022\016\n\006secret\030\006 \001(\t\022%\n\006status\030\007 \001(\0162" +
+      "\025.mlflow.WebhookStatus\032,\n\010Response\022 \n\007we" +
+      "bhook\030\001 \001(\0132\017.mlflow.Webhook:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"b\n\rDel" +
+      "eteWebhook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\260\001\n\013TestWebhook\022\030\n\nwebhook" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\022#\n\005event\030\002 \001(\0132\024.mlflow." +
+      "WebhookEvent\0325\n\010Response\022)\n\006result\030\001 \001(\013" +
+      "2\031.mlflow.WebhookTestResult:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]*)\n\rWebh" +
+      "ookStatus\022\n\n\006ACTIVE\020\001\022\014\n\010DISABLED\020\002*\200\001\n\r" +
+      "WebhookEntity\022\026\n\022ENTITY_UNSPECIFIED\020\000\022\024\n" +
+      "\020REGISTERED_MODEL\020\001\022\021\n\rMODEL_VERSION\020\002\022\025" +
+      "\n\021MODEL_VERSION_TAG\020\003\022\027\n\023MODEL_VERSION_A" +
+      "LIAS\020\004*W\n\rWebhookAction\022\026\n\022ACTION_UNSPEC" +
+      "IFIED\020\000\022\013\n\007CREATED\020\001\022\013\n\007UPDATED\020\002\022\013\n\007DEL" +
+      "ETED\020\003\022\007\n\003SET\020\0042\265\006\n\016WebhookService\022~\n\rcr" +
+      "eateWebhook\022\025.mlflow.CreateWebhook\032\036.mlf" +
+      "low.CreateWebhook.Response\"6\362\206\0312\n\036\n\004POST" +
+      "\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\016Create Webho" +
+      "ok\022y\n\014listWebhooks\022\024.mlflow.ListWebhooks" +
+      "\032\035.mlflow.ListWebhooks.Response\"4\362\206\0310\n\035\n" +
+      "\003GET\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\rList Web" +
+      "hooks\022~\n\ngetWebhook\022\022.mlflow.GetWebhook\032" +
+      "\033.mlflow.GetWebhook.Response\"?\362\206\031;\n*\n\003GE" +
+      "T\022\035/mlflow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001" +
+      "*\013Get Webhook\022\214\001\n\rupdateWebhook\022\025.mlflow" +
+      ".UpdateWebhook\032\036.mlflow.UpdateWebhook.Re" +
+      "sponse\"D\362\206\031@\n,\n\005PATCH\022\035/mlflow/webhooks/" +
+      "{webhook_id}\032\004\010\002\020\000\020\001*\016Update Webhook\022\215\001\n" +
+      "\rdeleteWebhook\022\025.mlflow.DeleteWebhook\032\036." +
+      "mlflow.DeleteWebhook.Response\"E\362\206\031A\n-\n\006D" +
+      "ELETE\022\035/mlflow/webhooks/{webhook_id}\032\004\010\002" +
+      "\020\000\020\001*\016Delete Webhook\022\210\001\n\013testWebhook\022\023.m" +
+      "lflow.TestWebhook\032\034.mlflow.TestWebhook.R" +
+      "esponse\"F\362\206\031B\n0\n\004POST\022\"/mlflow/webhooks/" +
+      "{webhook_id}/test\032\004\010\002\020\000\020\001*\014Test WebhookB" +
+      "!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -14372,20 +16078,26 @@ public final class Webhooks {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
         });
-    internal_static_mlflow_Webhook_descriptor =
+    internal_static_mlflow_WebhookEvent_descriptor =
       getDescriptor().getMessageTypes().get(0);
+    internal_static_mlflow_WebhookEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_WebhookEvent_descriptor,
+        new java.lang.String[] { "Entity", "Action", });
+    internal_static_mlflow_Webhook_descriptor =
+      getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_Webhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Webhook_descriptor,
         new java.lang.String[] { "WebhookId", "Name", "Description", "Url", "Events", "Status", "CreationTimestamp", "LastUpdatedTimestamp", });
     internal_static_mlflow_WebhookTestResult_descriptor =
-      getDescriptor().getMessageTypes().get(1);
+      getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_WebhookTestResult_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_WebhookTestResult_descriptor,
         new java.lang.String[] { "Success", "ResponseStatus", "ResponseBody", "ErrorMessage", });
     internal_static_mlflow_CreateWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_CreateWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateWebhook_descriptor,
@@ -14397,7 +16109,7 @@ public final class Webhooks {
         internal_static_mlflow_CreateWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_ListWebhooks_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_ListWebhooks_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListWebhooks_descriptor,
@@ -14409,7 +16121,7 @@ public final class Webhooks {
         internal_static_mlflow_ListWebhooks_Response_descriptor,
         new java.lang.String[] { "Webhooks", "NextPageToken", });
     internal_static_mlflow_GetWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_GetWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetWebhook_descriptor,
@@ -14421,7 +16133,7 @@ public final class Webhooks {
         internal_static_mlflow_GetWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_UpdateWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(5);
+      getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_UpdateWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateWebhook_descriptor,
@@ -14433,7 +16145,7 @@ public final class Webhooks {
         internal_static_mlflow_UpdateWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_DeleteWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_DeleteWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteWebhook_descriptor,
@@ -14445,7 +16157,7 @@ public final class Webhooks {
         internal_static_mlflow_DeleteWebhook_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_TestWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_TestWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_TestWebhook_descriptor,

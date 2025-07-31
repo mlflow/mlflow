@@ -13,7 +13,7 @@ import requests
 from cryptography.fernet import Fernet
 
 from mlflow import MlflowClient
-from mlflow.entities.webhook import WebhookEvent
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
 from tests.helper_functions import get_safe_port
 from tests.webhooks.app import WEBHOOK_SECRET
@@ -177,7 +177,7 @@ def test_registered_model_created(mlflow_client: MlflowClient, app_client: AppCl
     mlflow_client.create_webhook(
         name="registered_model_created",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
     )
     registered_model = mlflow_client.create_registered_model(
         name="test_name",
@@ -198,7 +198,7 @@ def test_model_version_created(mlflow_client: MlflowClient, app_client: AppClien
     mlflow_client.create_webhook(
         name="model_version_created",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
     registered_model = mlflow_client.create_registered_model(name="model_version_created")
     model_version = mlflow_client.create_model_version(
@@ -225,7 +225,7 @@ def test_model_version_tag_set(mlflow_client: MlflowClient, app_client: AppClien
     mlflow_client.create_webhook(
         name="model_version_tag_set",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_TAG_SET],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET)],
     )
     registered_model = mlflow_client.create_registered_model(name="model_version_tag_set")
     model_version = mlflow_client.create_model_version(
@@ -254,7 +254,7 @@ def test_model_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppC
     mlflow_client.create_webhook(
         name="model_version_tag_deleted",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_TAG_DELETED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED)],
     )
     registered_model = mlflow_client.create_registered_model(name="model_version_tag_deleted")
     model_version = mlflow_client.create_model_version(
@@ -286,7 +286,7 @@ def test_model_version_alias_created(mlflow_client: MlflowClient, app_client: Ap
     mlflow_client.create_webhook(
         name="model_version_alias_created",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_ALIAS_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED)],
     )
     registered_model = mlflow_client.create_registered_model(name="model_version_alias_created")
     model_version = mlflow_client.create_model_version(
@@ -313,7 +313,7 @@ def test_model_version_alias_deleted(mlflow_client: MlflowClient, app_client: Ap
     mlflow_client.create_webhook(
         name="model_version_alias_deleted",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_ALIAS_DELETED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED)],
     )
     registered_model = mlflow_client.create_registered_model(name="model_version_alias_deleted")
     model_version = mlflow_client.create_model_version(
@@ -341,7 +341,7 @@ def test_webhook_with_secret(mlflow_client: MlflowClient, app_client: AppClient)
     mlflow_client.create_webhook(
         name="secure_webhook",
         url=app_client.get_url("/secure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
         secret=WEBHOOK_SECRET,
     )
 
@@ -370,7 +370,7 @@ def test_webhook_with_wrong_secret(mlflow_client: MlflowClient, app_client: AppC
     mlflow_client.create_webhook(
         name="wrong_secret_webhook",
         url=app_client.get_url("/secure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
         secret="wrong-secret",  # This doesn't match WEBHOOK_SECRET in app.py
     )
 
@@ -396,7 +396,7 @@ def test_webhook_without_secret_to_secure_endpoint(
     mlflow_client.create_webhook(
         name="no_secret_to_secure",
         url=app_client.get_url("/secure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
         # No secret provided
     )
 
@@ -418,7 +418,7 @@ def test_webhook_test_insecure_endpoint(mlflow_client: MlflowClient, app_client:
     webhook = mlflow_client.create_webhook(
         name="test_webhook",
         url=app_client.get_url("/insecure-webhook"),
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
 
     # Test the webhook
@@ -448,7 +448,7 @@ def test_webhook_test_secure_endpoint(mlflow_client: MlflowClient, app_client: A
     webhook = mlflow_client.create_webhook(
         name="test_secure_webhook",
         url=app_client.get_url("/secure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
         secret=WEBHOOK_SECRET,
     )
 
@@ -483,15 +483,15 @@ def test_webhook_test_with_specific_event(
         name="multi_event_webhook",
         url=app_client.get_url("/insecure-webhook"),
         events=[
-            WebhookEvent.REGISTERED_MODEL_CREATED,
-            WebhookEvent.MODEL_VERSION_CREATED,
-            WebhookEvent.MODEL_VERSION_TAG_SET,
+            WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET),
         ],
     )
 
     # Test with a specific event (not the first one)
     result = mlflow_client.test_webhook(
-        webhook.webhook_id, event=WebhookEvent.MODEL_VERSION_TAG_SET
+        webhook.webhook_id, event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET)
     )
 
     # Check that the test was successful
@@ -516,7 +516,7 @@ def test_webhook_test_failed_endpoint(mlflow_client: MlflowClient, app_client: A
     webhook = mlflow_client.create_webhook(
         name="failed_webhook",
         url=app_client.get_url("/nonexistent-endpoint"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
     )
 
     # Test the webhook
@@ -534,7 +534,7 @@ def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client:
     webhook = mlflow_client.create_webhook(
         name="wrong_secret_test_webhook",
         url=app_client.get_url("/secure-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
         secret="wrong-secret",
     )
 
@@ -560,7 +560,7 @@ def test_webhook_retry_on_5xx_error(mlflow_client: MlflowClient, app_client: App
     mlflow_client.create_webhook(
         name="retry_test_webhook",
         url=app_client.get_url("/flaky-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
     )
 
     # Create a registered model to trigger the webhook
@@ -596,7 +596,7 @@ def test_webhook_retry_on_429_rate_limit(
     mlflow_client.create_webhook(
         name="rate_limit_test_webhook",
         url=app_client.get_url("/rate-limited-webhook"),
-        events=[WebhookEvent.REGISTERED_MODEL_CREATED],
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
     )
 
     # Create a registered model to trigger the webhook

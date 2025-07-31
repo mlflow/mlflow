@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     PrimaryKeyConstraint,
     String,
@@ -21,7 +22,13 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookAction,
+    WebhookEntity,
+    WebhookEvent,
+    WebhookStatus,
+)
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
@@ -250,7 +257,11 @@ class SqlWebhook(Base):
     last_updated_timestamp = Column(BigInteger, nullable=True, default=None)
     deleted_timestamp = Column(BigInteger, nullable=True, default=None)  # For soft deletes
 
-    __table_args__ = (PrimaryKeyConstraint("webhook_id", name="webhook_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("webhook_id", name="webhook_pk"),
+        Index("idx_webhooks_status", "status"),
+        Index("idx_webhooks_name", "name"),
+    )
 
     def __repr__(self):
         return (
@@ -263,7 +274,7 @@ class SqlWebhook(Base):
             webhook_id=self.webhook_id,
             name=self.name,
             url=self.url,
-            events=sorted(WebhookEvent(we.event) for we in self.webhook_events),
+            events=[we.to_mlflow_entity() for we in self.webhook_events],
             creation_timestamp=self.creation_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             description=self.description,
@@ -276,14 +287,23 @@ class SqlWebhookEvent(Base):
     __tablename__ = "webhook_events"
 
     webhook_id = Column(String(256), ForeignKey("webhooks.webhook_id", ondelete="cascade"))
-    event = Column(String(50), nullable=False)
+    entity = Column(String(50), nullable=False)
+    action = Column(String(50), nullable=False)
 
     # Relationship
     webhook = relationship(
         "SqlWebhook", backref=backref("webhook_events", cascade="all, delete-orphan")
     )
 
-    __table_args__ = (PrimaryKeyConstraint("webhook_id", "event", name="webhook_event_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("webhook_id", "entity", "action", name="webhook_event_pk"),
+        Index("idx_webhook_events_entity", "entity"),
+        Index("idx_webhook_events_action", "action"),
+        Index("idx_webhook_events_entity_action", "entity", "action"),
+    )
 
     def __repr__(self):
-        return f"<SqlWebhookEvent ({self.webhook_id}, {self.event})>"
+        return f"<SqlWebhookEvent ({self.webhook_id}, {self.entity}, {self.action})>"
+
+    def to_mlflow_entity(self):
+        return WebhookEvent(entity=WebhookEntity(self.entity), action=WebhookAction(self.action))

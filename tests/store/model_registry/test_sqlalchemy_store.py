@@ -11,7 +11,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
-from mlflow.entities.webhook import WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
     MLFLOW_TRACKING_URI,
@@ -1938,7 +1938,10 @@ def test_create_registered_model_handle_prompt_properly(store):
 
 
 def test_create_webhook(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.REGISTERED_MODEL_CREATED]
+    events = [
+        WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+    ]
     webhook = store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
@@ -2001,7 +2004,7 @@ def test_create_webhook_invalid_names(store, invalid_name, expected_match):
         store.create_webhook(
             name=invalid_name,
             url="https://example.com",
-            events=[WebhookEvent.MODEL_VERSION_CREATED],
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
 
 
@@ -2010,7 +2013,7 @@ def test_create_webhook_valid_names(store, valid_name):
     webhook = store.create_webhook(
         name=valid_name,
         url="https://example.com",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
     assert webhook.name == valid_name
 
@@ -2029,7 +2032,9 @@ def test_create_webhook_valid_names(store, valid_name):
 def test_create_webhook_invalid_urls(store, invalid_url, expected_match):
     with pytest.raises(MlflowException, match=expected_match):
         store.create_webhook(
-            name="test", url=invalid_url, events=[WebhookEvent.MODEL_VERSION_CREATED]
+            name="test",
+            url=invalid_url,
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
 
 
@@ -2048,7 +2053,7 @@ def test_create_webhook_invalid_events(store):
 
 
 def test_get_webhook(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
     created_webhook = store.create_webhook(
         name="test_webhook", url="https://example.com/webhook", events=events
     )
@@ -2069,10 +2074,14 @@ def test_get_webhook_not_found(store):
 def test_list_webhooks(store):
     # Create multiple webhooks
     webhook1 = store.create_webhook(
-        name="webhook1", url="https://example.com/1", events=[WebhookEvent.MODEL_VERSION_CREATED]
+        name="webhook1",
+        url="https://example.com/1",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
     webhook2 = store.create_webhook(
-        name="webhook2", url="https://example.com/2", events=[WebhookEvent.REGISTERED_MODEL_CREATED]
+        name="webhook2",
+        url="https://example.com/2",
+        events=[WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)],
     )
 
     webhooks_page = store.list_webhooks()
@@ -2091,7 +2100,7 @@ def test_list_webhooks_pagination(store):
         webhook = store.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
-            events=[WebhookEvent.MODEL_VERSION_CREATED],
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
         created_webhooks.append(webhook)
 
@@ -2117,13 +2126,16 @@ def test_list_webhooks_invalid_max_results(store):
 
 
 def test_update_webhook(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
     webhook = store.create_webhook(
         name="original_name", url="https://example.com/original", events=events
     )
 
     # Update webhook
-    new_events = [WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.REGISTERED_MODEL_CREATED]
+    new_events = [
+        WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+    ]
     updated_webhook = store.update_webhook(
         webhook_id=webhook.webhook_id,
         name="updated_name",
@@ -2144,7 +2156,7 @@ def test_update_webhook(store):
 
 
 def test_update_webhook_partial(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
     webhook = store.create_webhook(
         name="original_name", url="https://example.com/original", events=events
     )
@@ -2169,7 +2181,7 @@ def test_update_webhook_invalid_events(store):
     webhook = store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
 
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
@@ -2190,7 +2202,7 @@ def test_update_webhook_invalid_names(store, invalid_name, expected_match):
     webhook = store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
 
     with pytest.raises(MlflowException, match=expected_match):
@@ -2210,7 +2222,7 @@ def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
     webhook = store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
 
     with pytest.raises(MlflowException, match=expected_match):
@@ -2218,7 +2230,7 @@ def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
 
 
 def test_delete_webhook(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
     webhook = store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
@@ -2241,7 +2253,7 @@ def test_delete_webhook_not_found(store):
 
 
 def test_webhook_status_transitions(store):
-    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
 
     webhook = store.create_webhook(
         name="test_webhook",
@@ -2268,7 +2280,7 @@ def test_webhook_secret_encryption(store):
     store.create_webhook(
         name="test_webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         secret="my_secret",
     )
     engine = create_engine(store.db_uri)

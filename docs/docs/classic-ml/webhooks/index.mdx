@@ -35,32 +35,32 @@ MLflow webhooks support the following Model Registry events:
   </thead>
   <tbody>
     <tr>
-      <td><code>REGISTERED_MODEL_CREATED</code></td>
+      <td><code>registered_model.created</code></td>
       <td>Triggered when a new registered model is created</td>
       <td><APILink fn="mlflow.webhooks.types.RegisteredModelCreatedPayload" >`RegisteredModelCreatedPayload`</APILink></td>
     </tr>
     <tr>
-      <td><code>MODEL_VERSION_CREATED</code></td>
+      <td><code>model_version.created</code></td>
       <td>Triggered when a new model version is created</td>
       <td><APILink fn="mlflow.webhooks.types.ModelVersionCreatedPayload" >`ModelVersionCreatedPayload`</APILink></td>
     </tr>
     <tr>
-      <td><code>MODEL_VERSION_TAG_SET</code></td>
+      <td><code>model_version_tag.set</code></td>
       <td>Triggered when a tag is set on a model version</td>
       <td><APILink fn="mlflow.webhooks.types.ModelVersionTagSetPayload" >`ModelVersionTagSetPayload`</APILink></td>
     </tr>
     <tr>
-      <td><code>MODEL_VERSION_TAG_DELETED</code></td>
+      <td><code>model_version_tag.deleted</code></td>
       <td>Triggered when a tag is deleted from a model version</td>
       <td><APILink fn="mlflow.webhooks.types.ModelVersionTagDeletedPayload" >`ModelVersionTagDeletedPayload`</APILink></td>
     </tr>
     <tr>
-      <td><code>MODEL_VERSION_ALIAS_CREATED</code></td>
+      <td><code>model_version_alias.created</code></td>
       <td>Triggered when an alias is created for a model version</td>
       <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasCreatedPayload" >`ModelVersionAliasCreatedPayload`</APILink></td>
     </tr>
     <tr>
-      <td><code>MODEL_VERSION_ALIAS_DELETED</code></td>
+      <td><code>model_version_alias.deleted</code></td>
       <td>Triggered when an alias is deleted from a model version</td>
       <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasDeletedPayload" >`ModelVersionAliasDeletedPayload`</APILink></td>
     </tr>
@@ -81,7 +81,7 @@ client = MlflowClient()
 webhook = client.create_webhook(
     name="model-version-notifier",
     url="https://your-app.com/webhook",
-    events=[WebhookEvent.MODEL_VERSION_CREATED],
+    events=["model_version.created"],
     description="Notifies when new model versions are created",
     secret="your-secret-key",  # Optional: for HMAC signature verification
 )
@@ -111,10 +111,7 @@ You can also test specific event types:
 # Test with a specific event type
 from mlflow.entities.webhook import WebhookEvent
 
-result = client.test_webhook(
-    webhook.webhook_id,
-    event=WebhookEvent.MODEL_VERSION_CREATED,
-)
+result = client.test_webhook(webhook.webhook_id, event="model_version.created")
 ```
 
 When you call `test_webhook()`, MLflow sends example payloads to your webhook URL. These test payloads have the same structure as real event payloads. Click on the payload schema links in the table above to see the exact structure and examples for each event type.
@@ -132,20 +129,20 @@ webhook = client.create_webhook(
     name="multi-event-webhook",
     url="https://your-domain.com/webhook",
     events=[
-        WebhookEvent.REGISTERED_MODEL_CREATED,
-        WebhookEvent.MODEL_VERSION_CREATED,
-        WebhookEvent.MODEL_VERSION_TAG_SET,
+        "registered_model.created",
+        "model_version.created",
+        "model_version_tag.set",
     ],
     secret="your-secret-key",
 )
 
-# Test with first event (REGISTERED_MODEL_CREATED)
+# Test with first event (registered_model.created)
 result = client.test_webhook(webhook.webhook_id)
 
 # Test with specific event
 result = client.test_webhook(
     webhook.webhook_id,
-    event=WebhookEvent.MODEL_VERSION_TAG_SET,
+    event=("model_version_tag.set"),
 )
 ```
 
@@ -210,7 +207,10 @@ client.update_webhook(
     # Unspecified fields will remain unchanged
     webhook_id=webhook.webhook_id,
     status="DISABLED",  # Temporarily disable the webhook
-    events=[WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.MODEL_VERSION_TAG_SET],
+    events=[
+        "model_version.created",
+        "model_version_tag.set",
+    ],
 )
 ```
 
@@ -239,6 +239,39 @@ To prevent replay attacks, it's recommended to verify that webhook timestamps ar
 - `MLFLOW_WEBHOOK_REQUEST_TIMEOUT`: Timeout in seconds for webhook HTTP requests (default: 30)
 - `MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES`: Maximum number of retry attempts for failed webhook requests (default: 3)
 - `MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS`: Maximum number of worker threads for webhook delivery (default: 10)
+
+## Webhook Payload Structure
+
+MLflow webhooks send structured JSON payloads with the following format:
+
+```json
+{
+  "entity": "model_version",
+  "action": "created",
+  "timestamp": "2025-07-31T08:27:32.080217+00:00",
+  "data": {
+    "name": "example_model",
+    "version": "1",
+    "source": "models:/123",
+    "run_id": "abcd1234abcd5678",
+    "tags": {"example_key": "example_value"},
+    "description": "An example model version"
+  }
+}
+```
+
+### Payload Fields
+
+- **`entity`**: The type of MLflow entity that triggered the webhook (e.g., `"registered_model"`, `"model_version"`, `"model_version_tag"`, `"model_version_alias"`)
+- **`action`**: The action that was performed (e.g., `"created"`, `"updated"`, `"deleted"`, `"set"`)
+- **`timestamp`**: ISO 8601 timestamp indicating when the webhook was sent
+- **`data`**: The actual payload data containing entity-specific information (see payload schema links in the events table above)
+
+This structured format makes it easy to:
+
+- Filter webhooks by entity type or action
+- Process different event types with dedicated handlers
+- Extract metadata without parsing the entire payload
 
 ## Webhook Delivery Reliability
 
@@ -362,16 +395,38 @@ async def handle_webhook(
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     # Parse payload
-    data = await request.json()
+    webhook_data = await request.json()
+
+    # Extract webhook metadata
+    entity = webhook_data.get("entity")
+    action = webhook_data.get("action")
+    timestamp = webhook_data.get("timestamp")
+    payload_data = webhook_data.get("data", {})
 
     # Print the payload for debugging
-    print(f"Received webhook payload: {data}")
+    print(f"Received webhook: {entity}.{action}")
+    print(f"Timestamp: {timestamp}")
     print(f"Delivery ID: {x_mlflow_delivery_id}")
-    print(f"Timestamp: {x_mlflow_timestamp}")
+    print(f"Payload: {payload_data}")
 
     # Add your webhook processing logic here
-    # For example, you might want to handle different event types
-    # based on the payload structure
+    # For example, handle different event types
+    if entity == "model_version" and action == "created":
+        model_name = payload_data.get("name")
+        version = payload_data.get("version")
+        print(f"New model version: {model_name} v{version}")
+        # Add your model version processing logic here
+    elif entity == "registered_model" and action == "created":
+        model_name = payload_data.get("name")
+        print(f"New registered model: {model_name}")
+        # Add your registered model processing logic here
+    elif entity == "model_version_tag" and action == "set":
+        model_name = payload_data.get("name")
+        version = payload_data.get("version")
+        tag_key = payload_data.get("key")
+        tag_value = payload_data.get("value")
+        print(f"Tag set on {model_name} v{version}: {tag_key}={tag_value}")
+        # Add your tag processing logic here
 
     return {"status": "success"}
 
@@ -416,7 +471,7 @@ if __name__ == "__main__":
 
    ```python
    from mlflow import MlflowClient
-   from mlflow.entities.webhook import WebhookEvent
+   from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
    client = MlflowClient("http://localhost:5000")
 
@@ -424,7 +479,7 @@ if __name__ == "__main__":
    webhook = client.create_webhook(
        name="fastapi-receiver",
        url="https://your-domain.com/webhook",
-       events=[WebhookEvent.MODEL_VERSION_CREATED],
+       events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
        secret="your-secret-key",
    )
    ```

@@ -42,7 +42,7 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.webhook import WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
@@ -1796,7 +1796,7 @@ def _create_registered_model():
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
 
     deliver_webhook(
-        event=WebhookEvent.REGISTERED_MODEL_CREATED,
+        event=WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
         payload=RegisteredModelCreatedPayload(
             name=request_message.name,
             tags={t.key: t.value for t in request_message.tags},
@@ -2088,7 +2088,7 @@ def _create_model_version():
 
     if not is_prompt:
         deliver_webhook(
-            event=WebhookEvent.MODEL_VERSION_CREATED,
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
             payload=ModelVersionCreatedPayload(
                 name=request_message.name,
                 version=str(model_version.version),
@@ -2275,7 +2275,7 @@ def _set_model_version_tag():
 
     if not _is_prompt(request_message.name):
         deliver_webhook(
-            event=WebhookEvent.MODEL_VERSION_TAG_SET,
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET),
             payload=ModelVersionTagSetPayload(
                 name=request_message.name,
                 version=request_message.version,
@@ -2308,7 +2308,7 @@ def _delete_model_version_tag():
 
     if not _is_prompt(request_message.name):
         deliver_webhook(
-            event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED),
             payload=ModelVersionTagDeletedPayload(
                 name=request_message.name,
                 version=request_message.version,
@@ -2340,7 +2340,7 @@ def _set_registered_model_alias():
 
     if not _is_prompt(request_message.name):
         deliver_webhook(
-            event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED),
             payload=ModelVersionAliasCreatedPayload(
                 name=request_message.name,
                 alias=request_message.alias,
@@ -2367,7 +2367,7 @@ def _delete_registered_model_alias():
 
     if not _is_prompt(request_message.name):
         deliver_webhook(
-            event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED),
             payload=ModelVersionAliasDeletedPayload(
                 name=request_message.name,
                 alias=request_message.alias,

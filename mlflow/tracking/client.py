@@ -45,7 +45,13 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookEventStr,
+    WebhookStatus,
+    WebhookTestResult,
+)
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -5944,7 +5950,7 @@ class MlflowClient:
         self,
         name: str,
         url: str,
-        events: list[Union[str, WebhookEvent]],
+        events: list[Union[WebhookEventStr, WebhookEvent]],
         description: Optional[str] = None,
         secret: Optional[str] = None,
         status: Optional[Union[str, WebhookStatus]] = None,
@@ -5955,15 +5961,8 @@ class MlflowClient:
         Args:
             name: Name for the webhook.
             url: Webhook endpoint URL.
-            events: List of event types that trigger this webhook. Can be strings or
-                WebhookEvent enums.
-                Valid event types:
-                - "REGISTERED_MODEL_CREATED"
-                - "MODEL_VERSION_CREATED"
-                - "MODEL_VERSION_TAG_SET"
-                - "MODEL_VERSION_TAG_DELETED"
-                - "MODEL_VERSION_ALIAS_CREATED"
-                - "MODEL_VERSION_ALIAS_DELETED"
+            events: List of events that trigger this webhook. Can be strings or
+                `WebhookEvent` objects.
             description: Optional description of the webhook.
             secret: Optional secret for HMAC signature verification.
             status: Webhook status (defaults to ACTIVE). Can be string or WebhookStatus enum.
@@ -5972,7 +5971,7 @@ class MlflowClient:
         Returns:
             A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
         """
-        events = [WebhookEvent(e) if isinstance(e, str) else e for e in events]
+        events = [WebhookEvent.from_str(e) if isinstance(e, str) else e for e in events]
         if status is not None:
             status = WebhookStatus(status) if isinstance(status, str) else status
 
@@ -6020,7 +6019,7 @@ class MlflowClient:
         name: Optional[str] = None,
         description: Optional[str] = None,
         url: Optional[str] = None,
-        events: Optional[list[Union[str, WebhookEvent]]] = None,
+        events: Optional[list[Union[WebhookEventStr, WebhookEvent]]] = None,
         secret: Optional[str] = None,
         status: Optional[Union[str, WebhookStatus]] = None,
     ) -> Webhook:
@@ -6032,14 +6031,7 @@ class MlflowClient:
             name: New webhook name.
             description: New webhook description.
             url: New webhook URL.
-            events: New list of event types. Can be strings or WebhookEvent enums.
-                Valid event types:
-                - "REGISTERED_MODEL_CREATED"
-                - "MODEL_VERSION_CREATED"
-                - "MODEL_VERSION_TAG_SET"
-                - "MODEL_VERSION_TAG_DELETED"
-                - "MODEL_VERSION_ALIAS_CREATED"
-                - "MODEL_VERSION_ALIAS_DELETED"
+            events: New list of events. Can be strings or `WebhookEvent` objects.
             secret: New webhook secret.
             status: New webhook status. Can be string or WebhookStatus enum.
                 Valid statuses: "ACTIVE", "DISABLED"
@@ -6048,7 +6040,7 @@ class MlflowClient:
             A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
         """
         if events is not None:
-            events = [WebhookEvent(e) if isinstance(e, str) else e for e in events]
+            events = [WebhookEvent.from_str(e) if isinstance(e, str) else e for e in events]
 
         if status is not None:
             status = WebhookStatus(status) if isinstance(status, str) else status
@@ -6076,14 +6068,16 @@ class MlflowClient:
         self._get_registry_client().delete_webhook(webhook_id)
 
     def test_webhook(
-        self, webhook_id: str, event: Optional[WebhookEvent] = None
+        self, webhook_id: str, event: Optional[Union[WebhookEvent, str]] = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test payload.
 
         Args:
             webhook_id: Webhook ID to test.
-            event: Optional event type to test. If not specified, uses the first event from webhook.
+            event: Optional event type to test. Can be a WebhookEvent object or a string in
+                "entity.action" format (e.g., "model_version.created"). If not specified, uses
+                the first event from webhook.
 
         Returns:
             WebhookTestResult indicating success/failure and response details.

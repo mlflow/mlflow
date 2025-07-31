@@ -6,7 +6,7 @@ that are sent when various model registry events occur.
 
 from typing import TypeAlias, TypedDict
 
-from mlflow.entities.webhook import WebhookEvent
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
 
 class RegisteredModelCreatedPayload(TypedDict):
@@ -217,14 +217,14 @@ WebhookPayload: TypeAlias = (
     | ModelVersionAliasDeletedPayload
 )
 
-# Mapping of event types to their corresponding payload classes
-EVENT_TO_PAYLOAD_CLASS = {
-    WebhookEvent.REGISTERED_MODEL_CREATED: RegisteredModelCreatedPayload,
-    WebhookEvent.MODEL_VERSION_CREATED: ModelVersionCreatedPayload,
-    WebhookEvent.MODEL_VERSION_TAG_SET: ModelVersionTagSetPayload,
-    WebhookEvent.MODEL_VERSION_TAG_DELETED: ModelVersionTagDeletedPayload,
-    WebhookEvent.MODEL_VERSION_ALIAS_CREATED: ModelVersionAliasCreatedPayload,
-    WebhookEvent.MODEL_VERSION_ALIAS_DELETED: ModelVersionAliasDeletedPayload,
+# Mapping of (entity, action) tuples to their corresponding payload classes
+EVENT_TO_PAYLOAD_CLASS: dict[tuple[WebhookEntity, WebhookAction], type[WebhookPayload]] = {
+    (WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED): RegisteredModelCreatedPayload,
+    (WebhookEntity.MODEL_VERSION, WebhookAction.CREATED): ModelVersionCreatedPayload,
+    (WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET): ModelVersionTagSetPayload,
+    (WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED): ModelVersionTagDeletedPayload,
+    (WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED): ModelVersionAliasCreatedPayload,
+    (WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED): ModelVersionAliasDeletedPayload,
 }
 
 
@@ -232,7 +232,7 @@ def get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
     """Get an example payload for the given webhook event type.
 
     Args:
-        event: The webhook event type
+        event: The webhook event instance
 
     Returns:
         Example payload for the event type
@@ -240,7 +240,20 @@ def get_example_payload_for_event(event: WebhookEvent) -> WebhookPayload:
     Raises:
         ValueError: If the event type is unknown
     """
-    if payload_class := EVENT_TO_PAYLOAD_CLASS.get(event):
+    event_key = (event.entity, event.action)
+    if payload_class := EVENT_TO_PAYLOAD_CLASS.get(event_key):
         return payload_class.example()
 
-    raise ValueError(f"Unknown event type: {event}")
+    raise ValueError(f"Unknown event type: {event.entity}.{event.action}")
+
+
+def get_payload_class_for_event(event: WebhookEvent) -> type[WebhookPayload] | None:
+    """Get the payload class for the given webhook event type.
+
+    Args:
+        event: The webhook event instance
+
+    Returns:
+        Payload class for the event type, or None if unknown
+    """
+    return EVENT_TO_PAYLOAD_CLASS.get((event.entity, event.action))
