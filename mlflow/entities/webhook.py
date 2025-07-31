@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Union
+from typing import Literal, Optional, TypeAlias, Union
 
 from typing_extensions import Self
 
@@ -78,6 +78,15 @@ class WebhookAction(str, Enum):
         proto_name = self.value.upper()
         return ProtoWebhookAction.Value(proto_name)
 
+
+WebhookEventStr: TypeAlias = Literal[
+    "registered_model.created",
+    "model_version.created",
+    "model_version_tag.set",
+    "model_version_tag.deleted",
+    "model_version_alias.created",
+    "model_version_alias.deleted",
+]
 
 # Valid actions for each entity type
 VALID_ENTITY_ACTIONS: dict[WebhookEntity, set[WebhookAction]] = {
@@ -160,12 +169,12 @@ class WebhookEvent:
         )
 
     @classmethod
-    def from_str(cls, event_str: str) -> Self:
+    def from_str(cls, event_str: WebhookEventStr) -> Self:
         """
         Create a WebhookEvent from a dot-separated string representation.
 
         Args:
-            event_str: String in format "entity.action" (e.g., "registered_model.created")
+            event_str: Valid webhook event string (e.g., "registered_model.created")
 
         Returns:
             A WebhookEvent instance
