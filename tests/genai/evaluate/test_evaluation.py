@@ -142,6 +142,12 @@ def test_evaluate_with_static_dataset(is_in_databricks):
 
     _validate_assessments(traces)
 
+    # Dataset input should be logged to the run
+    run = mlflow.get_run(result.run_id)
+    assert len(run.inputs.dataset_inputs) == 1
+    assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
+    assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
+
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
@@ -296,9 +302,6 @@ def test_evaluate_with_traces(pass_full_dataframe):
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS genai evaluator doesn't support managed dataset evaluation yet")
-
     class MockDatasetClient:
         def __init__(self):
             # dataset_id -> list of records

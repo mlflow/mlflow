@@ -17,7 +17,11 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
-from mlflow.genai.evaluation.utils import make_code_type_assessment_source, standardize_scorer_value
+from mlflow.genai.evaluation.utils import (
+    complete_eval_futures_with_progress_base,
+    make_code_type_assessment_source,
+    standardize_scorer_value,
+)
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import create_minimal_trace
@@ -30,7 +34,7 @@ _logger = logging.getLogger(__name__)
 @context.eval_context
 def run(
     *,
-    dataset: pd.DataFrame,
+    eval_df: pd.DataFrame,
     predict_fn=None,
     scorers=None,
     run_id: str | None = None,
@@ -48,7 +52,7 @@ def run(
         d. Log the assessments to the trace.
     3. Compute the aggregated metrics from the assessments.
     """
-    eval_items = [EvalItem.from_dataset_row(row) for row in dataset.to_dict(orient="records")]
+    eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
@@ -66,8 +70,8 @@ def run(
             )
             for eval_item in eval_items
         ]
-        # TODO: Port the fancy tqdm progress bar from the DBX agent harness.
-        eval_results = [future.result() for future in as_completed(futures)]
+        eval_results = complete_eval_futures_with_progress_base(futures)
+
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
