@@ -271,17 +271,6 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
     outputs = response_dict.get("output")
     attributes = {k: v for k, v in response_dict.items() if k != "output"}
 
-    # Extract chat messages
-    messages = []
-    if response and response.instructions:
-        messages.append(ChatMessage(role="system", content=span_data.response.instructions))
-    if span_data.input:
-        parsed = [_parse_message_like(m) for m in span_data.input]
-        messages.extend([m for m in parsed if m is not None])
-    if response and response.output:
-        parsed = [_parse_message_like(m) for m in span_data.response.output]
-        messages.extend(parsed)
-
     # Extract chat tools
     chat_tools = []
     for tool in response_dict.get("tools", []):
@@ -303,61 +292,3 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
         attributes[SpanAttributeKey.CHAT_TOOLS] = chat_tools
 
     return inputs, outputs, attributes
-
-
-def _parse_message_like(message_like: Any) -> Optional[ChatMessage]:
-    try:
-        return ChatMessage.validate_compat(message_like)
-    except Exception:
-        pass
-
-    if isinstance(message_like, BaseModel):
-        message_like = message_like.model_dump()
-
-    msg_type = message_like["type"]
-    if msg_type == "message":
-        content = []
-        refusal = None
-        for content_block in message_like["content"]:
-            # Content is a list of either text or refusal https://github.com/openai/openai-python/blob/9dea82fb8cdd06683f9e8033b54cff219789af7f/src/openai/types/responses/response_output_message.py#L13C38-L13C56
-            if "text" in content_block:
-                content.append(TextContentPart(type="text", text=content_block["text"]))
-            elif "refusal" in content_block:
-                refusal = content_block["refusal"]
-            else:
-                _logger.debug(f"Unknown content type in message: {content_block}")
-        return ChatMessage(
-            role=message_like["role"],
-            content=content,
-            refusal=refusal,
-        )
-    elif msg_type == "function_call":
-        return ChatMessage(
-            role="assistant",
-            content="",
-            tool_calls=[
-                ToolCall(
-                    id=message_like["call_id"],
-                    function=Function(
-                        name=message_like["name"],
-                        arguments=message_like["arguments"],
-                    ),
-                )
-            ],
-        )
-    elif msg_type == "function_call_output":
-        return ChatMessage(
-            role="tool",
-            content=message_like["output"],
-            tool_call_id=message_like["call_id"],
-        )
-
-    # Ignore unknown message types.
-    # Response API supports the following additional message types, which is not
-    # supported by our chat standard schema yet:
-    # https://github.com/openai/openai-python/blob/9dea82fb8cdd06683f9e8033b54cff219789af7f/src/openai/types/responses/response_output_item.py#L16
-    # - File search tool call
-    # - Web search tool call
-    # - Computer tool call
-    # - Reasoning
-    _logger.debug(f"Unknown message type: {msg_type}")
