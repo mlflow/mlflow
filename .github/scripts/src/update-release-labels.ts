@@ -38,11 +38,6 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
     releaseTag = releaseVersion.startsWith("v") ? releaseVersion : `v${releaseVersion}`;
     releaseVersion = releaseVersion.replace(/^v/, ""); // Remove 'v' prefix if present
     console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
-  } else if (context.eventName === "pull_request") {
-    // Temporary: hardcode version for PR testing
-    releaseVersion = "3.1.3";
-    releaseTag = "v3.1.3";
-    console.log(`Processing PR test with hardcoded version: ${releaseTag} (${releaseVersion})`);
   } else {
     // Automatic trigger from release event
     const payload = context.payload as ReleaseEvent;
