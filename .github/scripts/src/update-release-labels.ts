@@ -1,8 +1,11 @@
 import type { getOctokit } from "@actions/github";
 import type { context as ContextType } from "@actions/github";
+import type { components } from "@octokit/openapi-webhooks-types";
 
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
+type WorkflowDispatch = components["schemas"]["webhook-workflow-dispatch"];
+type ReleaseEvent = components["schemas"]["webhook-release"];
 
 interface ReleaseInfo {
   releaseVersion: string;
@@ -27,7 +30,8 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
 
   if (context.eventName === "workflow_dispatch") {
     // Manual trigger with version parameter
-    releaseVersion = (context.payload.inputs as any)?.release_version;
+    const payload = context.payload as WorkflowDispatch;
+    releaseVersion = payload.inputs?.release_version;
     if (!releaseVersion) {
       throw new Error("release_version input is required for workflow_dispatch");
     }
@@ -36,7 +40,8 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
     console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
   } else {
     // Automatic trigger from release event
-    const release = (context.payload as any)?.release;
+    const payload = context.payload as ReleaseEvent;
+    const release = payload.release;
     if (!release) {
       throw new Error("Release information not found in payload");
     }
@@ -47,7 +52,7 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
 
   const versionMatch = releaseVersion.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!versionMatch) {
-    console.log(`Skipping unofficial release: ${releaseVersion}`);
+    console.log(`Skipping invalid release: ${releaseVersion}`);
     throw new Error(`Invalid version format: ${releaseVersion}`);
   }
 
@@ -76,11 +81,11 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
  * Helper function to extract PR number from commit message
  */
 function extractPRNumberFromCommitMessage(commitMessage: string): number | null {
-  const prRegex = /\(#(\d+)\)/;
+  const prRegex = /\(#(\d+)\)$/;
   const lines = commitMessage.split("\n");
   
   for (const line of lines) {
-    const match = line.match(prRegex);
+    const match = line.trim().match(prRegex);
     if (match) {
       return parseInt(match[1], 10);
     }
@@ -96,9 +101,8 @@ async function extractPRNumbersFromBranch(
   github: GitHub,
   context: Context,
   releaseBranch: string
-): Promise<{ releasePRNumbers: Set<number>; totalCommits: number }> {
+): Promise<Set<number>> {
   const releasePRNumbers = new Set<number>();
-  let totalCommits = 0;
 
   try {
     const commits: CommitInfo[] = await github.paginate(github.rest.repos.listCommits, {
@@ -108,41 +112,45 @@ async function extractPRNumbersFromBranch(
       since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
     });
 
-    totalCommits = commits.length;
-
     for (const commit of commits) {
       const prNumber = extractPRNumberFromCommitMessage(commit.commit.message);
       if (prNumber) {
         releasePRNumbers.add(prNumber);
       }
     }
-  } catch (error: any) {
-    if (error.status === 404) {
+
+    console.log(`Found ${releasePRNumbers.size} PR numbers from ${releaseBranch} commits`);
+  } catch (error) {
+    if (error instanceof Error && 'status' in error && (error as { status: number }).status === 404) {
       console.log(`Release branch '${releaseBranch}' not found. This may be expected for new releases.`);
       console.log("Skipping commit analysis - will update all PRs with the release label.");
     } else {
-      throw error; // Re-throw other errors
+      throw error;
     }
   }
 
-  console.log(`Found ${totalCommits} commits in ${releaseBranch} with ${releasePRNumbers.size} PR numbers`);
-  return { releasePRNumbers, totalCommits };
+  return releasePRNumbers;
 }
 
 /**
- * Fetch all PRs with a specific label
+ * Fetch all merged PRs with a specific label
  */
 async function fetchPRsWithLabel(
   github: GitHub,
   context: Context,
   releaseLabel: string
-): Promise<Array<{ number: number; pull_request?: any; title?: string }>> {
-  // Find all PRs with the release label using github.paginate
-  const prsWithReleaseLabel = await github.paginate(github.rest.issues.listForRepo, {
+): Promise<Array<{ number: number; pull_request?: any; title?: string; state: string }>> {
+  const allIssues = await github.paginate(github.rest.issues.listForRepo, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     labels: releaseLabel,
     state: "all",
+  });
+
+  const prsWithReleaseLabel = allIssues.filter(item => {
+    if (!item.pull_request) return false;
+    if (item.state === "closed" && item.pull_request.merged_at) return true;
+    return false;
   });
 
   console.log(`Found ${prsWithReleaseLabel.length} PRs with label ${releaseLabel}`);
@@ -155,14 +163,11 @@ async function fetchPRsWithLabel(
 async function updatePRLabels(
   github: GitHub,
   context: Context,
-  prsWithReleaseLabel: Array<{ number: number; pull_request?: any; title?: string }>,
+  prsWithReleaseLabel: Array<{ number: number; pull_request?: any; title?: string; state: string }>,
   releasePRNumbers: Set<number>,
   releaseLabel: string,
-  nextPatchLabel: string,
-  releaseVersion: string
-): Promise<number> {
-  let updatedPRs = 0;
-  
+  nextPatchLabel: string
+): Promise<void> {
   const pullRequests = prsWithReleaseLabel.filter(item => item.pull_request);
   console.log(`Processing ${pullRequests.length} PRs (filtered out ${prsWithReleaseLabel.length - pullRequests.length} issues)`);
 
@@ -193,14 +198,12 @@ async function updatePRLabels(
         labels: [nextPatchLabel],
       });
 
-      updatedPRs++;
       console.log(`Updated PR #${prNumber}: ${releaseLabel} → ${nextPatchLabel}`);
-    } catch (error: any) {
-      console.log(`Warning: Failed to update labels for PR #${prNumber}: ${error.message}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`Warning: Failed to update labels for PR #${prNumber}: ${errorMessage}`);
     }
   }
-
-  return updatedPRs;
 }
 
 /**
@@ -220,7 +223,7 @@ export async function updateReleaseLabels({
   try {
     const releaseInfo = extractReleaseInfo(context);
 
-    const { releasePRNumbers } = await extractPRNumbersFromBranch(
+    const releasePRNumbers = await extractPRNumbersFromBranch(
       github,
       context,
       releaseInfo.releaseBranch
@@ -228,19 +231,17 @@ export async function updateReleaseLabels({
 
     const prsWithReleaseLabel = await fetchPRsWithLabel(github, context, releaseInfo.releaseLabel);
 
-    const updatedPRs = await updatePRLabels(
+    await updatePRLabels(
       github,
       context,
       prsWithReleaseLabel,
       releasePRNumbers,
       releaseInfo.releaseLabel,
-      releaseInfo.nextPatchLabel,
-      releaseInfo.releaseVersion
+      releaseInfo.nextPatchLabel
     );
-
-    console.log(`Release label update completed. Updated ${updatedPRs} PRs.`);
-  } catch (error: any) {
-    console.error(`Error updating release labels: ${error.message}`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Error updating release labels: ${errorMessage}`);
     throw error;
   }
 }
