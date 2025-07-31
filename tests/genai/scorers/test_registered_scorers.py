@@ -1,12 +1,13 @@
 """Tests for registered scorer functionality."""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, get_scorer, list_scorers, scorer
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 
 
 @scorer
@@ -345,3 +346,65 @@ class TestValidation:
         # Should not raise
         with patch("mlflow.genai.scorers.registry.add_registered_scorer"):
             guidelines_scorer.register()
+
+    def test_scheduled_scorer_to_scorer_preserves_registered_name(self):
+        """Test that _scheduled_scorer_to_scorer preserves the registered scorer name."""
+        # This test verifies that when a scorer is registered with a custom name,
+        # the conversion function correctly returns the scorer with the registered name.
+        
+        # Create a scorer with one name
+        @scorer
+        def formality_scorer(outputs) -> bool:
+            return len(outputs) > 10
+
+        # Simulate what happens after registration with a custom name:
+        # The server stores the scorer with the registered name
+        registered_scorer = formality_scorer._create_copy()
+        registered_scorer.name = "my_custom_formality"
+
+        # Create a ScorerScheduleConfig as the server would store it
+        scheduled_config = ScorerScheduleConfig(
+            scorer=registered_scorer,
+            scheduled_scorer_name="my_custom_formality",
+            sample_rate=0.0,
+            filter_string=None,
+        )
+
+        # Test the internal function directly to verify the logic
+        from mlflow.genai.scorers.registry import _scheduled_scorer_to_scorer
+        
+        result_scorer = _scheduled_scorer_to_scorer(scheduled_config)
+        
+        # Verify that the scorer has the registered name
+        assert result_scorer.name == "my_custom_formality"
+        assert result_scorer.sample_rate == 0.0
+        assert result_scorer.filter_string is None
+
+    def test_register_with_custom_name_updates_serialization(self):
+        """Test that registering with a custom name properly updates serialization data."""
+        # Create a scorer and trigger serialization to populate cache
+        @scorer  
+        def test_scorer(outputs) -> bool:
+            return len(outputs) > 5
+
+        # Serialize to populate cache
+        original_dump = test_scorer.model_dump()
+        assert original_dump["name"] == "test_scorer"
+
+        # Register with custom name
+        with patch("mlflow.genai.scorers.registry.add_registered_scorer") as mock_add:
+            registered = test_scorer.register(name="custom_test_name")
+
+        # Verify the registered scorer has the correct name
+        assert registered.name == "custom_test_name"
+
+        # Verify serialization reflects the new name
+        registered_dump = registered.model_dump()
+        assert registered_dump["name"] == "custom_test_name"
+
+        # Verify original scorer is unchanged
+        assert test_scorer.name == "test_scorer"
+
+        # Verify the server was called with the correct name
+        mock_add.assert_called_once()
+        assert mock_add.call_args.kwargs["name"] == "custom_test_name"
