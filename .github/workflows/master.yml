@@ -31,6 +31,7 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -120,7 +121,7 @@ jobs:
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
@@ -473,4 +474,8 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai tests
+            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
+      - name: Run telemetry tests
+        run: |
+          source .venv/Scripts/activate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry

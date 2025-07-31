@@ -30,7 +30,6 @@ from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
-from mlflow.utils.annotations import experimental
 
 
 def latency() -> EvaluationMetric:
@@ -426,7 +425,6 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
-@experimental(version="2.18.0")
 def bleu() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `bleu`_.

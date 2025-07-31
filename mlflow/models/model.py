@@ -32,7 +32,9 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.tracking.fluent import (
+    _create_logged_model,
     _get_active_model_context,
+    _last_logged_model_id,
     _set_active_model_id,
     _use_logged_model,
 )
@@ -418,7 +420,7 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.now())
+        self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -617,7 +619,6 @@ class Model:
     def model_size_bytes(self, value: Optional[int]) -> None:
         self._model_size_bytes = value
 
-    @experimental(version="2.13.0")
     @property
     def resources(self) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         """
@@ -629,7 +630,6 @@ class Model:
         """
         return self._resources
 
-    @experimental(version="2.13.0")
     @resources.setter
     def resources(self, value: Optional[Union[str, list[Resource]]]) -> None:
         if isinstance(value, (Path, str)):
@@ -1163,7 +1163,7 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
-                model = mlflow.initialize_logged_model(
+                model = _create_logged_model(
                     # TODO: Update model name
                     name=name,
                     source_run_id=run_id,
@@ -1172,7 +1172,9 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
+                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
                 )
+                _last_logged_model_id.set(model.model_id)
                 if (
                     MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
                     and is_databricks_uri(tracking_uri)
@@ -1594,7 +1596,6 @@ def _validate_llama_index_model(model):
     return _validate_and_prepare_llama_index_model_or_path(model, None)
 
 
-@experimental(version="2.13.0")
 def set_model(model) -> None:
     """
     When logging model as code, this function can be used to set the model object

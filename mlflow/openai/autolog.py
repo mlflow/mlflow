@@ -25,7 +25,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -37,7 +36,6 @@ _MESSAGE_FORMAT_CHAT = "openai.chat.completions"
 _MESSAGE_FORMAT_RESPONSES = "openai.responses"
 
 
-@experimental(version="2.14.0")
 def autolog(
     disable=False,
     exclusive=False,

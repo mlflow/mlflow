@@ -40,13 +40,13 @@ jobs:
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
-          yarn install --immutable
+          npm ci
       - name: Run lint
         run: |
-          yarn eslint
+          npm run eslint
       - name: Run prettier
         run: |
-          yarn prettier:check
+          npm run prettier:check
 
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -63,23 +63,23 @@ jobs:
           uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
           uv pip install --system -e '..[gateway]'
       - run: |
-          yarn install --immutable
+          npm ci
       - uses: ./.github/actions/show-versions
       - run: |
-          yarn convert-notebooks
+          npm run convert-notebooks
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
         run: |
-          yarn build-all -- --no-r
+          npm run build-all -- --no-r --use-npm
       - name: Test examples
         working-directory: docs/api_reference
         run: |
           make test-examples
       - name: Check sitemap
         run: |
-          yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
+          npm run sitemap -- https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
       - name: Move build artifacts
         run: |
           mkdir -p /tmp/docs-build/docs

@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -177,6 +177,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
+        # Explicitly set the encoding to `utf-8` so the `decode_unicode` in the next line
+        # will decode correctly
+        response.encoding = "utf-8"
         return (
             line.strip()
             for line in response.iter_lines(decode_unicode=True)
@@ -556,7 +559,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
             )
 
-    @experimental(version="2.19.0")
     def update_endpoint_config(self, endpoint, config):
         """
         Update the configuration of a specified serving endpoint. See
@@ -616,7 +618,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
         )
 
-    @experimental(version="2.19.0")
     def update_endpoint_tags(self, endpoint, config):
         """
         Update the tags of a specified serving endpoint. See
@@ -646,7 +647,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PATCH", route=posixpath.join(endpoint, "tags"), json_body=config
         )
 
-    @experimental(version="2.19.0")
     def update_endpoint_rate_limits(self, endpoint, config):
         """
         Update the rate limits of a specified serving endpoint.
@@ -682,7 +682,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
         )
 
-    @experimental(version="2.19.0")
     def update_endpoint_ai_gateway(self, endpoint, config):
         """
         Update the AI Gateway configuration of a specified serving endpoint.

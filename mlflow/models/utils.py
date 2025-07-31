@@ -36,7 +36,6 @@ from mlflow.types.utils import (
     clean_tensor_type,
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
@@ -469,7 +468,6 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
-@experimental(version="2.16.0")
 def convert_input_example_to_serving_input(input_example) -> Optional[str]:
     """
     Helper function to convert a model's input example to a serving input example that
@@ -1994,7 +1992,6 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-@experimental(version="2.16.0")
 def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, Any]]):
     """
     Helper function to validate the model can be served and provided input is valid

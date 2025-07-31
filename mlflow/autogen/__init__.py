@@ -8,7 +8,6 @@ from mlflow.autogen.chat import log_tools
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -19,7 +18,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "autogen"
 
 
-@experimental(version="2.16.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
