@@ -1,3 +1,5 @@
+from typing_extensions import Self
+
 from clint.rules.base import Rule
 
 
@@ -8,7 +10,7 @@ class DoNotDisable(Rule):
         self.rules = rules
 
     @classmethod
-    def check(cls, rules: set[str]) -> "DoNotDisable":
+    def check(cls, rules: set[str]) -> Self:
         if s := rules.intersection(DoNotDisable.DO_NOT_DISABLE):
             return cls(s)
 

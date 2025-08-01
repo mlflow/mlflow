@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import tomli
+from typing_extensions import Self
 
 from clint.rules import ALL_RULES
 
@@ -21,7 +20,7 @@ class Config:
     per_file_ignores: dict[re.Pattern[str], set[str]] = field(default_factory=dict)
 
     @classmethod
-    def load(cls) -> Config:
+    def load(cls) -> Self:
         pyproject = Path("pyproject.toml")
         if not pyproject.exists():
             return cls()
