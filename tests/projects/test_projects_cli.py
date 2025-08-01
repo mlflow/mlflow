@@ -112,7 +112,8 @@ def test_run_local_conda_env():
 
 
 @skip_if_skinny
-def test_run_uv_python_env():
+def test_run_uv_python_env(monkeypatch):
+    monkeypatch.setenv("UV_PRERELEASE", "allow")
     python_env_path = os.path.join(TEST_VIRTUALENV_PROJECT_DIR, "python_env.yaml")
     python_env_contents = _PythonEnv.from_yaml(python_env_path)
 

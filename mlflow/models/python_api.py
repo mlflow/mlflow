@@ -176,7 +176,8 @@ def predict(
 
         enable_prerelease: If specified, allow pre-release versions of dependencies to be installed.
             Set this to True if your model dependencies include pre-release versions such as
-            `mlflow==3.2.0rc0`. Default to False.
+            `mlflow==3.2.0rc0`. When this is set to True, the `UV_PRERELEASE` environment variable
+            is set to "allow" automatically. Default to False.
 
             .. note::
                 This parameter is only supported when `env_manager` is set to "uv".
