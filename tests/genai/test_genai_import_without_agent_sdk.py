@@ -72,54 +72,16 @@ class MockScorer(Scorer):
         return {"score": 1.0}
 
 
-def test_add_scheduled_scorer_raises_when_agents_not_installed():
-    mock_scorer = MockScorer()
-
+def test_list_scorers_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        add_scheduled_scorer(
-            experiment_id="test_experiment",
-            scheduled_scorer_name="test_scorer",
-            scorer=mock_scorer,
-            sample_rate=0.5,
-            filter_string="test_filter",
-        )
+        list_scorers(experiment_id="test_experiment")
 
 
-def test_update_scheduled_scorer_raises_when_agents_not_installed():
-    mock_scorer = MockScorer()
-
+def test_get_scorer_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        update_scheduled_scorer(
-            experiment_id="test_experiment",
-            scheduled_scorer_name="test_scorer",
-            scorer=mock_scorer,
-            sample_rate=0.5,
-            filter_string="test_filter",
-        )
+        get_scorer(name="test_scorer", experiment_id="test_experiment")
 
 
-def test_delete_scheduled_scorer_raises_when_agents_not_installed():
+def test_delete_scorer_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        delete_scheduled_scorer(
-            experiment_id="test_experiment", scheduled_scorer_name="test_scorer"
-        )
-
-
-def test_get_scheduled_scorer_raises_when_agents_not_installed():
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        get_scheduled_scorer(experiment_id="test_experiment", scheduled_scorer_name="test_scorer")
-
-
-def test_list_scheduled_scorers_raises_when_agents_not_installed():
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        list_scheduled_scorers(experiment_id="test_experiment")
-
-
-def test_set_scheduled_scorers_raises_when_agents_not_installed():
-    mock_scorer = MockScorer()
-    scheduled_scorer = ScorerScheduleConfig(
-        scorer=mock_scorer, scheduled_scorer_name="test_scorer", sample_rate=0.5
-    )
-
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        set_scheduled_scorers(experiment_id="test_experiment", scheduled_scorers=[scheduled_scorer])
+        delete_scorer(experiment_id="test_experiment", name="test_scorer")
