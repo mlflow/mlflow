@@ -7,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType, Expectation
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.evaluation_dataset import EvaluationDataset
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -260,7 +261,7 @@ def test_evaluation_dataset_to_df():
             inputs={"question": "What is MLflow?"},
             expectations={"answer": "MLflow is a platform"},
             tags={"source": "manual"},
-            source={"source_type": "HUMAN", "source_data": {"user_id": "user1"}},
+            source=DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user1"}),
             source_id="user1",
             created_time=123456789,
         ),

@@ -24,7 +24,7 @@ def mock_client():
 
 @pytest.fixture
 def mock_databricks_environment():
-    with mock.patch("mlflow.genai.datasets.is_databricks_environment", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_in_databricks_runtime", return_value=True):
         yield
 
 
@@ -200,7 +200,7 @@ def test_search_evaluation_datasets_databricks(mock_databricks_environment):
 
 
 def test_databricks_import_error():
-    with mock.patch("mlflow.genai.datasets.is_databricks_environment", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_in_databricks_runtime", return_value=True):
         with mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}):
             with mock.patch("builtins.__import__", side_effect=ImportError("No module")):
                 with pytest.raises(ImportError, match="databricks-agents"):

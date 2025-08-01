@@ -68,7 +68,7 @@ def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
     assert retrieved.name == dataset.name
     assert retrieved.source_type == dataset.source_type
     assert retrieved.source == dataset.source
-    assert set(retrieved.experiment_ids) == set([experiments[0], experiments[1]])
+    assert set(retrieved.experiment_ids) == {experiments[0], experiments[1]}
 
 
 def test_create_dataset_minimal_params(tracking_uri):
@@ -199,7 +199,6 @@ def test_search_evaluation_datasets(tracking_uri, experiments):
 
 
 def test_delete_evaluation_dataset(tracking_uri, experiments):
-
     dataset = create_evaluation_dataset(
         name="to_be_deleted",
         experiment_ids=experiments[0],
@@ -212,13 +211,11 @@ def test_delete_evaluation_dataset(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="not found"):
         get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert "not found" in str(exc.value).lower()
 
 
 def test_dataset_lifecycle_workflow(tracking_uri, experiments):
-
     dataset = create_evaluation_dataset(
         name="qa_eval_prod_v1",
         experiment_ids=[experiments[0], experiments[1]],
@@ -276,26 +273,24 @@ def test_error_handling_filestore_backend(tmp_path):
     file_uri = f"file://{tmp_path}"
     mlflow.set_tracking_uri(file_uri)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="not supported with FileStore") as exc:
         create_evaluation_dataset(name="test")
     assert exc.value.error_code == "FEATURE_DISABLED"
-    assert "not supported with FileStore" in str(exc.value)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
         get_evaluation_dataset(dataset_id="test_id")
     assert exc.value.error_code == "FEATURE_DISABLED"
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
         search_evaluation_datasets()
     assert exc.value.error_code == "FEATURE_DISABLED"
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
         delete_evaluation_dataset(dataset_id="test_id")
     assert exc.value.error_code == "FEATURE_DISABLED"
 
 
 def test_single_experiment_id_handling(tracking_uri, experiments):
-
     dataset = create_evaluation_dataset(
         name="single_exp_test",
         experiment_ids=experiments[0],  # Single string, not list
@@ -310,7 +305,6 @@ def test_single_experiment_id_handling(tracking_uri, experiments):
 
 
 def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
-
     trace_inputs = [
         {"question": "What is MLflow?", "context": "ML platforms"},
         {"question": "What is Python?", "context": "programming"},
@@ -319,7 +313,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
 
     created_trace_ids = []
     for i, inputs in enumerate(trace_inputs):
-        with mlflow.start_run(experiment_id=experiments[i % 2]) as run:
+        with mlflow.start_run(experiment_id=experiments[i % 2]):
             with mlflow.start_span(name=f"qa_trace_{i}") as span:
                 span.set_inputs(inputs)
                 span.set_outputs({"answer": f"Answer for {inputs['question']}"})
@@ -356,7 +350,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
     mlflow_records = df[df["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")]
     assert len(mlflow_records) == 1
 
-    with mlflow.start_run(experiment_id=experiments[0]) as run:
+    with mlflow.start_run(experiment_id=experiments[0]):
         with mlflow.start_span(name="additional_trace") as span:
             span.set_inputs({"question": "What is Docker?", "context": "containers"})
             span.set_outputs({"answer": "Docker is a containerization platform"})
@@ -387,9 +381,8 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="not found"):
         get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert "not found" in str(exc.value).lower()
 
     search_results = search_evaluation_datasets(
         experiment_ids=[experiments[0], experiments[1]], max_results=100
