@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
-from pydantic import BaseModel, PrivateAttr, validator
+from pydantic import BaseModel, PrivateAttr
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -86,22 +86,27 @@ class Scorer(BaseModel):
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
     _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
 
-    # Pydantic computed fields (simulated by validator, since
-    # Pydantic v1 doesn't support computed fields)
-    sample_rate: Optional[float] = None
-    filter_string: Optional[str] = None
+    @property
+    @experimental(version="3.2.0")
+    def sample_rate(self) -> Optional[float]:
+        """Get the sample rate for this scorer. Available when registered for monitoring."""
+        return self._sampling_config.sample_rate if self._sampling_config else None
 
-    @validator("sample_rate", always=True)
-    def computed_sample_rate(cls, v, values, **kwargs):
-        if v is not None:
-            raise ValueError("sample_rate is not allowed to be set directly")
-        return values["_sampling_config"].sample_rate if "_sampling_config" in values else None
+    @property
+    @experimental(version="3.2.0")
+    def filter_string(self) -> Optional[str]:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
 
-    @validator("filter_string", always=True)
-    def computed_filter_string(cls, v, values, **kwargs):
-        if v is not None:
-            raise ValueError("filter_string is not allowed to be set directly")
-        return values["_sampling_config"].filter_string if "_sampling_config" in values else None
+    def __repr__(self) -> str:
+        # Get the standard representation from the parent class
+        base_repr = super().__repr__()
+        filter_string = self.filter_string
+        if filter_string is not None:
+            filter_string = f"'{filter_string}'"
+
+        # Inject the property's value into the repr string
+        return f"{base_repr[:-1]} sample_rate={self.sample_rate}, filter_string={filter_string})"
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
