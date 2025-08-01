@@ -450,10 +450,10 @@ def test_convert_scorer_to_legacy_metric():
     "aggregations",
     [
         ["mean", "max", "mean", "median", "variance", "p90"],
-        [lambda x: sum(x) / len(x), lambda x: max(x)],
+        [sum, max],
     ],
 )
-def test_scorer_pass_though_aggregations(aggregations):
+def test_scorer_pass_through_aggregations(aggregations):
     @scorer(name="custom_scorer", aggregations=aggregations)
     def custom_scorer_func(outputs):
         return {"score": 1.0}
