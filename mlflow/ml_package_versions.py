@@ -403,7 +403,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.52.9",
-            "maximum": "1.74.12"
+            "maximum": "1.74.9"
         }
     },
     "groq": {

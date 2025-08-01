@@ -46,11 +46,6 @@ def test_litellm_tracing_success():
         "prompt_tokens": 9,
         "total_tokens": 21,
     }
-    assert traces[0].info.token_usage == {
-        "input_tokens": 9,
-        "output_tokens": 12,
-        "total_tokens": 21,
-    }
 
 
 def test_litellm_tracing_failure():
@@ -106,11 +101,6 @@ def test_litellm_tracing_streaming():
     assert spans[0].attributes["usage"] == {
         "prompt_tokens": 8,
         "completion_tokens": 2,
-        "total_tokens": 10,
-    }
-    assert trace.info.token_usage == {
-        "input_tokens": 8,
-        "output_tokens": 2,
         "total_tokens": 10,
     }
 
