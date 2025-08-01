@@ -52,7 +52,7 @@ class CustomExample(pydantic.BaseModel):
     bool_field: bool
     double_field: float
     any_field: Any
-    optional_str: Optional[str] = None  # _noqa: UP045
+    optional_str: Optional[str] = None  # noqa: UP045
     str_or_none: str | None = None
 
 
@@ -64,7 +64,7 @@ class Message(pydantic.BaseModel):
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
-    optional_int: Optional[int] = None  # _noqa: UP045
+    optional_int: Optional[int] = None  # noqa: UP045
     int_or_none: int | None = None
 
 
@@ -119,7 +119,7 @@ class CustomExample2(pydantic.BaseModel):
             [{"a": ["a", "b"]}],
         ),
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # _noqa: UP007
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # noqa: UP007
         (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
@@ -262,7 +262,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 class CustomExample3(pydantic.BaseModel):
     custom_field: dict[str, list[str]]
     messages: list[Message]
-    optional_int: Optional[int] = None  # _noqa: UP045
+    optional_int: Optional[int] = None  # noqa: UP045
     int_or_none: int | None = None
 
 
