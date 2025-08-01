@@ -2,7 +2,7 @@ import functools
 import inspect
 import logging
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, TypeAlias, Union
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -17,6 +17,10 @@ _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+_AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
+_AggregationType: TypeAlias = (
+    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
+)
 
 
 @dataclass
@@ -63,7 +67,7 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: list[_AggregationType] | None = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
 
@@ -350,15 +354,8 @@ class Scorer(BaseModel):
 def scorer(
     func=None,
     *,
-    name: Optional[str] = None,
-    aggregations: Optional[
-        list[
-            Union[
-                Literal["min", "max", "mean", "median", "variance", "p90", "p99"],
-                Callable[[list[Union[int, float]]], Union[int, float]],
-            ]
-        ]
-    ] = None,
+    name: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
 ):
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -419,6 +416,17 @@ def scorer(
 
         The metric name will be determined by the scorer function's name or a custom name
         specified in the `name` parameter for the scorer.
+
+    Args:
+        func: The scorer function to be decorated.
+        name: The name of the scorer.
+        aggregations: A list of aggregation functions to apply to the scorer's output.
+            The aggregation functions can be either a string or a callable.
+
+            * If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
+            * If a callable, it must take a list of values and return a single value.
+
+            By default, "mean" is used as the aggregation function.
 
     Example:
 

@@ -242,6 +242,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
+        aggregations=scorer.aggregations,
     )
 
     # Add attribute to indicate if this is a built-in scorer
