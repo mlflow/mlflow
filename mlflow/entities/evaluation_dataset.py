@@ -40,7 +40,6 @@ class EvaluationDataset(_MlflowObject):
     last_updated_by: Optional[str] = None
     experiment_ids: list[str] = field(default_factory=list)
     _records: Optional[list[DatasetRecord]] = field(default=None, init=False, repr=False)
-    _tracking_store: Optional[Any] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         if self.created_time is None:
@@ -56,8 +55,14 @@ class EvaluationDataset(_MlflowObject):
         This property implements lazy loading - records are only fetched from the backend
         when accessed for the first time.
         """
-        if self._records is None and self._tracking_store is not None:
-            self._records = self._tracking_store._load_dataset_records(self.dataset_id)
+        if self._records is None:
+            from mlflow.tracking._tracking_service.utils import _get_store
+
+            tracking_store = _get_store()
+            # TODO: Remove this hasattr check once all tracking stores
+            #  implement the evaluation dataset APIs
+            if hasattr(tracking_store, "_load_dataset_records"):
+                self._records = tracking_store._load_dataset_records(self.dataset_id)
         return self._records or []
 
     def has_records(self) -> bool:
@@ -81,9 +86,7 @@ class EvaluationDataset(_MlflowObject):
         """
         from mlflow.entities.trace import Trace
 
-        # Check if records is a DataFrame without importing pandas
         if hasattr(records, "to_dict") and hasattr(records, "columns"):
-            # Lazy import pandas only when needed
             import pandas as pd
 
             if not isinstance(records, pd.DataFrame):
@@ -99,20 +102,15 @@ class EvaluationDataset(_MlflowObject):
                         f"Mixed types in trace list. Expected all elements to be Trace objects, "
                         f"but element at index {i} is {type(trace).__name__}"
                     )
-                root_span = trace.data._get_root_span() if hasattr(trace, "data") else None
+                root_span = trace.data._get_root_span()
                 inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
 
                 expectations = {}
-                if hasattr(trace, "search_assessments"):
-                    expectation_assessments = trace.search_assessments(type="expectation")
-                    for expectation in expectation_assessments:
-                        expectations[expectation.name] = expectation.value
+                expectation_assessments = trace.search_assessments(type="expectation")
+                for expectation in expectation_assessments:
+                    expectations[expectation.name] = expectation.value
 
-                trace_id = (
-                    trace.info.trace_id
-                    if hasattr(trace, "info") and hasattr(trace.info, "trace_id")
-                    else None
-                )
+                trace_id = trace.info.trace_id
 
                 record_dict = {
                     "inputs": inputs,
@@ -131,14 +129,27 @@ class EvaluationDataset(_MlflowObject):
                     "Each record must have an 'inputs' field"
                 )
 
-        if self._tracking_store is not None:
-            self._tracking_store.upsert_evaluation_dataset_records(
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+
+        # TODO: Remove this hasattr check once all tracking stores implement
+        #  the evaluation dataset APIs
+        if hasattr(tracking_store, "upsert_evaluation_dataset_records"):
+            try:
+                tracking_store.get_evaluation_dataset(self.dataset_id)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Cannot add records to dataset {self.dataset_id}: Dataset not found in "
+                    f"current tracking store. The dataset must exist in the backend before "
+                    f"adding records."
+                ) from e
+
+            tracking_store.upsert_evaluation_dataset_records(
                 dataset_id=self.dataset_id, records=record_dicts, updated_by=self.last_updated_by
             )
-            # Invalidate the cache to ensure that we don't have consistency issues
             self._records = None
         else:
-            # Local in-memory capabilities with deduplication
             if self._records is None:
                 self._records = []
 
@@ -193,7 +204,6 @@ class EvaluationDataset(_MlflowObject):
         Returns:
             DataFrame with columns for inputs, expectations, tags, and metadata
         """
-        # Lazy import pandas only when needed
         import pandas as pd
 
         records = self.records

@@ -12,50 +12,41 @@ def test_dataset_record_source_type_constants():
     assert DatasetRecordSourceType.HUMAN == "HUMAN"
     assert DatasetRecordSourceType.DOCUMENT == "DOCUMENT"
     assert DatasetRecordSourceType.CODE == "CODE"
-    assert DatasetRecordSourceType.SOURCE_TYPE_UNSPECIFIED == "SOURCE_TYPE_UNSPECIFIED"
+    assert DatasetRecordSourceType.UNSPECIFIED == "UNSPECIFIED"
 
 
-@pytest.mark.parametrize(
-    ("input_value", "expected"),
-    [
-        ("trace", "TRACE"),
-        ("Trace", "TRACE"),
-        ("TRACE", "TRACE"),
-        ("human", "HUMAN"),
-        ("Human", "HUMAN"),
-        ("HUMAN", "HUMAN"),
-    ],
-)
-def test_dataset_record_source_type_str_conversion(input_value, expected):
-    assert str(DatasetRecordSourceType(input_value)) == expected
+def test_dataset_record_source_type_enum_values():
+    # Test that enum values work as expected
+    assert DatasetRecordSourceType.TRACE == "TRACE"
+    assert DatasetRecordSourceType.HUMAN == "HUMAN"
+    assert DatasetRecordSourceType.DOCUMENT == "DOCUMENT"
+    assert DatasetRecordSourceType.CODE == "CODE"
+    assert DatasetRecordSourceType.UNSPECIFIED == "UNSPECIFIED"
+
+    # Test that enum values are strings
+    assert isinstance(DatasetRecordSourceType.TRACE, str)
+    assert DatasetRecordSourceType.TRACE.value == "TRACE"
 
 
-def test_dataset_record_source_type_invalid():
+def test_dataset_record_source_string_normalization():
+    # Test that strings are normalized when creating DatasetRecordSource
+    source1 = DatasetRecordSource(source_type="trace", source_data={})
+    assert source1.source_type == DatasetRecordSourceType.TRACE
+
+    source2 = DatasetRecordSource(source_type="HUMAN", source_data={})
+    assert source2.source_type == DatasetRecordSourceType.HUMAN
+
+    source3 = DatasetRecordSource(source_type="Document", source_data={})
+    assert source3.source_type == DatasetRecordSourceType.DOCUMENT
+
+    # Test with enum directly
+    source4 = DatasetRecordSource(source_type=DatasetRecordSourceType.CODE, source_data={})
+    assert source4.source_type == DatasetRecordSourceType.CODE
+
+
+def test_dataset_record_source_invalid_type():
     with pytest.raises(MlflowException, match="Invalid dataset record source type"):
-        DatasetRecordSourceType("INVALID")
-
-
-@pytest.mark.parametrize(
-    ("input_value", "expected"),
-    [
-        ("trace", "TRACE"),
-        ("Trace", "TRACE"),
-        ("TRACE", "TRACE"),
-        ("human", "HUMAN"),
-        ("HUMAN", "HUMAN"),
-        ("document", "DOCUMENT"),
-        ("DOCUMENT", "DOCUMENT"),
-        ("code", "CODE"),
-        ("CODE", "CODE"),
-    ],
-)
-def test_dataset_record_source_type_standardization(input_value, expected):
-    assert DatasetRecordSourceType._standardize(input_value) == expected
-
-
-def test_dataset_record_source_type_standardization_invalid():
-    with pytest.raises(MlflowException, match="Invalid dataset record source type"):
-        DatasetRecordSourceType._standardize("INVALID")
+        DatasetRecordSource(source_type="INVALID", source_data={})
 
 
 def test_dataset_record_source_creation():
@@ -63,21 +54,21 @@ def test_dataset_record_source_creation():
         source_type="TRACE", source_data={"trace_id": "trace123", "span_id": "span456"}
     )
 
-    assert source1.source_type == "TRACE"
+    assert source1.source_type == DatasetRecordSourceType.TRACE
     assert source1.source_data == {"trace_id": "trace123", "span_id": "span456"}
 
     source2 = DatasetRecordSource(
         source_type=DatasetRecordSourceType.HUMAN, source_data={"user_id": "user123"}
     )
 
-    assert source2.source_type == "HUMAN"
+    assert source2.source_type == DatasetRecordSourceType.HUMAN
     assert source2.source_data == {"user_id": "user123"}
 
 
 def test_dataset_record_source_auto_normalization():
     source = DatasetRecordSource(source_type="trace", source_data={"trace_id": "trace123"})
 
-    assert source.source_type == "TRACE"
+    assert source.source_type == DatasetRecordSourceType.TRACE
 
 
 def test_dataset_record_source_empty_data():
@@ -89,7 +80,7 @@ def test_trace_source():
     source1 = DatasetRecordSource(
         source_type="TRACE", source_data={"trace_id": "trace123", "span_id": "span456"}
     )
-    assert source1.source_type == "TRACE"
+    assert source1.source_type == DatasetRecordSourceType.TRACE
     assert source1.source_data["trace_id"] == "trace123"
     assert source1.source_data.get("span_id") == "span456"
 
@@ -102,7 +93,7 @@ def test_trace_source():
 
 def test_human_source():
     source1 = DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user123"})
-    assert source1.source_type == "HUMAN"
+    assert source1.source_type == DatasetRecordSourceType.HUMAN
     assert source1.source_data["user_id"] == "user123"
 
     source2 = DatasetRecordSource(
@@ -118,7 +109,7 @@ def test_document_source():
         source_type="DOCUMENT",
         source_data={"doc_uri": "s3://bucket/doc.txt", "content": "Document content"},
     )
-    assert source1.source_type == "DOCUMENT"
+    assert source1.source_type == DatasetRecordSourceType.DOCUMENT
     assert source1.source_data["doc_uri"] == "s3://bucket/doc.txt"
     assert source1.source_data["content"] == "Document content"
 
@@ -140,7 +131,7 @@ def test_dataset_record_source_to_from_proto():
 
     source2 = DatasetRecordSource.from_proto(proto)
     assert isinstance(source2, DatasetRecordSource)
-    assert source2.source_type == "CODE"
+    assert source2.source_type == DatasetRecordSourceType.CODE
     assert source2.source_data == {"file": "example.py", "line": 42}
 
 
@@ -191,7 +182,7 @@ def test_dataset_record_source_to_from_dict():
     assert data == {"source_type": "CODE", "source_data": {"file": "example.py", "line": 42}}
 
     source2 = DatasetRecordSource.from_dict(data)
-    assert source2.source_type == "CODE"
+    assert source2.source_type == DatasetRecordSourceType.CODE
     assert source2.source_data == {"file": "example.py", "line": 42}
 
 
