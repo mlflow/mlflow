@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 import io
 import re
 import tokenize
 from dataclasses import dataclass
 from typing import Iterator
+
+from typing_extensions import Self
 
 NOQA_REGEX = re.compile(r"#\s*noqa\s*:\s*([A-Z]\d+(?:\s*,\s*[A-Z]\d+)*)", re.IGNORECASE)
 
@@ -16,7 +16,7 @@ class Noqa:
     rules: set[str]
 
     @classmethod
-    def parse_token(cls, token: tokenize.TokenInfo) -> Noqa | None:
+    def parse_token(cls, token: tokenize.TokenInfo) -> Self | None:
         if match := NOQA_REGEX.match(token.string):
             rules = set(match.group(1).upper().split(","))
             return Noqa(
