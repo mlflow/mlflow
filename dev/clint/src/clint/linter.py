@@ -59,7 +59,7 @@ class Location:
     def from_noqa(cls, noqa: Noqa) -> Self:
         return cls(noqa.lineno - 1, noqa.col_offset)
 
-    def __add__(self, other: "Location") -> "Location":
+    def __add__(self, other: Self) -> Self:
         return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
 
 
