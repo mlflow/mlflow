@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import ast
 import fnmatch
 import json
@@ -9,6 +7,8 @@ import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Union
+
+from typing_extensions import Self
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
@@ -47,7 +47,7 @@ def ignore_map(code: str) -> dict[str, set[int]]:
 class Violation:
     rule: rules.Rule
     path: Path
-    loc: Location
+    loc: "Location"
     cell: int | None = None
 
     def __str__(self):
@@ -85,14 +85,14 @@ class Location:
         return f"{self.lineno}:{self.col_offset}"
 
     @classmethod
-    def from_node(cls, node: ast.AST) -> "Location":
+    def from_node(cls, node: ast.AST) -> Self:
         return cls(node.lineno - 1, node.col_offset)
 
     @classmethod
-    def from_noqa(cls, noqa: Noqa) -> "Location":
+    def from_noqa(cls, noqa: Noqa) -> Self:
         return cls(noqa.lineno - 1, noqa.col_offset)
 
-    def __add__(self, other: Location) -> Location:
+    def __add__(self, other: "Location") -> "Location":
         return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
 
 
@@ -232,7 +232,7 @@ def _parse_docstring_args(docstring: str) -> list[str]:
 
 
 class ExampleVisitor(ast.NodeVisitor):
-    def __init__(self, linter: Linter, index: SymbolIndex) -> None:
+    def __init__(self, linter: "Linter", index: SymbolIndex) -> None:
         self.linter = linter
         self.index = index
 
