@@ -5951,7 +5951,6 @@ class MlflowClient:
             The created EvaluationDataset object.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 
@@ -5981,13 +5980,12 @@ class MlflowClient:
             The EvaluationDataset object.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 
             client = MlflowClient()
 
-            # Get a dataset by ID
+            # Get a dataset by ID (assuming it exists)
             dataset = client.get_evaluation_dataset("dataset_123")
 
             # Access records (lazy loaded)
@@ -6004,7 +6002,6 @@ class MlflowClient:
             dataset_id: The ID of the dataset to delete.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 
@@ -6038,7 +6035,6 @@ class MlflowClient:
             A PagedList of EvaluationDataset objects.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 
