@@ -24,7 +24,7 @@ _ERROR_MSG = (
 )
 
 
-@experimental
+@experimental(version="3.3.0")
 def create_evaluation_dataset(
     name: str,
     experiment_ids: Optional[Union[str, list[str]]] = None,
@@ -40,17 +40,19 @@ def create_evaluation_dataset(
         source_type: Type of source (e.g., "TRACE", "HUMAN", "DOCUMENT")
         source: Source information
 
-    OSS Usage:
+    OSS Usage::
+
         dataset = create_evaluation_dataset(
             name="my_dataset",
-            experiment_ids=["exp1", "exp2"]  # or "exp1" for single
+            experiment_ids=["exp1", "exp2"],  # or "exp1" for single
         )
         dataset.merge_records(records_df)
 
-    Databricks Usage:
+    Databricks Usage::
+
         dataset = create_evaluation_dataset(
             name="catalog.schema.table",
-            experiment_ids="exp1"  # or ["exp1", "exp2"]
+            experiment_ids="exp1",  # or ["exp1", "exp2"]
         )
         dataset.merge_records(records_df)
     """
@@ -76,7 +78,7 @@ def create_evaluation_dataset(
         )
 
 
-@experimental
+@experimental(version="3.3.0")
 def get_evaluation_dataset(
     dataset_id: Optional[str] = None, name: Optional[str] = None
 ) -> EvaluationDataset:
@@ -87,10 +89,12 @@ def get_evaluation_dataset(
         dataset_id: Dataset ID (required for OSS)
         name: Dataset name/UC table name (required for Databricks)
 
-    OSS Usage:
+    OSS Usage::
+
         dataset = get_evaluation_dataset(dataset_id="dataset_abc123")
 
-    Databricks Usage:
+    Databricks Usage::
+
         dataset = get_evaluation_dataset(name="catalog.schema.table")
     """
     if is_in_databricks_runtime():
@@ -124,7 +128,7 @@ def get_evaluation_dataset(
         return client.get_evaluation_dataset(dataset_id)
 
 
-@experimental
+@experimental(version="3.3.0")
 def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[str] = None) -> None:
     """
     Delete an evaluation dataset by ID (OSS) or name (Databricks).
@@ -133,10 +137,12 @@ def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[s
         dataset_id: Dataset ID (required for OSS)
         name: Dataset name/UC table name (required for Databricks)
 
-    OSS Usage:
+    OSS Usage::
+
         delete_evaluation_dataset(dataset_id="dataset_abc123")
 
-    Databricks Usage:
+    Databricks Usage::
+
         delete_evaluation_dataset(name="catalog.schema.table")
     """
     if is_in_databricks_runtime():
@@ -170,7 +176,7 @@ def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[s
         client.delete_evaluation_dataset(dataset_id)
 
 
-@experimental
+@experimental(version="3.3.0")
 def search_evaluation_datasets(
     experiment_ids: Optional[Union[str, list[str]]] = None,
     filter_string: Optional[str] = None,
@@ -217,7 +223,8 @@ def search_evaluation_datasets(
 def create_dataset(
     uc_table_name: str, experiment_id: Optional[Union[str, list[str]]] = None
 ) -> "EvaluationDataset":
-    """Create a dataset with the given name and associate it with the given experiment.
+    """
+    Create a dataset with the given name and associate it with the given experiment.
 
     Args:
         uc_table_name: The UC table name of the dataset.
@@ -233,7 +240,8 @@ def create_dataset(
 
 @deprecated("Use mlflow.genai.datasets.delete_evaluation_dataset instead", since="3.3.0")
 def delete_dataset(uc_table_name: str) -> None:
-    """Delete the dataset with the given name.
+    """
+    Delete the dataset with the given name.
 
     Args:
         uc_table_name: The UC table name of the dataset.
@@ -247,7 +255,8 @@ def delete_dataset(uc_table_name: str) -> None:
 
 @deprecated("Use mlflow.genai.datasets.get_evaluation_dataset instead", since="3.3.0")
 def get_dataset(uc_table_name: str) -> "EvaluationDataset":
-    """Get the dataset with the given name.
+    """
+    Get the dataset with the given name.
 
     Args:
         uc_table_name: The UC table name of the dataset.
