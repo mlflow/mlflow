@@ -14,3 +14,4 @@ runs:
         fi
         pip install pipdeptree
         pipdeptree --all
+        pipdeptree --reverse --packages pydantic
