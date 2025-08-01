@@ -495,10 +495,10 @@ html[data-theme='dark'] .menu__link--active {
 
 /* External link icon in sidebar - make existing icon smaller */
 .menu__link--external svg,
-.menu__link[href^="http"] svg,
-.menu__link[href^="https"] svg,
-.menu a[target="_blank"] svg,
-.menu a[rel*="noopener"] svg {
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
   width: 10px !important;
   height: 10px !important;
   vertical-align: middle;
