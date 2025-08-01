@@ -8,6 +8,7 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import mysql, postgresql
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -16,14 +17,32 @@ branch_labels = None
 depends_on = None
 
 
+def get_json_type():
+    """Get appropriate JSON type based on database dialect."""
+    bind = op.get_bind()
+    dialect_name = bind.dialect.name
+
+    if dialect_name == "postgresql":
+        return postgresql.JSON
+    elif dialect_name == "mysql":
+        return mysql.JSON
+    elif dialect_name == "mssql":
+        # MSSQL doesn't have native JSON type in older versions, use Text
+        return sa.Text
+    else:
+        # SQLite and others
+        return sa.JSON
+
+
 def upgrade():
+    json_type = get_json_type()
+
     # Create evaluation_datasets table
     op.create_table(
         "evaluation_datasets",
         sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("source", sa.String(255), nullable=True),
-        sa.Column("source_type", sa.String(50), nullable=True),
+        sa.Column("tags", json_type, nullable=True),
         sa.Column("schema", sa.Text(), nullable=True),
         sa.Column("profile", sa.Text(), nullable=True),
         sa.Column("digest", sa.String(64), nullable=True),
@@ -52,12 +71,12 @@ def upgrade():
         "evaluation_dataset_records",
         sa.Column("dataset_record_id", sa.String(36), nullable=False),
         sa.Column("dataset_id", sa.String(36), nullable=False),
-        sa.Column("inputs", sa.Text(), nullable=False),
-        sa.Column("expectations", sa.Text(), nullable=True),
-        sa.Column("tags", sa.Text(), nullable=True),
-        sa.Column("source", sa.Text(), nullable=True),
+        sa.Column("inputs", json_type, nullable=False),
+        sa.Column("expectations", json_type, nullable=True),
+        sa.Column("tags", json_type, nullable=True),
+        sa.Column("source", json_type, nullable=True),
         sa.Column("source_id", sa.String(36), nullable=True),
-        sa.Column("source_type", sa.Text(), nullable=True),
+        sa.Column("source_type", sa.String(255), nullable=True),
         sa.Column("created_time", sa.BigInteger(), nullable=True),
         sa.Column("last_update_time", sa.BigInteger(), nullable=True),
         sa.Column("created_by", sa.String(255), nullable=True),

@@ -82,16 +82,16 @@ def test_evaluation_dataset_lazy_loading():
         )
     ]
     mock_store._load_dataset_records.return_value = mock_records
-    dataset._tracking_store = mock_store
 
-    records = dataset.records
-    assert len(records) == 1
-    assert records[0].inputs["question"] == "What is MLflow?"
-    mock_store._load_dataset_records.assert_called_once_with("dataset123")
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        records = dataset.records
+        assert len(records) == 1
+        assert records[0].inputs["question"] == "What is MLflow?"
+        mock_store._load_dataset_records.assert_called_once_with("dataset123")
 
-    records2 = dataset.records
-    assert records2 == records
-    assert mock_store._load_dataset_records.call_count == 1
+        records2 = dataset.records
+        assert records2 == records
+        assert mock_store._load_dataset_records.call_count == 1
 
 
 def test_evaluation_dataset_merge_records_from_dict():
@@ -230,20 +230,22 @@ def test_evaluation_dataset_merge_records_with_tracking_store():
     dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
 
     mock_store = mock.Mock()
+    mock_store.get_evaluation_dataset.return_value = dataset  # Mock successful dataset retrieval
     mock_store.upsert_evaluation_dataset_records.return_value = {"inserted": 2, "updated": 0}
-    dataset._tracking_store = mock_store
 
-    records = [{"inputs": {"question": "What is MLflow?"}}]
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        records = [{"inputs": {"question": "What is MLflow?"}}]
 
-    result = dataset.merge_records(records)
+        result = dataset.merge_records(records)
 
-    assert result is dataset
+        assert result is dataset
 
-    mock_store.upsert_evaluation_dataset_records.assert_called_once_with(
-        dataset_id="dataset123", records=records, updated_by=None
-    )
+        mock_store.get_evaluation_dataset.assert_called_once_with("dataset123")
+        mock_store.upsert_evaluation_dataset_records.assert_called_once_with(
+            dataset_id="dataset123", records=records, updated_by=None
+        )
 
-    assert dataset._records is None
+        assert dataset._records is None
 
 
 def test_evaluation_dataset_to_df():
@@ -772,6 +774,28 @@ def test_evaluation_dataset_merge_records_empty_list():
 
     dataset.merge_records([])
     assert len(dataset._records) == 1
+
+
+def test_evaluation_dataset_merge_records_nonexistent_dataset():
+    """Test that merge_records validates dataset exists in the tracking store."""
+    dataset = EvaluationDataset(dataset_id="nonexistent123", name="test_dataset")
+
+    # Create a mock store that has the methods but the dataset doesn't exist
+    mock_store = mock.Mock()
+    mock_store.get_evaluation_dataset.side_effect = Exception("Dataset not found")
+    mock_store.upsert_evaluation_dataset_records = mock.Mock()
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        records = [{"inputs": {"question": "What is MLflow?"}}]
+
+        with pytest.raises(
+            MlflowException, match="Cannot add records to dataset nonexistent123: Dataset not found"
+        ):
+            dataset.merge_records(records)
+
+        # Verify we tried to check if dataset exists but didn't try to upsert
+        mock_store.get_evaluation_dataset.assert_called_once_with("nonexistent123")
+        mock_store.upsert_evaluation_dataset_records.assert_not_called()
 
 
 def test_evaluation_dataset_merge_records_single_call_deduplication():
