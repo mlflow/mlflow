@@ -117,16 +117,16 @@ const config: Config = {
           ],
         },
         {
+          to: `${apiReferencePrefix()}api_reference/index.html`,
+          position: 'left',
+          label: 'API Reference',
+        },
+        {
           type: 'docSidebar',
           position: 'left',
           sidebarId: 'communitySidebar',
           label: 'Community',
           docsPluginId: 'community',
-        },
-        {
-          to: `${apiReferencePrefix()}api_reference/index.html`,
-          position: 'left',
-          label: 'API Reference',
         },
         {
           type: 'custom-versionSelector',
