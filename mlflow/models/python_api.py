@@ -107,6 +107,7 @@ def predict(
     install_mlflow=False,
     pip_requirements_override=None,
     extra_envs=None,
+    enable_prerelease=False,
     # TODO: add an option to force recreating the env
 ):
     """
@@ -172,6 +173,13 @@ def predict(
             .. note::
                 This parameter is only supported when `env_manager` is set to "virtualenv",
                 "conda" or "uv".
+
+        enable_prerelease: If specified, allow pre-release versions of dependencies to be installed.
+            Set this to True if your model dependencies include pre-release versions such as
+            `mlflow==3.2.0rc0`. Default to False.
+
+            .. note::
+                This parameter is only supported when `env_manager` is set to "uv".
 
     Code example:
 
@@ -256,6 +264,19 @@ def predict(
         }
     else:
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
+
+    if enable_prerelease:
+        if "UV_PRERELEASE" in os.environ:
+            _logger.info("Prerelease is already enabled via UV_PRERELEASE environment variable.")
+        elif extra_envs and "UV_PRERELEASE" in extra_envs:
+            _logger.warning(
+                "UV_PRERELEASE is set in `extra_envs`; using its value for prerelease and "
+                "ignoring `enable_prerelease`."
+            )
+        else:
+            extra_envs = extra_envs or {}
+            extra_envs["UV_PRERELEASE"] = "allow"
+            _logger.info("Prerelease enabled via `enable_prerelease`.")
 
     def _predict(_input_path: str):
         return get_flavor_backend(
