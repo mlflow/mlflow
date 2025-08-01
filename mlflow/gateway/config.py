@@ -370,13 +370,9 @@ class RouteConfig(AliasedConfigModel):
         return model
 
     @model_validator(mode="after", skip_on_failure=True)
-    def validate_route_type_and_model_name(cls, values):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            route_type = values.endpoint_type
-            model = values.model
-        else:
-            route_type = values.get("endpoint_type")
-            model = values.get("model")
+    def validate_route_type_and_model_name(self):
+        route_type = self.endpoint_type
+        model = self.model
         if (
             model
             and model.provider == "mosaicml"
@@ -393,7 +389,7 @@ class RouteConfig(AliasedConfigModel):
                 f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
                 f"Please see documentation for supported models."
             )
-        return values
+        return self
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
