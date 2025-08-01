@@ -6228,7 +6228,6 @@ def test_search_evaluation_datasets_by_experiment(
 
 
 def test_search_evaluation_datasets_ordering(store):
-    # Use unique prefix to avoid conflicts with other tests
     test_prefix = "test_ordering_"
     datasets = [
         EvaluationDataset(name=f"{test_prefix}zebra_dataset", created_by="user1"),
@@ -6257,7 +6256,6 @@ def test_search_evaluation_datasets_ordering(store):
 
 
 def test_search_evaluation_datasets_pagination(store):
-    # Use unique prefix to avoid conflicts with other tests
     test_prefix = "test_pagination_"
     dataset_ids = []
     for i in range(10):
@@ -6266,21 +6264,16 @@ def test_search_evaluation_datasets_pagination(store):
         dataset_ids.append(created.dataset_id)
         time.sleep(0.001)
 
-    # Search for all datasets and filter to our test datasets
     all_results = store.search_evaluation_datasets(max_results=50)
     test_datasets = [d for d in all_results if d.name.startswith(test_prefix)]
     assert len(test_datasets) == 10
 
-    # Test pagination with smaller page size removed as it's redundant
-
-    # Verify we created 10 datasets
     created_dataset_ids = set(dataset_ids)
     found_dataset_ids = {d.dataset_id for d in test_datasets}
     assert created_dataset_ids == found_dataset_ids
 
 
 def test_search_evaluation_datasets_pagination_with_filters(store):
-    # Use unique prefix to avoid conflicts
     test_prefix = "test_filter_pagination_"
     exp1 = store.create_experiment("pagination_exp_1")
     exp2 = store.create_experiment("pagination_exp_2")
@@ -6297,13 +6290,11 @@ def test_search_evaluation_datasets_pagination_with_filters(store):
             created = store.create_evaluation_dataset(dataset, experiment_ids=[exp2])
             exp2_datasets.append(created.dataset_id)
 
-    # Get all datasets for exp1
     exp1_results = store.search_evaluation_datasets(experiment_ids=[exp1], max_results=50)
     test_exp1_datasets = [d for d in exp1_results if d.name.startswith(test_prefix)]
     assert len(test_exp1_datasets) == 4
     assert all(exp1 in d.experiment_ids for d in test_exp1_datasets)
 
-    # Get all datasets for exp2
     exp2_results = store.search_evaluation_datasets(experiment_ids=[exp2], max_results=50)
     test_exp2_datasets = [d for d in exp2_results if d.name.startswith(test_prefix)]
     assert len(test_exp2_datasets) == 4
@@ -6315,7 +6306,6 @@ def test_search_evaluation_datasets_pagination_with_filters(store):
 
 
 def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loading(store):
-    # Use unique prefix to avoid conflicts
     test_prefix = "test_overlap_"
     exp_ids = [store.create_experiment(f"overlap_exp_{i}") for i in range(1, 6)]
 
