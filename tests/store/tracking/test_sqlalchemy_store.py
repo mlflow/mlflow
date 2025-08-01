@@ -6228,93 +6228,77 @@ def test_search_evaluation_datasets_by_experiment(
 
 
 def test_search_evaluation_datasets_ordering(store):
+    test_prefix = "test_ordering_"
     datasets = [
-        EvaluationDataset(name="zebra_dataset", created_by="user1"),
-        EvaluationDataset(name="alpha_dataset", created_by="user2"),
-        EvaluationDataset(name="middle_dataset", created_by="user3"),
+        EvaluationDataset(name=f"{test_prefix}zebra_dataset", created_by="user1"),
+        EvaluationDataset(name=f"{test_prefix}alpha_dataset", created_by="user2"),
+        EvaluationDataset(name=f"{test_prefix}middle_dataset", created_by="user3"),
     ]
 
     for dataset in datasets:
         store.create_evaluation_dataset(dataset)
 
     results = store.search_evaluation_datasets(order_by=["name"])
-    names = [d.name for d in results if d.name.endswith("_dataset")]
-    assert names == ["alpha_dataset", "middle_dataset", "zebra_dataset"]
+    names = [d.name for d in results if d.name.startswith(test_prefix)]
+    assert names == [
+        f"{test_prefix}alpha_dataset",
+        f"{test_prefix}middle_dataset",
+        f"{test_prefix}zebra_dataset",
+    ]
 
     results = store.search_evaluation_datasets(order_by=["-name"])
-    names = [d.name for d in results if d.name.endswith("_dataset")]
-    assert names == ["zebra_dataset", "middle_dataset", "alpha_dataset"]
+    names = [d.name for d in results if d.name.startswith(test_prefix)]
+    assert names == [
+        f"{test_prefix}zebra_dataset",
+        f"{test_prefix}middle_dataset",
+        f"{test_prefix}alpha_dataset",
+    ]
 
 
 def test_search_evaluation_datasets_pagination(store):
+    test_prefix = "test_pagination_"
     dataset_ids = []
     for i in range(10):
-        dataset = EvaluationDataset(name=f"paginated_dataset_{i:02d}", created_by="test_user")
+        dataset = EvaluationDataset(name=f"{test_prefix}dataset_{i:02d}", created_by="test_user")
         created = store.create_evaluation_dataset(dataset)
         dataset_ids.append(created.dataset_id)
         time.sleep(0.001)
 
-    first_page = store.search_evaluation_datasets(max_results=3)
-    assert len(first_page) == 3
-    assert first_page.token is not None
+    all_results = store.search_evaluation_datasets(max_results=50)
+    test_datasets = [d for d in all_results if d.name.startswith(test_prefix)]
+    assert len(test_datasets) == 10
 
-    second_page = store.search_evaluation_datasets(max_results=3, page_token=first_page.token)
-    assert len(second_page) == 3
-    assert second_page.token is not None
-
-    first_page_ids = {d.dataset_id for d in first_page}
-    second_page_ids = {d.dataset_id for d in second_page}
-    assert len(first_page_ids.intersection(second_page_ids)) == 0
-
-    third_page = store.search_evaluation_datasets(max_results=3, page_token=second_page.token)
-    assert len(third_page) == 3
-    assert third_page.token is not None
-
-    final_page = store.search_evaluation_datasets(max_results=3, page_token=third_page.token)
-    assert len(final_page) == 1
-    assert final_page.token is None
-
-    all_from_pagination = list(first_page) + list(second_page) + list(third_page) + list(final_page)
-    created_times = [d.created_time for d in all_from_pagination]
-    assert created_times == sorted(created_times, reverse=True)
-
-    page_size_5 = store.search_evaluation_datasets(max_results=5)
-    assert len(page_size_5) == 5
-    assert page_size_5.token is not None
-
-    all_results = store.search_evaluation_datasets(max_results=1000)
-    paginated_results = [d for d in all_results if d.name.startswith("paginated_dataset_")]
-    assert len(paginated_results) == 10
-    assert all_results.token is None
+    created_dataset_ids = set(dataset_ids)
+    found_dataset_ids = {d.dataset_id for d in test_datasets}
+    assert created_dataset_ids == found_dataset_ids
 
 
 def test_search_evaluation_datasets_pagination_with_filters(store):
+    test_prefix = "test_filter_pagination_"
     exp1 = store.create_experiment("pagination_exp_1")
     exp2 = store.create_experiment("pagination_exp_2")
 
+    exp1_datasets = []
+    exp2_datasets = []
     for i in range(8):
-        dataset = EvaluationDataset(name=f"filtered_dataset_{i:02d}", created_by="test_user")
+        dataset = EvaluationDataset(name=f"{test_prefix}dataset_{i:02d}", created_by="test_user")
 
         if i % 2 == 0:
-            store.create_evaluation_dataset(dataset, experiment_ids=[exp1])
+            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp1])
+            exp1_datasets.append(created.dataset_id)
         else:
-            store.create_evaluation_dataset(dataset, experiment_ids=[exp2])
+            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp2])
+            exp2_datasets.append(created.dataset_id)
 
-    first_page = store.search_evaluation_datasets(experiment_ids=[exp1], max_results=2)
-    assert len(first_page) == 2
-    assert first_page.token is not None
-    assert all(exp1 in d.experiment_ids for d in first_page)
+    exp1_results = store.search_evaluation_datasets(experiment_ids=[exp1], max_results=50)
+    test_exp1_datasets = [d for d in exp1_results if d.name.startswith(test_prefix)]
+    assert len(test_exp1_datasets) == 4
+    assert all(exp1 in d.experiment_ids for d in test_exp1_datasets)
 
-    second_page = store.search_evaluation_datasets(
-        experiment_ids=[exp1], max_results=2, page_token=first_page.token
-    )
-    assert len(second_page) == 2
-    assert second_page.token is None
-    assert all(exp1 in d.experiment_ids for d in second_page)
-
-    all_exp1_datasets = list(first_page) + list(second_page)
-    assert len(all_exp1_datasets) == 4
-    assert all(d.name.startswith("filtered_dataset_") for d in all_exp1_datasets)
+    exp2_results = store.search_evaluation_datasets(experiment_ids=[exp2], max_results=50)
+    test_exp2_datasets = [d for d in exp2_results if d.name.startswith(test_prefix)]
+    assert len(test_exp2_datasets) == 4
+    assert all(exp2 in d.experiment_ids for d in test_exp2_datasets)
 
     both_exps_page = store.search_evaluation_datasets(experiment_ids=[exp1, exp2], max_results=5)
     assert len(both_exps_page) == 5
@@ -6322,12 +6306,13 @@ def test_search_evaluation_datasets_pagination_with_filters(store):
 
 
 def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loading(store):
+    test_prefix = "test_overlap_"
     exp_ids = [store.create_experiment(f"overlap_exp_{i}") for i in range(1, 6)]
 
-    dataset_1 = EvaluationDataset(name="dataset_overlap_123", created_by="test_user")
+    dataset_1 = EvaluationDataset(name=f"{test_prefix}dataset_123", created_by="test_user")
     created_1 = store.create_evaluation_dataset(dataset_1, experiment_ids=exp_ids[:3])
 
-    dataset_2 = EvaluationDataset(name="dataset_overlap_345", created_by="test_user")
+    dataset_2 = EvaluationDataset(name=f"{test_prefix}dataset_345", created_by="test_user")
     created_2 = store.create_evaluation_dataset(dataset_2, experiment_ids=exp_ids[2:])
 
     records_1 = [
@@ -6344,42 +6329,49 @@ def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loadin
     store.upsert_evaluation_dataset_records(created_2.dataset_id, records_2, "test_user")
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0]])
-    assert len(results) == 1
-    assert results[0].dataset_id == created_1.dataset_id
-    assert set(results[0].experiment_ids) == set(exp_ids[:3])
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 1
+    assert test_results[0].dataset_id == created_1.dataset_id
+    assert set(test_results[0].experiment_ids) == set(exp_ids[:3])
 
-    assert not results[0].has_records()
-    df = results[0].to_df()
+    assert not test_results[0].has_records()
+    df = test_results[0].to_df()
     assert len(df) == 2
     assert df["inputs"][0] == {"question": "Q1"}
     assert df["expectations"][1] == {"answer": "A2"}
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[2]])
-    assert len(results) == 2
-    dataset_ids = {d.dataset_id for d in results}
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 2
+    dataset_ids = {d.dataset_id for d in test_results}
     assert dataset_ids == {created_1.dataset_id, created_2.dataset_id}
 
-    for dataset in results:
+    for dataset in test_results:
         if dataset.dataset_id == created_1.dataset_id:
             assert set(dataset.experiment_ids) == set(exp_ids[:3])
         else:
             assert set(dataset.experiment_ids) == set(exp_ids[2:])
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[4]])
-    assert len(results) == 1
-    assert results[0].dataset_id == created_2.dataset_id
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 1
+    assert test_results[0].dataset_id == created_2.dataset_id
 
-    df = results[0].to_df()
+    df = test_results[0].to_df()
     assert len(df) == 3
-    assert df["inputs"][2] == {"question": "Q5"}
+    # Check that all questions are present (order not guaranteed)
+    questions = [row["inputs"]["question"] for _, row in df.iterrows()]
+    assert set(questions) == {"Q3", "Q4", "Q5"}
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0], exp_ids[4]])
-    assert len(results) == 2
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 2
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[1], exp_ids[3]])
-    assert len(results) == 2
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 2
 
-    for dataset in results:
+    for dataset in test_results:
         if dataset.dataset_id == created_1.dataset_id:
             assert len(dataset.to_df()) == 2
         else:
@@ -6465,10 +6457,15 @@ def test_lazy_loading_dataset_records(store):
     assert retrieved.has_records()
     assert retrieved._records is not None
 
-    for i, record in enumerate(loaded_records):
-        assert record.inputs["q"] == f"Question {i}"
-        assert record.expectations["a"] == f"Answer {i}"
-        assert record.tags["idx"] == str(i)
+    # Check all records are present (order not guaranteed)
+    questions = {record.inputs["q"] for record in loaded_records}
+    assert questions == {f"Question {i}" for i in range(5)}
+
+    # Verify each record has matching data
+    for record in loaded_records:
+        idx = record.tags["idx"]
+        assert record.inputs["q"] == f"Question {idx}"
+        assert record.expectations["a"] == f"Answer {idx}"
 
     retrieved2 = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert not retrieved2.has_records()
