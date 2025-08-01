@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/bundle.js",
   "scripts": {
-    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.js"
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --target=node20 --format=cjs --minify --outfile=dist/bundle.js"
   },
   "devDependencies": {
     "@actions/core": "^1.11.1",
