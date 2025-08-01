@@ -1,0 +1,106 @@
+---
+sidebar_position: 8
+sidebar_label: Agno
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Agno
+
+![Agno Tracing via autolog](/images/llms/Agno/agno-tracing.png)
+
+[Agno](https://github.com/agno-agi/agno) is a flexible agent framework for orchestrating LLMs, reasoning steps, tools, and memory into a unified pipeline.
+
+[MLflow Tracing](../../) provides automatic tracing capability for Agno. By enabling auto tracing
+for Agno by calling the <APILink fn="mlflow.agno.autolog" /> function, MLflow will capture traces for Agent invocation and log them to the active MLflow Experiment.
+
+```python
+import mlflow
+
+mlflow.agno.autolog()
+```
+
+MLflow trace automatically captures the following information about LiteLLM calls:
+
+- Prompts and completion responses
+- Latencies
+- Metadata about the different Agents, such as function names
+- Token usages and cost
+- Cache hit
+- Any exception if raised
+
+### Basic Example
+
+```python
+from agno.agent import Agent
+from agno.models.anthropic import Claude
+from agno.tools.yfinance import YFinanceTools
+
+agent = Agent(
+    model=Claude(id="claude-sonnet-4-20250514"),
+    tools=[YFinanceTools(stock_price=True)],
+    instructions="Use tables to display data. Don't include any other text.",
+    markdown=True,
+)
+agent.print_response("What is the stock price of Apple?", stream=False)
+```
+
+## Token usage
+
+MLflow >= 3.3.0 supports token usage tracking for Agno. The token usage for each Agent call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+from agno.agent import Agent
+from agno.models.anthropic import Claude
+from agno.tools.yfinance import YFinanceTools
+
+agent = Agent(
+    model=Claude(id="claude-sonnet-4-20250514"),
+    tools=[YFinanceTools(stock_price=True)],
+    instructions="Use tables to display data. Don't include any other text.",
+    markdown=True,
+)
+agent.print_response("What is the stock price of Apple?", stream=False)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 999
+  Output tokens: 90
+  Total tokens: 1089
+
+== Detailed usage for each LLM call: ==
+Agent.run:
+  Input tokens: 999
+  Output tokens: 90
+  Total tokens: 1089
+```
+
+### Disable auto-tracing
+
+Auto tracing for LiteLLM can be disabled globally by calling `mlflow.litellm.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
