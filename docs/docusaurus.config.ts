@@ -117,10 +117,10 @@ const config: Config = {
           ],
         },
         {
-          type: 'doc',
+          type: 'docSidebar',
           position: 'left',
+          sidebarId: 'communitySidebar',
           label: 'Community',
-          docId: 'usage-tracking',
           docsPluginId: 'community',
         },
         {
@@ -246,7 +246,7 @@ const config: Config = {
         id: 'community',
         path: 'docs/community',
         routeBasePath: 'community',
-        sidebarPath: false,
+        sidebarPath: './communitySidebar.ts',
       },
     ],
     [
