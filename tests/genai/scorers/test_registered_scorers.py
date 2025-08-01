@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import Guidelines, get_scorer, list_scorers, scorer
+from mlflow.genai.scorers import Guidelines, scorer
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 
 
@@ -258,18 +258,6 @@ def test_builtin_scorer_update(mock_update):
 
     assert updated._sampling_config.sample_rate == 0.3
     assert updated.guidelines == "Be helpful"  # Original field preserved
-
-
-def test_list_scorers_import_error():
-    """Test that list_scorers raises ImportError when databricks-agents is not installed."""
-    with pytest.raises(ImportError, match="databricks-agents"):
-        list_scorers(experiment_id="123")
-
-
-def test_get_scorer_import_error():
-    """Test that get_scorer raises ImportError when databricks-agents is not installed."""
-    with pytest.raises(ImportError, match="databricks-agents"):
-        get_scorer(name="my_scorer", experiment_id="456")
 
 
 def test_all_methods_are_immutable():

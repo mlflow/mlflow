@@ -146,11 +146,11 @@ def delete_scorer(
         .. code-block:: python
 
             import mlflow
-            from mlflow.genai.scorers import relevance, list_scorers, delete_scorer
+            from mlflow.genai.scorers import RelevanceToQuery, list_scorers, delete_scorer
 
             # Register and start a scorer
             mlflow.set_experiment("my_genai_app")
-            scorer = relevance.register(name="relevance_checker")
+            scorer = RelevanceToQuery().register(name="relevance_checker")
 
             # List current scorers
             scorers = list_scorers()
@@ -164,7 +164,7 @@ def delete_scorer(
             print(f"Active scorers after deletion: {[s.name for s in scorers_after]}")
 
             # To use the scorer again, it must be re-registered
-            new_scorer = relevance.register(name="relevance_checker_v2")
+            new_scorer = RelevanceToQuery().register(name="relevance_checker_v2")
     """
     try:
         from databricks.agents.scorers import delete_scheduled_scorer

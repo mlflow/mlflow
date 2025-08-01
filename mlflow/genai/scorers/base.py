@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
-from pydantic import BaseModel, PrivateAttr, computed_field
+from pydantic import BaseModel, PrivateAttr, validator
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -86,19 +86,22 @@ class Scorer(BaseModel):
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
     _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
 
-    @computed_field
-    @property
-    @experimental(version="3.2.0")
-    def sample_rate(self) -> Optional[float]:
-        """Get the sample rate for this scorer. Available when registered for monitoring."""
-        return self._sampling_config.sample_rate if self._sampling_config else None
+    # Pydantic computed fields (simulated by validator, since
+    # Pydantic v1 doesn't support computed fields)
+    sample_rate: Optional[float] = None
+    filter_string: Optional[str] = None
 
-    @computed_field
-    @property
-    @experimental(version="3.2.0")
-    def filter_string(self) -> Optional[str]:
-        """Get the filter string for this scorer."""
-        return self._sampling_config.filter_string if self._sampling_config else None
+    @validator("sample_rate", always=True)
+    def computed_sample_rate(cls, v, values, **kwargs):
+        if v is not None:
+            raise ValueError("sample_rate is not allowed to be set directly")
+        return values["_sampling_config"].sample_rate if "_sampling_config" in values else None
+
+    @validator("filter_string", always=True)
+    def computed_filter_string(cls, v, values, **kwargs):
+        if v is not None:
+            raise ValueError("filter_string is not allowed to be set directly")
+        return values["_sampling_config"].filter_string if "_sampling_config" in values else None
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
@@ -410,7 +413,7 @@ class Scorer(BaseModel):
 
                 # Register a built-in scorer
                 mlflow.set_experiment("my_genai_app")
-                registered_scorer = RelevanceToQuery.register(name="relevance_scorer")
+                registered_scorer = RelevanceToQuery().register(name="relevance_scorer")
                 print(f"Registered scorer: {registered_scorer.name}")
 
                 # Register a custom scorer
@@ -485,11 +488,11 @@ class Scorer(BaseModel):
             .. code-block:: python
 
                 import mlflow
-                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
 
                 # Start scorer with 50% sampling rate
                 mlflow.set_experiment("my_genai_app")
-                scorer = relevance.register()
+                scorer = RelevanceToQuery().register()
                 active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
                 print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
 
@@ -547,11 +550,11 @@ class Scorer(BaseModel):
             .. code-block:: python
 
                 import mlflow
-                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
 
                 # Start scorer with initial configuration
                 mlflow.set_experiment("my_genai_app")
-                scorer = relevance.register()
+                scorer = RelevanceToQuery().register()
                 active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
 
                 # Update to increase sampling rate during high traffic
@@ -602,11 +605,11 @@ class Scorer(BaseModel):
             .. code-block:: python
 
                 import mlflow
-                from mlflow.genai.scorers import relevance, ScorerSamplingConfig
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
 
                 # Start and then stop a scorer
                 mlflow.set_experiment("my_genai_app")
-                scorer = relevance.register()
+                scorer = RelevanceToQuery().register()
                 active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
                 print(f"Scorer is active: {active_scorer.sample_rate > 0}")
 
