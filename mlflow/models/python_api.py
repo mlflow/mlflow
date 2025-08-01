@@ -107,7 +107,6 @@ def predict(
     install_mlflow=False,
     pip_requirements_override=None,
     extra_envs=None,
-    enable_prerelease=False,
     # TODO: add an option to force recreating the env
 ):
     """
@@ -171,16 +170,14 @@ def predict(
             current os.environ are passed, and this parameter can be used to override them.
 
             .. note::
-                This parameter is only supported when `env_manager` is set to "virtualenv",
-                "conda" or "uv".
-
-        enable_prerelease: If specified, allow pre-release versions of dependencies to be installed.
-            Set this to True if your model dependencies include pre-release versions such as
-            `mlflow==3.2.0rc0`. When this is set to True, the `UV_PRERELEASE` environment variable
-            is set to "allow" automatically. Default to False.
+                If your model dependencies include pre-release versions such as `mlflow==3.2.0rc0`
+                and you are using `uv` as the environment manager, set `UV_PRERELEASE` environment
+                variable to "allow" in `extra_envs` to allow installing pre-release versions.
+                e.g. `extra_envs={"UV_PRERELEASE": "allow"}`.
 
             .. note::
-                This parameter is only supported when `env_manager` is set to "uv".
+                This parameter is only supported when `env_manager` is set to "virtualenv",
+                "conda" or "uv".
 
     Code example:
 
@@ -265,19 +262,6 @@ def predict(
         }
     else:
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
-
-    if enable_prerelease:
-        if "UV_PRERELEASE" in os.environ:
-            _logger.info("Prerelease is already enabled via UV_PRERELEASE environment variable.")
-        elif extra_envs and "UV_PRERELEASE" in extra_envs:
-            _logger.warning(
-                "UV_PRERELEASE is set in `extra_envs`; using its value for prerelease and "
-                "ignoring `enable_prerelease`."
-            )
-        else:
-            extra_envs = extra_envs or {}
-            extra_envs["UV_PRERELEASE"] = "allow"
-            _logger.info("Prerelease enabled via `enable_prerelease`.")
 
     def _predict(_input_path: str):
         return get_flavor_backend(
