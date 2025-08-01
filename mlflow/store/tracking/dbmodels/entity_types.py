@@ -6,7 +6,7 @@ MLflow entities. It uses source and destination type/id pairs to create flexible
 associations without requiring dedicated junction tables for each relationship type.
 
 How entity associations work:
-1. Each association has a source entity (source_type, source_id) and destination 
+1. Each association has a source entity (source_type, source_id) and destination
    entity (destination_type, destination_id)
 2. The composite primary key ensures unique associations
 3. Bidirectional indexes enable efficient queries from both directions
@@ -14,7 +14,7 @@ How entity associations work:
 The entity_association table schema:
 - source_type: One of the EntityType constants below
 - source_id: The UUID of the source entity
-- destination_type: One of the EntityType constants below  
+- destination_type: One of the EntityType constants below
 - destination_id: The UUID of the destination entity
 - association_id: A unique identifier for the association
 - created_time: Timestamp when the association was created
@@ -33,7 +33,7 @@ Example usage in SQLAlchemy:
 
 class EntityType:
     """Constants for entity types used in the entity_association table."""
-    
+
     EXPERIMENT = "experiment"
     EVALUATION_DATASET = "evaluation_dataset"
     RUN = "run"
