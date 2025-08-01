@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          cache-dependency-path: libs/typescript/core/package-lock.json
+          cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Install dependencies
         run: npm install
