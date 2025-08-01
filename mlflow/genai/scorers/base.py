@@ -106,7 +106,7 @@ class Scorer(BaseModel):
             filter_string = f"'{filter_string}'"
 
         # Inject the property's value into the repr string
-        return f"{base_repr[:-1]} sample_rate={self.sample_rate}, filter_string={filter_string})"
+        return f"{base_repr[:-1]}, sample_rate={self.sample_rate}, filter_string={filter_string})"
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
