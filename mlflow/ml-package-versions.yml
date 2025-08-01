@@ -990,7 +990,7 @@ litellm:
     #   pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.74.12"
+    maximum: "1.74.9"
     requirements:
       ">= 0.0.0": [
           "openai",
