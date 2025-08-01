@@ -6483,10 +6483,15 @@ def test_lazy_loading_dataset_records(store):
         "created_time",
         "dataset_record_id",
     ]
-    for i in range(5):
-        assert df.iloc[i]["inputs"]["q"] == f"Question {i}"
-        assert df.iloc[i]["expectations"]["a"] == f"Answer {i}"
-        assert df.iloc[i]["tags"]["idx"] == str(i)
+    # Check all records are present (order not guaranteed)
+    questions = [row["inputs"]["q"] for _, row in df.iterrows()]
+    assert set(questions) == {f"Question {i}" for i in range(5)}
+
+    # Verify each record has matching data
+    for _, row in df.iterrows():
+        idx = row["tags"]["idx"]
+        assert row["inputs"]["q"] == f"Question {idx}"
+        assert row["expectations"]["a"] == f"Answer {idx}"
 
 
 def test_dataset_record_deduplication(store):
