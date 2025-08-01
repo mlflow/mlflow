@@ -42,7 +42,7 @@ Components
 - [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
 - [ ] `area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows
 - [ ] `area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations
-- [ ] `area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management
+- [ ] `area/prompts`: MLflow prompt engineering features, prompt templates, and prompt management
 - [ ] `area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
