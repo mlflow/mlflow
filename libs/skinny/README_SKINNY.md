@@ -38,12 +38,12 @@ MLflow is an open-source developer platform to build AI/LLM applications and mod
 
 <div align="center">
    <div>
-      <a href="https://mlflow.org/" target="_blank"><strong>Website</strong></a> ·
-      <a href="https://mlflow.org/docs/latest/index.html" target="_blank"><strong>Docs</strong></a> ·
-      <a href="https://github.com/mlflow/mlflow/issues/new/choose" target="_blank"><strong>Feature Request</strong></a> ·
-      <a href="https://mlflow.org/blog" target="_blank"><strong>News</strong></a> ·
-      <a href="https://www.youtube.com/@mlflowoss" target="_blank"><strong>YouTube</strong></a> ·
-      <a href="https://lu.ma/mlflow?k=c" target="_blank"><strong>Events</strong></a>
+      <a href="https://mlflow.org/"><strong>Website</strong></a> ·
+      <a href="https://mlflow.org/docs/latest/index.html"><strong>Docs</strong></a> ·
+      <a href="https://github.com/mlflow/mlflow/issues/new/choose"><strong>Feature Request</strong></a> ·
+      <a href="https://mlflow.org/blog"><strong>News</strong></a> ·
+      <a href="https://www.youtube.com/@mlflowoss"><strong>YouTube</strong></a> ·
+      <a href="https://lu.ma/mlflow?k=c"><strong>Events</strong></a>
    </div>
 </div>
 
@@ -127,7 +127,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br><br>
         <div>Track your models, parameters, metrics, and evaluation results in ML experiments and compare them using an interactive UI.</div><br>
         <a href="https://mlflow.org/docs/latest/ml/tracking/quickstart/">Getting Started →</a>
-        <br><br>
+        <br>
     </div>
     </td>
   </tr>
