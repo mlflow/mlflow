@@ -35,7 +35,7 @@ def autolog(
     _autolog(log_traces=log_traces, disable=disable, silent=silent)
 
     try:
-        from litellm.integrations.mlflow import MlflowLogger
+        from litellm.integrations.mlflow import MlflowLogger  # noqa: F401
     except ImportError:
         _logger.warning(
             "MLflow LiteLLM integration is not supported for the installed LiteLLM version. "
@@ -46,14 +46,6 @@ def autolog(
     if log_traces and not disable:
         litellm.success_callback = _append_mlflow_callbacks(litellm.success_callback)
         litellm.failure_callback = _append_mlflow_callbacks(litellm.failure_callback)
-
-        # Workaround for https://github.com/BerriAI/litellm/issues/8013
-        if Version(importlib.metadata.version("litellm")) >= Version("1.59.4") and Version(
-            importlib.metadata.version("litellm")
-        ) < Version("1.60.0"):
-            litellm.failure_callback = [
-                cb if cb != "mlflow" else MlflowLogger() for cb in litellm.failure_callback
-            ]
 
         # Patch thread pool executor to bypass non-blocking behavior of success_handler
         _patch_thread_pool()
@@ -90,7 +82,14 @@ def _patch_thread_pool():
     We capture the threads started by the function using the _patch_thread_start context manager,
     then join them to ensure they are finished before the notebook cell finishes executing.
     """
-    from litellm.litellm_core_utils.thread_pool_executor import executor
+    try:
+        from litellm.litellm_core_utils.thread_pool_executor import executor
+    except ImportError:
+        _logger.warning(
+            "MLflow LiteLLM integration is not supported for the installed LiteLLM version. "
+            "The behavior might be unstable."
+        )
+        return
 
     def _patched_submit(original, *args, **kwargs):
         if isinstance(args[0], Callable) and "success_handler" in args[0].__name__:

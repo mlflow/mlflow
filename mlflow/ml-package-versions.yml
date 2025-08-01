@@ -988,7 +988,7 @@ litellm:
     install_dev: |
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
-    minimum: "1.63.0"
+    minimum: "1.63.14"
     maximum: "1.74.9"
     requirements:
       ">= 0.0.0": [

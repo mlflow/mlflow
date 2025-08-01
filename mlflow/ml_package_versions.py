@@ -402,7 +402,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "litellm"
         },
         "autologging": {
-            "minimum": "1.52.9",
+            "minimum": "1.63.14",
             "maximum": "1.74.9"
         }
     },
