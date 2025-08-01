@@ -45,7 +45,7 @@ pip install mlflow
 
 ## 📦 Core Components
 
-MLflow is an **only platform that provides a unified solution for all your AI/ML needs**, including LLMs, Agents, Deep Learning, and traditional machine learning.
+MLflow is **the only platform that provides a unified solution for all your AI/ML needs**, including LLMs, Agents, Deep Learning, and traditional machine learning.
 
 ### 💡 For LLM / GenAI Developers
 
@@ -57,8 +57,9 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <br>
         <a href="https://mlflow.org/docs/latest/llms/tracing/index.html"><strong>🔍 Tracing / Observability</strong></a>
         <br><br>
-        <div>Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div>
-        <br>
+        <div>Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div><br>
+        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
     <td>
@@ -68,6 +69,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <a href="https://mlflow.org/docs/latest/genai/eval-monitor/"><strong>📊 LLM Evaluation</strong></a>
         <br><br>
         <div>A suite of automated model evaluation tools, seamlessly integrated with experiment tracking to compare across multiple versions.</div><br>
+        <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
   </tr>
@@ -79,6 +82,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/prompt-registry/"><strong>🤖 Prompt Management</strong></a>
         <br><br>
         <div>Version, track, and reuse prompts across your organization, helping maintain consistency and improve collaboration in prompt development.</div><br>
+        <a href="https://mlflow.org/docs/latest/genai/prompt-registry/create-and-edit-prompts/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
     <td>
@@ -88,6 +93,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/version-tracking/"><strong>📦 App Version Tracking</strong></a>
         <br><br>
         <div>MLflow keeps track of many moving parts in your AI applications, such as models, prompts, tools, and code, with end-to-end lineage.</div><br>
+        <a href="https://mlflow.org/docs/latest/genai/version-tracking/quickstart/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
   </tr>
@@ -104,7 +111,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <br>
         <a href="https://mlflow.org/docs/latest/ml/tracking/"><strong>📝 Experiment Tracking</strong></a>
         <br><br>
-        <div>Track your models, parameters, metrics, and evaluation results in ML experiments and compare them using an interactive UI.</div>
+        <div>Track your models, parameters, metrics, and evaluation results in ML experiments and compare them using an interactive UI.</div><br>
+        <a href="https://mlflow.org/docs/latest/ml/tracking/quickstart/">Getting Started →</a>
         <br>
     </div>
     </td>
@@ -117,6 +125,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <a href="https://mlflow.org/docs/latest/ml/model-registry/"><strong>💾 Model Registry</strong></a>
         <br><br>
         <div> A centralized model store designed to collaboratively manage the full lifecycle and deployment of machine learning models.</div><br>
+        <a href="https://mlflow.org/docs/latest/ml/model-registry/tutorial/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
     <td>
@@ -126,6 +136,8 @@ MLflow is an **only platform that provides a unified solution for all your AI/ML
         <a href="https://mlflow.org/docs/latest/ml/deployment/"><strong>🚀 Deployment</strong></a>
         <br><br>
         <div> Tools for seamless model deployment to batch and real-time scoring on platforms like Docker, Kubernetes, Azure ML, and AWS SageMaker.</div><br>
+        <a href="https://mlflow.org/docs/latest/ml/deployment/">Getting Started →</a>
+        <br><br>
     </div>
     </td>
   </tr>
@@ -148,7 +160,7 @@ Trusted by thousands of organizations, MLflow is now offered as a managed servic
 
 For hosting MLflow on your own infrastructure, please refer to [this guidance](https://mlflow.org/docs/latest/ml/tracking/#tracking-setup).
 
-## 🗣️ Multi-Language Support
+## 🗣️ Supported Programming Languages
 
 - [Python](https://pypi.org/project/mlflow/)
 - [TypeScript / JavaScript](https://www.npmjs.com/package/mlflow-tracing)
@@ -160,6 +172,95 @@ For hosting MLflow on your own infrastructure, please refer to [this guidance](h
 MLflow is natively integrated with many popular machine learning frameworks and GenAI libraries.
 
 ![Integrations](https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-integrations.png)
+
+## Usage Examples
+
+### Experiment Tracking ([Doc](https://mlflow.org/docs/latest/ml/tracking/))
+
+The following examples trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
+
+```python
+import mlflow
+
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_diabetes
+from sklearn.ensemble import RandomForestRegressor
+
+# Enable MLflow's automatic experiment tracking for scikit-learn
+mlflow.sklearn.autolog()
+
+# Load the training dataset
+db = load_diabetes()
+X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+# MLflow triggers logging automatically upon model fitting
+rf.fit(X_train, y_train)
+```
+
+Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyper parameters, performance metrics, the trained model, dependencies, and even more.
+
+```
+mlflow ui
+```
+
+### Evaluating Models ([Doc](https://mlflow.org/docs/latest/model-evaluation/index.html))
+
+The following example runs automatic evaluation for question-answering tasks with several built-in metrics.
+
+```python
+import mlflow
+import pandas as pd
+
+# Evaluation set contains (1) input question (2) model outputs (3) ground truth
+df = pd.DataFrame(
+    {
+        "inputs": ["What is MLflow?", "What is Spark?"],
+        "outputs": [
+            "MLflow is an innovative fully self-driving airship powered by AI.",
+            "Sparks is an American pop and rock duo formed in Los Angeles.",
+        ],
+        "ground_truth": [
+            "MLflow is an open-source platform for productionizing AI.",
+            "Apache Spark is an open-source, distributed computing system.",
+        ],
+    }
+)
+eval_dataset = mlflow.data.from_pandas(
+    df, predictions="outputs", targets="ground_truth"
+)
+
+# Start an MLflow Run to record the evaluation results to
+with mlflow.start_run(run_name="evaluate_qa"):
+    # Run automatic evaluation with a set of built-in metrics for question-answering models
+    results = mlflow.evaluate(
+        data=eval_dataset,
+        model_type="question-answering",
+    )
+
+print(results.tables["eval_results_table"])
+```
+
+### Observability ([Doc](https://mlflow.org/docs/latest/llms/tracing/index.html))
+
+MLflow Tracing provides LLM observability for various GenAI libraries such as OpenAI, LangChain, LlamaIndex, DSPy, AutoGen, and more. To enable auto-tracing, call `mlflow.xyz.autolog()` before running your models. Refer to the documentation for customization and manual instrumentation.
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable tracing for OpenAI
+mlflow.openai.autolog()
+
+# Query OpenAI LLM normally
+response = OpenAI().chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hi!"}],
+    temperature=0.1,
+)
+```
+
+Then navigate to the "Traces" tab in the MLflow UI to find the trace records OpenAI query.
 
 ## 💭 Support
 
@@ -204,6 +305,6 @@ MLflow is currently maintained by the following core members with significant co
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
 - [Serena Ruan](https://github.com/serena-ruan)
+- [Tomu Hirata](https://github.com/TomeHirata)
 - [Weichen Xu](https://github.com/WeichenXu123)
 - [Yuki Watanabe](https://github.com/B-Step62)
-- [Tomu Hirata](https://github.com/TomeHirata)
