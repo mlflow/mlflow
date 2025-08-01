@@ -422,8 +422,10 @@ def scorer(
         name: The name of the scorer.
         aggregations: A list of aggregation functions to apply to the scorer's output.
             The aggregation functions can be either a string or a callable.
-            - If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
-            - If a callable, it must take a list of values and return a single value.
+
+            * If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
+            * If a callable, it must take a list of values and return a single value.
+
             By default, "mean" is used as the aggregation function.
 
     Example:
