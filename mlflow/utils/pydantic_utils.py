@@ -5,7 +5,6 @@ from packaging.version import Version
 from pydantic import BaseModel
 
 IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
-IS_PYDANTIC_V2_12_OR_NEWER = Version(pydantic.VERSION) >= Version("2.12.0a1")
 
 
 def field_validator(field: str, mode: str = "before"):
