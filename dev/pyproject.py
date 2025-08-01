@@ -146,7 +146,7 @@ def build(package_type: PackageType) -> None:
     package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
-    python_version = Path("requirements", "python-version.txt").read_text().strip()
+    python_version = Path(".python-version").read_text().strip()
     versions_yaml = read_package_versions_yml()
     langchain_requirements = [
         "langchain>={},<={}".format(
