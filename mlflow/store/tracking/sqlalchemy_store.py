@@ -2873,6 +2873,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_records = (
                 session.query(SqlEvaluationDatasetRecord)
                 .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
+                .order_by(SqlEvaluationDatasetRecord.created_time)
                 .all()
             )
 

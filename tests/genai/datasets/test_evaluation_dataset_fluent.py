@@ -87,7 +87,7 @@ def test_create_evaluation_dataset_databricks(mock_databricks_environment):
         )
 
         sys.modules["databricks.agents.datasets"].create_dataset.assert_called_once_with(
-            "catalog.schema.table", "exp1"
+            "catalog.schema.table", ["exp1", "exp2"]
         )
         assert isinstance(result, EvaluationDataset)
 

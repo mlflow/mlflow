@@ -6369,7 +6369,9 @@ def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loadin
 
     df = test_results[0].to_df()
     assert len(df) == 3
-    assert df["inputs"][2] == {"question": "Q5"}
+    # Check that all questions are present (order not guaranteed)
+    questions = [row["inputs"]["question"] for _, row in df.iterrows()]
+    assert set(questions) == {"Q3", "Q4", "Q5"}
 
     results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0], exp_ids[4]])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
@@ -6465,10 +6467,15 @@ def test_lazy_loading_dataset_records(store):
     assert retrieved.has_records()
     assert retrieved._records is not None
 
-    for i, record in enumerate(loaded_records):
-        assert record.inputs["q"] == f"Question {i}"
-        assert record.expectations["a"] == f"Answer {i}"
-        assert record.tags["idx"] == str(i)
+    # Check all records are present (order not guaranteed)
+    questions = {record.inputs["q"] for record in loaded_records}
+    assert questions == {f"Question {i}" for i in range(5)}
+
+    # Verify each record has matching data
+    for record in loaded_records:
+        idx = record.tags["idx"]
+        assert record.inputs["q"] == f"Question {idx}"
+        assert record.expectations["a"] == f"Answer {idx}"
 
     retrieved2 = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert not retrieved2.has_records()

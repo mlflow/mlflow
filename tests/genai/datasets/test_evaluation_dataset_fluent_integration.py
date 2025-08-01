@@ -277,15 +277,15 @@ def test_error_handling_filestore_backend(tmp_path):
         create_evaluation_dataset(name="test")
     assert exc.value.error_code == "FEATURE_DISABLED"
 
-    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
+    with pytest.raises(MlflowException, match="not supported with FileStore") as exc:
         get_evaluation_dataset(dataset_id="test_id")
     assert exc.value.error_code == "FEATURE_DISABLED"
 
-    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
+    with pytest.raises(MlflowException, match="not supported with FileStore") as exc:
         search_evaluation_datasets()
     assert exc.value.error_code == "FEATURE_DISABLED"
 
-    with pytest.raises(MlflowException, match="FEATURE_DISABLED") as exc:
+    with pytest.raises(MlflowException, match="not supported with FileStore") as exc:
         delete_evaluation_dataset(dataset_id="test_id")
     assert exc.value.error_code == "FEATURE_DISABLED"
 
