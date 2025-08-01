@@ -26,7 +26,11 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, field_validator, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, IS_PYDANTIC_V2_12_OR_NEWER, field_validator, model_validator
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
 
 _logger = logging.getLogger(__name__)
 
@@ -369,27 +373,54 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="after", skip_on_failure=True)
-    def validate_route_type_and_model_name(self):
-        route_type = self.endpoint_type
-        model = self.model
-        if (
-            model
-            and model.provider == "mosaicml"
-            and route_type == RouteType.LLM_V1_CHAT
-            and not is_valid_mosiacml_chat_model(model.name)
-        ):
-            raise MlflowException.invalid_parameter_value(
-                f"An invalid model has been specified for the chat route. '{model.name}'. "
-                f"Ensure the model selected starts with one of: "
-                f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
-            )
-        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
-            raise MlflowException.invalid_parameter_value(
-                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
-                f"Please see documentation for supported models."
-            )
-        return self
+    if IS_PYDANTIC_V2_12_OR_NEWER:
+        @model_validator(mode="after", skip_on_failure=True)
+        def validate_route_type_and_model_name(self) -> Self:
+            if (
+                self.model
+                and self.model.provider == "mosaicml"
+                and self.endpoint_type == RouteType.LLM_V1_CHAT
+                and not is_valid_mosiacml_chat_model(self.model.name)
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"An invalid model has been specified for the chat route. '{self.model.name}'. "
+                    f"Ensure the model selected starts with one of: "
+                    f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
+                )
+            if self.model and self.model.provider == "ai21labs" and not is_valid_ai21labs_model(self.model.name):
+                raise MlflowException.invalid_parameter_value(
+                    f"An Unsupported AI21Labs model has been specified: '{self.model.name}'. "
+                    f"Please see documentation for supported models."
+                )
+            return self
+    else:
+        @model_validator(mode="after", skip_on_failure=True)
+        def validate_route_type_and_model_name(cls, values):
+            # Handle different pydantic versions
+            if IS_PYDANTIC_V2_OR_NEWER:
+                route_type = values.endpoint_type
+                model = values.model
+            else:
+                route_type = values.get("endpoint_type")
+                model = values.get("model")
+            
+            if (
+                model
+                and model.provider == "mosaicml"
+                and route_type == RouteType.LLM_V1_CHAT
+                and not is_valid_mosiacml_chat_model(model.name)
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"An invalid model has been specified for the chat route. '{model.name}'. "
+                    f"Ensure the model selected starts with one of: "
+                    f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
+                )
+            if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
+                raise MlflowException.invalid_parameter_value(
+                    f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                    f"Please see documentation for supported models."
+                )
+            return values
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
