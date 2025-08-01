@@ -209,7 +209,7 @@ class EvaluationDataset(_MlflowObject):
                 "inputs": record.inputs,
                 "expectations": record.expectations,
                 "tags": record.tags,
-                "source_type": record.source.get("source_type") if record.source else None,
+                "source_type": record.source.source_type if record.source else None,
                 "source_id": record.source_id,
                 "created_time": record.created_time,
                 "dataset_record_id": record.dataset_record_id,

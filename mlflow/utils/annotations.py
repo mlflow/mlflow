@@ -228,3 +228,26 @@ def filter_user_warnings_once(func):
             return func(*args, **kwargs)
 
     return wrapper
+
+
+def requires_sql_backend(func):
+    """
+    Decorator for marking APIs that require a SQL-based tracking backend.
+
+    This decorator:
+    1. Adds a note to the docstring indicating SQL backend requirement
+    2. When used with FileStore, raises a helpful error message
+
+    The decorator should be applied to methods in AbstractStore that are only
+    implemented in SQL-based backends (SQLAlchemyStore, RestStore).
+    """
+    indent = _get_min_indent_of_docstring(func.__doc__) if func.__doc__ else ""
+    notice = (
+        indent + ".. Note:: This method requires a SQL-based tracking backend "
+        "(e.g., SQLite, PostgreSQL, MySQL). It is not supported with FileStore.\n\n"
+    )
+    func.__doc__ = notice + func.__doc__ if func.__doc__ else notice
+
+    func._requires_sql_backend = True
+
+    return func

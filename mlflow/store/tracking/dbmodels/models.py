@@ -1358,7 +1358,6 @@ class SqlEvaluationDataset(Base):
         Returns:
             :py:class:`mlflow.entities.EvaluationDataset`.
         """
-        
         records = None
         # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
         # or not as calling .records on the EvaluationDataset object will trigger

@@ -13,6 +13,7 @@ import mlflow
 from mlflow import MlflowClient, flush_async_logging
 from mlflow.config import enable_async_logging
 from mlflow.entities import (
+    EvaluationDataset,
     ExperimentTag,
     LoggedModel,
     Run,
@@ -41,10 +42,11 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
@@ -2719,3 +2721,159 @@ def test_link_multiple_prompt_types_to_run():
     ]
     for expected_prompt in expected_prompts:
         assert expected_prompt in linked_prompts
+
+
+def test_mlflow_client_create_evaluation_dataset(mock_store):
+    mock_store.create_evaluation_dataset.return_value = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+        source_type="TRACE",
+        source="mlflow_traces",
+        experiment_ids=["exp1", "exp2"],
+    )
+
+    dataset = MlflowClient().create_evaluation_dataset(
+        name="qa_evaluation",
+        experiment_ids=["exp1", "exp2"],
+        source_type="TRACE",
+        source="mlflow_traces",
+    )
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+    assert dataset.source_type == "TRACE"
+    assert dataset.source == "mlflow_traces"
+
+    # Verify the store was called with a dataset object and experiment_ids
+    call_args = mock_store.create_evaluation_dataset.call_args
+    assert len(call_args[0]) == 2  # dataset object and experiment_ids
+    created_dataset = call_args[0][0]
+    experiment_ids = call_args[0][1]
+
+    assert created_dataset.name == "qa_evaluation"
+    assert created_dataset.source_type == "TRACE"
+    assert created_dataset.source == "mlflow_traces"
+    assert experiment_ids == ["exp1", "exp2"]
+
+
+def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
+    mock_store.create_evaluation_dataset.return_value = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+    )
+
+    dataset = MlflowClient().create_evaluation_dataset(name="test_dataset")
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+
+    call_args = mock_store.create_evaluation_dataset.call_args
+    created_dataset = call_args[0][0]
+    experiment_ids = call_args[0][1]
+
+    assert created_dataset.name == "test_dataset"
+    assert created_dataset.source_type is None
+    assert created_dataset.source is None
+    assert experiment_ids is None
+
+
+def test_mlflow_client_get_evaluation_dataset(mock_store):
+    mock_store.get_evaluation_dataset.return_value = EvaluationDataset(
+        dataset_id="dataset_123",
+        name="test_dataset",
+        source_type="HUMAN",
+    )
+
+    dataset = MlflowClient().get_evaluation_dataset("dataset_123")
+
+    assert dataset.dataset_id == "dataset_123"
+    assert dataset.name == "test_dataset"
+    assert dataset.source_type == "HUMAN"
+
+    mock_store.get_evaluation_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_delete_evaluation_dataset(mock_store):
+    MlflowClient().delete_evaluation_dataset("dataset_123")
+
+    mock_store.delete_evaluation_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_search_evaluation_datasets(mock_store):
+    mock_store.search_evaluation_datasets.return_value = PagedList(
+        [
+            EvaluationDataset(dataset_id="dataset_1", name="dataset_1"),
+            EvaluationDataset(dataset_id="dataset_2", name="dataset_2"),
+        ],
+        "next_token",
+    )
+
+    result = MlflowClient().search_evaluation_datasets(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+    assert len(result) == 2
+    assert result[0].dataset_id == "dataset_1"
+    assert result[1].dataset_id == "dataset_2"
+    assert result.token == "next_token"
+
+    mock_store.search_evaluation_datasets.assert_called_once_with(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+
+def test_mlflow_client_search_evaluation_datasets_empty_results(mock_store):
+    mock_store.search_evaluation_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_evaluation_datasets(
+        experiment_ids=["exp1"], filter_string="name = 'nonexistent'"
+    )
+
+    assert len(result) == 0
+    assert result.token is None
+
+
+def test_mlflow_client_search_evaluation_datasets_defaults(mock_store):
+    mock_store.search_evaluation_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_evaluation_datasets()
+
+    assert len(result) == 0
+    assert result.token is None
+
+    mock_store.search_evaluation_datasets.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by=None,
+        page_token=None,
+    )
+
+
+def test_mlflow_client_evaluation_datasets_filestore_not_supported(tmp_path):
+    file_store_uri = f"file://{tmp_path}"
+    client = MlflowClient(tracking_uri=file_store_uri)
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.create_evaluation_dataset(name="test_dataset")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.get_evaluation_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_evaluation_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.search_evaluation_datasets()
+    assert exc_info.value.error_code == "FEATURE_DISABLED"

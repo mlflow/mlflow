@@ -6,9 +6,17 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
+import logging
 from typing import Optional, Union
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+
+_logger = logging.getLogger(__name__)
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
@@ -16,6 +24,196 @@ _ERROR_MSG = (
 )
 
 
+@experimental
+def create_evaluation_dataset(
+    name: str,
+    experiment_ids: Optional[Union[str, list[str]]] = None,
+    source_type: Optional[str] = None,
+    source: Optional[str] = None,
+) -> EvaluationDataset:
+    """
+    Create an empty evaluation dataset. Use merge_records() to add data.
+
+    Args:
+        name: Dataset name. In Databricks, this is the UC table name.
+        experiment_ids: Single experiment ID (str) or list of experiment IDs.
+        source_type: Type of source (e.g., "TRACE", "HUMAN", "DOCUMENT")
+        source: Source information
+
+    OSS Usage:
+        dataset = create_evaluation_dataset(
+            name="my_dataset",
+            experiment_ids=["exp1", "exp2"]  # or "exp1" for single
+        )
+        dataset.merge_records(records_df)
+
+    Databricks Usage:
+        dataset = create_evaluation_dataset(
+            name="catalog.schema.table",
+            experiment_ids="exp1"  # or ["exp1", "exp2"]
+        )
+        dataset.merge_records(records_df)
+    """
+    if isinstance(experiment_ids, str):
+        experiment_ids_list = [experiment_ids]
+    else:
+        experiment_ids_list = experiment_ids or []
+
+    if is_in_databricks_runtime():
+        try:
+            from databricks.agents.datasets import create_dataset as db_create
+
+            return EvaluationDataset(db_create(name, experiment_ids))
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+    else:
+        client = MlflowClient()
+        return client.create_evaluation_dataset(
+            name=name,
+            experiment_ids=experiment_ids_list,
+            source_type=source_type,
+            source=source,
+        )
+
+
+@experimental
+def get_evaluation_dataset(
+    dataset_id: Optional[str] = None, name: Optional[str] = None
+) -> EvaluationDataset:
+    """
+    Get an evaluation dataset by ID (OSS) or name (Databricks).
+
+    Args:
+        dataset_id: Dataset ID (required for OSS)
+        name: Dataset name/UC table name (required for Databricks)
+
+    OSS Usage:
+        dataset = get_evaluation_dataset(dataset_id="dataset_abc123")
+
+    Databricks Usage:
+        dataset = get_evaluation_dataset(name="catalog.schema.table")
+    """
+    if is_in_databricks_runtime():
+        if name is None:
+            raise ValueError(
+                "Parameter 'name' is required in Databricks environment. "
+                "Use: get_evaluation_dataset(name='catalog.schema.table')"
+            )
+        if dataset_id is not None:
+            _logger.warning(
+                "Parameter 'dataset_id' is ignored in Databricks environment. Use 'name' instead."
+            )
+        try:
+            from databricks.agents.datasets import get_dataset as db_get
+
+            return EvaluationDataset(db_get(name))
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+    else:
+        if dataset_id is None:
+            raise ValueError(
+                "Parameter 'dataset_id' is required in OSS environment. "
+                "Use: get_evaluation_dataset(dataset_id='dataset_abc123')"
+            )
+        if name is not None:
+            _logger.warning(
+                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
+            )
+
+        client = MlflowClient()
+        return client.get_evaluation_dataset(dataset_id)
+
+
+@experimental
+def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[str] = None) -> None:
+    """
+    Delete an evaluation dataset by ID (OSS) or name (Databricks).
+
+    Args:
+        dataset_id: Dataset ID (required for OSS)
+        name: Dataset name/UC table name (required for Databricks)
+
+    OSS Usage:
+        delete_evaluation_dataset(dataset_id="dataset_abc123")
+
+    Databricks Usage:
+        delete_evaluation_dataset(name="catalog.schema.table")
+    """
+    if is_in_databricks_runtime():
+        if name is None:
+            raise ValueError(
+                "Parameter 'name' is required in Databricks environment. "
+                "Use: delete_evaluation_dataset(name='catalog.schema.table')"
+            )
+        if dataset_id is not None:
+            _logger.warning(
+                "Parameter 'dataset_id' is ignored in Databricks environment. Use 'name' instead."
+            )
+        try:
+            from databricks.agents.datasets import delete_dataset as db_delete
+
+            return db_delete(name)
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+    else:
+        if dataset_id is None:
+            raise ValueError(
+                "Parameter 'dataset_id' is required in OSS environment. "
+                "Use: delete_evaluation_dataset(dataset_id='dataset_abc123')"
+            )
+        if name is not None:
+            _logger.warning(
+                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
+            )
+
+        client = MlflowClient()
+        client.delete_evaluation_dataset(dataset_id)
+
+
+@experimental
+def search_evaluation_datasets(
+    experiment_ids: Optional[Union[str, list[str]]] = None,
+    filter_string: Optional[str] = None,
+    max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+    order_by: Optional[list[str]] = None,
+    page_token: Optional[str] = None,
+) -> PagedList[EvaluationDataset]:
+    """
+    Search for evaluation datasets (OSS only).
+
+    Args:
+        experiment_ids: Single experiment ID (str) or list of experiment IDs
+        filter_string: Filter string for dataset names
+        max_results: Maximum number of results
+        order_by: Ordering criteria
+        page_token: Token for next page of results
+
+    Returns:
+        PagedList of EvaluationDataset objects
+
+    Note:
+        This API is not available in Databricks environments.
+    """
+    if is_in_databricks_runtime():
+        raise NotImplementedError(
+            "Evaluation Dataset search is not available in Databricks. "
+            "Use Unity Catalog search capabilities instead."
+        )
+
+    if isinstance(experiment_ids, str):
+        experiment_ids = [experiment_ids]
+
+    client = MlflowClient()
+    return client.search_evaluation_datasets(
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=page_token,
+    )
+
+
+@deprecated("Use mlflow.genai.datasets.create_evaluation_dataset instead", since="3.3.0")
 def create_dataset(
     uc_table_name: str, experiment_id: Optional[Union[str, list[str]]] = None
 ) -> "EvaluationDataset":
@@ -33,6 +231,7 @@ def create_dataset(
     return EvaluationDataset(create_dataset(uc_table_name, experiment_id))
 
 
+@deprecated("Use mlflow.genai.datasets.delete_evaluation_dataset instead", since="3.3.0")
 def delete_dataset(uc_table_name: str) -> None:
     """Delete the dataset with the given name.
 
@@ -46,6 +245,7 @@ def delete_dataset(uc_table_name: str) -> None:
     return delete_dataset(uc_table_name)
 
 
+@deprecated("Use mlflow.genai.datasets.get_evaluation_dataset instead", since="3.3.0")
 def get_dataset(uc_table_name: str) -> "EvaluationDataset":
     """Get the dataset with the given name.
 
@@ -60,8 +260,13 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 
 
 __all__ = [
+    "create_evaluation_dataset",
+    "get_evaluation_dataset",
+    "delete_evaluation_dataset",
+    "search_evaluation_datasets",
+    "EvaluationDataset",
+    # Deprecated APIs
     "create_dataset",
     "delete_dataset",
     "get_dataset",
-    "EvaluationDataset",
 ]

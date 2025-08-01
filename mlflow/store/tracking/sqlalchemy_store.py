@@ -36,6 +36,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -2689,7 +2690,13 @@ class SqlAlchemyStore(AbstractStore):
                     session.add(association)
 
             session.commit()
-            return sql_dataset.to_mlflow_entity()
+
+            # Convert to entity and populate experiment_ids
+            dataset = sql_dataset.to_mlflow_entity()
+            dataset.experiment_ids = experiment_ids or []
+            dataset._tracking_store = self
+
+            return dataset
 
     def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -2938,13 +2945,18 @@ class SqlAlchemyStore(AbstractStore):
                         f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}"
                         f"{str(uuid.uuid4()).replace('-', '')}"
                     )
+                    # Convert source dict to DatasetRecordSource if present
+                    source = None
+                    if source_dict := record_dict.get("source"):
+                        source = DatasetRecordSource.from_dict(source_dict)
+
                     record = DatasetRecord(
                         dataset_record_id=record_id,
                         dataset_id=dataset_id,
                         inputs=record_dict.get("inputs", {}),
                         expectations=record_dict.get("expectations"),
                         tags=record_dict.get("tags"),
-                        source=record_dict.get("source"),
+                        source=source,
                         created_by=updated_by,
                         last_updated_by=updated_by,
                     )

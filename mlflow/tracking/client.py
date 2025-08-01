@@ -25,6 +25,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities import (
     DatasetInput,
+    EvaluationDataset,
     Experiment,
     FileInfo,
     LoggedModel,
@@ -80,7 +81,11 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -5924,3 +5929,136 @@ class MlflowClient:
 
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
+
+    @experimental(version="3.3.0")
+    def create_evaluation_dataset(
+        self,
+        name: str,
+        experiment_ids: Optional[list[str]] = None,
+        source_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> EvaluationDataset:
+        """
+        Create a new evaluation dataset.
+
+        Args:
+            name: The name of the dataset.
+            experiment_ids: Optinoal list of experiment IDs to associate with the dataset.
+            source_type: The type of the dataset source (e.g., "TRACE", "HUMAN", "DOCUMENT").
+            source: The source identifier or description.
+
+        Returns:
+            The created EvaluationDataset object.
+
+        .. code-block:: python
+            :test:
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Create a dataset associated with experiments
+            dataset = client.create_evaluation_dataset(
+                name="qa_evaluation_v1", experiment_ids=["0", "1"], source_type="HUMAN"
+            )
+        """
+        return self._tracking_client.create_evaluation_dataset(
+            name=name,
+            experiment_ids=experiment_ids,
+            source_type=source_type,
+            source=source,
+        )
+
+    @experimental(version="3.3.0")
+    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object.
+
+        .. code-block:: python
+            :test:
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Get a dataset by ID
+            dataset = client.get_evaluation_dataset("dataset_123")
+
+            # Access records (lazy loaded)
+            df = dataset.to_df()
+        """
+        return self._tracking_client.get_evaluation_dataset(dataset_id)
+
+    @experimental(version="3.3.0")
+    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+        """
+        Delete an evaluation dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+
+        .. code-block:: python
+            :test:
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Delete a dataset
+            client.delete_evaluation_dataset("dataset_123")
+        """
+        self._tracking_client.delete_evaluation_dataset(dataset_id)
+
+    @experimental(version="3.3.0")
+    def search_evaluation_datasets(
+        self,
+        experiment_ids: Optional[list[str]] = None,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[EvaluationDataset]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: A filter string to apply to the search.
+            max_results: Maximum number of results to return. Defaults to 50.
+            order_by: List of columns to order by.
+            page_token: Token for the next page of results.
+
+        Returns:
+            A PagedList of EvaluationDataset objects.
+
+        .. code-block:: python
+            :test:
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Search for datasets in specific experiments
+            datasets = client.search_evaluation_datasets(
+                experiment_ids=["exp1", "exp2"], filter_string="name LIKE 'qa_%'", max_results=10
+            )
+
+            # Get next page if available
+            if datasets.token:
+                next_page = client.search_evaluation_datasets(
+                    experiment_ids=["exp1", "exp2"], page_token=datasets.token
+                )
+        """
+        return self._tracking_client.search_evaluation_datasets(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )

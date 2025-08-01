@@ -11,6 +11,7 @@ from itertools import zip_longest
 from typing import Any, Literal, Optional
 
 from mlflow.entities import (
+    EvaluationDataset,
     ExperimentTag,
     FileInfo,
     LoggedModel,
@@ -31,6 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     GET_METRIC_HISTORY_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -889,4 +891,80 @@ class TrackingServiceClient:
             )
         return self.store.search_logged_models(
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
+        )
+
+    def create_evaluation_dataset(
+        self,
+        name: str,
+        experiment_ids: Optional[list[str]] = None,
+        source_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> EvaluationDataset:
+        """
+        Create a new evaluation dataset.
+
+        Args:
+            name: Name of the evaluation dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+            source_type: Type of the source for the dataset (e.g., "HUMAN", "TRACE").
+            source: Source identifier for the dataset.
+
+        Returns:
+            The created EvaluationDataset object.
+        """
+        dataset = EvaluationDataset(
+            name=name,
+            source_type=source_type,
+            source=source,
+        )
+        return self.store.create_evaluation_dataset(dataset, experiment_ids)
+
+    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: ID of the evaluation dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object.
+        """
+        return self.store.get_evaluation_dataset(dataset_id)
+
+    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+        """
+        Delete an evaluation dataset.
+
+        Args:
+            dataset_id: ID of the evaluation dataset to delete.
+        """
+        self.store.delete_evaluation_dataset(dataset_id)
+
+    def search_evaluation_datasets(
+        self,
+        experiment_ids: Optional[list[str]] = None,
+        filter_string: Optional[str] = None,
+        max_results: int = 1000,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[EvaluationDataset]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: Filter query string.
+            max_results: Maximum number of datasets to return.
+            order_by: List of columns to order by.
+            page_token: Token for retrieving the next page of results.
+
+        Returns:
+            A PagedList of EvaluationDataset objects.
+        """
+        return self.store.search_evaluation_datasets(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
         )
