@@ -217,6 +217,14 @@ def predict(
             output_path="output.json",
         )
 
+        # Run prediction with pre-release versions
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            extra_envs={"UV_PRERELEASE": "allow"},
+        )
+
     """
     # to avoid circular imports
     from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
