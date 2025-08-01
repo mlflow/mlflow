@@ -38,6 +38,7 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   PYTHONFAULTHANDLER: "1"
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 jobs:
   examples:
