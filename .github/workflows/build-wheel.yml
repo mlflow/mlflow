@@ -1,4 +1,4 @@
-# Build a wheel for MLflow and upload it as an artifact.
+# Build a wheel for MLflow.
 name: build-wheel
 
 on:
@@ -130,25 +130,3 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
-
-      # Anyone with read access can download the uploaded wheel on GitHub.
-      - name: Upload wheel
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: github.event_name == 'workflow_dispatch'
-        id: upload-wheel
-        with:
-          name: ${{ steps.build-dist.outputs.wheel-name }}
-          path: ${{ steps.build-dist.outputs.wheel-path }}
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Generate summary
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          echo "### Download URL" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Notes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- The artifact will be deleted after 7 days." >> $GITHUB_STEP_SUMMARY
-          echo "- Unzip the downloaded artifact to get the wheel." >> $GITHUB_STEP_SUMMARY
