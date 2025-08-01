@@ -119,7 +119,6 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
 <table>
   <tr>
     <td colspan="2" align="center" >
-        <br>
       <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-experiment.png" alt="Tracking" width=50%>
     <div align="center">
         <br>
@@ -127,7 +126,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br><br>
         <div>Track your models, parameters, metrics, and evaluation results in ML experiments and compare them using an interactive UI.</div><br>
         <a href="https://mlflow.org/docs/latest/ml/tracking/quickstart/">Getting Started →</a>
-        <br>
+        <br><br>
     </div>
     </td>
   </tr>
