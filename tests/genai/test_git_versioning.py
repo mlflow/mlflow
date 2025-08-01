@@ -47,7 +47,7 @@ def test_disable_git_model_versioning_in_non_git_repo(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.chdir(tmp_path)
-    with pytest.warns(UserWarning, match=r"Git operation failed"):
+    with pytest.warns(UserWarning, match=r"Encountered an error while retrieving git information"):
         context = enable_git_model_versioning()
     assert context.info is None
 

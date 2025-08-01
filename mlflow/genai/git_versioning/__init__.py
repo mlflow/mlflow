@@ -12,7 +12,10 @@ class GitContext:
             self.info = GitInfo.from_env()
         except GitOperationError as e:
             warnings.warn(
-                f"Git operation failed: {e}",
+                (
+                    f"Encountered an error while retrieving git information: {e}. "
+                    f"Git model versioning is disabled."
+                ),
                 UserWarning,
                 stacklevel=2,
             )
