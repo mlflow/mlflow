@@ -26,7 +26,7 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, IS_PYDANTIC_V2_12_OR_NEWER, field_validator, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, field_validator, model_validator
 try:
     from typing_extensions import Self
 except ImportError:
@@ -373,7 +373,7 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    if IS_PYDANTIC_V2_12_OR_NEWER:
+    if IS_PYDANTIC_V2_OR_NEWER:
         @model_validator(mode="after", skip_on_failure=True)
         def validate_route_type_and_model_name(self) -> Self:
             if (
@@ -396,13 +396,9 @@ class RouteConfig(AliasedConfigModel):
     else:
         @model_validator(mode="after", skip_on_failure=True)
         def validate_route_type_and_model_name(cls, values):
-            # Handle different pydantic versions
-            if IS_PYDANTIC_V2_OR_NEWER:
-                route_type = values.endpoint_type
-                model = values.model
-            else:
-                route_type = values.get("endpoint_type")
-                model = values.get("model")
+            # In Pydantic v1, values is a dict
+            route_type = values.get("endpoint_type")
+            model = values.get("model")
             
             if (
                 model
