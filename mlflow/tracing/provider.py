@@ -28,7 +28,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -275,7 +275,12 @@ def _setup_tracer_provider(disabled=False):
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    if should_use_otlp_exporter():
+    if (trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get()) and isinstance(
+        trace_destination, (MlflowExperiment, Databricks)
+    ):
+        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+
+    elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
