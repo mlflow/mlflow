@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import itertools
 import json
@@ -10,6 +8,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from typing_extensions import Self
 
 from clint.config import Config
 from clint.index import SymbolIndex
@@ -22,7 +22,7 @@ class Args:
     output_format: Literal["text", "json"]
 
     @classmethod
-    def parse(cls) -> Args:
+    def parse(cls) -> Self:
         parser = argparse.ArgumentParser(description="Custom linter for mlflow.")
         parser.add_argument("files", nargs="+", help="Files to lint.")
         parser.add_argument("--output-format", default="text")
