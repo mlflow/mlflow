@@ -44,10 +44,30 @@ def ignore_map(code: str) -> dict[str, set[int]]:
 
 
 @dataclass
+class Location:
+    lineno: int
+    col_offset: int
+
+    def __str__(self):
+        return f"{self.lineno}:{self.col_offset}"
+
+    @classmethod
+    def from_node(cls, node: ast.AST) -> Self:
+        return cls(node.lineno - 1, node.col_offset)
+
+    @classmethod
+    def from_noqa(cls, noqa: Noqa) -> Self:
+        return cls(noqa.lineno - 1, noqa.col_offset)
+
+    def __add__(self, other: "Location") -> "Location":
+        return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
+
+
+@dataclass
 class Violation:
     rule: rules.Rule
     path: Path
-    loc: "Location"
+    loc: Location
     cell: int | None = None
 
     def __str__(self):
@@ -74,26 +94,6 @@ class Violation:
             "message": self.rule.message,
             "message-id": self.rule.id,
         }
-
-
-@dataclass
-class Location:
-    lineno: int
-    col_offset: int
-
-    def __str__(self):
-        return f"{self.lineno}:{self.col_offset}"
-
-    @classmethod
-    def from_node(cls, node: ast.AST) -> Self:
-        return cls(node.lineno - 1, node.col_offset)
-
-    @classmethod
-    def from_noqa(cls, noqa: Noqa) -> Self:
-        return cls(noqa.lineno - 1, noqa.col_offset)
-
-    def __add__(self, other: "Location") -> "Location":
-        return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
 
 
 @dataclass
