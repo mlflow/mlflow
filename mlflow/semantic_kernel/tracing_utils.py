@@ -24,11 +24,8 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import construct_full_inputs
-
-# NB: Use global variable instead of the instance variable of the processor, because sometimes
-# multiple span processor instances can be created and we need to share the same map.
-_OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import construct_full_inputs, encode_span_id, get_otel_attribute
 
 _OPERATION_TO_SPAN_TYPE = {
     CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
@@ -43,6 +40,12 @@ _OPERATION_TO_SPAN_TYPE = {
 _logger = logging.getLogger(__name__)
 
 
+def get_mlflow_span_for_otel_span(span: OTelSpan) -> Optional[LiveSpan]:
+    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+    mlflow_span_id = encode_span_id(span.get_span_context().span_id)
+    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
+
+
 def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
     """
     Wrapper for Semantic Kernel's model diagnostics decorators.
@@ -52,8 +55,7 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
     """
     full_kwargs = construct_full_inputs(original, *args, **kwargs)
     current_span = full_kwargs.get("current_span") or get_current_span()
-    otel_span_id = current_span.get_span_context().span_id
-    mlflow_span = _get_live_span_from_otel_span_id(otel_span_id)
+    mlflow_span = get_mlflow_span_for_otel_span(current_span)
 
     if not mlflow_span:
         _logger.debug("Span is not found or recording. Skipping error handling.")
@@ -64,7 +66,8 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
         # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
         mlflow_span.set_inputs(_parse_content(prompt))
 
-    if completions := full_kwargs.get("completions"):
+    completions = full_kwargs.get("completions")
+    if completions:
         # Wrapping _set_completion_response
         # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/
         mlflow_span.set_outputs({"messages": [_parse_content(c) for c in completions]})
@@ -115,32 +118,19 @@ def _parse_content(value: Any) -> Any:
     return value
 
 
-def _get_live_span_from_otel_span_id(otel_span_id: str) -> Optional[LiveSpan]:
-    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
-        return span_and_token[0]
-    else:
-        _logger.debug(
-            f"Live span not found for OTel span ID: {otel_span_id}. "
-            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-            "additional attributes. "
-        )
-        return None
-
-
-def _get_span_type(span: OTelSpan) -> str:
+def set_span_type(mlflow_span: LiveSpan) -> str:
     """Determine the span type based on the operation."""
-    if hasattr(span, "attributes") and (
-        operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
-    ):
-        return _OPERATION_TO_SPAN_TYPE.get(operation, SpanType.UNKNOWN)
+    span_type = SpanType.UNKNOWN
+    if operation := mlflow_span.get_attribute(model_gen_ai_attributes.OPERATION):
+        span_type = _OPERATION_TO_SPAN_TYPE.get(operation, SpanType.UNKNOWN)
 
-    return SpanType.UNKNOWN
+    mlflow_span.set_span_type(span_type)
 
 
-def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
+def set_token_usage(mlflow_span: LiveSpan) -> None:
     """Set token usage attributes on the MLflow span."""
-    input_tokens = sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)
-    output_tokens = sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
+    input_tokens = mlflow_span.get_attribute(model_gen_ai_attributes.INPUT_TOKENS)
+    output_tokens = mlflow_span.get_attribute(model_gen_ai_attributes.OUTPUT_TOKENS)
 
     usage_dict = {}
     if input_tokens is not None:
