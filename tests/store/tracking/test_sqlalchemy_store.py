@@ -6146,7 +6146,11 @@ def test_evaluation_dataset_crud_operations(store):
     assert retrieved_dataset.dataset_id == created_dataset.dataset_id
     assert retrieved_dataset.name == created_dataset.name
     assert retrieved_dataset.tags == created_dataset.tags
-    assert retrieved_dataset.experiment_ids == experiment_ids
+    # experiment_ids are not loaded by default (lazy loading)
+    assert retrieved_dataset._experiment_ids is None
+    # But accessing the property should trigger lazy loading
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        assert retrieved_dataset.experiment_ids == experiment_ids
     assert not retrieved_dataset.has_records()
 
     with pytest.raises(
@@ -6334,7 +6338,11 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-    assert set(retrieved.experiment_ids) == set(experiment_ids)
+    # experiment_ids should not be loaded initially (lazy loading)
+    assert retrieved._experiment_ids is None
+    # But accessing the property should trigger lazy loading
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
     assert any(d.dataset_id == created_dataset.dataset_id for d in results)
@@ -6344,7 +6352,11 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     )
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
-    assert set(matching[0].experiment_ids) == set(experiment_ids)
+    # Search results should also not have experiment_ids loaded initially
+    assert matching[0]._experiment_ids is None
+    # But accessing the property should trigger lazy loading
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
@@ -6366,6 +6378,33 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
             "created_time",
             "dataset_record_id",
         ]
+
+
+def test_evaluation_dataset_get_experiment_ids(store):
+    """Test the new get_evaluation_dataset_experiment_ids method."""
+    dataset = EvaluationDataset(name="test_get_experiment_ids")
+    experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+
+    # Test getting experiment IDs directly
+    fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
+    assert set(fetched_experiment_ids) == set(experiment_ids)
+
+    # Test with dataset that has no experiment associations
+    dataset2 = EvaluationDataset(name="test_no_experiments")
+    created_dataset2 = store.create_evaluation_dataset(dataset2, experiment_ids=[])
+    fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(created_dataset2.dataset_id)
+    assert fetched_experiment_ids2 == []
+
+    # Test with non-existent dataset
+    with pytest.raises(
+        MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
+    ):
+        store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+
+    # Test with empty dataset_id
+    with pytest.raises(MlflowException, match="dataset_id must be provided"):
+        store.get_evaluation_dataset_experiment_ids("")
 
 
 def test_evaluation_dataset_tags_with_sql_backend(store):

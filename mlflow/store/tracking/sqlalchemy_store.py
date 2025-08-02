@@ -2700,7 +2700,7 @@ class SqlAlchemyStore(AbstractStore):
             dataset_id: The ID of the dataset to retrieve.
 
         Returns:
-            The EvaluationDataset object (without records - lazy loading).
+            The EvaluationDataset object (without records or experiment_ids - lazy loading).
         """
         if not dataset_id:
             raise MlflowException(
@@ -2721,18 +2721,8 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            associations = (
-                session.query(SqlEntityAssociation)
-                .filter(
-                    SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET,
-                    SqlEntityAssociation.source_id == sql_dataset.dataset_id,
-                    SqlEntityAssociation.destination_type == EntityType.EXPERIMENT,
-                )
-                .all()
-            )
-
             dataset = sql_dataset.to_mlflow_entity()
-            dataset.experiment_ids = [assoc.destination_id for assoc in associations]
+            # Don't fetch experiment_ids - they will be loaded lazily when needed
 
             return dataset
 
@@ -2836,18 +2826,7 @@ class SqlAlchemyStore(AbstractStore):
             datasets = []
             for sql_dataset in sql_datasets:
                 dataset = sql_dataset.to_mlflow_entity()
-
-                associations = (
-                    session.query(SqlEntityAssociation)
-                    .filter(
-                        SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET,
-                        SqlEntityAssociation.source_id == sql_dataset.dataset_id,
-                        SqlEntityAssociation.destination_type == EntityType.EXPERIMENT,
-                    )
-                    .all()
-                )
-                dataset.experiment_ids = [assoc.destination_id for assoc in associations]
-                dataset._tracking_store = self
+                # Don't fetch experiment_ids - they will be loaded lazily when needed
                 datasets.append(dataset)
 
             return PagedList(datasets, next_page_token)
@@ -2974,6 +2953,52 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
 
             return {"inserted": inserted_count, "updated": updated_count}
+
+    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        if not dataset_id:
+            raise MlflowException(
+                "dataset_id must be provided",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            # First check if the dataset exists
+            dataset_exists = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+                is not None
+            )
+
+            if not dataset_exists:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Get experiment associations
+            associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET,
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.destination_type == EntityType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            return [assoc.destination_id for assoc in associations]
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
