@@ -66,14 +66,7 @@ class EvaluationDataset(_MlflowObject):
         from mlflow.tracking._tracking_service.utils import _get_store
 
         tracking_store = _get_store()
-        # TODO: Remove this hasattr check once all tracking stores
-        #  implement the evaluation dataset APIs
-        if hasattr(tracking_store, "get_evaluation_dataset_experiment_ids"):
-            self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(
-                self.dataset_id
-            )
-        else:
-            self._experiment_ids = []
+        self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(self.dataset_id)
 
     @property
     def records(self) -> list[DatasetRecord]:
@@ -87,12 +80,7 @@ class EvaluationDataset(_MlflowObject):
             from mlflow.tracking._tracking_service.utils import _get_store
 
             tracking_store = _get_store()
-            # Only SQLAlchemy store has _load_dataset_records for now
-            if hasattr(tracking_store, "_load_dataset_records"):
-                self._records = tracking_store._load_dataset_records(self.dataset_id)
-            else:
-                # For other stores, return empty list until they implement the method
-                self._records = []
+            self._records = tracking_store._load_dataset_records(self.dataset_id)
         return self._records or []
 
     def has_records(self) -> bool:
