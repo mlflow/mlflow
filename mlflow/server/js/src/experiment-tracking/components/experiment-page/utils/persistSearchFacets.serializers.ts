@@ -36,6 +36,39 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
       return input === 'true';
     },
   },
+  hideFinishedRuns: {
+    serializeQueryString(input: boolean) {
+      return input.toString();
+    },
+    deserializeQueryString(input: string) {
+      // Guard against malformed values - only accept explicit 'true' or 'false'
+      if (input === 'true') return true;
+      if (input === 'false') return false;
+      // Return default value for any other input
+      return false;
+    },
+  },
+  runLimit: {
+    serializeQueryString(input: number | null) {
+      return input?.toString();
+    },
+    deserializeQueryString(input: string) {
+      // Guard against malformed values - must be a valid positive integer string
+      const trimmed = input.trim();
+
+      // Check if it's a valid integer string (no decimals, no scientific notation, etc.)
+      if (!/^\d+$/.test(trimmed)) {
+        return null;
+      }
+
+      const parsed = parseInt(trimmed, 10);
+      // Return null for zero or negative values (must be positive integer)
+      if (parsed <= 0) {
+        return null;
+      }
+      return parsed;
+    },
+  },
   datasetsFilter: {
     serializeQueryString(inputs: ExperimentPageSearchFacetsState['datasetsFilter']) {
       const inputsWithoutExperimentId = inputs.map(({ name, digest, context }) => ({

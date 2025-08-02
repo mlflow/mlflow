@@ -7,6 +7,7 @@ import {
   DEFAULT_LIFECYCLE_FILTER,
   DEFAULT_MODEL_VERSION_FILTER,
   DEFAULT_START_TIME,
+  DEFAULT_HIDE_FINISHED_RUNS,
 } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { LIFECYCLE_FILTER } from '../../../types';
@@ -95,13 +96,31 @@ export const createQuickRegexpSearchFilter = (searchFilter: string) =>
   `attributes.run_name RLIKE '${searchFilter.replace(/'/g, "\\'")}'`;
 
 /**
- * Combines search filter and start time SQL expressions
+ * Creates filter expression for hiding finished runs
+ * NOTE: Server-side status filtering with NOT IN is currently blocked by validation.
+ * This function is disabled until server supports status IN/NOT IN operations.
+ * Client-side filtering is used as fallback in experimentRuns.selector.ts
+ */
+const createFinishedRunsFilterExpression = ({ hideFinishedRuns }: ExperimentPageSearchFacetsState) => {
+  // TODO: Re-enable when server supports "attributes.status NOT IN (...)" operations
+  // Currently blocked by SearchUtils.validate_list_supported() which only allows run_id
+  return null;
+
+  // Original implementation (disabled due to server validation):
+  // if (!hideFinishedRuns) return null;
+  // return "attributes.status NOT IN ('FINISHED', 'FAILED', 'KILLED')";
+};
+
+/**
+ * Combines search filter, start time, datasets, and finished runs SQL expressions
  */
 const createFilterExpression = (
-  { searchFilter }: ExperimentPageSearchFacetsState,
+  searchFacetsState: ExperimentPageSearchFacetsState,
   startTimeExpression: string | null,
   datasetsFilterExpression: string | null,
 ) => {
+  const { searchFilter } = searchFacetsState;
+
   if (
     shouldUseRegexpBasedAutoRunsSearchFilter() &&
     searchFilter.length > 0 &&
@@ -114,6 +133,10 @@ const createFilterExpression = (
   if (searchFilter) activeFilters.push(searchFilter);
   if (startTimeExpression) activeFilters.push(startTimeExpression);
   if (datasetsFilterExpression) activeFilters.push(datasetsFilterExpression);
+
+  // Add server-side filtering for finished runs
+  const finishedRunsFilterExpression = createFinishedRunsFilterExpression(searchFacetsState);
+  if (finishedRunsFilterExpression) activeFilters.push(finishedRunsFilterExpression);
 
   if (activeFilters.length === 0) return undefined;
   return activeFilters.join(' and ');
@@ -217,12 +240,15 @@ export const fetchModelVersionsForRuns = (
  * are currently filtered.
  */
 export const isSearchFacetsFilterUsed = (currentSearchFacetsState: ExperimentPageSearchFacetsState) => {
-  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
+  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime, hideFinishedRuns, runLimit } =
+    currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
       modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
       datasetsFilter.length !== 0 ||
       searchFilter ||
-      startTime !== DEFAULT_START_TIME,
+      startTime !== DEFAULT_START_TIME ||
+      hideFinishedRuns !== DEFAULT_HIDE_FINISHED_RUNS ||
+      runLimit !== null,
   );
 };

@@ -177,6 +177,26 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         artifactUri: 'dbfs:/databricks/mlflow-tracking/3210/experiment3210_run1/artifacts',
         lifecycleStage: 'active',
       },
+      experiment123456789_run6: {
+        runUuid: 'experiment123456789_run6',
+        runName: 'experiment123456789_run6',
+        experimentId: '123456789',
+        status: 'RUNNING',
+        startTime: 1660116400000,
+        endTime: 0,
+        artifactUri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run6/artifacts',
+        lifecycleStage: 'active',
+      },
+      experiment123456789_run7: {
+        runUuid: 'experiment123456789_run7',
+        runName: 'experiment123456789_run7',
+        experimentId: '123456789',
+        status: 'SCHEDULED',
+        startTime: 1660116450000,
+        endTime: 0,
+        artifactUri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run7/artifacts',
+        lifecycleStage: 'active',
+      },
     },
     runInfoOrderByUuid: [
       'experiment123456789_run1',
@@ -184,6 +204,8 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       'experiment123456789_run3',
       'experiment123456789_run4',
       'experiment123456789_run5',
+      'experiment123456789_run6',
+      'experiment123456789_run7',
       'experiment654321_run1',
       'experiment3210_run1',
     ],
@@ -278,6 +300,46 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           step: 0,
         },
       },
+      experiment123456789_run6: {
+        met1: {
+          key: 'met1',
+          value: 100,
+          timestamp: 1000,
+          step: 0,
+        },
+        met2: {
+          key: 'met2',
+          value: 200,
+          timestamp: 1000,
+          step: 0,
+        },
+        met3: {
+          key: 'met3',
+          value: 300,
+          timestamp: 1000,
+          step: 0,
+        },
+      },
+      experiment123456789_run7: {
+        met1: {
+          key: 'met1',
+          value: 150,
+          timestamp: 1000,
+          step: 0,
+        },
+        met2: {
+          key: 'met2',
+          value: 250,
+          timestamp: 1000,
+          step: 0,
+        },
+        met3: {
+          key: 'met3',
+          value: 350,
+          timestamp: 1000,
+          step: 0,
+        },
+      },
       experiment3210_run1: {
         met1: {
           key: 'met1',
@@ -366,6 +428,34 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           value: '55',
         },
       },
+      experiment123456789_run6: {
+        p1: {
+          key: 'p1',
+          value: '20',
+        },
+        p2: {
+          key: 'p2',
+          value: '25',
+        },
+        p3: {
+          key: 'p3',
+          value: '65',
+        },
+      },
+      experiment123456789_run7: {
+        p1: {
+          key: 'p1',
+          value: '21',
+        },
+        p2: {
+          key: 'p2',
+          value: '26',
+        },
+        p3: {
+          key: 'p3',
+          value: '66',
+        },
+      },
       experiment654321_run1: {},
       experiment3210_run1: {
         p1: {
@@ -425,6 +515,26 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         'tag with a space': {
           key: 'tag with a space',
           value: 'value3',
+        },
+      },
+      experiment123456789_run6: {
+        testtag1: {
+          key: 'testtag1',
+          value: 'value1_6',
+        },
+        testtag2: {
+          key: 'testtag2',
+          value: 'value2_6',
+        },
+      },
+      experiment123456789_run7: {
+        testtag1: {
+          key: 'testtag1',
+          value: 'value1_7',
+        },
+        testtag2: {
+          key: 'testtag2',
+          value: 'value2_7',
         },
       },
       experiment654321_run1: {

@@ -47,6 +47,16 @@ export interface ExperimentPageSearchFacetsState {
    * Filter of model versions to display
    */
   modelVersionFilter: MODEL_VERSION_FILTER;
+
+  /**
+   * Whether to hide finished runs (FINISHED, FAILED, KILLED status)
+   */
+  hideFinishedRuns: boolean;
+
+  /**
+   * Limit the number of runs to show (null = show all)
+   */
+  runLimit: number | null;
 }
 
 /**
@@ -60,4 +70,6 @@ export const createExperimentPageSearchFacetsState = (): ExperimentPageSearchFac
   lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
   datasetsFilter: [],
   modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
+  hideFinishedRuns: false,
+  runLimit: null,
 });

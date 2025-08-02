@@ -33,6 +33,7 @@ import {
 } from '../components/runs/cells/RowActionsCellRenderer';
 import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
+import { RunNameHeaderCellRenderer } from '../components/runs/cells/RunNameHeaderCellRenderer';
 import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
 import {
   DatasetsCellRenderer,
@@ -43,6 +44,7 @@ import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetr
 import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
+import { ExperimentViewRunsTableEmptyOverlay } from '../components/runs/ExperimentViewRunsTableEmptyOverlay';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
   return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
@@ -96,6 +98,9 @@ export const getFrameworkComponents = () => ({
   // to do it.
   loadingOverlayComponent: UntrackedSpinner,
 
+  // Custom empty overlay that provides "Show finished runs" functionality
+  noRowsOverlayComponent: ExperimentViewRunsTableEmptyOverlay,
+
   /**
    * We're saving cell renderer component references, otherwise
    * agGrid will unnecessarily flash cells' content (e.g. when changing sort order)
@@ -111,6 +116,7 @@ export const getFrameworkComponents = () => ({
   RowActionsCellRenderer,
   RowActionsHeaderCellRenderer,
   RunNameCellRenderer,
+  RunNameHeaderCellRenderer,
   DatasetsCellRenderer,
   AggregateMetricValueCell,
 });
@@ -292,6 +298,7 @@ export const useRunsColumnDefinitions = ({
       sortable: true,
       cellRenderer: 'RunNameCellRenderer',
       cellRendererParams: { onExpand, isComparingRuns },
+      headerComponent: 'RunNameHeaderCellRenderer',
       equals: (runA: RunRowType, runB: RunRowType) =>
         runA?.rowUuid === runB?.rowUuid && runA?.groupParentInfo?.expanderOpen === runB?.groupParentInfo?.expanderOpen,
       headerComponentParams: {
