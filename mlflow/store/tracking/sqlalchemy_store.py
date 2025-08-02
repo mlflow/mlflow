@@ -21,6 +21,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    DatasetRecordSource,
     EvaluationDataset,
     Expectation,
     Experiment,
@@ -2739,7 +2740,6 @@ class SqlAlchemyStore(AbstractStore):
 
             dataset = sql_dataset.to_mlflow_entity()
             dataset.experiment_ids = [assoc.destination_id for assoc in associations]
-            dataset._tracking_store = self
 
             return dataset
 
@@ -2946,10 +2946,13 @@ class SqlAlchemyStore(AbstractStore):
                         f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}"
                         f"{str(uuid.uuid4()).replace('-', '')}"
                     )
-                    # Convert source dict to DatasetRecordSource if present
+                    # Handle source field - convert dict to DatasetRecordSource if needed
                     source = None
-                    if source_dict := record_dict.get("source"):
-                        source = DatasetRecordSource.from_dict(source_dict)
+                    if source_data := record_dict.get("source"):
+                        if isinstance(source_data, dict):
+                            source = DatasetRecordSource.from_dict(source_data)
+                        else:
+                            source = source_data
 
                     record = DatasetRecord(
                         dataset_record_id=record_id,

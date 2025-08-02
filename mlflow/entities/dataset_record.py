@@ -5,6 +5,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from google.protobuf.json_format import MessageToDict
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.protos.evaluation_datasets_pb2 import DatasetRecord as ProtoDatasetRecord
@@ -14,9 +16,9 @@ from mlflow.utils.time import get_current_time_millis
 
 @dataclass
 class DatasetRecord(_MlflowObject):
+    dataset_id: str
+    inputs: dict[str, Any]
     dataset_record_id: Optional[str] = None
-    dataset_id: Optional[str] = None
-    inputs: Optional[dict[str, Any]] = None
     expectations: Optional[dict[str, Any]] = None
     tags: Optional[dict[str, str]] = None
     source: Optional[DatasetRecordSource] = None
@@ -36,8 +38,6 @@ class DatasetRecord(_MlflowObject):
         if self.last_update_time is None:
             self.last_update_time = get_current_time_millis()
 
-        if self.inputs is None:
-            self.inputs = {}
         if self.tags is None:
             self.tags = {}
 
@@ -48,7 +48,7 @@ class DatasetRecord(_MlflowObject):
                 else:
                     self.source_id = self.source.source_data.get("source_id")
             if not self.source_type:
-                self.source_type = self.source.source_type
+                self.source_type = self.source.source_type.value
 
     def to_proto(self) -> ProtoDatasetRecord:
         proto = ProtoDatasetRecord()
@@ -82,7 +82,7 @@ class DatasetRecord(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto: ProtoDatasetRecord) -> "DatasetRecord":
-        inputs = json.loads(proto.inputs) if proto.HasField("inputs") else None
+        inputs = json.loads(proto.inputs) if proto.HasField("inputs") else {}
         expectations = json.loads(proto.expectations) if proto.HasField("expectations") else None
         tags = json.loads(proto.tags) if proto.HasField("tags") else None
 
@@ -92,11 +92,11 @@ class DatasetRecord(_MlflowObject):
             source = DatasetRecordSource.from_dict(source_dict)
 
         return cls(
+            dataset_id=proto.dataset_id if proto.HasField("dataset_id") else "",
+            inputs=inputs,
             dataset_record_id=proto.dataset_record_id
             if proto.HasField("dataset_record_id")
             else None,
-            dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
-            inputs=inputs,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -111,20 +111,20 @@ class DatasetRecord(_MlflowObject):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "dataset_record_id": self.dataset_record_id,
-            "dataset_id": self.dataset_id,
-            "inputs": self.inputs,
-            "expectations": self.expectations,
-            "tags": self.tags,
-            "source": self.source.to_dict() if self.source else None,
-            "source_id": self.source_id,
-            "source_type": self.source_type,
-            "created_time": self.created_time,
-            "last_update_time": self.last_update_time,
-            "created_by": self.created_by,
-            "last_updated_by": self.last_updated_by,
-        }
+        d = MessageToDict(
+            self.to_proto(),
+            preserving_proto_field_name=True,
+        )
+        d["inputs"] = json.loads(d["inputs"])
+        if "expectations" in d:
+            d["expectations"] = json.loads(d["expectations"])
+        if "tags" in d:
+            d["tags"] = json.loads(d["tags"])
+        if "source" in d:
+            d["source"] = json.loads(d["source"])
+        d["created_time"] = self.created_time
+        d["last_update_time"] = self.last_update_time
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DatasetRecord":
@@ -133,9 +133,9 @@ class DatasetRecord(_MlflowObject):
             source = DatasetRecordSource.from_dict(data["source"])
 
         return cls(
+            dataset_id=data.get("dataset_id", ""),
+            inputs=data.get("inputs", {}),
             dataset_record_id=data.get("dataset_record_id"),
-            dataset_id=data.get("dataset_id"),
-            inputs=data.get("inputs"),
             expectations=data.get("expectations"),
             tags=data.get("tags"),
             source=source,

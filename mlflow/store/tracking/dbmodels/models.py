@@ -2,6 +2,7 @@ import json
 
 import sqlalchemy as sa
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -1296,14 +1297,9 @@ class SqlEvaluationDataset(Base):
     Dataset name: `String` (limit 255 characters). *Non null* in table schema.
     """
 
-    source = Column(String(255), nullable=True)
+    tags = Column(JSON, nullable=True)
     """
-    Dataset source: `String` (limit 255 characters).
-    """
-
-    source_type = Column(String(50), nullable=True)
-    """
-    Source type: `String` (limit 50 characters).
+    Tags JSON: `JSON`. Stores metadata about the dataset.
     """
 
     schema = Column(Text, nullable=True)
@@ -1369,8 +1365,7 @@ class SqlEvaluationDataset(Base):
         dataset = EvaluationDataset(
             dataset_id=self.dataset_id,
             name=self.name,
-            source=self.source,
-            source_type=self.source_type,
+            tags=self.tags,
             schema=self.schema,
             profile=self.profile,
             digest=self.digest,
@@ -1400,8 +1395,7 @@ class SqlEvaluationDataset(Base):
         return cls(
             dataset_id=dataset.dataset_id,
             name=dataset.name,
-            source=dataset.source,
-            source_type=dataset.source_type,
+            tags=dataset.tags,
             schema=dataset.schema,
             profile=dataset.profile,
             digest=dataset.digest,
@@ -1432,24 +1426,24 @@ class SqlEvaluationDatasetRecord(Base):
     Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
     """
 
-    inputs = Column(Text, nullable=False)
+    inputs = Column(JSON, nullable=False)
     """
-    Inputs JSON: `Text`. *Non null* in table schema.
-    """
-
-    expectations = Column(Text, nullable=True)
-    """
-    Expectations JSON: `Text`.
+    Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
-    tags = Column(Text, nullable=True)
+    expectations = Column(JSON, nullable=True)
     """
-    Tags JSON: `Text`.
+    Expectations JSON: `JSON`.
     """
 
-    source = Column(Text, nullable=True)
+    tags = Column(JSON, nullable=True)
     """
-    Source JSON: `Text`.
+    Tags JSON: `JSON`.
+    """
+
+    source = Column(JSON, nullable=True)
+    """
+    Source JSON: `JSON`.
     """
 
     source_id = Column(String(36), nullable=True)
@@ -1457,7 +1451,7 @@ class SqlEvaluationDatasetRecord(Base):
     Source ID for lookups: `String` (limit 36 characters).
     """
 
-    source_type = Column(Text, nullable=True)
+    source_type = Column(String(255), nullable=True)
     """
     Source type: `Text`.
     """
