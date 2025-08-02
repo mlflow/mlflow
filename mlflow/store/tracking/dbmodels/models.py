@@ -1373,7 +1373,7 @@ class SqlEvaluationDataset(Base):
             last_update_time=self.last_update_time,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            experiment_ids=[],  # Will be populated from entity associations
+            # experiment_ids will be loaded lazily when needed
         )
 
         if records is not None:

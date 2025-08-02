@@ -18,7 +18,7 @@ if Version(google.protobuf.__version__).major >= 5:
 
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65valuation_datasets.proto\x12\x1amlflow.evaluation_datasets\"\xbc\x02\n\x11\x45valuationDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12O\n\x0bsource_type\x18\x04 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x08 \x01(\x03\x12\x18\n\x10last_update_time\x18\t \x01(\x03\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\"\xc3\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12O\n\x0bsource_type\x18\x08 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\"\xd4\x01\n\x13\x44\x61tasetRecordSource\x12O\n\x0bsource_type\x18\x01 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65valuation_datasets.proto\x12\x1amlflow.evaluation_datasets\"\xe9\x01\n\x11\x45valuationDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\"\xc3\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12O\n\x0bsource_type\x18\x08 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\"\xd4\x01\n\x13\x44\x61tasetRecordSource\x12O\n\x0bsource_type\x18\x01 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,13 +27,13 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
     _globals['_EVALUATIONDATASET']._serialized_start=58
-    _globals['_EVALUATIONDATASET']._serialized_end=374
-    _globals['_DATASETRECORD']._serialized_start=377
-    _globals['_DATASETRECORD']._serialized_end=700
-    _globals['_DATASETRECORDSOURCE']._serialized_start=703
-    _globals['_DATASETRECORDSOURCE']._serialized_end=915
-    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_start=828
-    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_end=915
+    _globals['_EVALUATIONDATASET']._serialized_end=291
+    _globals['_DATASETRECORD']._serialized_start=294
+    _globals['_DATASETRECORD']._serialized_end=617
+    _globals['_DATASETRECORDSOURCE']._serialized_start=620
+    _globals['_DATASETRECORDSOURCE']._serialized_end=832
+    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_start=745
+    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_end=832
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -53,7 +53,7 @@ else:
 
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65valuation_datasets.proto\x12\x1amlflow.evaluation_datasets\"\xbc\x02\n\x11\x45valuationDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0e\n\x06source\x18\x03 \x01(\t\x12O\n\x0bsource_type\x18\x04 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x0e\n\x06\x64igest\x18\x07 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x08 \x01(\x03\x12\x18\n\x10last_update_time\x18\t \x01(\x03\x12\x12\n\ncreated_by\x18\n \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0b \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0c \x03(\t\"\xc3\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12O\n\x0bsource_type\x18\x08 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\"\xd4\x01\n\x13\x44\x61tasetRecordSource\x12O\n\x0bsource_type\x18\x01 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x65valuation_datasets.proto\x12\x1amlflow.evaluation_datasets\"\xe9\x01\n\x11\x45valuationDataset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\"\xc3\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12O\n\x0bsource_type\x18\x08 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\"\xd4\x01\n\x13\x44\x61tasetRecordSource\x12O\n\x0bsource_type\x18\x01 \x01(\x0e\x32:.mlflow.evaluation_datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
 
 
@@ -87,12 +87,12 @@ else:
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
     _EVALUATIONDATASET._serialized_start=58
-    _EVALUATIONDATASET._serialized_end=374
-    _DATASETRECORD._serialized_start=377
-    _DATASETRECORD._serialized_end=700
-    _DATASETRECORDSOURCE._serialized_start=703
-    _DATASETRECORDSOURCE._serialized_end=915
-    _DATASETRECORDSOURCE_SOURCETYPE._serialized_start=828
-    _DATASETRECORDSOURCE_SOURCETYPE._serialized_end=915
+    _EVALUATIONDATASET._serialized_end=291
+    _DATASETRECORD._serialized_start=294
+    _DATASETRECORD._serialized_end=617
+    _DATASETRECORDSOURCE._serialized_start=620
+    _DATASETRECORDSOURCE._serialized_end=832
+    _DATASETRECORDSOURCE_SOURCETYPE._serialized_start=745
+    _DATASETRECORDSOURCE_SOURCETYPE._serialized_end=832
   # @@protoc_insertion_point(module_scope)
 
