@@ -5935,17 +5935,15 @@ class MlflowClient:
         self,
         name: str,
         experiment_ids: Optional[list[str]] = None,
-        source_type: Optional[str] = None,
-        source: Optional[str] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset.
 
         Args:
             name: The name of the dataset.
-            experiment_ids: Optinoal list of experiment IDs to associate with the dataset.
-            source_type: The type of the dataset source (e.g., "TRACE", "HUMAN", "DOCUMENT").
-            source: The source identifier or description.
+            experiment_ids: Optional list of experiment IDs to associate with the dataset.
+            tags: Optional dictionary of tags to apply to the dataset.
 
         Returns:
             The created EvaluationDataset object.
@@ -5958,14 +5956,15 @@ class MlflowClient:
 
             # Create a dataset associated with experiments
             dataset = client.create_evaluation_dataset(
-                name="qa_evaluation_v1", experiment_ids=["0", "1"], source_type="HUMAN"
+                name="qa_evaluation_v1",
+                experiment_ids=["0", "1"],
+                tags={"environment": "production", "version": "1.0"},
             )
         """
         return self._tracking_client.create_evaluation_dataset(
             name=name,
             experiment_ids=experiment_ids,
-            source_type=source_type,
-            source=source,
+            tags=tags,
         )
 
     @experimental(version="3.3.0")

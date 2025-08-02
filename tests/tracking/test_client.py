@@ -2727,22 +2727,19 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     mock_store.create_evaluation_dataset.return_value = EvaluationDataset(
         dataset_id="test_dataset_id",
         name="test_dataset",
-        source_type="TRACE",
-        source="mlflow_traces",
+        tags={"environment": "production", "version": "1.0"},
         experiment_ids=["exp1", "exp2"],
     )
 
     dataset = MlflowClient().create_evaluation_dataset(
         name="qa_evaluation",
         experiment_ids=["exp1", "exp2"],
-        source_type="TRACE",
-        source="mlflow_traces",
+        tags={"environment": "production", "version": "1.0"},
     )
 
     assert dataset.dataset_id == "test_dataset_id"
     assert dataset.name == "test_dataset"
-    assert dataset.source_type == "TRACE"
-    assert dataset.source == "mlflow_traces"
+    assert dataset.tags == {"environment": "production", "version": "1.0"}
 
     # Verify the store was called with a dataset object and experiment_ids
     call_args = mock_store.create_evaluation_dataset.call_args
@@ -2751,8 +2748,7 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     experiment_ids = call_args[0][1]
 
     assert created_dataset.name == "qa_evaluation"
-    assert created_dataset.source_type == "TRACE"
-    assert created_dataset.source == "mlflow_traces"
+    assert created_dataset.tags == {"environment": "production", "version": "1.0"}
     assert experiment_ids == ["exp1", "exp2"]
 
 
@@ -2772,8 +2768,7 @@ def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
     experiment_ids = call_args[0][1]
 
     assert created_dataset.name == "test_dataset"
-    assert created_dataset.source_type is None
-    assert created_dataset.source is None
+    assert created_dataset.tags is None
     assert experiment_ids is None
 
 
@@ -2781,14 +2776,14 @@ def test_mlflow_client_get_evaluation_dataset(mock_store):
     mock_store.get_evaluation_dataset.return_value = EvaluationDataset(
         dataset_id="dataset_123",
         name="test_dataset",
-        source_type="HUMAN",
+        tags={"source": "human-annotated"},
     )
 
     dataset = MlflowClient().get_evaluation_dataset("dataset_123")
 
     assert dataset.dataset_id == "dataset_123"
     assert dataset.name == "test_dataset"
-    assert dataset.source_type == "HUMAN"
+    assert dataset.tags == {"source": "human-annotated"}
 
     mock_store.get_evaluation_dataset.assert_called_once_with("dataset_123")
 

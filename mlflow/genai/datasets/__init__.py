@@ -7,7 +7,7 @@ The API docs can be found here:
 """
 
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.entities.paged_list import PagedList
@@ -28,8 +28,7 @@ _ERROR_MSG = (
 def create_evaluation_dataset(
     name: str,
     experiment_ids: Optional[Union[str, list[str]]] = None,
-    source_type: Optional[str] = None,
-    source: Optional[str] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> EvaluationDataset:
     """
     Create an empty evaluation dataset. Use merge_records() to add data.
@@ -37,14 +36,14 @@ def create_evaluation_dataset(
     Args:
         name: Dataset name. In Databricks, this is the UC table name.
         experiment_ids: Single experiment ID (str) or list of experiment IDs.
-        source_type: Type of source (e.g., "TRACE", "HUMAN", "DOCUMENT")
-        source: Source information
+        tags: Dictionary of tags to apply to the dataset. Not available in Databricks.
 
     OSS Usage::
 
         dataset = create_evaluation_dataset(
             name="my_dataset",
             experiment_ids=["exp1", "exp2"],  # or "exp1" for single
+            tags={"environment": "production", "version": "1.0"},
         )
         dataset.merge_records(records_df)
 
@@ -73,8 +72,7 @@ def create_evaluation_dataset(
         return client.create_evaluation_dataset(
             name=name,
             experiment_ids=experiment_ids_list,
-            source_type=source_type,
-            source=source,
+            tags=tags,
         )
 
 

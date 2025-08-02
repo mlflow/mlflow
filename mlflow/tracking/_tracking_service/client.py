@@ -897,8 +897,7 @@ class TrackingServiceClient:
         self,
         name: str,
         experiment_ids: Optional[list[str]] = None,
-        source_type: Optional[str] = None,
-        source: Optional[str] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset.
@@ -906,16 +905,14 @@ class TrackingServiceClient:
         Args:
             name: Name of the evaluation dataset.
             experiment_ids: List of experiment IDs to associate with the dataset.
-            source_type: Type of the source for the dataset (e.g., "HUMAN", "TRACE").
-            source: Source identifier for the dataset.
+            tags: Dictionary of tags to apply to the dataset.
 
         Returns:
             The created EvaluationDataset object.
         """
         dataset = EvaluationDataset(
             name=name,
-            source_type=source_type,
-            source=source,
+            tags=tags,
         )
         return self.store.create_evaluation_dataset(dataset, experiment_ids)
 
