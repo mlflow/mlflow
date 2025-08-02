@@ -2,6 +2,7 @@ import json
 
 import sqlalchemy as sa
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -14,7 +15,9 @@ from sqlalchemy import (
     String,
     Text,
     UnicodeText,
+    UniqueConstraint,
 )
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
@@ -22,6 +25,9 @@ from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Dataset,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -1271,3 +1277,346 @@ class SqlLoggedModelTag(Base):
 
     def to_mlflow_entity(self) -> LoggedModelTag:
         return LoggedModelTag(key=self.tag_key, value=self.tag_value)
+
+
+class SqlEvaluationDataset(Base):
+    """
+    DB model for evaluation datasets.
+    """
+
+    __tablename__ = "evaluation_datasets"
+
+    dataset_id = Column(String(36), primary_key=True)
+    """
+    Dataset ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_datasets`` table.
+    """
+
+    name = Column(String(255), nullable=False)
+    """
+    Dataset name: `String` (limit 255 characters). *Non null* in table schema.
+    """
+
+    tags = Column(JSON, nullable=True)
+    """
+    Tags JSON: `JSON`. Stores metadata about the dataset.
+    """
+
+    schema = Column(Text, nullable=True)
+    """
+    Schema information: `Text`.
+    """
+
+    profile = Column(Text, nullable=True)
+    """
+    Profile information: `Text`.
+    """
+
+    digest = Column(String(64), nullable=True)
+    """
+    Dataset digest: `String` (limit 64 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    records = relationship(
+        "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
+        Index("index_evaluation_datasets_name", "name"),
+        Index("index_evaluation_datasets_created_time", "created_time"),
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.EvaluationDataset`.
+        """
+
+        records = None
+        # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
+        # or not as calling .records on the EvaluationDataset object will trigger
+        # lazy-loading of the records.
+        state = inspect(self)
+        if "records" in state.dict:
+            records = [record.to_mlflow_entity() for record in self.records]
+
+        dataset = EvaluationDataset(
+            dataset_id=self.dataset_id,
+            name=self.name,
+            tags=self.tags,
+            schema=self.schema,
+            profile=self.profile,
+            digest=self.digest,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            experiment_ids=[],  # Will be populated from entity associations
+        )
+
+        if records is not None:
+            dataset._records = records
+
+        return dataset
+
+    @classmethod
+    def from_mlflow_entity(cls, dataset: EvaluationDataset):
+        """
+        Create SqlEvaluationDataset from EvaluationDataset entity.
+
+        Args:
+            dataset: EvaluationDataset entity
+
+        Returns:
+            SqlEvaluationDataset instance
+        """
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            tags=dataset.tags,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time or get_current_time_millis(),
+            last_update_time=dataset.last_update_time or get_current_time_millis(),
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+        )
+
+
+class SqlEvaluationDatasetRecord(Base):
+    """
+    DB model for evaluation dataset records.
+    """
+
+    __tablename__ = "evaluation_dataset_records"
+
+    dataset_record_id = Column(String(36), primary_key=True)
+    """
+    Dataset record ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_dataset_records`` table.
+    """
+
+    dataset_id = Column(
+        String(36), ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    """
+
+    inputs = Column(JSON, nullable=False)
+    """
+    Inputs JSON: `JSON`. *Non null* in table schema.
+    """
+
+    expectations = Column(JSON, nullable=True)
+    """
+    Expectations JSON: `JSON`.
+    """
+
+    tags = Column(JSON, nullable=True)
+    """
+    Tags JSON: `JSON`.
+    """
+
+    source = Column(JSON, nullable=True)
+    """
+    Source JSON: `JSON`.
+    """
+
+    source_id = Column(String(36), nullable=True)
+    """
+    Source ID for lookups: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(255), nullable=True)
+    """
+    Source type: `Text`.
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    input_hash = Column(String(64), nullable=False)
+    """
+    Hash of inputs for deduplication: `String` (limit 64 characters).
+    """
+
+    dataset = relationship("SqlEvaluationDataset", back_populates="records")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
+        Index("index_evaluation_dataset_records_dataset_id", "dataset_id"),
+        UniqueConstraint("dataset_id", "input_hash", name="unique_dataset_input"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_records_dataset_id",
+            ondelete="CASCADE",
+        ),
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.DatasetRecord`.
+        """
+
+        inputs = json.loads(self.inputs) if self.inputs else {}
+        expectations = json.loads(self.expectations) if self.expectations else None
+        tags = json.loads(self.tags) if self.tags else None
+
+        source = None
+        if self.source:
+            source_dict = json.loads(self.source)
+            source = DatasetRecordSource.from_dict(source_dict)
+
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=inputs,
+            expectations=expectations,
+            tags=tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
+        """
+        Create SqlEvaluationDatasetRecord from DatasetRecord entity.
+
+        Args:
+            record: DatasetRecord entity
+            input_hash: SHA256 hash of inputs for deduplication
+
+        Returns:
+            SqlEvaluationDatasetRecord instance
+        """
+        inputs_json = json.dumps(record.inputs, sort_keys=True)
+        expectations_json = (
+            json.dumps(record.expectations, sort_keys=True) if record.expectations else None
+        )
+        tags_json = json.dumps(record.tags, sort_keys=True) if record.tags else None
+
+        source_json = None
+        if record.source:
+            source_json = json.dumps(record.source.to_dict(), sort_keys=True)
+
+        return cls(
+            dataset_record_id=record.dataset_record_id,
+            dataset_id=record.dataset_id,
+            inputs=inputs_json,
+            expectations=expectations_json,
+            tags=tags_json,
+            source=source_json,
+            source_id=record.source_id,
+            source_type=record.source.source_type if record.source else None,
+            created_time=record.created_time or get_current_time_millis(),
+            last_update_time=record.last_update_time or get_current_time_millis(),
+            created_by=record.created_by,
+            last_updated_by=record.last_updated_by,
+            input_hash=input_hash,
+        )
+
+
+class SqlEntityAssociation(Base):
+    """
+    DB model for entity associations.
+    """
+
+    __tablename__ = "entity_associations"
+
+    association_id = Column(String(36), nullable=False)
+    """
+    Association ID: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(36), nullable=False)
+    """
+    Source entity type: `String` (limit 36 characters).
+    """
+
+    source_id = Column(String(36), nullable=False)
+    """
+    Source entity ID: `String` (limit 36 characters).
+    """
+
+    destination_type = Column(String(36), nullable=False)
+    """
+    Destination entity type: `String` (limit 36 characters).
+    """
+
+    destination_id = Column(String(36), nullable=False)
+    """
+    Destination entity ID: `String` (limit 36 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_type",
+            "source_id",
+            "destination_type",
+            "destination_id",
+            name="entity_associations_pk",
+        ),
+        Index("index_entity_associations_association_id", "association_id"),
+        Index(
+            "index_entity_associations_reverse_lookup",
+            "destination_type",
+            "destination_id",
+            "source_type",
+            "source_id",
+        ),
+    )
