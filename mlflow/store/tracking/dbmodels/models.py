@@ -1366,8 +1366,7 @@ class SqlEvaluationDataset(Base):
         dataset = EvaluationDataset(
             dataset_id=self.dataset_id,
             name=self.name,
-            source=self.source,
-            source_type=self.source_type,
+            tags=self.tags,
             schema=self.schema,
             profile=self.profile,
             digest=self.digest,
@@ -1397,8 +1396,7 @@ class SqlEvaluationDataset(Base):
         return cls(
             dataset_id=dataset.dataset_id,
             name=dataset.name,
-            source=dataset.source,
-            source_type=dataset.source_type,
+            tags=dataset.tags,
             schema=dataset.schema,
             profile=dataset.profile,
             digest=dataset.digest,
