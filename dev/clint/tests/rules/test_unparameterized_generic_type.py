@@ -1,12 +1,11 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.index import SymbolIndex
 from clint.linter import Location, lint_file
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 
 
-def test_unparameterized_generic_type(index: SymbolIndex, tmp_path: Path) -> None:
+def test_unparameterized_generic_type(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -29,7 +28,7 @@ def good_dict() -> dict[str, int]:
     )
 
     config = Config(select={UnparameterizedGenericType.name})
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, UnparameterizedGenericType) for v in violations)
     assert violations[0].loc == Location(4, 18)  # bad_list return type
