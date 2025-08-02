@@ -34,7 +34,7 @@ class EvaluationDataset(_MlflowObject):
     last_update_time: Optional[int] = None
     created_by: Optional[str] = None
     last_updated_by: Optional[str] = None
-    experiment_ids: list[str] = field(default_factory=list)
+    _experiment_ids: Optional[list[str]] = field(default=None, init=False, repr=False)
     _records: Optional[list[DatasetRecord]] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
@@ -42,6 +42,37 @@ class EvaluationDataset(_MlflowObject):
             self.created_time = get_current_time_millis()
         if self.last_update_time is None:
             self.last_update_time = get_current_time_millis()
+
+    @property
+    def experiment_ids(self) -> list[str]:
+        """
+        Get associated experiment IDs, loading them if necessary.
+
+        This property implements lazy loading - experiment IDs are only fetched from the backend
+        when accessed for the first time.
+        """
+        if self._experiment_ids is None:
+            self._load_experiment_ids()
+        return self._experiment_ids or []
+
+    @experiment_ids.setter
+    def experiment_ids(self, value: list[str]):
+        """Set experiment IDs directly."""
+        self._experiment_ids = value if value else []
+
+    def _load_experiment_ids(self):
+        """Load experiment IDs from the backend."""
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        # TODO: Remove this hasattr check once all tracking stores
+        #  implement the evaluation dataset APIs
+        if hasattr(tracking_store, "get_evaluation_dataset_experiment_ids"):
+            self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(
+                self.dataset_id
+            )
+        else:
+            self._experiment_ids = []
 
     @property
     def records(self) -> list[DatasetRecord]:
@@ -198,15 +229,15 @@ class EvaluationDataset(_MlflowObject):
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
             proto.last_updated_by = self.last_updated_by
-
-        proto.experiment_ids.extend(self.experiment_ids)
+        if self._experiment_ids is not None:
+            proto.experiment_ids.extend(self._experiment_ids)
 
         return proto
 
     @classmethod
     def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
-        return cls(
+        dataset = cls(
             dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
             name=proto.name if proto.HasField("name") else None,
             schema=proto.schema if proto.HasField("schema") else None,
@@ -216,8 +247,10 @@ class EvaluationDataset(_MlflowObject):
             last_update_time=proto.last_update_time if proto.HasField("last_update_time") else None,
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
-            experiment_ids=list(proto.experiment_ids),
         )
+        if proto.experiment_ids:
+            dataset._experiment_ids = list(proto.experiment_ids)
+        return dataset
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
@@ -235,8 +268,7 @@ class EvaluationDataset(_MlflowObject):
             "experiment_ids": self.experiment_ids,
         }
 
-        if self._records is not None:
-            result["records"] = [record.to_dict() for record in self._records]
+        result["records"] = [record.to_dict() for record in self.records]
 
         return result
 
@@ -254,8 +286,9 @@ class EvaluationDataset(_MlflowObject):
             last_update_time=data.get("last_update_time"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
-            experiment_ids=data.get("experiment_ids", []),
         )
+        if experiment_ids := data.get("experiment_ids"):
+            dataset._experiment_ids = experiment_ids
 
         if records_data := data.get("records"):
             dataset._records = [
