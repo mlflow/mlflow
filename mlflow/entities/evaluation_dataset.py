@@ -82,15 +82,11 @@ class EvaluationDataset(_MlflowObject):
         Returns:
             Self for method chaining
         """
+        import pandas as pd
+
         from mlflow.entities.trace import Trace
 
-        if hasattr(records, "to_dict") and hasattr(records, "columns"):
-            import pandas as pd
-
-            if not isinstance(records, pd.DataFrame):
-                raise MlflowException.invalid_parameter_value(
-                    "Records appears to be DataFrame-like but is not a pandas DataFrame"
-                )
+        if isinstance(records, pd.DataFrame):
             record_dicts = records.to_dict("records")
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = []
