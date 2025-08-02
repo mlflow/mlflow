@@ -2721,10 +2721,7 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            dataset = sql_dataset.to_mlflow_entity()
-            # Don't fetch experiment_ids - they will be loaded lazily when needed
-
-            return dataset
+            return sql_dataset.to_mlflow_entity()
 
     def delete_evaluation_dataset(self, dataset_id: str) -> None:
         """
@@ -2826,7 +2823,7 @@ class SqlAlchemyStore(AbstractStore):
             datasets = []
             for sql_dataset in sql_datasets:
                 dataset = sql_dataset.to_mlflow_entity()
-                # Don't fetch experiment_ids - they will be loaded lazily when needed
+                # Note that experiment_ids will be loaded lazily when the parameter is accessed
                 datasets.append(dataset)
 
             return PagedList(datasets, next_page_token)
@@ -2918,7 +2915,6 @@ class SqlAlchemyStore(AbstractStore):
                         f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}"
                         f"{str(uuid.uuid4()).replace('-', '')}"
                     )
-                    # Handle source field - convert dict to DatasetRecordSource if needed
                     source = None
                     if source_data := record_dict.get("source"):
                         if isinstance(source_data, dict):
@@ -2973,7 +2969,6 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            # First check if the dataset exists
             dataset_exists = (
                 session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
@@ -2987,7 +2982,6 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Get experiment associations
             associations = (
                 session.query(SqlEntityAssociation)
                 .filter(

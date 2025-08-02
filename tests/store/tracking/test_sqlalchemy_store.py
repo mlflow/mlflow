@@ -6381,28 +6381,25 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
 
 def test_evaluation_dataset_get_experiment_ids(store):
-    """Test the new get_evaluation_dataset_experiment_ids method."""
     dataset = EvaluationDataset(name="test_get_experiment_ids")
     experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
     created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
 
-    # Test getting experiment IDs directly
     fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
     assert set(fetched_experiment_ids) == set(experiment_ids)
 
-    # Test with dataset that has no experiment associations
     dataset2 = EvaluationDataset(name="test_no_experiments")
     created_dataset2 = store.create_evaluation_dataset(dataset2, experiment_ids=[])
-    fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(created_dataset2.dataset_id)
+    fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(
+        created_dataset2.dataset_id
+    )
     assert fetched_experiment_ids2 == []
 
-    # Test with non-existent dataset
     with pytest.raises(
         MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
     ):
         store.get_evaluation_dataset_experiment_ids("d-nonexistent")
 
-    # Test with empty dataset_id
     with pytest.raises(MlflowException, match="dataset_id must be provided"):
         store.get_evaluation_dataset_experiment_ids("")
 

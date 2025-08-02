@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 from mlflow.utils.time import get_current_time_millis
@@ -295,12 +295,12 @@ class EvaluationDataset(_MlflowObject):
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
         )
-        if experiment_ids := data.get("experiment_ids"):
-            dataset._experiment_ids = experiment_ids
+        if "experiment_ids" in data:
+            dataset._experiment_ids = data["experiment_ids"]
 
-        if records_data := data.get("records"):
+        if "records" in data:
             dataset._records = [
-                DatasetRecord.from_dict(record_data) for record_data in records_data
+                DatasetRecord.from_dict(record_data) for record_data in data["records"]
             ]
 
         return dataset

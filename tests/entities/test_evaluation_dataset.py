@@ -1,6 +1,5 @@
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.evaluation_dataset import EvaluationDataset
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 
 
 def test_evaluation_dataset_creation():
@@ -168,6 +167,9 @@ def test_evaluation_dataset_to_from_dict():
 
 def test_evaluation_dataset_to_from_dict_minimal():
     dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    # Set _experiment_ids to avoid triggering lazy loading
+    dataset._experiment_ids = []
+    dataset._records = []
 
     data = dataset.to_dict()
     dataset2 = EvaluationDataset.from_dict(data)
@@ -180,8 +182,9 @@ def test_evaluation_dataset_to_from_dict_minimal():
     assert dataset2.digest is None
     assert dataset2.created_by is None
     assert dataset2.last_updated_by is None
-    assert dataset2.experiment_ids == []
-    assert dataset2.records == []
+    # These were set as empty lists in the original dataset
+    assert dataset2._experiment_ids == []
+    assert dataset2._records == []
 
 
 def test_evaluation_dataset_has_records():
@@ -218,6 +221,10 @@ def test_evaluation_dataset_complex_tags():
     proto = dataset.to_proto()
     dataset2 = EvaluationDataset.from_proto(proto)
     assert dataset2.tags == complex_tags
+
+    # Set _experiment_ids and _records to avoid triggering lazy loading
+    dataset._experiment_ids = []
+    dataset._records = []
 
     data = dataset.to_dict()
     dataset3 = EvaluationDataset.from_dict(data)
