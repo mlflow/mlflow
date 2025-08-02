@@ -41,7 +41,6 @@ def test_evaluation_dataset_creation():
         digest="abc123",
         created_by="user1",
         last_updated_by="user2",
-        experiment_ids=["exp1", "exp2"],
     )
 
     assert dataset.dataset_id == "dataset123"
@@ -53,9 +52,12 @@ def test_evaluation_dataset_creation():
     assert dataset.digest == "abc123"
     assert dataset.created_by == "user1"
     assert dataset.last_updated_by == "user2"
-    assert dataset.experiment_ids == ["exp1", "exp2"]
     assert dataset.created_time is not None
     assert dataset.last_update_time is not None
+
+    # Set experiment_ids after creation to test setter
+    dataset.experiment_ids = ["exp1", "exp2"]
+    assert dataset.experiment_ids == ["exp1", "exp2"]
 
 
 def test_evaluation_dataset_auto_timestamps():
@@ -65,6 +67,97 @@ def test_evaluation_dataset_auto_timestamps():
     assert dataset.last_update_time is not None
     assert dataset.created_time > 0
     assert dataset.last_update_time > 0
+
+
+def test_evaluation_dataset_experiment_ids_lazy_loading():
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+
+    assert dataset._experiment_ids is None
+
+    mock_store = mock.Mock()
+    mock_experiment_ids = ["exp1", "exp2", "exp3"]
+    mock_store.get_evaluation_dataset_experiment_ids.return_value = mock_experiment_ids
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        experiment_ids = dataset.experiment_ids
+        assert experiment_ids == mock_experiment_ids
+        mock_store.get_evaluation_dataset_experiment_ids.assert_called_once_with("dataset123")
+
+        experiment_ids2 = dataset.experiment_ids
+        assert experiment_ids2 == mock_experiment_ids
+        assert mock_store.get_evaluation_dataset_experiment_ids.call_count == 1
+
+
+def test_evaluation_dataset_experiment_ids_setter():
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+
+    new_experiment_ids = ["exp1", "exp2"]
+    dataset.experiment_ids = new_experiment_ids
+
+    assert dataset._experiment_ids == new_experiment_ids
+
+    assert dataset.experiment_ids == new_experiment_ids
+
+    dataset.experiment_ids = []
+    assert dataset._experiment_ids == []
+    assert dataset.experiment_ids == []
+
+    dataset.experiment_ids = None
+    assert dataset._experiment_ids == []
+    assert dataset.experiment_ids == []
+
+
+def test_evaluation_dataset_proto_with_unloaded_experiment_ids():
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+
+    assert dataset._experiment_ids is None
+
+    proto = dataset.to_proto()
+    assert len(proto.experiment_ids) == 0
+    assert dataset._experiment_ids is None
+
+
+def test_evaluation_dataset_to_dict_triggers_lazy_loading():
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+
+    assert dataset._experiment_ids is None
+    assert dataset._records is None
+
+    mock_store = mock.Mock()
+    mock_experiment_ids = ["exp1", "exp2"]
+    mock_records = [
+        DatasetRecord(
+            dataset_id="dataset123",
+            inputs={"question": "What is MLflow?"},
+            expectations={"answer": "MLflow is..."},
+        )
+    ]
+    mock_store.get_evaluation_dataset_experiment_ids.return_value = mock_experiment_ids
+    mock_store._load_dataset_records.return_value = mock_records
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        data = dataset.to_dict()
+
+        assert data["experiment_ids"] == mock_experiment_ids
+        assert len(data["records"]) == 1
+        assert data["records"][0]["inputs"]["question"] == "What is MLflow?"
+
+        mock_store.get_evaluation_dataset_experiment_ids.assert_called_once_with("dataset123")
+        mock_store._load_dataset_records.assert_called_once_with("dataset123")
+
+
+def test_evaluation_dataset_to_dict_no_backend_support():
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+
+    mock_store = mock.Mock()
+    del mock_store.get_evaluation_dataset_experiment_ids
+    del mock_store._load_dataset_records
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        data = dataset.to_dict()
+
+        assert data["experiment_ids"] == []
+        assert data["records"] == []
 
 
 def test_evaluation_dataset_lazy_loading():
@@ -300,8 +393,8 @@ def test_evaluation_dataset_to_from_proto():
         last_update_time=987654321,
         created_by="user1",
         last_updated_by="user2",
-        experiment_ids=["exp1", "exp2"],
     )
+    dataset.experiment_ids = ["exp1", "exp2"]
 
     proto = dataset.to_proto()
     assert isinstance(proto, ProtoEvaluationDataset)
@@ -330,7 +423,8 @@ def test_evaluation_dataset_to_from_proto():
     assert dataset2.last_update_time == dataset.last_update_time
     assert dataset2.created_by == dataset.created_by
     assert dataset2.last_updated_by == dataset.last_updated_by
-    assert dataset2.experiment_ids == dataset.experiment_ids
+    assert dataset2._experiment_ids == ["exp1", "exp2"]
+    assert dataset2.experiment_ids == ["exp1", "exp2"]
 
 
 def test_evaluation_dataset_to_from_dict():
@@ -339,8 +433,8 @@ def test_evaluation_dataset_to_from_dict():
         name="test_dataset",
         source="manual",
         source_type="HUMAN",
-        experiment_ids=["exp1", "exp2"],
     )
+    dataset.experiment_ids = ["exp1", "exp2"]
 
     dataset._records = [
         DatasetRecord(dataset_id="dataset123", inputs={"question": "What is MLflow?"})
@@ -360,7 +454,8 @@ def test_evaluation_dataset_to_from_dict():
     assert dataset2.name == dataset.name
     assert dataset2.source == dataset.source
     assert dataset2.source_type == dataset.source_type
-    assert dataset2.experiment_ids == dataset.experiment_ids
+    assert dataset2._experiment_ids == ["exp1", "exp2"]
+    assert dataset2.experiment_ids == ["exp1", "exp2"]
     assert len(dataset2._records) == 1
     assert dataset2._records[0].inputs["question"] == "What is MLflow?"
 
