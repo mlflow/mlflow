@@ -33,12 +33,11 @@ eval_data["label"] = y_test
 with mlflow.start_run():
     # Log model
     signature = infer_signature(X_test, model.predict(X_test))
-    mlflow.sklearn.log_model(model, name="model", signature=signature)
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Evaluate with SHAP explanations enabled
     result = mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         eval_data,
         targets="label",
         model_type="classifier",

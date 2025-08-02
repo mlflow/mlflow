@@ -478,15 +478,12 @@ def load_model(model_uri, dst_path=None):
 
             # Log model
             input_example = input_sample.head()
-            mlflow.pmdarima.log_model(
+            model_info = mlflow.pmdarima.log_model(
                 model, name=ARTIFACT_PATH, signature=signature, input_example=input_example
             )
 
-            # Get the model URI for loading
-            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-
         # Load the model
-        loaded_model = mlflow.pmdarima.load_model(model_uri)
+        loaded_model = mlflow.pmdarima.load_model(model_info.model_uri)
         # Forecast for the next 60 days
         forecast = loaded_model.predict(n_periods=60)
         print(f"forecast: {forecast}")
