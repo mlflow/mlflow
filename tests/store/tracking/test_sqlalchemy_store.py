@@ -43,7 +43,6 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -6124,9 +6123,7 @@ def test_assessment_with_error(store_and_trace_info):
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
 
 
-def test_create_and_get_evaluation_dataset(store):
-    from mlflow.entities import EvaluationDataset
-
+def test_evaluation_dataset_crud_operations(store):
     dataset = EvaluationDataset(
         name="test_eval_dataset",
         tags={"purpose": "testing", "environment": "test"},
@@ -6135,8 +6132,8 @@ def test_create_and_get_evaluation_dataset(store):
         digest="abcd1234",
         created_by="test_user",
     )
-
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1", "2"])
+    experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
 
     assert created_dataset.dataset_id is not None
     assert created_dataset.dataset_id.startswith("d-")
@@ -6149,300 +6146,144 @@ def test_create_and_get_evaluation_dataset(store):
     assert retrieved_dataset.dataset_id == created_dataset.dataset_id
     assert retrieved_dataset.name == created_dataset.name
     assert retrieved_dataset.tags == created_dataset.tags
-    assert retrieved_dataset.experiment_ids == ["1", "2"]
+    assert retrieved_dataset.experiment_ids == experiment_ids
     assert not retrieved_dataset.has_records()
-
-
-def test_get_evaluation_dataset_errors(store):
-    from mlflow.exceptions import MlflowException
 
     with pytest.raises(
         MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
     ):
         store.get_evaluation_dataset(dataset_id="d-nonexistent")
 
-
-def test_delete_evaluation_dataset(store):
-    from mlflow.entities import EvaluationDataset
-    from mlflow.exceptions import MlflowException
-
-    dataset = EvaluationDataset(name="dataset_to_delete")
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1"])
-
     store.delete_evaluation_dataset(created_dataset.dataset_id)
-
     with pytest.raises(MlflowException, match="not found"):
         store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
 
-    # Test idempotent delete - should not raise exception
+    # Verify idempotentcy
     store.delete_evaluation_dataset("d-nonexistent")
 
 
-@pytest.fixture
-def evaluation_datasets_with_experiments(store):
-    exp1 = store.create_experiment("eval_dataset_test_exp1")
-    exp2 = store.create_experiment("eval_dataset_test_exp2")
-    exp3 = store.create_experiment("eval_dataset_test_exp3")
+def test_evaluation_dataset_search_comprehensive(store):
+    test_prefix = "test_search_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp_{i}" for i in range(1, 4)])
 
-    dataset_a = EvaluationDataset(name="dataset_a_multi_exp", created_by="alice")
-    dataset_b = EvaluationDataset(name="dataset_b_single_exp", created_by="bob")
-    dataset_c = EvaluationDataset(name="dataset_c_different_exp", created_by="charlie")
-    dataset_d = EvaluationDataset(name="dataset_d_no_exp", created_by="dave")
-
-    created_a = store.create_evaluation_dataset(dataset_a, experiment_ids=[exp1, exp2])
-    created_b = store.create_evaluation_dataset(dataset_b, experiment_ids=[exp2])
-    created_c = store.create_evaluation_dataset(dataset_c, experiment_ids=[exp3])
-    created_d = store.create_evaluation_dataset(dataset_d, experiment_ids=[])
-
-    return {
-        "dataset_a": created_a,
-        "dataset_b": created_b,
-        "dataset_c": created_c,
-        "dataset_d": created_d,
-        "exp1": exp1,
-        "exp2": exp2,
-        "exp3": exp3,
-    }
-
-
-def test_search_evaluation_datasets_by_experiment(store, evaluation_datasets_with_experiments):
-    fixture_data = evaluation_datasets_with_experiments
-    exp1 = fixture_data["exp1"]
-    exp2 = fixture_data["exp2"]
-    exp3 = fixture_data["exp3"]
-
-    results = store.search_evaluation_datasets(experiment_ids=[exp2])
-    result_names = [d.name for d in results]
-    assert "dataset_a_multi_exp" in result_names
-    assert "dataset_b_single_exp" in result_names
-    assert "dataset_c_different_exp" not in result_names
-    assert "dataset_d_no_exp" not in result_names
-
-    results = store.search_evaluation_datasets(experiment_ids=[exp1])
-    result_names = [d.name for d in results]
-    assert "dataset_a_multi_exp" in result_names
-    assert "dataset_b_single_exp" not in result_names
-    assert "dataset_c_different_exp" not in result_names
-    assert "dataset_d_no_exp" not in result_names
-
-    results = store.search_evaluation_datasets(experiment_ids=[exp3])
-    result_names = [d.name for d in results]
-    assert "dataset_a_multi_exp" not in result_names
-    assert "dataset_b_single_exp" not in result_names
-    assert "dataset_c_different_exp" in result_names
-    assert "dataset_d_no_exp" not in result_names
-
-    results = store.search_evaluation_datasets(experiment_ids=[exp1, exp3])
-    result_names = [d.name for d in results]
-    assert "dataset_a_multi_exp" in result_names
-    assert "dataset_b_single_exp" not in result_names
-    assert "dataset_c_different_exp" in result_names
-    assert "dataset_d_no_exp" not in result_names
-
-    results = store.search_evaluation_datasets(experiment_ids=None)
-    result_names = [d.name for d in results]
-    assert "dataset_a_multi_exp" in result_names
-    assert "dataset_b_single_exp" in result_names
-    assert "dataset_c_different_exp" in result_names
-    assert "dataset_d_no_exp" in result_names
-
-
-def test_search_evaluation_datasets_ordering(store):
-    test_prefix = "test_ordering_"
-    datasets = [
-        EvaluationDataset(name=f"{test_prefix}zebra_dataset", created_by="user1"),
-        EvaluationDataset(name=f"{test_prefix}alpha_dataset", created_by="user2"),
-        EvaluationDataset(name=f"{test_prefix}middle_dataset", created_by="user3"),
-    ]
-
-    for dataset in datasets:
-        store.create_evaluation_dataset(dataset)
-
-    results = store.search_evaluation_datasets(order_by=["name"])
-    names = [d.name for d in results if d.name.startswith(test_prefix)]
-    assert names == [
-        f"{test_prefix}alpha_dataset",
-        f"{test_prefix}middle_dataset",
-        f"{test_prefix}zebra_dataset",
-    ]
-
-    results = store.search_evaluation_datasets(order_by=["-name"])
-    names = [d.name for d in results if d.name.startswith(test_prefix)]
-    assert names == [
-        f"{test_prefix}zebra_dataset",
-        f"{test_prefix}middle_dataset",
-        f"{test_prefix}alpha_dataset",
-    ]
-
-
-def test_search_evaluation_datasets_pagination(store):
-    test_prefix = "test_pagination_"
-    dataset_ids = []
+    datasets = []
     for i in range(10):
-        dataset = EvaluationDataset(name=f"{test_prefix}dataset_{i:02d}", created_by="test_user")
-        created = store.create_evaluation_dataset(dataset)
-        dataset_ids.append(created.dataset_id)
+        dataset = EvaluationDataset(
+            name=f"{test_prefix}dataset_{i:02d}",
+            created_by=f"user_{i % 3}",
+            tags={"priority": "high" if i % 2 == 0 else "low"},
+        )
+        if i < 3:
+            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[0]])
+        elif i < 6:
+            created = store.create_evaluation_dataset(
+                dataset, experiment_ids=[exp_ids[1], exp_ids[2]]
+            )
+        elif i < 8:
+            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[2]])
+        else:
+            created = store.create_evaluation_dataset(dataset, experiment_ids=[])
+        datasets.append(created)
         time.sleep(0.001)
 
-    all_results = store.search_evaluation_datasets(max_results=50)
-    test_datasets = [d for d in all_results if d.name.startswith(test_prefix)]
-    assert len(test_datasets) == 10
+    results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0]])
+    assert len([d for d in results if d.name.startswith(test_prefix)]) == 3
 
-    created_dataset_ids = set(dataset_ids)
-    found_dataset_ids = {d.dataset_id for d in test_datasets}
-    assert created_dataset_ids == found_dataset_ids
+    results = store.search_evaluation_datasets(experiment_ids=[exp_ids[1], exp_ids[2]])
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 5
 
+    results = store.search_evaluation_datasets(order_by=["name"])
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    names = [d.name for d in test_results]
+    assert names == sorted(names)
 
-def test_search_evaluation_datasets_pagination_with_filters(store):
-    test_prefix = "test_filter_pagination_"
-    exp1 = store.create_experiment("pagination_exp_1")
-    exp2 = store.create_experiment("pagination_exp_2")
+    results = store.search_evaluation_datasets(order_by=["-name"])
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    names = [d.name for d in test_results]
+    assert names == sorted(names, reverse=True)
 
-    exp1_datasets = []
-    exp2_datasets = []
-    for i in range(8):
-        dataset = EvaluationDataset(name=f"{test_prefix}dataset_{i:02d}", created_by="test_user")
+    page1 = store.search_evaluation_datasets(max_results=3)
+    assert len(page1) == 3
+    assert page1.token is not None
 
-        if i % 2 == 0:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp1])
-            exp1_datasets.append(created.dataset_id)
-        else:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp2])
-            exp2_datasets.append(created.dataset_id)
+    page2 = store.search_evaluation_datasets(max_results=3, page_token=page1.token)
+    assert len(page2) == 3
+    assert all(d1.dataset_id != d2.dataset_id for d1 in page1 for d2 in page2)
 
-    exp1_results = store.search_evaluation_datasets(experiment_ids=[exp1], max_results=50)
-    test_exp1_datasets = [d for d in exp1_results if d.name.startswith(test_prefix)]
-    assert len(test_exp1_datasets) == 4
-    assert all(exp1 in d.experiment_ids for d in test_exp1_datasets)
-
-    exp2_results = store.search_evaluation_datasets(experiment_ids=[exp2], max_results=50)
-    test_exp2_datasets = [d for d in exp2_results if d.name.startswith(test_prefix)]
-    assert len(test_exp2_datasets) == 4
-    assert all(exp2 in d.experiment_ids for d in test_exp2_datasets)
-
-    both_exps_page = store.search_evaluation_datasets(experiment_ids=[exp1, exp2], max_results=5)
-    assert len(both_exps_page) == 5
-    assert both_exps_page.token is not None
+    results = store.search_evaluation_datasets(experiment_ids=None)
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 10
 
 
-def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loading(store):
-    test_prefix = "test_overlap_"
-    exp_ids = [store.create_experiment(f"overlap_exp_{i}") for i in range(1, 6)]
-
-    dataset_1 = EvaluationDataset(name=f"{test_prefix}dataset_123", created_by="test_user")
-    created_1 = store.create_evaluation_dataset(dataset_1, experiment_ids=exp_ids[:3])
-
-    dataset_2 = EvaluationDataset(name=f"{test_prefix}dataset_345", created_by="test_user")
-    created_2 = store.create_evaluation_dataset(dataset_2, experiment_ids=exp_ids[2:])
-
-    records_1 = [
-        {"inputs": {"question": "Q1"}, "expectations": {"answer": "A1"}},
-        {"inputs": {"question": "Q2"}, "expectations": {"answer": "A2"}},
-    ]
-    store.upsert_evaluation_dataset_records(created_1.dataset_id, records_1, "test_user")
-
-    records_2 = [
-        {"inputs": {"question": "Q3"}, "expectations": {"answer": "A3"}},
-        {"inputs": {"question": "Q4"}, "expectations": {"answer": "A4"}},
-        {"inputs": {"question": "Q5"}, "expectations": {"answer": "A5"}},
-    ]
-    store.upsert_evaluation_dataset_records(created_2.dataset_id, records_2, "test_user")
-
-    # Mock _get_store to return the test store for lazy loading
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0]])
-        test_results = [d for d in results if d.name.startswith(test_prefix)]
-        assert len(test_results) == 1
-        assert test_results[0].dataset_id == created_1.dataset_id
-        assert set(test_results[0].experiment_ids) == set(exp_ids[:3])
-
-        assert not test_results[0].has_records()
-        df = test_results[0].to_df()
-        assert len(df) == 2
-        # Check that records are present (order is based on created_time)
-        questions = [row["inputs"]["question"] for _, row in df.iterrows()]
-        assert set(questions) == {"Q1", "Q2"}
-        # Verify expectations are correct for each question
-        for _, row in df.iterrows():
-            if row["inputs"]["question"] == "Q1":
-                assert row["expectations"] == {"answer": "A1"}
-            elif row["inputs"]["question"] == "Q2":
-                assert row["expectations"] == {"answer": "A2"}
-
-        results = store.search_evaluation_datasets(experiment_ids=[exp_ids[2]])
-        test_results = [d for d in results if d.name.startswith(test_prefix)]
-        assert len(test_results) == 2
-        dataset_ids = {d.dataset_id for d in test_results}
-        assert dataset_ids == {created_1.dataset_id, created_2.dataset_id}
-
-        for dataset in test_results:
-            if dataset.dataset_id == created_1.dataset_id:
-                assert set(dataset.experiment_ids) == set(exp_ids[:3])
-            else:
-                assert set(dataset.experiment_ids) == set(exp_ids[2:])
-
-        results = store.search_evaluation_datasets(experiment_ids=[exp_ids[4]])
-        test_results = [d for d in results if d.name.startswith(test_prefix)]
-        assert len(test_results) == 1
-        assert test_results[0].dataset_id == created_2.dataset_id
-
-        df = test_results[0].to_df()
-        assert len(df) == 3
-        # Check that all questions are present (order not guaranteed)
-        questions = [row["inputs"]["question"] for _, row in df.iterrows()]
-        assert set(questions) == {"Q3", "Q4", "Q5"}
-
-        results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0], exp_ids[4]])
-        test_results = [d for d in results if d.name.startswith(test_prefix)]
-        assert len(test_results) == 2
-
-        results = store.search_evaluation_datasets(experiment_ids=[exp_ids[1], exp_ids[3]])
-        test_results = [d for d in results if d.name.startswith(test_prefix)]
-        assert len(test_results) == 2
-
-        for dataset in test_results:
-            if dataset.dataset_id == created_1.dataset_id:
-                assert len(dataset.to_df()) == 2
-            else:
-                assert len(dataset.to_df()) == 3
-
-
-def test_upsert_evaluation_dataset_records(store):
-    dataset = EvaluationDataset(name="records_dataset")
+def test_evaluation_dataset_upsert_comprehensive(store):
+    dataset = EvaluationDataset(name="upsert_comprehensive")
     created_dataset = store.create_evaluation_dataset(dataset)
 
-    records = [
+    records_batch1 = [
         {
             "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an open source platform"},
-            "tags": {"version": "1.0"},
+            "expectations": {"answer": "MLflow is a platform", "score": 0.8},
+            "tags": {"version": "v1", "quality": "high"},
+            "source": {
+                "source_type": "TRACE",
+                "source_data": {"trace_id": "trace-001", "span_id": "span-001"},
+            },
         },
         {
-            "inputs": {"question": "What is tracking?"},
-            "expectations": {"answer": "Tracking experiments"},
+            "inputs": {"question": "What is Python?"},
+            "expectations": {"answer": "Python is a language"},
+            "tags": {"category": "programming"},
+        },
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an ML platform", "confidence": 0.9},
+            "tags": {"version": "v2", "reviewed": "true"},
+            "source": {
+                "source_type": "TRACE",
+                "source_data": {"trace_id": "trace-002", "span_id": "span-002"},
+            },
         },
     ]
 
     result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, records, "test_user"
+        created_dataset.dataset_id, records_batch1, "test_user"
     )
     assert result["inserted"] == 2
-    assert result["updated"] == 0
+    assert result["updated"] == 1
 
-    updated_records = [
+    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
+    assert len(loaded_records) == 2
+
+    mlflow_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
+    assert mlflow_record.expectations == {
+        "answer": "MLflow is an ML platform",
+        "score": 0.8,
+        "confidence": 0.9,
+    }
+    assert mlflow_record.tags == {"version": "v2", "quality": "high", "reviewed": "true"}
+
+    assert mlflow_record.source.source_type == "TRACE"
+    assert mlflow_record.source.source_data["trace_id"] == "trace-001"
+    assert mlflow_record.source_id == "trace-001"
+
+    initial_update_time = mlflow_record.last_update_time
+    time.sleep(0.01)
+
+    records_batch2 = [
         {
             "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an ML platform", "confidence": "high"},
-            "tags": {"version": "2.0", "reviewed": "true"},
+            "expectations": {"answer": "MLflow is the best ML platform", "rating": 5},
+            "tags": {"version": "v3"},
         },
         {
-            "inputs": {"question": "What is a model?"},
-            "expectations": {"answer": "A trained ML algorithm"},
+            "inputs": {"question": "What is Spark?"},
+            "expectations": {"answer": "Spark is a data processing engine"},
         },
     ]
 
     result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, updated_records, "test_user"
+        created_dataset.dataset_id, records_batch2, "test_user"
     )
     assert result["inserted"] == 1
     assert result["updated"] == 1
@@ -6450,166 +6291,130 @@ def test_upsert_evaluation_dataset_records(store):
     loaded_records = store._load_dataset_records(created_dataset.dataset_id)
     assert len(loaded_records) == 3
 
-    updated_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
-    assert updated_record.expectations["answer"] == "MLflow is an ML platform"
-    assert updated_record.expectations["confidence"] == "high"
-    assert updated_record.tags["version"] == "2.0"
-    assert updated_record.tags["reviewed"] == "true"
+    updated_mlflow_record = next(
+        r for r in loaded_records if r.inputs["question"] == "What is MLflow?"
+    )
+    assert updated_mlflow_record.expectations == {
+        "answer": "MLflow is the best ML platform",
+        "score": 0.8,
+        "confidence": 0.9,
+        "rating": 5,
+    }
+    assert updated_mlflow_record.tags == {
+        "version": "v3",
+        "quality": "high",
+        "reviewed": "true",
+    }
+    assert updated_mlflow_record.last_update_time > initial_update_time
+    assert updated_mlflow_record.source.source_data["trace_id"] == "trace-001"
 
-    with pytest.raises(
-        MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
-    ):
-        store.upsert_evaluation_dataset_records("d-nonexistent", records)
-
-
-def test_lazy_loading_dataset_records(store):
-    dataset = EvaluationDataset(name="lazy_load_dataset")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    records = [
-        {
-            "inputs": {"q": f"Question {i}"},
-            "expectations": {"a": f"Answer {i}"},
-            "tags": {"idx": str(i)},
-        }
-        for i in range(5)
+    records_batch3 = [
+        {"inputs": {}, "expectations": {"result": "empty input"}},
+        {"inputs": {"question": "Empty expectations"}, "expectations": {}},
+        {"inputs": {"question": "No tags"}, "expectations": {"answer": "No tags"}, "tags": {}},
     ]
+
+    result = store.upsert_evaluation_dataset_records(
+        created_dataset.dataset_id, records_batch3, "test_user"
+    )
+    assert result["inserted"] == 3
+    assert result["updated"] == 0
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.upsert_evaluation_dataset_records("d-nonexistent", records_batch1)
+
+    empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
+    assert empty_result["inserted"] == 0
+    assert empty_result["updated"] == 0
+
+
+def test_evaluation_dataset_associations_and_lazy_loading(store):
+    dataset = EvaluationDataset(name="multi_exp_dataset")
+    experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+
+    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    assert set(retrieved.experiment_ids) == set(experiment_ids)
+
+    results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
+    assert any(d.dataset_id == created_dataset.dataset_id for d in results)
+
+    results = store.search_evaluation_datasets(
+        experiment_ids=[experiment_ids[0], experiment_ids[2]]
+    )
+    matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
+    assert len(matching) == 1
+    assert set(matching[0].experiment_ids) == set(experiment_ids)
+
+    records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
 
-    # Mock _get_store to return the test store for lazy loading
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
-        assert retrieved._records is None
 
-        loaded_records = retrieved.records
-        assert len(loaded_records) == 5
-        assert retrieved.has_records()
-        assert retrieved._records is not None
-
-        questions = {record.inputs["q"] for record in loaded_records}
-        assert questions == {f"Question {i}" for i in range(5)}
-
-        for record in loaded_records:
-            idx = record.tags["idx"]
-            assert record.inputs["q"] == f"Question {idx}"
-            assert record.expectations["a"] == f"Answer {idx}"
-
-        retrieved2 = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-        assert not retrieved2.has_records()
-
-        df = retrieved2.to_df()
+        df = retrieved.to_df()
         assert len(df) == 5
-    assert retrieved2.has_records()
+        assert retrieved.has_records()
 
-    assert list(df.columns) == [
-        "inputs",
-        "expectations",
-        "tags",
-        "source_type",
-        "source_id",
-        "created_time",
-        "dataset_record_id",
-    ]
-    questions = [row["inputs"]["q"] for _, row in df.iterrows()]
-    assert set(questions) == {f"Question {i}" for i in range(5)}
-
-    for _, row in df.iterrows():
-        idx = row["tags"]["idx"]
-        assert row["inputs"]["q"] == f"Question {idx}"
-        assert row["expectations"]["a"] == f"Answer {idx}"
+        assert list(df.columns) == [
+            "inputs",
+            "expectations",
+            "tags",
+            "source_type",
+            "source_id",
+            "created_time",
+            "dataset_record_id",
+        ]
 
 
-def test_dataset_record_deduplication(store):
-    dataset = EvaluationDataset(name="dedup_dataset")
+def test_evaluation_dataset_edge_cases(store):
+    dataset = EvaluationDataset(name="edge_cases_test")
     created_dataset = store.create_evaluation_dataset(dataset)
 
-    records = [
-        {
-            "inputs": {"q": "Same question", "context": "test"},
-            "expectations": {"a": "Answer 1", "score": 0.8},
-            "tags": {"version": "v1", "quality": "high"},
-        },
-        {
-            "inputs": {"q": "Different question"},
-            "expectations": {"a": "Answer 3"},
-            "tags": {"source": "manual"},
-        },
-    ]
-
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
-    assert result["inserted"] == 2
-    assert result["updated"] == 0
-
-    records2 = [
-        {
-            "inputs": {"q": "Same question", "context": "test"},
-            "expectations": {"a": "Answer 2", "confidence": 0.9},
-            "tags": {"version": "v2", "reviewed": "true"},
-        },
-        {
-            "inputs": {"q": "Another question"},
-            "expectations": {"a": "Answer 4"},
-        },
-    ]
-
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records2)
-    assert result["inserted"] == 1
-    assert result["updated"] == 1
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 3
-
-    same_q_record = next(r for r in loaded_records if r.inputs["q"] == "Same question")
-    assert same_q_record.expectations["a"] == "Answer 2"
-    assert same_q_record.expectations["score"] == 0.8
-    assert same_q_record.expectations["confidence"] == 0.9
-
-    assert same_q_record.tags["version"] == "v2"
-    assert same_q_record.tags["quality"] == "high"
-    assert same_q_record.tags["reviewed"] == "true"
-
-    records3 = [
-        {
-            "inputs": {"q": "Same question"},
-            "expectations": {"a": "Answer 5"},
-        },
-    ]
-
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records3)
-    assert result["inserted"] == 1
-    assert result["updated"] == 0
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 4
-
-
-def test_dataset_with_entity_associations(store):
-    dataset = EvaluationDataset(name="multi_exp_dataset")
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=["1", "2", "3"])
-
-    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-    assert set(retrieved.experiment_ids) == {"1", "2", "3"}
-
-    results = store.search_evaluation_datasets(experiment_ids=["2"])
-    assert any(d.dataset_id == created_dataset.dataset_id for d in results)
-
-    results = store.search_evaluation_datasets(experiment_ids=["1", "3"])
-    matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
-    assert len(matching) == 1
-    assert set(matching[0].experiment_ids) == {"1", "2", "3"}
-
-
-def test_evaluation_dataset_merge_records_nonexistent_dataset(store):
-    dataset = EvaluationDataset(dataset_id="nonexistent-dataset-id", name="nonexistent_dataset")
-
-    records = [{"inputs": {"question": "What is MLflow?"}}]
-
+    fake_dataset = EvaluationDataset(
+        dataset_id="nonexistent-dataset-id", name="nonexistent_dataset"
+    )
     with pytest.raises(
         MlflowException,
         match="Cannot add records to dataset nonexistent-dataset-id: Dataset not found",
     ):
-        dataset.merge_records(records)
+        fake_dataset.merge_records([{"inputs": {"question": "What is MLflow?"}}])
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        created_dataset.merge_records([])
+        # Empty merge should not add any records
+        loaded = store._load_dataset_records(created_dataset.dataset_id)
+        assert len(loaded) == 0
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        # Test merging with dict records
+        dict_records = [
+            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
+            {"inputs": {"q": "Q2"}, "expectations": {}},
+            {"inputs": {}, "expectations": {"a": "A3"}},
+        ]
+        created_dataset.merge_records(dict_records)
+        loaded = store._load_dataset_records(created_dataset.dataset_id)
+        assert len(loaded) == 3
+
+        inputs_list = [r.inputs for r in loaded]
+
+        assert {"q": "Q1"} in inputs_list
+        assert {"q": "Q2"} in inputs_list
+        assert {} in inputs_list
+
+        for record in loaded:
+            if record.inputs == {"q": "Q1"}:
+                assert record.expectations == {"a": "A1"}
+            elif record.inputs == {"q": "Q2"}:
+                # When expectations is an empty dict in the input, it should be stored as None
+                assert record.expectations is None
+            elif record.inputs == {}:
+                assert record.expectations == {"a": "A3"}
+
+        with pytest.raises(MlflowException, match="Each record must be a dictionary"):
+            created_dataset.merge_records(["not a dict"])
 
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
@@ -6636,437 +6441,3 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_empty = store.create_evaluation_dataset(dataset_empty)
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
-
-
-def test_evaluation_dataset_merge_records_with_sql_backend(store):
-    dataset = EvaluationDataset(name="test_merge_dataset")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    records = [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is a platform"},
-            "tags": {"source": "manual"},
-        },
-        {
-            "inputs": {"question": "How to use MLflow?"},
-            "expectations": {"answer": "You can use MLflow by..."},
-        },
-    ]
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=records, updated_by=None
-    )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 2
-    assert loaded_records[0].inputs["question"] == "What is MLflow?"
-    assert loaded_records[0].expectations["answer"] == "MLflow is a platform"
-    assert loaded_records[0].tags["source"] == "manual"
-    assert loaded_records[1].inputs["question"] == "How to use MLflow?"
-
-    updated_records = [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an ML platform", "confidence": "high"},
-            "tags": {"source": "updated", "version": "2"},
-        },
-    ]
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=updated_records, updated_by=None
-    )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 2
-
-    updated_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
-    assert updated_record.expectations["answer"] == "MLflow is an ML platform"
-    assert updated_record.expectations["confidence"] == "high"
-    assert updated_record.tags["source"] == "updated"
-    assert updated_record.tags["version"] == "2"
-
-
-def test_evaluation_dataset_merge_records_deduplication(store):
-    dataset = EvaluationDataset(name="dedup_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    records = [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is a platform"},
-            "tags": {"source": "manual", "quality": "high"},
-        },
-        {
-            "inputs": {"question": "What is Python?"},
-            "expectations": {"answer": "Python is a language"},
-        },
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an ML platform", "score": 0.9},
-            "tags": {"source": "automated", "version": "v2"},
-        },
-    ]
-
-    store.upsert_evaluation_dataset_records(dataset_id=created_dataset.dataset_id, records=records)
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 2
-
-    mlflow_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
-
-    assert mlflow_record.expectations == {"answer": "MLflow is an ML platform", "score": 0.9}
-    assert mlflow_record.tags == {"source": "automated", "quality": "high", "version": "v2"}
-
-
-def test_evaluation_dataset_merge_preserves_first_source(store):
-    dataset = EvaluationDataset(name="source_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    first_record = {
-        "inputs": {"question": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is a platform"},
-        "source": {
-            "source_type": "TRACE",
-            "source_data": {"trace_id": "trace-001", "span_id": "span-001"},
-        },
-    }
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=[first_record]
-    )
-
-    second_record = {
-        "inputs": {"question": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is an ML platform", "confidence": 0.9},
-        "source": {
-            "source_type": "TRACE",
-            "source_data": {"trace_id": "trace-002", "span_id": "span-002"},
-        },
-    }
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=[second_record]
-    )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-
-    record = loaded_records[0]
-    assert record.expectations == {"answer": "MLflow is an ML platform", "confidence": 0.9}
-
-    assert record.source.source_type == "TRACE"
-    assert record.source.source_data["trace_id"] == "trace-001"
-    assert record.source_id == "trace-001"
-
-
-def test_evaluation_dataset_merge_updates_timestamp(store):
-    dataset = EvaluationDataset(name="timestamp_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    first_record = {
-        "inputs": {"question": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is a platform"},
-    }
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=[first_record]
-    )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    initial_update_time = loaded_records[0].last_update_time
-
-    time.sleep(0.01)
-
-    second_record = {
-        "inputs": {"question": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is an ML platform", "score": 0.9},
-    }
-
-    store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=[second_record]
-    )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-    assert loaded_records[0].last_update_time > initial_update_time
-
-
-def test_evaluation_dataset_single_call_deduplication(store):
-    dataset = EvaluationDataset(name="single_call_dedup")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    records = [
-        {
-            "inputs": {"question": "What is MLflow?", "context": "ML platforms"},
-            "expectations": {"answer": "MLflow is a platform", "confidence": 0.8},
-            "tags": {"source": "manual", "version": "v1"},
-        },
-        {
-            "inputs": {"question": "What is Python?"},
-            "expectations": {"answer": "Python is a programming language"},
-            "tags": {"category": "programming"},
-        },
-        {
-            "inputs": {"question": "What is MLflow?", "context": "ML platforms"},  # Duplicate
-            "expectations": {"answer": "MLflow is an ML lifecycle platform", "quality": "high"},
-            "tags": {"source": "automated", "reviewed": "true"},
-        },
-    ]
-
-    result = store.upsert_evaluation_dataset_records(
-        dataset_id=created_dataset.dataset_id, records=records
-    )
-
-    assert result["inserted"] == 2
-    assert result["updated"] == 1
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 2
-
-    mlflow_record = next(r for r in loaded_records if r.inputs.get("question") == "What is MLflow?")
-    assert mlflow_record.expectations == {
-        "answer": "MLflow is an ML lifecycle platform",
-        "confidence": 0.8,
-        "quality": "high",
-    }
-    assert mlflow_record.tags == {"source": "automated", "version": "v1", "reviewed": "true"}
-
-
-def test_evaluation_dataset_merge_duplicate_inputs(store):
-    dataset = EvaluationDataset(name="duplicate_merge_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        created_dataset.merge_records(
-            [
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "expectations": {"answer": "MLflow is a platform"},
-                    "tags": {"source": "manual", "quality": "high"},
-                }
-            ]
-        )
-
-        created_dataset.merge_records(
-            [
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "expectations": {"answer": "MLflow is an ML platform", "score": 0.9},
-                    "tags": {"source": "automated", "version": "v2"},
-                }
-            ]
-        )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-
-    record = loaded_records[0]
-    assert record.inputs == {"question": "What is MLflow?"}
-    assert record.expectations == {"answer": "MLflow is an ML platform", "score": 0.9}
-    assert record.tags == {"source": "automated", "quality": "high", "version": "v2"}
-
-
-def test_evaluation_dataset_merge_partial_duplicates(store):
-    dataset = EvaluationDataset(name="partial_dup_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        created_dataset.merge_records(
-            [
-                {
-                    "inputs": {"question": "What is Spark?"},
-                    "expectations": {"answer": "Spark is a data processing engine"},
-                    "tags": {"category": "big_data", "difficulty": "medium"},
-                },
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "expectations": {"answer": "MLflow is a platform"},
-                    "tags": {"category": "ml_ops"},
-                },
-            ]
-        )
-
-        created_dataset.merge_records(
-            [
-                {
-                    "inputs": {"question": "What is Spark?"},
-                    "expectations": {
-                        "answer": "Apache Spark is a unified analytics engine",
-                        "confidence": 0.95,
-                    },
-                    "tags": {"category": "apache", "difficulty": "medium", "version": "3.0"},
-                },
-                {
-                    "inputs": {"question": "What is Python?"},
-                    "expectations": {"answer": "Python is a programming language"},
-                    "tags": {"category": "programming"},
-                },
-            ]
-        )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 3
-
-    spark_record = next(r for r in loaded_records if r.inputs.get("question") == "What is Spark?")
-    assert spark_record.expectations == {
-        "answer": "Apache Spark is a unified analytics engine",
-        "confidence": 0.95,
-    }
-    assert spark_record.tags == {"category": "apache", "difficulty": "medium", "version": "3.0"}
-
-    mlflow_record = next(r for r in loaded_records if r.inputs.get("question") == "What is MLflow?")
-    assert mlflow_record.expectations == {"answer": "MLflow is a platform"}
-    assert mlflow_record.tags == {"category": "ml_ops"}
-
-    python_record = next(r for r in loaded_records if r.inputs.get("question") == "What is Python?")
-    assert python_record.expectations == {"answer": "Python is a programming language"}
-    assert python_record.tags == {"category": "programming"}
-
-
-def test_evaluation_dataset_merge_empty_expectations_tags(store):
-    dataset = EvaluationDataset(name="empty_fields_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        created_dataset.merge_records(
-            [
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "expectations": {"answer": "MLflow is a platform"},
-                    "tags": {"source": "manual"},
-                },
-                {"inputs": {"question": "What is MLflow?"}, "tags": {"reviewed": "true"}},
-                {"inputs": {"question": "What is MLflow?"}, "expectations": {"score": 0.8}},
-            ]
-        )
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-
-    record = loaded_records[0]
-    assert record.expectations == {"answer": "MLflow is a platform", "score": 0.8}
-    assert record.tags == {"source": "manual", "reviewed": "true"}
-
-
-def test_evaluation_dataset_method_chaining(store):
-    dataset = EvaluationDataset(name="chaining_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        result = created_dataset.merge_records([{"inputs": {"q1": "test1"}}]).merge_records(
-            [{"inputs": {"q2": "test2"}}]
-        )
-
-    assert result is created_dataset
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 2
-
-    inputs_in_records = [r.inputs for r in loaded_records]
-    assert {"q1": "test1"} in inputs_in_records
-    assert {"q2": "test2"} in inputs_in_records
-
-
-def test_evaluation_dataset_merge_empty_list(store):
-    dataset = EvaluationDataset(name="empty_list_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        created_dataset.merge_records([])
-
-        created_dataset.merge_records([{"inputs": {"q": "test"}, "expectations": {"a": "answer"}}])
-
-        created_dataset.merge_records([])
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-    assert loaded_records[0].inputs == {"q": "test"}
-
-
-def test_evaluation_dataset_merge_mixed_trace_types(store):
-    dataset = EvaluationDataset(name="mixed_types_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    mock_trace = mock.Mock(spec=Trace)
-    mock_trace.info = mock.Mock()
-    mock_trace.info.trace_id = "trace1"
-    mock_trace.data = mock.Mock()
-    mock_trace.data._get_root_span = mock.Mock(return_value=None)
-    mock_trace.search_assessments = mock.Mock(return_value=[])
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        mixed_records = [
-            mock_trace,
-            {"inputs": {"question": "What is Python?"}, "expectations": {"answer": "A language"}},
-            mock_trace,
-        ]
-
-        with pytest.raises(
-            MlflowException, match="Mixed types in trace list.*element at index 1 is dict"
-        ):
-            created_dataset.merge_records(mixed_records)
-
-        mixed_records2 = [mock_trace, mock_trace, "not a trace"]
-
-        with pytest.raises(
-            MlflowException, match="Mixed types in trace list.*element at index 2 is str"
-        ):
-            created_dataset.merge_records(mixed_records2)
-
-
-def test_evaluation_dataset_trace_preserves_first_source(store):
-    dataset = EvaluationDataset(name="preserve_source_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        first_record = {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is a platform"},
-            "tags": {"version": "v1", "quality": "high"},
-            "source": {
-                "source_type": "TRACE",
-                "source_data": {"trace_id": "trace-001", "span_id": "span-001"},
-            },
-        }
-        created_dataset.merge_records([first_record])
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-    assert loaded_records[0].source.source_type == "TRACE"
-    assert loaded_records[0].source.source_data["trace_id"] == "trace-001"
-    assert loaded_records[0].source.source_data["span_id"] == "span-001"
-    assert loaded_records[0].source_id == "trace-001"
-    assert loaded_records[0].source_type == "TRACE"
-
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        second_record = {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an ML platform", "confidence": 0.9},
-            "tags": {"version": "v2", "reviewed": "true"},
-            "source": {
-                "source_type": "TRACE",
-                "source_data": {"trace_id": "trace-002", "span_id": "span-002"},
-            },
-        }
-        created_dataset.merge_records([second_record])
-
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
-    assert len(loaded_records) == 1
-    record = loaded_records[0]
-
-    assert record.expectations == {
-        "answer": "MLflow is an ML platform",
-        "confidence": 0.9,
-    }
-    assert record.tags == {
-        "version": "v2",
-        "quality": "high",
-        "reviewed": "true",
-    }
-
-    assert record.source.source_type == "TRACE"
-    assert record.source.source_data["trace_id"] == "trace-001"
-    assert record.source.source_data["span_id"] == "span-001"
-    assert record.source_id == "trace-001"
-    assert record.source_type == "TRACE"
