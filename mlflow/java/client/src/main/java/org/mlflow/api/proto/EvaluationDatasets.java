@@ -78,58 +78,39 @@ public final class EvaluationDatasets {
 
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return Whether the source field is set.
+     * <code>optional string tags = 3;</code>
+     * @return Whether the tags field is set.
      */
-    boolean hasSource();
+    boolean hasTags();
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return The source.
+     * <code>optional string tags = 3;</code>
+     * @return The tags.
      */
-    java.lang.String getSource();
+    java.lang.String getTags();
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return The bytes for source.
+     * <code>optional string tags = 3;</code>
+     * @return The bytes for tags.
      */
     com.google.protobuf.ByteString
-        getSourceBytes();
-
-    /**
-     * <pre>
-     * Type of source (e.g., "trace", "human", "document")
-     * </pre>
-     *
-     * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-     * @return Whether the sourceType field is set.
-     */
-    boolean hasSourceType();
-    /**
-     * <pre>
-     * Type of source (e.g., "trace", "human", "document")
-     * </pre>
-     *
-     * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-     * @return The sourceType.
-     */
-    org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType getSourceType();
+        getTagsBytes();
 
     /**
      * <pre>
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return Whether the schema field is set.
      */
     boolean hasSchema();
@@ -138,7 +119,7 @@ public final class EvaluationDatasets {
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return The schema.
      */
     java.lang.String getSchema();
@@ -147,7 +128,7 @@ public final class EvaluationDatasets {
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return The bytes for schema.
      */
     com.google.protobuf.ByteString
@@ -158,7 +139,7 @@ public final class EvaluationDatasets {
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return Whether the profile field is set.
      */
     boolean hasProfile();
@@ -167,7 +148,7 @@ public final class EvaluationDatasets {
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return The profile.
      */
     java.lang.String getProfile();
@@ -176,7 +157,7 @@ public final class EvaluationDatasets {
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return The bytes for profile.
      */
     com.google.protobuf.ByteString
@@ -187,7 +168,7 @@ public final class EvaluationDatasets {
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return Whether the digest field is set.
      */
     boolean hasDigest();
@@ -196,7 +177,7 @@ public final class EvaluationDatasets {
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return The digest.
      */
     java.lang.String getDigest();
@@ -205,7 +186,7 @@ public final class EvaluationDatasets {
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return The bytes for digest.
      */
     com.google.protobuf.ByteString
@@ -216,7 +197,7 @@ public final class EvaluationDatasets {
      * Creation timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 created_time = 8;</code>
+     * <code>optional int64 created_time = 7;</code>
      * @return Whether the createdTime field is set.
      */
     boolean hasCreatedTime();
@@ -225,7 +206,7 @@ public final class EvaluationDatasets {
      * Creation timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 created_time = 8;</code>
+     * <code>optional int64 created_time = 7;</code>
      * @return The createdTime.
      */
     long getCreatedTime();
@@ -235,7 +216,7 @@ public final class EvaluationDatasets {
      * Last update timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 last_update_time = 9;</code>
+     * <code>optional int64 last_update_time = 8;</code>
      * @return Whether the lastUpdateTime field is set.
      */
     boolean hasLastUpdateTime();
@@ -244,7 +225,7 @@ public final class EvaluationDatasets {
      * Last update timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 last_update_time = 9;</code>
+     * <code>optional int64 last_update_time = 8;</code>
      * @return The lastUpdateTime.
      */
     long getLastUpdateTime();
@@ -254,7 +235,7 @@ public final class EvaluationDatasets {
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return Whether the createdBy field is set.
      */
     boolean hasCreatedBy();
@@ -263,7 +244,7 @@ public final class EvaluationDatasets {
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The createdBy.
      */
     java.lang.String getCreatedBy();
@@ -272,7 +253,7 @@ public final class EvaluationDatasets {
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The bytes for createdBy.
      */
     com.google.protobuf.ByteString
@@ -283,7 +264,7 @@ public final class EvaluationDatasets {
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return Whether the lastUpdatedBy field is set.
      */
     boolean hasLastUpdatedBy();
@@ -292,7 +273,7 @@ public final class EvaluationDatasets {
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return The lastUpdatedBy.
      */
     java.lang.String getLastUpdatedBy();
@@ -301,7 +282,7 @@ public final class EvaluationDatasets {
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return The bytes for lastUpdatedBy.
      */
     com.google.protobuf.ByteString
@@ -312,7 +293,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @return A list containing the experimentIds.
      */
     java.util.List<java.lang.String>
@@ -322,7 +303,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @return The count of experimentIds.
      */
     int getExperimentIdsCount();
@@ -331,7 +312,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @param index The index of the element to return.
      * @return The experimentIds at the given index.
      */
@@ -341,7 +322,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @param index The index of the value to return.
      * @return The bytes of the experimentIds at the given index.
      */
@@ -363,8 +344,7 @@ public final class EvaluationDatasets {
     private EvaluationDataset() {
       datasetId_ = "";
       name_ = "";
-      source_ = "";
-      sourceType_ = 0;
+      tags_ = "";
       schema_ = "";
       profile_ = "";
       digest_ = "";
@@ -419,66 +399,54 @@ public final class EvaluationDatasets {
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              source_ = bs;
+              tags_ = bs;
               break;
             }
-            case 32: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType value = org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                bitField0_ |= 0x00000008;
-                sourceType_ = rawValue;
-              }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              schema_ = bs;
               break;
             }
             case 42: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              schema_ = bs;
+              profile_ = bs;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000020;
-              profile_ = bs;
+              digest_ = bs;
               break;
             }
-            case 58: {
-              com.google.protobuf.ByteString bs = input.readBytes();
+            case 56: {
               bitField0_ |= 0x00000040;
-              digest_ = bs;
+              createdTime_ = input.readInt64();
               break;
             }
             case 64: {
               bitField0_ |= 0x00000080;
-              createdTime_ = input.readInt64();
+              lastUpdateTime_ = input.readInt64();
               break;
             }
-            case 72: {
+            case 74: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000100;
-              lastUpdateTime_ = input.readInt64();
+              createdBy_ = bs;
               break;
             }
             case 82: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000200;
-              createdBy_ = bs;
+              lastUpdatedBy_ = bs;
               break;
             }
             case 90: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
-              lastUpdatedBy_ = bs;
-              break;
-            }
-            case 98: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000400) != 0)) {
                 experimentIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000800;
+                mutable_bitField0_ |= 0x00000400;
               }
               experimentIds_.add(bs);
               break;
@@ -498,7 +466,7 @@ public final class EvaluationDatasets {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000800) != 0)) {
+        if (((mutable_bitField0_ & 0x00000400) != 0)) {
           experimentIds_ = experimentIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -639,31 +607,31 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int SOURCE_FIELD_NUMBER = 3;
-    private volatile java.lang.Object source_;
+    public static final int TAGS_FIELD_NUMBER = 3;
+    private volatile java.lang.Object tags_;
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return Whether the source field is set.
+     * <code>optional string tags = 3;</code>
+     * @return Whether the tags field is set.
      */
     @java.lang.Override
-    public boolean hasSource() {
+    public boolean hasTags() {
       return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return The source.
+     * <code>optional string tags = 3;</code>
+     * @return The tags.
      */
     @java.lang.Override
-    public java.lang.String getSource() {
-      java.lang.Object ref = source_;
+    public java.lang.String getTags() {
+      java.lang.Object ref = tags_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -671,81 +639,54 @@ public final class EvaluationDatasets {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          source_ = s;
+          tags_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * Source information about where the dataset came from
+     * Tags as JSON string (key-value pairs for metadata)
      * </pre>
      *
-     * <code>optional string source = 3;</code>
-     * @return The bytes for source.
+     * <code>optional string tags = 3;</code>
+     * @return The bytes for tags.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getSourceBytes() {
-      java.lang.Object ref = source_;
+        getTagsBytes() {
+      java.lang.Object ref = tags_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        source_ = b;
+        tags_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
 
-    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
-    private int sourceType_;
-    /**
-     * <pre>
-     * Type of source (e.g., "trace", "human", "document")
-     * </pre>
-     *
-     * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-     * @return Whether the sourceType field is set.
-     */
-    @java.lang.Override public boolean hasSourceType() {
-      return ((bitField0_ & 0x00000008) != 0);
-    }
-    /**
-     * <pre>
-     * Type of source (e.g., "trace", "human", "document")
-     * </pre>
-     *
-     * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-     * @return The sourceType.
-     */
-    @java.lang.Override public org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType getSourceType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType result = org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType.valueOf(sourceType_);
-      return result == null ? org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType.SOURCE_TYPE_UNSPECIFIED : result;
-    }
-
-    public static final int SCHEMA_FIELD_NUMBER = 5;
+    public static final int SCHEMA_FIELD_NUMBER = 4;
     private volatile java.lang.Object schema_;
     /**
      * <pre>
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return Whether the schema field is set.
      */
     @java.lang.Override
     public boolean hasSchema() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return The schema.
      */
     @java.lang.Override
@@ -768,7 +709,7 @@ public final class EvaluationDatasets {
      * Schema information (JSON)
      * </pre>
      *
-     * <code>optional string schema = 5;</code>
+     * <code>optional string schema = 4;</code>
      * @return The bytes for schema.
      */
     @java.lang.Override
@@ -786,26 +727,26 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int PROFILE_FIELD_NUMBER = 6;
+    public static final int PROFILE_FIELD_NUMBER = 5;
     private volatile java.lang.Object profile_;
     /**
      * <pre>
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return Whether the profile field is set.
      */
     @java.lang.Override
     public boolean hasProfile() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return The profile.
      */
     @java.lang.Override
@@ -828,7 +769,7 @@ public final class EvaluationDatasets {
      * Profile information (JSON)
      * </pre>
      *
-     * <code>optional string profile = 6;</code>
+     * <code>optional string profile = 5;</code>
      * @return The bytes for profile.
      */
     @java.lang.Override
@@ -846,26 +787,26 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int DIGEST_FIELD_NUMBER = 7;
+    public static final int DIGEST_FIELD_NUMBER = 6;
     private volatile java.lang.Object digest_;
     /**
      * <pre>
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return Whether the digest field is set.
      */
     @java.lang.Override
     public boolean hasDigest() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return The digest.
      */
     @java.lang.Override
@@ -888,7 +829,7 @@ public final class EvaluationDatasets {
      * Dataset digest for integrity checking
      * </pre>
      *
-     * <code>optional string digest = 7;</code>
+     * <code>optional string digest = 6;</code>
      * @return The bytes for digest.
      */
     @java.lang.Override
@@ -906,26 +847,26 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int CREATED_TIME_FIELD_NUMBER = 8;
+    public static final int CREATED_TIME_FIELD_NUMBER = 7;
     private long createdTime_;
     /**
      * <pre>
      * Creation timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 created_time = 8;</code>
+     * <code>optional int64 created_time = 7;</code>
      * @return Whether the createdTime field is set.
      */
     @java.lang.Override
     public boolean hasCreatedTime() {
-      return ((bitField0_ & 0x00000080) != 0);
+      return ((bitField0_ & 0x00000040) != 0);
     }
     /**
      * <pre>
      * Creation timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 created_time = 8;</code>
+     * <code>optional int64 created_time = 7;</code>
      * @return The createdTime.
      */
     @java.lang.Override
@@ -933,26 +874,26 @@ public final class EvaluationDatasets {
       return createdTime_;
     }
 
-    public static final int LAST_UPDATE_TIME_FIELD_NUMBER = 9;
+    public static final int LAST_UPDATE_TIME_FIELD_NUMBER = 8;
     private long lastUpdateTime_;
     /**
      * <pre>
      * Last update timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 last_update_time = 9;</code>
+     * <code>optional int64 last_update_time = 8;</code>
      * @return Whether the lastUpdateTime field is set.
      */
     @java.lang.Override
     public boolean hasLastUpdateTime() {
-      return ((bitField0_ & 0x00000100) != 0);
+      return ((bitField0_ & 0x00000080) != 0);
     }
     /**
      * <pre>
      * Last update timestamp in milliseconds
      * </pre>
      *
-     * <code>optional int64 last_update_time = 9;</code>
+     * <code>optional int64 last_update_time = 8;</code>
      * @return The lastUpdateTime.
      */
     @java.lang.Override
@@ -960,26 +901,26 @@ public final class EvaluationDatasets {
       return lastUpdateTime_;
     }
 
-    public static final int CREATED_BY_FIELD_NUMBER = 10;
+    public static final int CREATED_BY_FIELD_NUMBER = 9;
     private volatile java.lang.Object createdBy_;
     /**
      * <pre>
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return Whether the createdBy field is set.
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00000200) != 0);
+      return ((bitField0_ & 0x00000100) != 0);
     }
     /**
      * <pre>
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The createdBy.
      */
     @java.lang.Override
@@ -1002,7 +943,7 @@ public final class EvaluationDatasets {
      * User who created the dataset
      * </pre>
      *
-     * <code>optional string created_by = 10;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The bytes for createdBy.
      */
     @java.lang.Override
@@ -1020,26 +961,26 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int LAST_UPDATED_BY_FIELD_NUMBER = 11;
+    public static final int LAST_UPDATED_BY_FIELD_NUMBER = 10;
     private volatile java.lang.Object lastUpdatedBy_;
     /**
      * <pre>
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return Whether the lastUpdatedBy field is set.
      */
     @java.lang.Override
     public boolean hasLastUpdatedBy() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return The lastUpdatedBy.
      */
     @java.lang.Override
@@ -1062,7 +1003,7 @@ public final class EvaluationDatasets {
      * User who last updated the dataset
      * </pre>
      *
-     * <code>optional string last_updated_by = 11;</code>
+     * <code>optional string last_updated_by = 10;</code>
      * @return The bytes for lastUpdatedBy.
      */
     @java.lang.Override
@@ -1080,14 +1021,14 @@ public final class EvaluationDatasets {
       }
     }
 
-    public static final int EXPERIMENT_IDS_FIELD_NUMBER = 12;
+    public static final int EXPERIMENT_IDS_FIELD_NUMBER = 11;
     private com.google.protobuf.LazyStringList experimentIds_;
     /**
      * <pre>
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @return A list containing the experimentIds.
      */
     public com.google.protobuf.ProtocolStringList
@@ -1099,7 +1040,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @return The count of experimentIds.
      */
     public int getExperimentIdsCount() {
@@ -1110,7 +1051,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @param index The index of the element to return.
      * @return The experimentIds at the given index.
      */
@@ -1122,7 +1063,7 @@ public final class EvaluationDatasets {
      * Associated experiment IDs (populated from entity_associations table)
      * </pre>
      *
-     * <code>repeated string experiment_ids = 12;</code>
+     * <code>repeated string experiment_ids = 11;</code>
      * @param index The index of the value to return.
      * @return The bytes of the experimentIds at the given index.
      */
@@ -1152,34 +1093,31 @@ public final class EvaluationDatasets {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, source_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, tags_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        output.writeEnum(4, sourceType_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, schema_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, schema_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, profile_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, profile_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, digest_);
       }
       if (((bitField0_ & 0x00000040) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, digest_);
+        output.writeInt64(7, createdTime_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
-        output.writeInt64(8, createdTime_);
+        output.writeInt64(8, lastUpdateTime_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
-        output.writeInt64(9, lastUpdateTime_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, createdBy_);
       }
       if (((bitField0_ & 0x00000200) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, createdBy_);
-      }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, lastUpdatedBy_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, lastUpdatedBy_);
       }
       for (int i = 0; i < experimentIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 12, experimentIds_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, experimentIds_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -1197,34 +1135,30 @@ public final class EvaluationDatasets {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, source_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, tags_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, sourceType_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, schema_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, schema_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, profile_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, profile_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, digest_);
       }
       if (((bitField0_ & 0x00000040) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, digest_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(7, createdTime_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(8, createdTime_);
+          .computeInt64Size(8, lastUpdateTime_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(9, lastUpdateTime_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, createdBy_);
       }
       if (((bitField0_ & 0x00000200) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, createdBy_);
-      }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, lastUpdatedBy_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, lastUpdatedBy_);
       }
       {
         int dataSize = 0;
@@ -1259,14 +1193,10 @@ public final class EvaluationDatasets {
         if (!getName()
             .equals(other.getName())) return false;
       }
-      if (hasSource() != other.hasSource()) return false;
-      if (hasSource()) {
-        if (!getSource()
-            .equals(other.getSource())) return false;
-      }
-      if (hasSourceType() != other.hasSourceType()) return false;
-      if (hasSourceType()) {
-        if (sourceType_ != other.sourceType_) return false;
+      if (hasTags() != other.hasTags()) return false;
+      if (hasTags()) {
+        if (!getTags()
+            .equals(other.getTags())) return false;
       }
       if (hasSchema() != other.hasSchema()) return false;
       if (hasSchema()) {
@@ -1324,13 +1254,9 @@ public final class EvaluationDatasets {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
       }
-      if (hasSource()) {
-        hash = (37 * hash) + SOURCE_FIELD_NUMBER;
-        hash = (53 * hash) + getSource().hashCode();
-      }
-      if (hasSourceType()) {
-        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + sourceType_;
+      if (hasTags()) {
+        hash = (37 * hash) + TAGS_FIELD_NUMBER;
+        hash = (53 * hash) + getTags().hashCode();
       }
       if (hasSchema()) {
         hash = (37 * hash) + SCHEMA_FIELD_NUMBER;
@@ -1503,26 +1429,24 @@ public final class EvaluationDatasets {
         bitField0_ = (bitField0_ & ~0x00000001);
         name_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        source_ = "";
+        tags_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        sourceType_ = 0;
-        bitField0_ = (bitField0_ & ~0x00000008);
         schema_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         profile_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         digest_ = "";
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         createdTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000040);
         lastUpdateTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000100);
         lastUpdatedBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000400);
         return this;
       }
 
@@ -1562,42 +1486,38 @@ public final class EvaluationDatasets {
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.source_ = source_;
+        result.tags_ = tags_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.sourceType_ = sourceType_;
+        result.schema_ = schema_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.schema_ = schema_;
+        result.profile_ = profile_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.profile_ = profile_;
+        result.digest_ = digest_;
         if (((from_bitField0_ & 0x00000040) != 0)) {
+          result.createdTime_ = createdTime_;
           to_bitField0_ |= 0x00000040;
         }
-        result.digest_ = digest_;
         if (((from_bitField0_ & 0x00000080) != 0)) {
-          result.createdTime_ = createdTime_;
+          result.lastUpdateTime_ = lastUpdateTime_;
           to_bitField0_ |= 0x00000080;
         }
         if (((from_bitField0_ & 0x00000100) != 0)) {
-          result.lastUpdateTime_ = lastUpdateTime_;
           to_bitField0_ |= 0x00000100;
         }
+        result.createdBy_ = createdBy_;
         if (((from_bitField0_ & 0x00000200) != 0)) {
           to_bitField0_ |= 0x00000200;
         }
-        result.createdBy_ = createdBy_;
-        if (((from_bitField0_ & 0x00000400) != 0)) {
-          to_bitField0_ |= 0x00000400;
-        }
         result.lastUpdatedBy_ = lastUpdatedBy_;
-        if (((bitField0_ & 0x00000800) != 0)) {
+        if (((bitField0_ & 0x00000400) != 0)) {
           experimentIds_ = experimentIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000800);
+          bitField0_ = (bitField0_ & ~0x00000400);
         }
         result.experimentIds_ = experimentIds_;
         result.bitField0_ = to_bitField0_;
@@ -1659,26 +1579,23 @@ public final class EvaluationDatasets {
           name_ = other.name_;
           onChanged();
         }
-        if (other.hasSource()) {
+        if (other.hasTags()) {
           bitField0_ |= 0x00000004;
-          source_ = other.source_;
+          tags_ = other.tags_;
           onChanged();
         }
-        if (other.hasSourceType()) {
-          setSourceType(other.getSourceType());
-        }
         if (other.hasSchema()) {
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000008;
           schema_ = other.schema_;
           onChanged();
         }
         if (other.hasProfile()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000010;
           profile_ = other.profile_;
           onChanged();
         }
         if (other.hasDigest()) {
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000020;
           digest_ = other.digest_;
           onChanged();
         }
@@ -1689,19 +1606,19 @@ public final class EvaluationDatasets {
           setLastUpdateTime(other.getLastUpdateTime());
         }
         if (other.hasCreatedBy()) {
-          bitField0_ |= 0x00000200;
+          bitField0_ |= 0x00000100;
           createdBy_ = other.createdBy_;
           onChanged();
         }
         if (other.hasLastUpdatedBy()) {
-          bitField0_ |= 0x00000400;
+          bitField0_ |= 0x00000200;
           lastUpdatedBy_ = other.lastUpdatedBy_;
           onChanged();
         }
         if (!other.experimentIds_.isEmpty()) {
           if (experimentIds_.isEmpty()) {
             experimentIds_ = other.experimentIds_;
-            bitField0_ = (bitField0_ & ~0x00000800);
+            bitField0_ = (bitField0_ & ~0x00000400);
           } else {
             ensureExperimentIdsIsMutable();
             experimentIds_.addAll(other.experimentIds_);
@@ -1954,34 +1871,34 @@ public final class EvaluationDatasets {
         return this;
       }
 
-      private java.lang.Object source_ = "";
+      private java.lang.Object tags_ = "";
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
-       * @return Whether the source field is set.
+       * <code>optional string tags = 3;</code>
+       * @return Whether the tags field is set.
        */
-      public boolean hasSource() {
+      public boolean hasTags() {
         return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
-       * @return The source.
+       * <code>optional string tags = 3;</code>
+       * @return The tags.
        */
-      public java.lang.String getSource() {
-        java.lang.Object ref = source_;
+      public java.lang.String getTags() {
+        java.lang.Object ref = tags_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            source_ = s;
+            tags_ = s;
           }
           return s;
         } else {
@@ -1990,20 +1907,20 @@ public final class EvaluationDatasets {
       }
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
-       * @return The bytes for source.
+       * <code>optional string tags = 3;</code>
+       * @return The bytes for tags.
        */
       public com.google.protobuf.ByteString
-          getSourceBytes() {
-        java.lang.Object ref = source_;
+          getTagsBytes() {
+        java.lang.Object ref = tags_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          source_ = b;
+          tags_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -2011,112 +1928,53 @@ public final class EvaluationDatasets {
       }
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
-       * @param value The source to set.
+       * <code>optional string tags = 3;</code>
+       * @param value The tags to set.
        * @return This builder for chaining.
        */
-      public Builder setSource(
+      public Builder setTags(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000004;
-        source_ = value;
+        tags_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
+       * <code>optional string tags = 3;</code>
        * @return This builder for chaining.
        */
-      public Builder clearSource() {
+      public Builder clearTags() {
         bitField0_ = (bitField0_ & ~0x00000004);
-        source_ = getDefaultInstance().getSource();
+        tags_ = getDefaultInstance().getTags();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Source information about where the dataset came from
+       * Tags as JSON string (key-value pairs for metadata)
        * </pre>
        *
-       * <code>optional string source = 3;</code>
-       * @param value The bytes for source to set.
+       * <code>optional string tags = 3;</code>
+       * @param value The bytes for tags to set.
        * @return This builder for chaining.
        */
-      public Builder setSourceBytes(
+      public Builder setTagsBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000004;
-        source_ = value;
-        onChanged();
-        return this;
-      }
-
-      private int sourceType_ = 0;
-      /**
-       * <pre>
-       * Type of source (e.g., "trace", "human", "document")
-       * </pre>
-       *
-       * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-       * @return Whether the sourceType field is set.
-       */
-      @java.lang.Override public boolean hasSourceType() {
-        return ((bitField0_ & 0x00000008) != 0);
-      }
-      /**
-       * <pre>
-       * Type of source (e.g., "trace", "human", "document")
-       * </pre>
-       *
-       * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-       * @return The sourceType.
-       */
-      @java.lang.Override
-      public org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType getSourceType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType result = org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType.valueOf(sourceType_);
-        return result == null ? org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType.SOURCE_TYPE_UNSPECIFIED : result;
-      }
-      /**
-       * <pre>
-       * Type of source (e.g., "trace", "human", "document")
-       * </pre>
-       *
-       * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-       * @param value The sourceType to set.
-       * @return This builder for chaining.
-       */
-      public Builder setSourceType(org.mlflow.api.proto.EvaluationDatasets.DatasetRecordSource.SourceType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000008;
-        sourceType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Type of source (e.g., "trace", "human", "document")
-       * </pre>
-       *
-       * <code>optional .mlflow.evaluation_datasets.DatasetRecordSource.SourceType source_type = 4;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearSourceType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceType_ = 0;
+        tags_ = value;
         onChanged();
         return this;
       }
@@ -2127,18 +1985,18 @@ public final class EvaluationDatasets {
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @return Whether the schema field is set.
        */
       public boolean hasSchema() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @return The schema.
        */
       public java.lang.String getSchema() {
@@ -2160,7 +2018,7 @@ public final class EvaluationDatasets {
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @return The bytes for schema.
        */
       public com.google.protobuf.ByteString
@@ -2181,7 +2039,7 @@ public final class EvaluationDatasets {
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @param value The schema to set.
        * @return This builder for chaining.
        */
@@ -2190,7 +2048,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         schema_ = value;
         onChanged();
         return this;
@@ -2200,11 +2058,11 @@ public final class EvaluationDatasets {
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @return This builder for chaining.
        */
       public Builder clearSchema() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         schema_ = getDefaultInstance().getSchema();
         onChanged();
         return this;
@@ -2214,7 +2072,7 @@ public final class EvaluationDatasets {
        * Schema information (JSON)
        * </pre>
        *
-       * <code>optional string schema = 5;</code>
+       * <code>optional string schema = 4;</code>
        * @param value The bytes for schema to set.
        * @return This builder for chaining.
        */
@@ -2223,7 +2081,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         schema_ = value;
         onChanged();
         return this;
@@ -2235,18 +2093,18 @@ public final class EvaluationDatasets {
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @return Whether the profile field is set.
        */
       public boolean hasProfile() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @return The profile.
        */
       public java.lang.String getProfile() {
@@ -2268,7 +2126,7 @@ public final class EvaluationDatasets {
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @return The bytes for profile.
        */
       public com.google.protobuf.ByteString
@@ -2289,7 +2147,7 @@ public final class EvaluationDatasets {
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @param value The profile to set.
        * @return This builder for chaining.
        */
@@ -2298,7 +2156,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         profile_ = value;
         onChanged();
         return this;
@@ -2308,11 +2166,11 @@ public final class EvaluationDatasets {
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @return This builder for chaining.
        */
       public Builder clearProfile() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         profile_ = getDefaultInstance().getProfile();
         onChanged();
         return this;
@@ -2322,7 +2180,7 @@ public final class EvaluationDatasets {
        * Profile information (JSON)
        * </pre>
        *
-       * <code>optional string profile = 6;</code>
+       * <code>optional string profile = 5;</code>
        * @param value The bytes for profile to set.
        * @return This builder for chaining.
        */
@@ -2331,7 +2189,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000010;
         profile_ = value;
         onChanged();
         return this;
@@ -2343,18 +2201,18 @@ public final class EvaluationDatasets {
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @return Whether the digest field is set.
        */
       public boolean hasDigest() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <pre>
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @return The digest.
        */
       public java.lang.String getDigest() {
@@ -2376,7 +2234,7 @@ public final class EvaluationDatasets {
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @return The bytes for digest.
        */
       public com.google.protobuf.ByteString
@@ -2397,7 +2255,7 @@ public final class EvaluationDatasets {
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @param value The digest to set.
        * @return This builder for chaining.
        */
@@ -2406,7 +2264,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000020;
         digest_ = value;
         onChanged();
         return this;
@@ -2416,11 +2274,11 @@ public final class EvaluationDatasets {
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @return This builder for chaining.
        */
       public Builder clearDigest() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         digest_ = getDefaultInstance().getDigest();
         onChanged();
         return this;
@@ -2430,7 +2288,7 @@ public final class EvaluationDatasets {
        * Dataset digest for integrity checking
        * </pre>
        *
-       * <code>optional string digest = 7;</code>
+       * <code>optional string digest = 6;</code>
        * @param value The bytes for digest to set.
        * @return This builder for chaining.
        */
@@ -2439,7 +2297,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000020;
         digest_ = value;
         onChanged();
         return this;
@@ -2451,19 +2309,19 @@ public final class EvaluationDatasets {
        * Creation timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 created_time = 8;</code>
+       * <code>optional int64 created_time = 7;</code>
        * @return Whether the createdTime field is set.
        */
       @java.lang.Override
       public boolean hasCreatedTime() {
-        return ((bitField0_ & 0x00000080) != 0);
+        return ((bitField0_ & 0x00000040) != 0);
       }
       /**
        * <pre>
        * Creation timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 created_time = 8;</code>
+       * <code>optional int64 created_time = 7;</code>
        * @return The createdTime.
        */
       @java.lang.Override
@@ -2475,12 +2333,12 @@ public final class EvaluationDatasets {
        * Creation timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 created_time = 8;</code>
+       * <code>optional int64 created_time = 7;</code>
        * @param value The createdTime to set.
        * @return This builder for chaining.
        */
       public Builder setCreatedTime(long value) {
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000040;
         createdTime_ = value;
         onChanged();
         return this;
@@ -2490,11 +2348,11 @@ public final class EvaluationDatasets {
        * Creation timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 created_time = 8;</code>
+       * <code>optional int64 created_time = 7;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedTime() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000040);
         createdTime_ = 0L;
         onChanged();
         return this;
@@ -2506,19 +2364,19 @@ public final class EvaluationDatasets {
        * Last update timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 last_update_time = 9;</code>
+       * <code>optional int64 last_update_time = 8;</code>
        * @return Whether the lastUpdateTime field is set.
        */
       @java.lang.Override
       public boolean hasLastUpdateTime() {
-        return ((bitField0_ & 0x00000100) != 0);
+        return ((bitField0_ & 0x00000080) != 0);
       }
       /**
        * <pre>
        * Last update timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 last_update_time = 9;</code>
+       * <code>optional int64 last_update_time = 8;</code>
        * @return The lastUpdateTime.
        */
       @java.lang.Override
@@ -2530,12 +2388,12 @@ public final class EvaluationDatasets {
        * Last update timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 last_update_time = 9;</code>
+       * <code>optional int64 last_update_time = 8;</code>
        * @param value The lastUpdateTime to set.
        * @return This builder for chaining.
        */
       public Builder setLastUpdateTime(long value) {
-        bitField0_ |= 0x00000100;
+        bitField0_ |= 0x00000080;
         lastUpdateTime_ = value;
         onChanged();
         return this;
@@ -2545,11 +2403,11 @@ public final class EvaluationDatasets {
        * Last update timestamp in milliseconds
        * </pre>
        *
-       * <code>optional int64 last_update_time = 9;</code>
+       * <code>optional int64 last_update_time = 8;</code>
        * @return This builder for chaining.
        */
       public Builder clearLastUpdateTime() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         lastUpdateTime_ = 0L;
         onChanged();
         return this;
@@ -2561,18 +2419,18 @@ public final class EvaluationDatasets {
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @return Whether the createdBy field is set.
        */
       public boolean hasCreatedBy() {
-        return ((bitField0_ & 0x00000200) != 0);
+        return ((bitField0_ & 0x00000100) != 0);
       }
       /**
        * <pre>
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @return The createdBy.
        */
       public java.lang.String getCreatedBy() {
@@ -2594,7 +2452,7 @@ public final class EvaluationDatasets {
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @return The bytes for createdBy.
        */
       public com.google.protobuf.ByteString
@@ -2615,7 +2473,7 @@ public final class EvaluationDatasets {
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @param value The createdBy to set.
        * @return This builder for chaining.
        */
@@ -2624,7 +2482,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
+  bitField0_ |= 0x00000100;
         createdBy_ = value;
         onChanged();
         return this;
@@ -2634,11 +2492,11 @@ public final class EvaluationDatasets {
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedBy() {
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000100);
         createdBy_ = getDefaultInstance().getCreatedBy();
         onChanged();
         return this;
@@ -2648,7 +2506,7 @@ public final class EvaluationDatasets {
        * User who created the dataset
        * </pre>
        *
-       * <code>optional string created_by = 10;</code>
+       * <code>optional string created_by = 9;</code>
        * @param value The bytes for createdBy to set.
        * @return This builder for chaining.
        */
@@ -2657,7 +2515,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
+  bitField0_ |= 0x00000100;
         createdBy_ = value;
         onChanged();
         return this;
@@ -2669,18 +2527,18 @@ public final class EvaluationDatasets {
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @return Whether the lastUpdatedBy field is set.
        */
       public boolean hasLastUpdatedBy() {
-        return ((bitField0_ & 0x00000400) != 0);
+        return ((bitField0_ & 0x00000200) != 0);
       }
       /**
        * <pre>
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @return The lastUpdatedBy.
        */
       public java.lang.String getLastUpdatedBy() {
@@ -2702,7 +2560,7 @@ public final class EvaluationDatasets {
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @return The bytes for lastUpdatedBy.
        */
       public com.google.protobuf.ByteString
@@ -2723,7 +2581,7 @@ public final class EvaluationDatasets {
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @param value The lastUpdatedBy to set.
        * @return This builder for chaining.
        */
@@ -2732,7 +2590,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
+  bitField0_ |= 0x00000200;
         lastUpdatedBy_ = value;
         onChanged();
         return this;
@@ -2742,11 +2600,11 @@ public final class EvaluationDatasets {
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @return This builder for chaining.
        */
       public Builder clearLastUpdatedBy() {
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000200);
         lastUpdatedBy_ = getDefaultInstance().getLastUpdatedBy();
         onChanged();
         return this;
@@ -2756,7 +2614,7 @@ public final class EvaluationDatasets {
        * User who last updated the dataset
        * </pre>
        *
-       * <code>optional string last_updated_by = 11;</code>
+       * <code>optional string last_updated_by = 10;</code>
        * @param value The bytes for lastUpdatedBy to set.
        * @return This builder for chaining.
        */
@@ -2765,7 +2623,7 @@ public final class EvaluationDatasets {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
+  bitField0_ |= 0x00000200;
         lastUpdatedBy_ = value;
         onChanged();
         return this;
@@ -2773,9 +2631,9 @@ public final class EvaluationDatasets {
 
       private com.google.protobuf.LazyStringList experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureExperimentIdsIsMutable() {
-        if (!((bitField0_ & 0x00000800) != 0)) {
+        if (!((bitField0_ & 0x00000400) != 0)) {
           experimentIds_ = new com.google.protobuf.LazyStringArrayList(experimentIds_);
-          bitField0_ |= 0x00000800;
+          bitField0_ |= 0x00000400;
          }
       }
       /**
@@ -2783,7 +2641,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @return A list containing the experimentIds.
        */
       public com.google.protobuf.ProtocolStringList
@@ -2795,7 +2653,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @return The count of experimentIds.
        */
       public int getExperimentIdsCount() {
@@ -2806,7 +2664,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param index The index of the element to return.
        * @return The experimentIds at the given index.
        */
@@ -2818,7 +2676,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param index The index of the value to return.
        * @return The bytes of the experimentIds at the given index.
        */
@@ -2831,7 +2689,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param index The index to set the value at.
        * @param value The experimentIds to set.
        * @return This builder for chaining.
@@ -2851,7 +2709,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param value The experimentIds to add.
        * @return This builder for chaining.
        */
@@ -2870,7 +2728,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param values The experimentIds to add.
        * @return This builder for chaining.
        */
@@ -2887,12 +2745,12 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @return This builder for chaining.
        */
       public Builder clearExperimentIds() {
         experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000400);
         onChanged();
         return this;
       }
@@ -2901,7 +2759,7 @@ public final class EvaluationDatasets {
        * Associated experiment IDs (populated from entity_associations table)
        * </pre>
        *
-       * <code>repeated string experiment_ids = 12;</code>
+       * <code>repeated string experiment_ids = 11;</code>
        * @param value The bytes of the experimentIds to add.
        * @return This builder for chaining.
        */
@@ -6848,29 +6706,27 @@ public final class EvaluationDatasets {
   static {
     java.lang.String[] descriptorData = {
       "\n\031evaluation_datasets.proto\022\032mlflow.eval" +
-      "uation_datasets\"\274\002\n\021EvaluationDataset\022\022\n" +
-      "\ndataset_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\016\n\006sourc" +
-      "e\030\003 \001(\t\022O\n\013source_type\030\004 \001(\0162:.mlflow.ev" +
-      "aluation_datasets.DatasetRecordSource.So" +
-      "urceType\022\016\n\006schema\030\005 \001(\t\022\017\n\007profile\030\006 \001(" +
-      "\t\022\016\n\006digest\030\007 \001(\t\022\024\n\014created_time\030\010 \001(\003\022" +
-      "\030\n\020last_update_time\030\t \001(\003\022\022\n\ncreated_by\030" +
-      "\n \001(\t\022\027\n\017last_updated_by\030\013 \001(\t\022\026\n\016experi" +
-      "ment_ids\030\014 \003(\t\"\303\002\n\rDatasetRecord\022\031\n\021data" +
-      "set_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002 \001(\t\022" +
-      "\016\n\006inputs\030\003 \001(\t\022\024\n\014expectations\030\004 \001(\t\022\014\n" +
-      "\004tags\030\005 \001(\t\022\016\n\006source\030\006 \001(\t\022\021\n\tsource_id" +
-      "\030\007 \001(\t\022O\n\013source_type\030\010 \001(\0162:.mlflow.eva" +
-      "luation_datasets.DatasetRecordSource.Sou" +
-      "rceType\022\024\n\014created_time\030\t \001(\003\022\030\n\020last_up" +
-      "date_time\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017l" +
-      "ast_updated_by\030\014 \001(\t\"\324\001\n\023DatasetRecordSo" +
-      "urce\022O\n\013source_type\030\001 \001(\0162:.mlflow.evalu" +
-      "ation_datasets.DatasetRecordSource.Sourc" +
-      "eType\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType" +
-      "\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001" +
-      "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024o" +
-      "rg.mlflow.api.proto\220\001\001"
+      "uation_datasets\"\351\001\n\021EvaluationDataset\022\022\n" +
+      "\ndataset_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\014\n\004tags\030" +
+      "\003 \001(\t\022\016\n\006schema\030\004 \001(\t\022\017\n\007profile\030\005 \001(\t\022\016" +
+      "\n\006digest\030\006 \001(\t\022\024\n\014created_time\030\007 \001(\003\022\030\n\020" +
+      "last_update_time\030\010 \001(\003\022\022\n\ncreated_by\030\t \001" +
+      "(\t\022\027\n\017last_updated_by\030\n \001(\t\022\026\n\016experimen" +
+      "t_ids\030\013 \003(\t\"\303\002\n\rDatasetRecord\022\031\n\021dataset" +
+      "_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002 \001(\t\022\016\n\006" +
+      "inputs\030\003 \001(\t\022\024\n\014expectations\030\004 \001(\t\022\014\n\004ta" +
+      "gs\030\005 \001(\t\022\016\n\006source\030\006 \001(\t\022\021\n\tsource_id\030\007 " +
+      "\001(\t\022O\n\013source_type\030\010 \001(\0162:.mlflow.evalua" +
+      "tion_datasets.DatasetRecordSource.Source" +
+      "Type\022\024\n\014created_time\030\t \001(\003\022\030\n\020last_updat" +
+      "e_time\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last" +
+      "_updated_by\030\014 \001(\t\"\324\001\n\023DatasetRecordSourc" +
+      "e\022O\n\013source_type\030\001 \001(\0162:.mlflow.evaluati" +
+      "on_datasets.DatasetRecordSource.SourceTy" +
+      "pe\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType\022\033\n" +
+      "\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001\022\t\n" +
+      "\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024org." +
+      "mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6881,7 +6737,7 @@ public final class EvaluationDatasets {
     internal_static_mlflow_evaluation_datasets_EvaluationDataset_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_evaluation_datasets_EvaluationDataset_descriptor,
-        new java.lang.String[] { "DatasetId", "Name", "Source", "SourceType", "Schema", "Profile", "Digest", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "ExperimentIds", });
+        new java.lang.String[] { "DatasetId", "Name", "Tags", "Schema", "Profile", "Digest", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "ExperimentIds", });
     internal_static_mlflow_evaluation_datasets_DatasetRecord_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_evaluation_datasets_DatasetRecord_fieldAccessorTable = new

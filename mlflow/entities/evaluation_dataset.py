@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 from mlflow.utils.time import get_current_time_millis
 
@@ -29,8 +28,7 @@ class EvaluationDataset(_MlflowObject):
 
     dataset_id: Optional[str] = None
     name: Optional[str] = None
-    source: Optional[str] = None
-    source_type: Optional[str] = None
+    tags: Optional[dict[str, Any]] = None
     schema: Optional[str] = None
     profile: Optional[str] = None
     digest: Optional[str] = None
@@ -263,10 +261,8 @@ class EvaluationDataset(_MlflowObject):
             proto.dataset_id = self.dataset_id
         if self.name is not None:
             proto.name = self.name
-        if self.source is not None:
-            proto.source = self.source
-        if self.source_type is not None:
-            proto.source_type = ProtoDatasetRecordSource.SourceType.Value(self.source_type)
+        if self.tags is not None:
+            proto.tags = json.dumps(self.tags)
         if self.schema is not None:
             proto.schema = self.schema
         if self.profile is not None:
@@ -289,13 +285,14 @@ class EvaluationDataset(_MlflowObject):
     @classmethod
     def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
+        tags = None
+        if proto.HasField("tags"):
+            tags = json.loads(proto.tags)
+
         dataset = cls(
             dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
             name=proto.name if proto.HasField("name") else None,
-            source=proto.source if proto.HasField("source") else None,
-            source_type=DatasetRecordSourceType.from_proto(proto.source_type)
-            if proto.HasField("source_type")
-            else None,
+            tags=tags,
             schema=proto.schema if proto.HasField("schema") else None,
             profile=proto.profile if proto.HasField("profile") else None,
             digest=proto.digest if proto.HasField("digest") else None,
@@ -313,8 +310,7 @@ class EvaluationDataset(_MlflowObject):
         result = {
             "dataset_id": self.dataset_id,
             "name": self.name,
-            "source": self.source,
-            "source_type": self.source_type,
+            "tags": self.tags,
             "schema": self.schema,
             "profile": self.profile,
             "digest": self.digest,
@@ -335,8 +331,7 @@ class EvaluationDataset(_MlflowObject):
         dataset = cls(
             dataset_id=data.get("dataset_id"),
             name=data.get("name"),
-            source=data.get("source"),
-            source_type=data.get("source_type"),
+            tags=data.get("tags"),
             schema=data.get("schema"),
             profile=data.get("profile"),
             digest=data.get("digest"),
