@@ -72,6 +72,9 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
+    SqlEntityAssociation,
+    SqlEvaluationDataset,
+    SqlEvaluationDatasetRecord,
     SqlExperiment,
     SqlExperimentTag,
     SqlInput,
@@ -261,6 +264,9 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlTraceTag,
             SqlTraceMetadata,
             SqlTraceInfo,
+            SqlEvaluationDatasetRecord,
+            SqlEntityAssociation,
+            SqlEvaluationDataset,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -6174,14 +6180,18 @@ def test_delete_evaluation_dataset(store):
 
 @pytest.fixture
 def evaluation_datasets_with_experiments(store):
+    exp1 = store.create_experiment("eval_dataset_test_exp1")
+    exp2 = store.create_experiment("eval_dataset_test_exp2")
+    exp3 = store.create_experiment("eval_dataset_test_exp3")
+
     dataset_a = EvaluationDataset(name="dataset_a_multi_exp", created_by="alice")
     dataset_b = EvaluationDataset(name="dataset_b_single_exp", created_by="bob")
     dataset_c = EvaluationDataset(name="dataset_c_different_exp", created_by="charlie")
     dataset_d = EvaluationDataset(name="dataset_d_no_exp", created_by="dave")
 
-    created_a = store.create_evaluation_dataset(dataset_a, experiment_ids=["0", "1"])
-    created_b = store.create_evaluation_dataset(dataset_b, experiment_ids=["1"])
-    created_c = store.create_evaluation_dataset(dataset_c, experiment_ids=["2"])
+    created_a = store.create_evaluation_dataset(dataset_a, experiment_ids=[exp1, exp2])
+    created_b = store.create_evaluation_dataset(dataset_b, experiment_ids=[exp2])
+    created_c = store.create_evaluation_dataset(dataset_c, experiment_ids=[exp3])
     created_d = store.create_evaluation_dataset(dataset_d, experiment_ids=[])
 
     return {
@@ -6189,40 +6199,52 @@ def evaluation_datasets_with_experiments(store):
         "dataset_b": created_b,
         "dataset_c": created_c,
         "dataset_d": created_d,
+        "exp1": exp1,
+        "exp2": exp2,
+        "exp3": exp3,
     }
 
 
-@pytest.mark.parametrize(
-    ("experiment_ids", "expected_dataset_names"),
-    [
-        (["1"], ["dataset_a_multi_exp", "dataset_b_single_exp"]),
-        (["0"], ["dataset_a_multi_exp"]),
-        (["2"], ["dataset_c_different_exp"]),
-        (["0", "2"], ["dataset_a_multi_exp", "dataset_c_different_exp"]),
-        (
-            None,
-            [
-                "dataset_a_multi_exp",
-                "dataset_b_single_exp",
-                "dataset_c_different_exp",
-                "dataset_d_no_exp",
-            ],
-        ),
-    ],
-)
-def test_search_evaluation_datasets_by_experiment(
-    store, evaluation_datasets_with_experiments, experiment_ids, expected_dataset_names
-):
-    results = store.search_evaluation_datasets(experiment_ids=experiment_ids)
+def test_search_evaluation_datasets_by_experiment(store, evaluation_datasets_with_experiments):
+    fixture_data = evaluation_datasets_with_experiments
+    exp1 = fixture_data["exp1"]
+    exp2 = fixture_data["exp2"]
+    exp3 = fixture_data["exp3"]
+
+    results = store.search_evaluation_datasets(experiment_ids=[exp2])
     result_names = [d.name for d in results]
+    assert "dataset_a_multi_exp" in result_names
+    assert "dataset_b_single_exp" in result_names
+    assert "dataset_c_different_exp" not in result_names
+    assert "dataset_d_no_exp" not in result_names
 
-    for expected_name in expected_dataset_names:
-        assert expected_name in result_names
+    results = store.search_evaluation_datasets(experiment_ids=[exp1])
+    result_names = [d.name for d in results]
+    assert "dataset_a_multi_exp" in result_names
+    assert "dataset_b_single_exp" not in result_names
+    assert "dataset_c_different_exp" not in result_names
+    assert "dataset_d_no_exp" not in result_names
 
-    all_dataset_names = [d.name for d in evaluation_datasets_with_experiments.values()]
-    for name in all_dataset_names:
-        if name not in expected_dataset_names:
-            assert name not in result_names
+    results = store.search_evaluation_datasets(experiment_ids=[exp3])
+    result_names = [d.name for d in results]
+    assert "dataset_a_multi_exp" not in result_names
+    assert "dataset_b_single_exp" not in result_names
+    assert "dataset_c_different_exp" in result_names
+    assert "dataset_d_no_exp" not in result_names
+
+    results = store.search_evaluation_datasets(experiment_ids=[exp1, exp3])
+    result_names = [d.name for d in results]
+    assert "dataset_a_multi_exp" in result_names
+    assert "dataset_b_single_exp" not in result_names
+    assert "dataset_c_different_exp" in result_names
+    assert "dataset_d_no_exp" not in result_names
+
+    results = store.search_evaluation_datasets(experiment_ids=None)
+    result_names = [d.name for d in results]
+    assert "dataset_a_multi_exp" in result_names
+    assert "dataset_b_single_exp" in result_names
+    assert "dataset_c_different_exp" in result_names
+    assert "dataset_d_no_exp" in result_names
 
 
 def test_search_evaluation_datasets_ordering(store):
@@ -6337,8 +6359,15 @@ def test_search_evaluation_datasets_with_overlapping_experiments_and_lazy_loadin
         assert not test_results[0].has_records()
         df = test_results[0].to_df()
         assert len(df) == 2
-        assert df["inputs"][0] == {"question": "Q1"}
-        assert df["expectations"][1] == {"answer": "A2"}
+        # Check that records are present (order is based on created_time)
+        questions = [row["inputs"]["question"] for _, row in df.iterrows()]
+        assert set(questions) == {"Q1", "Q2"}
+        # Verify expectations are correct for each question
+        for _, row in df.iterrows():
+            if row["inputs"]["question"] == "Q1":
+                assert row["expectations"] == {"answer": "A1"}
+            elif row["inputs"]["question"] == "Q2":
+                assert row["expectations"] == {"answer": "A2"}
 
         results = store.search_evaluation_datasets(experiment_ids=[exp_ids[2]])
         test_results = [d for d in results if d.name.startswith(test_prefix)]
