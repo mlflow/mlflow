@@ -860,6 +860,21 @@ crewai:
     run: pytest tests/crewai
     test_tracing_sdk: true
 
+agno:
+  package_info:
+    pip_release: "agno"
+    module_name: "agno"
+    install_dev: |
+      pip install git+https://github.com/agno-agi/agno.git
+  autologging:
+    minimum: "1.7.0"
+    maximum: "1.7.0"
+    python:
+      ">= 1.7.0": "3.10"
+    requirements:
+    run: pytest tests/agno
+    test_tracing_sdk: true
+
 pydantic_ai:
   package_info:
     pip_release: "pydantic-ai"

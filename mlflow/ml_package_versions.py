@@ -340,6 +340,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.150.0"
         }
     },
+    "agno": {
+        "package_info": {
+            "pip_release": "agno",
+            "module_name": "agno"
+        },
+        "autologging": {
+            "minimum": "1.7.0",
+            "maximum": "1.7.0"
+        }
+    },
     "pydantic_ai": {
         "package_info": {
             "pip_release": "pydantic-ai",
@@ -452,6 +462,7 @@ FLAVOR_TO_MODULE_NAME = {
     "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
+    "agno": "agno",
     "pydantic_ai": "pydantic_ai",
     "smolagents": "smolagents",
     "mistral": "mistralai",
