@@ -6368,76 +6368,76 @@ def test_evaluation_dataset_upsert_comprehensive(store):
 #         ]
 
 
-# def test_evaluation_dataset_edge_cases(store):
-#     dataset = EvaluationDataset(name="edge_cases_test")
-#     created_dataset = store.create_evaluation_dataset(dataset)
+def test_evaluation_dataset_edge_cases(store):
+    dataset = EvaluationDataset(name="edge_cases_test")
+    created_dataset = store.create_evaluation_dataset(dataset)
 
-#     fake_dataset = EvaluationDataset(
-#         dataset_id="nonexistent-dataset-id", name="nonexistent_dataset"
-#     )
-#     with pytest.raises(
-#         MlflowException,
-#         match="Cannot add records to dataset nonexistent-dataset-id: Dataset not found",
-#     ):
-#         fake_dataset.merge_records([{"inputs": {"question": "What is MLflow?"}}])
+    fake_dataset = EvaluationDataset(
+        dataset_id="nonexistent-dataset-id", name="nonexistent_dataset"
+    )
+    with pytest.raises(
+        MlflowException,
+        match="Cannot add records to dataset nonexistent-dataset-id: Dataset not found",
+    ):
+        fake_dataset.merge_records([{"inputs": {"question": "What is MLflow?"}}])
 
-#     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-#         created_dataset.merge_records([])
-#         # Empty merge should not add any records
-#         loaded = store._load_dataset_records(created_dataset.dataset_id)
-#         assert len(loaded) == 0
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        created_dataset.merge_records([])
+        # Empty merge should not add any records
+        loaded = store._load_dataset_records(created_dataset.dataset_id)
+        assert len(loaded) == 0
 
-#     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-#         # Test merging with dict records
-#         dict_records = [
-#             {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
-#             {"inputs": {"q": "Q2"}, "expectations": {}},
-#             {"inputs": {}, "expectations": {"a": "A3"}},
-#         ]
-#         created_dataset.merge_records(dict_records)
-#         loaded = store._load_dataset_records(created_dataset.dataset_id)
-#         assert len(loaded) == 3
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        # Test merging with dict records
+        dict_records = [
+            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
+            {"inputs": {"q": "Q2"}, "expectations": {}},
+            {"inputs": {}, "expectations": {"a": "A3"}},
+        ]
+        created_dataset.merge_records(dict_records)
+        loaded = store._load_dataset_records(created_dataset.dataset_id)
+        assert len(loaded) == 3
 
-#         inputs_list = [r.inputs for r in loaded]
+        inputs_list = [r.inputs for r in loaded]
 
-#         assert {"q": "Q1"} in inputs_list
-#         assert {"q": "Q2"} in inputs_list
-#         assert {} in inputs_list
+        assert {"q": "Q1"} in inputs_list
+        assert {"q": "Q2"} in inputs_list
+        assert {} in inputs_list
 
-#         for record in loaded:
-#             if record.inputs == {"q": "Q1"}:
-#                 assert record.expectations == {"a": "A1"}
-#             elif record.inputs == {"q": "Q2"}:
-#                 # When expectations is an empty dict in the input, it should be stored as None
-#                 assert record.expectations is None
-#             elif record.inputs == {}:
-#                 assert record.expectations == {"a": "A3"}
+        for record in loaded:
+            if record.inputs == {"q": "Q1"}:
+                assert record.expectations == {"a": "A1"}
+            elif record.inputs == {"q": "Q2"}:
+                # When expectations is an empty dict in the input, it should be stored as None
+                assert record.expectations is None
+            elif record.inputs == {}:
+                assert record.expectations == {"a": "A3"}
 
-#         with pytest.raises(MlflowException, match="Each record must be a dictionary"):
-#             created_dataset.merge_records(["not a dict"])
+        with pytest.raises(MlflowException, match="Each record must be a dictionary"):
+            created_dataset.merge_records(["not a dict"])
 
 
-# def test_evaluation_dataset_tags_with_sql_backend(store):
-#     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
-#     dataset = EvaluationDataset(
-#         name="tagged_dataset", tags=tags, schema='{"type": "object"}', profile='{"rows": 1000}'
-#     )
+def test_evaluation_dataset_tags_with_sql_backend(store):
+    tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
+    dataset = EvaluationDataset(
+        name="tagged_dataset", tags=tags, schema='{"type": "object"}', profile='{"rows": 1000}'
+    )
 
-#     created = store.create_evaluation_dataset(dataset)
-#     assert created.tags == tags
+    created = store.create_evaluation_dataset(dataset)
+    assert created.tags == tags
 
-#     retrieved = store.get_evaluation_dataset(created.dataset_id)
-#     assert retrieved.tags == tags
-#     assert retrieved.tags["environment"] == "production"
-#     assert retrieved.tags["version"] == "2.0"
-#     assert retrieved.tags["team"] == "ml-ops"
+    retrieved = store.get_evaluation_dataset(created.dataset_id)
+    assert retrieved.tags == tags
+    assert retrieved.tags["environment"] == "production"
+    assert retrieved.tags["version"] == "2.0"
+    assert retrieved.tags["team"] == "ml-ops"
 
-#     dataset_none = EvaluationDataset(name="no_tags_dataset", tags=None)
-#     created_none = store.create_evaluation_dataset(dataset_none)
-#     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
-#     assert retrieved_none.tags is None
+    dataset_none = EvaluationDataset(name="no_tags_dataset", tags=None)
+    created_none = store.create_evaluation_dataset(dataset_none)
+    retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
+    assert retrieved_none.tags is None
 
-#     dataset_empty = EvaluationDataset(name="empty_tags_dataset", tags={})
-#     created_empty = store.create_evaluation_dataset(dataset_empty)
-#     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
-#     assert retrieved_empty.tags == {}
+    dataset_empty = EvaluationDataset(name="empty_tags_dataset", tags={})
+    created_empty = store.create_evaluation_dataset(dataset_empty)
+    retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
+    assert retrieved_empty.tags == {}
