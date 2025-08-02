@@ -1,6 +1,10 @@
 from typing import Any, Optional
 
 from pydantic import ConfigDict
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
 
 from mlflow.types.chat import BaseModel, ChatUsage, ToolCall
 from mlflow.types.llm import (
@@ -48,39 +52,50 @@ class ChatAgentMessage(BaseModel):
     # TODO make this a pydantic class with subtypes once we have more details on usage
     attachments: Optional[dict[str, str]] = None
 
-    @model_validator(mode="after")
-    def check_content_and_tool_calls(cls, values):
-        """
-        Ensure at least one of 'content' or 'tool_calls' is set.
-        """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            content = values.content
-            tool_calls = values.tool_calls
-        else:
+    if IS_PYDANTIC_V2_OR_NEWER:
+        @model_validator(mode="after")
+        def check_content_and_tool_calls(self) -> Self:
+            """
+            Ensure at least one of 'content' or 'tool_calls' is set.
+            """
+            if self.content is None and self.tool_calls is None:
+                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+            return self
+    else:
+        @model_validator(mode="after")
+        def check_content_and_tool_calls(cls, values):
+            """
+            Ensure at least one of 'content' or 'tool_calls' is set.
+            """
+            # In Pydantic v1, values is a dict
             content = values.get("content")
             tool_calls = values.get("tool_calls")
+            if content is None and tool_calls is None:
+                raise ValueError("Either 'content' or 'tool_calls' must be provided.")
+            return values
 
-        if content is None and tool_calls is None:
-            raise ValueError("Either 'content' or 'tool_calls' must be provided.")
-        return values
-
-    @model_validator(mode="after")
-    def check_tool_messages(cls, values):
-        """
-        Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
-        """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            name = values.name
-            role = values.role
-            tool_call_id = values.tool_call_id
-        else:
+    if IS_PYDANTIC_V2_OR_NEWER:
+        @model_validator(mode="after")
+        def check_tool_messages(self) -> Self:
+            """
+            Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
+            """
+            if self.role == "tool" and (not self.name or not self.tool_call_id):
+                raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
+            return self
+    else:
+        @model_validator(mode="after")
+        def check_tool_messages(cls, values):
+            """
+            Ensure that the 'name' and 'tool_call_id' fields are set for tool messages.
+            """
+            # In Pydantic v1, values is a dict
             name = values.get("name")
             role = values.get("role")
             tool_call_id = values.get("tool_call_id")
-
-        if role == "tool" and (not name or not tool_call_id):
-            raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
-        return values
+            if role == "tool" and (not name or not tool_call_id):
+                raise ValueError("Both 'name' and 'tool_call_id' must be provided for tool messages.")
+            return values
 
 
 class ChatContext(BaseModel):
@@ -144,27 +159,43 @@ class ChatAgentResponse(BaseModel):
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
 
-    @model_validator(mode="after")
-    def check_message_ids(cls, values):
-        """
-        Ensure that all messages have an ID and it is unique.
-        """
-        if IS_PYDANTIC_V2_OR_NEWER:
-            message_ids = [msg.id for msg in values.messages]
-        else:
-            message_ids = [msg.get("id") for msg in values.get("messages")]
-
-        if any(msg_id is None for msg_id in message_ids):
-            raise ValueError(
-                "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
-                "`str(uuid.uuid4())` to generate a unique ID."
-            )
-        if len(message_ids) != len(set(message_ids)):
-            raise ValueError(
-                "All ChatAgentMessage objects in field `messages` must have unique IDs. "
-                "You can use `str(uuid.uuid4())` to generate a unique ID."
-            )
-        return values
+    if IS_PYDANTIC_V2_OR_NEWER:
+        @model_validator(mode="after")
+        def check_message_ids(self) -> Self:
+            """
+            Ensure that all messages have an ID and it is unique.
+            """
+            message_ids = [msg.id for msg in self.messages]
+            if any(msg_id is None for msg_id in message_ids):
+                raise ValueError(
+                    "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
+                    "`str(uuid.uuid4())` to generate a unique ID."
+                )
+            if len(message_ids) != len(set(message_ids)):
+                raise ValueError(
+                    "All ChatAgentMessage objects in field `messages` must have unique IDs. "
+                    "You can use `str(uuid.uuid4())` to generate a unique ID."
+                )
+            return self
+    else:
+        @model_validator(mode="after")
+        def check_message_ids(cls, values):
+            """
+            Ensure that all messages have an ID and it is unique.
+            """
+            # In Pydantic v1, values is a dict but messages are already converted to objects
+            message_ids = [msg.id for msg in values.get("messages")]
+            if any(msg_id is None for msg_id in message_ids):
+                raise ValueError(
+                    "All ChatAgentMessage objects in field `messages` must have an ID. You can use "
+                    "`str(uuid.uuid4())` to generate a unique ID."
+                )
+            if len(message_ids) != len(set(message_ids)):
+                raise ValueError(
+                    "All ChatAgentMessage objects in field `messages` must have unique IDs. "
+                    "You can use `str(uuid.uuid4())` to generate a unique ID."
+                )
+            return values
 
 
 class ChatAgentChunk(BaseModel):
@@ -198,22 +229,38 @@ class ChatAgentChunk(BaseModel):
     custom_outputs: Optional[dict[str, Any]] = None
     usage: Optional[ChatUsage] = None
 
-    @model_validator(mode="after")
-    def check_message_id(cls, values):
-        """
-        Ensure that the message ID is unique.
-        """
-        message_id = values.delta.id if IS_PYDANTIC_V2_OR_NEWER else values.get("delta").get("id")
-
-        if message_id is None:
-            raise ValueError(
-                "The field `delta` of ChatAgentChunk must contain a ChatAgentMessage object with an"
-                " ID. If this chunk contains partial content, it should have the same ID as other "
-                " chunks in the same message. See "
-                "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
-                " for more details. You can use `str(uuid.uuid4())` to generate a unique ID."
-            )
-        return values
+    if IS_PYDANTIC_V2_OR_NEWER:
+        @model_validator(mode="after")
+        def check_message_id(self) -> Self:
+            """
+            Ensure that the message ID is unique.
+            """
+            if self.delta.id is None:
+                raise ValueError(
+                    "The field `delta` of ChatAgentChunk must contain a ChatAgentMessage object with an"
+                    " ID. If this chunk contains partial content, it should have the same ID as other "
+                    " chunks in the same message. See "
+                    "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
+                    " for more details. You can use `str(uuid.uuid4())` to generate a unique ID."
+                )
+            return self
+    else:
+        @model_validator(mode="after")
+        def check_message_id(cls, values):
+            """
+            Ensure that the message ID is unique.
+            """
+            # In Pydantic v1, values is a dict but delta is already converted to object
+            message_id = values.get("delta").id
+            if message_id is None:
+                raise ValueError(
+                    "The field `delta` of ChatAgentChunk must contain a ChatAgentMessage object with an"
+                    " ID. If this chunk contains partial content, it should have the same ID as other "
+                    " chunks in the same message. See "
+                    "https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatAgent.predict_stream"
+                    " for more details. You can use `str(uuid.uuid4())` to generate a unique ID."
+                )
+            return values
 
 
 # fmt: off
