@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING,
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -56,13 +56,7 @@ class InferenceTableSpanExporter(SpanExporter):
 
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
-
-        # NB: When this env var is set to true, MLflow will export traces to both inference
-        #  table and the Databricks Tracing Server.
-        self._should_write_to_mlflow_backend = (
-            _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING.get()
-        )
-        if self._should_write_to_mlflow_backend:
+        if MLFLOW_EXPERIMENT_ID.get():
             self._client = TracingClient("databricks")
             self._async_queue = AsyncTraceExportQueue()
 
@@ -91,18 +85,8 @@ class InferenceTableSpanExporter(SpanExporter):
             # The key is Databricks request ID.
             _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
 
-            if self._should_write_to_mlflow_backend:
-                if trace.info.experiment_id is None:
-                    # NB: The experiment ID is set based on the MLFLOW_EXPERIMENT_ID env var
-                    #   populated in the scoring server by Agent Framework. If the model is not
-                    #   deployed via agents.deploy(), the env var will not be set and the
-                    #   experiment will be empty, even if the dual write itself is enabled.
-                    _logger.warning(
-                        "Dual write to MLflow backend is enabled, but experiment ID is not set "
-                        "for the trace. Skipping trace export to MLflow backend."
-                    )
-                    continue
-
+            # Export to MLflow backend if experiment ID is set
+            if MLFLOW_EXPERIMENT_ID.get() and trace.info.experiment_id is not None:
                 try:
                     # Log the trace to the MLflow backend asynchronously
                     self._async_queue.put(
