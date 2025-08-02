@@ -14,35 +14,32 @@ message EvaluationDataset {
   // Dataset name (user-friendly identifier)
   optional string name = 2;
   
-  // Source information about where the dataset came from
-  optional string source = 3;
-  
-  // Type of source (e.g., "trace", "human", "document")
-  optional DatasetRecordSource.SourceType source_type = 4;
+  // Tags as JSON string (key-value pairs for metadata)
+  optional string tags = 3;
   
   // Schema information (JSON)
-  optional string schema = 5;
+  optional string schema = 4;
   
   // Profile information (JSON)
-  optional string profile = 6;
+  optional string profile = 5;
   
   // Dataset digest for integrity checking
-  optional string digest = 7;
+  optional string digest = 6;
   
   // Creation timestamp in milliseconds
-  optional int64 created_time = 8;
+  optional int64 created_time = 7;
   
   // Last update timestamp in milliseconds
-  optional int64 last_update_time = 9;
+  optional int64 last_update_time = 8;
   
   // User who created the dataset
-  optional string created_by = 10;
+  optional string created_by = 9;
   
   // User who last updated the dataset
-  optional string last_updated_by = 11;
+  optional string last_updated_by = 10;
   
   // Associated experiment IDs (populated from entity_associations table)
-  repeated string experiment_ids = 12;
+  repeated string experiment_ids = 11;
 }
 
 message DatasetRecord {

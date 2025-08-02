@@ -16,20 +16,17 @@ def test_dataset_record_source_type_constants():
 
 
 def test_dataset_record_source_type_enum_values():
-    # Test that enum values work as expected
     assert DatasetRecordSourceType.TRACE == "TRACE"
     assert DatasetRecordSourceType.HUMAN == "HUMAN"
     assert DatasetRecordSourceType.DOCUMENT == "DOCUMENT"
     assert DatasetRecordSourceType.CODE == "CODE"
     assert DatasetRecordSourceType.UNSPECIFIED == "UNSPECIFIED"
 
-    # Test that enum values are strings
     assert isinstance(DatasetRecordSourceType.TRACE, str)
     assert DatasetRecordSourceType.TRACE.value == "TRACE"
 
 
 def test_dataset_record_source_string_normalization():
-    # Test that strings are normalized when creating DatasetRecordSource
     source1 = DatasetRecordSource(source_type="trace", source_data={})
     assert source1.source_type == DatasetRecordSourceType.TRACE
 
@@ -39,7 +36,6 @@ def test_dataset_record_source_string_normalization():
     source3 = DatasetRecordSource(source_type="Document", source_data={})
     assert source3.source_type == DatasetRecordSourceType.DOCUMENT
 
-    # Test with enum directly
     source4 = DatasetRecordSource(source_type=DatasetRecordSourceType.CODE, source_data={})
     assert source4.source_type == DatasetRecordSourceType.CODE
 
