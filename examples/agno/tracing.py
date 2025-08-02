@@ -4,6 +4,8 @@ mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("AGNO Reasoning Finance Team")
 
 mlflow.agno.autolog()
+mlflow.anthropic.autolog()
+mlflow.openai.autolog()
 
 from agno.agent import Agent
 from agno.models.anthropic import Claude
