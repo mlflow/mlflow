@@ -21,13 +21,70 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         "agno.tools.function.FunctionCall": ["execute", "aexecute"],
     }
 
+    # storage
+    class_map.update(
+        {
+            "agno.storage.sqlite.SqliteStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.dynamodb.DynamoDbStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.json.JsonStorage": ["create", "read", "upsert", "drop", "upgrade_schema"],
+            "agno.storage.mongodb.MongoDbStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.mysql.MySQLStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.postgres.PostgresStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.yaml.YamlStorage": ["create", "read", "upsert", "drop", "upgrade_schema"],
+            "agno.storage.singlestore.SingleStoreStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+            "agno.storage.redis.RedisStorage": [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ],
+        }
+    )
+
     for cls_path, methods in class_map.items():
         mod_name, cls_name = cls_path.rsplit(".", 1)
         try:
             module = __import__(mod_name, fromlist=[cls_name])
             cls = getattr(module, cls_name)
         except (ImportError, AttributeError) as exc:
-            _logger.error("Agno autologging: failed to import %s – %s", cls_path, exc)
+            _logger.debug("Agno autologging: failed to import %s – %s", cls_path, exc)
             continue
 
         for method_name in methods:
