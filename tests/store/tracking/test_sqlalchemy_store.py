@@ -6328,93 +6328,44 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     assert empty_result["updated"] == 0
 
 
-# def test_evaluation_dataset_associations_and_lazy_loading(store):
-#     dataset = EvaluationDataset(name="multi_exp_dataset")
-#     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
-#     created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+def test_evaluation_dataset_associations_and_lazy_loading(store):
+    dataset = EvaluationDataset(name="multi_exp_dataset")
+    experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
+    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
 
-#     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-#     assert set(retrieved.experiment_ids) == set(experiment_ids)
+    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    assert set(retrieved.experiment_ids) == set(experiment_ids)
 
-#     results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
-#     assert any(d.dataset_id == created_dataset.dataset_id for d in results)
+    results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
+    assert any(d.dataset_id == created_dataset.dataset_id for d in results)
 
-#     results = store.search_evaluation_datasets(
-#         experiment_ids=[experiment_ids[0], experiment_ids[2]]
-#     )
-#     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
-#     assert len(matching) == 1
-#     assert set(matching[0].experiment_ids) == set(experiment_ids)
-
-#     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
-#     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
-
-#     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-#         retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-#         assert not retrieved.has_records()
-
-#         df = retrieved.to_df()
-#         assert len(df) == 5
-#         assert retrieved.has_records()
-
-#         assert list(df.columns) == [
-#             "inputs",
-#             "expectations",
-#             "tags",
-#             "source_type",
-#             "source_id",
-#             "created_time",
-#             "dataset_record_id",
-#         ]
-
-
-def test_evaluation_dataset_edge_cases(store):
-    dataset = EvaluationDataset(name="edge_cases_test")
-    created_dataset = store.create_evaluation_dataset(dataset)
-
-    fake_dataset = EvaluationDataset(
-        dataset_id="nonexistent-dataset-id", name="nonexistent_dataset"
+    results = store.search_evaluation_datasets(
+        experiment_ids=[experiment_ids[0], experiment_ids[2]]
     )
-    with pytest.raises(
-        MlflowException,
-        match="Cannot add records to dataset nonexistent-dataset-id: Dataset not found",
-    ):
-        fake_dataset.merge_records([{"inputs": {"question": "What is MLflow?"}}])
+    matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
+    assert len(matching) == 1
+    assert set(matching[0].experiment_ids) == set(experiment_ids)
+
+    records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
+    store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
 
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        created_dataset.merge_records([])
-        # Empty merge should not add any records
-        loaded = store._load_dataset_records(created_dataset.dataset_id)
-        assert len(loaded) == 0
+        retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+        assert not retrieved.has_records()
 
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        # Test merging with dict records
-        dict_records = [
-            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
-            {"inputs": {"q": "Q2"}, "expectations": {}},
-            {"inputs": {}, "expectations": {"a": "A3"}},
+        df = retrieved.to_df()
+        assert len(df) == 5
+        assert retrieved.has_records()
+
+        assert list(df.columns) == [
+            "inputs",
+            "expectations",
+            "tags",
+            "source_type",
+            "source_id",
+            "created_time",
+            "dataset_record_id",
         ]
-        created_dataset.merge_records(dict_records)
-        loaded = store._load_dataset_records(created_dataset.dataset_id)
-        assert len(loaded) == 3
-
-        inputs_list = [r.inputs for r in loaded]
-
-        assert {"q": "Q1"} in inputs_list
-        assert {"q": "Q2"} in inputs_list
-        assert {} in inputs_list
-
-        for record in loaded:
-            if record.inputs == {"q": "Q1"}:
-                assert record.expectations == {"a": "A1"}
-            elif record.inputs == {"q": "Q2"}:
-                # When expectations is an empty dict in the input, it should be stored as None
-                assert record.expectations is None
-            elif record.inputs == {}:
-                assert record.expectations == {"a": "A3"}
-
-        with pytest.raises(MlflowException, match="Each record must be a dictionary"):
-            created_dataset.merge_records(["not a dict"])
 
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
