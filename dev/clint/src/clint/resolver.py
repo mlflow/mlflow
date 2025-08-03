@@ -70,7 +70,7 @@ class Resolver:
 
         return self._resolve_parts(parts) if parts else None
 
-    def _extract_call_parts(self, node: ast.AST) -> list[str]:
+    def _extract_call_parts(self, node: ast.expr) -> list[str]:
         if isinstance(node, ast.Name):
             return [node.id]
         elif isinstance(node, ast.Attribute) and (
