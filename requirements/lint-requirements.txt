@@ -4,4 +4,5 @@ blacken-docs==1.18.0
 pre-commit==4.0.1
 toml==0.10.2
 mypy==1.17.1
+pytest==8.4.0
 -e ./dev/clint
