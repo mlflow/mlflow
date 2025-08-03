@@ -22,6 +22,7 @@ print(f"Arguments: {func_info.args}")  # -> ['key, 'value', 'step', ...]
 
 import ast
 import multiprocessing
+import pickle
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -149,6 +150,16 @@ class SymbolIndex:
     ) -> None:
         self.import_mapping = import_mapping
         self.func_mapping = func_mapping
+
+    def save(self, path: Path) -> None:
+        with path.open("wb") as f:
+            pickle.dump((self.import_mapping, self.func_mapping), f)
+
+    @classmethod
+    def load(cls, path: Path) -> Self:
+        with path.open("rb") as f:
+            import_mapping, func_mapping = pickle.load(f)
+        return cls(import_mapping, func_mapping)
 
     @classmethod
     def build(cls) -> Self:
