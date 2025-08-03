@@ -7,7 +7,7 @@ from typing import Optional, Sequence
 import mlflow
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -506,6 +506,18 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
+
+    async def log_spans(self, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            spans: List of Span entities to log.
+
+        Returns:
+            List of logged Span entities.
+        """
+        return await self.store.log_spans(spans)
 
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
