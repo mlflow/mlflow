@@ -1,6 +1,9 @@
+import base64
 import json
 import logging
 from typing import Any, Optional
+
+import requests
 
 from mlflow.entities import (
     DatasetInput,
@@ -17,6 +20,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -1141,3 +1145,154 @@ class RestStore(AbstractStore):
         endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    async def log_spans(self, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store via the OTel API.
+
+        Args:
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            ValueError: If spans belong to different traces.
+            MlflowException: If the OTel API call fails.
+        """
+        if not spans:
+            return []
+
+        # Verify all spans belong to the same trace
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise ValueError(f"All spans must belong to the same trace. Found traces: {trace_ids}")
+
+        # Convert MLflow spans to OTel format
+        otel_spans = []
+        for span in spans:
+            # Extract the numeric trace ID from MLflow format (tr-<hex>)
+            mlflow_trace_id = span._trace_id  # OTel trace ID in hex format
+            trace_id_int = int(mlflow_trace_id, 16)
+            trace_id_b64 = base64.b64encode(trace_id_int.to_bytes(16, byteorder="big")).decode(
+                "ascii"
+            )
+
+            # Convert span ID
+            span_id_int = int(span.span_id, 16)
+            span_id_b64 = base64.b64encode(span_id_int.to_bytes(8, byteorder="big")).decode("ascii")
+
+            # Convert parent span ID if present
+            parent_span_id_b64 = ""
+            if span.parent_id:
+                parent_id_int = int(span.parent_id, 16)
+                parent_span_id_b64 = base64.b64encode(
+                    parent_id_int.to_bytes(8, byteorder="big")
+                ).decode("ascii")
+
+            # Build OTel span structure
+            otel_span = {
+                "traceId": trace_id_b64,
+                "spanId": span_id_b64,
+                "name": span.name,
+                "startTimeUnixNano": str(span.start_time_ns),
+                "endTimeUnixNano": str(span.end_time_ns) if span.end_time_ns else None,
+                "attributes": [],
+                "status": {
+                    "code": f"STATUS_CODE_{span.status.status_code.name}",
+                },
+            }
+
+            # Add parent span ID if present
+            if parent_span_id_b64:
+                otel_span["parentSpanId"] = parent_span_id_b64
+
+            # Add status message if present
+            if span.status.description:
+                otel_span["status"]["message"] = span.status.description
+
+            # Add trace state if present
+            if hasattr(span, "_trace_state") and span._trace_state:
+                otel_span["traceState"] = span._trace_state
+
+            # Convert attributes to OTel format
+            for key, value in span.attributes.items():
+                attr = {"key": key}
+                # OTel expects specific value types
+                if isinstance(value, bool):
+                    attr["value"] = {"boolValue": value}
+                elif isinstance(value, int):
+                    attr["value"] = {"intValue": str(value)}
+                elif isinstance(value, float):
+                    attr["value"] = {"doubleValue": value}
+                elif isinstance(value, str):
+                    attr["value"] = {"stringValue": value}
+                else:
+                    # For complex types, serialize to JSON string
+                    attr["value"] = {"stringValue": json.dumps(value)}
+                otel_span["attributes"].append(attr)
+
+            # Add events if present
+            if span.events:
+                otel_span["events"] = []
+                for event in span.events:
+                    otel_event = {
+                        "name": event.name,
+                        "timeUnixNano": str(event.timestamp),
+                        "attributes": [],
+                    }
+                    # Convert event attributes
+                    for key, value in event.attributes.items():
+                        attr = {"key": key}
+                        if isinstance(value, bool):
+                            attr["value"] = {"boolValue": value}
+                        elif isinstance(value, int):
+                            attr["value"] = {"intValue": str(value)}
+                        elif isinstance(value, float):
+                            attr["value"] = {"doubleValue": value}
+                        elif isinstance(value, str):
+                            attr["value"] = {"stringValue": value}
+                        else:
+                            attr["value"] = {"stringValue": json.dumps(value)}
+                        otel_event["attributes"].append(attr)
+                    otel_span["events"].append(otel_event)
+
+            otel_spans.append(otel_span)
+
+        # Build the OTel export request
+        otel_request = {
+            "resourceSpans": [
+                {"resource": {"attributes": []}, "scopeSpans": [{"spans": otel_spans}]}
+            ]
+        }
+
+        # Make the request to the OTel API endpoint
+        host_creds = self.get_host_creds()
+        endpoint_url = f"{host_creds.host}/v1/traces"
+
+        # Build headers
+        headers = {"Content-Type": "application/json"}
+        if host_creds.token:
+            headers["Authorization"] = f"Bearer {host_creds.token}"
+        elif host_creds.username and host_creds.password:
+            credentials = f"{host_creds.username}:{host_creds.password}"
+            encoded_credentials = base64.b64encode(credentials.encode()).decode()
+            headers["Authorization"] = f"Basic {encoded_credentials}"
+
+        try:
+            # Use synchronous requests since RestStore doesn't support async
+            response = requests.post(
+                endpoint_url,
+                json=otel_request,
+                headers=headers,
+                verify=not host_creds.ignore_tls_verification,
+            )
+            response.raise_for_status()
+
+            # The OTel API doesn't return the spans, so we return the input spans
+            return spans
+
+        except requests.HTTPError as e:
+            raise MlflowException(f"Failed to log spans via OTel API: {e.response.text}") from e
+        except Exception as e:
+            raise MlflowException(f"Failed to log spans via OTel API: {e!s}") from e

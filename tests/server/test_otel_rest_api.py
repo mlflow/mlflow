@@ -6,9 +6,11 @@ to the OTel endpoints.
 """
 
 import base64
+import json
 import os
 import sys
 import tempfile
+import time
 import uuid
 from subprocess import Popen
 
@@ -210,18 +212,20 @@ def test_otel_span_export_protobuf(fastapi_server):
     # Create an experiment
     experiment_id = client.create_experiment("test_otel_protobuf")
 
-    # Create a trace
-    trace_info = client.start_trace(name="test_trace", experiment_id=experiment_id)
-    client.end_trace(trace_info.request_id)
-
-    # Extract the trace ID
-    trace_id_hex = trace_info.request_id[3:]
-    trace_id_int = int(trace_id_hex, 16)
+    # Generate a new trace ID (OTel spans create their own traces)
+    trace_id_int = uuid.uuid4().int & ((1 << 128) - 1)  # 128-bit trace ID
     trace_id_bytes = trace_id_int.to_bytes(16, byteorder="big")
 
     # Create protobuf request
     proto_request = ExportTraceServiceRequest()
     resource_span = proto_request.resource_spans.add()
+
+    # Add resource attributes
+
+    exp_id_attr = resource_span.resource.attributes.add()
+    exp_id_attr.key = "mlflow.experimentId"
+    exp_id_attr.value.string_value = experiment_id
+
     scope_span = resource_span.scope_spans.add()
 
     # Add a span
@@ -232,6 +236,8 @@ def test_otel_span_export_protobuf(fastapi_server):
     span.start_time_unix_nano = 1000000000
     span.end_time_unix_nano = 2000000000
     span.status.code = Status.StatusCode.STATUS_CODE_OK
+
+    # No need to add trace request ID - it will be created from trace_id
 
     # Send binary protobuf request
     response = requests.post(
@@ -330,3 +336,212 @@ def test_otel_span_export_invalid_json(fastapi_server):
 
     # FastAPI returns 422 for validation errors
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_rest_store_log_spans_integration(fastapi_server):
+    """Integration test for RestStore.log_spans() method calling the OTel API."""
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
+    from mlflow.store.tracking.rest_store import RestStore
+    from mlflow.tracing.utils import encode_trace_id
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    # Create RestStore with the test server
+    def get_host_creds():
+        return MlflowHostCreds(
+            host=fastapi_server,
+            username=None,
+            password=None,
+            token=None,
+            ignore_tls_verification=False,
+        )
+
+    store = RestStore(get_host_creds)
+    client = MlflowClient(fastapi_server)
+
+    # Create an experiment
+    experiment_id = client.create_experiment("test_rest_store_spans")
+
+    # Generate trace and span IDs
+    trace_id_int = uuid.uuid4().int & ((1 << 128) - 1)
+    span1_id_int = uuid.uuid4().int & ((1 << 64) - 1)
+    span2_id_int = uuid.uuid4().int & ((1 << 64) - 1)
+
+    # Create MLflow trace ID format
+    mlflow_trace_id = f"tr-{encode_trace_id(trace_id_int)}"
+
+    # Create OpenTelemetry spans
+    otel_span1 = OTelReadableSpan(
+        name="integration_test_span_1",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span1_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(mlflow_trace_id),
+            "mlflow.experimentId": json.dumps(experiment_id),
+            "mlflow.spanType": json.dumps("CHAIN"),
+            "test_attribute": json.dumps("test_value"),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    otel_span2 = OTelReadableSpan(
+        name="integration_test_span_2",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span2_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span1_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        start_time=1500000000,
+        end_time=1800000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(mlflow_trace_id),
+            "mlflow.experimentId": json.dumps(experiment_id),
+            "mlflow.spanType": json.dumps("LLM"),
+            "inputs": json.dumps({"prompt": "What is MLflow?"}),
+            "outputs": json.dumps({"response": "MLflow is an open source platform"}),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[
+            # Using a mock event that looks like OTel event
+            type(
+                "Event",
+                (),
+                {
+                    "name": "user_feedback",
+                    "timestamp": 1600000000,
+                    "attributes": {"feedback": "helpful", "rating": 5},
+                },
+            )(),
+        ],
+    )
+
+    # Create MLflow Span objects
+    span1 = Span(otel_span1)
+    span2 = Span(otel_span2)
+
+    # Call log_spans through RestStore
+    result = await store.log_spans([span1, span2])
+
+    # Verify the spans were logged
+    assert result == [span1, span2]
+
+    # Give the server a moment to process the spans
+    time.sleep(0.5)
+
+    # Verify the trace was created by searching for it
+    traces = client.search_traces(
+        experiment_ids=[experiment_id],
+        max_results=10,
+    )
+
+    # Find our trace
+    our_trace = None
+    for trace in traces:
+        if trace.trace_id == mlflow_trace_id:
+            our_trace = trace
+            break
+
+    assert our_trace is not None, f"Trace {mlflow_trace_id} not found"
+
+    # Verify trace has correct metadata
+    assert our_trace.experiment_id == experiment_id
+    assert our_trace.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_rest_store_log_spans_with_complex_attributes(fastapi_server):
+    """Test RestStore.log_spans() with complex attribute types."""
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
+    from mlflow.store.tracking.rest_store import RestStore
+    from mlflow.tracing.utils import encode_trace_id
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    # Create RestStore
+    store = RestStore(
+        lambda: MlflowHostCreds(
+            host=fastapi_server,
+            username=None,
+            password=None,
+            token=None,
+            ignore_tls_verification=False,
+        )
+    )
+
+    client = MlflowClient(fastapi_server)
+    experiment_id = client.create_experiment("test_complex_attributes")
+
+    # Generate IDs
+    trace_id_int = uuid.uuid4().int & ((1 << 128) - 1)
+    span_id_int = uuid.uuid4().int & ((1 << 64) - 1)
+
+    mlflow_trace_id = f"tr-{encode_trace_id(trace_id_int)}"
+
+    # Create span with various attribute types
+    otel_span = OTelReadableSpan(
+        name="complex_attributes_span",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(mlflow_trace_id),
+            "mlflow.experimentId": json.dumps(experiment_id),
+            # Test different types
+            "bool_attr": json.dumps(True),
+            "int_attr": json.dumps(42),
+            "float_attr": json.dumps(3.14),
+            "string_attr": json.dumps("test string"),
+            "list_attr": json.dumps([1, 2, 3]),
+            "dict_attr": json.dumps({"key": "value", "nested": {"a": 1}}),
+            "null_attr": json.dumps(None),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    span = Span(otel_span)
+
+    # Log the span
+    result = await store.log_spans([span])
+    assert result == [span]
+
+    # Wait for processing
+    time.sleep(0.5)
+
+    # Verify the trace exists
+    traces = client.search_traces(
+        experiment_ids=[experiment_id],
+        max_results=10,
+    )
+
+    found = any(trace.trace_id == mlflow_trace_id for trace in traces)
+    assert found, f"Trace {mlflow_trace_id} with complex attributes not found"

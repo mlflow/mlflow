@@ -2725,39 +2725,86 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
 
-    async def log_span(self, span: Span) -> Span:
+    async def log_spans(self, spans: list[Span]) -> list[Span]:
         """
-        Log a span entity to the tracking store.
+        Log multiple span entities to the tracking store.
 
         Args:
-            span: The Span entity to log.
+            spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
-            The logged Span entity.
+            List of logged Span entities.
+
+        Raises:
+            ValueError: If spans belong to different traces.
         """
-        import json
+        if not spans:
+            return []
 
-        with self.ManagedSessionMaker() as session:
-            # Get the trace info to extract experiment_id
-            sql_trace_info = self._get_sql_trace_info(session, span.trace_id)
-
-            # Create the SqlSpan entity
-            sql_span = SqlSpan(
-                trace_id=span.trace_id,
-                experiment_id=sql_trace_info.experiment_id,
-                span_id=span.span_id,
-                parent_span_id=span.parent_id,
-                status=span.status.status_code,
-                start_time_unix_nano=span.start_time_ns,
-                end_time_unix_nano=span.end_time_ns,
-                trace_state=span._trace_state,
-                content=json.dumps(span.to_dict(), cls=TraceJSONEncoder),
+        # Validate all spans belong to the same trace
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise MlflowException(
+                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
-            # Merge to handle potential duplicates
-            session.merge(sql_span)
+        trace_id = next(iter(trace_ids))
 
-        return span
+        with self.ManagedSessionMaker() as session:
+            # Try to get the trace info to extract experiment_id
+            sql_trace_info = (
+                session.query(SqlTraceInfo)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+
+            # If trace doesn't exist, create it
+            if sql_trace_info is None:
+                # Extract experiment ID from span attributes or use default
+                experiment_id = "0"  # Default experiment
+
+                # Check first span for mlflow.experimentId
+                first_span = spans[0]
+                mlflow_experiment_id = first_span.get_attribute("mlflow.experimentId")
+                if mlflow_experiment_id:
+                    experiment_id = mlflow_experiment_id
+
+                # Get the earliest start time and latest end time
+                min_start_time = min(span.start_time_ns for span in spans)
+                max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
+
+                # Create the SqlTraceInfo directly in the session
+                sql_trace_info = SqlTraceInfo(
+                    request_id=trace_id,
+                    experiment_id=experiment_id,
+                    timestamp_ms=min_start_time // 1_000_000,  # Convert to milliseconds
+                    execution_time_ms=(max_end_time - min_start_time) // 1_000_000,  # Convert to ms
+                    status="OK",  # Default status
+                    client_request_id=None,
+                )
+
+                # Add to session
+                session.add(sql_trace_info)
+
+            # Create SqlSpan entities for all spans
+            for span in spans:
+                sql_span = SqlSpan(
+                    trace_id=span.trace_id,
+                    experiment_id=sql_trace_info.experiment_id,
+                    span_id=span.span_id,
+                    parent_span_id=span.parent_id,
+                    status=span.status.status_code,
+                    start_time_unix_nano=span.start_time_ns,
+                    end_time_unix_nano=span.end_time_ns,
+                    trace_state=span._trace_state,
+                    content=json.dumps(span.to_dict(), cls=TraceJSONEncoder),
+                )
+
+                # Merge to handle potential duplicates
+                session.merge(sql_span)
+
+        return spans
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

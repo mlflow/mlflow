@@ -230,7 +230,8 @@ async def export_traces(
             # Process scope spans
             for scope_span in resource_span.get("scopeSpans", []):
                 # Process individual spans
-                tasks = []
+                # Group spans by trace ID for efficient batch processing
+                spans_by_trace = {}
                 for otel_span in scope_span.get("spans", []):
                     try:
                         # Extract trace ID from the span and convert to MLflow format
@@ -250,21 +251,31 @@ async def export_traces(
                             otel_span, trace_id, resource_attrs
                         )
 
-                        # Create async task to log the span
-                        task = asyncio.create_task(tracking_store.log_span(mlflow_span))
-                        tasks.append(task)
+                        # Group by trace ID
+                        if trace_id not in spans_by_trace:
+                            spans_by_trace[trace_id] = []
+                        spans_by_trace[trace_id].append(mlflow_span)
 
                     except Exception as e:
                         failed_count += 1
                         error_messages.append(f"Failed to process span: {e!s}")
 
+                # Log spans for each trace
+                tasks = []
+                for trace_id, trace_spans in spans_by_trace.items():
+                    # Create async task to log the spans for this trace
+                    task = asyncio.create_task(tracking_store.log_spans(trace_spans))
+                    tasks.append((task, len(trace_spans)))
+
                 # Wait for all span logging tasks to complete
                 if tasks:
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
-                    for result in results:
+                    results = await asyncio.gather(
+                        *[task for task, _ in tasks], return_exceptions=True
+                    )
+                    for (task, span_count), result in zip(tasks, results):
                         if isinstance(result, Exception):
-                            failed_count += 1
-                            error_messages.append(f"Failed to log span: {result!s}")
+                            failed_count += span_count
+                            error_messages.append(f"Failed to log spans: {result!s}")
 
     except Exception as e:
         # If there's a general processing error, return 500

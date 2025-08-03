@@ -6119,8 +6119,8 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 @pytest.mark.asyncio
-async def test_log_span(store: SqlAlchemyStore):
-    """Test the async log_span method."""
+async def test_log_spans(store: SqlAlchemyStore):
+    """Test the async log_spans method."""
     from mlflow.entities.span import Span, create_mlflow_span
 
     # Create an experiment and trace first
@@ -6170,12 +6170,13 @@ async def test_log_span(store: SqlAlchemyStore):
     assert isinstance(span, Span)
 
     # Test logging the span
-    logged_span = await store.log_span(span)
+    logged_spans = await store.log_spans([span])
 
-    # Verify the returned span is the same
-    assert logged_span == span
-    assert logged_span.trace_id == trace_info.trace_id
-    assert logged_span.span_id == span.span_id
+    # Verify the returned spans are the same
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+    assert logged_spans[0].trace_id == trace_info.trace_id
+    assert logged_spans[0].span_id == span.span_id
 
     # Verify the span was saved to the database
     with store.ManagedSessionMaker() as session:
@@ -6204,8 +6205,9 @@ async def test_log_span(store: SqlAlchemyStore):
         assert content_dict["attributes"]["mlflow.spanType"] == '"LLM"'
 
     # Test duplicate handling - logging the same span again should update it
-    logged_span2 = await store.log_span(span)
-    assert logged_span2 == span
+    logged_spans2 = await store.log_spans([span])
+    assert len(logged_spans2) == 1
+    assert logged_spans2[0] == span
 
     # Verify only one span exists in the database
     with store.ManagedSessionMaker() as session:
@@ -6218,8 +6220,8 @@ async def test_log_span(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
-async def test_log_span_without_trace_state(store: SqlAlchemyStore):
-    """Test logging a span without trace state."""
+async def test_log_spans_without_trace_state(store: SqlAlchemyStore):
+    """Test logging spans without trace state."""
     from mlflow.entities.span import create_mlflow_span
 
     # Create an experiment and trace first
@@ -6253,7 +6255,7 @@ async def test_log_span_without_trace_state(store: SqlAlchemyStore):
     )
 
     span = create_mlflow_span(readable_span, trace_info.trace_id)
-    await store.log_span(span)
+    await store.log_spans([span])
 
     # Verify the span was saved correctly
     with store.ManagedSessionMaker() as session:
@@ -6269,3 +6271,193 @@ async def test_log_span_without_trace_state(store: SqlAlchemyStore):
         assert saved_span.parent_span_id is None  # Root span
         assert saved_span.trace_state is None  # No trace state
         assert saved_span.end_time_unix_nano is None  # Still running
+
+
+@pytest.mark.asyncio
+async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore):
+    """Test that logging spans from different traces raises an error."""
+    from mlflow.entities.span import create_mlflow_span
+
+    # Create two different traces
+    experiment_id = store.create_experiment("test_multi_trace_experiment")
+    trace_info1 = TraceInfo(
+        trace_id="tr-span-test-789",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info2 = TraceInfo(
+        trace_id="tr-span-test-999",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=5678,
+        execution_duration=200,
+        state=TraceState.OK,
+    )
+    trace_info1 = store.start_trace(trace_info1)
+    trace_info2 = store.start_trace(trace_info2)
+
+    # Create spans for different traces
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace1",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_info1.trace_id)},
+            start_time=1000000000,
+            end_time=2000000000,
+        ),
+        trace_info1.trace_id,
+    )
+
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace2",
+            context=trace_api.SpanContext(
+                trace_id=67890,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_info2.trace_id)},
+            start_time=3000000000,
+            end_time=4000000000,
+        ),
+        trace_info2.trace_id,
+    )
+
+    # Try to log spans from different traces - should raise MlflowException
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+        await store.log_spans([span1, span2])
+
+
+@pytest.mark.asyncio
+async def test_log_spans_multiple_same_trace(store: SqlAlchemyStore):
+    """Test logging multiple spans from the same trace."""
+    from mlflow.entities.span import create_mlflow_span
+
+    # Create an experiment and trace
+    experiment_id = store.create_experiment("test_multi_span_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-span-test-multi",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info = store.start_trace(trace_info)
+
+    # Create multiple spans for the same trace
+    spans = []
+    for i in range(3):
+        readable_span = OTelReadableSpan(
+            name=f"test_span_{i}",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=100 + i,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
+                "span_index": str(i),
+            },
+            start_time=1000000000 + i * 1000000000,
+            end_time=2000000000 + i * 1000000000,
+        )
+        spans.append(create_mlflow_span(readable_span, trace_info.trace_id))
+
+    # Log all spans at once
+    logged_spans = await store.log_spans(spans)
+
+    # Verify all spans were logged
+    assert len(logged_spans) == 3
+    for i, span in enumerate(logged_spans):
+        assert span == spans[i]
+
+    # Verify all spans were saved to the database
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+        saved_spans = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id)
+            .order_by(SqlSpan.span_id)
+            .all()
+        )
+
+        assert len(saved_spans) == 3
+        for i, saved_span in enumerate(saved_spans):
+            # Span IDs are encoded as hex strings
+            from mlflow.tracing.utils import encode_span_id
+
+            assert saved_span.span_id == encode_span_id(100 + i)
+            content_dict = json.loads(saved_span.content)
+            assert content_dict["name"] == f"test_span_{i}"
+            assert content_dict["attributes"]["span_index"] == str(i)
+
+
+@pytest.mark.asyncio
+async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore):
+    """Test that log_spans creates a trace if it doesn't exist."""
+    from mlflow.entities.span import create_mlflow_span
+
+    # Create an experiment but no trace
+    experiment_id = store.create_experiment("test_auto_trace_experiment")
+
+    # Create a span without a pre-existing trace
+    trace_id = "tr-auto-created-trace"
+    readable_span = OTelReadableSpan(
+        name="auto_trace_span",
+        context=trace_api.SpanContext(
+            trace_id=98765,
+            span_id=555,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.experimentId": json.dumps(experiment_id),
+        },
+        start_time=5000000000,
+        end_time=6000000000,
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Log the span - should create the trace automatically
+    logged_spans = await store.log_spans([span])
+
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+
+    # Verify the trace was created
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
+
+        created_trace = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
+        )
+
+        assert created_trace is not None
+        assert created_trace.experiment_id == int(experiment_id)
+        assert created_trace.timestamp_ms == 5000000000 // 1_000_000
+        assert created_trace.execution_time_ms == 1000000000 // 1_000_000
+        assert created_trace.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_log_spans_empty_list(store: SqlAlchemyStore):
+    """Test logging an empty list of spans."""
+    result = await store.log_spans([])
+    assert result == []

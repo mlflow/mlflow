@@ -1,8 +1,10 @@
+import base64
 import json
 import time
 from unittest import mock
 
 import pytest
+import requests
 
 import mlflow
 from mlflow.entities import (
@@ -1458,3 +1460,280 @@ def test_create_logged_models_with_params(
 
         # Verify total number of calls
         assert mock_call_endpoint.call_count == expected_call_count
+
+
+@pytest.mark.asyncio
+async def test_log_spans():
+    """Test the log_spans method that calls the OTel API."""
+
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
+
+    # Create mock host credentials
+    mock_host = "http://test-server"
+    mock_creds = MlflowHostCreds(
+        host=mock_host,
+        username=None,
+        password=None,
+        token="test-token",  # This will generate Bearer auth header
+        ignore_tls_verification=False,
+    )
+
+    store = RestStore(lambda: mock_creds)
+
+    # Create test spans with proper OpenTelemetry structure
+    trace_id_int = 0x1234567890ABCDEF1234567890ABCDEF
+    span1_id_int = 0x1234567890ABCDEF
+    span2_id_int = 0xFEDCBA0987654321
+
+    # Create OpenTelemetry ReadableSpan objects
+    otel_span1 = OTelReadableSpan(
+        name="test_span_1",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span1_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("tr-1234567890abcdef1234567890abcdef"),
+            "mlflow.spanType": json.dumps("CHAIN"),
+            "custom_attr": json.dumps("value1"),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    otel_span2 = OTelReadableSpan(
+        name="test_span_2",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span2_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span1_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        start_time=1500000000,
+        end_time=1800000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("tr-1234567890abcdef1234567890abcdef"),
+            "mlflow.spanType": json.dumps("LLM"),
+            "inputs": json.dumps({"prompt": "test"}),
+            "outputs": json.dumps({"response": "test response"}),
+        },
+        status=SpanStatus(SpanStatusCode.ERROR, "Test error").to_otel_status(),
+        resource=None,
+        events=[
+            type(
+                "Event",
+                (),
+                {
+                    "name": "exception",
+                    "timestamp": 1600000000,
+                    "attributes": {
+                        "exception.type": "ValueError",
+                        "exception.message": "Test exception",
+                    },
+                },
+            )()
+        ],
+    )
+
+    # Create MLflow Span objects from OTel spans
+    span1 = Span(otel_span1)
+    span2 = Span(otel_span2)
+
+    # Mock the requests.post call
+    with mock.patch("requests.post") as mock_post:
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status": "success"}'
+        mock_post.return_value = mock_response
+
+        # Call log_spans
+        result = await store.log_spans([span1, span2])
+
+        # Verify the request was made correctly
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+
+        # Check URL
+        assert call_args[0][0] == f"{mock_host}/v1/traces"
+
+        # Check headers
+        assert call_args[1]["headers"]["Content-Type"] == "application/json"
+        # The actual Authorization header is constructed by requests based on the token
+
+        # Check the OTel request body
+        otel_request = call_args[1]["json"]
+        assert "resourceSpans" in otel_request
+        assert len(otel_request["resourceSpans"]) == 1
+
+        resource_span = otel_request["resourceSpans"][0]
+        assert "scopeSpans" in resource_span
+        assert len(resource_span["scopeSpans"]) == 1
+
+        scope_span = resource_span["scopeSpans"][0]
+        assert "spans" in scope_span
+        assert len(scope_span["spans"]) == 2
+
+        # Verify span1 conversion
+        otel_span1_data = scope_span["spans"][0]
+        assert otel_span1_data["name"] == "test_span_1"
+        assert otel_span1_data["traceId"] == base64.b64encode(
+            trace_id_int.to_bytes(16, byteorder="big")
+        ).decode("ascii")
+        assert otel_span1_data["spanId"] == base64.b64encode(
+            span1_id_int.to_bytes(8, byteorder="big")
+        ).decode("ascii")
+        assert "parentSpanId" not in otel_span1_data
+        assert otel_span1_data["startTimeUnixNano"] == "1000000000"
+        assert otel_span1_data["endTimeUnixNano"] == "2000000000"
+        assert otel_span1_data["status"]["code"] == "STATUS_CODE_OK"
+
+        # Check attributes
+        attrs1 = {attr["key"]: attr["value"] for attr in otel_span1_data["attributes"]}
+        assert (
+            attrs1["mlflow.traceRequestId"]["stringValue"] == "tr-1234567890abcdef1234567890abcdef"
+        )
+        assert attrs1["mlflow.spanType"]["stringValue"] == "CHAIN"
+        assert attrs1["custom_attr"]["stringValue"] == "value1"
+
+        # Verify span2 conversion
+        otel_span2_data = scope_span["spans"][1]
+        assert otel_span2_data["name"] == "test_span_2"
+        assert otel_span2_data["parentSpanId"] == base64.b64encode(
+            span1_id_int.to_bytes(8, byteorder="big")
+        ).decode("ascii")
+        assert otel_span2_data["status"]["code"] == "STATUS_CODE_ERROR"
+        assert otel_span2_data["status"]["message"] == "Test error"
+
+        # Check events
+        assert len(otel_span2_data["events"]) == 1
+        event = otel_span2_data["events"][0]
+        assert event["name"] == "exception"
+        assert event["timeUnixNano"] == "1600000000"
+
+        # Result should be the same spans we passed in
+        assert result == [span1, span2]
+
+
+@pytest.mark.asyncio
+async def test_log_spans_different_traces():
+    """Test that log_spans raises ValueError for spans from different traces."""
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
+
+    mock_creds = MlflowHostCreds(
+        host="http://test",
+        username=None,
+        password=None,
+        token=None,
+        ignore_tls_verification=False,
+    )
+    store = RestStore(lambda: mock_creds)
+
+    # Create spans with different trace IDs
+    span1 = Span(
+        OTelReadableSpan(
+            name="span1",
+            context=SpanContext(
+                trace_id=0x1111111111111111111111111111111,
+                span_id=0x1111111111111111,
+                is_remote=False,
+                trace_flags=TraceFlags(TraceFlags.SAMPLED),
+            ),
+            parent=None,
+            start_time=1000000000,
+            end_time=2000000000,
+            attributes={"mlflow.traceRequestId": json.dumps("tr-1111111111111111111111111111111")},
+            status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+            resource=None,
+            events=[],
+        )
+    )
+
+    span2 = Span(
+        OTelReadableSpan(
+            name="span2",
+            context=SpanContext(
+                trace_id=0x2222222222222222222222222222222,
+                span_id=0x2222222222222222,
+                is_remote=False,
+                trace_flags=TraceFlags(TraceFlags.SAMPLED),
+            ),
+            parent=None,
+            start_time=1000000000,
+            end_time=2000000000,
+            attributes={"mlflow.traceRequestId": json.dumps("tr-2222222222222222222222222222222")},
+            status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+            resource=None,
+            events=[],
+        )
+    )
+
+    # Should raise ValueError
+    with pytest.raises(ValueError, match="All spans must belong to the same trace"):
+        await store.log_spans([span1, span2])
+
+
+@pytest.mark.asyncio
+async def test_log_spans_http_error():
+    """Test that log_spans handles HTTP errors correctly."""
+
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
+
+    mock_creds = MlflowHostCreds(
+        host="http://test",
+        username=None,
+        password=None,
+        token=None,
+        ignore_tls_verification=False,
+    )
+    store = RestStore(lambda: mock_creds)
+
+    span = Span(
+        OTelReadableSpan(
+            name="test_span",
+            context=SpanContext(
+                trace_id=0x1234567890ABCDEF1234567890ABCDEF,
+                span_id=0x1234567890ABCDEF,
+                is_remote=False,
+                trace_flags=TraceFlags(TraceFlags.SAMPLED),
+            ),
+            parent=None,
+            start_time=1000000000,
+            end_time=2000000000,
+            attributes={"mlflow.traceRequestId": json.dumps("tr-1234567890abcdef1234567890abcdef")},
+            status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+            resource=None,
+            events=[],
+        )
+    )
+
+    # Mock HTTP error
+    with mock.patch("requests.post") as mock_post:
+        mock_response = mock.Mock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_response.raise_for_status.side_effect = requests.HTTPError(response=mock_response)
+        mock_post.return_value = mock_response
+
+        with pytest.raises(MlflowException, match="Failed to log spans via OTel API"):
+            await store.log_spans([span])
