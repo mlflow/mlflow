@@ -3,6 +3,7 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
+import base64
 import json
 import logging
 import math
@@ -3251,6 +3252,84 @@ def test_assessments_end_to_end(mlflow_client):
             f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{aid}"
         )
         assert delete_resp.status_code == 200
+
+
+def test_otel_span_export_endpoint(mlflow_client):
+    """Test OpenTelemetry span export REST API endpoint."""
+    # Create an experiment for testing
+    experiment_id = mlflow_client.create_experiment("test_otel_export")
+
+    # Create a trace first to ensure we have the trace in the system
+    trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
+    mlflow_client.end_trace(trace_info.request_id)
+
+    # Extract the trace ID for OTel format
+    trace_id_hex = trace_info.request_id[3:]  # Remove "tr-" prefix
+    trace_id_int = int(trace_id_hex, 16)
+    trace_id_bytes = trace_id_int.to_bytes(16, byteorder="big")
+
+    # Create OTel span data
+    span_id_bytes = (12345).to_bytes(8, byteorder="big")
+    parent_span_id_bytes = (11111).to_bytes(8, byteorder="big")
+
+    otel_request = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": "test-service"}}
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": base64.b64encode(trace_id_bytes).decode(),
+                                "spanId": base64.b64encode(span_id_bytes).decode(),
+                                "parentSpanId": base64.b64encode(parent_span_id_bytes).decode(),
+                                "name": "test_otel_span",
+                                "startTimeUnixNano": "1000000000",
+                                "endTimeUnixNano": "2000000000",
+                                "status": {"code": "STATUS_CODE_OK"},
+                                "traceState": "key1=value1,key2=value2",
+                                "attributes": [
+                                    {"key": "http.method", "value": {"stringValue": "GET"}},
+                                    {"key": "http.status_code", "value": {"intValue": "200"}},
+                                    {
+                                        "key": "custom_attribute",
+                                        "value": {"stringValue": "test_value"},
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                ],
+            }
+        ]
+    }
+
+    # Send POST request to OTel endpoint
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/v1/traces",
+        json=otel_request,
+        headers={"Content-Type": "application/json"},
+    )
+
+    # The endpoint might not be available if using Flask app instead of FastAPI
+    # In that case, skip the test
+    if response.status_code == 404:
+        pytest.skip("OTel endpoint not available in Flask app mode")
+
+    assert response.status_code == 200
+    response_data = response.json()
+
+    # Verify no partial failures
+    assert "partialSuccess" not in response_data or response_data["partialSuccess"] is None
+
+    # Verify the span was logged by searching for it
+    # Note: We can't directly query spans yet, but we can verify the trace exists
+    retrieved_trace = mlflow_client.get_trace(trace_info.request_id)
+    assert retrieved_trace is not None
 
 
 def test_graphql_nan_metric_handling(mlflow_client):

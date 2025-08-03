@@ -5,6 +5,7 @@ This module provides a FastAPI application that wraps the existing Flask applica
 using WSGIMiddleware to maintain 100% API compatibility while enabling future migration
 to FastAPI endpoints.
 """
+
 import logging
 
 from fastapi import FastAPI

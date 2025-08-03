@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import Union
 from unittest import mock
 
+import opentelemetry.trace as trace_api
 import pytest
 import sqlalchemy
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from packaging.version import Version
 
 import mlflow
@@ -6119,11 +6121,6 @@ def test_assessment_with_error(store_and_trace_info):
 @pytest.mark.asyncio
 async def test_log_span(store: SqlAlchemyStore):
     """Test the async log_span method."""
-    import json
-
-    import opentelemetry.trace as trace_api
-    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-
     from mlflow.entities.span import Span, create_mlflow_span
 
     # Create an experiment and trace first
@@ -6223,11 +6220,6 @@ async def test_log_span(store: SqlAlchemyStore):
 @pytest.mark.asyncio
 async def test_log_span_without_trace_state(store: SqlAlchemyStore):
     """Test logging a span without trace state."""
-    import json
-
-    import opentelemetry.trace as trace_api
-    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-
     from mlflow.entities.span import create_mlflow_span
 
     # Create an experiment and trace first
@@ -6261,7 +6253,7 @@ async def test_log_span_without_trace_state(store: SqlAlchemyStore):
     )
 
     span = create_mlflow_span(readable_span, trace_info.trace_id)
-    logged_span = await store.log_span(span)
+    await store.log_span(span)
 
     # Verify the span was saved correctly
     with store.ManagedSessionMaker() as session:
