@@ -373,3 +373,8 @@ filterwarnings = [
   "error::pytest.PytestCollectionWarning",
 ]
 timeout = 1200
+
+# Currently, type checking is only enabled for `dev/clint`.
+[tool.mypy]
+python_version = "3.10"
+disallow_untyped_defs = true

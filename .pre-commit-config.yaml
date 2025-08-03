@@ -128,3 +128,10 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: mypy
+        name: mypy
+        language: system
+        files: '^dev/clint/.*\.py$'
+        entry: mypy
+        require_serial: true
