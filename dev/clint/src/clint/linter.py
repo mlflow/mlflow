@@ -799,8 +799,9 @@ def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
     )
 
 
-def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
+def lint_file(path: Path, config: Config, index_path: Path) -> list[Violation]:
     code = path.read_text()
+    index = SymbolIndex.load(index_path)
     if path.suffix == ".ipynb":
         violations = []
         if cells := json.loads(code).get("cells"):
