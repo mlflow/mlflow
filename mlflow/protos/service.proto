@@ -906,6 +906,24 @@ service MlflowService {
       rpc_doc_title: "Upsert Dataset Records",
     };
   }
+
+  // Update evaluation dataset tags
+  rpc updateEvaluationDatasetTags(UpdateEvaluationDatasetTags) returns (UpdateEvaluationDatasetTags.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/evaluation-datasets/{dataset_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update Evaluation Dataset Tags",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -2623,5 +2641,25 @@ message UpsertDatasetRecords {
     
     // Error message if operation failed
     optional string error_message = 4;
+  }
+}
+
+message UpdateEvaluationDatasetTags {
+  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
+
+  message Request {
+    // Dataset ID to update tags for
+    optional string dataset_id = 1 [(validate_required) = true];
+    
+    // Tags to update (JSON string). Setting a value to null removes the tag.
+    optional string tags = 2 [(validate_required) = true];
+    
+    // User performing the update
+    optional string updated_by = 3;
+  }
+
+  message Response {
+    // The updated dataset
+    optional evaluation_datasets.EvaluationDataset dataset = 1;
   }
 }

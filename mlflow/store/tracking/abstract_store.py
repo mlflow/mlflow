@@ -979,3 +979,38 @@ class AbstractStore:
             Dictionary with 'inserted' and 'updated' counts.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def update_evaluation_dataset_tags(
+        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
+    ) -> None:
+        """
+        Update tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+        To remove a tag, set its value to None.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            updated_by: The user making the update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        raise NotImplementedError(self.__class__.__name__)

@@ -965,3 +965,24 @@ class TrackingServiceClient:
             order_by=order_by,
             page_token=page_token,
         )
+
+    def update_evaluation_dataset_tags(
+        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
+    ) -> None:
+        """
+        Update tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+        To remove a tag, set its value to None.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            updated_by: The user making the update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        self.store.update_evaluation_dataset_tags(
+            dataset_id=dataset_id, tags=tags, updated_by=updated_by
+        )

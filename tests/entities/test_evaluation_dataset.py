@@ -1,5 +1,4 @@
 from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.evaluation_dataset import EvaluationDataset
 
 

@@ -3001,6 +3001,66 @@ class SqlAlchemyStore(AbstractStore):
 
             return [assoc.destination_id for assoc in associations]
 
+    def update_evaluation_dataset_tags(
+        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
+    ) -> None:
+        """
+        Update tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+        To remove a tag, set its value to None.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            updated_by: The user making the update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        if not dataset_id:
+            raise MlflowException(
+                "dataset_id must be provided",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if tags is None:
+            raise MlflowException(
+                "tags must be provided",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            sql_dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+
+            if not sql_dataset:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Get existing tags
+            existing_tags = sql_dataset.tags.copy() if sql_dataset.tags else {}
+
+            # Merge tags - remove tags with None values
+            for key, value in tags.items():
+                if value is None:
+                    existing_tags.pop(key, None)
+                else:
+                    existing_tags[key] = value
+
+            # Update the dataset
+            sql_dataset.tags = existing_tags if existing_tags else None
+            sql_dataset.last_update_time = get_current_time_millis()
+            if updated_by:
+                sql_dataset.last_updated_by = updated_by
+
+            session.commit()
+
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
     #######################################################################################

@@ -2754,3 +2754,11 @@ class FileStore(AbstractStore):
     @filestore_not_supported
     def upsert_evaluation_dataset_records(self, dataset_id, records, updated_by=None):
         pass
+
+    @filestore_not_supported
+    def update_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
+        pass
+
+    @filestore_not_supported
+    def get_evaluation_dataset_experiment_ids(self, dataset_id):
+        pass

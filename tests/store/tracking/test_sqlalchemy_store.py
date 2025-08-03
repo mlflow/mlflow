@@ -6428,3 +6428,55 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_empty = store.create_evaluation_dataset(dataset_empty)
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
+
+
+def test_evaluation_dataset_update_tags(store):
+    # Create a dataset with initial tags
+    initial_tags = {"environment": "development", "version": "1.0", "deprecated": "true"}
+    dataset = EvaluationDataset(name="test_update_tags", tags=initial_tags)
+    created = store.create_evaluation_dataset(dataset)
+
+    # Verify initial tags
+    retrieved = store.get_evaluation_dataset(created.dataset_id)
+    assert retrieved.tags == initial_tags
+
+    # Update tags - add new, modify existing, remove one
+    update_tags = {
+        "environment": "production",  # Update existing
+        "team": "ml-ops",  # Add new
+        "deprecated": None,  # Remove this tag
+    }
+    store.update_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
+
+    # Verify updated tags
+    updated = store.get_evaluation_dataset(created.dataset_id)
+    expected_tags = {
+        "environment": "production",
+        "version": "1.0",  # Should remain unchanged
+        "team": "ml-ops",
+        # "deprecated" should be removed
+    }
+    assert updated.tags == expected_tags
+    assert updated.last_updated_by == "test_user"
+
+    # Test updating tags on dataset with no initial tags
+    dataset_no_tags = EvaluationDataset(name="test_no_initial_tags")
+    created_no_tags = store.create_evaluation_dataset(dataset_no_tags)
+
+    store.update_evaluation_dataset_tags(
+        created_no_tags.dataset_id, {"new_tag": "value"}, updated_by="test_user2"
+    )
+
+    updated_no_tags = store.get_evaluation_dataset(created_no_tags.dataset_id)
+    assert updated_no_tags.tags == {"new_tag": "value"}
+    assert updated_no_tags.last_updated_by == "test_user2"
+
+    # Test error cases
+    with pytest.raises(MlflowException, match="dataset_id must be provided"):
+        store.update_evaluation_dataset_tags(None, {"tag": "value"})
+
+    with pytest.raises(MlflowException, match="tags must be provided"):
+        store.update_evaluation_dataset_tags(created.dataset_id, None)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_evaluation_dataset_tags("nonexistent_id", {"tag": "value"})

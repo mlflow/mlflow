@@ -1141,3 +1141,110 @@ class RestStore(AbstractStore):
         endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    def create_evaluation_dataset(self, entity, experiment_ids):
+        """
+        Create an evaluation dataset.
+
+        Args:
+            entity: EvaluationDataset entity to create.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The created EvaluationDataset.
+        """
+        # TODO: Implement REST endpoint for create_evaluation_dataset
+        raise NotImplementedError("REST endpoint for create_evaluation_dataset not implemented")
+
+    def get_evaluation_dataset(self, dataset_id):
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object.
+        """
+        # TODO: Implement REST endpoint for get_evaluation_dataset
+        raise NotImplementedError("REST endpoint for get_evaluation_dataset not implemented")
+
+    def delete_evaluation_dataset(self, dataset_id):
+        """
+        Delete an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+        # TODO: Implement REST endpoint for delete_evaluation_dataset
+        raise NotImplementedError("REST endpoint for delete_evaluation_dataset not implemented")
+
+    def search_evaluation_datasets(
+        self, experiment_ids=None, name=None, page_token=None, max_results=None
+    ):
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            name: Name pattern to filter by.
+            page_token: Token for pagination.
+            max_results: Maximum number of results to return.
+
+        Returns:
+            Tuple of (list of EvaluationDataset objects, next page token).
+        """
+        # TODO: Implement REST endpoint for search_evaluation_datasets
+        raise NotImplementedError("REST endpoint for search_evaluation_datasets not implemented")
+
+    def upsert_evaluation_dataset_records(self, dataset_id, records, updated_by=None):
+        """
+        Upsert evaluation dataset records.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            records: List of record dictionaries to upsert.
+            updated_by: User ID of who is updating the records.
+
+        Returns:
+            Dictionary with 'inserted' and 'updated' counts.
+        """
+        # TODO: Implement REST endpoint for upsert_evaluation_dataset_records
+        raise NotImplementedError(
+            "REST endpoint for upsert_evaluation_dataset_records not implemented"
+        )
+
+    def update_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
+        """
+        Update tags for an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+            updated_by: The user making the update.
+        """
+        from mlflow.protos.service_pb2 import UpdateEvaluationDatasetTags
+
+        req_body = message_to_json(
+            UpdateEvaluationDatasetTags(
+                dataset_id=dataset_id, tags=json.dumps(tags), updated_by=updated_by
+            )
+        )
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/evaluation-datasets/{dataset_id}/tags"
+        self._call_endpoint(UpdateEvaluationDatasetTags, req_body, endpoint=endpoint)
+
+    def get_evaluation_dataset_experiment_ids(self, dataset_id):
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        # TODO: Implement REST endpoint for get_evaluation_dataset_experiment_ids
+        # This will be implemented in PR6
+        raise NotImplementedError(
+            "REST endpoint for get_evaluation_dataset_experiment_ids not implemented"
+        )
