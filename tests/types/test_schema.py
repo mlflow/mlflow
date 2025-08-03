@@ -3,6 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional, Union
 
 import numpy as np
@@ -14,7 +15,7 @@ from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import rag_signatures
-from mlflow.models.utils import _enforce_tensor_spec
+from mlflow.models.utils import _enforce_schema, _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
 from mlflow.types.schema import (
@@ -37,6 +38,11 @@ from mlflow.types.utils import (
     _infer_schema,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
+
+
+class Color(Enum):
+    RED = "red"
+    BLUE = "blue"
 
 
 @pytest.fixture(scope="module")
@@ -2065,3 +2071,20 @@ def test_convert_dataclass_to_schema_invalid():
 def test_infer_schema_with_anytype(data, expected_schema):
     inferred_schema = _infer_schema(data)
     assert inferred_schema == expected_schema
+
+
+def test_convert_dataclass_to_schema_enum():
+    @dataclass
+    class Input:
+        color: Color
+
+    schema = convert_dataclass_to_schema(Input)
+    assert schema == Schema([ColSpec(type=DataType.string, name="color", enum=["red", "blue"])])
+
+
+def test_enforce_schema_enum():
+    schema = Schema([ColSpec(type=DataType.string, name="color", enum=["red", "blue"])])
+    df = pd.DataFrame({"color": ["red", "blue"]})
+    _enforce_schema(df, schema)
+    with pytest.raises(MlflowException, match="enum"):
+        _enforce_schema(pd.DataFrame({"color": ["green"]}), schema)
