@@ -71,6 +71,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
+    SqlEvaluationDatasetTag,
     SqlExperiment,
     SqlExperimentTag,
     SqlInput,
@@ -2674,6 +2675,15 @@ class SqlAlchemyStore(AbstractStore):
             sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset)
             session.add(sql_dataset)
 
+            if dataset.tags:
+                for key, value in dataset.tags.items():
+                    tag = SqlEvaluationDatasetTag(
+                        dataset_id=dataset.dataset_id,
+                        key=key,
+                        value=value,
+                    )
+                    session.add(tag)
+
             if experiment_ids:
                 for exp_id in experiment_ids:
                     association_id = (
@@ -2756,6 +2766,91 @@ class SqlAlchemyStore(AbstractStore):
             ).delete()
 
             session.delete(sql_dataset)
+            session.commit()
+
+    def set_evaluation_dataset_tag(
+        self, dataset_id: str, key: str, value: str, updated_by: Optional[str] = None
+    ) -> None:
+        """
+        Set a tag on an evaluation dataset (upsert operation).
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key.
+            value: The tag value.
+            updated_by: Optional user ID of who is updating the tag.
+        """
+        with self.ManagedSessionMaker() as session:
+            dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one_or_none()
+            )
+
+            if dataset is None:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing_tag = (
+                session.query(SqlEvaluationDatasetTag)
+                .filter(
+                    SqlEvaluationDatasetTag.dataset_id == dataset_id,
+                    SqlEvaluationDatasetTag.key == key,
+                )
+                .one_or_none()
+            )
+
+            if existing_tag:
+                existing_tag.value = value
+            else:
+                new_tag = SqlEvaluationDatasetTag(
+                    dataset_id=dataset_id,
+                    key=key,
+                    value=value,
+                )
+                session.add(new_tag)
+
+            dataset.last_update_time = get_current_time_millis()
+            if updated_by is not None:
+                dataset.last_updated_by = updated_by
+
+            session.commit()
+
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one_or_none()
+            )
+
+            if dataset is None:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            deleted_count = (
+                session.query(SqlEvaluationDatasetTag)
+                .filter(
+                    SqlEvaluationDatasetTag.dataset_id == dataset_id,
+                    SqlEvaluationDatasetTag.key == key,
+                )
+                .delete()
+            )
+
+            if deleted_count > 0:
+                dataset.last_update_time = get_current_time_millis()
+
             session.commit()
 
     def search_evaluation_datasets(

@@ -6422,7 +6422,7 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     dataset_none = EvaluationDataset(name="no_tags_dataset", tags=None)
     created_none = store.create_evaluation_dataset(dataset_none)
     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
-    assert retrieved_none.tags is None
+    assert retrieved_none.tags == {}
 
     dataset_empty = EvaluationDataset(name="empty_tags_dataset", tags={})
     created_empty = store.create_evaluation_dataset(dataset_empty)

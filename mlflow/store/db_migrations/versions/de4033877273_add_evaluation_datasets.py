@@ -42,7 +42,6 @@ def upgrade():
         "evaluation_datasets",
         sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("tags", json_type, nullable=True),
         sa.Column("schema", sa.Text(), nullable=True),
         sa.Column("profile", sa.Text(), nullable=True),
         sa.Column("digest", sa.String(64), nullable=True),
@@ -63,6 +62,29 @@ def upgrade():
         batch_op.create_index(
             "index_evaluation_datasets_created_time",
             ["created_time"],
+            unique=False,
+        )
+
+    # Create evaluation_dataset_tags table
+    op.create_table(
+        "evaluation_dataset_tags",
+        sa.Column("dataset_id", sa.String(36), nullable=False),
+        sa.Column("key", sa.String(255), nullable=False),
+        sa.Column("value", sa.String(5000), nullable=True),
+        sa.PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+    )
+
+    # Create indexes on evaluation_dataset_tags
+    with op.batch_alter_table("evaluation_dataset_tags", schema=None) as batch_op:
+        batch_op.create_index(
+            "index_evaluation_dataset_tags_dataset_id",
+            ["dataset_id"],
             unique=False,
         )
 
@@ -139,4 +161,5 @@ def downgrade():
     # Drop tables in reverse order to respect foreign key constraints
     op.drop_table("entity_associations")
     op.drop_table("evaluation_dataset_records")
+    op.drop_table("evaluation_dataset_tags")
     op.drop_table("evaluation_datasets")
