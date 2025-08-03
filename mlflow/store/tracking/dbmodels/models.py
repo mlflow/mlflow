@@ -1297,11 +1297,6 @@ class SqlEvaluationDataset(Base):
     Dataset name: `String` (limit 255 characters). *Non null* in table schema.
     """
 
-    tags = Column(JSON, nullable=True)
-    """
-    Tags JSON: `JSON`. Stores metadata about the dataset.
-    """
-
     schema = Column(Text, nullable=True)
     """
     Schema information: `Text`.
@@ -1341,6 +1336,12 @@ class SqlEvaluationDataset(Base):
         "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
     )
 
+    tags = relationship(
+        "SqlEvaluationDatasetTag",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     __table_args__ = (
         PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
         Index("index_evaluation_datasets_name", "name"),
@@ -1362,10 +1363,15 @@ class SqlEvaluationDataset(Base):
         if "records" in state.dict:
             records = [record.to_mlflow_entity() for record in self.records]
 
+        # Convert tags from relationship to dict
+        # Since we use lazy="selectin", tags are always loaded
+        # Return empty dict if no tags exist
+        tags_dict = {tag.key: tag.value for tag in self.tags}
+
         dataset = EvaluationDataset(
             dataset_id=self.dataset_id,
             name=self.name,
-            tags=self.tags,
+            tags=tags_dict,
             schema=self.schema,
             profile=self.profile,
             digest=self.digest,
@@ -1373,7 +1379,7 @@ class SqlEvaluationDataset(Base):
             last_update_time=self.last_update_time,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            # experiment_ids will be loaded lazily when needed
+            # experiment_ids will be loaded lazily when accessed
         )
 
         if records is not None:
@@ -1392,10 +1398,11 @@ class SqlEvaluationDataset(Base):
         Returns:
             SqlEvaluationDataset instance
         """
+        # Note: tags are not set here - they are handled as
+        # SqlEvaluationDatasetTag objects
         return cls(
             dataset_id=dataset.dataset_id,
             name=dataset.name,
-            tags=dataset.tags,
             schema=dataset.schema,
             profile=dataset.profile,
             digest=dataset.digest,
@@ -1404,6 +1411,46 @@ class SqlEvaluationDataset(Base):
             created_by=dataset.created_by,
             last_updated_by=dataset.last_updated_by,
         )
+
+
+class SqlEvaluationDatasetTag(Base):
+    """
+    DB model for evaluation dataset tags.
+    """
+
+    __tablename__ = "evaluation_dataset_tags"
+
+    dataset_id = Column(
+        String(36),
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    key = Column(String(255), primary_key=True)
+    """
+    Tag key: `String` (limit 255 characters).
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+        Index("index_evaluation_dataset_tags_dataset_id", "dataset_id"),
+    )
 
 
 class SqlEvaluationDatasetRecord(Base):
