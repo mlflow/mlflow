@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional, Sequence
 
@@ -83,12 +84,21 @@ class MlflowV3SpanExporter(SpanExporter):
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
         1. Create the trace in MLflow
-        2. Upload the trace data to blob storage using the returned trace info.
+        2. Log spans using the new log_spans API
+        3. Upload the trace data to blob storage using the returned trace info.
         """
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
+
+                # Log spans after creating the trace
+                if trace.data.spans:
+                    try:
+                        asyncio.run(self._client.log_spans(trace.data.spans))
+                    except Exception as e:
+                        _logger.warning(f"Failed to log spans: {e}")
+
                 self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")

@@ -472,3 +472,69 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     mock_logger.warning.assert_called()
     warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
     assert any("Prompt linking failed" in msg for msg in warning_calls)
+
+
+def test_export_log_spans():
+    """Test that log_spans is called during trace export."""
+
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import SpanStatus, SpanStatusCode, create_mlflow_span
+    from mlflow.entities.trace import Trace
+    from mlflow.entities.trace_data import TraceData
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+
+    # Create test span using the same pattern as other tests
+    trace_id = "tr-123"
+    trace_id_int = int(trace_id.replace("tr-", ""), 16)
+    span_id_int = int("456", 16)
+
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": '{"tr-123"}',
+            "mlflow.spanInputs": '{"input": "test"}',
+            "mlflow.spanOutputs": '{"output": "result"}',
+            "mlflow.spanType": '"UNKNOWN"',
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Create trace with spans
+    from tests.tracing.helper import create_test_trace_info
+
+    trace_info = create_test_trace_info(trace_id, "0")
+    trace_data = TraceData(spans=[span])
+    trace = Trace(trace_info, trace_data)
+
+    # Create exporter
+    exporter = MlflowV3SpanExporter()
+
+    with (
+        mock.patch.object(
+            exporter._client, "start_trace", return_value=trace_info
+        ) as mock_start_trace,
+        mock.patch.object(exporter._client, "log_spans", return_value=[span]) as mock_log_spans,
+        mock.patch.object(exporter._client, "_upload_trace_data", return_value=None) as mock_upload,
+    ):
+        # Call _log_trace directly
+        exporter._log_trace(trace, prompts=[])
+
+        # Verify all methods were called
+        mock_start_trace.assert_called_once_with(trace_info)
+        mock_log_spans.assert_called_once_with([span])
+        mock_upload.assert_called_once_with(trace_info, trace_data)
