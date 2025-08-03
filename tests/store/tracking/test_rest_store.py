@@ -4,7 +4,6 @@ import time
 from unittest import mock
 
 import pytest
-import requests
 
 import mlflow
 from mlflow.entities import (
@@ -1554,66 +1553,63 @@ async def test_log_spans():
     span1 = Span(otel_span1)
     span2 = Span(otel_span2)
 
-    # Mock the requests.post call
-    with mock.patch("requests.post") as mock_post:
+    # Mock the http_request call
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_request:
         mock_response = mock.Mock()
         mock_response.status_code = 200
-        mock_response.text = '{"status": "success"}'
-        mock_post.return_value = mock_response
+        mock_response.text = "{}"
+        mock_request.return_value = mock_response
 
         # Call log_spans
         result = await store.log_spans([span1, span2])
 
         # Verify the request was made correctly
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
 
-        # Check URL
-        assert call_args[0][0] == f"{mock_host}/v1/traces"
-
-        # Check headers
-        assert call_args[1]["headers"]["Content-Type"] == "application/json"
-        # The actual Authorization header is constructed by requests based on the token
+        # Check endpoint and method
+        assert call_args.kwargs["endpoint"] == "/v1/traces"
+        assert call_args.kwargs["method"] == "POST"
 
         # Check the OTel request body
-        otel_request = call_args[1]["json"]
-        assert "resourceSpans" in otel_request
-        assert len(otel_request["resourceSpans"]) == 1
+        otel_request = call_args.kwargs["json"]
+        assert "resource_spans" in otel_request
+        assert len(otel_request["resource_spans"]) == 1
 
-        resource_span = otel_request["resourceSpans"][0]
-        assert "scopeSpans" in resource_span
-        assert len(resource_span["scopeSpans"]) == 1
+        resource_span = otel_request["resource_spans"][0]
+        assert "scope_spans" in resource_span
+        assert len(resource_span["scope_spans"]) == 1
 
-        scope_span = resource_span["scopeSpans"][0]
+        scope_span = resource_span["scope_spans"][0]
         assert "spans" in scope_span
         assert len(scope_span["spans"]) == 2
 
         # Verify span1 conversion
         otel_span1_data = scope_span["spans"][0]
         assert otel_span1_data["name"] == "test_span_1"
-        assert otel_span1_data["traceId"] == base64.b64encode(
+        assert otel_span1_data["trace_id"] == base64.b64encode(
             trace_id_int.to_bytes(16, byteorder="big")
         ).decode("ascii")
-        assert otel_span1_data["spanId"] == base64.b64encode(
+        assert otel_span1_data["span_id"] == base64.b64encode(
             span1_id_int.to_bytes(8, byteorder="big")
         ).decode("ascii")
-        assert "parentSpanId" not in otel_span1_data
-        assert otel_span1_data["startTimeUnixNano"] == "1000000000"
-        assert otel_span1_data["endTimeUnixNano"] == "2000000000"
+        assert "parent_span_id" not in otel_span1_data
+        assert otel_span1_data["start_time_unix_nano"] == "1000000000"
+        assert otel_span1_data["end_time_unix_nano"] == "2000000000"
         assert otel_span1_data["status"]["code"] == "STATUS_CODE_OK"
 
         # Check attributes
         attrs1 = {attr["key"]: attr["value"] for attr in otel_span1_data["attributes"]}
         assert (
-            attrs1["mlflow.traceRequestId"]["stringValue"] == "tr-1234567890abcdef1234567890abcdef"
+            attrs1["mlflow.traceRequestId"]["string_value"] == "tr-1234567890abcdef1234567890abcdef"
         )
-        assert attrs1["mlflow.spanType"]["stringValue"] == "CHAIN"
-        assert attrs1["custom_attr"]["stringValue"] == "value1"
+        assert attrs1["mlflow.spanType"]["string_value"] == "CHAIN"
+        assert attrs1["custom_attr"]["string_value"] == "value1"
 
         # Verify span2 conversion
         otel_span2_data = scope_span["spans"][1]
         assert otel_span2_data["name"] == "test_span_2"
-        assert otel_span2_data["parentSpanId"] == base64.b64encode(
+        assert otel_span2_data["parent_span_id"] == base64.b64encode(
             span1_id_int.to_bytes(8, byteorder="big")
         ).decode("ascii")
         assert otel_span2_data["status"]["code"] == "STATUS_CODE_ERROR"
@@ -1623,7 +1619,7 @@ async def test_log_spans():
         assert len(otel_span2_data["events"]) == 1
         event = otel_span2_data["events"][0]
         assert event["name"] == "exception"
-        assert event["timeUnixNano"] == "1600000000"
+        assert event["time_unix_nano"] == "1600000000"
 
         # Result should be the same spans we passed in
         assert result == [span1, span2]
@@ -1728,12 +1724,10 @@ async def test_log_spans_http_error():
     )
 
     # Mock HTTP error
-    with mock.patch("requests.post") as mock_post:
-        mock_response = mock.Mock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-        mock_response.raise_for_status.side_effect = requests.HTTPError(response=mock_response)
-        mock_post.return_value = mock_response
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_request:
+        mock_request.side_effect = MlflowException(
+            "API request to /v1/traces failed with exception Internal Server Error"
+        )
 
-        with pytest.raises(MlflowException, match="Failed to log spans via OTel API"):
+        with pytest.raises(MlflowException, match="API request to /v1/traces failed"):
             await store.log_spans([span])
