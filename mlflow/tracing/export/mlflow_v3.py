@@ -97,7 +97,7 @@ class MlflowV3SpanExporter(SpanExporter):
                     try:
                         asyncio.run(self._client.log_spans(trace.data.spans))
                     except Exception as e:
-                        _logger.warning(f"Failed to log spans: {e}")
+                        _logger.debug(f"Failed to log spans: {e}")
 
                 self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
