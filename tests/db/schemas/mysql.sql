@@ -19,7 +19,6 @@ CREATE TABLE entity_associations (
 CREATE TABLE evaluation_datasets (
 	dataset_id VARCHAR(36) NOT NULL,
 	name VARCHAR(255) NOT NULL,
-	tags JSON,
 	schema TEXT,
 	profile TEXT,
 	digest VARCHAR(64),
@@ -101,6 +100,15 @@ CREATE TABLE evaluation_dataset_records (
 	input_hash VARCHAR(64) NOT NULL,
 	PRIMARY KEY (dataset_record_id),
 	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE evaluation_dataset_tags (
+	dataset_id VARCHAR(36) NOT NULL,
+	key VARCHAR(255) NOT NULL,
+	value VARCHAR(5000),
+	PRIMARY KEY (dataset_id, key),
+	CONSTRAINT fk_evaluation_dataset_tags_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
 )
 
 
