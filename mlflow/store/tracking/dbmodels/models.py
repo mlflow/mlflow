@@ -1271,3 +1271,67 @@ class SqlLoggedModelTag(Base):
 
     def to_mlflow_entity(self) -> LoggedModelTag:
         return LoggedModelTag(key=self.tag_key, value=self.tag_value)
+
+
+class SqlSpan(Base):
+    __tablename__ = "spans"
+
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite primary key.
+    Foreign key to trace_info table.
+    """
+
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. Foreign key to experiments table.
+    """
+
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite primary key.
+    """
+
+    parent_span_id = Column(String(50), nullable=True)
+    """
+    Parent span ID: `String` (limit 50 characters). Can be null for root spans.
+    """
+
+    status = Column(String(50), nullable=False)
+    """
+    Span status: `String` (limit 50 characters).
+    """
+
+    start_time_unix_nano = Column(BigInteger, nullable=False)
+    """
+    Start time in nanoseconds since Unix epoch: `BigInteger`.
+    """
+
+    end_time_unix_nano = Column(BigInteger, nullable=True)
+    """
+    End time in nanoseconds since Unix epoch: `BigInteger`. Can be null if span is in progress.
+    """
+
+    trace_state = Column(Text, nullable=True)
+    """
+    OpenTelemetry trace state: `Text`. Can be null.
+    """
+
+    content = Column(Text, nullable=False)
+    """
+    Full span content as JSON: `Text`.
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        Index("index_spans_trace_id", "trace_id"),
+        Index("index_spans_experiment_id", "experiment_id"),
+        Index("index_spans_experiment_id_start_time", "experiment_id", "start_time_unix_nano"),
+    )

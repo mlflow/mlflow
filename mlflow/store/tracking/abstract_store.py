@@ -14,6 +14,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -891,5 +892,14 @@ class AbstractStore:
 
         Args:
             model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    async def log_span(self, span: Span) -> Span:
+        """
+        Log a span entity to the tracking store.
+
+        Args:
+            span: The Span entity to log.
         """
         raise NotImplementedError(self.__class__.__name__)

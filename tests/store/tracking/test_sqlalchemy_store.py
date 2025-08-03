@@ -6114,3 +6114,166 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+@pytest.mark.asyncio
+async def test_log_span(store: SqlAlchemyStore):
+    """Test the async log_span method."""
+    import json
+
+    import opentelemetry.trace as trace_api
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+
+    from mlflow.entities.span import Span, create_mlflow_span
+
+    # Create an experiment and trace first
+    experiment_id = store.create_experiment("test_span_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-span-test-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info = store.start_trace(trace_info)
+
+    # Create a mock OpenTelemetry span with trace state
+    trace_state = trace_api.TraceState([("key1", "value1"), ("key2", "value2")])
+    parent_span_context = trace_api.SpanContext(
+        trace_id=12345,
+        span_id=111,
+        is_remote=False,
+        trace_flags=trace_api.TraceFlags(1),
+        trace_state=trace_state,
+    )
+
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=trace_api.SpanContext(
+            trace_id=12345,
+            span_id=222,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+            trace_state=trace_state,
+        ),
+        parent=parent_span_context,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
+            "mlflow.spanInputs": '{"input": "test_input"}',
+            "mlflow.spanOutputs": '{"output": "test_output"}',
+            "mlflow.spanType": '"LLM"',
+            "custom_attr": "custom_value",
+        },
+        start_time=1000000000,  # 1 second in nanoseconds
+        end_time=2000000000,  # 2 seconds in nanoseconds
+    )
+
+    # Create MLflow span from OpenTelemetry span
+    span = create_mlflow_span(readable_span, trace_info.trace_id)
+    assert isinstance(span, Span)
+
+    # Test logging the span
+    logged_span = await store.log_span(span)
+
+    # Verify the returned span is the same
+    assert logged_span == span
+    assert logged_span.trace_id == trace_info.trace_id
+    assert logged_span.span_id == span.span_id
+
+    # Verify the span was saved to the database
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
+            .first()
+        )
+
+        assert saved_span is not None
+        assert saved_span.experiment_id == int(experiment_id)
+        assert saved_span.parent_span_id == span.parent_id
+        assert saved_span.status == span.status.status_code
+        assert saved_span.start_time_unix_nano == span.start_time_ns
+        assert saved_span.end_time_unix_nano == span.end_time_ns
+        assert saved_span.trace_state == "key1=value1,key2=value2"
+
+        # Verify the content is properly serialized
+        content_dict = json.loads(saved_span.content)
+        assert content_dict["name"] == "test_span"
+        # Inputs and outputs are stored in attributes as strings
+        assert content_dict["attributes"]["mlflow.spanInputs"] == '{"input": "test_input"}'
+        assert content_dict["attributes"]["mlflow.spanOutputs"] == '{"output": "test_output"}'
+        assert content_dict["attributes"]["mlflow.spanType"] == '"LLM"'
+
+    # Test duplicate handling - logging the same span again should update it
+    logged_span2 = await store.log_span(span)
+    assert logged_span2 == span
+
+    # Verify only one span exists in the database
+    with store.ManagedSessionMaker() as session:
+        span_count = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
+            .count()
+        )
+        assert span_count == 1
+
+
+@pytest.mark.asyncio
+async def test_log_span_without_trace_state(store: SqlAlchemyStore):
+    """Test logging a span without trace state."""
+    import json
+
+    import opentelemetry.trace as trace_api
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+
+    from mlflow.entities.span import create_mlflow_span
+
+    # Create an experiment and trace first
+    experiment_id = store.create_experiment("test_span_no_state_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-span-test-456",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info = store.start_trace(trace_info)
+
+    # Create a span without trace state
+    readable_span = OTelReadableSpan(
+        name="test_span_no_state",
+        context=trace_api.SpanContext(
+            trace_id=12345,
+            span_id=333,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+            # No trace_state
+        ),
+        parent=None,  # Root span
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
+            "mlflow.spanType": '"CHAIN"',
+        },
+        start_time=3000000000,
+        end_time=None,  # Still running
+    )
+
+    span = create_mlflow_span(readable_span, trace_info.trace_id)
+    logged_span = await store.log_span(span)
+
+    # Verify the span was saved correctly
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
+            .first()
+        )
+
+        assert saved_span is not None
+        assert saved_span.parent_span_id is None  # Root span
+        assert saved_span.trace_state is None  # No trace state
+        assert saved_span.end_time_unix_nano is None  # Still running

@@ -5,6 +5,7 @@ import shlex
 import sys
 import textwrap
 import types
+import warnings
 
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
@@ -246,6 +247,24 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
+    """Build command to run uvicorn server."""
+    opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    return [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        *opts,
+        "--host",
+        host,
+        "--port",
+        str(port),
+        "--workers",
+        str(workers),
+        app_name,
+    ]
+
+
 def _run_server(
     file_store_path,
     registry_store_uri,
@@ -261,13 +280,17 @@ def _run_server(
     waitress_opts=None,
     expose_prometheus=None,
     app_name=None,
+    use_uvicorn=False,
+    uvicorn_opts=None,
 ):
     """
-    Run the MLflow server, wrapping it in gunicorn or waitress on windows
+    Run the MLflow server, wrapping it in gunicorn, uvicorn, or waitress on windows
 
     Args:
         static_prefix: If set, the index.html asset will be served from the path static_prefix.
                        If left None, the index.html asset will be served from the root path.
+        use_uvicorn: If True, use uvicorn server instead of gunicorn. Default is False.
+        uvicorn_opts: Additional options for uvicorn server.
 
     Returns:
         None
@@ -296,18 +319,51 @@ def _run_server(
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
     if app_name is None:
-        app = f"{__name__}:app"
-        is_factory = False
+        if use_uvicorn:
+            # For uvicorn, use the FastAPI app
+            app = "mlflow.server.fastapi_app:app"
+            is_factory = False
+        else:
+            # For gunicorn/waitress, use the Flask app
+            app = f"{__name__}:app"
+            is_factory = False
     else:
         app = _find_app(app_name)
         is_factory = _is_factory(app)
         # `waitress` doesn't support `()` syntax for factory functions.
         # Instead, we need to use the `--call` flag.
-        app = f"{app}()" if (not is_windows() and is_factory) else app
+        app = f"{app}()" if (not is_windows() and is_factory and not use_uvicorn) else app
 
-    # TODO: eventually may want waitress on non-win32
-    if sys.platform == "win32":
+    # Determine which server to use
+    if use_uvicorn:
+        # Use uvicorn (default when no specific server options are provided)
+        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
+    elif waitress_opts is not None:
+        # Use waitress if explicitly requested
+        warnings.warn(
+            "The use of waitress is deprecated and will be removed in a future version. "
+            "Please use uvicorn by default or specify '--uvicorn-opts' "
+            "instead of '--waitress-opts'.",
+            FutureWarning,
+            stacklevel=2,
+        )
         full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
-    else:
+    elif gunicorn_opts is not None:
+        # Use gunicorn if explicitly requested
+        if sys.platform == "win32":
+            raise MlflowException(
+                "Gunicorn is not supported on Windows. "
+                "Please use uvicorn (default) or specify '--waitress-opts'."
+            )
+        warnings.warn(
+            "The use of gunicorn is deprecated and will be removed in a future version. "
+            "Please use uvicorn by default or specify '--uvicorn-opts' "
+            "instead of '--gunicorn-opts'.",
+            FutureWarning,
+            stacklevel=2,
+        )
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
+    else:
+        # This shouldn't happen given the logic in CLI, but handle it just in case
+        raise MlflowException("No server configuration specified.")
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)
