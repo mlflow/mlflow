@@ -19,7 +19,10 @@ def format_optimized_prompt(
 
     if convert_to_single_prompt:
         messages = "\n\n".join(
-            [f"<{message['role']}>\n{message['content']}\n</{message['role']}>" for message in messages]
+            [
+                f"<{message['role']}>\n{message['content']}\n</{message['role']}>"
+                for message in messages
+            ]
         )
 
     return messages
