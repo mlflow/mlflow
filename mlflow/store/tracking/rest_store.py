@@ -1229,11 +1229,8 @@ class RestStore(AbstractStore):
                 attribute = otel_span.attributes.add()
                 attribute.key = key
                 # MLflow stores all attributes as JSON strings
-                if isinstance(value, str):
-                    attribute.value.string_value = value
-                else:
-                    # Handle any non-string values by converting to JSON
-                    attribute.value.string_value = json.dumps(value)
+                # Always JSON encode values to ensure consistency with how they are read
+                attribute.value.string_value = json.dumps(value)
 
             # Add events
             if span.events:
@@ -1248,7 +1245,8 @@ class RestStore(AbstractStore):
                         event_attr.value.string_value = str(v)
 
         # Convert protobuf to JSON for the REST API
-        json_str = MessageToJson(request, preserving_proto_field_name=True)
+        # Use default behavior (preserving_proto_field_name=False) to get camelCase field names
+        json_str = MessageToJson(request)
 
         # Call the OTel endpoint using the standard REST store pattern
         endpoint = "/v1/traces"
