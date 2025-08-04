@@ -390,10 +390,10 @@ def server(
     static_prefix,
     gunicorn_opts,
     waitress_opts,
-    uvicorn_opts,
     expose_prometheus,
     app_name,
     dev,
+    uvicorn_opts,
 ):
     """
     Run the MLflow tracking server.
