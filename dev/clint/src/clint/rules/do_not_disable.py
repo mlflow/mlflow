@@ -10,9 +10,10 @@ class DoNotDisable(Rule):
         self.rules = rules
 
     @classmethod
-    def check(cls, rules: set[str]) -> Self:
+    def check(cls, rules: set[str]) -> Self | None:
         if s := rules.intersection(DoNotDisable.DO_NOT_DISABLE):
             return cls(s)
+        return None
 
     def _message(self) -> str:
         return f"DO NOT DISABLE: {self.rules}."

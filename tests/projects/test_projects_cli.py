@@ -127,6 +127,7 @@ def test_run_uv_python_env():
     invoke_cli_runner(
         cli.run,
         [TEST_VIRTUALENV_PROJECT_DIR, "-e", "test", "--env-manager", "uv"],
+        env={"UV_PRERELEASE": "allow"},
     )
 
 

@@ -566,17 +566,16 @@ forecaster.fit(y, X=X)
 
 # Log with custom flavor
 with mlflow.start_run():
-    custom_sktime_flavor.log_model(
+    model_info = custom_sktime_flavor.log_model(
         sktime_model=forecaster, artifact_path="custom_forecaster"
     )
-    model_uri = mlflow.get_artifact_uri("custom_forecaster")
 
 # Load and use natively
-loaded_model = custom_sktime_flavor.load_model(model_uri)
+loaded_model = custom_sktime_flavor.load_model(model_info.model_uri)
 native_predictions = loaded_model.predict(fh=[1, 2, 3])
 
 # Load as PyFunc for serving
-loaded_pyfunc = mlflow.pyfunc.load_model(model_uri)
+loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Create configuration for PyFunc prediction
 config_df = pd.DataFrame(
