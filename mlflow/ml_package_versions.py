@@ -347,7 +347,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.7.0",
-            "maximum": "1.7.0"
+            "maximum": "1.7.7"
         }
     },
     "pydantic_ai": {

@@ -7,10 +7,19 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
+import importlib.metadata as _meta
+import agno
 
 FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
 
+# AGNO SDK doesn't provide version parameter from 1.7.1 onwards. Hence we capture the 
+# latest version manually
+if not hasattr(agno, "__version__"):
+    try:
+        agno.__version__ = _meta.version("agno")
+    except _meta.PackageNotFoundError:
+        agno.__version__ = "1.7.7"
 
 def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     sig = inspect.signature(func)
@@ -114,32 +123,17 @@ def _get_span_type(instance) -> str:
     return SpanType.UNKNOWN
 
 
-# Token usage metrics is given as list of integers.
-def _coerce_to_int(value) -> int | None:
-    if value is None:
-        return None
-
-    if isinstance(value, list):
-        total = 0
-        for item in value:
-            coerced = _coerce_to_int(item)  # recurse for nested dicts etc.
-            if coerced is None:
-                return None  # bail if anything isn't numeric(recursive loop returns None)
-            total += coerced
-        return total
-
-
 def _parse_usage(result) -> dict[str, int] | None:
     usage = getattr(result, "metrics", None) or getattr(result, "session_metrics", None)
     if not usage:
         return None
 
     parsed = {
-        TokenUsageKey.INPUT_TOKENS: _coerce_to_int(usage.get("input_tokens")),
-        TokenUsageKey.OUTPUT_TOKENS: _coerce_to_int(usage.get("output_tokens")),
-        TokenUsageKey.TOTAL_TOKENS: _coerce_to_int(usage.get("total_tokens")),
+        TokenUsageKey.INPUT_TOKENS: sum(usage.get("input_tokens")),
+        TokenUsageKey.OUTPUT_TOKENS: sum(usage.get("output_tokens")),
+        TokenUsageKey.TOTAL_TOKENS: sum(usage.get("total_tokens")),
     }
-    return parsed if all(v is not None for v in parsed.values()) else None
+    return parsed
 
 
 async def patched_async_class_call(original, self, *args, **kwargs):
@@ -150,7 +144,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
     span_name = _compute_span_name(self, original)
     span_type = _get_span_type(self)
 
-    async with mlflow.start_span(name=span_name, span_type=span_type) as span:
+    with mlflow.start_span(name=span_name, span_type=span_type) as span:
         span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))
         _set_span_attributes(span, self)
 
