@@ -8,7 +8,8 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql, postgresql
+
+from mlflow.store.db.mutable_json import MutableJSON
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -17,25 +18,9 @@ branch_labels = None
 depends_on = None
 
 
-def get_json_type():
-    """Get appropriate JSON type based on database dialect."""
-    bind = op.get_bind()
-    dialect_name = bind.dialect.name
-
-    if dialect_name == "postgresql":
-        return postgresql.JSON
-    elif dialect_name == "mysql":
-        return mysql.JSON
-    elif dialect_name == "mssql":
-        # MSSQL doesn't have native JSON type in older versions, use Text
-        return sa.Text
-    else:
-        # SQLite and others
-        return sa.JSON
-
-
 def upgrade():
-    json_type = get_json_type()
+    # Use the shared mutable JSON type that handles all backends
+    json_type = MutableJSON
 
     # Create evaluation_datasets table
     op.create_table(
