@@ -134,6 +134,8 @@ def _convert_otel_span_to_mlflow_span(
 
     # Extract attributes
     attributes = {}
+    span_type = None  # Initialize span_type
+
     if "attributes" in otel_span:
         for attr in otel_span["attributes"]:
             key = attr.get("key", "")
@@ -141,6 +143,11 @@ def _convert_otel_span_to_mlflow_span(
             # Handle different value types
             if "stringValue" in value:
                 attributes[key] = value["stringValue"]
+
+                # Extract span type if this is the mlflow.spanType attribute
+                if key == "mlflow.spanType":
+                    span_type = value["stringValue"]
+
             elif "intValue" in value:
                 attributes[key] = str(value["intValue"])
             elif "doubleValue" in value:
@@ -190,8 +197,8 @@ def _convert_otel_span_to_mlflow_span(
         status=trace_api.Status(status_code, status_message),
     )
 
-    # Convert to MLflow span
-    return create_mlflow_span(readable_span, trace_id)
+    # Convert to MLflow span with span_type
+    return create_mlflow_span(readable_span, trace_id, span_type)
 
 
 def get_tracking_store():

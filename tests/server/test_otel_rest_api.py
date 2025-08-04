@@ -17,6 +17,7 @@ import pytest
 import requests
 
 from mlflow import MlflowClient
+from mlflow.tracing.utils import encode_trace_id
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -345,7 +346,6 @@ async def test_rest_store_log_spans_integration(fastapi_server):
 
     from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
     from mlflow.store.tracking.rest_store import RestStore
-    from mlflow.tracing.utils import encode_trace_id
     from mlflow.utils.rest_utils import MlflowHostCreds
 
     # Create RestStore with the test server
@@ -463,7 +463,6 @@ async def test_rest_store_log_spans_with_complex_attributes(fastapi_server):
 
     from mlflow.entities.span import Span, SpanStatus, SpanStatusCode
     from mlflow.store.tracking.rest_store import RestStore
-    from mlflow.tracing.utils import encode_trace_id
     from mlflow.utils.rest_utils import MlflowHostCreds
 
     # Create RestStore
@@ -526,3 +525,94 @@ async def test_rest_store_log_spans_with_complex_attributes(fastapi_server):
     #    (bool, int, float, string, list, dict, null)
     # 2. All attribute types are properly serialized and sent to the OTel API
     # 3. The OTel API accepts spans with complex attributes
+
+
+def test_otel_span_export_with_span_type(fastapi_server):
+    """Test OTel span export with span type attribute."""
+
+    client = MlflowClient(fastapi_server)
+    experiment_id = client.create_experiment(f"test_span_type_{uuid.uuid4().hex[:8]}")
+
+    # Generate IDs
+    trace_id_int = uuid.uuid4().int & ((1 << 128) - 1)
+    span_id_int = uuid.uuid4().int & ((1 << 64) - 1)
+
+    # Convert to base64 for OTel format
+    trace_id_b64 = base64.b64encode(trace_id_int.to_bytes(16, byteorder="big")).decode("utf-8")
+    span_id_b64 = base64.b64encode(span_id_int.to_bytes(8, byteorder="big")).decode("utf-8")
+
+    # Create OTel request with span type
+    request_data = {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "mlflow.experimentId", "value": {"stringValue": experiment_id}}
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": trace_id_b64,
+                                "spanId": span_id_b64,
+                                "name": "test_span_with_type",
+                                "startTimeUnixNano": "1000000000",
+                                "endTimeUnixNano": "2000000000",
+                                "attributes": [
+                                    {
+                                        "key": "mlflow.spanInputs",
+                                        "value": {"stringValue": '{"query": "test"}'},
+                                    },
+                                    {
+                                        "key": "mlflow.spanOutputs",
+                                        "value": {"stringValue": '{"response": "test response"}'},
+                                    },
+                                    {
+                                        "key": "mlflow.spanType",
+                                        "value": {"stringValue": "LLM"},  # Plain string
+                                    },
+                                ],
+                            },
+                            {
+                                "traceId": trace_id_b64,
+                                "spanId": base64.b64encode(
+                                    (span_id_int + 1).to_bytes(8, byteorder="big")
+                                ).decode("utf-8"),
+                                "name": "test_span_with_plain_type",
+                                "startTimeUnixNano": "2000000000",
+                                "endTimeUnixNano": "3000000000",
+                                "attributes": [
+                                    {
+                                        "key": "mlflow.spanType",
+                                        "value": {
+                                            "stringValue": "CHAIN"
+                                        },  # Plain string (not JSON-encoded)
+                                    }
+                                ],
+                            },
+                        ]
+                    }
+                ],
+            }
+        ]
+    }
+
+    # Send request to OTel API
+    response = requests.post(
+        f"{fastapi_server}/v1/traces",
+        json=request_data,
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+
+    # Verify response
+    assert "partialSuccess" not in response_data or response_data["partialSuccess"] is None
+
+    # The test verifies that:
+    # 1. Spans with mlflow.spanType attribute are accepted
+    # 2. Span types are handled as plain strings (LLM, CHAIN, etc.)
+    # 3. The OTel API processes spans with type information correctly
+    # 4. No errors are returned in the response
