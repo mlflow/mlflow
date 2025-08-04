@@ -45,8 +45,19 @@ async def lock_fixture():
         yield
 
 
+@pytest.fixture(params=[True, False])
+def with_openai_autolog(request):
+    # Test with OpenAI autologging enabled and disabled
+    if request.param:
+        mlflow.openai.autolog()
+    else:
+        mlflow.openai.autolog(disable=True)
+
+    return request.param
+
+
 @pytest.mark.asyncio
-async def test_sk_invoke_simple(mock_openai):
+async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
     mlflow.semantic_kernel.autolog()
     result = await _create_and_invoke_kernel_simple(mock_openai)
 
@@ -71,7 +82,7 @@ async def test_sk_invoke_simple(mock_openai):
     assert "Is sushi the best food ever?" in trace.info.response_preview
 
     spans = trace.data.spans
-    assert len(spans) == 4
+    assert len(spans) == (5 if with_openai_autolog else 4)
 
     # Kernel.invoke_prompt
     assert spans[0].name == "Kernel.invoke_prompt"
@@ -100,6 +111,29 @@ async def test_sk_invoke_simple(mock_openai):
     assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
     assert spans[3].get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
+
+    # OpenAI autologging
+    if with_openai_autolog:
+        assert spans[4].name == "AsyncCompletions"
+        assert spans[4].span_type == SpanType.CHAT_MODEL
+        assert spans[4].parent_id == spans[3].span_id
+        assert spans[4].inputs == {
+            "messages": [{"role": "user", "content": prompt}],
+            "model": "gpt-4o-mini",
+            "stream": False,
+        }
+        assert spans[4].get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 9,
+            "output_tokens": 12,
+            "total_tokens": 21,
+        }
+
+    # Trace level token usage should not double-count
+    assert trace.info.token_usage == {
+        "input_tokens": 9,
+        "output_tokens": 12,
+        "total_tokens": 21,
+    }
 
 
 @pytest.mark.asyncio
@@ -258,7 +292,7 @@ async def test_sk_autolog_trace_on_exception(mock_openai):
 
 
 @pytest.mark.asyncio
-async def test_tracing_autolog_with_active_span(mock_openai):
+async def test_tracing_autolog_with_active_span(mock_openai, with_openai_autolog):
     mlflow.semantic_kernel.autolog()
 
     with mlflow.start_span("parent"):
@@ -271,7 +305,7 @@ async def test_tracing_autolog_with_active_span(mock_openai):
 
     trace = traces[0]
     spans = trace.data.spans
-    assert len(spans) == 5
+    assert len(spans) == (6 if with_openai_autolog else 5)
 
     assert trace.info.request_id is not None
     assert trace.info.status == "OK"
@@ -283,9 +317,17 @@ async def test_tracing_autolog_with_active_span(mock_openai):
     assert parent.span_type == SpanType.UNKNOWN
 
     assert spans[1].name == "Kernel.invoke_prompt"
+    assert spans[1].parent_id == parent.span_id
     assert spans[2].name == "Kernel.invoke"
+    assert spans[2].parent_id == spans[1].span_id
     assert spans[3].name.startswith("execute_tool")
+    assert spans[3].parent_id == spans[2].span_id
     assert spans[4].name == "chat.completions gpt-4o-mini"
+    assert spans[4].parent_id == spans[3].span_id
+
+    if with_openai_autolog:
+        assert spans[5].name == "AsyncCompletions"
+        assert spans[5].parent_id == spans[4].span_id
 
 
 @pytest.mark.asyncio
