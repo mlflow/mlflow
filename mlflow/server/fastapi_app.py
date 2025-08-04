@@ -6,8 +6,6 @@ using WSGIMiddleware to maintain 100% API compatibility while enabling future mi
 to FastAPI endpoints.
 """
 
-import logging
-
 from fastapi import FastAPI
 from starlette.middleware.wsgi import WSGIMiddleware
 
@@ -35,16 +33,9 @@ def create_fastapi_app():
     )
 
     # Import and include OTel API router for native FastAPI endpoints
-    try:
-        from mlflow.server.otel_api import otel_router
+    from mlflow.server.otel_api import otel_router
 
-        fastapi_app.include_router(otel_router)
-    except ImportError as e:
-        # OTel API is optional - if dependencies are not installed, skip it
-        logging.warning(
-            f"OpenTelemetry API support not available: {e}. "
-            "Install with: pip install opentelemetry-proto"
-        )
+    fastapi_app.include_router(otel_router)
 
     # Mount the entire Flask application at the root path
     # This ensures 100% compatibility with existing APIs
