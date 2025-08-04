@@ -35,7 +35,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         import dspy
 
         from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
-        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
+        from mlflow.genai.optimize.optimizers.utils.dspy_optimizer_utils import (
+            format_optimized_prompt,
+        )
 
         _logger.info(
             f"🎯 Starting prompt optimization for: {prompt.uri}\n"
@@ -91,7 +93,11 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         adapter = dspy.JSONAdapter()
         callbacks = (
             [
-                _DSPyMIPROv2Callback(prompt.name, input_fields),
+                _DSPyMIPROv2Callback(
+                    prompt_name=prompt.name,
+                    input_fields=input_fields,
+                    convert_to_single_prompt=self.optimizer_config.convert_to_single_prompt,
+                ),
             ]
             if self.optimizer_config.autolog
             else []
@@ -110,6 +116,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             template = format_optimized_prompt(
                 program=optimized_program,
                 input_fields=input_fields,
+                convert_to_single_prompt=self.optimizer_config.convert_to_single_prompt,
             )
 
         self._display_optimization_result(optimized_program)

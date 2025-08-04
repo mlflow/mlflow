@@ -64,6 +64,8 @@ class OptimizerConfig:
         autolog: Whether to log the optimization parameters, datasets and metrics.
             If set to True, a MLflow run is automatically created to store them.
             Default: False
+        convert_to_single_prompt: Whether to convert the optimized prompt to a single prompt.
+            Default: True
     """
 
     num_instruction_candidates: int = 6
@@ -73,3 +75,4 @@ class OptimizerConfig:
     algorithm: str = "DSPy/MIPROv2"
     verbose: bool = False
     autolog: bool = False
+    convert_to_single_prompt: bool = True
