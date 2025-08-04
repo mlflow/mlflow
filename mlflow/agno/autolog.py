@@ -4,7 +4,7 @@ from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.entities.span import LiveSpan, SpanStatus, SpanStatusCode
+from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -97,8 +97,8 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
 
 def _get_span_type(instance) -> str:
     try:
-        import agno
         from agno.agent import Agent
+        from agno.storage.base import Storage
         from agno.team import Team
         from agno.tools.function import FunctionCall
 
@@ -108,20 +108,7 @@ def _get_span_type(instance) -> str:
         return SpanType.AGENT
     if isinstance(instance, FunctionCall):
         return SpanType.TOOL
-    if isinstance(
-        instance,
-        (
-            agno.storage.sqlite.SqliteStorage,
-            agno.storage.dynamodb.DynamoDbStorage,
-            agno.storage.json.JsonStorage,
-            agno.storage.mongodb.MongoDbStorage,
-            agno.storage.mysql.MySQLStorage,
-            agno.storage.postgres.PostgresStorage,
-            agno.storage.yaml.YamlStorage,
-            agno.storage.singlestore.SingleStoreStorage,
-            agno.storage.redis.RedisStorage,
-        ),
-    ):
+    if isinstance(instance, Storage):
         return SpanType.RETRIEVER
 
     return SpanType.UNKNOWN
@@ -137,20 +124,9 @@ def _coerce_to_int(value) -> int | None:
         for item in value:
             coerced = _coerce_to_int(item)  # recurse for nested dicts etc.
             if coerced is None:
-                return None  # bail if anything isn't numeric
+                return None  # bail if anything isn't numeric(recursive loop returns None)
             total += coerced
         return total
-
-    if isinstance(value, dict):
-        for k in ("value", "tokens", "count"):
-            if k in value:
-                return _coerce_to_int(value[k])
-        return None
-
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
 
 
 def _parse_usage(result) -> dict[str, int] | None:
@@ -180,14 +156,13 @@ async def patched_async_class_call(original, self, *args, **kwargs):
 
         try:
             result = await original(self, *args, **kwargs)
-            span.set_outputs(result.__dict__ if hasattr(result, "__dict__") else result)
+            span.set_outputs(result)
             if usage := _parse_usage(result):
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-            span.set_status(SpanStatus(SpanStatusCode.OK))
             return result
-        except Exception:
-            span.set_status(SpanStatus(SpanStatusCode.ERROR))
-            raise
+        except Exception as e:
+            span.record_exception(e)
+            raise e
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -204,11 +179,10 @@ def patched_class_call(original, self, *args, **kwargs):
 
         try:
             result = original(self, *args, **kwargs)
-            span.set_outputs(result.__dict__ if hasattr(result, "__dict__") else result)
+            span.set_outputs(result)
             if usage := _parse_usage(result):
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-            span.set_status(SpanStatus(SpanStatusCode.OK))
             return result
-        except Exception:
-            span.set_status(SpanStatus(SpanStatusCode.ERROR))
-            raise
+        except Exception as e:
+            span.record_exception(e)
+            raise e

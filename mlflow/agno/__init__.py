@@ -5,6 +5,7 @@ from mlflow.agno.autolog import (
     patched_async_class_call,
     patched_class_call,
 )
+from mlflow.agno.utils import discover_storage_backends
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -16,67 +17,25 @@ _logger = logging.getLogger(__name__)
 @autologging_integration(FLAVOR_NAME)
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     class_map = {
-        "agno.agent.Agent": ["run", "arun", "print_response"],
-        "agno.team.Team": ["run", "arun", "print_response"],
+        "agno.agent.Agent": ["run", "arun"],
+        "agno.team.Team": ["run", "arun"],
         "agno.tools.function.FunctionCall": ["execute", "aexecute"],
     }
 
-    # storage
-    class_map.update(
-        {
-            "agno.storage.sqlite.SqliteStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.dynamodb.DynamoDbStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.json.JsonStorage": ["create", "read", "upsert", "drop", "upgrade_schema"],
-            "agno.storage.mongodb.MongoDbStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.mysql.MySQLStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.postgres.PostgresStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.yaml.YamlStorage": ["create", "read", "upsert", "drop", "upgrade_schema"],
-            "agno.storage.singlestore.SingleStoreStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-            "agno.storage.redis.RedisStorage": [
-                "create",
-                "read",
-                "upsert",
-                "drop",
-                "upgrade_schema",
-            ],
-        }
-    )
+    storages = discover_storage_backends()
+    if storages:
+        class_map.update(
+            {
+                cls.__module__ + "." + cls.__name__: [
+                    "create",
+                    "read",
+                    "upsert",
+                    "drop",
+                    "upgrade_schema",
+                ]
+                for cls in storages
+            }
+        )
 
     for cls_path, methods in class_map.items():
         mod_name, cls_name = cls_path.rsplit(".", 1)
