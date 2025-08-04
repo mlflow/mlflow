@@ -78,8 +78,8 @@ def disable_git_model_versioning() -> None:
     Disable git model versioning and reset the active context.
     """
     global _active_context
-    mlflow.clear_active_model()
     _active_context = None
+    mlflow.clear_active_model()
 
 
 def _get_active_git_context() -> GitContext | None:
