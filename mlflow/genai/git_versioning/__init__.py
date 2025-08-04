@@ -5,6 +5,7 @@ from typing_extensions import Self
 
 import mlflow
 from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
+from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class GitContext:
                 )
                 model = mlflow.initialize_logged_model(tags=git_tags)
 
-        self.active_model = mlflow._set_active_model(model_id=model.model_id)
+        self.active_model = _set_active_model(model_id=model.model_id)
 
     def __enter__(self) -> Self:
         return self
