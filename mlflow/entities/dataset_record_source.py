@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Optional
 
@@ -117,13 +117,10 @@ class DatasetRecordSource(_MlflowObject):
         return cls(source_type=source_type, source_data=source_data)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"source_type": self.source_type.value, "source_data": self.source_data}
+        d = asdict(self)
+        d["source_type"] = self.source_type.value
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DatasetRecordSource":
-        return cls(source_type=data.get("source_type"), source_data=data.get("source_data", {}))
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, DatasetRecordSource):
-            return False
-        return self.source_type == other.source_type and self.source_data == other.source_data
+        return cls(**data)

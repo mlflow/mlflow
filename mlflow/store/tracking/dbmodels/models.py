@@ -17,6 +17,7 @@ from sqlalchemy import (
     UnicodeText,
     UniqueConstraint,
 )
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
@@ -72,6 +73,10 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING),
     RunStatus.to_string(RunStatus.KILLED),
 ]
+
+
+# Create MutableJSON type for tracking mutations in JSON columns
+MutableJSON = MutableDict.as_mutable(JSON)
 
 
 class SqlExperiment(Base):
@@ -1473,22 +1478,22 @@ class SqlEvaluationDatasetRecord(Base):
     Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
     """
 
-    inputs = Column(JSON, nullable=False)
+    inputs = Column(MutableJSON, nullable=False)
     """
     Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
-    expectations = Column(JSON, nullable=True)
+    expectations = Column(MutableJSON, nullable=True)
     """
     Expectations JSON: `JSON`.
     """
 
-    tags = Column(JSON, nullable=True)
+    tags = Column(MutableJSON, nullable=True)
     """
     Tags JSON: `JSON`.
     """
 
-    source = Column(JSON, nullable=True)
+    source = Column(MutableJSON, nullable=True)
     """
     Source JSON: `JSON`.
     """
@@ -1550,14 +1555,13 @@ class SqlEvaluationDatasetRecord(Base):
             :py:class:`mlflow.entities.DatasetRecord`.
         """
 
-        inputs = json.loads(self.inputs) if self.inputs else {}
-        expectations = json.loads(self.expectations) if self.expectations else None
-        tags = json.loads(self.tags) if self.tags else None
+        inputs = self.inputs
+        expectations = self.expectations
+        tags = self.tags
 
         source = None
         if self.source:
-            source_dict = json.loads(self.source)
-            source = DatasetRecordSource.from_dict(source_dict)
+            source = DatasetRecordSource.from_dict(self.source)
 
         return DatasetRecord(
             dataset_record_id=self.dataset_record_id,
@@ -1585,23 +1589,18 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             SqlEvaluationDatasetRecord instance
         """
-        inputs_json = json.dumps(record.inputs, sort_keys=True)
-        expectations_json = (
-            json.dumps(record.expectations, sort_keys=True) if record.expectations else None
-        )
-        tags_json = json.dumps(record.tags, sort_keys=True) if record.tags else None
-
-        source_json = None
+        # With MutableJSON, we store dicts directly, not JSON strings
+        source_dict = None
         if record.source:
-            source_json = json.dumps(record.source.to_dict(), sort_keys=True)
+            source_dict = record.source.to_dict()
 
         return cls(
             dataset_record_id=record.dataset_record_id,
             dataset_id=record.dataset_id,
-            inputs=inputs_json,
-            expectations=expectations_json,
-            tags=tags_json,
-            source=source_json,
+            inputs=record.inputs,
+            expectations=record.expectations,
+            tags=record.tags,
+            source=source_dict,
             source_id=record.source_id,
             source_type=record.source.source_type if record.source else None,
             created_time=record.created_time or get_current_time_millis(),

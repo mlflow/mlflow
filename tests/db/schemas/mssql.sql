@@ -19,6 +19,7 @@ CREATE TABLE entity_associations (
 CREATE TABLE evaluation_datasets (
 	dataset_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	tags NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	digest VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -86,10 +87,10 @@ CREATE TABLE datasets (
 CREATE TABLE evaluation_dataset_records (
 	dataset_record_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	dataset_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	inputs VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	expectations VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	tags VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	source VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	inputs NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	expectations NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	tags NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source_type VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_time BIGINT,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -11,32 +10,33 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.protos.evaluation_datasets_pb2 import DatasetRecord as ProtoDatasetRecord
 from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
-from mlflow.utils.time import get_current_time_millis
 
 
 @dataclass
 class DatasetRecord(_MlflowObject):
+    """Represents a single record in an evaluation dataset.
+
+    A DatasetRecord contains the input data, expected outputs (ground truth),
+    and metadata for a single evaluation example. Records are immutable once
+    created and are uniquely identified by their dataset_record_id.
+    """
+
     dataset_id: str
     inputs: dict[str, Any]
-    dataset_record_id: Optional[str] = None
+    dataset_record_id: str
+    created_time: int
+    last_update_time: int
     expectations: Optional[dict[str, Any]] = None
     tags: Optional[dict[str, str]] = None
     source: Optional[DatasetRecordSource] = None
     source_id: Optional[str] = None
     source_type: Optional[str] = None
-    created_time: Optional[int] = None
-    last_update_time: Optional[int] = None
     created_by: Optional[str] = None
     last_updated_by: Optional[str] = None
 
     def __post_init__(self):
-        if self.dataset_record_id is None:
-            self.dataset_record_id = str(uuid.uuid4())
-
-        if self.created_time is None:
-            self.created_time = get_current_time_millis()
-        if self.last_update_time is None:
-            self.last_update_time = get_current_time_millis()
+        if not self.inputs:
+            raise ValueError("inputs must be provided and cannot be empty")
 
         if self.tags is None:
             self.tags = {}
@@ -53,12 +53,11 @@ class DatasetRecord(_MlflowObject):
     def to_proto(self) -> ProtoDatasetRecord:
         proto = ProtoDatasetRecord()
 
-        if self.dataset_record_id is not None:
-            proto.dataset_record_id = self.dataset_record_id
-        if self.dataset_id is not None:
-            proto.dataset_id = self.dataset_id
-        if self.inputs is not None:
-            proto.inputs = json.dumps(self.inputs)
+        proto.dataset_record_id = self.dataset_record_id
+        proto.dataset_id = self.dataset_id
+        proto.inputs = json.dumps(self.inputs)
+        proto.created_time = self.created_time
+        proto.last_update_time = self.last_update_time
         if self.expectations is not None:
             proto.expectations = json.dumps(self.expectations)
         if self.tags is not None:
@@ -69,10 +68,6 @@ class DatasetRecord(_MlflowObject):
             proto.source_id = self.source_id
         if self.source_type is not None:
             proto.source_type = ProtoDatasetRecordSource.SourceType.Value(self.source_type)
-        if self.created_time is not None:
-            proto.created_time = self.created_time
-        if self.last_update_time is not None:
-            proto.last_update_time = self.last_update_time
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -92,11 +87,11 @@ class DatasetRecord(_MlflowObject):
             source = DatasetRecordSource.from_dict(source_dict)
 
         return cls(
-            dataset_id=proto.dataset_id if proto.HasField("dataset_id") else "",
+            dataset_id=proto.dataset_id,
             inputs=inputs,
-            dataset_record_id=proto.dataset_record_id
-            if proto.HasField("dataset_record_id")
-            else None,
+            dataset_record_id=proto.dataset_record_id,
+            created_time=proto.created_time,
+            last_update_time=proto.last_update_time,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -104,8 +99,6 @@ class DatasetRecord(_MlflowObject):
             source_type=DatasetRecordSourceType.from_proto(proto.source_type)
             if proto.HasField("source_type")
             else None,
-            created_time=proto.created_time if proto.HasField("created_time") else None,
-            last_update_time=proto.last_update_time if proto.HasField("last_update_time") else None,
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
         )
@@ -128,21 +121,33 @@ class DatasetRecord(_MlflowObject):
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DatasetRecord":
+        # Validate required fields
+        if "dataset_id" not in data:
+            raise ValueError("dataset_id is required")
+        if "dataset_record_id" not in data:
+            raise ValueError("dataset_record_id is required")
+        if "inputs" not in data:
+            raise ValueError("inputs is required")
+        if "created_time" not in data:
+            raise ValueError("created_time is required")
+        if "last_update_time" not in data:
+            raise ValueError("last_update_time is required")
+
         source = None
         if data.get("source"):
             source = DatasetRecordSource.from_dict(data["source"])
 
         return cls(
-            dataset_id=data.get("dataset_id", ""),
-            inputs=data.get("inputs", {}),
-            dataset_record_id=data.get("dataset_record_id"),
+            dataset_id=data["dataset_id"],
+            inputs=data["inputs"],
+            dataset_record_id=data["dataset_record_id"],
+            created_time=data["created_time"],
+            last_update_time=data["last_update_time"],
             expectations=data.get("expectations"),
             tags=data.get("tags"),
             source=source,
             source_id=data.get("source_id"),
             source_type=data.get("source_type"),
-            created_time=data.get("created_time"),
-            last_update_time=data.get("last_update_time"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
         )
