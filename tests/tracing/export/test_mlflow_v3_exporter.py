@@ -538,3 +538,88 @@ def test_export_log_spans():
         mock_start_trace.assert_called_once_with(trace_info)
         mock_log_spans.assert_called_once_with([span])
         mock_upload.assert_called_once_with(trace_info, trace_data)
+
+
+def test_export_log_spans_integration():
+    """
+    Integration test that verifies log_spans is called with proper formatting.
+    This would have caught both the 422 error and spanType warning.
+    """
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import SpanStatus, SpanStatusCode, create_mlflow_span
+    from mlflow.entities.trace import Trace
+    from mlflow.entities.trace_data import TraceData
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+
+    from tests.tracing.helper import create_test_trace_info
+
+    # Create test span with attributes that would trigger the issues
+    trace_id = "tr-1234567890abcdef1234567890abcdef"
+    trace_id_int = int("1234567890abcdef1234567890abcdef", 16)
+    span_id_int = int("1234567890abcdef", 16)
+
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM"),  # This would trigger the warning
+            "mlflow.spanInputs": json.dumps({"prompt": "test"}),
+            "mlflow.spanOutputs": json.dumps({"response": "result"}),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+    trace_info = create_test_trace_info(trace_id, "0")
+    trace_data = TraceData(spans=[span])
+    trace = Trace(trace_info, trace_data)
+
+    # Create exporter
+    exporter = MlflowV3SpanExporter()
+
+    # Capture what's sent to log_spans
+    captured_spans = None
+
+    async def mock_log_spans(spans):
+        nonlocal captured_spans
+        captured_spans = spans
+        # Just verify we can access span attributes correctly
+        for span in spans:
+            # This would have failed with the spanType warning
+            span_type = span.span_type
+            assert span_type == "LLM"
+        return spans
+
+    with (
+        mock.patch.object(
+            exporter._client, "start_trace", return_value=trace_info
+        ) as mock_start_trace,
+        mock.patch.object(
+            exporter._client, "log_spans", side_effect=mock_log_spans
+        ) as mock_log_spans_method,
+        mock.patch.object(exporter._client, "_upload_trace_data", return_value=None) as mock_upload,
+    ):
+        # Call _log_trace directly
+        exporter._log_trace(trace, prompts=[])
+
+        # Verify all methods were called
+        mock_start_trace.assert_called_once_with(trace_info)
+        mock_log_spans_method.assert_called_once()
+        mock_upload.assert_called_once()
+
+        # Verify spans were passed correctly
+        assert captured_spans is not None
+        assert len(captured_spans) == 1
+        assert captured_spans[0].name == "test_span"
+        assert captured_spans[0].span_type == "LLM"

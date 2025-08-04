@@ -1731,3 +1731,184 @@ async def test_log_spans_http_error():
 
         with pytest.raises(MlflowException, match="API request to /v1/traces failed"):
             await store.log_spans([span])
+
+
+@pytest.mark.asyncio
+async def test_log_spans_field_names_camelcase():
+    """
+    Test that RestStore.log_spans uses camelCase field names for OTel API.
+    This test would have caught the 422 Unprocessable Entity error.
+    """
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import SpanStatus, SpanStatusCode, create_mlflow_span
+
+    mock_creds = MlflowHostCreds(
+        host="http://test-server",
+        username=None,
+        password=None,
+        token="test-token",
+        ignore_tls_verification=False,
+    )
+    store = RestStore(lambda: mock_creds)
+
+    # Create test span
+    trace_id = "tr-1234567890abcdef1234567890abcdef"
+    trace_id_int = int("1234567890abcdef1234567890abcdef", 16)
+    span_id_int = int("1234567890abcdef", 16)
+
+    otel_span = OTelReadableSpan(
+        name="test_span",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM"),
+            "mlflow.spanInputs": json.dumps({"prompt": "Hello"}),
+            "mlflow.spanOutputs": json.dumps({"response": "World"}),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    span = create_mlflow_span(otel_span, trace_id)
+
+    # Capture the JSON sent to the API
+    captured_json = None
+
+    def mock_http_request(host_creds, endpoint, method, json=None, **kwargs):
+        nonlocal captured_json
+        if endpoint == "/v1/traces":
+            captured_json = json
+        return mock.Mock(status_code=200, text='{"partialSuccess":{}}')
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", mock_http_request):
+        await store.log_spans([span])
+
+    # Verify field names are camelCase, not snake_case
+    assert captured_json is not None
+    assert "resourceSpans" in captured_json
+    assert "resource_spans" not in captured_json
+
+    resource_span = captured_json["resourceSpans"][0]
+    assert "scopeSpans" in resource_span
+    assert "scope_spans" not in resource_span
+
+    scope_span = resource_span["scopeSpans"][0]
+    span_data = scope_span["spans"][0]
+
+    # Check all critical field names
+    assert "traceId" in span_data
+    assert "trace_id" not in span_data
+    assert "spanId" in span_data
+    assert "span_id" not in span_data
+    assert "startTimeUnixNano" in span_data
+    assert "start_time_unix_nano" not in span_data
+    assert "endTimeUnixNano" in span_data
+    assert "end_time_unix_nano" not in span_data
+
+
+@pytest.mark.asyncio
+async def test_log_spans_attribute_json_encoding():
+    """
+    Test that RestStore.log_spans properly JSON-encodes all attribute values.
+    This test would have caught the spanType parsing warning.
+    """
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+
+    from mlflow.entities.span import SpanStatus, SpanStatusCode, create_mlflow_span
+
+    mock_creds = MlflowHostCreds(
+        host="http://test-server",
+        username=None,
+        password=None,
+        token="test-token",
+        ignore_tls_verification=False,
+    )
+    store = RestStore(lambda: mock_creds)
+
+    # Create test span with various attribute types
+    trace_id = "tr-1234567890abcdef1234567890abcdef"
+    trace_id_int = int("1234567890abcdef1234567890abcdef", 16)
+    span_id_int = int("1234567890abcdef", 16)
+
+    otel_span = OTelReadableSpan(
+        name="test_span",
+        context=SpanContext(
+            trace_id=trace_id_int,
+            span_id=span_id_int,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            # These should all be JSON-encoded strings
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("CHAIN"),  # String value
+            "mlflow.spanInputs": json.dumps({"key": "value"}),  # Dict value
+            "mlflow.spanOutputs": json.dumps([1, 2, 3]),  # List value
+            "custom_string": json.dumps("test_string"),
+            "custom_number": json.dumps(42),
+            "custom_bool": json.dumps(True),
+            "custom_null": json.dumps(None),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        resource=None,
+        events=[],
+    )
+
+    span = create_mlflow_span(otel_span, trace_id)
+
+    # Capture the JSON sent to the API
+    captured_json = None
+
+    def mock_http_request(host_creds, endpoint, method, json=None, **kwargs):
+        nonlocal captured_json
+        if endpoint == "/v1/traces":
+            captured_json = json
+        return mock.Mock(status_code=200, text='{"partialSuccess":{}}')
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", mock_http_request):
+        await store.log_spans([span])
+
+    # Get the attributes from the request
+    attributes = captured_json["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["attributes"]
+
+    # Verify all attribute values are properly JSON-encoded
+    for attr in attributes:
+        key = attr["key"]
+        value = attr["value"]["stringValue"]
+
+        # All values should be JSON-encoded strings
+        assert isinstance(value, str)
+
+        # Should be able to JSON decode them
+        decoded = json.loads(value)
+
+        # Verify specific attributes
+        if key == "mlflow.spanType":
+            assert decoded == "CHAIN"  # Not JSON-encoded twice
+        elif key == "mlflow.spanInputs":
+            assert decoded == {"key": "value"}
+        elif key == "mlflow.spanOutputs":
+            assert decoded == [1, 2, 3]
+        elif key == "custom_string":
+            assert decoded == "test_string"
+        elif key == "custom_number":
+            assert decoded == 42
+        elif key == "custom_bool":
+            assert decoded is True
+        elif key == "custom_null":
+            assert decoded is None

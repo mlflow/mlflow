@@ -39,10 +39,11 @@ def create_fastapi_app():
         from mlflow.server.otel_api import otel_router
 
         fastapi_app.include_router(otel_router)
-    except ImportError:
+    except ImportError as e:
         # OTel API is optional - if dependencies are not installed, skip it
         logging.warning(
-            "OpenTelemetry API support not available. Install with: pip install opentelemetry-proto"
+            f"OpenTelemetry API support not available: {e}. "
+            "Install with: pip install opentelemetry-proto"
         )
 
     # Mount the entire Flask application at the root path

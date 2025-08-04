@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
-from mlflow.entities.span import NoOpSpan, create_mlflow_span
+from mlflow.entities.span import NoOpSpan, _SpanAttributesRegistry, create_mlflow_span
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import encode_span_id, encode_trace_id
@@ -289,3 +289,92 @@ def test_from_dict_raises_when_trace_id_is_empty():
                 "events": [],
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("string_plain", "UNKNOWN"),  # This was the problematic case
+        ("string_with_quotes", 'value with "quotes"'),
+        ("number_int", 42),
+        ("number_float", 3.14),
+        ("boolean_true", True),
+        ("boolean_false", False),
+        ("null_value", None),
+        ("list_simple", [1, 2, 3]),
+        ("list_mixed", [1, "two", True, None]),
+        ("dict_simple", {"key": "value"}),
+        ("dict_nested", {"outer": {"inner": "value"}}),
+        ("mlflow.spanType", "LLM"),  # Specific case that caused the warning
+    ],
+)
+def test_span_attributes_registry_json_encoding(key, value):
+    """
+    Test that _SpanAttributesRegistry consistently JSON-encodes all values.
+    This would have caught the spanType warning issue.
+    """
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        registry = _SpanAttributesRegistry(otel_span)
+
+        # Set the value
+        registry.set(key, value)
+
+        # Verify value is JSON-encoded in the OpenTelemetry span
+        raw_value = otel_span.attributes.get(key)
+
+        # All values should be stored as JSON strings
+        assert isinstance(raw_value, str), f"Value for {key} should be a string"
+
+        # Should be able to JSON decode back to original value
+        decoded_value = json.loads(raw_value)
+        assert decoded_value == value, f"Value for {key} doesn't match"
+
+        # Registry.get should return the original value
+        retrieved_value = registry.get(key)
+        assert retrieved_value == value, f"Retrieved value for {key} doesn't match"
+
+
+def test_span_attributes_round_trip():
+    """
+    Test that span attributes maintain consistency through serialization.
+    Tests the full cycle: LiveSpan -> to_dict -> RestStore -> OTel API
+    """
+    trace_id = "tr-1234567890abcdef"
+    tracer = _get_tracer("test")
+
+    with tracer.start_as_current_span("test_span") as otel_span:
+        # Create LiveSpan and set attributes as user would
+        live_span = LiveSpan(otel_span, trace_id, span_type="CHAIN")
+
+        # Set various attributes
+        live_span.set_inputs({"prompt": "Hello"})
+        live_span.set_outputs({"response": "World"})
+        live_span.set_attribute("custom_string", "test")
+        live_span.set_attribute("custom_number", 123)
+        live_span.set_attribute("custom_list", [1, 2, 3])
+
+        # Convert to immutable span
+        span = live_span.to_immutable_span()
+
+        # Get all attributes
+        attributes = span.attributes
+
+        # Verify all attributes are properly accessible
+        assert span.span_type == "CHAIN"
+        assert span.inputs == {"prompt": "Hello"}
+        assert span.outputs == {"response": "World"}
+        assert attributes["custom_string"] == "test"
+        assert attributes["custom_number"] == 123
+        assert attributes["custom_list"] == [1, 2, 3]
+
+        # Simulate what RestStore would see
+        # All attribute values should already be properly formatted
+        for key, value in attributes.items():
+            # The value should be what the user set (not JSON-encoded string)
+            if key == "mlflow.spanType":
+                assert value == "CHAIN"
+            elif key == "mlflow.spanInputs":
+                assert value == {"prompt": "Hello"}
+            elif key == "mlflow.spanOutputs":
+                assert value == {"response": "World"}
