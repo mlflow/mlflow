@@ -21,6 +21,7 @@ def patched_class_call(original, self, *args, **kwargs):
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
         span_type = _get_span_type(self)
+        print(f"span_type: {span_type}, fullname: {fullname}, args: {args}, kwargs: {kwargs}")
         with mlflow.start_span(name=fullname, span_type=span_type) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
@@ -50,7 +51,7 @@ def _get_span_type(instance) -> str:
         elif isinstance(
             instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
-            return SpanType.RETRIEVER
+            return SpanType.MEMORY
 
         # Knowledge and Memory are not available before 0.83.0
         if Version(crewai.__version__) >= Version("0.83.0"):
