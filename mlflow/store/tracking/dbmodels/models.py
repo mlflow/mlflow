@@ -1299,6 +1299,16 @@ class SqlSpan(Base):
     Parent span ID: `String` (limit 50 characters). Can be null for root spans.
     """
 
+    name = Column(String(250), nullable=True)
+    """
+    Span name: `String` (limit 250 characters). Can be null.
+    """
+
+    type = Column(String(50), nullable=True)
+    """
+    Span type: `String` (limit 50 characters). Can be null.
+    """
+
     status = Column(String(50), nullable=False)
     """
     Span status: `String` (limit 50 characters).
