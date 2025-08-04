@@ -16,6 +16,8 @@ def test_dataset_record_creation():
         dataset_record_id="rec123",
         dataset_id="dataset123",
         inputs={"question": "What is MLflow?", "context": "MLflow is a platform"},
+        created_time=123456789,
+        last_update_time=987654321,
         expectations={"answer": "MLflow is an open source platform"},
         tags={"source": "manual", "quality": "high"},
         source=source,
@@ -38,22 +40,15 @@ def test_dataset_record_creation():
     assert record.last_updated_by == "user2"
 
 
-def test_dataset_record_auto_generation():
-    record = DatasetRecord(dataset_id="dataset123", inputs={"test": "data"})
-
-    assert record.dataset_record_id is not None
-    assert len(record.dataset_record_id) == 36
-    assert record.created_time is not None
-    assert record.last_update_time is not None
-    assert record.created_time > 0
-    assert record.last_update_time > 0
-    assert record.inputs == {"test": "data"}
-    assert record.tags == {}
-
-
 def test_dataset_record_empty_inputs_validation():
     with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
-        DatasetRecord(dataset_id="dataset123", inputs={})
+        DatasetRecord(
+            dataset_record_id="rec123",
+            dataset_id="dataset123",
+            inputs={},
+            created_time=123456789,
+            last_update_time=123456789,
+        )
 
 
 @pytest.mark.parametrize(
@@ -91,8 +86,11 @@ def test_dataset_record_source_id_and_type_extraction(
     expected_source_type,
 ):
     kwargs = {
+        "dataset_record_id": "rec123",
         "dataset_id": "dataset123",
         "inputs": {"test": "data"},
+        "created_time": 123456789,
+        "last_update_time": 123456789,
         "source": DatasetRecordSource(source_type=source_type, source_data=source_data),
     }
     if explicit_source_id is not None:
@@ -153,7 +151,11 @@ def test_dataset_record_to_from_proto():
 
 def test_dataset_record_to_from_proto_with_none_values():
     record = DatasetRecord(
-        dataset_id="dataset123", inputs={"question": "test"}, dataset_record_id="rec123"
+        dataset_id="dataset123",
+        inputs={"question": "test"},
+        dataset_record_id="rec123",
+        created_time=123456789,
+        last_update_time=123456789,
     )
 
     proto = record.to_proto()
@@ -207,6 +209,8 @@ def test_dataset_record_equality():
         dataset_record_id="rec123",
         dataset_id="dataset123",
         inputs={"question": "What is MLflow?"},
+        created_time=123456789,
+        last_update_time=123456789,
         expectations={"answer": "MLflow is a platform"},
         tags={"source": "manual"},
         source=source,
@@ -218,6 +222,8 @@ def test_dataset_record_equality():
         dataset_record_id="rec123",
         dataset_id="dataset123",
         inputs={"question": "What is MLflow?"},
+        created_time=123456789,
+        last_update_time=123456789,
         expectations={"answer": "MLflow is a platform"},
         tags={"source": "manual"},
         source=source,
@@ -229,6 +235,8 @@ def test_dataset_record_equality():
         dataset_record_id="rec456",
         dataset_id="dataset123",
         inputs={"question": "What is MLflow?"},
+        created_time=123456789,
+        last_update_time=123456789,
         expectations={"answer": "MLflow is a platform"},
         tags={"source": "manual"},
         source=source,
@@ -246,7 +254,14 @@ def test_dataset_record_equality():
     [
         (
             "none_source",
-            {"dataset_id": "dataset123", "inputs": {"question": "test"}, "source": None},
+            {
+                "dataset_record_id": "rec123",
+                "dataset_id": "dataset123",
+                "inputs": {"question": "test"},
+                "created_time": 123456789,
+                "last_update_time": 123456789,
+                "source": None,
+            },
             None,
             None,
             None,
@@ -254,8 +269,11 @@ def test_dataset_record_equality():
         (
             "dict_source",
             {
+                "dataset_record_id": "rec456",
                 "dataset_id": "dataset123",
                 "inputs": {"question": "test"},
+                "created_time": 123456789,
+                "last_update_time": 123456789,
                 "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}},
             },
             {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}},
@@ -265,8 +283,11 @@ def test_dataset_record_equality():
         (
             "explicit_override",
             {
+                "dataset_record_id": "rec789",
                 "dataset_id": "dataset123",
                 "inputs": {"question": "test"},
+                "created_time": 123456789,
+                "last_update_time": 123456789,
                 "source": DatasetRecordSource(
                     source_type="TRACE", source_data={"trace_id": "trace123"}
                 ),
@@ -297,11 +318,17 @@ def test_dataset_record_source_edge_cases(
 
 
 def test_dataset_record_from_dict_with_missing_keys():
-    minimal_data = {"dataset_id": "dataset123", "inputs": {"question": "test"}}
+    # Test with all required fields present
+    minimal_data = {
+        "dataset_record_id": "rec123",
+        "dataset_id": "dataset123",
+        "inputs": {"question": "test"},
+        "created_time": 123456789,
+        "last_update_time": 987654321,
+    }
     record = DatasetRecord.from_dict(minimal_data)
 
-    assert record.dataset_record_id is not None
-    assert len(record.dataset_record_id) == 36
+    assert record.dataset_record_id == "rec123"
     assert record.dataset_id == "dataset123"
     assert record.inputs == {"question": "test"}
     assert record.expectations is None
@@ -309,22 +336,91 @@ def test_dataset_record_from_dict_with_missing_keys():
     assert record.source is None
     assert record.source_id is None
     assert record.source_type is None
-    assert record.created_time is not None
-    assert record.last_update_time is not None
+    assert record.created_time == 123456789
+    assert record.last_update_time == 987654321
     assert record.created_by is None
     assert record.last_updated_by is None
 
+    # Test missing required fields
+    with pytest.raises(ValueError, match="dataset_id is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec123",
+                "inputs": {"test": "data"},
+                "created_time": 123,
+                "last_update_time": 123,
+            }
+        )
+
+    with pytest.raises(ValueError, match="dataset_record_id is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_id": "dataset123",
+                "inputs": {"test": "data"},
+                "created_time": 123,
+                "last_update_time": 123,
+            }
+        )
+
+    with pytest.raises(ValueError, match="inputs is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec123",
+                "dataset_id": "dataset123",
+                "created_time": 123,
+                "last_update_time": 123,
+            }
+        )
+
+    with pytest.raises(ValueError, match="created_time is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec123",
+                "dataset_id": "dataset123",
+                "inputs": {"test": "data"},
+                "last_update_time": 123,
+            }
+        )
+
+    with pytest.raises(ValueError, match="last_update_time is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec123",
+                "dataset_id": "dataset123",
+                "inputs": {"test": "data"},
+                "created_time": 123,
+            }
+        )
+
     # Test that empty inputs raises ValueError
     with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
-        DatasetRecord.from_dict({"dataset_id": "dataset123", "inputs": {}})
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec789",
+                "dataset_id": "dataset123",
+                "inputs": {},
+                "created_time": 123,
+                "last_update_time": 123,
+            }
+        )
 
-    # Test that missing inputs defaults to empty dict which then raises ValueError
-    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
-        DatasetRecord.from_dict({"dataset_id": "dataset123"})
+    # Test that missing inputs raises ValueError
+    with pytest.raises(ValueError, match="inputs is required"):
+        DatasetRecord.from_dict(
+            {
+                "dataset_record_id": "rec789",
+                "dataset_id": "dataset123",
+                "created_time": 123,
+                "last_update_time": 123,
+            }
+        )
 
     data_with_source = {
+        "dataset_record_id": "rec456",
         "dataset_id": "dataset456",
         "inputs": {"test": "data"},
+        "created_time": 123456789,
+        "last_update_time": 987654321,
         "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace123"}},
     }
     record3 = DatasetRecord.from_dict(data_with_source)
@@ -346,7 +442,10 @@ def test_dataset_record_complex_inputs():
 
     record = DatasetRecord(
         dataset_id="dataset123",
+        dataset_record_id="rec123",
         inputs=complex_data,
+        created_time=123456789,
+        last_update_time=123456789,
         expectations={
             "response": "MLflow is an open source platform for ML lifecycle",
             "confidence": 0.95,

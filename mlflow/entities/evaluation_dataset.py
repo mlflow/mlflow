@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -9,7 +10,6 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
-from mlflow.utils.time import get_current_time_millis
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -29,21 +29,15 @@ class EvaluationDataset(_MlflowObject):
     dataset_id: str
     name: str
     digest: str
+    created_time: int
+    last_update_time: int
     tags: Optional[dict[str, Any]] = None
     schema: Optional[str] = None
     profile: Optional[str] = None
-    created_time: Optional[int] = None
-    last_update_time: Optional[int] = None
     created_by: Optional[str] = None
     last_updated_by: Optional[str] = None
     _experiment_ids: Optional[list[str]] = field(default=None, init=False, repr=False)
     _records: Optional[list[DatasetRecord]] = field(default=None, init=False, repr=False)
-
-    def __post_init__(self):
-        if self.created_time is None:
-            self.created_time = get_current_time_millis()
-        if self.last_update_time is None:
-            self.last_update_time = get_current_time_millis()
 
     @property
     def experiment_ids(self) -> list[str]:
@@ -204,14 +198,13 @@ class EvaluationDataset(_MlflowObject):
                         if existing_record.tags is None:
                             existing_record.tags = {}
                         existing_record.tags.update(new_tags)
-
-                    existing_record.last_update_time = get_current_time_millis()
                 else:
                     source = record_dict.get("source")
                     if source and isinstance(source, dict):
                         source = DatasetRecordSource.from_dict(source)
 
                     record = DatasetRecord(
+                        dataset_record_id=uuid.uuid4().hex,
                         dataset_id=self.dataset_id,
                         inputs=inputs,
                         expectations=record_dict.get("expectations"),
@@ -270,22 +263,17 @@ class EvaluationDataset(_MlflowObject):
         """Convert to protobuf representation."""
         proto = ProtoEvaluationDataset()
 
-        if self.dataset_id is not None:
-            proto.dataset_id = self.dataset_id
-        if self.name is not None:
-            proto.name = self.name
+        proto.dataset_id = self.dataset_id
+        proto.name = self.name
         if self.tags is not None:
             proto.tags = json.dumps(self.tags)
         if self.schema is not None:
             proto.schema = self.schema
         if self.profile is not None:
             proto.profile = self.profile
-        if self.digest is not None:
-            proto.digest = self.digest
-        if self.created_time is not None:
-            proto.created_time = self.created_time
-        if self.last_update_time is not None:
-            proto.last_update_time = self.last_update_time
+        proto.digest = self.digest
+        proto.created_time = self.created_time
+        proto.last_update_time = self.last_update_time
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -303,14 +291,14 @@ class EvaluationDataset(_MlflowObject):
             tags = json.loads(proto.tags)
 
         dataset = cls(
-            dataset_id=proto.dataset_id if proto.HasField("dataset_id") else None,
-            name=proto.name if proto.HasField("name") else None,
+            dataset_id=proto.dataset_id,
+            name=proto.name,
+            digest=proto.digest,
+            created_time=proto.created_time,
+            last_update_time=proto.last_update_time,
             tags=tags,
             schema=proto.schema if proto.HasField("schema") else None,
             profile=proto.profile if proto.HasField("profile") else None,
-            digest=proto.digest if proto.HasField("digest") else None,
-            created_time=proto.created_time if proto.HasField("created_time") else None,
-            last_update_time=proto.last_update_time if proto.HasField("last_update_time") else None,
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
         )
@@ -341,15 +329,27 @@ class EvaluationDataset(_MlflowObject):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "EvaluationDataset":
         """Create instance from dictionary representation."""
+        # Validate required fields
+        if "dataset_id" not in data:
+            raise ValueError("dataset_id is required")
+        if "name" not in data:
+            raise ValueError("name is required")
+        if "digest" not in data:
+            raise ValueError("digest is required")
+        if "created_time" not in data:
+            raise ValueError("created_time is required")
+        if "last_update_time" not in data:
+            raise ValueError("last_update_time is required")
+
         dataset = cls(
-            dataset_id=data.get("dataset_id"),
-            name=data.get("name"),
+            dataset_id=data["dataset_id"],
+            name=data["name"],
+            digest=data["digest"],
+            created_time=data["created_time"],
+            last_update_time=data["last_update_time"],
             tags=data.get("tags"),
             schema=data.get("schema"),
             profile=data.get("profile"),
-            digest=data.get("digest"),
-            created_time=data.get("created_time"),
-            last_update_time=data.get("last_update_time"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
         )
