@@ -37,7 +37,7 @@ RUN chown mlflow:mlflow /home/mlflow/start_mlflow.py
 USER 10001
 
 # Expose MLflow UI port
-EXPOSE 5000
+EXPOSE 8080
 
 # Run the tracking server using Python script
 CMD ["python", "/home/mlflow/start_mlflow.py"]
