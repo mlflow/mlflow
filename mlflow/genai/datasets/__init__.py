@@ -266,11 +266,68 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
     return EvaluationDataset(get_dataset(uc_table_name))
 
 
+@experimental(version="3.3.0")
+def update_evaluation_dataset_tags(
+    dataset_id: Optional[str] = None,
+    name: Optional[str] = None,
+    tags: Optional[dict[str, Any]] = None,
+    updated_by: Optional[str] = None,
+) -> None:
+    """
+    Update tags for an evaluation dataset by ID (OSS) or name (Databricks).
+
+    This implements an upsert operation - existing tags are merged with new tags.
+    To remove a tag, set its value to None.
+
+    Args:
+        dataset_id: Dataset ID (required for OSS)
+        name: Dataset name/UC table name (required for Databricks)
+        tags: Dictionary of tags to update. Setting a value to None removes the tag.
+        updated_by: The user making the update.
+
+    OSS Usage::
+
+        update_evaluation_dataset_tags(
+            dataset_id="dataset_abc123",
+            tags={
+                "environment": "production",
+                "version": "2.0",
+                "deprecated": None,  # This removes the 'deprecated' tag
+            }
+        )
+
+    Note:
+        This API is not available in Databricks environments yet.
+    """
+    if tags is None:
+        raise ValueError("Parameter 'tags' must be provided")
+
+    if is_in_databricks_runtime():
+        raise NotImplementedError(
+            "Evaluation Dataset tag updates are not available in Databricks yet. "
+            "Tags are managed through Unity Catalog."
+        )
+    else:
+        if dataset_id is None:
+            raise ValueError(
+                "Parameter 'dataset_id' is required in OSS environment. "
+                "Use: update_evaluation_dataset_tags(dataset_id='dataset_abc123', tags={...})"
+            )
+        if name is not None:
+            _logger.warning(
+                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
+            )
+
+        client = MlflowClient()
+        client.update_evaluation_dataset_tags(dataset_id, tags, updated_by)
+
+
 __all__ = [
     "create_evaluation_dataset",
     "get_evaluation_dataset",
     "delete_evaluation_dataset",
     "search_evaluation_datasets",
+    "update_evaluation_dataset_tags",
     "EvaluationDataset",
     # Deprecated APIs
     "create_dataset",

@@ -3125,36 +3125,14 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        with self.ManagedSessionMaker() as session:
-            sql_dataset = (
-                session.query(SqlEvaluationDataset)
-                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .first()
-            )
-
-            if not sql_dataset:
-                raise MlflowException(
-                    f"Evaluation dataset with id '{dataset_id}' not found",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Get existing tags
-            existing_tags = sql_dataset.tags.copy() if sql_dataset.tags else {}
-
-            # Merge tags - remove tags with None values
-            for key, value in tags.items():
-                if value is None:
-                    existing_tags.pop(key, None)
-                else:
-                    existing_tags[key] = value
-
-            # Update the dataset
-            sql_dataset.tags = existing_tags if existing_tags else None
-            sql_dataset.last_update_time = get_current_time_millis()
-            if updated_by:
-                sql_dataset.last_updated_by = updated_by
-
-            session.commit()
+        # Process each tag update
+        for key, value in tags.items():
+            if value is None:
+                # Delete the tag
+                self.delete_evaluation_dataset_tag(dataset_id, key)
+            else:
+                # Set/update the tag
+                self.set_evaluation_dataset_tag(dataset_id, key, str(value), updated_by)
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.

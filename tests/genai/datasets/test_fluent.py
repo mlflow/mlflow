@@ -14,6 +14,7 @@ from mlflow.genai.datasets import (
     delete_evaluation_dataset,
     get_evaluation_dataset,
     search_evaluation_datasets,
+    update_evaluation_dataset_tags,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -287,7 +288,7 @@ def test_create_dataset_minimal_params(tracking_uri):
     dataset = create_evaluation_dataset(name="minimal_dataset")
 
     assert dataset.name == "minimal_dataset"
-    assert dataset.tags is None
+    assert dataset.tags == {}
     assert dataset.experiment_ids == []
 
 
@@ -909,3 +910,98 @@ def test_trace_integration_end_to_end(client, experiment):
 
     manual_records = final_df[final_df["source_type"] != "TRACE"]
     assert len(manual_records) == 1
+
+
+def test_update_evaluation_dataset_tags(tracking_uri, experiments):
+    dataset = create_evaluation_dataset(
+        name="test_update_tags",
+        experiment_ids=experiments[0],
+        tags={
+            "environment": "dev",
+            "version": "1.0",
+            "deprecated": "true",
+        },
+    )
+
+    update_evaluation_dataset_tags(
+        dataset_id=dataset.dataset_id,
+        tags={
+            "environment": "production",
+            "release": "v1.0.0",
+            "deprecated": None,
+        },
+        updated_by="test_user",
+    )
+
+    updated = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    assert updated.tags == {
+        "environment": "production",
+        "version": "1.0",
+        "release": "v1.0.0",
+    }
+
+    with pytest.raises(ValueError, match="'tags' must be provided"):
+        update_evaluation_dataset_tags(dataset_id=dataset.dataset_id, tags=None)
+
+    delete_evaluation_dataset(dataset_id=dataset.dataset_id)
+
+
+def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
+    dataset = create_evaluation_dataset(
+        name="test_tags_crud",
+        experiment_ids=experiments[0],
+    )
+    assert dataset.tags == {}
+
+    update_evaluation_dataset_tags(
+        dataset_id=dataset.dataset_id,
+        tags={
+            "team": "ml-platform",
+            "project": "evaluation",
+            "priority": "high",
+        },
+    )
+
+    dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.tags == {
+        "team": "ml-platform",
+        "project": "evaluation", 
+        "priority": "high",
+    }
+
+    update_evaluation_dataset_tags(
+        dataset_id=dataset.dataset_id,
+        tags={
+            "priority": "medium",
+            "status": "active",
+        },
+    )
+
+    dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.tags == {
+        "team": "ml-platform",
+        "project": "evaluation",
+        "priority": "medium",
+        "status": "active",
+    }
+
+    update_evaluation_dataset_tags(
+        dataset_id=dataset.dataset_id,
+        tags={
+            "priority": None,
+        },
+    )
+
+    dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.tags == {
+        "team": "ml-platform",
+        "project": "evaluation",
+        "status": "active",
+    }
+
+    delete_evaluation_dataset(dataset_id=dataset.dataset_id)
+
+
+def test_update_evaluation_dataset_tags_databricks(mock_databricks_environment):
+    with pytest.raises(NotImplementedError, match="tag updates are not available"):
+        update_evaluation_dataset_tags(dataset_id="test", tags={"key": "value"})
