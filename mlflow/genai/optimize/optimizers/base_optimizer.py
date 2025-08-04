@@ -1,7 +1,7 @@
 import abc
 from typing import TYPE_CHECKING, Optional
 
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig
 from mlflow.genai.scorers import Scorer
 
@@ -16,13 +16,13 @@ class _BaseOptimizer(abc.ABC):
     @abc.abstractmethod
     def optimize(
         self,
-        prompt: Prompt,
+        prompt: PromptVersion,
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         """Optimize the given prompt using the specified configuration.
 
         Args:
@@ -34,5 +34,5 @@ class _BaseOptimizer(abc.ABC):
             eval_data: Optional evaluation dataset.
 
         Returns:
-            The optimized prompt registered in the prompt registry as a new version.
+            The optimized prompt version registered in the prompt registry as a new version.
         """

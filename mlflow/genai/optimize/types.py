@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
 
 from mlflow.entities import Feedback
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.utils.annotations import experimental
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
@@ -16,10 +16,10 @@ class PromptOptimizationResult:
     Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
 
     Args:
-        prompt: A prompt entity containing the optimized template.
+        prompt: A prompt version entity containing the optimized template.
     """
 
-    prompt: Prompt
+    prompt: PromptVersion
 
 
 @experimental(version="3.0.0")
