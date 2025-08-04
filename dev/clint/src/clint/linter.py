@@ -244,11 +244,11 @@ class ExampleVisitor(ast.NodeVisitor):
         self.has_log_model = False
 
     def visit_Call(self, node: ast.Call) -> None:
-        if resolved := self.linter.resolver.resolve(node.func):
-            match resolved:
-                case ["mlflow", _, "log_model"]:
+        if names := self.linter.resolver.resolve(node.func):
+            match names:
+                case ["mlflow", *_, "log_model"]:
                     self.has_log_model = True
-                case ["mlflow", "get_artifact_uri"] if self.has_log_model:
+                case ["mlflow", "get_artifact_uri"] if self.has_log_model and len(node.args) == 1:
                     self.linter._check(Location.from_node(node), rules.GetArtifactUri())
 
         if (

@@ -2,12 +2,11 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
-from clint.index import SymbolIndex
 from clint.linter import Location, lint_file
 from clint.rules import GetArtifactUri
 
 
-def test_get_artifact_uri_in_rst_example(index: SymbolIndex, tmp_path: Path) -> None:
+def test_get_artifact_uri_in_rst_example(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.rst"
     tmp_file.write_text(
         """
@@ -27,7 +26,7 @@ Here's an example:
 """
     )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].loc == Location(12, 20)
@@ -35,7 +34,7 @@ Here's an example:
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
 def test_get_artifact_uri_in_markdown_example(
-    index: SymbolIndex, tmp_path: Path, suffix: str
+    index_path: Path, tmp_path: Path, suffix: str
 ) -> None:
     tmp_file = (tmp_path / "test").with_suffix(suffix)
     tmp_file.write_text(
@@ -55,13 +54,13 @@ with mlflow.start_run():
 """
     )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].loc == Location(10, 16)
 
 
-def test_get_artifact_uri_not_in_regular_python_files(index: SymbolIndex, tmp_path: Path) -> None:
+def test_get_artifact_uri_not_in_regular_python_files(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -73,11 +72,11 @@ with mlflow.start_run():
 """
     )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 0
 
 
-def test_get_artifact_uri_without_log_model_allowed(index: SymbolIndex, tmp_path: Path) -> None:
+def test_get_artifact_uri_without_log_model_allowed(index_path: Path, tmp_path: Path) -> None:
     """Test that mlflow.get_artifact_uri is allowed when no log_model is present."""
     tmp_file = tmp_path / "test.rst"
     tmp_file.write_text(
@@ -97,5 +96,5 @@ Here's an example:
 """
     )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 0
