@@ -9,7 +9,6 @@ to FastAPI endpoints.
 from fastapi import FastAPI
 from starlette.middleware.wsgi import WSGIMiddleware
 
-# Import the existing Flask app
 from mlflow.server import app as flask_app
 from mlflow.version import VERSION
 
@@ -34,7 +33,7 @@ def create_fastapi_app():
     )
 
     # Mount the entire Flask application at the root path
-    # This ensures 100% compatibility with existing APIs
+    # This ensures compatibility with existing APIs
     fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
     return fastapi_app
