@@ -1,3 +1,5 @@
+import { normalizeConversation } from "../ModelTraceExplorer.utils";
+
 export const MOCK_LLAMAINDEX_INPUT = {
   messages: [
     {
@@ -81,3 +83,29 @@ export const MOCK_LLAMAINDEX_OUTPUT = {
     total_tokens: 2065,
   },
 };
+
+describe('normalizeConversation', () => {
+
+  it('handles a LlamaIndex chat input', () => {
+    expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT)).toEqual([
+      expect.objectContaining({
+        role: 'system',
+        content: expect.stringMatching(/you are an expert q&a system/i),
+      }),
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringMatching(/what was the first program the author wrote/i),
+      }),
+    ]);
+  });
+
+  it('handles a LlamaIndex chat output', () => {
+    expect(normalizeConversation(MOCK_LLAMAINDEX_OUTPUT)).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringMatching(/the first program the author wrote was/i),
+      }),
+    ]);
+  });
+
+});
