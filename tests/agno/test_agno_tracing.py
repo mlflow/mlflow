@@ -1,14 +1,14 @@
+import importlib
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import agno
 import pytest
 from agno.agent import Agent
 from agno.models.anthropic import Claude
-
 from agno.tools.function import Function, FunctionCall
 from anthropic.resources import Messages
-from anthropic.types import Message as AnthropicMessage, TextBlock, Usage
+from anthropic.types import Message as AnthropicMessage
+from anthropic.types import TextBlock, Usage
 
 import mlflow
 import mlflow.agno
@@ -17,11 +17,11 @@ from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
+
 def _safe_resp(content, *, calls=None, metrics=None):
     return SimpleNamespace(
         content=content,
-        metrics=metrics
-        or {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        metrics=metrics or {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
         tool_calls=calls or [],
         tool_executions=[],
         thinking="",
@@ -31,7 +31,6 @@ def _safe_resp(content, *, calls=None, metrics=None):
         image=[],
         created_at=[],
     )
-
 
 
 @pytest.fixture
@@ -178,13 +177,14 @@ async def test_agent_arun_with_function_span(simple_agent):
 def test_token_usage_recorded(simple_agent):
     metrics = {"input_tokens": [5], "output_tokens": [7], "total_tokens": [12]}
 
-    import importlib
     agno_autolog_module = importlib.import_module("mlflow.agno.autolog")
 
     expected = {"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}
 
     with patch.object(agno_autolog_module, "_parse_usage", lambda result: expected):
-        with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=metrics)):
+        with patch.object(
+            Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=metrics)
+        ):
             mlflow.agno.autolog(log_traces=True)
             simple_agent.run("hi")
 
@@ -195,7 +195,9 @@ def test_token_usage_recorded(simple_agent):
 
 
 def test_token_usage_missing(simple_agent):
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=None)):
+    with patch.object(
+        Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=None)
+    ):
         mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
 
@@ -251,7 +253,6 @@ def test_function_execute_failure_tracing():
 
 @pytest.mark.asyncio
 async def test_function_aexecute_failure_tracing():
-
     from agno.exceptions import AgentRunException
 
     async def boom(x):
@@ -295,7 +296,6 @@ def test_agent_run_with_multiple_function_spans(simple_agent):
 
 @pytest.mark.asyncio
 async def test_agent_arun_with_multiple_function_spans(simple_agent):
-
     def tool1():
         return "a"
 

@@ -1,25 +1,27 @@
+import importlib.metadata as _meta
 import inspect
 import logging
 from typing import Any
+
+import agno
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
-import importlib.metadata as _meta
-import agno
 
 FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
 
-# AGNO SDK doesn't provide version parameter from 1.7.1 onwards. Hence we capture the 
+# AGNO SDK doesn't provide version parameter from 1.7.1 onwards. Hence we capture the
 # latest version manually
 if not hasattr(agno, "__version__"):
     try:
         agno.__version__ = _meta.version("agno")
     except _meta.PackageNotFoundError:
         agno.__version__ = "1.7.7"
+
 
 def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     sig = inspect.signature(func)
@@ -117,6 +119,7 @@ def _get_span_type(instance) -> str:
         return SpanType.AGENT
     if isinstance(instance, FunctionCall):
         return SpanType.TOOL
+    # TODO: Update the spanType to Memory when its available in MLflow
     if isinstance(instance, Storage):
         return SpanType.RETRIEVER
 
@@ -128,12 +131,11 @@ def _parse_usage(result) -> dict[str, int] | None:
     if not usage:
         return None
 
-    parsed = {
+    return {
         TokenUsageKey.INPUT_TOKENS: sum(usage.get("input_tokens")),
         TokenUsageKey.OUTPUT_TOKENS: sum(usage.get("output_tokens")),
         TokenUsageKey.TOTAL_TOKENS: sum(usage.get("total_tokens")),
     }
-    return parsed
 
 
 async def patched_async_class_call(original, self, *args, **kwargs):

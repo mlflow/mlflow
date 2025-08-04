@@ -15,4 +15,3 @@ def _reset_mlflow():
 @pytest.fixture(autouse=True)
 def mock_creds(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
-
