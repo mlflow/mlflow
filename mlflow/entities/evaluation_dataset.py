@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 

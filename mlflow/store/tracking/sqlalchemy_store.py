@@ -2667,18 +2667,30 @@ class SqlAlchemyStore(AbstractStore):
             The created EvaluationDataset object with backend-generated metadata.
         """
         with self.ManagedSessionMaker() as session:
-            if not dataset.dataset_id:
-                dataset.dataset_id = (
-                    f"{self.EVALUATION_DATASET_ID_PREFIX}{str(uuid.uuid4()).replace('-', '')}"
-                )
+            # Always generate a new dataset ID for create operations
+            dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
-            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset)
+            current_time = get_current_time_millis()
+            dataset_with_timestamps = EvaluationDataset(
+                dataset_id=dataset_id,
+                name=dataset.name,
+                digest=dataset.digest,
+                created_time=current_time,
+                last_update_time=current_time,
+                tags=dataset.tags,
+                schema=dataset.schema,
+                profile=dataset.profile,
+                created_by=dataset.created_by,
+                last_updated_by=dataset.last_updated_by,
+            )
+
+            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset_with_timestamps)
             session.add(sql_dataset)
 
-            if dataset.tags:
-                for key, value in dataset.tags.items():
+            if dataset_with_timestamps.tags:
+                for key, value in dataset_with_timestamps.tags.items():
                     tag = SqlEvaluationDatasetTag(
-                        dataset_id=dataset.dataset_id,
+                        dataset_id=dataset_id,
                         key=key,
                         value=value,
                     )
@@ -2686,16 +2698,14 @@ class SqlAlchemyStore(AbstractStore):
 
             if experiment_ids:
                 for exp_id in experiment_ids:
-                    association_id = (
-                        f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{str(uuid.uuid4()).replace('-', '')}"
-                    )
+                    association_id = f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
                     association = SqlEntityAssociation(
                         association_id=association_id,
                         source_type=EntityType.EVALUATION_DATASET,
-                        source_id=dataset.dataset_id,
+                        source_id=dataset_id,
                         destination_type=EntityType.EXPERIMENT,
                         destination_id=str(exp_id),
-                        created_time=get_current_time_millis(),
+                        created_time=current_time,
                     )
                     session.add(association)
 
@@ -2991,25 +3001,20 @@ class SqlAlchemyStore(AbstractStore):
 
                 if existing_record:
                     if new_expectations := record_dict.get("expectations"):
-                        existing_expectations = json.loads(existing_record.expectations or "{}")
-                        existing_expectations.update(new_expectations)
-                        existing_record.expectations = json.dumps(
-                            existing_expectations, sort_keys=True
-                        )
+                        if existing_record.expectations is None:
+                            existing_record.expectations = {}
+                        existing_record.expectations.update(new_expectations)
 
                     if new_tags := record_dict.get("tags"):
-                        existing_tags = json.loads(existing_record.tags or "{}")
-                        existing_tags.update(new_tags)
-                        existing_record.tags = json.dumps(existing_tags, sort_keys=True)
+                        if existing_record.tags is None:
+                            existing_record.tags = {}
+                        existing_record.tags.update(new_tags)
 
                     existing_record.last_update_time = current_time
                     existing_record.last_updated_by = updated_by
                     updated_count += 1
                 else:
-                    record_id = (
-                        f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}"
-                        f"{str(uuid.uuid4()).replace('-', '')}"
-                    )
+                    record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
                     source = None
                     if source_data := record_dict.get("source"):
                         if isinstance(source_data, dict):
@@ -3021,6 +3026,8 @@ class SqlAlchemyStore(AbstractStore):
                         dataset_record_id=record_id,
                         dataset_id=dataset_id,
                         inputs=record_dict.get("inputs", {}),
+                        created_time=current_time,
+                        last_update_time=current_time,
                         expectations=record_dict.get("expectations"),
                         tags=record_dict.get("tags"),
                         source=source,

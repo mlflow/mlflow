@@ -200,7 +200,7 @@ def test_evaluation_dataset_to_from_dict_minimal():
     # Set _experiment_ids to avoid triggering lazy loading
     dataset._experiment_ids = []
     dataset._records = []
-    
+
     data = dataset.to_dict()
     dataset2 = EvaluationDataset.from_dict(data)
 
