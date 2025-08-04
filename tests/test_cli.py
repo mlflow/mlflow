@@ -65,6 +65,40 @@ def test_server_static_prefix_validation():
         run_server_mock.assert_not_called()
 
 
+def test_server_uvicorn_options():
+    """Test that uvicorn options are properly handled."""
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test default behavior (uvicorn should be used when no server options specified)
+        CliRunner().invoke(server)
+        run_server_mock.assert_called_once()
+        # Arguments are passed positionally, so check the call args
+        call_args = run_server_mock.call_args[0]
+        # use_uvicorn is at position 14 (0-indexed)
+        assert call_args[14] is True  # use_uvicorn
+        assert call_args[15] is None  # uvicorn_opts (not specified)
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test with uvicorn-opts
+        CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
+        run_server_mock.assert_called_once()
+        call_args = run_server_mock.call_args[0]
+        assert call_args[14] is True  # use_uvicorn
+        assert call_args[15] == "--reload --log-level debug"  # uvicorn_opts
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test that gunicorn-opts disables uvicorn
+        CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
+        run_server_mock.assert_called_once()
+        call_args = run_server_mock.call_args[0]
+        assert call_args[14] is False  # use_uvicorn
+
+    # Test conflicting options
+    result = CliRunner().invoke(
+        server, ["--uvicorn-opts", "--reload", "--gunicorn-opts", "--log-level debug"]
+    )
+    assert "Cannot specify multiple server options" in result.output
+
+
 def test_server_mlflow_artifacts_options():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         CliRunner().invoke(server, ["--artifacts-only"])
