@@ -153,14 +153,19 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 parent_mlflow_span = self._span_id_to_mlflow_span.get(span.trace_id)
 
             inputs, _, attributes = _parse_span_data(span.span_data)
+            span_type = _SPAN_TYPE_MAP.get(span.span_data.type, SpanType.CHAIN)
 
             mlflow_span = start_span_no_context(
                 name=_get_span_name(span.span_data),
-                span_type=_SPAN_TYPE_MAP.get(span.span_data.type, SpanType.CHAIN),
+                span_type=span_type,
                 parent_span=parent_mlflow_span,
                 inputs=inputs,
                 attributes=attributes,
             )
+
+            if span_type == SpanType.CHAT_MODEL:
+                mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai-agent")
+
             self._span_id_to_mlflow_span[span.span_id] = mlflow_span
         except Exception:
             _logger.debug("Failed to start MLflow span", exc_info=True)

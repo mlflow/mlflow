@@ -185,7 +185,8 @@ export const MOCK_OPENAI_RESPONSES_INPUT = {
 describe('normalizeConversation', () => {
 
   it('handles an OpenAI chat input', () => {
-    expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'openai' };
+    expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'tell me a joke in 50 words',
@@ -211,7 +212,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI chat output', () => {
-    expect(normalizeConversation(MOCK_OPENAI_CHAT_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'openai' };
+    expect(normalizeConversation(MOCK_OPENAI_CHAT_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'Why did the scarecrow win an award? Because he was outstanding in his field!',
@@ -220,13 +222,14 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI responses formats', () => {
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'openai' };
+    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'Generate an image of gray tabby cat hugging an otter with an orange scarf',
       }),
     ]);
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT)).toEqual([
+    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         content: '![](data:image/png;base64,<base64_encoded_image_data>)',
         role: 'tool',
