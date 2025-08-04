@@ -243,18 +243,22 @@ def _user_args_to_dict(arguments, argument_type="P"):
     return user_dict
 
 
-def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
+def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, uvicorn_opts=None):
     if sys.platform == "win32":
-        if gunicorn_opts is not None or workers is not None:
+        if gunicorn_opts is not None:
             raise NotImplementedError(
-                "waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts or --workers"
+                "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
-    else:
-        if waitress_opts is not None:
-            raise NotImplementedError(
-                "gunicorn replaces waitress on non-Windows platforms, "
-                "cannot specify --waitress-opts"
-            )
+
+    # Check for conflicting options
+    opts_specified = sum(
+        1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
+    )
+    if opts_specified > 1:
+        raise click.UsageError(
+            "Cannot specify multiple server options. Choose one of: "
+            "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+        )
 
 
 def _validate_static_prefix(ctx, param, value):
@@ -338,6 +342,12 @@ def _validate_static_prefix(ctx, param, value):
     "--waitress-opts", default=None, help="Additional command line options for waitress-serve."
 )
 @click.option(
+    "--uvicorn-opts",
+    envvar="MLFLOW_UVICORN_OPTS",
+    default=None,
+    help="Additional command line options forwarded to uvicorn processes (used by default).",
+)
+@click.option(
     "--expose-prometheus",
     envvar="MLFLOW_EXPOSE_PROMETHEUS",
     default=None,
@@ -380,6 +390,7 @@ def server(
     static_prefix,
     gunicorn_opts,
     waitress_opts,
+    uvicorn_opts,
     expose_prometheus,
     app_name,
     dev,
@@ -401,8 +412,23 @@ def server(
     if dev and gunicorn_opts:
         raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
 
-    gunicorn_opts = "--log-level debug --reload" if dev else gunicorn_opts
-    _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
+    if dev and uvicorn_opts:
+        raise click.UsageError("'--dev' and '--uvicorn-opts' cannot be specified together.")
+
+    # If dev mode, set appropriate options for the server being used
+    if dev:
+        if gunicorn_opts is None and uvicorn_opts is None:
+            # Default to uvicorn in dev mode
+            uvicorn_opts = "--reload --log-level debug"
+        elif gunicorn_opts is not None:
+            gunicorn_opts = "--log-level debug --reload"
+
+    _validate_server_args(
+        gunicorn_opts=gunicorn_opts,
+        workers=workers,
+        waitress_opts=waitress_opts,
+        uvicorn_opts=uvicorn_opts,
+    )
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -425,6 +451,9 @@ def server(
         sys.exit(1)
 
     try:
+        # Determine if we should use uvicorn (default) or gunicorn/waitress
+        use_uvicorn = gunicorn_opts is None and waitress_opts is None
+
         _run_server(
             backend_store_uri,
             registry_store_uri,
@@ -440,6 +469,8 @@ def server(
             waitress_opts,
             expose_prometheus,
             app_name,
+            use_uvicorn,
+            uvicorn_opts,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
