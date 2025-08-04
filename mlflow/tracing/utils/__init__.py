@@ -161,6 +161,17 @@ def decode_id(span_or_trace_id: str) -> int:
     return int(span_or_trace_id, 16)
 
 
+def get_mlflow_span_for_otel_span(span: OTelSpan) -> Optional[LiveSpan]:
+    """
+    Get the active MLflow span for the given OpenTelemetry span.
+    """
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+    mlflow_span_id = encode_span_id(span.get_span_context().span_id)
+    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
+
+
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     """
     Build an OpenTelemetry SpanContext object from the given trace and span IDs.
