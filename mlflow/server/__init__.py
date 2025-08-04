@@ -280,7 +280,6 @@ def _run_server(
     waitress_opts=None,
     expose_prometheus=None,
     app_name=None,
-    use_uvicorn=False,
     uvicorn_opts=None,
 ):
     """
@@ -289,7 +288,6 @@ def _run_server(
     Args:
         static_prefix: If set, the index.html asset will be served from the path static_prefix.
                        If left None, the index.html asset will be served from the root path.
-        use_uvicorn: If True, use uvicorn server instead of gunicorn. Default is False.
         uvicorn_opts: Additional options for uvicorn server.
 
     Returns:
@@ -321,16 +319,26 @@ def _run_server(
     if app_name is None:
         is_factory = False
         # For uvicorn, use the FastAPI app; for gunicorn/waitress, use the Flask app
-        app = "mlflow.server.fastapi_app:app" if use_uvicorn else f"{__name__}:app"
+        # Use uvicorn if neither gunicorn nor waitress options are specified
+        if gunicorn_opts is None and waitress_opts is None:
+            app = "mlflow.server.fastapi_app:app"
+        else:
+            app = f"{__name__}:app"
     else:
         app = _find_app(app_name)
         is_factory = _is_factory(app)
         # `waitress` doesn't support `()` syntax for factory functions.
         # Instead, we need to use the `--call` flag.
-        app = f"{app}()" if (not is_windows() and is_factory and not use_uvicorn) else app
+        # Don't use () syntax if we're using uvicorn
+        use_factory_syntax = (
+            not is_windows()
+            and is_factory
+            and not (gunicorn_opts is None and waitress_opts is None)
+        )
+        app = f"{app}()" if use_factory_syntax else app
 
     # Determine which server to use
-    if use_uvicorn:
+    if gunicorn_opts is None and waitress_opts is None:
         # Use uvicorn (default when no specific server options are provided)
         full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
     elif waitress_opts is not None:

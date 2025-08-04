@@ -446,9 +446,6 @@ def server(
         sys.exit(1)
 
     try:
-        # Determine if we should use uvicorn (default) or gunicorn/waitress
-        use_uvicorn = gunicorn_opts is None and waitress_opts is None
-
         _run_server(
             backend_store_uri,
             registry_store_uri,
@@ -464,7 +461,6 @@ def server(
             waitress_opts,
             expose_prometheus,
             app_name,
-            use_uvicorn,
             uvicorn_opts,
         )
     except ShellCommandException:

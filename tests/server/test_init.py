@@ -126,7 +126,6 @@ def test_run_server_with_uvicorn(mock_exec_cmd):
             artifacts_destination="",
             host="localhost",
             port="5000",
-            use_uvicorn=True,
             uvicorn_opts="--reload",
         )
     mock_exec_cmd.assert_called_once()

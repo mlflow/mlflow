@@ -74,12 +74,14 @@ def test_server_uvicorn_options():
         # Verify uvicorn is used by default
         # _run_server parameters: file_store_path, registry_store_uri, default_artifact_root,
         # serve_artifacts, artifacts_only, artifacts_destination, host, port, static_prefix,
-        # workers, gunicorn_opts, waitress_opts, expose_prometheus, app_name,
-        # use_uvicorn, uvicorn_opts
+        # workers, gunicorn_opts, waitress_opts, expose_prometheus, app_name, uvicorn_opts
         args = run_server_mock.call_args[0]
-        use_uvicorn = args[14]
-        uvicorn_opts = args[15]
-        assert use_uvicorn is True
+        gunicorn_opts = args[10]
+        waitress_opts = args[11]
+        uvicorn_opts = args[14]
+        # uvicorn is used when gunicorn and waitress are not specified
+        assert gunicorn_opts is None
+        assert waitress_opts is None
         assert uvicorn_opts is None
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -87,9 +89,11 @@ def test_server_uvicorn_options():
         CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
         run_server_mock.assert_called_once()
         args = run_server_mock.call_args[0]
-        use_uvicorn = args[14]
-        uvicorn_opts = args[15]
-        assert use_uvicorn is True
+        gunicorn_opts = args[10]
+        waitress_opts = args[11]
+        uvicorn_opts = args[14]
+        assert gunicorn_opts is None
+        assert waitress_opts is None
         assert uvicorn_opts == "--reload --log-level debug"
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -97,8 +101,8 @@ def test_server_uvicorn_options():
         CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
         run_server_mock.assert_called_once()
         args = run_server_mock.call_args[0]
-        use_uvicorn = args[14]
-        assert use_uvicorn is False
+        gunicorn_opts = args[10]
+        assert gunicorn_opts == "--log-level debug"
 
     # Test conflicting options
     result = CliRunner().invoke(
