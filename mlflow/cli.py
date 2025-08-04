@@ -413,6 +413,11 @@ def server(
             raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
         if uvicorn_opts:
             raise click.UsageError("'--dev' and '--uvicorn-opts' cannot be specified together.")
+        if app_name:
+            raise click.UsageError(
+                "'--dev' cannot be used with '--app-name'. Development mode with auto-reload "
+                "is only supported for the default MLflow tracking server."
+            )
 
         # In dev mode, use uvicorn with reload and debug logging
         uvicorn_opts = "--reload --log-level debug"
