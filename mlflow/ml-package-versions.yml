@@ -985,14 +985,11 @@ promptflow:
 litellm:
   package_info:
     pip_release: "litellm"
-    # TODO: Uncomment this once https://github.com/BerriAI/litellm/issues/9656 is fixed
-    # install_dev: |
-    #   pip install git+https://github.com/BerriAI/litellm.git
+    install_dev: |
+      pip install git+https://github.com/BerriAI/litellm.git
   autologging:
-    minimum: "1.52.9"
-    maximum: "1.58.4"
-    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
-    unsupported: [">=1.59"]
+    minimum: "1.63.14"
+    maximum: "1.74.9"
     requirements:
       ">= 0.0.0": [
           "openai",
