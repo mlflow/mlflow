@@ -8,7 +8,6 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.ext.mutable import MutableDict
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -17,14 +16,28 @@ branch_labels = None
 depends_on = None
 
 
+def _get_json_type():
+    """Get appropriate JSON type for the current database."""
+    dialect_name = op.get_bind().dialect.name
+    if dialect_name == "mssql":
+        # Use JSONEncodedText for MSSQL
+        from mlflow.store.db.types import JSONEncodedText
+
+        return JSONEncodedText
+    else:
+        # Use standard JSON type for other databases
+        return sa.JSON
+
+
 def upgrade():
-    json_type = MutableDict.as_mutable(sa.JSON)
+    json_type = _get_json_type()
 
     # Create evaluation_datasets table
     op.create_table(
         "evaluation_datasets",
         sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
+        # Note: tags are stored in a separate table, not as JSON column
         sa.Column("schema", sa.Text(), nullable=True),
         sa.Column("profile", sa.Text(), nullable=True),
         sa.Column("digest", sa.String(64), nullable=True),
