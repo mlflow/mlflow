@@ -18,7 +18,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         self,
         prompt_name: str,
         input_fields: dict[str, type],
-        convert_to_single_prompt: bool,
+        convert_to_single_text: bool,
     ):
         self.prompt_name = prompt_name
         self.input_fields = input_fields
@@ -26,7 +26,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         self._call_id_to_values: dict[str, tuple[str, int, "dspy.Predict"]] = {}
         self._evaluation_counter = defaultdict(int)
         self._best_score = None
-        self.convert_to_single_prompt = convert_to_single_prompt
+        self.convert_to_single_text = convert_to_single_text
 
     def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         key = inputs.get("callback_metadata", {}).get("metric_key", "eval")
@@ -68,7 +68,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
             # When best score is updated, register the new prompt
             self._best_score = score
             template = format_optimized_prompt(
-                program, self.input_fields, self.convert_to_single_prompt
+                program, self.input_fields, self.convert_to_single_text
             )
             mlflow.genai.register_prompt(
                 name=self.prompt_name,

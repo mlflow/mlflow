@@ -19,7 +19,7 @@ def callback():
     return _DSPyMIPROv2Callback(
         prompt_name="test_prompt",
         input_fields={"question": str, "context": str},
-        convert_to_single_prompt=True,
+        convert_to_single_text=True,
     )
 
 

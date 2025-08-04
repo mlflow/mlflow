@@ -7,8 +7,8 @@ pytest.importorskip("dspy", minversion="2.6.0")
 from mlflow.genai.optimize.optimizers.utils.dspy_optimizer_utils import format_optimized_prompt
 
 
-@pytest.mark.parametrize("convert_to_single_prompt", [True, False])
-def test_format_optimized_prompt(convert_to_single_prompt):
+@pytest.mark.parametrize("convert_to_single_text", [True, False])
+def test_format_optimized_prompt(convert_to_single_text):
     import dspy
 
     mock_program = dspy.Predict("input_text, language -> translation")
@@ -20,9 +20,9 @@ def test_format_optimized_prompt(convert_to_single_prompt):
                 {"role": "system", "content": "You are a translator"},
                 {"role": "user", "content": "Input Text: {{input_text}}, Language: {{language}}"},
             ]
-            result = format_optimized_prompt(mock_program, input_fields, convert_to_single_prompt)
+            result = format_optimized_prompt(mock_program, input_fields, convert_to_single_text)
 
-    if convert_to_single_prompt:
+    if convert_to_single_text:
         expected = (
             "<system>\nYou are a translator\n</system>\n\n"
             "<user>\nInput Text: {{input_text}}, Language: {{language}}\n</user>"

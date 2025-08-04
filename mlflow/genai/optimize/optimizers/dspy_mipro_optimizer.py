@@ -96,7 +96,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 _DSPyMIPROv2Callback(
                     prompt_name=prompt.name,
                     input_fields=input_fields,
-                    convert_to_single_prompt=self.optimizer_config.convert_to_single_prompt,
+                    convert_to_single_text=self.optimizer_config.convert_to_single_text,
                 ),
             ]
             if self.optimizer_config.autolog
@@ -116,7 +116,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             template = format_optimized_prompt(
                 program=optimized_program,
                 input_fields=input_fields,
-                convert_to_single_prompt=self.optimizer_config.convert_to_single_prompt,
+                convert_to_single_text=self.optimizer_config.convert_to_single_text,
             )
 
         self._display_optimization_result(optimized_program)
