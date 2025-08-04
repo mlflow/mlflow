@@ -5,6 +5,32 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE entity_associations (
+	association_id VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	created_time BIGINT,
+	PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
+CREATE TABLE evaluation_datasets (
+	dataset_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	tags JSON,
+	schema TEXT,
+	profile TEXT,
+	digest VARCHAR(64),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	PRIMARY KEY (dataset_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -56,6 +82,25 @@ CREATE TABLE datasets (
 	dataset_profile MEDIUMTEXT,
 	PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE evaluation_dataset_records (
+	dataset_record_id VARCHAR(36) NOT NULL,
+	dataset_id VARCHAR(36) NOT NULL,
+	inputs JSON NOT NULL,
+	expectations JSON,
+	tags JSON,
+	source JSON,
+	source_id VARCHAR(36),
+	source_type VARCHAR(255),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	input_hash VARCHAR(64) NOT NULL,
+	PRIMARY KEY (dataset_record_id),
+	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
 )
 
 
