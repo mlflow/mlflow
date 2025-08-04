@@ -433,7 +433,6 @@ def env_updated(app: Sphinx, env: BuildEnvironment) -> None:
 def setup(app):
     languagesections.setup(app)
     app.connect("doctree-read", resolve_missing_references)
-    # run after env is finished
     app.connect("env-updated", env_updated)
 
 
