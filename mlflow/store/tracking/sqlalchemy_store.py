@@ -2794,6 +2794,8 @@ class SqlAlchemyStore(AbstractStore):
                     experiment_id=sql_trace_info.experiment_id,
                     span_id=span.span_id,
                     parent_span_id=span.parent_id,
+                    name=span.name,
+                    type=span.span_type,
                     status=span.status.status_code,
                     start_time_unix_nano=span.start_time_ns,
                     end_time_unix_nano=span.end_time_ns,

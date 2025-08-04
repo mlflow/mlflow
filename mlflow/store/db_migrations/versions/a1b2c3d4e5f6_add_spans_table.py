@@ -25,6 +25,8 @@ def upgrade():
         sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("span_id", sa.String(length=50), nullable=False),
         sa.Column("parent_span_id", sa.String(length=50), nullable=True),
+        sa.Column("name", sa.String(length=250), nullable=True),
+        sa.Column("type", sa.String(length=50), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("start_time_unix_nano", sa.BigInteger(), nullable=False),
         sa.Column("end_time_unix_nano", sa.BigInteger(), nullable=True),
