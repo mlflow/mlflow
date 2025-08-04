@@ -64,7 +64,7 @@ def _get_span_type(instance) -> str:
                     crewai.Knowledge,
                 ),
             ):
-                return SpanType.RETRIEVER
+                return SpanType.MEMORY
     except AttributeError as e:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
