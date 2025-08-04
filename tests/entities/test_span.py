@@ -289,3 +289,12 @@ def test_from_dict_raises_when_trace_id_is_empty():
                 "events": [],
             }
         )
+
+
+def test_set_attribute_directly_to_otel_span():
+    with mlflow.start_span("test") as span:
+        span._span.set_attribute("int", 1)
+        span._span.set_attribute("str", "a")
+
+    assert span.get_attribute("int") == 1
+    assert span.get_attribute("str") == "a"
