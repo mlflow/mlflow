@@ -50,7 +50,7 @@ mlflow_cli_param <- function(args, param, value) {
 #' @param default_artifact_root Local or S3 URI to store artifacts in, for newly created experiments.
 #' @param host The network address to listen on (default: 127.0.0.1).
 #' @param port The port to listen on (default: 5000).
-#' @param workers Number of gunicorn worker processes to handle requests (default: 4).
+#' @param workers Number of worker processes to handle requests (default: 4).
 #' @param static_prefix A prefix which will be prepended to the path of all static paths.
 #' @param serve_artifacts A flag specifying whether or not to enable artifact serving (default: FALSE).
 #' @export
