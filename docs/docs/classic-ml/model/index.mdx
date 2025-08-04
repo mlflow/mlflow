@@ -1837,6 +1837,16 @@ mlflow.models.predict(
 )
 ```
 
+If your model dependencies (see the model artifact’s requirements.txt) include **pre-release packages** (e.g., mlflow==3.2.0rc0), set the environment variable `UV_PRERELEASE=allow` via the `extra_envs` field.
+
+```python
+mlflow.models.predict(
+    model_uri=model_info.model_uri,
+    input_data=["a", "b", "c"],
+    extra_envs={"UV_PRERELEASE": "allow"},
+)
+```
+
 ### Environment managers
 
 The <APILink fn="mlflow.models.predict" /> API supports the following environment managers to create the virtual environment for prediction:
