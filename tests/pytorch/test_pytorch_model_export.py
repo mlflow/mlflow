@@ -1201,3 +1201,22 @@ def test_passing_params_to_model(data):
         np.testing.assert_array_almost_equal(
             pyfunc_model.predict(x, {"y": 2}), model(x, 2), decimal=4
         )
+
+
+@pytest.mark.parametrize("scripted_model", [False])
+def test_log_model_with_datetime_input(sequential_model, data):
+    df = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
+            "x": np.random.uniform(20, 30, 5),
+            "y": np.random.uniform(2, 4, 5),
+            "z": np.random.uniform(0, 10, 5),
+        }
+    )
+    model_info = mlflow.pytorch.log_model(sequential_model, name="pytorch")
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with torch.no_grad():
+        input_tensor = torch.from_numpy(df.to_numpy(dtype=np.float32))
+        expected_result = sequential_model(input_tensor)
+    with torch.no_grad():
+        np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
