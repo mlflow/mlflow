@@ -1,7 +1,6 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.trace import get_current_span
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.contents.kernel_content import KernelContent
@@ -24,8 +23,10 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import construct_full_inputs, encode_span_id, get_otel_attribute
+from mlflow.tracing.utils import (
+    construct_full_inputs,
+    get_mlflow_span_for_otel_span,
+)
 
 _OPERATION_TO_SPAN_TYPE = {
     CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
@@ -38,12 +39,6 @@ _OPERATION_TO_SPAN_TYPE = {
 }
 
 _logger = logging.getLogger(__name__)
-
-
-def get_mlflow_span_for_otel_span(span: OTelSpan) -> Optional[LiveSpan]:
-    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-    mlflow_span_id = encode_span_id(span.get_span_context().span_id)
-    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
 
 
 def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
@@ -66,8 +61,7 @@ def semantic_kernel_diagnostics_wrapper(original, *args, **kwargs) -> None:
         # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/python/semantic_kernel/utils/telemetry/model_diagnostics/decorators.py#L369
         mlflow_span.set_inputs(_parse_content(prompt))
 
-    completions = full_kwargs.get("completions")
-    if completions:
+    if completions := full_kwargs.get("completions"):
         # Wrapping _set_completion_response
         # https://github.com/microsoft/semantic-kernel/blob/d5ee6aa1c176a4b860aba72edaa961570874661b/
         mlflow_span.set_outputs({"messages": [_parse_content(c) for c in completions]})

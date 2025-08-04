@@ -15,15 +15,11 @@ from opentelemetry.trace import (
 )
 
 from mlflow.entities.span import create_mlflow_span
-from mlflow.semantic_kernel.tracing_utils import (
-    get_mlflow_span_for_otel_span,
-    set_span_type,
-    set_token_usage,
-)
+from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_otel_attribute
+from mlflow.tracing.utils import get_mlflow_span_for_otel_span, get_otel_attribute
 
 _logger = logging.getLogger(__name__)
 
