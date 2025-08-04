@@ -26,10 +26,11 @@ def create_fastapi_app():
         title="MLflow Tracking Server",
         description="MLflow Tracking Server API",
         version=VERSION,
-        # Enable API documentation for FastAPI endpoints
-        docs_url="/fastapi/docs",
-        redoc_url="/fastapi/redoc",
-        openapi_url="/fastapi/openapi.json",
+        # TODO: Enable API documentation when we have native FastAPI endpoints
+        # For now, disable docs since we only have Flask routes via WSGI
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     # Mount the entire Flask application at the root path
