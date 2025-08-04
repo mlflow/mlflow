@@ -316,10 +316,10 @@ def _run_server(
     if secret_key:
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
-    # Determine which server we're using
-    using_uvicorn = gunicorn_opts is None and waitress_opts is None
+    # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
+    using_uvicorn = not using_gunicorn and not using_waitress
 
     if app_name is None:
         is_factory = False
