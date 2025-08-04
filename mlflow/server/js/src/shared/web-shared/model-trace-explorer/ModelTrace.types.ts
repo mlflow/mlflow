@@ -19,6 +19,7 @@ export enum ModelSpanType {
   PARSER = 'PARSER',
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -37,6 +38,7 @@ export enum ModelIconType {
   CHAIN = 'chain',
   USER = 'user',
   SYSTEM = 'system',
+  SAVE = 'save',
 }
 
 /**
@@ -224,6 +226,7 @@ export enum ModelTraceSpanType {
   PARSER = 'PARSER',
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN',
 }
 
