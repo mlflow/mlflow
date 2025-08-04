@@ -2,6 +2,12 @@ from dataclasses import dataclass
 
 from typing_extensions import Self
 
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GIT_VERSIONING_BRANCH,
+    MLFLOW_GIT_VERSIONING_COMMIT,
+    MLFLOW_GIT_VERSIONING_DIRTY,
+)
+
 
 class GitOperationError(Exception):
     """Raised when a git operation fails"""
@@ -43,3 +49,10 @@ class GitInfo:
 
         except git.GitError as e:
             raise GitOperationError(f"Failed to get repository information: {e}") from e
+
+    def to_mlflow_tags(self) -> dict[str, str]:
+        return {
+            MLFLOW_GIT_VERSIONING_BRANCH: self.branch,
+            MLFLOW_GIT_VERSIONING_COMMIT: self.commit,
+            MLFLOW_GIT_VERSIONING_DIRTY: str(self.dirty).lower(),
+        }

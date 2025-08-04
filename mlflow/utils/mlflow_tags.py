@@ -77,6 +77,11 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
+# Tags for git model versioning
+MLFLOW_GIT_VERSIONING_BRANCH = "mlflow.git_model_versioning.branch"
+MLFLOW_GIT_VERSIONING_COMMIT = "mlflow.git_model_versioning.commit"
+MLFLOW_GIT_VERSIONING_DIRTY = "mlflow.git_model_versioning.dirty"
+
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
 
