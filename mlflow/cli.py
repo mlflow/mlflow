@@ -251,10 +251,10 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, 
             )
 
     # Check for conflicting options
-    opts_specified = sum(
+    num_server_opts_specified = sum(
         1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
     )
-    if opts_specified > 1:
+    if num_server_opts_specified > 1:
         raise click.UsageError(
             "Cannot specify multiple server options. Choose one of: "
             "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
