@@ -406,10 +406,9 @@ def server(
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
 
-    if dev and is_windows():
-        raise click.UsageError("'--dev' is not supported on Windows.")
-
     if dev:
+        if is_windows():
+            raise click.UsageError("'--dev' is not supported on Windows.")
         if gunicorn_opts:
             raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
         if uvicorn_opts:
