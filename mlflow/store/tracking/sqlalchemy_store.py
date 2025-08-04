@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -6,6 +7,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from functools import reduce
 from typing import Any, Optional, TypedDict
 
@@ -172,6 +174,11 @@ class SqlAlchemyStore(AbstractStore):
     DEFAULT_EXPERIMENT_ID = "0"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
+
+    # Singleton thread pool executor shared across all SqlAlchemyStore instances
+    # to efficiently handle async database operations. Using a class-level executor
+    # avoids the overhead of creating thread pools for each store instance.
+    _executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="mlflow-sqlalchemy")
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -2725,18 +2732,9 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
 
-    async def log_spans(self, spans: list[Span]) -> list[Span]:
+    def _log_spans_sync(self, spans: list[Span]) -> list[Span]:
         """
-        Log multiple span entities to the tracking store.
-
-        Args:
-            spans: List of Span entities to log. All spans must belong to the same trace.
-
-        Returns:
-            List of logged Span entities.
-
-        Raises:
-            ValueError: If spans belong to different traces.
+        Synchronous implementation of log_spans to be run in thread pool.
         """
         if not spans:
             return []
@@ -2807,6 +2805,23 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(sql_span)
 
         return spans
+
+    async def log_spans(self, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            ValueError: If spans belong to different traces.
+        """
+        # Run the blocking database operations in a thread pool
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(SqlAlchemyStore._executor, self._log_spans_sync, spans)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
