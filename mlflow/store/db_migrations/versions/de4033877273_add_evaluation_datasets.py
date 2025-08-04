@@ -8,8 +8,7 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
-
-from mlflow.store.db.mutable_json import MutableJSON
+from sqlalchemy.ext.mutable import MutableDict
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -19,8 +18,7 @@ depends_on = None
 
 
 def upgrade():
-    # Use the shared mutable JSON type that handles all backends
-    json_type = MutableJSON
+    json_type = MutableDict.as_mutable(sa.JSON)
 
     # Create evaluation_datasets table
     op.create_table(
