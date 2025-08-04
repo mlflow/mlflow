@@ -316,32 +316,29 @@ def _run_server(
     if secret_key:
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
+    # Determine which server we're using
+    using_uvicorn = gunicorn_opts is None and waitress_opts is None
+    using_gunicorn = gunicorn_opts is not None
+    using_waitress = waitress_opts is not None
+
     if app_name is None:
         is_factory = False
         # For uvicorn, use the FastAPI app; for gunicorn/waitress, use the Flask app
-        # Use uvicorn if neither gunicorn nor waitress options are specified
-        if gunicorn_opts is None and waitress_opts is None:
-            app = "mlflow.server.fastapi_app:app"
-        else:
-            app = f"{__name__}:app"
+        app = "mlflow.server.fastapi_app:app" if using_uvicorn else f"{__name__}:app"
     else:
         app = _find_app(app_name)
         is_factory = _is_factory(app)
         # `waitress` doesn't support `()` syntax for factory functions.
         # Instead, we need to use the `--call` flag.
         # Don't use () syntax if we're using uvicorn
-        use_factory_syntax = (
-            not is_windows()
-            and is_factory
-            and not (gunicorn_opts is None and waitress_opts is None)
-        )
+        use_factory_syntax = not is_windows() and is_factory and not using_uvicorn
         app = f"{app}()" if use_factory_syntax else app
 
     # Determine which server to use
-    if gunicorn_opts is None and waitress_opts is None:
+    if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
         full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
-    elif waitress_opts is not None:
+    elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(
             "We recommend using uvicorn for improved performance. "
@@ -351,7 +348,7 @@ def _run_server(
             stacklevel=2,
         )
         full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
-    elif gunicorn_opts is not None:
+    elif using_gunicorn:
         # Use gunicorn if explicitly requested
         if sys.platform == "win32":
             raise MlflowException(
