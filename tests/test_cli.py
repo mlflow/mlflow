@@ -71,26 +71,34 @@ def test_server_uvicorn_options():
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
         run_server_mock.assert_called_once()
-        # Arguments are passed positionally, so check the call args
-        call_args = run_server_mock.call_args[0]
-        # use_uvicorn is at position 14 (0-indexed)
-        assert call_args[14] is True  # use_uvicorn
-        assert call_args[15] is None  # uvicorn_opts (not specified)
+        # Verify uvicorn is used by default
+        # _run_server parameters: file_store_path, registry_store_uri, default_artifact_root,
+        # serve_artifacts, artifacts_only, artifacts_destination, host, port, static_prefix,
+        # workers, gunicorn_opts, waitress_opts, expose_prometheus, app_name,
+        # use_uvicorn, uvicorn_opts
+        args = run_server_mock.call_args[0]
+        use_uvicorn = args[14]
+        uvicorn_opts = args[15]
+        assert use_uvicorn is True
+        assert uvicorn_opts is None
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with uvicorn-opts
         CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
         run_server_mock.assert_called_once()
-        call_args = run_server_mock.call_args[0]
-        assert call_args[14] is True  # use_uvicorn
-        assert call_args[15] == "--reload --log-level debug"  # uvicorn_opts
+        args = run_server_mock.call_args[0]
+        use_uvicorn = args[14]
+        uvicorn_opts = args[15]
+        assert use_uvicorn is True
+        assert uvicorn_opts == "--reload --log-level debug"
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
         run_server_mock.assert_called_once()
-        call_args = run_server_mock.call_args[0]
-        assert call_args[14] is False  # use_uvicorn
+        args = run_server_mock.call_args[0]
+        use_uvicorn = args[14]
+        assert use_uvicorn is False
 
     # Test conflicting options
     result = CliRunner().invoke(
