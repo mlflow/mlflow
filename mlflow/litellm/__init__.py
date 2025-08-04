@@ -1,8 +1,5 @@
-import importlib.metadata
 import logging
 from typing import Callable
-
-from packaging.version import Version
 
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
