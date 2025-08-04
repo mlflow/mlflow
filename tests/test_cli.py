@@ -96,6 +96,10 @@ def test_server_uvicorn_options():
         assert waitress_opts is None
         assert uvicorn_opts == "--reload --log-level debug"
 
+
+@pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
+def test_server_gunicorn_options():
+    """Test that gunicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
