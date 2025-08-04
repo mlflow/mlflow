@@ -421,7 +421,7 @@ def server(
             # Default to uvicorn in dev mode
             uvicorn_opts = "--reload --log-level debug"
         elif gunicorn_opts is not None:
-            gunicorn_opts = "--log-level debug --reload"
+            gunicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
         gunicorn_opts=gunicorn_opts,
