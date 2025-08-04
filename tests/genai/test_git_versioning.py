@@ -14,6 +14,9 @@ def cleanup_active_context():
     disable_git_model_versioning()
 
 
+TEST_FILENAME = "test.txt"
+
+
 @pytest.fixture
 def tmp_git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     path = tmp_path / "test_repo"
@@ -21,7 +24,7 @@ def tmp_git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     subprocess.check_call(["git", "init"], cwd=path)
     subprocess.check_call(["git", "config", "user.name", "test"], cwd=path)
     subprocess.check_call(["git", "config", "user.email", "test@example.com"], cwd=path)
-    (path / "test.txt").touch()
+    (path / TEST_FILENAME).touch()
     subprocess.check_call(["git", "add", "."], cwd=path)
     subprocess.check_call(["git", "commit", "-m", "init"], cwd=path)
     monkeypatch.chdir(path)
@@ -134,7 +137,7 @@ def test_enable_git_model_versioning_creates_new_model_on_dirty_repo(tmp_git_rep
     assert mlflow.get_active_model_id() is None
 
     # Modify a tracked file to make the repo dirty
-    (tmp_git_repo / "test.txt").write_text("Updated content")
+    (tmp_git_repo / TEST_FILENAME).write_text("Updated content")
 
     # Should create a new logged model
     with enable_git_model_versioning() as context:
