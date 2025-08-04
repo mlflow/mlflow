@@ -39,7 +39,7 @@ def test_dataset_record_creation():
 
 
 def test_dataset_record_auto_generation():
-    record = DatasetRecord(dataset_id="dataset123", inputs={})
+    record = DatasetRecord(dataset_id="dataset123", inputs={"test": "data"})
 
     assert record.dataset_record_id is not None
     assert len(record.dataset_record_id) == 36
@@ -47,8 +47,13 @@ def test_dataset_record_auto_generation():
     assert record.last_update_time is not None
     assert record.created_time > 0
     assert record.last_update_time > 0
-    assert record.inputs == {}
+    assert record.inputs == {"test": "data"}
     assert record.tags == {}
+
+
+def test_dataset_record_empty_inputs_validation():
+    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
+        DatasetRecord(dataset_id="dataset123", inputs={})
 
 
 @pytest.mark.parametrize(
@@ -85,7 +90,6 @@ def test_dataset_record_source_id_and_type_extraction(
     expected_source_id,
     expected_source_type,
 ):
-    """Test extraction of source_id and source_type from DatasetRecordSource."""
     kwargs = {
         "dataset_id": "dataset123",
         "inputs": {"test": "data"},
@@ -310,15 +314,13 @@ def test_dataset_record_from_dict_with_missing_keys():
     assert record.created_by is None
     assert record.last_updated_by is None
 
-    empty_data = {}
-    record2 = DatasetRecord.from_dict(empty_data)
+    # Test that empty inputs raises ValueError
+    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
+        DatasetRecord.from_dict({"dataset_id": "dataset123", "inputs": {}})
 
-    assert record2.dataset_record_id is not None
-    assert record2.dataset_id == ""  # Default empty string from from_dict
-    assert record2.inputs == {}
-    assert record2.tags == {}
-    assert record2.created_time is not None
-    assert record2.last_update_time is not None
+    # Test that missing inputs defaults to empty dict which then raises ValueError
+    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
+        DatasetRecord.from_dict({"dataset_id": "dataset123"})
 
     data_with_source = {
         "dataset_id": "dataset456",

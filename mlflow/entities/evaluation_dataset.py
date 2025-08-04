@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.dataset_record_source import DatasetRecordSource
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 from mlflow.utils.time import get_current_time_millis
@@ -26,12 +26,12 @@ class EvaluationDataset(_MlflowObject):
     only metadata is loaded. Records are fetched when to_df() or merge_records() is called.
     """
 
-    dataset_id: Optional[str] = None
-    name: Optional[str] = None
+    dataset_id: str
+    name: str
+    digest: str
     tags: Optional[dict[str, Any]] = None
     schema: Optional[str] = None
     profile: Optional[str] = None
-    digest: Optional[str] = None
     created_time: Optional[int] = None
     last_update_time: Optional[int] = None
     created_by: Optional[str] = None
@@ -67,8 +67,8 @@ class EvaluationDataset(_MlflowObject):
         from mlflow.tracking._tracking_service.utils import _get_store
 
         tracking_store = _get_store()
-        # TODO: Remove this hasattr check once all tracking stores
-        #  implement the evaluation dataset APIs
+        # TODO: Remove this hasattr check once all tracking stores implement
+        #  the evaluation dataset APIs
         if hasattr(tracking_store, "get_evaluation_dataset_experiment_ids"):
             self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(
                 self.dataset_id
@@ -88,10 +88,12 @@ class EvaluationDataset(_MlflowObject):
             from mlflow.tracking._tracking_service.utils import _get_store
 
             tracking_store = _get_store()
-            # TODO: Remove this hasattr check once all tracking stores
-            #  implement the evaluation dataset APIs
+            # TODO: Remove this hasattr check once all tracking stores implement
+            #  the evaluation dataset APIs
             if hasattr(tracking_store, "_load_dataset_records"):
                 self._records = tracking_store._load_dataset_records(self.dataset_id)
+            else:
+                self._records = []
         return self._records or []
 
     def has_records(self) -> bool:
@@ -140,7 +142,10 @@ class EvaluationDataset(_MlflowObject):
                 record_dict = {
                     "inputs": inputs,
                     "expectations": expectations,
-                    "source": {"source_type": "TRACE", "source_data": {"trace_id": trace_id}},
+                    "source": {
+                        "source_type": DatasetRecordSourceType.TRACE.value,
+                        "source_data": {"trace_id": trace_id},
+                    },
                 }
                 record_dicts.append(record_dict)
         else:
@@ -235,7 +240,15 @@ class EvaluationDataset(_MlflowObject):
 
         if not records:
             return pd.DataFrame(
-                columns=["inputs", "expectations", "tags", "source_type", "source_id"]
+                columns=[
+                    "inputs",
+                    "expectations",
+                    "tags",
+                    "source_type",
+                    "source_id",
+                    "created_time",
+                    "dataset_record_id",
+                ]
             )
 
         data = []
@@ -244,7 +257,7 @@ class EvaluationDataset(_MlflowObject):
                 "inputs": record.inputs,
                 "expectations": record.expectations,
                 "tags": record.tags,
-                "source_type": record.source.get("source_type") if record.source else None,
+                "source_type": record.source_type,
                 "source_id": record.source_id,
                 "created_time": record.created_time,
                 "dataset_record_id": record.dataset_record_id,

@@ -31,7 +31,7 @@ def test_evaluation_dataset_creation():
 
 
 def test_evaluation_dataset_auto_timestamps():
-    dataset = EvaluationDataset(name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     assert dataset.created_time is not None
     assert dataset.last_update_time is not None
@@ -40,7 +40,7 @@ def test_evaluation_dataset_auto_timestamps():
 
 
 def test_evaluation_dataset_experiment_ids_setter():
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     new_experiment_ids = ["exp1", "exp2"]
     dataset.experiment_ids = new_experiment_ids
@@ -101,7 +101,7 @@ def test_evaluation_dataset_to_from_proto():
 
 
 def test_evaluation_dataset_to_from_proto_minimal():
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     proto = dataset.to_proto()
     dataset2 = EvaluationDataset.from_proto(proto)
@@ -111,7 +111,7 @@ def test_evaluation_dataset_to_from_proto_minimal():
     assert dataset2.tags is None
     assert dataset2.schema is None
     assert dataset2.profile is None
-    assert dataset2.digest is None
+    assert dataset2.digest == "digest123"
     assert dataset2.created_by is None
     assert dataset2.last_updated_by is None
     assert dataset2._experiment_ids is None
@@ -169,7 +169,7 @@ def test_evaluation_dataset_to_from_dict():
 
 
 def test_evaluation_dataset_to_from_dict_minimal():
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     data = dataset.to_dict()
     dataset2 = EvaluationDataset.from_dict(data)
@@ -179,7 +179,7 @@ def test_evaluation_dataset_to_from_dict_minimal():
     assert dataset2.tags is None
     assert dataset2.schema is None
     assert dataset2.profile is None
-    assert dataset2.digest is None
+    assert dataset2.digest == "digest123"
     assert dataset2.created_by is None
     assert dataset2.last_updated_by is None
     assert dataset2.experiment_ids == []
@@ -187,7 +187,7 @@ def test_evaluation_dataset_to_from_dict_minimal():
 
 
 def test_evaluation_dataset_has_records():
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     assert dataset.has_records() is False
 
@@ -199,7 +199,7 @@ def test_evaluation_dataset_has_records():
 
 
 def test_evaluation_dataset_proto_with_unloaded_experiment_ids():
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset")
+    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", digest="digest123")
 
     assert dataset._experiment_ids is None
 
@@ -215,7 +215,9 @@ def test_evaluation_dataset_complex_tags():
         "labels": ["production", "evaluated"],
     }
 
-    dataset = EvaluationDataset(dataset_id="dataset123", name="test_dataset", tags=complex_tags)
+    dataset = EvaluationDataset(
+        dataset_id="dataset123", name="test_dataset", digest="digest123", tags=complex_tags
+    )
 
     proto = dataset.to_proto()
     dataset2 = EvaluationDataset.from_proto(proto)

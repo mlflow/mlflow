@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from google.protobuf.json_format import MessageToDict
@@ -16,9 +16,30 @@ from mlflow.utils.time import get_current_time_millis
 
 @dataclass
 class DatasetRecord(_MlflowObject):
+    """Represents a single record in an evaluation dataset.
+
+    A DatasetRecord contains the input data, expected outputs (ground truth),
+    and metadata for a single evaluation example. Records are immutable once
+    created and are uniquely identified by their dataset_record_id.
+
+    Attributes:
+        dataset_id: The ID of the dataset this record belongs to.
+        inputs: The input data for evaluation (required).
+        dataset_record_id: Unique identifier for this record (auto-generated if not provided).
+        expectations: Expected outputs/ground truth for evaluation.
+        tags: Key-value metadata tags for this record.
+        source: Information about where this record came from (e.g., trace).
+        source_id: ID of the source (e.g., trace_id).
+        source_type: Type of the source (e.g., TRACE).
+        created_time: Timestamp when the record was created.
+        last_update_time: Timestamp when the record was last updated.
+        created_by: User who created the record.
+        last_updated_by: User who last updated the record.
+    """
+
     dataset_id: str
     inputs: dict[str, Any]
-    dataset_record_id: Optional[str] = None
+    dataset_record_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     expectations: Optional[dict[str, Any]] = None
     tags: Optional[dict[str, str]] = None
     source: Optional[DatasetRecordSource] = None
@@ -30,8 +51,9 @@ class DatasetRecord(_MlflowObject):
     last_updated_by: Optional[str] = None
 
     def __post_init__(self):
-        if self.dataset_record_id is None:
-            self.dataset_record_id = str(uuid.uuid4())
+        # Validate required inputs
+        if not self.inputs:
+            raise ValueError("inputs must be provided and cannot be empty")
 
         if self.created_time is None:
             self.created_time = get_current_time_millis()
@@ -96,7 +118,7 @@ class DatasetRecord(_MlflowObject):
             inputs=inputs,
             dataset_record_id=proto.dataset_record_id
             if proto.HasField("dataset_record_id")
-            else None,
+            else str(uuid.uuid4()),
             expectations=expectations,
             tags=tags,
             source=source,
@@ -135,7 +157,7 @@ class DatasetRecord(_MlflowObject):
         return cls(
             dataset_id=data.get("dataset_id", ""),
             inputs=data.get("inputs", {}),
-            dataset_record_id=data.get("dataset_record_id"),
+            dataset_record_id=data.get("dataset_record_id", str(uuid.uuid4())),
             expectations=data.get("expectations"),
             tags=data.get("tags"),
             source=source,
