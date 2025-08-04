@@ -902,3 +902,9 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         _logger.warning(
             "Unable to log dataset information to MLflow Tracking.XGBoost version must be >= 1.7.0"
         )
+
+
+def test():
+    """
+    test
+    """
