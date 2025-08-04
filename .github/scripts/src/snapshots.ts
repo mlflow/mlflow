@@ -1,25 +1,36 @@
-const fs = require("fs");
-const path = require("path");
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { join, basename } from "path";
+import type { getOctokit } from "@actions/github";
+import type { context as ContextType } from "@actions/github";
+
+type GitHub = ReturnType<typeof getOctokit>;
+type Context = typeof ContextType;
+type GitHubAsset = Awaited<
+  ReturnType<GitHub["rest"]["repos"]["listReleaseAssets"]>
+>["data"][number];
+type GitHubRelease = Awaited<ReturnType<GitHub["rest"]["repos"]["getReleaseByTag"]>>["data"];
 
 // Constants
 const RELEASE_TAG = "nightly";
 const DAYS_TO_KEEP = 3;
 
+interface SnapshotParams {
+  github: GitHub;
+  context: Context;
+  artifactDir: string;
+}
+
 /**
  * Check if artifact file type is supported
- * @param {string} filename - Filename to check
- * @returns {boolean} True if supported
  */
-function isSupportedArtifact(filename) {
+function isSupportedArtifact(filename: string): boolean {
   return /\.(whl|jar|tar\.gz)$/.test(filename);
 }
 
 /**
  * Get content type based on file extension
- * @param {string} filename
- * @returns {string} Content type
  */
-function getContentType(filename) {
+function getContentType(filename: string): string {
   if (filename.match(/\.whl$/)) {
     return "application/zip";
   } else if (filename.match(/\.tar\.gz$/)) {
@@ -34,11 +45,8 @@ function getContentType(filename) {
 
 /**
  * Check if asset should be deleted based on age
- * @param {Object} asset - GitHub asset object with created_at field
- * @param {number} daysToKeep - Number of days to keep assets
- * @returns {boolean} True if asset should be deleted
  */
-function shouldDeleteAsset(asset, daysToKeep) {
+function shouldDeleteAsset(asset: GitHubAsset, daysToKeep: number): boolean {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
   const assetDate = new Date(asset.created_at);
@@ -47,11 +55,8 @@ function shouldDeleteAsset(asset, daysToKeep) {
 
 /**
  * Add commit SHA to filename based on file type
- * @param {string} filename - Original filename
- * @param {string} sha - Git commit SHA (will use first 7 chars)
- * @returns {string} Filename with SHA
  */
-function addShaToFilename(filename, sha) {
+function addShaToFilename(filename: string, sha: string): string {
   const shortSha = sha.substring(0, 7);
 
   // Match .whl files
@@ -83,20 +88,19 @@ function addShaToFilename(filename, sha) {
 
 /**
  * Upload artifacts to a GitHub release
- * @param {Object} params
- * @param {Object} params.github - GitHub API client
- * @param {Object} params.context - GitHub context
- * @param {string} params.artifactDir - Path to the directory containing artifacts
  */
-module.exports = async ({ github, context, artifactDir }) => {
-  if (!fs.existsSync(artifactDir)) {
+export async function uploadSnapshots({
+  github,
+  context,
+  artifactDir,
+}: SnapshotParams): Promise<void> {
+  if (!existsSync(artifactDir)) {
     throw new Error(`Artifacts directory not found: ${artifactDir}`);
   }
 
-  const artifactFiles = fs
-    .readdirSync(artifactDir)
-    .map((f) => path.join(artifactDir, f))
-    .filter((f) => fs.statSync(f).isFile());
+  const artifactFiles = readdirSync(artifactDir)
+    .map((f) => join(artifactDir, f))
+    .filter((f) => statSync(f).isFile());
 
   if (artifactFiles.length === 0) {
     throw new Error(`No artifacts found in ${artifactDir}`);
@@ -105,7 +109,7 @@ module.exports = async ({ github, context, artifactDir }) => {
   // Check for unsupported file types
   const unsupportedFiles = artifactFiles.filter((f) => !isSupportedArtifact(f));
   if (unsupportedFiles.length > 0) {
-    const names = unsupportedFiles.map((f) => `  - ${path.basename(f)}`).join("\n");
+    const names = unsupportedFiles.map((f) => `  - ${basename(f)}`).join("\n");
     throw new Error(
       `Found unsupported file types:\n${names}\nOnly .whl, .jar, and .tar.gz files are supported.`
     );
@@ -113,7 +117,7 @@ module.exports = async ({ github, context, artifactDir }) => {
 
   // Check if the release already exists
   const { owner, repo } = context.repo;
-  let release;
+  let release: GitHubRelease;
   let releaseExists = false;
   try {
     const { data } = await github.rest.repos.getReleaseByTag({
@@ -124,7 +128,7 @@ module.exports = async ({ github, context, artifactDir }) => {
     release = data;
     releaseExists = true;
     console.log(`Found existing release: ${release.id}`);
-  } catch (error) {
+  } catch (error: any) {
     if (error.status !== 404) {
       throw error;
     }
@@ -136,11 +140,14 @@ module.exports = async ({ github, context, artifactDir }) => {
     tag_name: RELEASE_TAG,
     target_commitish: context.sha,
     name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
-    body: `This is an automated nightly build of MLflow.\n\n**Last updated:** ${new Date().toUTCString()}\n**Commit:** ${
-      context.sha
-    }\n\n**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
+    body: `This is an automated nightly build of MLflow.
+
+**Last updated:** ${new Date().toUTCString()}
+**Commit:** ${context.sha}
+
+**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
     prerelease: true,
-    make_latest: "false",
+    make_latest: "false" as const,
   };
 
   // Always update the tag to point to the current commit
@@ -154,7 +161,7 @@ module.exports = async ({ github, context, artifactDir }) => {
       force: true,
     });
     console.log("Successfully updated nightly tag");
-  } catch (error) {
+  } catch (error: any) {
     console.log(`Failed to update tag: ${error.message}`);
     // If tag update fails, we'll still proceed with release update/creation
   }
@@ -163,7 +170,7 @@ module.exports = async ({ github, context, artifactDir }) => {
     console.log("Updating existing nightly release...");
     const { data: updatedRelease } = await github.rest.repos.updateRelease({
       ...releaseParams,
-      release_id: release.id,
+      release_id: release!.id,
     });
     release = updatedRelease;
     console.log(`Updated existing release: ${release.id}`);
@@ -175,7 +182,7 @@ module.exports = async ({ github, context, artifactDir }) => {
   }
 
   console.log("Fetching all existing assets...");
-  const allAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
+  const allAssets: GitHubAsset[] = await github.paginate(github.rest.repos.listReleaseAssets, {
     owner,
     repo,
     release_id: release.id,
@@ -200,7 +207,7 @@ module.exports = async ({ github, context, artifactDir }) => {
 
   // Upload all artifacts
   for (const artifactPath of artifactFiles) {
-    const artifactName = path.basename(artifactPath);
+    const artifactName = basename(artifactPath);
     const contentType = getContentType(artifactName);
     const nameWithSha = addShaToFilename(artifactName, context.sha);
 
@@ -211,13 +218,13 @@ module.exports = async ({ github, context, artifactDir }) => {
     }
 
     console.log(`Uploading ${artifactName} as ${nameWithSha}...`);
-    const artifactData = fs.readFileSync(artifactPath);
+    const artifactData = readFileSync(artifactPath);
     await github.rest.repos.uploadReleaseAsset({
       owner,
       repo,
       release_id: release.id,
       name: nameWithSha,
-      data: artifactData,
+      data: artifactData as unknown as string,
       headers: {
         "content-type": contentType,
         "content-length": artifactData.length,
@@ -228,4 +235,4 @@ module.exports = async ({ github, context, artifactDir }) => {
   }
 
   console.log("All artifacts uploaded successfully");
-};
+}

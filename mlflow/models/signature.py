@@ -10,7 +10,7 @@ import logging
 import re
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass, is_dataclass
+from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
 
 import numpy as np
@@ -73,8 +73,9 @@ class ModelSignature:
 
     def __init__(
         self,
-        inputs: Union[Schema, dataclass] = None,
-        outputs: Union[Schema, dataclass] = None,
+        # `dataclass` is an invalid type annotation. Use `Any` instead as a workaround.
+        inputs: Union[Schema, Any] = None,
+        outputs: Union[Schema, Any] = None,
         params: ParamSchema = None,
     ):
         if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):

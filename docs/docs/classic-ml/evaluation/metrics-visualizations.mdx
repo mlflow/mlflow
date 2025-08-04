@@ -74,12 +74,11 @@ business_metric = make_metric(
 
 with mlflow.start_run():
     # Log model
-    mlflow.sklearn.log_model(model, name="model")
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
 
     # Evaluate with custom metric
     result = mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         eval_data,
         targets="target",
         model_type="classifier",
