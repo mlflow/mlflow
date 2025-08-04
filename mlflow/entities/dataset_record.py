@@ -19,20 +19,6 @@ class DatasetRecord(_MlflowObject):
     A DatasetRecord contains the input data, expected outputs (ground truth),
     and metadata for a single evaluation example. Records are immutable once
     created and are uniquely identified by their dataset_record_id.
-
-    Attributes:
-        dataset_id: The ID of the dataset this record belongs to.
-        inputs: The input data for evaluation (required).
-        dataset_record_id: Unique identifier for this record.
-        created_time: Timestamp when the record was created.
-        last_update_time: Timestamp when the record was last updated.
-        expectations: Expected outputs/ground truth for evaluation.
-        tags: Key-value metadata tags for this record.
-        source: Information about where this record came from (e.g., trace).
-        source_id: ID of the source (e.g., trace_id).
-        source_type: Type of the source (e.g., TRACE).
-        created_by: User who created the record.
-        last_updated_by: User who last updated the record.
     """
 
     dataset_id: str
