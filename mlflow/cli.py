@@ -409,19 +409,14 @@ def server(
     if dev and is_windows():
         raise click.UsageError("'--dev' is not supported on Windows.")
 
-    if dev and gunicorn_opts:
-        raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
-
-    if dev and uvicorn_opts:
-        raise click.UsageError("'--dev' and '--uvicorn-opts' cannot be specified together.")
-
-    # If dev mode, set appropriate options for the server being used
     if dev:
-        if gunicorn_opts is None and uvicorn_opts is None:
-            # Default to uvicorn in dev mode
-            uvicorn_opts = "--reload --log-level debug"
-        elif gunicorn_opts is not None:
-            gunicorn_opts = "--reload --log-level debug"
+        if gunicorn_opts:
+            raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
+        if uvicorn_opts:
+            raise click.UsageError("'--dev' and '--uvicorn-opts' cannot be specified together.")
+
+        # In dev mode, use uvicorn with reload and debug logging
+        uvicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
         gunicorn_opts=gunicorn_opts,
