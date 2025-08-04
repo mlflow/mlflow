@@ -6,7 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.databricks import requires_databricks_agents
+from mlflow.genai.judges.builtin import requires_databricks_agents
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
@@ -388,6 +388,7 @@ class Guidelines(BuiltInScorer):
     name: str = "guidelines"
     guidelines: Union[str, list[str]]
     required_columns: set[str] = {"inputs", "outputs"}
+    model: str | None = None
 
     def __call__(
         self,
@@ -413,6 +414,7 @@ class Guidelines(BuiltInScorer):
                 "response": parse_output_to_str(outputs),
             },
             name=self.name,
+            model=self.model,
         )
 
 

@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
-from mlflow.genai.judges.databricks import CategoricalRating
+from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.aggregation import (
     _cast_assessment_value_to_float,
     compute_aggregated_metrics,

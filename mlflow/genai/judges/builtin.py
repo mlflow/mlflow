@@ -2,40 +2,12 @@ from functools import wraps
 from typing import Any, Callable, Optional, Union
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.annotations import experimental
 
 # NB: User-facing name for the is_context_relevant assessment.
 _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
-
-
-class CategoricalRating(StrEnum):
-    """
-    A categorical rating for an assessment.
-
-    Example:
-        .. code-block:: python
-
-            from mlflow.genai.judges import CategoricalRating
-            from mlflow.entities import Feedback
-
-            # Create feedback with categorical rating
-            feedback = Feedback(
-                name="my_metric", value=CategoricalRating.YES, rationale="The metric is passing."
-            )
-    """
-
-    YES = "yes"
-    NO = "no"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _missing_(cls, value: str):
-        value = value.lower()
-        for member in cls:
-            if member == value:
-                return member
-        return cls.UNKNOWN
 
 
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
@@ -290,12 +262,12 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     return _sanitize_feedback(safety(response=content, assessment_name=name))
 
 
-@requires_databricks_agents
 def meets_guidelines(
     *,
     guidelines: Union[str, list[str]],
     context: dict[str, Any],
     name: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -332,15 +304,22 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from databricks.agents.evals.judges import guidelines as guidelines_judge
 
-    return _sanitize_feedback(
-        guidelines_judge(
+    model = model or get_default_model()
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import guidelines as guidelines_judge
+
+        feedback = guidelines_judge(
             guidelines=guidelines,
             context=context,
             assessment_name=name,
         )
-    )
+    else:
+        prompt = get_prompt(guidelines, context)
+        feedback = invoke_judge_model(model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME)
+
+    return _sanitize_feedback(feedback)
 
 
 @experimental(version="3.0.0")

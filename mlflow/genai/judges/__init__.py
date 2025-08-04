@@ -1,5 +1,4 @@
-from mlflow.genai.judges.databricks import (
-    CategoricalRating,
+from mlflow.genai.judges.builtin import (
     custom_prompt_judge,
     is_context_relevant,
     is_context_sufficient,
@@ -8,6 +7,8 @@ from mlflow.genai.judges.databricks import (
     is_safe,
     meets_guidelines,
 )
+from mlflow.genai.judges.utils import CategoricalRating
+
 
 __all__ = [
     "CategoricalRating",

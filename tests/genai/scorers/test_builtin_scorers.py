@@ -6,7 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
 from mlflow.genai.judges import meets_guidelines
-from mlflow.genai.judges.databricks import CategoricalRating
+from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
     ExpectationsGuidelines,

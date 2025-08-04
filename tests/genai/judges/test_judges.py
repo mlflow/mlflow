@@ -10,7 +10,7 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.genai import judges
-from mlflow.genai.judges.databricks import _sanitize_feedback
+from mlflow.genai.judges.builtin import _sanitize_feedback
 
 
 def test_databricks_judges_are_importable():
