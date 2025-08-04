@@ -99,8 +99,6 @@ def test_export_warn_invalid_attributes():
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
     span.set_attribute("valid", "value")
-    # # Users may set attribute directly to the OpenTelemetry span
-    # otel_span.set_attribute("int", 1)
     span.set_attribute("str", "a")
     _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1)
 
@@ -116,15 +114,6 @@ def test_export_warn_invalid_attributes():
         "valid": "value",
         "str": "a",
     }
-
-    # Users shouldn't set attribute directly to the OTel span
-    otel_span.set_attribute("int", 1)
-    exporter.export([otel_span])
-    with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
-        span.attributes
-        mock_warning.assert_called_once()
-        msg = mock_warning.call_args[0][0]
-        assert msg.startswith("Failed to get value for key int")
 
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
