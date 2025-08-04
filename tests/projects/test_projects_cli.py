@@ -112,8 +112,7 @@ def test_run_local_conda_env():
 
 
 @skip_if_skinny
-def test_run_uv_python_env(monkeypatch):
-    monkeypatch.setenv("UV_PRERELEASE", "allow")
+def test_run_uv_python_env():
     python_env_path = os.path.join(TEST_VIRTUALENV_PROJECT_DIR, "python_env.yaml")
     python_env_contents = _PythonEnv.from_yaml(python_env_path)
 
@@ -128,6 +127,7 @@ def test_run_uv_python_env(monkeypatch):
     invoke_cli_runner(
         cli.run,
         [TEST_VIRTUALENV_PROJECT_DIR, "-e", "test", "--env-manager", "uv"],
+        env={"UV_PRERELEASE": "allow"},
     )
 
 

@@ -446,9 +446,8 @@ def _get_or_create_virtualenv(
             )
             raise
 
-    env_vars = _get_virtualenv_extra_env_vars(env_root_dir)
-    if extra_envs:
-        env_vars.update(extra_envs)
+    extra_envs = extra_envs or {}
+    extra_envs |= _get_virtualenv_extra_env_vars(env_root_dir)
 
     # Create an environment
     return _create_virtualenv(
@@ -457,7 +456,7 @@ def _get_or_create_virtualenv(
         env_dir=env_dir,
         pyenv_root_dir=pyenv_root_dir,
         env_manager=env_manager,
-        extra_env=env_vars,
+        extra_env=extra_envs,
         capture_output=capture_output,
         pip_requirements_override=pip_requirements_override,
     )
