@@ -41,10 +41,24 @@ const isAutogenMessage = (obj: unknown): obj is AutogenMessage => {
     return false;
   }
 
-  if (has(obj, 'type') && get(obj, 'type') === 'SystemMessage') {
-    return isString(get(obj, 'content'));
+  // Handle messages with 'type' field (new format)
+  const messageType = get(obj, 'type');
+  if (messageType) {
+    if (messageType === 'SystemMessage') {
+      return isString(get(obj, 'content'));
+    }
+    if (messageType === 'UserMessage') {
+      return has(obj, 'content') && has(obj, 'source');
+    }
+    if (messageType === 'AssistantMessage') {
+      return has(obj, 'content') && has(obj, 'source');
+    }
+    if (messageType === 'FunctionMessage') {
+      return has(obj, 'content') && has(obj, 'source');
+    }
   }
 
+  // Handle messages with 'source' field (old format)
   if (has(obj, 'source') && ['system', 'user', 'assistant', 'function'].includes(get(obj, 'source'))) {
     return has(obj, 'content');
   }
@@ -75,7 +89,39 @@ const convertAssistantMessageToChatMessage = (content: string | AutogenFunctionC
   return null;
 };
 
-const normalizeAutogenMessage = (message: AutogenMessage): ModelTraceChatMessage | null => {
+const normalizeAutogenMessage = (message: any): ModelTraceChatMessage | null => {
+  // Handle messages with 'type' field (new format)
+  if (message.type === 'SystemMessage') {
+    return prettyPrintChatMessage({ type: 'message', content: message.content, role: 'system' });
+  }
+  
+  if (message.type === 'UserMessage') {
+    if (isString(message.content)) {
+      return prettyPrintChatMessage({ type: 'message', content: message.content, role: 'user' });
+    }
+
+    if (isArray(message.content)) {
+      // Handle content that might be an array of text/image parts
+      const textParts = message.content
+        .filter((part: any) => isString(part) || (isObject(part) && (part as any).type === 'text'))
+        .map((part: any) => isString(part) ? ({ type: 'text' as const, text: part }) : part);
+
+      if (textParts.length > 0) {
+        return prettyPrintChatMessage({ type: 'message', content: textParts, role: 'user' });
+      }
+    }
+  }
+
+  if (message.type === 'AssistantMessage') {
+    return convertAssistantMessageToChatMessage(message.content);
+  }
+
+  if (message.type === 'FunctionMessage') {
+    // Function execution result messages are typically logged as user messages
+    return prettyPrintChatMessage({ type: 'message', content: JSON.stringify(message.content), role: 'user' });
+  }
+
+  // Handle messages with 'source' field (old format)
   if (message.source === 'system') {
     return prettyPrintChatMessage({ type: 'message', content: message.content, role: 'system' });
   }
@@ -88,8 +134,8 @@ const normalizeAutogenMessage = (message: AutogenMessage): ModelTraceChatMessage
     if (isArray(message.content)) {
       // Handle content that might be an array of text/image parts
       const textParts = message.content
-        .filter((part) => isString(part))
-        .map((part) => ({ type: 'text' as const, text: part }));
+        .filter((part: any) => isString(part))
+        .map((part: any) => ({ type: 'text' as const, text: part }));
 
       if (textParts.length > 0) {
         return prettyPrintChatMessage({ type: 'message', content: textParts, role: 'user' });
