@@ -336,7 +336,7 @@ def _run_server(
     elif waitress_opts is not None:
         # Use waitress if explicitly requested
         warnings.warn(
-            "The use of waitress is deprecated and will be removed in a future version. "
+            "We recommend using uvicorn for improved performance. "
             "Please use uvicorn by default or specify '--uvicorn-opts' "
             "instead of '--waitress-opts'.",
             FutureWarning,
@@ -351,7 +351,7 @@ def _run_server(
                 "Please use uvicorn (default) or specify '--waitress-opts'."
             )
         warnings.warn(
-            "The use of gunicorn is deprecated and will be removed in a future version. "
+            "We recommend using uvicorn for improved performance. "
             "Please use uvicorn by default or specify '--uvicorn-opts' "
             "instead of '--gunicorn-opts'.",
             FutureWarning,
