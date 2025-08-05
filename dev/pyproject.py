@@ -187,14 +187,13 @@ def read_package_versions_yml():
 
 
 def build(package_type: PackageType) -> None:
+    requirements_dir = Path("requirements")
     package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
     python_version = Path(".python-version").read_text().strip()
     versions_yaml = read_package_versions_yml()
-    gateways_requirements = read_requirements_yaml(
-        Path("requirements", "gateway-requirements.yaml")
-    )
+    gateways_requirements = read_requirements_yaml(requirements_dir / "gateway-requirements.yaml")
     langchain_requirements = [
         "langchain>={},<={}".format(
             max(
@@ -211,27 +210,25 @@ def build(package_type: PackageType) -> None:
     match package_type:
         case PackageType.TRACING:
             dependencies = sorted(
-                read_requirements_yaml(Path("requirements", "tracing-requirements.yaml"))
+                read_requirements_yaml(requirements_dir / "tracing-requirements.yaml")
             )
         case PackageType.SKINNY:
             dependencies = sorted(
-                read_requirements_yaml(Path("requirements", "skinny-requirements.yaml"))
+                read_requirements_yaml(requirements_dir / "skinny-requirements.yaml")
             )
         case PackageType.RELEASE:
             dependencies = [
                 f"mlflow-skinny=={package_version}",
                 f"mlflow-tracing=={package_version}",
-            ] + sorted(read_requirements_yaml(Path("requirements", "core-requirements.yaml")))
+            ] + sorted(read_requirements_yaml(requirements_dir / "core-requirements.yaml"))
         case PackageType.DEV:
             skinny_requirements = read_requirements_yaml(
-                Path("requirements", "skinny-requirements.yaml")
+                requirements_dir / "skinny-requirements.yaml"
             )
             tracing_requirements = read_requirements_yaml(
-                Path("requirements", "tracing-requirements.yaml")
+                requirements_dir / "tracing-requirements.yaml"
             )
-            core_requirements = read_requirements_yaml(
-                Path("requirements", "core-requirements.yaml")
-            )
+            core_requirements = read_requirements_yaml(requirements_dir / "core-requirements.yaml")
             _check_skinny_tracing_mismatch(skinny_requirements, tracing_requirements)
             # The above line guarantees skinny_requirements is an exact superset of
             # tracing_requirements, so we don't need to include both below.
