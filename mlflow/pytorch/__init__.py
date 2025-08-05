@@ -727,7 +727,7 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
+            inp_data = data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
