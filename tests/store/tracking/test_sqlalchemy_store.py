@@ -4787,26 +4787,29 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
     )
     trace_info = store.start_trace(trace_info)
 
-    # Create a mock OpenTelemetry span with trace state
-    trace_state = trace_api.TraceState([("key1", "value1"), ("key2", "value2")])
-    parent_span_context = trace_api.SpanContext(
-        trace_id=12345,
-        span_id=111,
-        is_remote=False,
-        trace_flags=trace_api.TraceFlags(1),
-        trace_state=trace_state,
-    )
+    # Create a mock OpenTelemetry span
+    # Note: We need to mock the context to have trace_state as a string
+    # because that's what the to_proto method expects
+
+    # Create mock context that looks like SpanContext but has trace_state as string
+    mock_context = mock.Mock()
+    mock_context.trace_id = 12345
+    mock_context.span_id = 222 if not is_async else 333
+    mock_context.is_remote = False
+    mock_context.trace_flags = trace_api.TraceFlags(1)
+    mock_context.trace_state = "key1=value1,key2=value2"  # String, not TraceState object
+
+    parent_mock_context = mock.Mock()
+    parent_mock_context.trace_id = 12345
+    parent_mock_context.span_id = 111
+    parent_mock_context.is_remote = False
+    parent_mock_context.trace_flags = trace_api.TraceFlags(1)
+    parent_mock_context.trace_state = "key1=value1,key2=value2"
 
     readable_span = OTelReadableSpan(
         name="test_span",
-        context=trace_api.SpanContext(
-            trace_id=12345,
-            span_id=222 if not is_async else 333,
-            is_remote=False,
-            trace_flags=trace_api.TraceFlags(1),
-            trace_state=trace_state,
-        ),
-        parent=parent_span_context if not is_async else None,
+        context=mock_context,
+        parent=parent_mock_context if not is_async else None,
         attributes={
             "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
             "mlflow.spanInputs": json.dumps({"input": "test_input"}, cls=TraceJSONEncoder),

@@ -2750,7 +2750,11 @@ class SqlAlchemyStore(AbstractStore):
             for span in spans:
                 # Extract trace state
                 trace_state = span._span.context.trace_state
-                trace_state_str = trace_state.to_header() if trace_state else None
+                # Handle both TraceState objects and strings
+                if hasattr(trace_state, "to_header"):
+                    trace_state_str = trace_state.to_header()
+                else:
+                    trace_state_str = trace_state
 
                 # Get span dict and handle trace_state separately to avoid serialization issues
                 span_dict = span.to_dict()
