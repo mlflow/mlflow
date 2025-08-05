@@ -1143,15 +1143,20 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def _convert_mlflow_span_to_otel_span(self, mlflow_span: Span, otel_span):
+    def _convert_mlflow_span_to_otel_span(self, mlflow_span: Span):
         """
         Convert an MLflow Span to an OpenTelemetry protobuf span.
 
         Args:
             mlflow_span: MLflow Span entity to convert
-            otel_span: OTel protobuf span object to populate
+
+        Returns:
+            OTel protobuf span object
         """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelSpan
         from opentelemetry.proto.trace.v1.trace_pb2 import Status
+
+        otel_span = OTelSpan()
 
         # Convert trace and span IDs to bytes
         trace_id_int = int(mlflow_span._trace_id, 16)
@@ -1202,6 +1207,8 @@ class RestStore(AbstractStore):
                     event_attr.key = k
                     event_attr.value.string_value = str(v)
 
+        return otel_span
+
     async def log_spans(self, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store via the OTel API.
@@ -1239,8 +1246,8 @@ class RestStore(AbstractStore):
         # Create scope spans and add converted MLflow spans
         scope_spans = resource_spans.scope_spans.add()
         for span in spans:
-            otel_span = scope_spans.spans.add()
-            self._convert_mlflow_span_to_otel_span(span, otel_span)
+            otel_span = self._convert_mlflow_span_to_otel_span(span)
+            scope_spans.spans.append(otel_span)
 
         # Convert protobuf to JSON and send request
         json_str = MessageToJson(request)
