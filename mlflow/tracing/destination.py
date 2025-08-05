@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
-@experimental(version="2.21.0")
+@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -16,7 +16,7 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental(version="2.21.0")
+@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -37,7 +37,7 @@ class MlflowExperiment(TraceDestination):
         return "experiment"
 
 
-@experimental(version="2.22.0")
+@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
 @dataclass
 class Databricks(TraceDestination):
     """
