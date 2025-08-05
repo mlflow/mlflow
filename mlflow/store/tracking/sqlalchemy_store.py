@@ -2692,6 +2692,8 @@ class SqlAlchemyStore(AbstractStore):
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_time // 1_000_000,
                     execution_time_ms=(max_end_time - min_start_time) // 1_000_000,
+                    # TODO: Set trace status based on root span status (span with no parent).
+                    # For now, we default to "OK" for all new traces.
                     status="OK",
                     client_request_id=None,
                 )
