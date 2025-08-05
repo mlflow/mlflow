@@ -71,7 +71,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.10.0"
+    maximum: "3.11.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -81,7 +81,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.10.0"
+    maximum: "3.11.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -133,7 +133,7 @@ xgboost:
 
   models:
     minimum: "2.0.0"
-    maximum: "3.0.2"
+    maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -141,7 +141,7 @@ xgboost:
 
   autologging:
     minimum: "2.0.0"
-    maximum: "3.0.2"
+    maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -453,7 +453,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.35.2"
-    maximum: "4.54.0"
+    maximum: "4.54.1"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -497,7 +497,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.35.2"
-    maximum: "4.54.0"
+    maximum: "4.54.1"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -538,7 +538,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.97.1"
+    maximum: "1.98.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -557,7 +557,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.97.1"
+    maximum: "1.98.0"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -708,7 +708,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.5.4"
+    maximum: "0.6.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -725,7 +725,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.5.4"
+    maximum: "0.6.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -750,7 +750,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.52"
+    maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -766,7 +766,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.52"
+    maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -801,7 +801,7 @@ autogen:
     module_name: "autogen_agentchat"
   autologging:
     minimum: "0.4.9"
-    maximum: "0.6.4"
+    maximum: "0.7.1"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -820,7 +820,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.27.0"
+    maximum: "1.28.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -835,7 +835,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.59.0"
+    maximum: "0.60.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -852,7 +852,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.150.0"
+    maximum: "0.152.0"
     unsupported: ["==0.114.0"]
     python:
       ">= 0.80.0": "3.10"
@@ -883,7 +883,7 @@ pydantic_ai:
     python:
       ">= 0.1.0": "3.10"
     minimum: "0.1.9"
-    maximum: "0.4.7"
+    maximum: "0.4.11"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -951,7 +951,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.0.1"
+    minimum: "5.0.3"
     maximum: "6.0.4"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
@@ -1021,6 +1021,6 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.39.14"
+    maximum: "1.40.1"
     run: pytest tests/bedrock
     test_tracing_sdk: true
