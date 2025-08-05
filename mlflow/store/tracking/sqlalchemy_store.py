@@ -2686,7 +2686,7 @@ class SqlAlchemyStore(AbstractStore):
                 max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
                 # Determine trace status from root span if available
-                trace_status = "OK"  # Default status
+                trace_status = "IN_PROGRESS"  # Default status for new traces
                 for span in spans:
                     if span.parent_id is None:  # Found root span (no parent)
                         # Map span status to trace status
@@ -2750,8 +2750,8 @@ class SqlAlchemyStore(AbstractStore):
                 ),
             }
 
-            # If trace status is unspecified, check for root span to update it
-            if sql_trace_info.status == "STATE_UNSPECIFIED":
+            # If trace status is IN_PROGRESS or unspecified, check for root span to update it
+            if sql_trace_info.status in ("IN_PROGRESS", "STATE_UNSPECIFIED"):
                 for span in spans:
                     if span.parent_id is None:  # Found root span
                         span_status = span.status.status_code.value
