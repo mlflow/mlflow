@@ -2734,9 +2734,6 @@ class FileStore(AbstractStore):
         name: str,
         tags: Optional[dict[str, Any]] = None,
         experiment_ids: Optional[list[str]] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
     ):
         pass
 

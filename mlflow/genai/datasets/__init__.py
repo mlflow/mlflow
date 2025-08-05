@@ -37,13 +37,14 @@ def create_evaluation_dataset(
         name: Dataset name. In Databricks, this is the UC table name.
         experiment_ids: Single experiment ID (str) or list of experiment IDs.
         tags: Dictionary of tags to apply to the dataset. Not available in Databricks.
+            To set the dataset creator, include {"mlflow.user": "username"} in tags.
 
     OSS Usage::
 
         dataset = create_evaluation_dataset(
             name="my_dataset",
             experiment_ids=["exp1", "exp2"],  # or "exp1" for single
-            tags={"environment": "production", "version": "1.0"},
+            tags={"environment": "production", "version": "1.0", "mlflow.user": "john_doe"},
         )
         dataset.merge_records(records_df)
 

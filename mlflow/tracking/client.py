@@ -5944,6 +5944,7 @@ class MlflowClient:
             name: The name of the dataset.
             experiment_ids: Optional list of experiment IDs to associate with the dataset.
             tags: Optional dictionary of tags to apply to the dataset.
+                  To set the dataset creator, include {"mlflow.user": "username"} in tags.
 
         Returns:
             The created EvaluationDataset object.
@@ -5958,7 +5959,7 @@ class MlflowClient:
             dataset = client.create_evaluation_dataset(
                 name="qa_evaluation_v1",
                 experiment_ids=["0", "1"],
-                tags={"environment": "production", "version": "1.0"},
+                tags={"environment": "production", "version": "1.0", "mlflow.user": "john_doe"},
             )
         """
         return self._tracking_client.create_evaluation_dataset(

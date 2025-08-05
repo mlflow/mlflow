@@ -304,6 +304,29 @@ def test_databricks_import_error():
                     create_evaluation_dataset(name="test", experiment_ids="exp1")
 
 
+def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
+    """Test that mlflow.user tag properly sets the created_by field."""
+    dataset = create_evaluation_dataset(
+        name="test_user_attribution",
+        experiment_ids=experiments[0],
+        tags={"environment": "test", "mlflow.user": "john_doe"},
+    )
+
+    assert dataset.name == "test_user_attribution"
+    assert dataset.tags["mlflow.user"] == "john_doe"
+    assert dataset.created_by == "john_doe"
+
+    dataset2 = create_evaluation_dataset(
+        name="test_no_user",
+        experiment_ids=experiments[0],
+        tags={"environment": "test"},
+    )
+
+    assert dataset2.name == "test_no_user"
+    assert "mlflow.user" not in dataset2.tags
+    assert dataset2.created_by is None
+
+
 def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
     dataset = create_evaluation_dataset(
         name="qa_evaluation_v1",
@@ -440,6 +463,26 @@ def test_search_evaluation_datasets(tracking_uri, experiments):
 
     human_results = search_evaluation_datasets(filter_string="name LIKE 'search_test_%'")
     assert len(human_results) == 5
+
+    human_type_results = search_evaluation_datasets(filter_string="tags.type = 'human'")
+    assert len(human_type_results) == 3
+    assert all(ds.tags.get("type") == "human" for ds in human_type_results)
+
+    combined_results = search_evaluation_datasets(
+        experiment_ids=experiments[0], filter_string="tags.type = 'trace'"
+    )
+    assert len(combined_results) == 1
+
+    ordered_results = search_evaluation_datasets(
+        filter_string="tags.type = 'trace'", order_by=["name DESC"]
+    )
+    assert len(ordered_results) == 2
+    names = [ds.name for ds in ordered_results]
+    assert names == sorted(names, reverse=True)
+
+    index_results = search_evaluation_datasets(filter_string="tags.index != '0'")
+    assert len(index_results) == 4
+    assert all(ds.tags.get("index") != "0" for ds in index_results)
 
     page1 = search_evaluation_datasets(max_results=2)
     assert len(page1) == 2

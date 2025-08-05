@@ -98,10 +98,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
+    MLFLOW_USER,
     _get_run_name_from_tags,
 )
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
+    SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
@@ -2657,51 +2659,49 @@ class SqlAlchemyStore(AbstractStore):
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, Any]] = None,
+        tags: Optional[dict[str, str]] = None,
         experiment_ids: Optional[list[str]] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset in the database.
 
         Args:
-            name: Name of the evaluation dataset.
-            tags: Optional dictionary of tags.
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
             experiment_ids: List of experiment IDs to associate with the dataset.
-            schema: Optional dataset schema.
-            profile: Optional dataset profile.
-            created_by: Optional creator information.
 
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
         """
         with self.ManagedSessionMaker() as session:
-            # Always generate a new dataset ID for create operations
             dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
             digest = hashlib.sha256(name.encode()).hexdigest()
 
             current_time = get_current_time_millis()
-            dataset = EvaluationDataset(
+
+            user_id = None
+            if tags and MLFLOW_USER in tags:
+                user_id = tags[MLFLOW_USER]
+
+            created_dataset = EvaluationDataset(
                 dataset_id=dataset_id,
                 name=name,
                 digest=digest,
                 created_time=current_time,
                 last_update_time=current_time,
                 tags=tags or {},
-                schema=schema,
-                profile=profile,
-                created_by=created_by,
-                last_updated_by=created_by,
+                schema=None,  # Schema is computed when data is added
+                profile=None,  # Profile is computed when data is added
+                created_by=user_id,
+                last_updated_by=user_id,
             )
 
-            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset)
+            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(created_dataset)
             session.add(sql_dataset)
 
-            if dataset.tags:
-                for key, value in dataset.tags.items():
+            if created_dataset.tags:
+                for key, value in created_dataset.tags.items():
                     tag = SqlEvaluationDatasetTag(
                         dataset_id=dataset_id,
                         key=key,
@@ -2724,12 +2724,11 @@ class SqlAlchemyStore(AbstractStore):
 
             session.commit()
 
-            # Convert to entity and populate experiment_ids
-            dataset = sql_dataset.to_mlflow_entity()
-            dataset.experiment_ids = experiment_ids or []
-            dataset._tracking_store = self
+            created_dataset = sql_dataset.to_mlflow_entity()
+            created_dataset.experiment_ids = experiment_ids or []
+            created_dataset._tracking_store = self
 
-            return dataset
+            return created_dataset
 
     def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -2818,13 +2817,25 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             PagedList of EvaluationDataset objects (without records).
         """
-        # TODO: Implement full search functionality with filters and order_by
         self._validate_max_results_param(max_results)
 
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlEvaluationDataset)
+            if filter_string:
+                parsed_filters = SearchEvaluationDatasetsUtils.parse_search_filter(filter_string)
+                attribute_filters, non_attribute_filters = (
+                    _get_search_evaluation_datasets_filter_clauses(
+                        parsed_filters, self._get_dialect()
+                    )
+                )
+            else:
+                attribute_filters = []
+                non_attribute_filters = []
+
+            stmt = reduce(
+                lambda s, f: s.join(f), non_attribute_filters, select(SqlEvaluationDataset)
+            )
 
             if experiment_ids:
                 dataset_ids = (
@@ -2836,24 +2847,17 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     .distinct()
                 )
-                query = query.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
+                stmt = stmt.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
 
-            if order_by:
-                for order in order_by:
-                    if order.startswith("-"):
-                        field = order[1:]
-                        query = query.order_by(getattr(SqlEvaluationDataset, field).desc())
-                    else:
-                        query = query.order_by(getattr(SqlEvaluationDataset, order))
-            else:
-                query = query.order_by(SqlEvaluationDataset.created_time.desc())
+            stmt = stmt.filter(*attribute_filters)
 
-            query = query.offset(offset)
-            query = query.limit(max_results + 1)
+            order_by_clauses = _get_search_evaluation_datasets_order_by_clauses(order_by)
+            stmt = stmt.order_by(*order_by_clauses)
 
-            sql_datasets = query.all()
+            stmt = stmt.offset(offset).limit(max_results + 1)
 
-            # Check if we have more results for pagination
+            sql_datasets = session.execute(stmt).scalars(SqlEvaluationDataset).all()
+
             next_page_token = None
             if len(sql_datasets) > max_results:
                 sql_datasets = sql_datasets[:max_results]
@@ -2862,10 +2866,112 @@ class SqlAlchemyStore(AbstractStore):
             datasets = []
             for sql_dataset in sql_datasets:
                 dataset = sql_dataset.to_mlflow_entity()
-                # Note that experiment_ids will be loaded lazily when the parameter is accessed
                 datasets.append(dataset)
 
             return PagedList(datasets, next_page_token)
+
+    def _compute_dataset_schema_from_records(self, record_dicts):
+        """
+        Compute schema information from record dictionaries.
+
+        Args:
+            record_dicts: List of record dictionaries being upserted
+
+        Returns:
+            Dictionary describing the structure of inputs and expectations.
+        """
+        if not record_dicts:
+            return None
+
+        input_fields = {}
+        expectation_fields = {}
+
+        for record in record_dicts:
+            if inputs := record.get("inputs"):
+                for key, value in inputs.items():
+                    if key not in input_fields:
+                        input_fields[key] = self._infer_field_type(value)
+
+            if expectations := record.get("expectations"):
+                for key, value in expectations.items():
+                    if key not in expectation_fields:
+                        expectation_fields[key] = self._infer_field_type(value)
+
+        return {"inputs": input_fields, "expectations": expectation_fields, "version": "1.0"}
+
+    def _merge_schemas(self, existing_schema, new_schema):
+        """
+        Merge new schema information with existing schema.
+
+        Args:
+            existing_schema: Current schema dictionary or None
+            new_schema: New schema information from recent records
+
+        Returns:
+            Merged schema dictionary
+        """
+        if not new_schema:
+            return existing_schema
+
+        if not existing_schema:
+            return new_schema
+
+        merged_inputs = existing_schema.get("inputs", {}).copy()
+        for field, field_type in new_schema.get("inputs", {}).items():
+            if field not in merged_inputs:
+                merged_inputs[field] = field_type
+
+        merged_expectations = existing_schema.get("expectations", {}).copy()
+        for field, field_type in new_schema.get("expectations", {}).items():
+            if field not in merged_expectations:
+                merged_expectations[field] = field_type
+
+        return {"inputs": merged_inputs, "expectations": merged_expectations, "version": "1.0"}
+
+    def _compute_dataset_profile(self, session, dataset_id):
+        """
+        Compute profile statistics for the dataset based on current state.
+
+        Args:
+            session: Database session
+            dataset_id: ID of the dataset
+
+        Returns:
+            Profile dictionary with current statistics
+        """
+        total_records = (
+            session.query(SqlEvaluationDatasetRecord)
+            .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
+            .count()
+        )
+
+        if total_records == 0:
+            return None
+
+        return {"num_records": total_records}
+
+    def _infer_field_type(self, value):
+        """
+        Infer the type of a field value.
+
+        Returns a string representation of the type.
+        """
+        if value is None:
+            return "null"
+        elif isinstance(value, bool):
+            return "boolean"
+        elif isinstance(value, int):
+            return "integer"
+        elif isinstance(value, float):
+            return "float"
+        elif isinstance(value, str):
+            return "string"
+        elif isinstance(value, list):
+            return "array"
+        elif isinstance(value, dict):
+            return "object"
+        else:
+            return "unknown"
 
     def _load_dataset_records(self, dataset_id: str) -> list[DatasetRecord]:
         """
@@ -2973,14 +3079,36 @@ class SqlAlchemyStore(AbstractStore):
                     session.add(sql_record)
                     inserted_count += 1
 
+            # Get the current dataset to merge schema
+            dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+
+            # Merge schema incrementally with existing schema
+            existing_schema = json.loads(dataset.schema) if dataset.schema else None
+            new_schema_info = self._compute_dataset_schema_from_records(records)
+            merged_schema = self._merge_schemas(existing_schema, new_schema_info)
+
+            # Compute current dataset profile
+            updated_profile = self._compute_dataset_profile(session, dataset_id)
+
+            # Update dataset metadata
+            update_fields = {
+                "last_update_time": current_time,
+                "last_updated_by": updated_by,
+            }
+
+            if merged_schema:
+                update_fields["schema"] = json.dumps(merged_schema)
+
+            if updated_profile:
+                update_fields["profile"] = json.dumps(updated_profile)
+
             session.query(SqlEvaluationDataset).filter(
                 SqlEvaluationDataset.dataset_id == dataset_id
-            ).update(
-                {
-                    "last_update_time": current_time,
-                    "last_updated_by": updated_by,
-                }
-            )
+            ).update(update_fields)
 
             session.commit()
 
@@ -3518,3 +3646,79 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
 
     return attribute_filters, non_attribute_filters
+
+
+def _get_search_evaluation_datasets_filter_clauses(parsed_filters, dialect):
+    """
+    Creates evaluation dataset attribute filters and non-attribute filters for tags.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
+    for f in parsed_filters:
+        type_ = f["type"]
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+
+        if type_ == "attribute":
+            if SearchEvaluationDatasetsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for string attribute: {comparator}"
+                )
+            if SearchEvaluationDatasetsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlEvaluationDataset, key)
+            attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            attribute_filters.append(attr_filter)
+        elif type_ == "tag":
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for tag: {comparator}"
+                )
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                SqlEvaluationDatasetTag.value, value
+            )
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                SqlEvaluationDatasetTag.key, key
+            )
+            non_attribute_filters.append(
+                select(SqlEvaluationDatasetTag).filter(key_filter, val_filter).subquery()
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
+
+    return attribute_filters, non_attribute_filters
+
+
+def _get_search_evaluation_datasets_order_by_clauses(order_by):
+    """
+    Creates order by clauses for searching evaluation datasets.
+    """
+    if not order_by:
+        order_by = ["created_time DESC"]
+
+    order_by_clauses = []
+
+    for order in order_by:
+        type_, key, ascending = (
+            SearchEvaluationDatasetsUtils.parse_order_by_for_search_evaluation_datasets(order)
+        )
+        if type_ == "attribute":
+            field = key
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        order_by_clauses.append((getattr(SqlEvaluationDataset, field), ascending))
+
+    # Add a tie-breaker
+    if not any(col == SqlEvaluationDataset.dataset_id for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
+
+    return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]

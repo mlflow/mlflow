@@ -898,14 +898,16 @@ class AbstractStore:
     @requires_sql_backend
     def create_evaluation_dataset(
         self,
-        dataset: EvaluationDataset,
+        name: str,
+        tags: Optional[dict[str, str]] = None,
         experiment_ids: Optional[list[str]] = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset.
 
         Args:
-            dataset: The evaluation dataset object to create.
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
             experiment_ids: List of experiment IDs to associate with the dataset.
 
         Returns:
