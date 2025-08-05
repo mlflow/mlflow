@@ -26,7 +26,7 @@ from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.schema import Schema, TensorSpec
+from mlflow.types.schema import DataType, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -1201,3 +1201,23 @@ def test_passing_params_to_model(data):
         np.testing.assert_array_almost_equal(
             pyfunc_model.predict(x, {"y": 2}), model(x, 2), decimal=4
         )
+
+
+def test_log_model_with_datetime_input():
+    df = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
+            "x": np.random.uniform(20, 30, 5),
+            "y": np.random.uniform(2, 4, 5),
+            "z": np.random.uniform(0, 10, 5),
+        }
+    )
+    model = get_sequential_model()
+    model_info = mlflow.pytorch.log_model(model, name="pytorch", input_example=df)
+    assert model_info.signature.inputs.inputs[0].type == DataType.datetime
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with torch.no_grad():
+        input_tensor = torch.from_numpy(df.to_numpy(dtype=np.float32))
+        expected_result = model(input_tensor)
+    with torch.no_grad():
+        np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
