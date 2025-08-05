@@ -1305,9 +1305,10 @@ class SqlSpan(Base):
     Span name: `Text`. Can be null.
     """
 
-    type = Column(Text, nullable=True)
+    type = Column(String(200), nullable=True)
     """
-    Span type: `Text`. Can be null.
+    Span type: `String` (limit 200 characters). Can be null.
+    Uses String instead of Text to support MSSQL indexes.
     """
 
     status = Column(String(50), nullable=False)
