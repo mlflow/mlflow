@@ -2585,7 +2585,7 @@ e.g., struct<a:int, b:array<int>>.
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
