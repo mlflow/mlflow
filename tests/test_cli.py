@@ -71,30 +71,29 @@ def test_server_uvicorn_options():
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
         run_server_mock.assert_called_once()
-        # Verify uvicorn is used by default
-        # _run_server parameters: file_store_path, registry_store_uri, default_artifact_root,
-        # serve_artifacts, artifacts_only, artifacts_destination, host, port, static_prefix,
-        # workers, gunicorn_opts, waitress_opts, expose_prometheus, app_name, uvicorn_opts
-        args = run_server_mock.call_args[0]
-        gunicorn_opts = args[10]
-        waitress_opts = args[11]
-        uvicorn_opts = args[14]
-        # uvicorn is used when gunicorn and waitress are not specified
-        assert gunicorn_opts is None
-        assert waitress_opts is None
-        assert uvicorn_opts is None
+        # Since _run_server now only accepts keyword arguments, we can access them directly
+        kwargs = run_server_mock.call_args.kwargs
+        assert kwargs["gunicorn_opts"] is None
+        assert kwargs["waitress_opts"] is None
+        assert kwargs["uvicorn_opts"] is None
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with uvicorn-opts
         CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
         run_server_mock.assert_called_once()
-        args = run_server_mock.call_args[0]
-        gunicorn_opts = args[10]
-        waitress_opts = args[11]
-        uvicorn_opts = args[14]
-        assert gunicorn_opts is None
-        assert waitress_opts is None
-        assert uvicorn_opts == "--reload --log-level debug"
+        kwargs = run_server_mock.call_args.kwargs
+        assert kwargs["gunicorn_opts"] is None
+        assert kwargs["waitress_opts"] is None
+        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test with --dev flag (should set uvicorn opts)
+        CliRunner().invoke(server, ["--dev"])
+        run_server_mock.assert_called_once()
+        kwargs = run_server_mock.call_args.kwargs
+        assert kwargs["gunicorn_opts"] is None
+        assert kwargs["waitress_opts"] is None
+        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
 
 
 @pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
@@ -104,14 +103,16 @@ def test_server_gunicorn_options():
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
         run_server_mock.assert_called_once()
-        args = run_server_mock.call_args[0]
-        gunicorn_opts = args[10]
-        assert gunicorn_opts == "--log-level debug"
+        kwargs = run_server_mock.call_args.kwargs
+        assert kwargs["gunicorn_opts"] == "--log-level debug"
+        assert kwargs["uvicorn_opts"] is None
+        assert kwargs["waitress_opts"] is None
 
     # Test conflicting options
     result = CliRunner().invoke(
         server, ["--uvicorn-opts", "--reload", "--gunicorn-opts", "--log-level debug"]
     )
+    assert result.exit_code != 0
     assert "Cannot specify multiple server options" in result.output
 
 
@@ -724,34 +725,3 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
-
-
-def test_server_uvicorn_options():
-    """Test that uvicorn options are properly handled."""
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        # Test default behavior (uvicorn should be used when no server options specified)
-        CliRunner().invoke(server)
-        run_server_mock.assert_called_once()
-        # Since _run_server now only accepts keyword arguments, we can access them directly
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] is None
-
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        # Test with uvicorn-opts
-        CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
-        run_server_mock.assert_called_once()
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
-
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        # Test with --dev flag (should set uvicorn opts)
-        CliRunner().invoke(server, ["--dev"])
-        run_server_mock.assert_called_once()
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
