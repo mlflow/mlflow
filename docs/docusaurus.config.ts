@@ -117,16 +117,16 @@ const config: Config = {
           ],
         },
         {
-          type: 'doc',
-          position: 'left',
-          label: 'Community',
-          docId: 'usage-tracking',
-          docsPluginId: 'community',
-        },
-        {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
+        },
+        {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
         },
         {
           type: 'custom-versionSelector',
@@ -246,7 +246,7 @@ const config: Config = {
         id: 'community',
         path: 'docs/community',
         routeBasePath: 'community',
-        sidebarPath: false,
+        sidebarPath: './communitySidebar.ts',
       },
     ],
     [

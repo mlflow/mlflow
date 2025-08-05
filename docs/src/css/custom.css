@@ -493,6 +493,18 @@ html[data-theme='dark'] .menu__link--active {
   background-color: transparent;
 }
 
+/* External link icon in sidebar - make existing icon smaller */
+.menu__link--external svg,
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-left: 0.2em;
+}
+
 /* --------------------------------
  * 5. Content Navigation
  * -------------------------------- */
