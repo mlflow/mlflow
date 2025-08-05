@@ -1,6 +1,6 @@
 import multiprocessing
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from mlflow.entities import Feedback
 from mlflow.entities.model_registry import PromptVersion
@@ -8,8 +8,6 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
-
-T = TypeVar("T", bound="BasePromptOptimizer")
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
@@ -31,8 +29,8 @@ class PromptOptimizationResult:
     prompt: PromptVersion
     initial_prompt: PromptVersion
     optimizer_name: str
-    final_eval_score: Optional[float]
-    initial_eval_score: Optional[float]
+    final_eval_score: float | None
+    initial_eval_score: float | None
 
 
 @experimental(version="3.0.0")
@@ -73,7 +71,7 @@ class OptimizerConfig:
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. When a string is provided,
-            it must be one of the supported algorithms.
+            it must be one of the supported algorithms: "DSPy/MIPROv2".
             When a BasePromptOptimizer is provided, it will be used as the optimizer.
             Default: "DSPy/MIPROv2"
         verbose: Whether to show optimizer logs during optimization. Default: False
@@ -88,14 +86,14 @@ class OptimizerConfig:
     max_few_show_examples: int = 6
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
-    algorithm: Union[str, type[T]] = "DSPy/MIPROv2"
+    algorithm: Union[str, type["BasePromptOptimizer"]] = "DSPy/MIPROv2"
     verbose: bool = False
     autolog: bool = False
     convert_to_single_text: bool = True
 
 
-@experimental(version="3.0.0")
-@dataclass
+@experimental(version="3.3.0")
+@dataclass(kw_only=True)
 class OptimizerOutput:
     """
     Output of the `optimize` method of :py:class:`mlflow.genai.optimize.BasePromptOptimizer`.
