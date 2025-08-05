@@ -8,6 +8,7 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -20,10 +21,9 @@ def _get_json_type():
     """Get appropriate JSON type for the current database."""
     dialect_name = op.get_bind().dialect.name
     if dialect_name == "mssql":
-        # Use JSONEncodedText for MSSQL
-        from mlflow.store.db.types import JSONEncodedText
-
-        return JSONEncodedText
+        # Use MSSQL-specific JSON type (stored as NVARCHAR(MAX))
+        # This is available in SQLAlchemy 1.4+ and works with SQL Server 2016+
+        return mssql.JSON
     else:
         # Use standard JSON type for other databases
         return sa.JSON
