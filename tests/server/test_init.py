@@ -146,9 +146,17 @@ def test_run_server_with_uvicorn(mock_exec_cmd):
             port="5000",
             uvicorn_opts="--reload",
         )
-    mock_exec_cmd.assert_called_once()
-    # Verify uvicorn was used
-    call_args = mock_exec_cmd.call_args[0][0]
-    assert "uvicorn" in call_args
-    assert "--reload" in call_args
-    assert "mlflow.server.fastapi_app:app" in call_args
+    expected_command = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "--reload",
+        "--host",
+        "localhost",
+        "--port",
+        "5000",
+        "--workers",
+        "4",
+        "mlflow.server.fastapi_app:app",
+    ]
+    mock_exec_cmd.assert_called_once_with(expected_command, extra_env={}, capture_output=False)
