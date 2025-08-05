@@ -1,9 +1,14 @@
+import logging
 import warnings
 
 from typing_extensions import Self
 
+import mlflow
 from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
+from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
 
 
 class GitContext:
@@ -20,6 +25,31 @@ class GitContext:
                 stacklevel=2,
             )
             self.info = None
+            self.active_model = None
+            return
+
+        git_tags = self.info.to_mlflow_tags()
+        filter_string = " AND ".join(f"tags.`{k}` = '{v}'" for k, v in git_tags.items())
+        models = mlflow.search_logged_models(
+            filter_string=filter_string,
+            max_results=1,
+            output_format="list",
+        )
+        match models:
+            case [m]:
+                _logger.info(
+                    f"Using existing model with branch '{self.info.branch}', "
+                    f"commit '{self.info.commit}', dirty state '{self.info.dirty}'."
+                )
+                model = m
+            case _:
+                _logger.info(
+                    "No existing model found with the current git information. "
+                    "Creating a new model."
+                )
+                model = mlflow.initialize_logged_model(tags=git_tags)
+
+        self.active_model = _set_active_model(model_id=model.model_id)
 
     def __enter__(self) -> Self:
         return self
@@ -50,6 +80,7 @@ def disable_git_model_versioning() -> None:
     """
     global _active_context
     _active_context = None
+    mlflow.clear_active_model()
 
 
 def _get_active_git_context() -> GitContext | None:
