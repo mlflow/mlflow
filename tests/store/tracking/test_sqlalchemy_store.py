@@ -24,7 +24,6 @@ from mlflow import entities
 from mlflow.entities import (
     AssessmentSource,
     AssessmentSourceType,
-    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -6124,19 +6123,12 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="test_eval_dataset",
-        digest="abcd1234",
-        created_time=0,  # Verify that the backend will set current
-        last_update_time=0,  # Verify that the backend will set current
-        tags={"purpose": "testing", "environment": "test"},
-        schema='{"fields": ["question", "answer"]}',
-        profile='{"num_rows": 100}',
-        created_by="test_user",
-    )
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="test_eval_dataset",
+        tags={"purpose": "testing", "environment": "test"},
+        experiment_ids=experiment_ids,
+    )
 
     assert created_dataset.dataset_id is not None
     assert created_dataset.dataset_id.startswith("d-")
@@ -6174,25 +6166,30 @@ def test_evaluation_dataset_search_comprehensive(store):
 
     datasets = []
     for i in range(10):
-        dataset = EvaluationDataset(
-            dataset_id=None,
-            name=f"{test_prefix}dataset_{i:02d}",
-            digest=f"digest_{i:02d}",
-            created_time=0,
-            last_update_time=0,
-            created_by=f"user_{i % 3}",
-            tags={"priority": "high" if i % 2 == 0 else "low"},
-        )
         if i < 3:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[0]])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                tags={"priority": "high" if i % 2 == 0 else "low"},
+                experiment_ids=[exp_ids[0]],
+            )
         elif i < 6:
             created = store.create_evaluation_dataset(
-                dataset, experiment_ids=[exp_ids[1], exp_ids[2]]
+                name=f"{test_prefix}dataset_{i:02d}",
+                tags={"priority": "high" if i % 2 == 0 else "low"},
+                experiment_ids=[exp_ids[1], exp_ids[2]],
             )
         elif i < 8:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[2]])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                tags={"priority": "high" if i % 2 == 0 else "low"},
+                experiment_ids=[exp_ids[2]],
+            )
         else:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                tags={"priority": "high" if i % 2 == 0 else "low"},
+                experiment_ids=[],
+            )
         datasets.append(created)
         time.sleep(0.001)
 
@@ -6227,14 +6224,11 @@ def test_evaluation_dataset_search_comprehensive(store):
 
 
 def test_evaluation_dataset_upsert_comprehensive(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
+    created_dataset = store.create_evaluation_dataset(
         name="upsert_comprehensive",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
+        tags=None,
+        experiment_ids=None,
     )
-    created_dataset = store.create_evaluation_dataset(dataset)
 
     records_batch1 = [
         {
@@ -6352,15 +6346,12 @@ def test_evaluation_dataset_upsert_comprehensive(store):
 
 
 def test_evaluation_dataset_associations_and_lazy_loading(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="multi_exp_dataset",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-    )
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="multi_exp_dataset",
+        tags=None,
+        experiment_ids=experiment_ids,
+    )
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
@@ -6402,27 +6393,21 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
 
 def test_evaluation_dataset_get_experiment_ids(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="test_get_experiment_ids",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-    )
     experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="test_get_experiment_ids",
+        tags=None,
+        experiment_ids=experiment_ids,
+    )
 
     fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
     assert set(fetched_experiment_ids) == set(experiment_ids)
 
-    dataset2 = EvaluationDataset(
-        dataset_id=None,
+    created_dataset2 = store.create_evaluation_dataset(
         name="test_no_experiments",
-        digest="test_digest2",
-        created_time=0,
-        last_update_time=0,
+        tags=None,
+        experiment_ids=[],
     )
-    created_dataset2 = store.create_evaluation_dataset(dataset2, experiment_ids=[])
     fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(
         created_dataset2.dataset_id
     )
@@ -6439,18 +6424,12 @@ def test_evaluation_dataset_get_experiment_ids(store):
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="tagged_dataset",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-        tags=tags,
-        schema='{"type": "object"}',
-        profile='{"rows": 1000}',
-    )
 
-    created = store.create_evaluation_dataset(dataset)
+    created = store.create_evaluation_dataset(
+        name="tagged_dataset",
+        tags=tags,
+        experiment_ids=None,
+    )
     assert created.tags == tags
 
     retrieved = store.get_evaluation_dataset(created.dataset_id)
@@ -6459,35 +6438,30 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     assert retrieved.tags["version"] == "2.0"
     assert retrieved.tags["team"] == "ml-ops"
 
-    dataset_none = EvaluationDataset(
-        dataset_id=None,
+    created_none = store.create_evaluation_dataset(
         name="no_tags_dataset",
-        digest="test_digest_none",
-        created_time=0,
-        last_update_time=0,
         tags=None,
+        experiment_ids=None,
     )
-    created_none = store.create_evaluation_dataset(dataset_none)
     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
     assert retrieved_none.tags == {}
 
-    dataset_empty = EvaluationDataset(
-        dataset_id=None,
+    created_empty = store.create_evaluation_dataset(
         name="empty_tags_dataset",
-        digest="test_digest_empty",
-        created_time=0,
-        last_update_time=0,
         tags={},
+        experiment_ids=None,
     )
-    created_empty = store.create_evaluation_dataset(dataset_empty)
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
 
 
 def test_evaluation_dataset_update_tags(store):
     initial_tags = {"environment": "development", "version": "1.0", "deprecated": "true"}
-    dataset = EvaluationDataset(name="test_update_tags", tags=initial_tags)
-    created = store.create_evaluation_dataset(dataset)
+    created = store.create_evaluation_dataset(
+        name="test_update_tags",
+        tags=initial_tags,
+        experiment_ids=None,
+    )
 
     retrieved = store.get_evaluation_dataset(created.dataset_id)
     assert retrieved.tags == initial_tags
@@ -6497,7 +6471,7 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
         "deprecated": None,
     }
-    store.update_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
+    store.set_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
 
     updated = store.get_evaluation_dataset(created.dataset_id)
     expected_tags = {
@@ -6508,10 +6482,13 @@ def test_evaluation_dataset_update_tags(store):
     assert updated.tags == expected_tags
     assert updated.last_updated_by == "test_user"
 
-    dataset_no_tags = EvaluationDataset(name="test_no_initial_tags")
-    created_no_tags = store.create_evaluation_dataset(dataset_no_tags)
+    created_no_tags = store.create_evaluation_dataset(
+        name="test_no_initial_tags",
+        tags=None,
+        experiment_ids=None,
+    )
 
-    store.update_evaluation_dataset_tags(
+    store.set_evaluation_dataset_tags(
         created_no_tags.dataset_id, {"new_tag": "value"}, updated_by="test_user2"
     )
 
@@ -6520,10 +6497,10 @@ def test_evaluation_dataset_update_tags(store):
     assert updated_no_tags.last_updated_by == "test_user2"
 
     with pytest.raises(MlflowException, match="dataset_id must be provided"):
-        store.update_evaluation_dataset_tags(None, {"tag": "value"})
+        store.set_evaluation_dataset_tags(None, {"tag": "value"})
 
     with pytest.raises(MlflowException, match="tags must be provided"):
-        store.update_evaluation_dataset_tags(created.dataset_id, None)
+        store.set_evaluation_dataset_tags(created.dataset_id, None)
 
-    with pytest.raises(MlflowException, match="not found"):
-        store.update_evaluation_dataset_tags("nonexistent_id", {"tag": "value"})
+    with pytest.raises(MlflowException, match="Could not find evaluation dataset"):
+        store.set_evaluation_dataset_tags("nonexistent_id", {"tag": "value"})
