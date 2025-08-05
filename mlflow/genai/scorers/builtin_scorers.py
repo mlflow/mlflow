@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -390,7 +390,7 @@ class Guidelines(BuiltInScorer):
     """
 
     name: str = "guidelines"
-    guidelines: Union[str, list[str]]
+    guidelines: str | list[str]
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(

@@ -5,7 +5,7 @@ IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES
 
 import numbers
 import time
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
@@ -220,7 +220,7 @@ class Assessment(_MlflowObject):
         self,
         name: str,
         source: Optional[AssessmentSource] = None,
-        value: Optional[Union[bool, float, str]] = None,
+        value: Optional[bool | float | str] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         error_code: Optional[str] = None,
@@ -278,7 +278,7 @@ class Assessment(_MlflowObject):
         return self._name
 
     @property
-    def value(self) -> Union[bool, float, str]:
+    def value(self) -> bool | float | str:
         """The assessment value."""
         return self._value
 

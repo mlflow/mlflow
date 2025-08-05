@@ -6,7 +6,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, TypeAlias, Union
+from typing import Any, Iterator, TypeAlias
 
 from typing_extensions import Self
 
@@ -646,7 +646,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
-        self, node: Union[ast.Import, ast.ImportFrom], module: str
+        self, node: ast.Import | ast.ImportFrom, module: str
     ) -> None:
         for file_pat, libs in self.config.forbidden_top_level_imports.items():
             if fnmatch.fnmatch(str(self.path), file_pat) and any(
@@ -659,7 +659,7 @@ class Linter(ast.NodeVisitor):
 
     def _check_forbidden_set_active_model_usage(
         self,
-        node: Union[ast.Import, ast.ImportFrom],
+        node: ast.Import | ast.ImportFrom,
     ) -> None:
         self._check(
             Location.from_node(node),

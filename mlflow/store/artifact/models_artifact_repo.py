@@ -2,7 +2,7 @@ import logging
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -103,7 +103,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         return uri, ""
 
     @staticmethod
-    def _is_logged_model_uri(uri: Union[str, Path]) -> bool:
+    def _is_logged_model_uri(uri: str | Path) -> bool:
         """
         Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
         """

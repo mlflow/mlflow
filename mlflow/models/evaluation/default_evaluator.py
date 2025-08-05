@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import traceback
 from abc import abstractmethod
-from typing import Any, Callable, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ def _extract_raw_model(model):
 
 
 def _extract_output_and_other_columns(
-    model_predictions: Union[list[Any], dict[str, Any], pd.DataFrame, pd.Series],
+    model_predictions: list[Any] | dict[str, Any] | pd.DataFrame | pd.Series,
     output_column_name: Optional[str],
 ) -> tuple[pd.Series, Optional[pd.DataFrame], str]:
     y_pred = None
@@ -448,7 +448,7 @@ class BuiltInEvaluator(ModelEvaluator):
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
         other_output_df: Optional[pd.DataFrame],
-    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
+    ) -> tuple[bool, list[str | pd.DataFrame]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.

@@ -12,7 +12,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, Optional
 
 import cloudpickle
 import pandas as pd
@@ -847,7 +847,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def responses_agent_output_reducer(
-            chunks: list[Union[ResponsesAgentStreamEvent, dict[str, Any]]],
+            chunks: list[ResponsesAgentStreamEvent | dict[str, Any]],
         ):
             output_items = []
             for chunk in chunks:
@@ -1407,9 +1407,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.endpoint = endpoint
         self.params = params
 
-    def predict(
-        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
-    ):
+    def predict(self, context, model_input: pd.DataFrame | dict[str, Any] | list[dict[str, Any]]):
         """
         Run prediction on the input data.
 
@@ -1454,7 +1452,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _predict_single(self, data: Union[str, dict[str, Any]]) -> dict[str, Any]:
+    def _predict_single(self, data: str | dict[str, Any]) -> dict[str, Any]:
         """
         Send a single prediction request to the MLflow Deployments endpoint.
 

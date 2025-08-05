@@ -1,6 +1,6 @@
 import functools
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -101,7 +101,7 @@ def _create_chat_endpoint(config: RouteConfig):
     @_translate_http_exception
     async def _chat(
         request: Request, payload: chat.RequestPayload
-    ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
+    ) -> chat.ResponsePayload | chat.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
@@ -116,7 +116,7 @@ def _create_completions_endpoint(config: RouteConfig):
     @_translate_http_exception
     async def _completions(
         request: Request, payload: completions.RequestPayload
-    ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
+    ) -> completions.ResponsePayload | completions.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
@@ -415,7 +415,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     return app
 
 
-def create_app_from_path(config_path: Union[str, Path]) -> GatewayAPI:
+def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     """
     Load the path and generate the GatewayAPI app instance.
     """

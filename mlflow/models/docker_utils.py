@@ -1,7 +1,7 @@
 import logging
 import os
 from subprocess import Popen
-from typing import Optional, Union
+from typing import Literal, Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
@@ -79,7 +79,7 @@ def generate_dockerfile(
     base_image: str,
     model_install_steps: Optional[str],
     entrypoint: str,
-    env_manager: Union[em.CONDA, em.LOCAL, em.VIRTUALENV],
+    env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
     mlflow_home: Optional[str] = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,

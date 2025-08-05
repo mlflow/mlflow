@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pydantic
 import yaml
@@ -218,7 +218,7 @@ class AWSIdAndKey(AWSBaseConfig):
 
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -277,7 +277,7 @@ def _resolve_api_key_from_input(api_key_input):
 
 class Model(ConfigModel):
     name: Optional[str] = None
-    provider: Union[str, Provider]
+    provider: str | Provider
     if IS_PYDANTIC_V2_OR_NEWER:
         config: Optional[SerializeAsAny[ConfigModel]] = None
     else:
@@ -480,7 +480,7 @@ class GatewayConfig(AliasedConfigModel):
     endpoints: list[RouteConfig]
 
 
-def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
+def _load_route_config(path: str | Path) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -503,7 +503,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         ) from e
 
 
-def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
+def _save_route_config(config: GatewayConfig, path: str | Path) -> None:
     if isinstance(path, str):
         path = Path(path)
     path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))

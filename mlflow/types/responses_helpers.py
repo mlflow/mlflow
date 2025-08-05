@@ -7,7 +7,7 @@ if not IS_PYDANTIC_V2_OR_NEWER:
     )
 
 import warnings
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import ConfigDict, model_validator
 
@@ -207,7 +207,7 @@ class Tool(BaseModel):
 
 
 class ToolChoice(BaseModel):
-    tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
+    tool_choice: Optional[str | ToolChoiceFunction] = None
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
@@ -325,7 +325,7 @@ class ResponseInputTextParam(BaseModel):
 
 
 class Message(Status):
-    content: Union[str, list[Union[ResponseInputTextParam, dict[str, Any]]]]
+    content: str | list[ResponseInputTextParam | dict[str, Any]]
     role: str
     status: Optional[str] = None
     type: str = "message"

@@ -1,12 +1,12 @@
 import multiprocessing
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 from mlflow.entities import Feedback
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.utils.annotations import experimental
 
-OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
+OBJECTIVE_FN = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
 @experimental(version="3.0.0")

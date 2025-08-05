@@ -1,7 +1,7 @@
 import asyncio
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from llama_index.core import QueryBundle
@@ -89,7 +89,7 @@ class _LlamaIndexModelWrapperBase:
         else:
             return self._predict_single(input, **(params or {}))
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None) -> Union[list[str], str]:
+    def predict(self, data, params: Optional[dict[str, Any]] = None) -> list[str] | str:
         data = self._format_predict_input(data)
 
         if isinstance(data, list):
@@ -126,7 +126,7 @@ class ChatEngineWrapper(_LlamaIndexModelWrapperBase):
 
         return data
 
-    def _format_predict_input(self, data) -> Union[str, dict[str, Any], list[Any]]:
+    def _format_predict_input(self, data) -> str | dict[str, Any] | list[Any]:
         data = _convert_llm_input_data_with_unwrapping(data)
 
         if isinstance(data, str):
@@ -178,7 +178,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
     def engine_type(self):
         raise NotImplementedError("LlamaIndex Workflow is not an engine")
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None) -> Union[list[str], str]:
+    def predict(self, data, params: Optional[dict[str, Any]] = None) -> list[str] | str:
         inputs = self._format_predict_input(data, params)
 
         # LlamaIndex Workflow runs async but MLflow pyfunc doesn't support async inference yet.

@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -180,12 +180,12 @@ def from_huggingface(
     path: Optional[str] = None,
     targets: Optional[str] = None,
     data_dir: Optional[str] = None,
-    data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+    data_files: Optional[str | Sequence[str] | Mapping[str, str | Sequence[str]]] = None,
     revision=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
     trust_remote_code: Optional[bool] = None,
-    source: Optional[Union[str, DatasetSource]] = None,
+    source: Optional[str | DatasetSource] = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
