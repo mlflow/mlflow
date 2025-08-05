@@ -118,7 +118,8 @@ export const MOCK_BEDROCK_IMAGE_INPUT = {
 describe('normalizeConversation', () => {
 
   it('handles a Bedrock input format', () => {
-    expect(normalizeConversation(MOCK_BEDROCK_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    expect(normalizeConversation(MOCK_BEDROCK_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'What is the weather like in Tokyo today?',
@@ -127,7 +128,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock output format', () => {
-    expect(normalizeConversation(MOCK_BEDROCK_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    expect(normalizeConversation(MOCK_BEDROCK_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'The weather in Tokyo is sunny with a temperature of 25°C.',
@@ -136,7 +138,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock tool use input format', () => {
-    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_INPUT);
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(3);
     
@@ -167,7 +170,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock tool use output format', () => {
-    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_OUTPUT);
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_OUTPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
     
@@ -187,7 +191,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock image input format', () => {
-    const result = normalizeConversation(MOCK_BEDROCK_IMAGE_INPUT);
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    const result = normalizeConversation(MOCK_BEDROCK_IMAGE_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
     

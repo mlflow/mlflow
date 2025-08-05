@@ -83,7 +83,8 @@ export const MOCK_GEMINI_OUTPUT = {
 describe('normalizeConversation', () => {
 
   it('should handle gemini input', () => {
-    expect(normalizeConversation(MOCK_GEMINI_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'gemini' };
+    expect(normalizeConversation(MOCK_GEMINI_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: expect.stringMatching(/explain how ai works/i),
@@ -92,7 +93,8 @@ describe('normalizeConversation', () => {
   });
 
   it('should handle gemini output', () => {
-    expect(normalizeConversation(MOCK_GEMINI_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'gemini' };
+    expect(normalizeConversation(MOCK_GEMINI_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
         role: 'assistant',

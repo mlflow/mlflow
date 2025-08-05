@@ -255,7 +255,8 @@ export const MOCK_LANGCHAIN_CHAT_OUTPUT = {
 describe('normalizeConversation', () => {
 
   it('handles a langchain chat input', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: "What's the weather in Singapore and New York?",
@@ -282,7 +283,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a langchain chat output', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'The weather in Singapore is hot, while in New York, it is cold.',
@@ -291,7 +293,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a langchain input', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: expect.stringMatching(/can i just set everyone's access to sudo/i),
@@ -300,7 +303,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a langchain output', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         content: expect.stringMatching(/oh, for crying out loud, no! that's just asking for a disaster/i),
         role: 'assistant',
@@ -309,7 +313,8 @@ describe('normalizeConversation', () => {
   });
 
   it('should handle langchain input with image content', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_IMAGE_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_IMAGE_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content:
@@ -319,7 +324,8 @@ describe('normalizeConversation', () => {
   });
 
   it('should handle langchain input with single image content (no separator)', () => {
-    expect(normalizeConversation(MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'langchain' };
+    expect(normalizeConversation(MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: '![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',

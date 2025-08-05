@@ -50,7 +50,8 @@ export const MOCK_ANTHROPIC_OUTPUT = {
 describe('normalizeConversation', () => {
 
   it('should handle anthropic input', () => {
-    expect(normalizeConversation(MOCK_ANTHROPIC_INPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'anthropic' };
+    expect(normalizeConversation(MOCK_ANTHROPIC_INPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'user',
         content: expect.stringMatching(/describe this image/i),
@@ -59,7 +60,8 @@ describe('normalizeConversation', () => {
   });
 
   it('should handle anthropic output', () => {
-    expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'anthropic' };
+    expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         content: expect.stringMatching(/this is a close-up macro photograph of an ant/i),
         role: 'assistant',

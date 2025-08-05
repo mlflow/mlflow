@@ -88,7 +88,8 @@ export const MOCK_OPENAI_AGENT_COMPLEX_OUTPUT = [
 describe('normalizeConversation', () => {
 
   it('handles an OpenAI Agent input', () => {
-    const result = normalizeConversation(MOCK_OPENAI_AGENT_INPUT);
+    const spanAttributes = { 'mlflow.message.format': 'openai-agent' };
+    const result = normalizeConversation(MOCK_OPENAI_AGENT_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(3);
     
@@ -118,7 +119,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI Agent output', () => {
-    expect(normalizeConversation(MOCK_OPENAI_AGENT_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'openai-agent' };
+    expect(normalizeConversation(MOCK_OPENAI_AGENT_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'The weather in Tokyo is currently sunny.',
@@ -127,7 +129,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI Agent complex input', () => {
-    const result = normalizeConversation(MOCK_OPENAI_AGENT_COMPLEX_INPUT);
+    const spanAttributes = { 'mlflow.message.format': 'openai-agent' };
+    const result = normalizeConversation(MOCK_OPENAI_AGENT_COMPLEX_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(5);
     
@@ -176,7 +179,8 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI Agent complex output', () => {
-    expect(normalizeConversation(MOCK_OPENAI_AGENT_COMPLEX_OUTPUT)).toEqual([
+    const spanAttributes = { 'mlflow.message.format': 'openai-agent' };
+    expect(normalizeConversation(MOCK_OPENAI_AGENT_COMPLEX_OUTPUT, spanAttributes)).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'I checked the weather in Tokyo and booked your flight. The weather is sunny with 25°C, and your flight has been booked successfully with booking ID FL12345.',
