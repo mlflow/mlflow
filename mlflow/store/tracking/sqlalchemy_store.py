@@ -2685,7 +2685,8 @@ class SqlAlchemyStore(AbstractStore):
                 min_start_time = min(span.start_time_ns for span in spans)
                 max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
-                # Create the SqlTraceInfo directly in the session
+                # Create trace info for this new trace. We need to establish the trace
+                # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
@@ -2699,6 +2700,10 @@ class SqlAlchemyStore(AbstractStore):
                 try:
                     session.flush()
                 except IntegrityError:
+                    # IntegrityError indicates a race condition: another process/thread
+                    # created the trace between our initial check and insert attempt.
+                    # This is expected in concurrent scenarios. We rollback and fetch
+                    # the trace that was created by the other process.
                     session.rollback()
                     sql_trace_info = (
                         session.query(SqlTraceInfo)
