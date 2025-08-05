@@ -74,7 +74,7 @@ ${filteredLabels}
 
 TASK OVERVIEW:
 
-Analyze the issue content above and list appropriate domain labels (e.g., \`domain/genai\`) that should be added to this issue.
+Analyze the issue content above and list appropriate area labels (e.g., \`area/tracing\`) and domain labels (e.g., \`domain/genai\`) that should be added to this issue.
 
 IMPORTANT GUIDELINES:
 
