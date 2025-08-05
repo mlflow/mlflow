@@ -1,3 +1,5 @@
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
+
 export const MOCK_GEMINI_INPUT = {
   model: 'gemini-2.5-flash',
   contents: 'Explain how AI works in a few words',
@@ -77,3 +79,23 @@ export const MOCK_GEMINI_OUTPUT = {
   automatic_function_calling_history: null,
   parsed: null,
 };
+
+describe('normalizeConversation', () => {
+  it('should handle gemini input', () => {
+    expect(normalizeConversation(MOCK_GEMINI_INPUT, 'gemini')).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringMatching(/explain how ai works/i),
+      }),
+    ]);
+  });
+
+  it('should handle gemini output', () => {
+    expect(normalizeConversation(MOCK_GEMINI_OUTPUT, 'gemini')).toEqual([
+      expect.objectContaining({
+        content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
+        role: 'assistant',
+      }),
+    ]);
+  });
+});

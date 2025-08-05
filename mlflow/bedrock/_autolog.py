@@ -167,7 +167,7 @@ def _patched_converse(original, self, *args, **kwargs):
     ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
-        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "bedrock.converse")
+        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "bedrock")
         _set_tool_attributes(span, kwargs)
 
         result = original(self, *args, **kwargs)
@@ -189,7 +189,7 @@ def _patched_converse_stream(original, self, *args, **kwargs):
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
-        attributes={SpanAttributeKey.MESSAGE_FORMAT: "bedrock.converse"},
+        attributes={SpanAttributeKey.MESSAGE_FORMAT: "bedrock"},
     )
     _set_tool_attributes(span, kwargs)
 
