@@ -136,13 +136,6 @@ class Span:
         return encode_span_id(self._span.parent.span_id)
 
     @property
-    def _trace_state(self) -> Optional[str]:
-        """Internal property to access the OpenTelemetry trace state."""
-        if self._span.context.trace_state:
-            return self._span.context.trace_state.to_header()
-        return None
-
-    @property
     def status(self) -> SpanStatus:
         """The status of the span."""
         return SpanStatus.from_otel_status(self._span.status)
@@ -336,7 +329,7 @@ class Span:
         return ProtoSpan(
             trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
             span_id=_encode_span_id_to_byte(self._span.context.span_id),
-            trace_state=self._trace_state or "",
+            trace_state=self._span.context.trace_state or "",
             parent_span_id=parent,
             name=self.name,
             start_time_unix_nano=start_time_unix_nano,
@@ -750,11 +743,10 @@ class _SpanAttributesRegistry:
         if serialized_value:
             try:
                 return json.loads(serialized_value)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to get value for key {key}, make sure you set the attribute "
-                    f"on mlflow Span class instead of directly to the OpenTelemetry span. {e}"
-                )
+            except Exception:
+                # If failed to deserialize (e.g., string value is directly set to OTel span),
+                # return the original value as is.
+                return serialized_value
 
     def set(self, key: str, value: Any):
         if not isinstance(key, str):

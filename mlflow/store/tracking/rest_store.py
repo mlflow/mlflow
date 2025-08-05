@@ -1220,10 +1220,6 @@ class RestStore(AbstractStore):
                 if span.status.description:
                     otel_span.status.message = span.status.description
 
-            # Add trace state if available
-            if hasattr(span, "_trace_state") and span._trace_state:
-                otel_span.trace_state = span._trace_state
-
             # Add attributes
             for key, value in span.attributes.items():
                 attribute = otel_span.attributes.add()
