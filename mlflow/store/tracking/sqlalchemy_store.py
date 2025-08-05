@@ -400,7 +400,7 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlExperiment)
             .options(*query_options)
             .filter(
-                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.experiment_id == int(experiment_id),
                 SqlExperiment.lifecycle_stage.in_(stages),
             )
             .one_or_none()
@@ -484,7 +484,7 @@ class SqlAlchemyStore(AbstractStore):
         session.add(run)
 
     def _list_run_infos(self, session, experiment_id):
-        return session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
+        return session.query(SqlRun).filter(SqlRun.experiment_id == int(experiment_id)).all()
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
@@ -1150,6 +1150,7 @@ class SqlAlchemyStore(AbstractStore):
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
+        experiment_ids = [int(e) for e in experiment_ids]
         with self.ManagedSessionMaker() as session:
             # Note that the join with the input tag table is a left join. This is required so if an
             # input does not have the MLFLOW_DATASET_CONTEXT tag, we still return that entry as part
@@ -1304,7 +1305,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_experiment_is_active(experiment)
             filtered_tags = (
                 session.query(SqlExperimentTag)
-                .filter_by(experiment_id=experiment_id, key=key)
+                .filter_by(experiment_id=int(experiment_id), key=key)
                 .all()
             )
             if len(filtered_tags) == 0:
@@ -1496,6 +1497,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+            experiment_ids = [int(e) for e in experiment_ids]
             stmt = (
                 stmt.distinct()
                 .options(*self._get_eager_run_query_options())
@@ -2097,6 +2099,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             models = models.join(subquery)
 
+        experiment_ids = [int(e) for e in experiment_ids]
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -2279,6 +2282,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+            experiment_ids = [int(e) for e in experiment_ids]
             stmt = (
                 # NB: We don't need to distinct the results of joins because of the fact that
                 #   the right tables of the joins are unique on the join key, trace_id.
@@ -2373,7 +2377,7 @@ class SqlAlchemyStore(AbstractStore):
             The number of traces deleted.
         """
         with self.ManagedSessionMaker() as session:
-            filters = [SqlTraceInfo.experiment_id == experiment_id]
+            filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
             if max_timestamp_millis:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
