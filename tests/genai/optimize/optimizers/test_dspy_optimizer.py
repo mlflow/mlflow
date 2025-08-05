@@ -1,10 +1,10 @@
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
 import pytest
-from unittest.mock import MagicMock, patch
 
 pytest.importorskip("dspy", minversion="2.6.0")
 
-import mlflow
 from mlflow import register_prompt
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
@@ -24,14 +24,12 @@ class _TestDSPyPromptOptimizer(DSPyPromptOptimizer):
         train_data,
         eval_data,
     ) -> OptimizerOutput:
-        import dspy
-
         optimized_program = program
         optimized_program.demos = [train_data[0]] if train_data else []
-        
+
         # Create optimized prompt template
         optimized_template = f"Optimized: {prompt.template}"
-        
+
         return OptimizerOutput(
             optimized_prompt=optimized_template,
             final_eval_score=0.85,
@@ -46,31 +44,29 @@ def optimizer_config():
         optimizer_llm=LLMParams(
             model_name="gpt-3.5-turbo",
         ),
-        verbose=True
+        verbose=True,
     )
 
 
 @pytest.fixture
 def target_llm_params():
-    return LLMParams(
-        model_name="gpt-4",
-        temperature=0.2,
-        base_uri="https://api.openai.com/v1"
-    )
+    return LLMParams(model_name="gpt-4", temperature=0.2, base_uri="https://api.openai.com/v1")
 
 
 @pytest.fixture
 def sample_data():
-    return pd.DataFrame({
-        "inputs": [
-            {"question": "What is 2+2?", "context": "Math"},
-            {"question": "What is 3+3?", "context": "Math"},
-        ],
-        "expectations": [
-            {"answer": "4"},
-            {"answer": "6"},
-        ],
-    })
+    return pd.DataFrame(
+        {
+            "inputs": [
+                {"question": "What is 2+2?", "context": "Math"},
+                {"question": "What is 3+3?", "context": "Math"},
+            ],
+            "expectations": [
+                {"answer": "4"},
+                {"answer": "6"},
+            ],
+        }
+    )
 
 
 @pytest.fixture
@@ -86,7 +82,7 @@ def mock_scorer():
     @scorer
     def accuracy(inputs, outputs, expectations):
         return 1.0 if outputs.get("answer") == expectations.get("answer") else 0.0
-    
+
     return accuracy
 
 
@@ -94,31 +90,31 @@ def mock_scorer():
 def mock_extractor():
     with patch(
         "mlflow.genai.optimize.optimizers.dspy_optimizer.DSPyPromptOptimizer._extract_instructions",
-        return_value="Answer questions accurately"
+        return_value="Answer questions accurately",
     ) as mock:
         yield mock
 
 
 def test_optimize_basic_functionality(
-    target_llm_params, sample_data, 
-    sample_prompt, mock_scorer, mock_extractor
-):  
+    target_llm_params, sample_data, sample_prompt, mock_scorer, mock_extractor
+):
     optimizer = _TestDSPyPromptOptimizer(OptimizerConfig())
-    
+
     result = optimizer.optimize(
         prompt=sample_prompt,
         target_llm_params=target_llm_params,
         train_data=sample_data,
         scorers=[mock_scorer],
-        eval_data=None
+        eval_data=None,
     )
-    
+
     # Verify result
     assert isinstance(result, OptimizerOutput)
     assert result.optimized_prompt.startswith("Optimized:")
     assert result.final_eval_score == 0.85
     assert result.initial_eval_score == 0.5
     assert result.optimizer_name == "TestDSPyOptimizer"
+
 
 def test_convert_to_dspy_metric(mock_scorer):
     import dspy
@@ -140,6 +136,7 @@ def test_convert_to_dspy_metric(mock_scorer):
     state = None
 
     assert metric(pred, gold, state) == 2.0
+
 
 def test_convert_to_dspy_metric_raises_on_non_numeric_score():
     import dspy
@@ -166,6 +163,7 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
             dspy.Example(translation="Hola"),
             None,
         )
+
 
 def test_optimize_prompt_with_old_dspy_version():
     with patch("importlib.metadata.version", return_value="2.5.0"):
