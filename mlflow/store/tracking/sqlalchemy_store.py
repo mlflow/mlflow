@@ -2689,18 +2689,16 @@ class SqlAlchemyStore(AbstractStore):
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
-                    timestamp_ms=min_start_time // 1_000_000,  # Convert to milliseconds
-                    execution_time_ms=(max_end_time - min_start_time) // 1_000_000,  # Convert to ms
-                    status="OK",  # Default status
+                    timestamp_ms=min_start_time // 1_000_000,
+                    execution_time_ms=(max_end_time - min_start_time) // 1_000_000,
+                    status="OK",
                     client_request_id=None,
                 )
 
-                # Add to session and try to flush to detect conflicts early
                 session.add(sql_trace_info)
                 try:
                     session.flush()
                 except IntegrityError:
-                    # Another process created the trace concurrently, fetch it
                     session.rollback()
                     sql_trace_info = (
                         session.query(SqlTraceInfo)
@@ -2708,20 +2706,14 @@ class SqlAlchemyStore(AbstractStore):
                         .one()
                     )
 
-            # After trace exists (either created or fetched), update its time range atomically
-            # to include all spans (both existing and new)
             min_start_time = min(span.start_time_ns for span in spans)
             max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
             min_start_ms = min_start_time // 1_000_000
             max_end_ms = max_end_time // 1_000_000
 
-            # Use SQLAlchemy's case expression for atomic update to avoid race conditions
-            # This works by comparing and updating in a single statement
             from sqlalchemy import case
 
-            # Atomically calculate the new start and end times based on existing trace and new
-            # spans, updating the trace's start time and execution time if necessary
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 {
                     SqlTraceInfo.timestamp_ms: case(
@@ -2746,9 +2738,7 @@ class SqlAlchemyStore(AbstractStore):
                 synchronize_session=False,
             )
 
-            # Create SqlSpan entities for all spans
             for span in spans:
-                # Get span dict and convert to JSON
                 span_dict = span.to_dict()
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -2765,7 +2755,6 @@ class SqlAlchemyStore(AbstractStore):
                     content=content_json,
                 )
 
-                # Merge to handle potential duplicates
                 session.merge(sql_span)
 
         return spans

@@ -4871,7 +4871,9 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
     """Test that logging spans from different traces raises an error."""
 
     from mlflow.entities.span import create_mlflow_span
@@ -4937,11 +4939,17 @@ def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore):
     )
 
     # Try to log spans from different traces - should raise MlflowException
-    with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-        store.log_spans(experiment_id, [span1, span2])
+    if is_async:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            await store.log_spans_async(experiment_id, [span1, span2])
+    else:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            store.log_spans(experiment_id, [span1, span2])
 
 
-def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans creates a trace if it doesn't exist."""
 
     from mlflow.entities.span import create_mlflow_span
@@ -4972,7 +4980,10 @@ def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore):
     span = create_mlflow_span(readable_span, trace_id)
 
     # Log the span - should create the trace automatically
-    logged_spans = store.log_spans(experiment_id, [span])
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
 
     assert len(logged_spans) == 1
     assert logged_spans[0] == span
@@ -5005,7 +5016,9 @@ async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
     assert result == []
 
 
-def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
     """Test that concurrent trace creation is handled correctly."""
 
     from mlflow.entities.span import create_mlflow_span
@@ -5056,7 +5069,10 @@ def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore):
         original_flush = session.flush
         with mock.patch.object(session, "flush", mock_flush):
             # This should handle the IntegrityError and still succeed
-            result = store.log_spans(experiment_id, [span])
+            if is_async:
+                result = await store.log_spans_async(experiment_id, [span])
+            else:
+                result = store.log_spans(experiment_id, [span])
 
     # Verify the span was logged successfully despite the race condition
     assert len(result) == 1
@@ -5077,7 +5093,9 @@ def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore):
         assert saved_span is not None
 
 
-def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans updates trace time range when new spans extend it."""
 
     from mlflow.entities.span import create_mlflow_span
@@ -5106,7 +5124,10 @@ def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore):
     )
 
     # Log first span - creates trace with 1s start, 1s duration
-    store.log_spans(experiment_id, [span1])
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
 
     # Verify initial trace times
     with store.ManagedSessionMaker() as session:
@@ -5134,7 +5155,10 @@ def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore):
     )
 
     # Log second span - should update trace to 0.5s start, 2.5s duration
-    store.log_spans(experiment_id, [span2])
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
 
     # Verify trace times were updated
     with store.ManagedSessionMaker() as session:
@@ -5162,7 +5186,10 @@ def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore):
     )
 
     # Log third span - should only update end time
-    store.log_spans(experiment_id, [span3])
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
 
     # Verify trace times were updated again
     with store.ManagedSessionMaker() as session:
