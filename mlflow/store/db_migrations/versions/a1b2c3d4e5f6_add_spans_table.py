@@ -28,7 +28,8 @@ def upgrade():
         sa.Column("parent_span_id", sa.String(length=50), nullable=True),
         sa.Column("name", sa.Text(), nullable=True),
         # Use String instead of Text for type column to support MSSQL indexes.
-        # MSSQL doesn't allow TEXT columns in indexes.
+        # MSSQL doesn't allow TEXT columns in indexes. 1000 chars should be
+        # plenty for most span types.
         sa.Column("type", sa.String(length=1000), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("start_time_unix_nano", sa.BigInteger(), nullable=False),

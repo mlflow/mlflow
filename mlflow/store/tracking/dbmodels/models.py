@@ -1309,6 +1309,7 @@ class SqlSpan(Base):
     """
     Span type: `String` (limit 1000 characters). Can be null.
     Uses String instead of Text to support MSSQL indexes.
+    1000 chars should be plenty for most span types.
     """
 
     status = Column(String(50), nullable=False)
