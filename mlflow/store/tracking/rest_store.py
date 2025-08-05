@@ -14,6 +14,7 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
+    Span,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -605,6 +606,38 @@ class RestStore(AbstractStore):
             req_body,
             endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
+
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
 
     def log_metric(self, run_id: str, metric: Metric):
         """
