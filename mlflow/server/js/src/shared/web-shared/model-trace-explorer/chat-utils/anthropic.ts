@@ -28,7 +28,11 @@ type AnthropicMessageParam = {
   role: 'user' | 'assistant';
 };
 
-type AnthropicContentBlockParam = AnthropicTextBlockParam | AnthropicImageBlockParam | AnthropicToolUseBlockParam | AnthropicToolResultBlockParam;
+type AnthropicContentBlockParam =
+  | AnthropicTextBlockParam
+  | AnthropicImageBlockParam
+  | AnthropicToolUseBlockParam
+  | AnthropicToolResultBlockParam;
 // | DocumentBlockParam
 // | ThinkingBlockParam
 // | RedactedThinkingBlockParam
@@ -154,7 +158,9 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
   throw new Error(`Unsupported content block type: ${(item as any).type}`);
 };
 
-const processAnthropicMessageContent = (content: AnthropicContentBlockParam[]): {
+const processAnthropicMessageContent = (
+  content: AnthropicContentBlockParam[],
+): {
   messages: ModelTraceChatMessage[];
   textParts: ModelTraceContentParts[];
   toolCalls: any[];
@@ -199,7 +205,7 @@ const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChat
   } else {
     const { messages: toolMessages, textParts, toolCalls } = processAnthropicMessageContent(message.content);
     messages.push(...toolMessages);
-    
+
     if (textParts.length > 0 || toolCalls.length > 0) {
       const chatMessage = prettyPrintChatMessage({
         type: 'message',
@@ -221,11 +227,11 @@ export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage
 
   if ('messages' in obj && isArray(obj.messages) && obj.messages.every(isAnthropicMessageParam)) {
     const messages: ModelTraceChatMessage[] = [];
-    
+
     for (const message of obj.messages) {
       messages.push(...processAnthropicMessage(message));
     }
-    
+
     return messages;
   }
 

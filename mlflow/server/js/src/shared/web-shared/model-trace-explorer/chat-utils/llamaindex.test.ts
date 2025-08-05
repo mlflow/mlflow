@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_LLAMAINDEX_INPUT = {
   messages: [
@@ -85,7 +85,6 @@ export const MOCK_LLAMAINDEX_OUTPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('handles a LlamaIndex chat input', () => {
     const spanAttributes = { 'mlflow.message.format': 'llamaindex' };
     expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT, spanAttributes)).toEqual([
@@ -109,5 +108,4 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
-
 });

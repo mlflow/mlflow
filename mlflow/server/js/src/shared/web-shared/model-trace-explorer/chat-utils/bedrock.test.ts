@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_BEDROCK_INPUT = {
   messages: [
@@ -116,7 +116,6 @@ export const MOCK_BEDROCK_IMAGE_INPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('handles a Bedrock input format', () => {
     const spanAttributes = { 'mlflow.message.format': 'bedrock' };
     expect(normalizeConversation(MOCK_BEDROCK_INPUT, spanAttributes)).toEqual([
@@ -142,31 +141,37 @@ describe('normalizeConversation', () => {
     const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(3);
-    
-    expect(result![0]).toEqual(expect.objectContaining({
-      role: 'user',
-      content: 'Please check the weather in Tokyo and book a flight.',
-    }));
-    
-    expect(result![1]).toEqual(expect.objectContaining({
-      role: 'assistant',
-      content: 'I will help you check the weather and book a flight.',
-      tool_calls: expect.arrayContaining([
-        expect.objectContaining({
-          id: 'weather_tool_1',
-          function: expect.objectContaining({
-            name: 'get_weather',
-            arguments: expect.stringContaining('"city"'),
+
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'user',
+        content: 'Please check the weather in Tokyo and book a flight.',
+      }),
+    );
+
+    expect(result![1]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'I will help you check the weather and book a flight.',
+        tool_calls: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'weather_tool_1',
+            function: expect.objectContaining({
+              name: 'get_weather',
+              arguments: expect.stringContaining('"city"'),
+            }),
           }),
-        }),
-      ]),
-    }));
-    
-    expect(result![2]).toEqual(expect.objectContaining({
-      role: 'tool',
-      content: 'The weather in Tokyo is sunny with 25°C.',
-      tool_call_id: 'weather_tool_1',
-    }));
+        ]),
+      }),
+    );
+
+    expect(result![2]).toEqual(
+      expect.objectContaining({
+        role: 'tool',
+        content: 'The weather in Tokyo is sunny with 25°C.',
+        tool_call_id: 'weather_tool_1',
+      }),
+    );
   });
 
   it('handles a Bedrock tool use output format', () => {
@@ -174,20 +179,22 @@ describe('normalizeConversation', () => {
     const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_OUTPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
-    
-    expect(result![0]).toEqual(expect.objectContaining({
-      role: 'assistant',
-      content: 'Based on the weather information, I can help you book a flight to Tokyo.',
-      tool_calls: expect.arrayContaining([
-        expect.objectContaining({
-          id: 'flight_tool_1',
-          function: expect.objectContaining({
-            name: 'book_flight',
-            arguments: expect.stringContaining('"destination"'),
+
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Based on the weather information, I can help you book a flight to Tokyo.',
+        tool_calls: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'flight_tool_1',
+            function: expect.objectContaining({
+              name: 'book_flight',
+              arguments: expect.stringContaining('"destination"'),
+            }),
           }),
-        }),
-      ]),
-    }));
+        ]),
+      }),
+    );
   });
 
   it('handles a Bedrock image input format', () => {
@@ -195,11 +202,12 @@ describe('normalizeConversation', () => {
     const result = normalizeConversation(MOCK_BEDROCK_IMAGE_INPUT, spanAttributes);
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
-    
-    expect(result![0]).toEqual(expect.objectContaining({
-      role: 'user',
-      content: expect.stringContaining('Describe this image: [Image: data:image/jpeg;base64,'),
-    }));
-  });
 
-}); 
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringContaining('Describe this image: [Image: data:image/jpeg;base64,'),
+      }),
+    );
+  });
+});

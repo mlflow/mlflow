@@ -6,9 +6,9 @@ export const normalizeDspyChatInput = (obj: unknown): ModelTraceChatMessage[] | 
   // Handle DSPy format with messages array
   if (has(obj, 'messages') && isArray((obj as any).messages)) {
     const messages = (obj as any).messages;
-    return messages.map((msg: any) => 
-      prettyPrintChatMessage({ type: 'message', content: msg.content, role: msg.role })
-    ).filter(Boolean);
+    return messages
+      .map((msg: any) => prettyPrintChatMessage({ type: 'message', content: msg.content, role: msg.role }))
+      .filter(Boolean);
   }
 
   return null;

@@ -327,7 +327,11 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
-const getChatMessagesFromSpan = (inputs: any, outputs: any, spanAttributes?: Record<string, any>): ModelTraceChatMessage[] | undefined => {
+const getChatMessagesFromSpan = (
+  inputs: any,
+  outputs: any,
+  spanAttributes?: Record<string, any>,
+): ModelTraceChatMessage[] | undefined => {
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
@@ -888,7 +892,10 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  11. Anthropic inputs
  *  12. Anthropic outputs
  */
-export const normalizeConversation = (input: any, spanAttributes?: Record<string, any>): ModelTraceChatMessage[] | null => {
+export const normalizeConversation = (
+  input: any,
+  spanAttributes?: Record<string, any>,
+): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
   // simply return null to signify that the input is not a chat input.
@@ -969,7 +976,6 @@ export const normalizeConversation = (input: any, spanAttributes?: Record<string
           break;
       }
     }
-
 
     return null;
   } catch (e) {

@@ -8,7 +8,6 @@ import agents.tracing as oai
 from agents import add_trace_processor
 from agents._run_impl import TraceCtxManager
 from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
-from pydantic import BaseModel
 
 from mlflow.entities.span import LiveSpan, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -17,12 +16,8 @@ from mlflow.openai import FLAVOR_NAME
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.types.chat import (
-    ChatMessage,
     ChatTool,
-    Function,
     FunctionToolDefinition,
-    TextContentPart,
-    ToolCall,
 )
 from mlflow.utils.autologging_utils.safety import safe_patch
 

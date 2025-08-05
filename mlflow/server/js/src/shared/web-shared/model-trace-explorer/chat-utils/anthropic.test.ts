@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_ANTHROPIC_INPUT = {
   max_tokens: 1024,
@@ -48,7 +48,6 @@ export const MOCK_ANTHROPIC_OUTPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('should handle anthropic input', () => {
     const spanAttributes = { 'mlflow.message.format': 'anthropic' };
     expect(normalizeConversation(MOCK_ANTHROPIC_INPUT, spanAttributes)).toEqual([
@@ -68,5 +67,4 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
-
 });

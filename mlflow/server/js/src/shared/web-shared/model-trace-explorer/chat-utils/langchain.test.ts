@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_LANGCHAIN_INPUT = [
   [
@@ -253,7 +253,6 @@ export const MOCK_LANGCHAIN_CHAT_OUTPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('handles a langchain chat input', () => {
     const spanAttributes = { 'mlflow.message.format': 'langchain' };
     expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_INPUT, spanAttributes)).toEqual([
@@ -332,5 +331,4 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
-
 });

@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_GEMINI_INPUT = {
   model: 'gemini-2.5-flash',
@@ -81,7 +81,6 @@ export const MOCK_GEMINI_OUTPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('should handle gemini input', () => {
     const spanAttributes = { 'mlflow.message.format': 'gemini' };
     expect(normalizeConversation(MOCK_GEMINI_INPUT, spanAttributes)).toEqual([
@@ -101,5 +100,4 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
-
 });

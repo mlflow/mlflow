@@ -74,10 +74,8 @@ const convertBedrockMessageToChatMessage = (message: BedrockMessage): ModelTrace
   for (const content of message.content) {
     if (content.toolUse) {
       const toolCall = content.toolUse;
-      const input = typeof toolCall.input === 'string' 
-        ? toolCall.input 
-        : JSON.stringify(toolCall.input);
-      
+      const input = typeof toolCall.input === 'string' ? toolCall.input : JSON.stringify(toolCall.input);
+
       toolCalls.push(
         prettyPrintToolCall({
           id: toolCall.toolUseId,
@@ -85,12 +83,12 @@ const convertBedrockMessageToChatMessage = (message: BedrockMessage): ModelTrace
             name: toolCall.name,
             arguments: input,
           },
-        })
+        }),
       );
     } else if (content.toolResult) {
       toolCallId = content.toolResult.toolUseId;
       role = 'tool';
-      
+
       for (const resultContent of content.toolResult.content) {
         const parsedContent = parseBedrockContent(resultContent);
         if (parsedContent) {
@@ -109,7 +107,7 @@ const convertBedrockMessageToChatMessage = (message: BedrockMessage): ModelTrace
   let contentString = '';
   if (contents.length > 0) {
     contentString = contents
-      .map(part => {
+      .map((part) => {
         if (part.type === 'text') {
           return part.text;
         } else if (part.type === 'image_url') {
@@ -117,7 +115,7 @@ const convertBedrockMessageToChatMessage = (message: BedrockMessage): ModelTrace
         }
         return '';
       })
-      .filter(text => text.length > 0)
+      .filter((text) => text.length > 0)
       .join(' ');
   }
 
@@ -181,4 +179,4 @@ export const normalizeBedrockChatOutput = (obj: unknown): ModelTraceChatMessage[
   }
 
   return null;
-}; 
+};

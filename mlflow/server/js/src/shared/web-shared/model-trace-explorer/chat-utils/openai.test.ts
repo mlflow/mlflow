@@ -1,4 +1,4 @@
-import { normalizeConversation } from "../ModelTraceExplorer.utils";
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 export const MOCK_OPENAI_CHAT_INPUT = {
   model: 'gpt-4o-mini',
@@ -183,7 +183,6 @@ export const MOCK_OPENAI_RESPONSES_INPUT = {
 };
 
 describe('normalizeConversation', () => {
-
   it('handles an OpenAI chat input', () => {
     const spanAttributes = { 'mlflow.message.format': 'openai' };
     expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, spanAttributes)).toEqual([
@@ -242,5 +241,4 @@ describe('normalizeConversation', () => {
       }),
     ]);
   });
-
 });

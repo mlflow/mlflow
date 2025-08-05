@@ -29,14 +29,17 @@ interface AutogenFunctionExecutionResultMessage {
   content: any;
 }
 
-type AutogenMessage = AutogenSystemMessage | AutogenUserMessage | AutogenAssistantMessage | AutogenFunctionExecutionResultMessage;
+type AutogenMessage =
+  | AutogenSystemMessage
+  | AutogenUserMessage
+  | AutogenAssistantMessage
+  | AutogenFunctionExecutionResultMessage;
 
 const isAutogenFunctionCall = (obj: unknown): obj is AutogenFunctionCall => {
   return isObject(obj) && isString(get(obj, 'id')) && isString(get(obj, 'name')) && isString(get(obj, 'arguments'));
 };
 
 const isAutogenMessage = (obj: unknown): obj is AutogenMessage => {
-
   if (!isObject(obj)) {
     return false;
   }
@@ -66,7 +69,9 @@ const isAutogenMessage = (obj: unknown): obj is AutogenMessage => {
   return false;
 };
 
-const convertAssistantMessageToChatMessage = (content: string | AutogenFunctionCall[]): ModelTraceChatMessage | null => {
+const convertAssistantMessageToChatMessage = (
+  content: string | AutogenFunctionCall[],
+): ModelTraceChatMessage | null => {
   if (isString(content)) {
     return prettyPrintChatMessage({ type: 'message', content, role: 'assistant' });
   }
@@ -81,7 +86,7 @@ const convertAssistantMessageToChatMessage = (content: string | AutogenFunctionC
             name: f.name,
             arguments: f.arguments,
           },
-        })
+        }),
       ),
     };
   }
@@ -94,7 +99,7 @@ const normalizeAutogenMessage = (message: any): ModelTraceChatMessage | null => 
   if (message.type === 'SystemMessage') {
     return prettyPrintChatMessage({ type: 'message', content: message.content, role: 'system' });
   }
-  
+
   if (message.type === 'UserMessage') {
     if (isString(message.content)) {
       return prettyPrintChatMessage({ type: 'message', content: message.content, role: 'user' });
@@ -104,7 +109,7 @@ const normalizeAutogenMessage = (message: any): ModelTraceChatMessage | null => 
       // Handle content that might be an array of text/image parts
       const textParts = message.content
         .filter((part: any) => isString(part) || (isObject(part) && (part as any).type === 'text'))
-        .map((part: any) => isString(part) ? ({ type: 'text' as const, text: part }) : part);
+        .map((part: any) => (isString(part) ? { type: 'text' as const, text: part } : part));
 
       if (textParts.length > 0) {
         return prettyPrintChatMessage({ type: 'message', content: textParts, role: 'user' });

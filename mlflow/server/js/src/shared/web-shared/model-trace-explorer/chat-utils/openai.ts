@@ -244,7 +244,7 @@ const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => 
         .filter((item: any) => item.type === 'output_text' && isString(item.text))
         .map((item: any) => item.text)
         .join(' ');
-      
+
       if (textContent) {
         return prettyPrintChatMessage({
           ...obj,
@@ -252,7 +252,7 @@ const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => 
         });
       }
     }
-    
+
     // Fall back to regular prettyPrintChatMessage for string content
     return prettyPrintChatMessage(obj);
   }
@@ -262,7 +262,7 @@ const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => 
     const callId = get(obj, 'call_id');
     const arguments_ = get(obj, 'arguments');
     const name = get(obj, 'name');
-    
+
     if (isString(callId) && isString(arguments_) && isString(name)) {
       return {
         role: 'assistant',
@@ -283,7 +283,7 @@ const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => 
   if (get(obj, 'type') === 'function_call_output') {
     const callId = get(obj, 'call_id');
     const output = get(obj, 'output');
-    
+
     if (isString(callId) && isString(output)) {
       return {
         role: 'tool',
