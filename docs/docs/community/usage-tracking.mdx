@@ -31,7 +31,7 @@ MLflow complies with GDPR in the following ways:
 - **No Personal Data Collected**: The telemetry data collected is fully anonymized and does not include any personal or sensitive information (e.g., usernames, IP addresses, file names, parameters, or model content). MLflow generates a random UUID for each session for aggregating usage events, which cannot be used to identify or track individual users.
 - **Purpose Limitation**: Data is only used to improve the MLflow project based on aggregate feature usage patterns.
 - **Data Minimization**: Only the minimum necessary metadata is collected to inform project priorities (e.g., feature toggle state, SDK/platform used, version info).
-- **User Control**: Users can opt out of telemetry at any time by setting the environment variable MLFLOW_DISABLE_TELEMETRY=true or DO_NOT_TRACK=true. MLflow respects these settings immediately without requiring a restart.
+- **User Control**: Users can opt out of telemetry at any time by setting the environment variable **MLFLOW_DISABLE_TELEMETRY=true** or **DO_NOT_TRACK=true**. MLflow respects these settings immediately without requiring a restart.
 - **Transparency**: Telemetry endpoints and behavior are documented publicly, and MLflow users can inspect or block the relevant network calls.
 
 For further inquiries or data protection questions, users can file an issue on the [MLflow GitHub repository](https://github.com/mlflow/mlflow/issues).
