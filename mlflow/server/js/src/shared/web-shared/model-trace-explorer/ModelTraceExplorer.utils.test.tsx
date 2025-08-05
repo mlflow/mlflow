@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { ModelSpanType } from './ModelTrace.types';
-import type { ModelTraceChatMessage, ModelTraceSpanNode } from './ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
   MOCK_CHAT_TOOL_CALL_SPAN,
   MOCK_OPENAI_CHAT_INPUT,
@@ -354,6 +354,52 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
+  });
+
+  it('should use mlflow.chat.messages attribute when present and properly formatted', () => {
+    const chatMessages: RawModelTraceChatMessage[] = [
+      {
+        role: 'user',
+        content: 'Hello, how are you?',
+      },
+      {
+        role: 'assistant',
+        content: 'I am doing well, thank you for asking!',
+      },
+    ];
+
+    const spanWithChatMessages = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        // this is intentionally different from mock span data
+        // so we can test that the attribute is used instead of
+        // the inputs and outputs
+        'mlflow.chat.messages': JSON.stringify(chatMessages),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithChatMessages, 0, 0, [], {}, '');
+
+    // Should use the messages from mlflow.chat.messages attribute
+    expect(normalized.chatMessages).toEqual(chatMessages.map(prettyPrintChatMessage));
+  });
+
+  it('should rely on input output parsing if chat attribute is malformed', () => {
+    const spanWithChatMessages = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'mlflow.chat.messages': JSON.stringify('invalid chat format'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithChatMessages, 0, 0, [], {}, '');
+
+    const inputMessages = MOCK_OPENAI_CHAT_INPUT.messages;
+    const outputMessage = MOCK_OPENAI_CHAT_OUTPUT.choices[0].message;
+    const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
+    expect(normalized.chatMessages).toEqual(messages);
   });
 
   it('return undefined chat messages when either input or output is not chat', () => {
