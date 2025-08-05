@@ -167,14 +167,16 @@ def optimize_prompt(
 
 
 def _select_optimizer(optimizer_config: OptimizerConfig) -> BasePromptOptimizer:
-    if isinstance(optimizer_config.algorithm, BasePromptOptimizer):
-        return optimizer_config.algorithm
+    if isinstance(optimizer_config.algorithm, type) and issubclass(
+        optimizer_config.algorithm, BasePromptOptimizer
+    ):
+        return optimizer_config.algorithm(optimizer_config)
 
     if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
             f"Unsupported algorithm: '{optimizer_config.algorithm}'. "
-            f"Available algorithms: {list(_ALGORITHMS.keys())}. "
-            "Please choose from the supported algorithms above."
+            f"Please use one of the following algorithms: {list(_ALGORITHMS.keys())}. "
+            "Or provide a custom optimizer class that inherits from BasePromptOptimizer."
         )
 
     return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)

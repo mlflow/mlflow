@@ -92,7 +92,7 @@ def test_optimize_prompt_custom_optimizer(sample_prompt, sample_data):
         prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
         train_data=sample_data,
         scorers=[sample_scorer],
-        optimizer_config=OptimizerConfig(algorithm=_CustomOptimizer(OptimizerConfig())),
+        optimizer_config=OptimizerConfig(algorithm=_CustomOptimizer),
     )
     assert isinstance(result, PromptOptimizationResult)
     assert result.prompt.name == sample_prompt.name

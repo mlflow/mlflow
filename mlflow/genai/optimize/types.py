@@ -1,6 +1,6 @@
 import multiprocessing
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 from mlflow.entities import Feedback
 from mlflow.entities.model_registry import PromptVersion
@@ -8,6 +8,8 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
+
+T = TypeVar("T", bound="BasePromptOptimizer")
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
@@ -86,7 +88,7 @@ class OptimizerConfig:
     max_few_show_examples: int = 6
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
-    algorithm: Union[str, "BasePromptOptimizer"] = "DSPy/MIPROv2"
+    algorithm: Union[str, type[T]] = "DSPy/MIPROv2"
     verbose: bool = False
     autolog: bool = False
     convert_to_single_text: bool = True
