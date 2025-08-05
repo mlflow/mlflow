@@ -185,7 +185,9 @@ def build(package_type: PackageType) -> None:
     requirements_dir = Path("requirements")
     tracing_requirements = read_requirements_yaml(requirements_dir / "tracing-requirements.yaml")
     skinny_requirements = read_requirements_yaml(requirements_dir / "skinny-requirements.yaml")
-    _check_skinny_tracing_mismatch(skinny_requirements, tracing_requirements)
+    _check_skinny_tracing_mismatch(
+        skinny_reqs=skinny_requirements, tracing_reqs=tracing_requirements
+    )
     core_requirements = read_requirements_yaml(requirements_dir / "core-requirements.yaml")
     gateways_requirements = read_requirements_yaml(requirements_dir / "gateway-requirements.yaml")
     package_version = re.search(
@@ -427,7 +429,7 @@ def _get_package_data(package_type: PackageType) -> Optional[dict[str, list[str]
     return package_data
 
 
-def _check_skinny_tracing_mismatch(skinny_reqs: list[str], tracing_reqs: list[str]) -> None:
+def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list[str]) -> None:
     """
     Check if the tracing requirements are a subset of the skinny requirements.
     NB: We don't make mlflow-tracing as a hard dependency of mlflow-skinny because
