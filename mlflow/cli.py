@@ -451,21 +451,21 @@ def server(
 
     try:
         _run_server(
-            backend_store_uri,
-            registry_store_uri,
-            default_artifact_root,
-            serve_artifacts,
-            artifacts_only,
-            artifacts_destination,
-            host,
-            port,
-            static_prefix,
-            workers,
-            gunicorn_opts,
-            waitress_opts,
-            expose_prometheus,
-            app_name,
-            uvicorn_opts,
+            file_store_path=backend_store_uri,
+            registry_store_uri=registry_store_uri,
+            default_artifact_root=default_artifact_root,
+            serve_artifacts=serve_artifacts,
+            artifacts_only=artifacts_only,
+            artifacts_destination=artifacts_destination,
+            host=host,
+            port=port,
+            static_prefix=static_prefix,
+            workers=workers,
+            gunicorn_opts=gunicorn_opts,
+            waitress_opts=waitress_opts,
+            expose_prometheus=expose_prometheus,
+            app_name=app_name,
+            uvicorn_opts=uvicorn_opts,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

@@ -103,14 +103,32 @@ def test_build_uvicorn_command():
 def test_run_server(mock_exec_cmd):
     """Make sure this runs."""
     with mock.patch("sys.platform", return_value="linux"):
-        server._run_server("", "", "", "", "", "", "", "")
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
     mock_exec_cmd.assert_called_once()
 
 
 def test_run_server_win32(mock_exec_cmd):
     """Make sure this runs."""
     with mock.patch("sys.platform", return_value="win32"):
-        server._run_server("", "", "", "", "", "", "", "")
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
     mock_exec_cmd.assert_called_once()
 
 

@@ -266,6 +266,7 @@ def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
 
 
 def _run_server(
+    *,
     file_store_path,
     registry_store_uri,
     default_artifact_root,
