@@ -2720,11 +2720,8 @@ class SqlAlchemyStore(AbstractStore):
             # This works by comparing and updating in a single statement
             from sqlalchemy import case
 
-            # Calculate the new start and end times based on existing trace and new spans
-            # new_start = min(current_start, spans_min_start)
-            # new_end = max(current_end, spans_max_end)
-            # new_duration = new_end - new_start
-
+            # Atomically calculate the new start and end times based on existing trace and new
+            # spans, updating the trace's start time and execution time if necessary
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 {
                     SqlTraceInfo.timestamp_ms: case(
@@ -2752,13 +2749,14 @@ class SqlAlchemyStore(AbstractStore):
             # Create SqlSpan entities for all spans
             for span in spans:
                 # Extract trace state
-                trace_state_str = None
-                if hasattr(span, "_span") and hasattr(span._span, "context"):
-                    trace_state = span._span.context.trace_state
-                    if trace_state:
-                        trace_state_str = trace_state.to_header()
+                trace_state = span._span.context.trace_state
+                trace_state_str = trace_state.to_header() if trace_state else None
 
-                content_json = json.dumps(span.to_dict(), cls=TraceJSONEncoder)
+                # Get span dict and handle trace_state separately to avoid serialization issues
+                span_dict = span.to_dict()
+                # Remove trace_state from dict since we handle it separately
+                span_dict.pop("trace_state", None)
+                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
                 sql_span = SqlSpan(
                     trace_id=span.trace_id,
