@@ -459,6 +459,14 @@ def test_wheel_download_allowed_options(tmp_path, monkeypatch):
             mock_run.assert_called_once()
             assert option in mock_run.call_args[0][0]
 
+    # test combination of options
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary --no-clean")
+    with mock.patch("subprocess.run") as mock_run:
+        WheeledModel._download_wheels(tmp_path / "req.txt", tmp_path / "wheels")
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert "--prefer-binary --no-clean" in call_args[0][0]
+
 
 def test_wheel_download_extra_envs(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary")

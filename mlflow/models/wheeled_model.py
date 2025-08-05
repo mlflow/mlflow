@@ -238,11 +238,12 @@ class WheeledModel:
             "--require-hashes",
             "--no-clean",
         ]
-        if pip_wheel_options not in allowed_options:
+        all_options = pip_wheel_options.split(" ")
+        if any(option not in allowed_options for option in all_options):
             raise MlflowException.invalid_parameter_value(
-                f"Invalid pip wheel option: `{pip_wheel_options}` for "
-                "`MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`. "
-                f"To use other options, set them as environment variables or use `extra_envs` to "
+                "Invalid pip wheel option passed to `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`. "
+                f"Allowed options: {', '.join(allowed_options)}. "
+                "To use other options, set them as environment variables or use `extra_envs` to "
                 "apply them when downloading the wheels. Check "
                 "https://pip.pypa.io/en/stable/cli/pip_wheel/#options for corresponding "
                 "environment variables.",
