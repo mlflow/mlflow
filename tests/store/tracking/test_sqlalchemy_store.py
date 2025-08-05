@@ -6341,12 +6341,13 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     with pytest.raises(MlflowException, match="not found"):
         store.upsert_evaluation_dataset_records("d-nonexistent", records_batch1)
 
-    # Test that empty inputs raise an error
-    with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
-        store.upsert_evaluation_dataset_records(
-            created_dataset.dataset_id,
-            [{"inputs": {}, "expectations": {"result": "should fail"}}],
-        )
+    # Test that empty inputs dict is allowed (for traces without inputs)
+    result = store.upsert_evaluation_dataset_records(
+        created_dataset.dataset_id,
+        [{"inputs": {}, "expectations": {"result": "empty inputs allowed"}}],
+    )
+    assert result["inserted"] == 1
+    assert result["updated"] == 0
 
     empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0

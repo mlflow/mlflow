@@ -6058,12 +6058,12 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental
-    def update_evaluation_dataset_tags(
+    @experimental(version="3.3.0")
+    def set_evaluation_dataset_tags(
         self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
     ) -> None:
         """
-        Update tags for an evaluation dataset.
+        Set tags for an evaluation dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -6083,8 +6083,8 @@ class MlflowClient:
 
             client = MlflowClient()
 
-            # Update tags for a dataset
-            client.update_evaluation_dataset_tags(
+            # Set tags for a dataset
+            client.set_evaluation_dataset_tags(
                 dataset_id="dataset123",
                 tags={
                     "environment": "production",
@@ -6093,6 +6093,30 @@ class MlflowClient:
                 },
             )
         """
-        self._tracking_client.update_evaluation_dataset_tags(
+        self._tracking_client.set_evaluation_dataset_tags(
             dataset_id=dataset_id, tags=tags, updated_by=updated_by
         )
+
+    @experimental(version="3.3.0")
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+
+        .. code-block:: python
+            :test:
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Delete a tag
+            client.delete_evaluation_dataset_tag(dataset_id="dataset123", key="deprecated")
+        """
+        self._tracking_client.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)

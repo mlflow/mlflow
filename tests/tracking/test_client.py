@@ -2724,12 +2724,17 @@ def test_link_multiple_prompt_types_to_run():
 
 
 def test_mlflow_client_create_evaluation_dataset(mock_store):
-    mock_store.create_evaluation_dataset.return_value = EvaluationDataset(
+    created_dataset = EvaluationDataset(
         dataset_id="test_dataset_id",
         name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
         tags={"environment": "production", "version": "1.0"},
-        experiment_ids=["exp1", "exp2"],
     )
+    # Set experiment_ids through the property since it's lazy-loaded
+    created_dataset.experiment_ids = ["exp1", "exp2"]
+    mock_store.create_evaluation_dataset.return_value = created_dataset
 
     dataset = MlflowClient().create_evaluation_dataset(
         name="qa_evaluation",
@@ -2741,41 +2746,42 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     assert dataset.name == "test_dataset"
     assert dataset.tags == {"environment": "production", "version": "1.0"}
 
-    # Verify the store was called with a dataset object and experiment_ids
-    call_args = mock_store.create_evaluation_dataset.call_args
-    assert len(call_args[0]) == 2  # dataset object and experiment_ids
-    created_dataset = call_args[0][0]
-    experiment_ids = call_args[0][1]
-
-    assert created_dataset.name == "qa_evaluation"
-    assert created_dataset.tags == {"environment": "production", "version": "1.0"}
-    assert experiment_ids == ["exp1", "exp2"]
+    mock_store.create_evaluation_dataset.assert_called_once_with(
+        name="qa_evaluation",
+        tags={"environment": "production", "version": "1.0"},
+        experiment_ids=["exp1", "exp2"],
+    )
 
 
 def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
-    mock_store.create_evaluation_dataset.return_value = EvaluationDataset(
+    created_dataset = EvaluationDataset(
         dataset_id="test_dataset_id",
         name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
     )
+    mock_store.create_evaluation_dataset.return_value = created_dataset
 
     dataset = MlflowClient().create_evaluation_dataset(name="test_dataset")
 
     assert dataset.dataset_id == "test_dataset_id"
     assert dataset.name == "test_dataset"
 
-    call_args = mock_store.create_evaluation_dataset.call_args
-    created_dataset = call_args[0][0]
-    experiment_ids = call_args[0][1]
-
-    assert created_dataset.name == "test_dataset"
-    assert created_dataset.tags is None
-    assert experiment_ids is None
+    mock_store.create_evaluation_dataset.assert_called_once_with(
+        name="test_dataset",
+        tags=None,
+        experiment_ids=None,
+    )
 
 
 def test_mlflow_client_get_evaluation_dataset(mock_store):
     mock_store.get_evaluation_dataset.return_value = EvaluationDataset(
         dataset_id="dataset_123",
         name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
         tags={"source": "human-annotated"},
     )
 
@@ -2797,8 +2803,20 @@ def test_mlflow_client_delete_evaluation_dataset(mock_store):
 def test_mlflow_client_search_evaluation_datasets(mock_store):
     mock_store.search_evaluation_datasets.return_value = PagedList(
         [
-            EvaluationDataset(dataset_id="dataset_1", name="dataset_1"),
-            EvaluationDataset(dataset_id="dataset_2", name="dataset_2"),
+            EvaluationDataset(
+                dataset_id="dataset_1",
+                name="dataset_1",
+                digest="digest1",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
+            EvaluationDataset(
+                dataset_id="dataset_2",
+                name="dataset_2",
+                digest="digest2",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
         ],
         "next_token",
     )
@@ -2872,3 +2890,39 @@ def test_mlflow_client_evaluation_datasets_filestore_not_supported(tmp_path):
     with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
         client.search_evaluation_datasets()
     assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.set_evaluation_dataset_tags("dataset_123", {"tag1": "value1"})
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_evaluation_dataset_tag("dataset_123", "tag1")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+
+def test_mlflow_client_set_evaluation_dataset_tags(mock_store):
+    MlflowClient().set_evaluation_dataset_tags(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+        updated_by="user@example.com",
+    )
+
+    mock_store.update_evaluation_dataset_tags.assert_called_once_with(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+        updated_by="user@example.com",
+    )
+
+
+def test_mlflow_client_delete_evaluation_dataset_tag(mock_store):
+    MlflowClient().delete_evaluation_dataset_tag(
+        dataset_id="dataset_123",
+        key="deprecated",
+    )
+
+    # delete_evaluation_dataset_tag should call update_evaluation_dataset_tags with None value
+    mock_store.update_evaluation_dataset_tags.assert_called_once_with(
+        dataset_id="dataset_123",
+        tags={"deprecated": None},
+        updated_by=None,
+    )

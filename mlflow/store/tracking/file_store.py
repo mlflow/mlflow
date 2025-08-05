@@ -2729,7 +2729,15 @@ class FileStore(AbstractStore):
     # Evaluation Dataset APIs - Not supported in FileStore
 
     @filestore_not_supported
-    def create_evaluation_dataset(self, dataset, experiment_ids=None):
+    def create_evaluation_dataset(
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        experiment_ids: Optional[list[str]] = None,
+        schema: Optional[str] = None,
+        profile: Optional[str] = None,
+        created_by: Optional[str] = None,
+    ):
         pass
 
     @filestore_not_supported
@@ -2755,6 +2763,7 @@ class FileStore(AbstractStore):
     def upsert_evaluation_dataset_records(self, dataset_id, records, updated_by=None):
         pass
 
+    @filestore_not_supported
     @filestore_not_supported
     def update_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
         pass

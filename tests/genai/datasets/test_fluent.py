@@ -12,9 +12,10 @@ from mlflow.genai.datasets import (
     EvaluationDataset,
     create_evaluation_dataset,
     delete_evaluation_dataset,
+    delete_evaluation_dataset_tag,
     get_evaluation_dataset,
     search_evaluation_datasets,
-    update_evaluation_dataset_tags,
+    set_evaluation_dataset_tags,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -75,6 +76,9 @@ def test_create_evaluation_dataset(mock_client):
     expected_dataset = EntityEvaluationDataset(
         dataset_id="test_id",
         name="test_dataset",
+        digest="abc123",
+        created_time=123456789,
+        last_update_time=123456789,
         tags={"environment": "production", "version": "1.0"},
     )
     mock_client.create_evaluation_dataset.return_value = expected_dataset
@@ -94,7 +98,13 @@ def test_create_evaluation_dataset(mock_client):
 
 
 def test_create_evaluation_dataset_single_experiment_id(mock_client):
-    expected_dataset = EntityEvaluationDataset(dataset_id="test_id", name="test_dataset")
+    expected_dataset = EntityEvaluationDataset(
+        dataset_id="test_id",
+        name="test_dataset",
+        digest="abc123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
     mock_client.create_evaluation_dataset.return_value = expected_dataset
 
     result = create_evaluation_dataset(
@@ -111,7 +121,14 @@ def test_create_evaluation_dataset_single_experiment_id(mock_client):
 
 
 def test_create_evaluation_dataset_with_empty_tags(mock_client):
-    expected_dataset = EntityEvaluationDataset(dataset_id="test_id", name="test_dataset", tags={})
+    expected_dataset = EntityEvaluationDataset(
+        dataset_id="test_id",
+        name="test_dataset",
+        digest="abc123",
+        created_time=123456789,
+        last_update_time=123456789,
+        tags={},
+    )
     mock_client.create_evaluation_dataset.return_value = expected_dataset
 
     result = create_evaluation_dataset(
@@ -153,6 +170,9 @@ def test_get_evaluation_dataset(mock_client):
     expected_dataset = EntityEvaluationDataset(
         dataset_id="test_id",
         name="test_dataset",
+        digest="abc123",
+        created_time=123456789,
+        last_update_time=123456789,
     )
     mock_client.get_evaluation_dataset.return_value = expected_dataset
 
@@ -163,7 +183,7 @@ def test_get_evaluation_dataset(mock_client):
 
 
 def test_get_evaluation_dataset_missing_id():
-    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required in OSS environment"):
+    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required"):
         get_evaluation_dataset()
 
 
@@ -193,7 +213,7 @@ def test_delete_evaluation_dataset(mock_client):
 
 
 def test_delete_evaluation_dataset_missing_id():
-    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required in OSS environment"):
+    with pytest.raises(ValueError, match="Parameter 'dataset_id' is required"):
         delete_evaluation_dataset()
 
 
@@ -210,8 +230,20 @@ def test_delete_evaluation_dataset_databricks(mock_databricks_environment):
 
 def test_search_evaluation_datasets(mock_client):
     datasets = [
-        EntityEvaluationDataset(dataset_id="id1", name="dataset1"),
-        EntityEvaluationDataset(dataset_id="id2", name="dataset2"),
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+        EntityEvaluationDataset(
+            dataset_id="id2",
+            name="dataset2",
+            digest="digest2",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
     ]
     mock_client.search_evaluation_datasets.return_value = PagedList(datasets, "next_token")
 
@@ -235,7 +267,15 @@ def test_search_evaluation_datasets(mock_client):
 
 
 def test_search_evaluation_datasets_single_experiment_id(mock_client):
-    datasets = [EntityEvaluationDataset(dataset_id="id1", name="dataset1")]
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        )
+    ]
     mock_client.search_evaluation_datasets.return_value = PagedList(datasets, None)
 
     search_evaluation_datasets(experiment_ids="exp1")
@@ -412,18 +452,27 @@ def test_search_evaluation_datasets(tracking_uri, experiments):
 def test_delete_evaluation_dataset(tracking_uri, experiments):
     dataset = create_evaluation_dataset(
         name="to_be_deleted",
-        experiment_ids=experiments[0],
+        experiment_ids=[experiments[0], experiments[1]],
+        tags={"env": "test", "version": "1.0"},
     )
+    dataset_id = dataset.dataset_id
 
     dataset.merge_records([{"inputs": {"q": "test"}, "expectations": {"a": "answer"}}])
 
-    retrieved = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    retrieved = get_evaluation_dataset(dataset_id=dataset_id)
     assert retrieved is not None
+    assert len(retrieved.to_df()) == 1
 
-    delete_evaluation_dataset(dataset_id=dataset.dataset_id)
+    delete_evaluation_dataset(dataset_id=dataset_id)
 
-    with pytest.raises(MlflowException, match="not found"):
-        get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    # Verify dataset cannot be retrieved
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        get_evaluation_dataset(dataset_id=dataset_id)
+
+    # Verify dataset doesn't appear in search results
+    search_results = search_evaluation_datasets(experiment_ids=[experiments[0], experiments[1]])
+    found_ids = [d.dataset_id for d in search_results]
+    assert dataset_id not in found_ids
 
 
 def test_dataset_lifecycle_workflow(tracking_uri, experiments):
@@ -577,7 +626,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
             new_trace = trace
             break
 
-    assert new_trace is not None, "Could not find the Docker trace"
+    assert new_trace is not None
 
     dataset.merge_records([new_trace])
 
@@ -590,7 +639,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
-    with pytest.raises(MlflowException, match="not found"):
+    with pytest.raises(MlflowException, match="Could not find|not found"):
         get_evaluation_dataset(dataset_id=dataset.dataset_id)
 
     search_results = search_evaluation_datasets(
@@ -912,40 +961,6 @@ def test_trace_integration_end_to_end(client, experiment):
     assert len(manual_records) == 1
 
 
-def test_update_evaluation_dataset_tags(tracking_uri, experiments):
-    dataset = create_evaluation_dataset(
-        name="test_update_tags",
-        experiment_ids=experiments[0],
-        tags={
-            "environment": "dev",
-            "version": "1.0",
-            "deprecated": "true",
-        },
-    )
-
-    update_evaluation_dataset_tags(
-        dataset_id=dataset.dataset_id,
-        tags={
-            "environment": "production",
-            "release": "v1.0.0",
-            "deprecated": None,
-        },
-        updated_by="test_user",
-    )
-
-    updated = get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert updated.tags == {
-        "environment": "production",
-        "version": "1.0",
-        "release": "v1.0.0",
-    }
-
-    with pytest.raises(ValueError, match="'tags' must be provided"):
-        update_evaluation_dataset_tags(dataset_id=dataset.dataset_id, tags=None)
-
-    delete_evaluation_dataset(dataset_id=dataset.dataset_id)
-
-
 def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     dataset = create_evaluation_dataset(
         name="test_tags_crud",
@@ -953,7 +968,7 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     )
     assert dataset.tags == {}
 
-    update_evaluation_dataset_tags(
+    set_evaluation_dataset_tags(
         dataset_id=dataset.dataset_id,
         tags={
             "team": "ml-platform",
@@ -965,11 +980,11 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
     assert dataset.tags == {
         "team": "ml-platform",
-        "project": "evaluation", 
+        "project": "evaluation",
         "priority": "high",
     }
 
-    update_evaluation_dataset_tags(
+    set_evaluation_dataset_tags(
         dataset_id=dataset.dataset_id,
         tags={
             "priority": "medium",
@@ -985,11 +1000,10 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
         "status": "active",
     }
 
-    update_evaluation_dataset_tags(
+    # Delete a tag using the delete API
+    delete_evaluation_dataset_tag(
         dataset_id=dataset.dataset_id,
-        tags={
-            "priority": None,
-        },
+        key="priority",
     )
 
     dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
@@ -1001,7 +1015,25 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
+    # Test deletion propagation - all operations should fail after deletion
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        get_evaluation_dataset(dataset_id=dataset.dataset_id)
 
-def test_update_evaluation_dataset_tags_databricks(mock_databricks_environment):
-    with pytest.raises(NotImplementedError, match="tag updates are not available"):
-        update_evaluation_dataset_tags(dataset_id="test", tags={"key": "value"})
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        set_evaluation_dataset_tags(
+            dataset_id=dataset.dataset_id,
+            tags={"should": "fail"},
+        )
+
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="status")
+
+
+def test_set_evaluation_dataset_tags_databricks(mock_databricks_environment):
+    with pytest.raises(NotImplementedError, match="tag operations are not available"):
+        set_evaluation_dataset_tags(dataset_id="test", tags={"key": "value"})
+
+
+def test_delete_evaluation_dataset_tag_databricks(mock_databricks_environment):
+    with pytest.raises(NotImplementedError, match="tag operations are not available"):
+        delete_evaluation_dataset_tag(dataset_id="test", key="key")

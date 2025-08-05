@@ -981,11 +981,11 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
-    def update_evaluation_dataset_tags(
+    def set_evaluation_dataset_tags(
         self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
     ) -> None:
         """
-        Update tags for an evaluation dataset.
+        Set tags for an evaluation dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -998,7 +998,19 @@ class AbstractStore:
         Raises:
             MlflowException: If dataset not found or invalid parameters.
         """
-        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
 
     @abstractmethod
     def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
@@ -1013,4 +1025,3 @@ class AbstractStore:
         Returns:
             List of experiment IDs associated with the dataset.
         """
-        raise NotImplementedError(self.__class__.__name__)

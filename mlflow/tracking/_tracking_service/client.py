@@ -910,11 +910,11 @@ class TrackingServiceClient:
         Returns:
             The created EvaluationDataset object.
         """
-        dataset = EvaluationDataset(
+        return self.store.create_evaluation_dataset(
             name=name,
             tags=tags,
+            experiment_ids=experiment_ids,
         )
-        return self.store.create_evaluation_dataset(dataset, experiment_ids)
 
     def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -966,11 +966,11 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    def update_evaluation_dataset_tags(
+    def set_evaluation_dataset_tags(
         self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
     ) -> None:
         """
-        Update tags for an evaluation dataset.
+        Set tags for an evaluation dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -985,4 +985,22 @@ class TrackingServiceClient:
         """
         self.store.update_evaluation_dataset_tags(
             dataset_id=dataset_id, tags=tags, updated_by=updated_by
+        )
+
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        # Use update_evaluation_dataset_tags with None value to delete
+        self.store.update_evaluation_dataset_tags(
+            dataset_id=dataset_id,
+            tags={key: None},
+            updated_by=None,
         )

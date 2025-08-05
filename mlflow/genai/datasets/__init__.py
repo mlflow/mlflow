@@ -64,6 +64,9 @@ def create_evaluation_dataset(
         try:
             from databricks.agents.datasets import create_dataset as db_create
 
+            if tags is not None:
+                _logger.warning("Tags are not supported in Databricks environment.")
+
             return EvaluationDataset(db_create(name, experiment_ids))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
@@ -114,13 +117,11 @@ def get_evaluation_dataset(
     else:
         if dataset_id is None:
             raise ValueError(
-                "Parameter 'dataset_id' is required in OSS environment. "
-                "Use: get_evaluation_dataset(dataset_id='dataset_abc123')"
+                "Parameter 'dataset_id' is required. "
+                "Use: get_evaluation_dataset(dataset_id='<dataset_id>')"
             )
         if name is not None:
-            _logger.warning(
-                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
-            )
+            _logger.warning("Parameter 'name' is ignored. Use 'dataset_id' instead.")
 
         client = MlflowClient()
         return client.get_evaluation_dataset(dataset_id)
@@ -162,13 +163,11 @@ def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[s
     else:
         if dataset_id is None:
             raise ValueError(
-                "Parameter 'dataset_id' is required in OSS environment. "
-                "Use: delete_evaluation_dataset(dataset_id='dataset_abc123')"
+                "Parameter 'dataset_id' is required. "
+                "Use: delete_evaluation_dataset(dataset_id='<dataset_id>')"
             )
         if name is not None:
-            _logger.warning(
-                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
-            )
+            _logger.warning("Parameter 'name' is ignored. Use 'dataset_id' instead.")
 
         client = MlflowClient()
         client.delete_evaluation_dataset(dataset_id)
@@ -267,59 +266,76 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 
 
 @experimental(version="3.3.0")
-def update_evaluation_dataset_tags(
-    dataset_id: Optional[str] = None,
-    name: Optional[str] = None,
-    tags: Optional[dict[str, Any]] = None,
+def set_evaluation_dataset_tags(
+    dataset_id: str,
+    tags: dict[str, Any],
     updated_by: Optional[str] = None,
 ) -> None:
     """
-    Update tags for an evaluation dataset by ID (OSS) or name (Databricks).
+    Set tags for an evaluation dataset.
 
-    This implements an upsert operation - existing tags are merged with new tags.
+    This implements a batch tag operation - existing tags are merged with new tags.
     To remove a tag, set its value to None.
 
     Args:
-        dataset_id: Dataset ID (required for OSS)
-        name: Dataset name/UC table name (required for Databricks)
-        tags: Dictionary of tags to update. Setting a value to None removes the tag.
+        dataset_id: The ID of the dataset.
+        tags: Dictionary of tags to set. Setting a value to None removes the tag.
         updated_by: The user making the update.
 
-    OSS Usage::
+    Usage::
 
-        update_evaluation_dataset_tags(
+        set_evaluation_dataset_tags(
             dataset_id="dataset_abc123",
             tags={
                 "environment": "production",
                 "version": "2.0",
                 "deprecated": None,  # This removes the 'deprecated' tag
-            }
+            },
         )
 
     Note:
         This API is not available in Databricks environments yet.
     """
-    if tags is None:
-        raise ValueError("Parameter 'tags' must be provided")
-
     if is_in_databricks_runtime():
         raise NotImplementedError(
-            "Evaluation Dataset tag updates are not available in Databricks yet. "
+            "Evaluation Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
         )
-    else:
-        if dataset_id is None:
-            raise ValueError(
-                "Parameter 'dataset_id' is required in OSS environment. "
-                "Use: update_evaluation_dataset_tags(dataset_id='dataset_abc123', tags={...})"
-            )
-        if name is not None:
-            _logger.warning(
-                "Parameter 'name' is ignored in OSS environment. Use 'dataset_id' instead."
-            )
 
-        client = MlflowClient()
-        client.update_evaluation_dataset_tags(dataset_id, tags, updated_by)
+    if tags is None:
+        raise ValueError("'tags' must be provided")
+
+    client = MlflowClient()
+    client.set_evaluation_dataset_tags(dataset_id, tags, updated_by)
+
+
+@experimental(version="3.3.0")
+def delete_evaluation_dataset_tag(
+    dataset_id: str,
+    key: str,
+) -> None:
+    """
+    Delete a tag from an evaluation dataset.
+
+    Args:
+        dataset_id: The ID of the dataset.
+        key: The tag key to delete.
+
+    Usage::
+
+        delete_evaluation_dataset_tag(dataset_id="dataset_abc123", key="deprecated")
+
+    Note:
+        This API is not available in Databricks environments yet.
+    """
+    if is_in_databricks_runtime():
+        raise NotImplementedError(
+            "Evaluation Dataset tag operations are not available in Databricks yet. "
+            "Tags are managed through Unity Catalog."
+        )
+
+    client = MlflowClient()
+    client.delete_evaluation_dataset_tag(dataset_id, key)
 
 
 __all__ = [
@@ -327,7 +343,8 @@ __all__ = [
     "get_evaluation_dataset",
     "delete_evaluation_dataset",
     "search_evaluation_datasets",
-    "update_evaluation_dataset_tags",
+    "set_evaluation_dataset_tags",
+    "delete_evaluation_dataset_tag",
     "EvaluationDataset",
     # Deprecated APIs
     "create_dataset",

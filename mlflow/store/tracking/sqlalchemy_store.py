@@ -2655,14 +2655,24 @@ class SqlAlchemyStore(AbstractStore):
     #######################################################################################
 
     def create_evaluation_dataset(
-        self, dataset: EvaluationDataset, experiment_ids: Optional[list[str]] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        experiment_ids: Optional[list[str]] = None,
+        schema: Optional[str] = None,
+        profile: Optional[str] = None,
+        created_by: Optional[str] = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset in the database.
 
         Args:
-            dataset: The EvaluationDataset object to create.
+            name: Name of the evaluation dataset.
+            tags: Optional dictionary of tags.
             experiment_ids: List of experiment IDs to associate with the dataset.
+            schema: Optional dataset schema.
+            profile: Optional dataset profile.
+            created_by: Optional creator information.
 
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
@@ -2671,25 +2681,27 @@ class SqlAlchemyStore(AbstractStore):
             # Always generate a new dataset ID for create operations
             dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
+            digest = hashlib.sha256(name.encode()).hexdigest()
+
             current_time = get_current_time_millis()
-            dataset_with_timestamps = EvaluationDataset(
+            dataset = EvaluationDataset(
                 dataset_id=dataset_id,
-                name=dataset.name,
-                digest=dataset.digest,
+                name=name,
+                digest=digest,
                 created_time=current_time,
                 last_update_time=current_time,
-                tags=dataset.tags,
-                schema=dataset.schema,
-                profile=dataset.profile,
-                created_by=dataset.created_by,
-                last_updated_by=dataset.last_updated_by,
+                tags=tags or {},
+                schema=schema,
+                profile=profile,
+                created_by=created_by,
+                last_updated_by=created_by,
             )
 
-            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset_with_timestamps)
+            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(dataset)
             session.add(sql_dataset)
 
-            if dataset_with_timestamps.tags:
-                for key, value in dataset_with_timestamps.tags.items():
+            if dataset.tags:
+                for key, value in dataset.tags.items():
                     tag = SqlEvaluationDatasetTag(
                         dataset_id=dataset_id,
                         key=key,
@@ -2783,91 +2795,6 @@ class SqlAlchemyStore(AbstractStore):
             ).delete()
 
             session.delete(sql_dataset)
-            session.commit()
-
-    def set_evaluation_dataset_tag(
-        self, dataset_id: str, key: str, value: str, updated_by: Optional[str] = None
-    ) -> None:
-        """
-        Set a tag on an evaluation dataset (upsert operation).
-
-        Args:
-            dataset_id: The ID of the dataset.
-            key: The tag key.
-            value: The tag value.
-            updated_by: Optional user ID of who is updating the tag.
-        """
-        with self.ManagedSessionMaker() as session:
-            dataset = (
-                session.query(SqlEvaluationDataset)
-                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .one_or_none()
-            )
-
-            if dataset is None:
-                raise MlflowException(
-                    f"Evaluation dataset with id '{dataset_id}' not found",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
-
-            existing_tag = (
-                session.query(SqlEvaluationDatasetTag)
-                .filter(
-                    SqlEvaluationDatasetTag.dataset_id == dataset_id,
-                    SqlEvaluationDatasetTag.key == key,
-                )
-                .one_or_none()
-            )
-
-            if existing_tag:
-                existing_tag.value = value
-            else:
-                new_tag = SqlEvaluationDatasetTag(
-                    dataset_id=dataset_id,
-                    key=key,
-                    value=value,
-                )
-                session.add(new_tag)
-
-            dataset.last_update_time = get_current_time_millis()
-            if updated_by is not None:
-                dataset.last_updated_by = updated_by
-
-            session.commit()
-
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
-        """
-        Delete a tag from an evaluation dataset.
-
-        Args:
-            dataset_id: The ID of the dataset.
-            key: The tag key to delete.
-        """
-        with self.ManagedSessionMaker() as session:
-            dataset = (
-                session.query(SqlEvaluationDataset)
-                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .one_or_none()
-            )
-
-            if dataset is None:
-                raise MlflowException(
-                    f"Evaluation dataset with id '{dataset_id}' not found",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
-
-            deleted_count = (
-                session.query(SqlEvaluationDatasetTag)
-                .filter(
-                    SqlEvaluationDatasetTag.dataset_id == dataset_id,
-                    SqlEvaluationDatasetTag.key == key,
-                )
-                .delete()
-            )
-
-            if deleted_count > 0:
-                dataset.last_update_time = get_current_time_millis()
-
             session.commit()
 
     def search_evaluation_datasets(
@@ -3132,14 +3059,43 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Process each tag update
-        for key, value in tags.items():
-            if value is None:
-                # Delete the tag
-                self.delete_evaluation_dataset_tag(dataset_id, key)
-            else:
-                # Set/update the tag
-                self.set_evaluation_dataset_tag(dataset_id, key, str(value), updated_by)
+        with self.ManagedSessionMaker() as session:
+            # Verify dataset exists
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Could not find evaluation dataset with id={dataset_id}",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update the last_update_time and last_updated_by on dataset
+            dataset.last_update_time = get_current_time_millis()
+            if updated_by:
+                dataset.last_updated_by = updated_by
+
+            # Process each tag update
+            for key, value in tags.items():
+                if value is None:
+                    # Delete the tag
+                    session.query(SqlEvaluationDatasetTag).filter_by(
+                        dataset_id=dataset_id, key=key
+                    ).delete()
+                else:
+                    # Set/update the tag
+                    existing_tag = (
+                        session.query(SqlEvaluationDatasetTag)
+                        .filter_by(dataset_id=dataset_id, key=key)
+                        .first()
+                    )
+                    if existing_tag:
+                        existing_tag.value = str(value)
+                    else:
+                        new_tag = SqlEvaluationDatasetTag(
+                            dataset_id=dataset_id,
+                            key=key,
+                            value=str(value),
+                        )
+                        session.add(new_tag)
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
