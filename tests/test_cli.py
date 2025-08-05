@@ -109,6 +109,10 @@ def test_server_uvicorn_options():
             uvicorn_opts="--loop asyncio --limit-concurrency 100",
         )
 
+
+@pytest.mark.skipif(is_windows(), reason="--dev mode is not supported on Windows")
+def test_server_dev_mode():
+    """Test that --dev flag sets proper uvicorn options."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with --dev flag (should set uvicorn opts)
         CliRunner().invoke(server, ["--dev"])
