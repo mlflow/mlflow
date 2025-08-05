@@ -389,14 +389,8 @@ class Span:
         # Add events
         if self.events:
             for event in self.events:
-                otel_event = otel_span.events.add()
-                otel_event.name = event.name
-                otel_event.time_unix_nano = event.timestamp
-
-                for k, v in event.attributes.items():
-                    event_attr = otel_event.attributes.add()
-                    event_attr.key = k
-                    event_attr.value.string_value = str(v)
+                otel_event = event._to_otel_proto()
+                otel_span.events.append(otel_event)
 
         return otel_span
 

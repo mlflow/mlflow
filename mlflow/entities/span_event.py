@@ -75,6 +75,25 @@ class SpanEvent(_MlflowObject):
             attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
         )
 
+    def _to_otel_proto(self):
+        """
+        Convert to OpenTelemetry protobuf event format for OTLP export.
+        This is an internal method used for logging spans via OTel protocol.
+        """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Span
+
+        otel_event = Span.Event()
+        otel_event.name = self.name
+        otel_event.time_unix_nano = self.timestamp
+
+        # Add attributes
+        for k, v in self.attributes.items():
+            event_attr = otel_event.attributes.add()
+            event_attr.key = k
+            event_attr.value.string_value = str(v)
+
+        return otel_event
+
 
 class CustomEncoder(json.JSONEncoder):
     """
