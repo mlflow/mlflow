@@ -53,3 +53,20 @@ yarn build-all
 ```
 
 This command will run all the necessary steps from the "Build and Serve" workflow above, and set the correct values for `DOCS_BASE_URL`. The generated HTML will be dumped to `build/latest` and `build/{version}`. These two folders can then be copied to the [docs repo](https://github.com/mlflow/mlflow-legacy-website/tree/main/docs) and uploaded to the website.
+
+## Troubleshooting
+
+### `Error: Invalid sidebar file at "sidebarsGenAI.ts". These sidebar document ids do not exist:`
+
+This error occurs when some links in the sidebar point to non-existent documents.
+
+When it errors for `-ipynb` pages, it is not the link problem but the notebook conversion script is not run. Run `yarn convert-notebooks` in the above steps to convert `.ipynb` files to `.mdx` files. The generated files are git-ignored.
+
+```
+[ERROR] Error: Invalid sidebar file at "sidebarsGenAI.ts".
+These sidebar document ids do not exist:
+
+eval-monitor/notebooks/huggingface-evaluation-ipynb
+eval-monitor/notebooks/question-answering-evaluation-ipynb
+...
+```

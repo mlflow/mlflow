@@ -1,10 +1,11 @@
 import ast
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Optional
 
 
 class Resolver:
-    def __init__(self):
+    def __init__(self) -> None:
         self.name_map: dict[str, list[str]] = {}
         self._scope_stack: list[dict[str, list[str]]] = []
 
@@ -23,7 +24,7 @@ class Resolver:
             self.name_map = self._scope_stack.pop()
 
     @contextmanager
-    def scope(self):
+    def scope(self) -> Iterator[None]:
         """Context manager for automatic scope management."""
         self.enter_scope()
         try:
@@ -69,7 +70,7 @@ class Resolver:
 
         return self._resolve_parts(parts) if parts else None
 
-    def _extract_call_parts(self, node: ast.AST) -> list[str]:
+    def _extract_call_parts(self, node: ast.expr) -> list[str]:
         if isinstance(node, ast.Name):
             return [node.id]
         elif isinstance(node, ast.Attribute) and (
