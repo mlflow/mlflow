@@ -339,6 +339,65 @@ class Span:
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
         )
 
+    @classmethod
+    def _from_otel_proto(cls, otel_proto_span) -> "Span":
+        """
+        Create a Span from an OpenTelemetry protobuf span.
+        This is an internal method used for receiving spans via OTel protocol.
+        """
+        from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+        from opentelemetry.trace import Status as OTelStatus
+        from opentelemetry.trace import StatusCode as OTelStatusCode
+
+        # Convert protobuf bytes to integers for IDs
+        trace_id = int.from_bytes(otel_proto_span.trace_id, byteorder="big")
+        span_id = int.from_bytes(otel_proto_span.span_id, byteorder="big")
+        parent_id = None
+        if otel_proto_span.parent_span_id:
+            parent_id = int.from_bytes(otel_proto_span.parent_span_id, byteorder="big")
+
+        # Convert status
+        status_code = OTelStatusCode.UNSET
+        if otel_proto_span.status.code == 1:  # STATUS_CODE_OK
+            status_code = OTelStatusCode.OK
+        elif otel_proto_span.status.code == 2:  # STATUS_CODE_ERROR
+            status_code = OTelStatusCode.ERROR
+
+        # Convert attributes from protobuf to dict
+        attributes = {}
+        for attr in otel_proto_span.attributes:
+            # Assuming string values for simplicity
+            attributes[attr.key] = attr.value.string_value
+
+        # Convert events
+        from opentelemetry.sdk.trace import Event as OTelEvent
+
+        events = []
+        for event in otel_proto_span.events:
+            event_attrs = {}
+            for attr in event.attributes:
+                event_attrs[attr.key] = attr.value.string_value
+            events.append(
+                OTelEvent(name=event.name, timestamp=event.time_unix_nano, attributes=event_attrs)
+            )
+
+        # Create OTelReadableSpan
+        from mlflow.tracing.utils import build_otel_context
+
+        otel_span = OTelReadableSpan(
+            name=otel_proto_span.name,
+            context=build_otel_context(trace_id, span_id),
+            parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            start_time=otel_proto_span.start_time_unix_nano,
+            end_time=otel_proto_span.end_time_unix_nano,
+            attributes=attributes,
+            status=OTelStatus(status_code, otel_proto_span.status.message),
+            events=events,
+            resource=_OTelResource.get_empty(),
+        )
+
+        return cls(otel_span)
+
     def _to_otel_proto(self):
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
