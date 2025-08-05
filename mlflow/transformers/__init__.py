@@ -18,7 +18,7 @@ import shutil
 import string
 import sys
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -182,7 +182,7 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
 #  1. A string representing the path or URL to an audio file.
 #  2. A bytes object representing the raw audio data.
 #  3. A float numpy array representing the audio time series.
-AudioInput = Union[str, bytes, np.ndarray]
+AudioInput = str | bytes | np.ndarray
 
 _logger = logging.getLogger(__name__)
 
@@ -286,8 +286,8 @@ def save_model(
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     model_config: Optional[dict[str, Any]] = None,
@@ -791,14 +791,14 @@ def log_model(
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     model_config: Optional[dict[str, Any]] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -2782,8 +2782,8 @@ class _TransformersWrapper:
         return input_data
 
     def _convert_audio_input(
-        self, data: Union[AudioInput, list[dict[int, list[AudioInput]]]]
-    ) -> Union[AudioInput, list[AudioInput]]:
+        self, data: AudioInput | list[dict[int, list[AudioInput]]]
+    ) -> AudioInput | list[AudioInput]:
         """
         Convert the input data into the format that the Transformers pipeline expects.
 
