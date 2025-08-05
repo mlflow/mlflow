@@ -2708,6 +2708,23 @@ class SqlAlchemyStore(AbstractStore):
                         .one()
                     )
 
+            # After trace exists (either created or fetched), update its time range
+            # to include all spans (both existing and new)
+            min_start_time = min(span.start_time_ns for span in spans)
+            max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
+
+            # Check if we need to update the trace's time range
+            current_start_ns = sql_trace_info.timestamp_ms * 1_000_000
+            current_end_ns = current_start_ns + (sql_trace_info.execution_time_ms * 1_000_000)
+
+            # Update if new spans extend the time range
+            new_start_ns = min(current_start_ns, min_start_time)
+            new_end_ns = max(current_end_ns, max_end_time)
+
+            if new_start_ns < current_start_ns or new_end_ns > current_end_ns:
+                sql_trace_info.timestamp_ms = new_start_ns // 1_000_000
+                sql_trace_info.execution_time_ms = (new_end_ns - new_start_ns) // 1_000_000
+
             # Create SqlSpan entities for all spans
             for span in spans:
                 # Extract trace state
