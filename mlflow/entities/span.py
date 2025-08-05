@@ -349,10 +349,9 @@ class Span:
 
         otel_span = OTelSpan()
 
-        # Convert trace and span IDs to bytes using existing helper functions
-        # The internal _span.context already has the integer IDs
-        otel_span.trace_id = _encode_trace_id_to_byte(self._span.context.trace_id)
-        otel_span.span_id = _encode_span_id_to_byte(self._span.context.span_id)
+        # Convert hex string IDs to bytes for OTel protobuf
+        otel_span.trace_id = bytes.fromhex(self._trace_id)
+        otel_span.span_id = bytes.fromhex(self.span_id)
 
         # Set basic properties
         otel_span.name = self.name
@@ -361,8 +360,8 @@ class Span:
             otel_span.end_time_unix_nano = self.end_time_ns
 
         # Set parent span ID if exists
-        if self._span.parent:
-            otel_span.parent_span_id = _encode_span_id_to_byte(self._span.parent.span_id)
+        if self.parent_id:
+            otel_span.parent_span_id = bytes.fromhex(self.parent_id)
 
         # Set status
         if self.status:
