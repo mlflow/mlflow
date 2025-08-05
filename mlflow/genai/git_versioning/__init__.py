@@ -12,9 +12,9 @@ _logger = logging.getLogger(__name__)
 
 
 class GitContext:
-    def __init__(self) -> None:
+    def __init__(self, remote_name: str = "origin") -> None:
         try:
-            self.info = GitInfo.from_env()
+            self.info = GitInfo.from_env(remote_name=remote_name)
         except GitOperationError as e:
             warnings.warn(
                 (
@@ -63,12 +63,18 @@ _active_context: GitContext | None = None
 
 
 @experimental(version="3.3.0")
-def enable_git_model_versioning() -> GitContext:
+def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
     Enable git model versioning and set the active context.
+
+    Args:
+        remote_name: The name of the git remote to use. Defaults to "origin".
+
+    Returns:
+        A GitContext instance containing the git information and active model.
     """
     global _active_context
-    context = GitContext()
+    context = GitContext(remote_name=remote_name)
     _active_context = context
     return context
 

@@ -166,3 +166,31 @@ def test_enable_git_model_versioning_ignores_untracked_files(tmp_git_repo: Path)
         assert len(models) == 1
         assert models[0].model_id == initial_model_id
     assert mlflow.get_active_model_id() is None
+
+
+def test_enable_git_model_versioning_default_remote_name(tmp_git_repo: Path):
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", "https://github.com/test/repo.git"], cwd=tmp_git_repo
+    )
+    context = enable_git_model_versioning()
+    assert context.info.repo == "https://github.com/test/repo.git"
+
+
+def test_enable_git_model_versioning_custom_remote_name(tmp_git_repo: Path):
+    # Add multiple remotes
+    subprocess.check_call(
+        ["git", "remote", "add", "origin", "https://github.com/test/repo.git"],
+        cwd=tmp_git_repo,
+    )
+    subprocess.check_call(
+        ["git", "remote", "add", "upstream", "https://github.com/upstream/repo.git"],
+        cwd=tmp_git_repo,
+    )
+    context = enable_git_model_versioning(remote_name="upstream")
+    assert context.info.repo == "https://github.com/upstream/repo.git"
+
+
+def test_enable_git_model_versioning_nonexistent_remote(tmp_git_repo: Path):
+    # No remotes added - repo should be None
+    context = enable_git_model_versioning(remote_name="nonexistent")
+    assert context.info.repo is None
