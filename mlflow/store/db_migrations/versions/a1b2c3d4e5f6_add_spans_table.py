@@ -37,6 +37,9 @@ def upgrade():
             sa.Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
             nullable=True,
         ),
+        # Use LONGTEXT for MySQL to support large span content (up to 4GB).
+        # Standard TEXT in MySQL is limited to 64KB which is insufficient for
+        # spans with extensive attributes, events, or nested data structures.
         sa.Column("content", sa.Text().with_variant(LONGTEXT, "mysql"), nullable=False),
         sa.ForeignKeyConstraint(
             ["trace_id"],
