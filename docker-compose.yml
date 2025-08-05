@@ -53,7 +53,7 @@ services:
     restart: "no"
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
+    image: ghcr.io/mlflow/mlflow:${MLFLOW_VERSION}
     container_name: mlflow-server
     depends_on:
       postgres:
@@ -84,8 +84,7 @@ services:
           --backend-store-uri ${MLFLOW_BACKEND_STORE_URI} \
           --default-artifact-root ${MLFLOW_DEFAULT_ARTIFACT_ROOT} \
           --host ${MLFLOW_HOST} \
-          --port ${MLFLOW_PORT} \
-          --serve-artifacts
+          --port ${MLFLOW_PORT}
       "
     ports:
       - "${MLFLOW_PORT}:${MLFLOW_PORT}"
