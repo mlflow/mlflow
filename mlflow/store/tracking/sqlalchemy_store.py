@@ -3158,7 +3158,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return [assoc.destination_id for assoc in associations]
 
-    def update_evaluation_dataset_tags(
+    def set_evaluation_dataset_tags(
         self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
     ) -> None:
         """

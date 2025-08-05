@@ -6518,6 +6518,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     created_dataset = store.create_evaluation_dataset(
         name="upsert_comprehensive",
         tags=None,
+        experiment_ids=None,
     )
 
     records_batch1 = [
@@ -6718,6 +6719,7 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created = store.create_evaluation_dataset(
         name="tagged_dataset",
         tags=tags,
+        experiment_ids=None,
     )
     assert created.tags == tags
 
@@ -6730,6 +6732,7 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_none = store.create_evaluation_dataset(
         name="no_tags_dataset",
         tags=None,
+        experiment_ids=None,
     )
     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
     assert retrieved_none.tags == {}
@@ -6737,6 +6740,7 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_empty = store.create_evaluation_dataset(
         name="empty_tags_dataset",
         tags={},
+        experiment_ids=None,
     )
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
@@ -6747,6 +6751,7 @@ def test_evaluation_dataset_update_tags(store):
     created = store.create_evaluation_dataset(
         name="test_update_tags",
         tags=initial_tags,
+        experiment_ids=None,
     )
 
     retrieved = store.get_evaluation_dataset(created.dataset_id)
@@ -6757,7 +6762,7 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
         "deprecated": None,
     }
-    store.update_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
+    store.set_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
 
     updated = store.get_evaluation_dataset(created.dataset_id)
     expected_tags = {
@@ -6771,9 +6776,10 @@ def test_evaluation_dataset_update_tags(store):
     created_no_tags = store.create_evaluation_dataset(
         name="test_no_initial_tags",
         tags=None,
+        experiment_ids=None,
     )
 
-    store.update_evaluation_dataset_tags(
+    store.set_evaluation_dataset_tags(
         created_no_tags.dataset_id, {"new_tag": "value"}, updated_by="test_user2"
     )
 
@@ -6782,10 +6788,10 @@ def test_evaluation_dataset_update_tags(store):
     assert updated_no_tags.last_updated_by == "test_user2"
 
     with pytest.raises(MlflowException, match="dataset_id must be provided"):
-        store.update_evaluation_dataset_tags(None, {"tag": "value"})
+        store.set_evaluation_dataset_tags(None, {"tag": "value"})
 
     with pytest.raises(MlflowException, match="tags must be provided"):
-        store.update_evaluation_dataset_tags(created.dataset_id, None)
+        store.set_evaluation_dataset_tags(created.dataset_id, None)
 
     with pytest.raises(MlflowException, match="Could not find evaluation dataset"):
-        store.update_evaluation_dataset_tags("nonexistent_id", {"tag": "value"})
+        store.set_evaluation_dataset_tags("nonexistent_id", {"tag": "value"})

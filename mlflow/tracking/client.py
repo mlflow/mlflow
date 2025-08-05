@@ -6074,9 +6074,6 @@ class MlflowClient:
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
             updated_by: The user making the update.
 
-        Raises:
-            MlflowException: If dataset not found or invalid parameters.
-
         .. code-block:: python
             :test:
 
@@ -6106,9 +6103,6 @@ class MlflowClient:
         Args:
             dataset_id: The ID of the dataset.
             key: The tag key to delete.
-
-        Raises:
-            MlflowException: If dataset not found.
 
         .. code-block:: python
             :test:
