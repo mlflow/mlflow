@@ -2748,18 +2748,8 @@ class SqlAlchemyStore(AbstractStore):
 
             # Create SqlSpan entities for all spans
             for span in spans:
-                # Extract trace state
-                trace_state = span._span.context.trace_state
-                # Handle both TraceState objects and strings
-                if hasattr(trace_state, "to_header"):
-                    trace_state_str = trace_state.to_header()
-                else:
-                    trace_state_str = trace_state
-
-                # Get span dict and handle trace_state separately to avoid serialization issues
+                # Get span dict and convert to JSON
                 span_dict = span.to_dict()
-                # Remove trace_state from dict since we handle it separately
-                span_dict.pop("trace_state", None)
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
                 sql_span = SqlSpan(
@@ -2772,7 +2762,6 @@ class SqlAlchemyStore(AbstractStore):
                     status=span.status.status_code,
                     start_time_unix_nano=span.start_time_ns,
                     end_time_unix_nano=span.end_time_ns,
-                    trace_state=trace_state_str,
                     content=content_json,
                 )
 

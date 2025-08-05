@@ -1336,11 +1336,6 @@ class SqlSpan(Base):
     Will be NULL for in-progress spans (where end_time is NULL).
     """
 
-    trace_state = Column(Text, nullable=True)
-    """
-    OpenTelemetry trace state: `Text`. Can be null.
-    """
-
     content = Column(Text, nullable=False)
     """
     Full span content as JSON: `Text`.

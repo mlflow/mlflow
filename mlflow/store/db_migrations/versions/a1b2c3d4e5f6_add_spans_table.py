@@ -37,7 +37,6 @@ def upgrade():
             sa.Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
             nullable=True,
         ),
-        sa.Column("trace_state", sa.Text(), nullable=True),
         sa.Column("content", sa.Text().with_variant(LONGTEXT, "mysql"), nullable=False),
         sa.ForeignKeyConstraint(
             ["trace_id"],
