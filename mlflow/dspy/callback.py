@@ -131,7 +131,11 @@ class MlflowCallback(BaseCallback):
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
 
-        filtered_kwargs = {key: value for key, value in instance.kwargs.items() if key not in {"api_key", "api_base"}}
+        filtered_kwargs = {
+            key: value
+            for key, value in instance.kwargs.items()
+            if key not in {"api_key", "api_base"}
+        }
         attributes = {
             **filtered_kwargs,
             "model": instance.model,
