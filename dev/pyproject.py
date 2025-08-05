@@ -6,7 +6,6 @@ import subprocess
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import toml
 import yaml
@@ -129,13 +128,13 @@ def find_duplicates(seq):
 class PackageRequirement(BaseModel):
     pip_release: str = Field(..., description="The pip package name")
     max_major_version: int = Field(..., description="Maximum major version allowed")
-    minimum: Optional[str] = Field(None, description="Minimum version required")
-    unsupported: Optional[list[str]] = Field(None, description="List of unsupported versions")
-    markers: Optional[str] = Field(
+    minimum: str | None = Field(None, description="Minimum version required")
+    unsupported: list[str] | None = Field(None, description="List of unsupported versions")
+    markers: str | None = Field(
         None, description="Environment markers for conditional installation"
     )
-    extras: Optional[list[str]] = Field(None, description="Package extras to install")
-    freeze: Optional[bool] = Field(None, description="Whether to freeze this package version")
+    extras: list[str] | None = Field(None, description="Package extras to install")
+    freeze: bool | None = Field(None, description="Whether to freeze this package version")
 
 
 RequirementsYaml = RootModel[dict[str, PackageRequirement]]
@@ -408,7 +407,7 @@ def build(package_type: PackageType) -> None:
         subprocess.check_call([taplo, "fmt", out_path])
 
 
-def _get_package_data(package_type: PackageType) -> Optional[dict[str, list[str]]]:
+def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
     if package_type == PackageType.TRACING:
         return None
 
