@@ -4771,13 +4771,16 @@ def test_delete_traces_raises_error(store):
         store.delete_traces(exp_id, 100, max_traces=0)
 
 
-def test_log_spans(store: SqlAlchemyStore):
-    """Test the sync log_spans method."""
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
+    """Test the log_spans and log_spans_async methods."""
 
     # Create an experiment and trace first
-    experiment_id = store.create_experiment("test_span_experiment")
+    suffix = "_async" if is_async else ""
+    experiment_id = store.create_experiment(f"test_span_experiment{suffix}")
     trace_info = TraceInfo(
-        trace_id="tr-span-test-123",
+        trace_id=f"tr-span-test{suffix}-123",
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
         request_time=1234,
         execution_duration=100,
@@ -4796,24 +4799,24 @@ def test_log_spans(store: SqlAlchemyStore):
     )
 
     readable_span = OTelReadableSpan(
-        name="test_span",
+        name=f"test_span{suffix}",
         context=trace_api.SpanContext(
             trace_id=12345,
-            span_id=222,
+            span_id=222 if not is_async else 333,
             is_remote=False,
             trace_flags=trace_api.TraceFlags(1),
             trace_state=trace_state,
         ),
-        parent=parent_span_context,
+        parent=parent_span_context if not is_async else None,
         attributes={
             "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
             "mlflow.spanInputs": json.dumps({"input": "test_input"}, cls=TraceJSONEncoder),
             "mlflow.spanOutputs": json.dumps({"output": "test_output"}, cls=TraceJSONEncoder),
-            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+            "mlflow.spanType": json.dumps("LLM" if not is_async else "CHAIN", cls=TraceJSONEncoder),
             "custom_attr": json.dumps("custom_value", cls=TraceJSONEncoder),
         },
-        start_time=1000000000,  # 1 second in nanoseconds
-        end_time=2000000000,  # 2 seconds in nanoseconds
+        start_time=1000000000 if not is_async else 3000000000,
+        end_time=2000000000 if not is_async else 4000000000,
         resource=_OTelResource.get_empty(),
     )
 
@@ -4821,8 +4824,11 @@ def test_log_spans(store: SqlAlchemyStore):
     span = create_mlflow_span(readable_span, trace_info.trace_id, "LLM")
     assert isinstance(span, Span)
 
-    # Test logging the span using sync method
-    logged_spans = store.log_spans(experiment_id, [span])
+    # Test logging the span using sync or async method
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
 
     # Verify the returned spans are the same
     assert len(logged_spans) == 1
@@ -4852,66 +4858,18 @@ def test_log_spans(store: SqlAlchemyStore):
 
         # Verify the content is properly serialized
         content_dict = json.loads(saved_span.content)
-        assert content_dict["name"] == "test_span"
-
-
-@pytest.mark.asyncio
-async def test_log_spans_async(store: SqlAlchemyStore):
-    """Test the async log_spans_async method."""
-
-    from mlflow.entities.span import create_mlflow_span
-
-    # Create an experiment and trace first
-    experiment_id = store.create_experiment("test_span_experiment_async")
-    trace_info = TraceInfo(
-        trace_id="tr-span-test-async-123",
-        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-        request_time=1234,
-        execution_duration=100,
-        state=TraceState.OK,
-    )
-    trace_info = store.start_trace(trace_info)
-
-    # Create an OpenTelemetry span
-    readable_span = OTelReadableSpan(
-        name="test_span_async",
-        context=trace_api.SpanContext(
-            trace_id=12345,
-            span_id=333,
-            is_remote=False,
-            trace_flags=trace_api.TraceFlags(1),
-        ),
-        parent=None,
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_info.trace_id, cls=TraceJSONEncoder),
-            "mlflow.spanType": json.dumps("CHAIN", cls=TraceJSONEncoder),
-        },
-        start_time=3000000000,
-        end_time=4000000000,
-        resource=_OTelResource.get_empty(),
-    )
-
-    span = create_mlflow_span(readable_span, trace_info.trace_id, "CHAIN")
-
-    # Test logging the span using async method
-    logged_spans = await store.log_spans_async(experiment_id, [span])
-
-    # Verify the returned spans are the same
-    assert len(logged_spans) == 1
-    assert logged_spans[0] == span
-
-    # Verify the span was saved to the database
-    with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlSpan
-
-        saved_span = (
-            session.query(SqlSpan)
-            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
-            .first()
+        assert content_dict["name"] == f"test_span{suffix}"
+        # Inputs and outputs are stored in attributes as strings
+        assert content_dict["attributes"]["mlflow.spanInputs"] == json.dumps(
+            {"input": "test_input"}, cls=TraceJSONEncoder
         )
-
-        assert saved_span is not None
-        assert saved_span.experiment_id == int(experiment_id)
+        assert content_dict["attributes"]["mlflow.spanOutputs"] == json.dumps(
+            {"output": "test_output"}, cls=TraceJSONEncoder
+        )
+        expected_type = "LLM" if not is_async else "CHAIN"
+        assert content_dict["attributes"]["mlflow.spanType"] == json.dumps(
+            expected_type, cls=TraceJSONEncoder
+        )
 
 
 def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore):
@@ -5035,20 +4993,17 @@ def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore):
         assert created_trace.status == "OK"
 
 
-def test_log_spans_empty_list(store: SqlAlchemyStore):
-    """Test logging an empty list of spans."""
-    experiment_id = store.create_experiment("test_empty_experiment")
-
-    result = store.log_spans(experiment_id, [])
-    assert result == []
-
-
 @pytest.mark.asyncio
-async def test_log_spans_empty_list_async(store: SqlAlchemyStore):
-    """Test logging an empty list of spans (async)."""
-    experiment_id = store.create_experiment("test_empty_async_experiment")
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
+    """Test logging an empty list of spans."""
+    suffix = "_async" if is_async else ""
+    experiment_id = store.create_experiment(f"test_empty_experiment{suffix}")
 
-    result = await store.log_spans_async(experiment_id, [])
+    if is_async:
+        result = await store.log_spans_async(experiment_id, [])
+    else:
+        result = store.log_spans(experiment_id, [])
     assert result == []
 
 
