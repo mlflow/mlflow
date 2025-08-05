@@ -12,7 +12,7 @@ from typing import Any, Optional, TypedDict
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, func, sql, text
+from sqlalchemy import and_, case, func, sql, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
@@ -2718,8 +2718,6 @@ class SqlAlchemyStore(AbstractStore):
 
             min_start_ms = min_start_time // 1_000_000
             max_end_ms = max_end_time // 1_000_000
-
-            from sqlalchemy import case
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
