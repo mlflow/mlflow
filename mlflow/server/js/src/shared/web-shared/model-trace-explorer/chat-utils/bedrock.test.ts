@@ -126,8 +126,7 @@ export const MOCK_BEDROCK_REASONING_OUTPUT = {
       content: [
         {
           reasoningContent: {
-            reasoningText:
-              'The user is asking for the sum of 1955 and 3865. Let me calculate:\n\n1955 + 3865 = 5820',
+            reasoningText: 'The user is asking for the sum of 1955 and 3865. Let me calculate:\n\n1955 + 3865 = 5820',
             signature: {
               algorithm: 'HmacSHA256',
               signature: 'RZ7n5nslCu12b5vQ7yDYfrHR1XhJ9LYRCJvZM1jF3oM=',
@@ -144,8 +143,7 @@ export const MOCK_BEDROCK_REASONING_OUTPUT = {
 
 describe('normalizeConversation', () => {
   it('handles a Bedrock input format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    expect(normalizeConversation(MOCK_BEDROCK_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_BEDROCK_INPUT, 'bedrock')).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'What is the weather like in Tokyo today?',
@@ -154,8 +152,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock output format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    expect(normalizeConversation(MOCK_BEDROCK_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_BEDROCK_OUTPUT, 'bedrock')).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'The weather in Tokyo is sunny with a temperature of 25°C.',
@@ -164,8 +161,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock tool use input format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_INPUT, spanAttributes);
+    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_INPUT, 'bedrock');
     expect(result).not.toBeNull();
     expect(result).toHaveLength(3);
 
@@ -202,8 +198,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock tool use output format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_OUTPUT, spanAttributes);
+    const result = normalizeConversation(MOCK_BEDROCK_TOOL_USE_OUTPUT, 'bedrock');
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
 
@@ -225,8 +220,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock image input format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    const result = normalizeConversation(MOCK_BEDROCK_IMAGE_INPUT, spanAttributes);
+    const result = normalizeConversation(MOCK_BEDROCK_IMAGE_INPUT, 'bedrock');
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
 
@@ -239,8 +233,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a Bedrock reasoning output format', () => {
-    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
-    const result = normalizeConversation(MOCK_BEDROCK_REASONING_OUTPUT, spanAttributes);
+    const result = normalizeConversation(MOCK_BEDROCK_REASONING_OUTPUT, 'bedrock');
     expect(result).not.toBeNull();
     expect(result).toHaveLength(1);
 

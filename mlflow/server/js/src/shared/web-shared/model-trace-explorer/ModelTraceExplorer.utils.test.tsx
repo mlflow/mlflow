@@ -28,20 +28,8 @@ import {
   isModelTraceChatMessage,
   getAssessmentMap,
   decodeSpanId,
-  prettyPrintToolCall,
 } from './ModelTraceExplorer.utils';
-import { MOCK_OPENAI_RESPONSES_INPUT, MOCK_OPENAI_RESPONSES_OUTPUT } from './chat-utils/openai.test-utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
-import { MOCK_ANTHROPIC_INPUT, MOCK_ANTHROPIC_OUTPUT } from './chat-utils/anthropic.test-utils';
-import { MOCK_GEMINI_INPUT, MOCK_GEMINI_OUTPUT } from './chat-utils/gemini.test-utils';
-import { MOCK_DSPY_INPUT, MOCK_DSPY_OUTPUT } from './chat-utils/dspy.test-utils';
-import {
-  MOCK_LANGCHAIN_INPUT,
-  MOCK_LANGCHAIN_OUTPUT,
-  MOCK_LANGCHAIN_IMAGE_INPUT,
-  MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT,
-} from './chat-utils/langchain.test-utils';
-import { MOCK_LLAMAINDEX_INPUT, MOCK_LLAMAINDEX_OUTPUT } from './chat-utils/llamaindex.test-utils';
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {

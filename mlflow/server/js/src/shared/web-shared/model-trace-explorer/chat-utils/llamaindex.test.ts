@@ -86,8 +86,7 @@ export const MOCK_LLAMAINDEX_OUTPUT = {
 
 describe('normalizeConversation', () => {
   it('handles a LlamaIndex chat input', () => {
-    const spanAttributes = { 'mlflow.message.format': 'llamaindex' };
-    expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_LLAMAINDEX_INPUT, 'llamaindex')).toEqual([
       expect.objectContaining({
         role: 'system',
         content: expect.stringMatching(/you are an expert q&a system/i),
@@ -100,8 +99,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles a LlamaIndex chat output', () => {
-    const spanAttributes = { 'mlflow.message.format': 'llamaindex' };
-    expect(normalizeConversation(MOCK_LLAMAINDEX_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_LLAMAINDEX_OUTPUT, 'llamaindex')).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: expect.stringMatching(/the first program the author wrote was/i),

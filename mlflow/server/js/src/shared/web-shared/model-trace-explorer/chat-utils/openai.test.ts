@@ -159,8 +159,7 @@ export const MOCK_OPENAI_RESPONSES_INPUT = {
 
 describe('normalizeConversation', () => {
   it('handles an OpenAI chat input', () => {
-    const spanAttributes = { 'mlflow.message.format': 'openai' };
-    expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, 'openai')).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'tell me a joke in 50 words',
@@ -186,8 +185,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI chat output', () => {
-    const spanAttributes = { 'mlflow.message.format': 'openai' };
-    expect(normalizeConversation(MOCK_OPENAI_CHAT_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_OPENAI_CHAT_OUTPUT, 'openai')).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'Why did the scarecrow win an award? Because he was outstanding in his field!',
@@ -196,14 +194,13 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an OpenAI responses formats', () => {
-    const spanAttributes = { 'mlflow.message.format': 'openai' };
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT, 'openai')).toEqual([
       expect.objectContaining({
         role: 'user',
         content: 'What is the capital of France?',
       }),
     ]);
-    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT, 'openai')).toEqual([
       expect.objectContaining({
         role: 'assistant',
         content: 'The capital of France is Paris.',

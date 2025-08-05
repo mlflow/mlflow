@@ -198,8 +198,7 @@ export const MOCK_AUTOGEN_MULTIMODAL_OUTPUT = {
 
 describe('normalizeConversation', () => {
   it('handles an AutoGen request formats', () => {
-    const spanAttributes = { 'mlflow.message.format': 'autogen' };
-    expect(normalizeConversation(MOCK_AUTOGEN_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_AUTOGEN_INPUT, 'autogen')).toEqual([
       expect.objectContaining({
         role: 'system',
         content: 'You are a helpful assistant.',
@@ -212,8 +211,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an AutoGen response formats', () => {
-    const spanAttributes = { 'mlflow.message.format': 'autogen' };
-    expect(normalizeConversation(MOCK_AUTOGEN_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_AUTOGEN_OUTPUT, 'autogen')).toEqual([
       expect.objectContaining({
         content: 'Hello World!',
         role: 'assistant',
@@ -222,8 +220,7 @@ describe('normalizeConversation', () => {
   });
 
   it('handles an AutoGen complex input formats', () => {
-    const spanAttributes = { 'mlflow.message.format': 'autogen' };
-    const result = normalizeConversation(MOCK_AUTOGEN_COMPLEX_INPUT, spanAttributes);
+    const result = normalizeConversation(MOCK_AUTOGEN_COMPLEX_INPUT, 'autogen');
     expect(result).not.toBeNull();
     expect(result).toHaveLength(4);
     expect(result![0]).toEqual(

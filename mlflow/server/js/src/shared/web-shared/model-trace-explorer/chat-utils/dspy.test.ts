@@ -22,8 +22,7 @@ export const MOCK_DSPY_OUTPUT = [
 
 describe('normalizeConversation', () => {
   it('should handle dspy input', () => {
-    const spanAttributes = { 'mlflow.message.format': 'dspy' };
-    expect(normalizeConversation(MOCK_DSPY_INPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_DSPY_INPUT, 'dspy')).toEqual([
       expect.objectContaining({
         role: 'system',
         content: expect.stringContaining('Your input fields are:'),
@@ -36,8 +35,7 @@ describe('normalizeConversation', () => {
   });
 
   it('should handle dspy output', () => {
-    const spanAttributes = { 'mlflow.message.format': 'dspy' };
-    expect(normalizeConversation(MOCK_DSPY_OUTPUT, spanAttributes)).toEqual([
+    expect(normalizeConversation(MOCK_DSPY_OUTPUT, 'dspy')).toEqual([
       expect.objectContaining({
         content: expect.stringContaining('[[ ## reasoning ## ]]'),
         role: 'assistant',
