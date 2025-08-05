@@ -13,8 +13,11 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.dataset_summary import _DatasetSummary
 from mlflow.entities.document import Document
+from mlflow.entities.evaluation_dataset import EvaluationDataset
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
@@ -101,4 +104,8 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    "EvaluationDataset",
+    "DatasetRecord",
+    "DatasetRecordSource",
+    "DatasetRecordSourceType",
 ]
