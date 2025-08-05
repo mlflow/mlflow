@@ -350,11 +350,11 @@ class Span:
         from opentelemetry.trace import StatusCode as OTelStatusCode
 
         # Convert protobuf bytes to integers for IDs
-        trace_id = int.from_bytes(otel_proto_span.trace_id, byteorder="big")
-        span_id = int.from_bytes(otel_proto_span.span_id, byteorder="big")
+        trace_id = _bytes_to_id(otel_proto_span.trace_id)
+        span_id = _bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
-            parent_id = int.from_bytes(otel_proto_span.parent_span_id, byteorder="big")
+            parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert status
         status_code = OTelStatusCode.UNSET
@@ -464,6 +464,11 @@ def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
     bytes = base64.b64decode(trace_or_span_id_b64)
     return int.from_bytes(bytes, byteorder="big", signed=False)
+
+
+def _bytes_to_id(id_bytes: bytes) -> int:
+    # Convert raw bytes to integer ID (used for protobuf conversion)
+    return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
 class LiveSpan(Span):
