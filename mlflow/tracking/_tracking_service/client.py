@@ -983,7 +983,7 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found or invalid parameters.
         """
-        self.store.update_evaluation_dataset_tags(
+        self.store.set_evaluation_dataset_tags(
             dataset_id=dataset_id, tags=tags, updated_by=updated_by
         )
 
@@ -998,8 +998,8 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found.
         """
-        # Use update_evaluation_dataset_tags with None value to delete
-        self.store.update_evaluation_dataset_tags(
+        # Use set_evaluation_dataset_tags with None value to delete
+        self.store.set_evaluation_dataset_tags(
             dataset_id=dataset_id,
             tags={key: None},
             updated_by=None,

@@ -1,6 +1,5 @@
 import pytest
 
-from mlflow.entities.evaluation_dataset import EvaluationDataset
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, ErrorCode
 from mlflow.store.tracking.file_store import FileStore
@@ -17,10 +16,10 @@ def assert_feature_disabled_error(exc_info, method_name):
 
 
 def test_create_evaluation_dataset_not_supported(file_store):
-    dataset = EvaluationDataset(name="test_dataset")
-
     with pytest.raises(MlflowException, match="not supported with FileStore") as exc_info:
-        file_store.create_evaluation_dataset(dataset, experiment_ids=["0"])
+        file_store.create_evaluation_dataset(
+            name="test_dataset", tags={"test": "tag"}, experiment_ids=["0"]
+        )
 
     assert_feature_disabled_error(exc_info, "create_evaluation_dataset")
 
