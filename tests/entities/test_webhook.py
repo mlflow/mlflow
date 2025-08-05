@@ -9,15 +9,9 @@ from mlflow.entities.webhook import (
     WebhookTestResult,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.webhooks_pb2 import (
-    WebhookAction as ProtoWebhookAction,
-)
-from mlflow.protos.webhooks_pb2 import (
-    WebhookEntity as ProtoWebhookEntity,
-)
-from mlflow.protos.webhooks_pb2 import (
-    WebhookStatus as ProtoWebhookStatus,
-)
+from mlflow.protos.webhooks_pb2 import WebhookAction as ProtoWebhookAction
+from mlflow.protos.webhooks_pb2 import WebhookEntity as ProtoWebhookEntity
+from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
 
 
 @pytest.mark.parametrize(
