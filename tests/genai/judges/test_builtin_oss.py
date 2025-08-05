@@ -1,5 +1,6 @@
-import pytest
 from unittest import mock
+
+import pytest
 
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai import judges
@@ -10,17 +11,20 @@ from mlflow.genai.judges.utils import CategoricalRating
 def set_env(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
 
+
 def _get_mock_response(text: str):
     return {
         "id": "3cdb958c-e4cc-4834-b52b-1d1a7f324714",
         "object": "chat.completion",
         "created": 1700173217,
         "model": "gpt-4.1-mini",
-        "choices": [{
-            "index": 0,
-            "message": {"content": text, "role": "assistant"},
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"content": text, "role": "assistant"},
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {
             "prompt_tokens": 10,
             "completion_tokens": 8,

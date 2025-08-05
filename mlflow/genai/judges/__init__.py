@@ -9,7 +9,6 @@ from mlflow.genai.judges.builtin import (
 )
 from mlflow.genai.judges.utils import CategoricalRating
 
-
 __all__ = [
     "CategoricalRating",
     "is_grounded",

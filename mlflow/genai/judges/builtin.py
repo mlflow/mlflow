@@ -5,9 +5,23 @@ from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 # NB: User-facing name for the is_context_relevant assessment.
 _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
+
+
+_MODEL_API_DOC = {
+    "model": """\
+Judge model to use. Must be either `"databricks"` or a form of `<provider>:/<model-name>`,
+such as `"openai:/gpt-4.1-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`. MLflow
+natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
+and more providers are supported through [LiteLLM](https://docs.litellm.ai/docs/providers).
+Default model depends on the tracking URI setup:
+    - Databricks: `databricks`
+    - Otherwise: `openai:/gpt-4.1-mini`.
+""",
+}
 
 
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
@@ -262,6 +276,7 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     return _sanitize_feedback(safety(response=content, assessment_name=name))
 
 
+@format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
     guidelines: Union[str, list[str]],
@@ -278,6 +293,7 @@ def meets_guidelines(
             pass {"response": "<response text>"} to evaluate whether the response meets
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -317,7 +333,9 @@ def meets_guidelines(
         )
     else:
         prompt = get_prompt(guidelines, context)
-        feedback = invoke_judge_model(model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME
+        )
 
     return _sanitize_feedback(feedback)
 

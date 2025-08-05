@@ -1,13 +1,28 @@
 import json
 import re
+
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.metrics.genai.model_utils import (
+    _parse_model_uri,
+    get_endpoint_type,
+    score_model_on_payload,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.metrics.genai.model_utils import score_model_on_payload, get_endpoint_type
 from mlflow.utils.uri import is_databricks_uri
+
+# "endpoints" is a special case for Databricks model serving endpoints.
+_NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
+
+try:
+    import litellm  # noqa: F401
+
+    _IS_LITELLM_INSTALLED = True
+except ImportError:
+    _IS_LITELLM_INSTALLED = False
 
 
 def get_default_model() -> str:
@@ -26,13 +41,38 @@ def format_prompt(prompt: str, **values) -> str:
 
 def _sanitize_justification(justification: str) -> str:
     # Some judge prompts instruct the model to think step by step.
-    return justification.replace("Let's think step by step", "")
+    return justification.replace("Let's think step by step. ", "")
 
-def invoke_judge_model(model: str, prompt: str, assessment_name: str) -> Feedback:
+
+def invoke_judge_model(model_uri: str, prompt: str, assessment_name: str) -> Feedback:
     """
+    Invoke the judge model.
+
+    First, try to invoke the judge model via litellm. If litellm is not installed,
+    fallback to native parsing using the AI Gateway adapters.
+
+    Args:
+        model_uri: The model URI.
+        prompt: The prompt to evaluate.
+        assessment_name: The name of the assessment.
     """
-    endpoint_type = get_endpoint_type(model) or "llm/v1/chat"
-    response = score_model_on_payload(model, prompt, endpoint_type=endpoint_type)
+    provider, model_name = _parse_model_uri(model_uri)
+
+    # Try litellm first for better performance.
+    if _IS_LITELLM_INSTALLED:
+        response = _invoke_litellm(provider, model_name, prompt)
+    elif provider in _NATIVE_PROVIDERS:
+        response = score_model_on_payload(
+            model_uri=model_uri,
+            payload=prompt,
+            endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
+        )
+    else:
+        raise MlflowException(
+            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
+            "`pip install litellm`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     try:
         response_dict = json.loads(response)
@@ -42,7 +82,7 @@ def invoke_judge_model(model: str, prompt: str, assessment_name: str) -> Feedbac
             rationale=_sanitize_justification(response_dict.get("rationale", "")),
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=model,
+                source_id=model_uri,
             ),
         )
     except json.JSONDecodeError as e:
@@ -52,6 +92,20 @@ def invoke_judge_model(model: str, prompt: str, assessment_name: str) -> Feedbac
         ) from e
 
     return feedback
+
+
+def _invoke_litellm(provider: str, model_name: str, prompt: str) -> str:
+    """Invoke the judge model via litellm."""
+    import litellm
+
+    litellm_model_uri = f"{provider}/{model_name}"
+    try:
+        response = litellm.completion(
+            model=litellm_model_uri, messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        raise MlflowException("Failed to invoke the judge model via litellm.") from e
 
 
 class CategoricalRating(StrEnum):
