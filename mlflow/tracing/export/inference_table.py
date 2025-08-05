@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING,
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
@@ -56,13 +56,7 @@ class InferenceTableSpanExporter(SpanExporter):
 
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
-
-        # NB: When this env var is set to true, MLflow will export traces to both inference
-        #  table and the Databricks Tracing Server.
-        self._should_write_to_mlflow_backend = (
-            _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING.get()
-        )
-        if self._should_write_to_mlflow_backend:
+        if MLFLOW_EXPERIMENT_ID.get():
             self._client = TracingClient("databricks")
             self._async_queue = AsyncTraceExportQueue()
 
