@@ -86,7 +86,14 @@ class InferenceTableSpanExporter(SpanExporter):
             _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
 
             # Export to MLflow backend if experiment ID is set
-            if MLFLOW_EXPERIMENT_ID.get() and trace.info.experiment_id is not None:
+            if MLFLOW_EXPERIMENT_ID.get():
+                if trace.info.experiment_id is None:
+                    _logger.debug(
+                        f"{MLFLOW_EXPERIMENT_ID.name} is set, but trace {trace.info.trace_id} "
+                        "has no experiment ID. Skipping export."
+                    )
+                    continue
+
                 try:
                     # Log the trace to the MLflow backend asynchronously
                     self._async_queue.put(
