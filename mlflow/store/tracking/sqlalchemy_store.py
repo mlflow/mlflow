@@ -2714,6 +2714,11 @@ class SqlAlchemyStore(AbstractStore):
 
             from sqlalchemy import case
 
+            # Atomic update of trace time range using SQLAlchemy's case expressions.
+            # This is necessary to handle concurrent span additions from multiple processes/threads
+            # without race conditions. The database performs the min/max comparisons atomically,
+            # ensuring the trace always reflects the earliest start and latest end times across
+            # all spans, even when multiple log_spans calls happen simultaneously.
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 {
                     SqlTraceInfo.timestamp_ms: case(
