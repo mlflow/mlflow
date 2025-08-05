@@ -425,7 +425,8 @@ def env_updated(app: Sphinx, env: BuildEnvironment) -> None:
     if result.returncode != 0:
         raise RuntimeError(
             f"The API inventory file '{path.relative_to(repo_root)}' is outdated (see the diff below). "
-            "If you are adding new APIs, ensure they are marked as experimental using the `@experimental` decorator:\n\n"
+            "Please update it by running `make rsthtml` in the `docs/api_reference` directory. "
+            "If the new APIs should be marked as experimental, please decorate them with `@experimental`."
             f"{result.stdout.strip()}\n\n"
         )
 
