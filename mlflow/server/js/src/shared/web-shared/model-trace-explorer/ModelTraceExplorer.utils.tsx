@@ -328,10 +328,18 @@ export function searchTreeBySpanId(
 }
 
 const getChatMessagesFromSpan = (
+  messagesAttributeValue: any,
   inputs: any,
   outputs: any,
   spanAttributes?: Record<string, any>,
 ): ModelTraceChatMessage[] | undefined => {
+  // if the `mlflow.chat.messages` attribute is provided
+  // and in the correct format, return it as-is
+  // we allow content type to be content part list for the `mlflow.chat.messages` attribute
+  if (Array.isArray(messagesAttributeValue) && messagesAttributeValue.every(isRawModelTraceChatMessage)) {
+    return compact(messagesAttributeValue.map(prettyPrintChatMessage));
+  }
+
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
@@ -384,9 +392,10 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
+  const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
   const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
   const spanAttributesForChat = messageFormat ? { 'mlflow.message.format': messageFormat } : undefined;
-  const chatMessages = getChatMessagesFromSpan(inputs, outputs, spanAttributesForChat);
+  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, spanAttributesForChat);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
