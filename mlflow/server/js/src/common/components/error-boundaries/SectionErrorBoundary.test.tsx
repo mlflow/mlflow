@@ -48,6 +48,6 @@ describe('SectionErrorBoundary', () => {
       </SectionErrorBoundary>,
     );
 
-    expect(screen.getByText(/error message: some error message/i));
+    expect(screen.getByText(/error message: some error message/i)).toBeInTheDocument();
   });
 });
