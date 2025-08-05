@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 import inspect
 import itertools
 import re
 from abc import ABC, abstractmethod
+from typing import Any
 
 _id_counter = itertools.count(start=1)
 _CLASS_NAME_TO_RULE_NAME_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
@@ -13,7 +12,7 @@ class Rule(ABC):
     id: str
     name: str
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         # Only generate ID for concrete classes
         if not inspect.isabstract(cls):

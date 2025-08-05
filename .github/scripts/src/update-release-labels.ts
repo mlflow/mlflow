@@ -83,14 +83,14 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
 function extractPRNumberFromCommitMessage(commitMessage: string): number | null {
   const prRegex = /\(#(\d+)\)$/;
   const lines = commitMessage.split("\n");
-  
+
   for (const line of lines) {
     const match = line.trim().match(prRegex);
     if (match) {
       return parseInt(match[1], 10);
     }
   }
-  
+
   return null;
 }
 
@@ -121,8 +121,14 @@ async function extractPRNumbersFromBranch(
 
     console.log(`Found ${releasePRNumbers.size} PR numbers from ${releaseBranch} commits`);
   } catch (error) {
-    if (error instanceof Error && 'status' in error && (error as { status: number }).status === 404) {
-      console.log(`Release branch '${releaseBranch}' not found. This may be expected for new releases.`);
+    if (
+      error instanceof Error &&
+      "status" in error &&
+      (error as { status: number }).status === 404
+    ) {
+      console.log(
+        `Release branch '${releaseBranch}' not found. This may be expected for new releases.`
+      );
       console.log("Skipping commit analysis - will update all PRs with the release label.");
     } else {
       throw error;
@@ -147,7 +153,7 @@ async function fetchPRsWithLabel(
     state: "all",
   });
 
-  const prsWithReleaseLabel = allIssues.filter(item => {
+  const prsWithReleaseLabel = allIssues.filter((item) => {
     if (!item.pull_request) return false;
     if (item.state === "closed" && item.pull_request.merged_at) return true;
     return false;
@@ -168,8 +174,12 @@ async function updatePRLabels(
   releaseLabel: string,
   nextPatchLabel: string
 ): Promise<void> {
-  const pullRequests = prsWithReleaseLabel.filter(item => item.pull_request);
-  console.log(`Processing ${pullRequests.length} PRs (filtered out ${prsWithReleaseLabel.length - pullRequests.length} issues)`);
+  const pullRequests = prsWithReleaseLabel.filter((item) => item.pull_request);
+  console.log(
+    `Processing ${pullRequests.length} PRs (filtered out ${
+      prsWithReleaseLabel.length - pullRequests.length
+    } issues)`
+  );
 
   const prsToUpdate: number[] = [];
 
@@ -206,7 +216,7 @@ async function updatePRLabels(
 
 /**
  * Main function to update release labels
- * 
+ *
  * This script checks all PRs labeled with a release version and updates
  * their labels to the next patch version if they weren't actually included
  * in the release (handles cherry-picked commits properly).

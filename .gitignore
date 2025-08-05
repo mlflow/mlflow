@@ -79,7 +79,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.python-version
 dev-env-setup-progress
 
 # Editor files
