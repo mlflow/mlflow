@@ -2644,24 +2644,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
         return sql_assessment
 
-    def _get_trace_status_from_root_span(self, spans: list[Span]) -> Optional[str]:
-        """
-        Extract trace status from root span if present.
-
-        Returns the mapped trace status string or None if no root span found.
-        """
-        for span in spans:
-            if span.parent_id is None:  # Found root span (no parent)
-                # Map span status to trace status
-                span_status = span.status.status_code.value
-                if span_status == "ERROR":
-                    return "ERROR"
-                elif span_status == "UNSET":
-                    return "STATE_UNSPECIFIED"
-                else:  # OK or any other status
-                    return "OK"
-        return None
-
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -2703,17 +2685,13 @@ class SqlAlchemyStore(AbstractStore):
                 min_start_time = min(span.start_time_ns for span in spans)
                 max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
-                # Determine trace status from root span if available
-                root_span_status = self._get_trace_status_from_root_span(spans)
-                trace_status = root_span_status if root_span_status else "IN_PROGRESS"
-
                 # Create the SqlTraceInfo directly in the session
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_time // 1_000_000,
                     execution_time_ms=(max_end_time - min_start_time) // 1_000_000,
-                    status=trace_status,
+                    status="OK",
                     client_request_id=None,
                 )
 
@@ -2736,36 +2714,27 @@ class SqlAlchemyStore(AbstractStore):
 
             from sqlalchemy import case
 
-            # Check if we need to update trace status from root span
-            update_dict = {
-                SqlTraceInfo.timestamp_ms: case(
-                    (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                    else_=SqlTraceInfo.timestamp_ms,
-                ),
-                SqlTraceInfo.execution_time_ms: (
-                    case(
-                        (
-                            (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
-                            > max_end_ms,
-                            SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
-                        ),
-                        else_=max_end_ms,
-                    )
-                    - case(
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+                {
+                    SqlTraceInfo.timestamp_ms: case(
                         (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                         else_=SqlTraceInfo.timestamp_ms,
-                    )
-                ),
-            }
-
-            # If trace status is IN_PROGRESS or unspecified, check for root span to update it
-            if sql_trace_info.status in ("IN_PROGRESS", "STATE_UNSPECIFIED"):
-                root_span_status = self._get_trace_status_from_root_span(spans)
-                if root_span_status:
-                    update_dict[SqlTraceInfo.status] = root_span_status
-
-            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
-                update_dict,
+                    ),
+                    SqlTraceInfo.execution_time_ms: (
+                        case(
+                            (
+                                (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                                > max_end_ms,
+                                SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                            ),
+                            else_=max_end_ms,
+                        )
+                        - case(
+                            (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                            else_=SqlTraceInfo.timestamp_ms,
+                        )
+                    ),
+                },
                 synchronize_session=False,
             )
 
