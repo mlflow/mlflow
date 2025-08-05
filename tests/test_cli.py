@@ -89,8 +89,8 @@ def test_server_uvicorn_options():
         )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        # Test with uvicorn-opts
-        CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
+        # Test with uvicorn-opts - use different options than dev mode
+        CliRunner().invoke(server, ["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -106,7 +106,7 @@ def test_server_uvicorn_options():
             waitress_opts=None,
             expose_prometheus=None,
             app_name=None,
-            uvicorn_opts="--reload --log-level debug",
+            uvicorn_opts="--loop asyncio --limit-concurrency 100",
         )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -136,7 +136,7 @@ def test_server_gunicorn_options():
     """Test that gunicorn options are properly handled."""
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
-        CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
+        CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
         run_server_mock.assert_called_once_with(
             file_store_path=mock.ANY,
             registry_store_uri=mock.ANY,
@@ -148,7 +148,7 @@ def test_server_gunicorn_options():
             port=5000,
             static_prefix=None,
             workers=None,
-            gunicorn_opts="--log-level debug",
+            gunicorn_opts="--timeout 120 --max-requests 1000",
             waitress_opts=None,
             expose_prometheus=None,
             app_name=None,
