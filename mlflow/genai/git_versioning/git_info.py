@@ -19,7 +19,7 @@ class GitInfo:
     branch: str
     commit: str
     dirty: bool = False
-    repo: str | None = None
+    repo_url: str | None = None
 
     @classmethod
     def from_env(cls, remote_name: str) -> Self:
@@ -48,7 +48,7 @@ class GitInfo:
             dirty = repo.is_dirty(untracked_files=False)
             # Get repository URL
             repo_url = next((r.url for r in repo.remotes if r.name == remote_name), None)
-            return cls(branch=branch, commit=commit, dirty=dirty, repo=repo_url)
+            return cls(branch=branch, commit=commit, dirty=dirty, repo_url=repo_url)
 
         except git.GitError as e:
             raise GitOperationError(f"Failed to get repository information: {e}") from e
@@ -59,6 +59,6 @@ class GitInfo:
             MLFLOW_GIT_COMMIT: self.commit,
             MLFLOW_GIT_DIRTY: str(self.dirty).lower(),
         }
-        if self.repo is not None:
-            tags[MLFLOW_GIT_REPO_URL] = self.repo
+        if self.repo_url is not None:
+            tags[MLFLOW_GIT_REPO_URL] = self.repo_url
         return tags
