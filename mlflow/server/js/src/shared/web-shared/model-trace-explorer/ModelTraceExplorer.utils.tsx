@@ -907,74 +907,73 @@ export const normalizeConversation = (
 
     // Check for the "mlflow.message.format" attribute for direct format matching
     const messageFormat = spanAttributes?.['mlflow.message.format'];
-    if (messageFormat) {
-      switch (messageFormat) {
-        case 'langchain':
-          const langchainChatInput = normalizeLangchainChatInput(input);
-          if (langchainChatInput) return langchainChatInput;
-          const langchainChatResult = normalizeLangchainChatResult(input);
-          if (langchainChatResult) return langchainChatResult;
-          break;
-        case 'llamaindex':
-          const llamaIndexChatInput = normalizeLlamaIndexChatInput(input);
-          if (llamaIndexChatInput) return llamaIndexChatInput;
-          const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
-          if (llamaIndexChatResponse) return llamaIndexChatResponse;
-          break;
-        case 'openai':
-          const openAIChatInput = normalizeOpenAIChatInput(input);
-          if (openAIChatInput) return openAIChatInput;
-          const openAIChatResponse = normalizeOpenAIChatResponse(input);
-          if (openAIChatResponse) return openAIChatResponse;
-          const openAIResponsesOutput = normalizeOpenAIResponsesOutput(input);
-          if (openAIResponsesOutput) return openAIResponsesOutput;
-          const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
-          if (openAIResponsesInput) return openAIResponsesInput;
-          break;
-        case 'dspy':
-          const dspyChatInput = normalizeDspyChatInput(input);
-          if (dspyChatInput) return dspyChatInput;
-          const dspyChatOutput = normalizeDspyChatOutput(input);
-          if (dspyChatOutput) return dspyChatOutput;
-          break;
-        case 'gemini':
-          const geminiChatInput = normalizeGeminiChatInput(input);
-          if (geminiChatInput) return geminiChatInput;
-          const geminiChatOutput = normalizeGeminiChatOutput(input);
-          if (geminiChatOutput) return geminiChatOutput;
-          break;
-        case 'anthropic':
-          const anthropicChatInput = normalizeAnthropicChatInput(input);
-          if (anthropicChatInput) return anthropicChatInput;
-          const anthropicChatOutput = normalizeAnthropicChatOutput(input);
-          if (anthropicChatOutput) return anthropicChatOutput;
-          break;
-        case 'openai-agent':
-          const openAIAgentChatInput = normalizeOpenAIAgentInput(input);
-          if (openAIAgentChatInput) return openAIAgentChatInput;
-          const openAIAgentChatOutput = normalizeOpenAIAgentOutput(input);
-          if (openAIAgentChatOutput) return openAIAgentChatOutput;
-          break;
-        case 'autogen':
-          const autogenChatInput = normalizeAutogenChatInput(input);
-          if (autogenChatInput) return autogenChatInput;
-          const autogenChatOutput = normalizeAutogenChatOutput(input);
-          if (autogenChatOutput) return autogenChatOutput;
-          break;
-        case 'bedrock':
-          const bedrockChatInput = normalizeBedrockChatInput(input);
-          if (bedrockChatInput) return bedrockChatInput;
-          const bedrockChatOutput = normalizeBedrockChatOutput(input);
-          if (bedrockChatOutput) return bedrockChatOutput;
-          break;
-        default:
-          // Fallback to OpenAI chat format
-          const chatInput = normalizeOpenAIChatInput(input);
-          if (chatInput) return chatInput;
-          const chatResponse = normalizeOpenAIChatResponse(input);
-          if (chatResponse) return chatResponse;
-          break;
-      }
+
+    switch (messageFormat) {
+      case 'langchain':
+        const langchainChatInput = normalizeLangchainChatInput(input);
+        if (langchainChatInput) return langchainChatInput;
+        const langchainChatResult = normalizeLangchainChatResult(input);
+        if (langchainChatResult) return langchainChatResult;
+        break;
+      case 'llamaindex':
+        const llamaIndexChatInput = normalizeLlamaIndexChatInput(input);
+        if (llamaIndexChatInput) return llamaIndexChatInput;
+        const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
+        if (llamaIndexChatResponse) return llamaIndexChatResponse;
+        break;
+      case 'openai':
+        const openAIChatInput = normalizeOpenAIChatInput(input);
+        if (openAIChatInput) return openAIChatInput;
+        const openAIChatResponse = normalizeOpenAIChatResponse(input);
+        if (openAIChatResponse) return openAIChatResponse;
+        const openAIResponsesOutput = normalizeOpenAIResponsesOutput(input);
+        if (openAIResponsesOutput) return openAIResponsesOutput;
+        const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
+        if (openAIResponsesInput) return openAIResponsesInput;
+        break;
+      case 'dspy':
+        const dspyChatInput = normalizeDspyChatInput(input);
+        if (dspyChatInput) return dspyChatInput;
+        const dspyChatOutput = normalizeDspyChatOutput(input);
+        if (dspyChatOutput) return dspyChatOutput;
+        break;
+      case 'gemini':
+        const geminiChatInput = normalizeGeminiChatInput(input);
+        if (geminiChatInput) return geminiChatInput;
+        const geminiChatOutput = normalizeGeminiChatOutput(input);
+        if (geminiChatOutput) return geminiChatOutput;
+        break;
+      case 'anthropic':
+        const anthropicChatInput = normalizeAnthropicChatInput(input);
+        if (anthropicChatInput) return anthropicChatInput;
+        const anthropicChatOutput = normalizeAnthropicChatOutput(input);
+        if (anthropicChatOutput) return anthropicChatOutput;
+        break;
+      case 'openai-agent':
+        const openAIAgentChatInput = normalizeOpenAIAgentInput(input);
+        if (openAIAgentChatInput) return openAIAgentChatInput;
+        const openAIAgentChatOutput = normalizeOpenAIAgentOutput(input);
+        if (openAIAgentChatOutput) return openAIAgentChatOutput;
+        break;
+      case 'autogen':
+        const autogenChatInput = normalizeAutogenChatInput(input);
+        if (autogenChatInput) return autogenChatInput;
+        const autogenChatOutput = normalizeAutogenChatOutput(input);
+        if (autogenChatOutput) return autogenChatOutput;
+        break;
+      case 'bedrock':
+        const bedrockChatInput = normalizeBedrockChatInput(input);
+        if (bedrockChatInput) return bedrockChatInput;
+        const bedrockChatOutput = normalizeBedrockChatOutput(input);
+        if (bedrockChatOutput) return bedrockChatOutput;
+        break;
+      default:
+        // Fallback to OpenAI chat format
+        const chatInput = normalizeOpenAIChatInput(input);
+        if (chatInput) return chatInput;
+        const chatResponse = normalizeOpenAIChatResponse(input);
+        if (chatResponse) return chatResponse;
+        break;
     }
 
     return null;

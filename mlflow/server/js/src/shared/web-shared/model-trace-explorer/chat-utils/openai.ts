@@ -90,6 +90,10 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
     return isString(get(obj, 'result')) && isString(outputFormat) && ['png', 'jpeg', 'webp'].includes(outputFormat);
   }
 
+  if (get(obj, 'type') === 'reasoning') {
+    return has(obj, 'id') && isArray(get(obj, 'summary'));
+  }
+
   return false;
 };
 
@@ -183,6 +187,11 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
     });
   }
 
+  if (obj.type === 'reasoning') {
+    // Skip reasoning entries as they don't translate to chat messages
+    return null;
+  }
+
   return null;
 };
 
@@ -195,7 +204,7 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem));
+    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
   }
 
   // list of output chunks

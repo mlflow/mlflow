@@ -115,6 +115,33 @@ export const MOCK_BEDROCK_IMAGE_INPUT = {
   ],
 };
 
+export const MOCK_BEDROCK_REASONING_OUTPUT = {
+  ResponseMetadata: {
+    RequestId: '3be62cb5-d4e6-4af4-985f-3c0f57087dea',
+    HTTPStatusCode: 200,
+  },
+  output: {
+    message: {
+      role: 'assistant',
+      content: [
+        {
+          reasoningContent: {
+            reasoningText:
+              'The user is asking for the sum of 1955 and 3865. Let me calculate:\n\n1955 + 3865 = 5820',
+            signature: {
+              algorithm: 'HmacSHA256',
+              signature: 'RZ7n5nslCu12b5vQ7yDYfrHR1XhJ9LYRCJvZM1jF3oM=',
+            },
+          },
+        },
+        {
+          text: 'The sum of 1955 and 3865 is 5820.',
+        },
+      ],
+    },
+  },
+};
+
 describe('normalizeConversation', () => {
   it('handles a Bedrock input format', () => {
     const spanAttributes = { 'mlflow.message.format': 'bedrock' };
@@ -207,6 +234,20 @@ describe('normalizeConversation', () => {
       expect.objectContaining({
         role: 'user',
         content: expect.stringContaining('Describe this image: [Image: data:image/jpeg;base64,'),
+      }),
+    );
+  });
+
+  it('handles a Bedrock reasoning output format', () => {
+    const spanAttributes = { 'mlflow.message.format': 'bedrock' };
+    const result = normalizeConversation(MOCK_BEDROCK_REASONING_OUTPUT, spanAttributes);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'The sum of 1955 and 3865 is 5820.',
       }),
     );
   });
