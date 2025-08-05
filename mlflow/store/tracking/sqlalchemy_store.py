@@ -2644,6 +2644,24 @@ class SqlAlchemyStore(AbstractStore):
                 )
         return sql_assessment
 
+    def _get_trace_status_from_root_span(self, spans: list[Span]) -> Optional[str]:
+        """
+        Extract trace status from root span if present.
+
+        Returns the mapped trace status string or None if no root span found.
+        """
+        for span in spans:
+            if span.parent_id is None:  # Found root span (no parent)
+                # Map span status to trace status
+                span_status = span.status.status_code.value
+                if span_status == "ERROR":
+                    return "ERROR"
+                elif span_status == "UNSET":
+                    return "STATE_UNSPECIFIED"
+                else:  # OK or any other status
+                    return "OK"
+        return None
+
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -2686,18 +2704,8 @@ class SqlAlchemyStore(AbstractStore):
                 max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
                 # Determine trace status from root span if available
-                trace_status = "IN_PROGRESS"  # Default status for new traces
-                for span in spans:
-                    if span.parent_id is None:  # Found root span (no parent)
-                        # Map span status to trace status
-                        span_status = span.status.status_code.value
-                        if span_status == "ERROR":
-                            trace_status = "ERROR"
-                        elif span_status == "UNSET":
-                            trace_status = "STATE_UNSPECIFIED"
-                        else:  # OK or any other status
-                            trace_status = "OK"
-                        break
+                root_span_status = self._get_trace_status_from_root_span(spans)
+                trace_status = root_span_status if root_span_status else "IN_PROGRESS"
 
                 # Create the SqlTraceInfo directly in the session
                 sql_trace_info = SqlTraceInfo(
@@ -2752,16 +2760,9 @@ class SqlAlchemyStore(AbstractStore):
 
             # If trace status is IN_PROGRESS or unspecified, check for root span to update it
             if sql_trace_info.status in ("IN_PROGRESS", "STATE_UNSPECIFIED"):
-                for span in spans:
-                    if span.parent_id is None:  # Found root span
-                        span_status = span.status.status_code.value
-                        if span_status == "ERROR":
-                            update_dict[SqlTraceInfo.status] = "ERROR"
-                        elif span_status == "UNSET":
-                            update_dict[SqlTraceInfo.status] = "STATE_UNSPECIFIED"
-                        else:  # OK or any other status
-                            update_dict[SqlTraceInfo.status] = "OK"
-                        break
+                root_span_status = self._get_trace_status_from_root_span(spans)
+                if root_span_status:
+                    update_dict[SqlTraceInfo.status] = root_span_status
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
