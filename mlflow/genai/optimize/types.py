@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
 
 from mlflow.entities import Feedback
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.utils.annotations import experimental
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
@@ -16,10 +16,10 @@ class PromptOptimizationResult:
     Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
 
     Args:
-        prompt: A prompt entity containing the optimized template.
+        prompt: A prompt version entity containing the optimized template.
     """
 
-    prompt: Prompt
+    prompt: PromptVersion
 
 
 @experimental(version="3.0.0")
@@ -64,6 +64,8 @@ class OptimizerConfig:
         autolog: Whether to log the optimization parameters, datasets and metrics.
             If set to True, a MLflow run is automatically created to store them.
             Default: False
+        convert_to_single_text: Whether to convert the optimized prompt to a single prompt.
+            Default: True
     """
 
     num_instruction_candidates: int = 6
@@ -73,3 +75,4 @@ class OptimizerConfig:
     algorithm: str = "DSPy/MIPROv2"
     verbose: bool = False
     autolog: bool = False
+    convert_to_single_text: bool = True

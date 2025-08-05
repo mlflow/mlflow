@@ -3,9 +3,9 @@ import io
 import logging
 import math
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
@@ -25,17 +25,19 @@ _logger = logging.getLogger(__name__)
 class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
     def optimize(
         self,
-        prompt: Prompt,
+        prompt: PromptVersion,
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         import dspy
 
         from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
-        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
+        from mlflow.genai.optimize.optimizers.utils.dspy_optimizer_utils import (
+            format_optimized_prompt,
+        )
 
         _logger.info(
             f"🎯 Starting prompt optimization for: {prompt.uri}\n"
@@ -91,7 +93,11 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         adapter = dspy.JSONAdapter()
         callbacks = (
             [
-                _DSPyMIPROv2Callback(prompt.name, input_fields),
+                _DSPyMIPROv2Callback(
+                    prompt_name=prompt.name,
+                    input_fields=input_fields,
+                    convert_to_single_text=self.optimizer_config.convert_to_single_text,
+                ),
             ]
             if self.optimizer_config.autolog
             else []
@@ -110,6 +116,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             template = format_optimized_prompt(
                 program=optimized_program,
                 input_fields=input_fields,
+                convert_to_single_text=self.optimizer_config.convert_to_single_text,
             )
 
         self._display_optimization_result(optimized_program)
@@ -141,14 +148,14 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             return min(35, len(eval_data) // 2)
         return min(35, len(train_data) // 2)
 
-    def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
+    def _validate_input_fields(self, input_fields: dict[str, type], prompt: PromptVersion) -> None:
         if missing_fields := set(prompt.variables) - set(input_fields.keys()):
             raise MlflowException(
                 f"Validation failed. Missing prompt variables in dataset: {missing_fields}. "
                 "Please ensure your dataset contains columns for all prompt variables."
             )
 
-    def _extract_instructions(self, template: str, lm: "dspy.LM") -> str:
+    def _extract_instructions(self, template: str | dict[str, Any], lm: "dspy.LM") -> str:
         import dspy
 
         extractor = dspy.Predict(
@@ -209,7 +216,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     f"Final score: {score}."
                 )
 
-    def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
+    def _log_optimization_result(
+        self, final_score: Optional[float], optimized_prompt: PromptVersion
+    ):
         if not active_run():
             return
 

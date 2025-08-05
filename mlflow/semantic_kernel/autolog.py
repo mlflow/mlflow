@@ -1,5 +1,6 @@
 import logging
-from typing import Optional
+from contextlib import contextmanager
+from typing import Generator, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -13,14 +14,12 @@ from opentelemetry.trace import (
     set_tracer_provider,
 )
 
-from mlflow.entities import SpanType
-from mlflow.semantic_kernel.tracing_utils import (
-    _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN,
-    _get_span_type,
-    _set_token_usage,
-)
-from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.entities.span import create_mlflow_span
+from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import get_mlflow_span_for_otel_span, get_otel_attribute
 
 _logger = logging.getLogger(__name__)
 
@@ -71,31 +70,45 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = SpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
-        otel_span_id = span.get_span_context().span_id
-        parent_span_id = span.parent.span_id if span.parent else None
-        parent_st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(parent_span_id)
-        parent_span = parent_st[0] if parent_st else None
+        # Trigger MLflow's span processor
+        tracer = _get_tracer(__name__)
+        tracer.span_processor.on_start(span, parent_context)
 
-        mlflow_span = start_span_no_context(
-            name=span.name,
-            parent_span=parent_span,
-            attributes=dict(span.attributes) if span.attributes else None,
-        )
-        token = set_span_in_context(mlflow_span)
-        _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN[otel_span_id] = (mlflow_span, token)
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        mlflow_span = create_mlflow_span(span, trace_id)
+
+        # Register new span in the in-memory trace manager
+        InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.pop(span.get_span_context().span_id, None)
-        if st is None:
+        mlflow_span = get_mlflow_span_for_otel_span(span)
+        if mlflow_span is None:
             _logger.debug("Span not found in the map. Skipping end.")
             return
 
-        mlflow_span, token = st
-        mlflow_span.set_attributes(dict(span.attributes))
-        _set_token_usage(mlflow_span, span.attributes)
+        with _bypass_attribute_guard(mlflow_span._span):
+            set_span_type(mlflow_span)
+            set_token_usage(mlflow_span)
 
-        if not mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
-            mlflow_span.set_span_type(_get_span_type(span))
+        # Export the span using MLflow's span processor
+        tracer = _get_tracer(__name__)
+        tracer.span_processor.on_end(span)
 
-        detach_span_from_context(token)
-        mlflow_span.end()
+
+@contextmanager
+def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
+    """
+    OpenTelemetry does not allow setting attributes if the span has end time defined.
+    https://github.com/open-telemetry/opentelemetry-python/blob/d327927d0274a320466feec6fba6d6ddb287dc5a/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L849-L851
+
+    However, we need to set some attributes within `on_end` handler of the span processor,
+    where the span is already marked as ended. This context manager is a hacky workaround
+    to bypass the attribute guard.
+    """
+    original_end_time = span._end_time
+    span._end_time = None
+    try:
+        yield
+
+    finally:
+        span._end_time = original_end_time
