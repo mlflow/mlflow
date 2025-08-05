@@ -29,7 +29,7 @@ def upgrade():
         sa.Column("name", sa.Text(), nullable=True),
         # Use String instead of Text for type column to support MSSQL indexes.
         # MSSQL doesn't allow TEXT columns in indexes.
-        sa.Column("type", sa.String(length=200), nullable=True),
+        sa.Column("type", sa.String(length=1000), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("start_time_unix_nano", sa.BigInteger(), nullable=False),
         sa.Column("end_time_unix_nano", sa.BigInteger(), nullable=True),
