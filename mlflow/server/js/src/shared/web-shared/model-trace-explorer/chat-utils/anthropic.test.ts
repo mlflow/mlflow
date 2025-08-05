@@ -1,3 +1,5 @@
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
+
 export const MOCK_ANTHROPIC_INPUT = {
   max_tokens: 1024,
   messages: [
@@ -44,3 +46,23 @@ export const MOCK_ANTHROPIC_OUTPUT = {
     service_tier: 'standard',
   },
 };
+
+describe('normalizeConversation', () => {
+  it('should handle anthropic input', () => {
+    expect(normalizeConversation(MOCK_ANTHROPIC_INPUT, 'anthropic')).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringMatching(/describe this image/i),
+      }),
+    ]);
+  });
+
+  it('should handle anthropic output', () => {
+    expect(normalizeConversation(MOCK_ANTHROPIC_OUTPUT, 'anthropic')).toEqual([
+      expect.objectContaining({
+        content: expect.stringMatching(/this is a close-up macro photograph of an ant/i),
+        role: 'assistant',
+      }),
+    ]);
+  });
+});

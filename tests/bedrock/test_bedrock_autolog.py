@@ -775,7 +775,7 @@ def test_bedrock_autolog_converse(
     assert span.inputs is not None  # request with bytes is stringified and not recoverable
     assert span.outputs == response
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "bedrock.converse"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "bedrock"
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
