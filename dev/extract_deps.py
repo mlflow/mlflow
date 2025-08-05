@@ -13,7 +13,7 @@ def parse_dependencies(content: str) -> list[str]:
 def main():
     content = Path("pyproject.toml").read_text()
     dependencies = parse_dependencies(content)
-    print(" ".join(dependencies))
+    print("\n".join(dependencies))
 
 
 if __name__ == "__main__":
