@@ -6,11 +6,12 @@ import subprocess
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import toml
 import yaml
 from packaging.version import Version
+from pydantic import BaseModel, Field, RootModel
 
 
 class PackageType(Enum):
@@ -125,9 +126,59 @@ def find_duplicates(seq):
     return [item for item, count in counted.items() if count > 1]
 
 
-def read_requirements(path: Path) -> list[str]:
-    lines = (l.strip() for l in path.read_text().splitlines())
-    return [l for l in lines if l and not l.startswith("#")]
+class PackageRequirement(BaseModel):
+    pip_release: str = Field(..., description="The pip package name")
+    max_major_version: int = Field(..., description="Maximum major version allowed")
+    minimum: Optional[str] = Field(None, description="Minimum version required")
+    unsupported: Optional[list[str]] = Field(None, description="List of unsupported versions")
+    markers: Optional[str] = Field(
+        None, description="Environment markers for conditional installation"
+    )
+    extras: Optional[list[str]] = Field(None, description="Package extras to install")
+    freeze: Optional[bool] = Field(None, description="Whether to freeze this package version")
+
+
+RequirementsYaml = RootModel[dict[str, PackageRequirement]]
+
+
+def validate_requirements_yaml(requirements_yaml: dict[str, dict[str, Any]]) -> RequirementsYaml:
+    """Validate the structure of a requirements YAML file using Pydantic."""
+    return RequirementsYaml(requirements_yaml)
+
+
+def generate_requirements_from_yaml(requirements_yaml: RequirementsYaml) -> list[str]:
+    """Generate pip requirement strings from validated YAML specification."""
+    requirement_strs: list[str] = []
+    for package_entry in requirements_yaml.root.values():
+        pip_release = package_entry.pip_release
+        version_specs: list[str] = []
+
+        extras = f"[{','.join(package_entry.extras)}]" if package_entry.extras else ""
+
+        max_major_version = package_entry.max_major_version
+        version_specs += [f"<{max_major_version + 1}"]
+
+        if package_entry.minimum:
+            version_specs += [f">={package_entry.minimum}"]
+
+        if package_entry.unsupported:
+            version_specs += [f"!={version}" for version in package_entry.unsupported]
+
+        markers = f"; {package_entry.markers}" if package_entry.markers else ""
+
+        requirement_str = f"{pip_release}{extras}{','.join(version_specs)}{markers}"
+        requirement_strs.append(requirement_str)
+
+    requirement_strs.sort()
+    return requirement_strs
+
+
+def read_requirements_yaml(yaml_path: Path) -> list[str]:
+    """Read and parse a YAML requirements file into pip requirement strings."""
+    with yaml_path.open() as f:
+        requirements_data = yaml.safe_load(f)
+
+    return generate_requirements_from_yaml(RequirementsYaml(requirements_data))
 
 
 def read_package_versions_yml():
@@ -136,10 +187,12 @@ def read_package_versions_yml():
 
 
 def build(package_type: PackageType) -> None:
-    tracing_requirements = read_requirements(Path("requirements", "tracing-requirements.txt"))
-    skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
-    core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
-    gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
+    tracing_requirements = read_requirements_yaml(Path("requirements", "tracing-requirements.yaml"))
+    skinny_requirements = read_requirements_yaml(Path("requirements", "skinny-requirements.yaml"))
+    core_requirements = read_requirements_yaml(Path("requirements", "core-requirements.yaml"))
+    gateways_requirements = read_requirements_yaml(
+        Path("requirements", "gateway-requirements.yaml")
+    )
     package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
