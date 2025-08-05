@@ -18,8 +18,8 @@ such as `"openai:/gpt-4.1-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`. MLf
 natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
 and more providers are supported through [LiteLLM](https://docs.litellm.ai/docs/providers).
 Default model depends on the tracking URI setup:
-    - Databricks: `databricks`
-    - Otherwise: `openai:/gpt-4.1-mini`.
+  - Databricks: `databricks`
+  - Otherwise: `openai:/gpt-4.1-mini`.
 """,
 }
 

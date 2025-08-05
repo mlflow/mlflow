@@ -6,13 +6,16 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
-from mlflow.metrics.genai.model_utils import (
-    _parse_model_uri,
-    get_endpoint_type,
-    score_model_on_payload,
-)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.uri import is_databricks_uri
+from mlflow.version import IS_MLFLOW_SKINNY
+
+if not IS_MLFLOW_SKINNY:
+    from mlflow.metrics.genai.model_utils import (
+        _parse_model_uri,
+        get_endpoint_type,
+        score_model_on_payload,
+    )
 
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
