@@ -5000,7 +5000,8 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
         assert created_trace.experiment_id == int(experiment_id)
         assert created_trace.timestamp_ms == 5000000000 // 1_000_000
         assert created_trace.execution_time_ms == 1000000000 // 1_000_000
-        assert created_trace.status == "OK"
+        # Root span has no explicit status, defaults to UNSET -> STATE_UNSPECIFIED
+        assert created_trace.status == "STATE_UNSPECIFIED"
 
 
 @pytest.mark.asyncio
@@ -6547,3 +6548,238 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_sets_trace_status_from_root_span(store: SqlAlchemyStore, is_async: bool):
+    """Test that trace status is set from root span when creating a new trace."""
+    experiment_id = store.create_experiment("test_trace_status_from_root")
+    trace_id = "test_trace_" + str(uuid.uuid4().hex)
+
+    # Create root span with ERROR status
+    root_context = mock.Mock()
+    root_context.trace_id = 12345
+    root_context.span_id = 111
+    root_context.is_remote = False
+    root_context.trace_flags = trace_api.TraceFlags(1)
+    root_context.trace_state = trace_api.TraceState()
+
+    root_otel_span = OTelReadableSpan(
+        name="root_span",
+        context=root_context,
+        parent=None,  # Root span has no parent
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=1000000000,
+        end_time=2000000000,
+        status=trace_api.Status(trace_api.StatusCode.ERROR, "Root span failed"),
+        resource=_OTelResource.get_empty(),
+    )
+    root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
+
+    # Create child span with OK status
+    child_context = mock.Mock()
+    child_context.trace_id = 12345
+    child_context.span_id = 222
+    child_context.is_remote = False
+    child_context.trace_flags = trace_api.TraceFlags(1)
+    child_context.trace_state = trace_api.TraceState()
+
+    parent_context = mock.Mock()
+    parent_context.trace_id = 12345
+    parent_context.span_id = 111
+    parent_context.is_remote = False
+    parent_context.trace_flags = trace_api.TraceFlags(1)
+    parent_context.trace_state = trace_api.TraceState()
+
+    child_otel_span = OTelReadableSpan(
+        name="child_span",
+        context=child_context,
+        parent=parent_context,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=1100000000,
+        end_time=1900000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        resource=_OTelResource.get_empty(),
+    )
+    child_span = create_mlflow_span(child_otel_span, trace_id, "LLM")
+
+    spans = [root_span, child_span]
+
+    # Log spans
+    if is_async:
+        await store.log_spans_async(experiment_id, spans)
+    else:
+        store.log_spans(experiment_id, spans)
+
+    # Check trace was created with ERROR status from root span
+    traces, _ = store.search_traces([experiment_id])
+    assert len(traces) == 1
+    assert traces[0].request_id == trace_id
+    assert traces[0].state.value == "ERROR"
+
+    # Test with UNSET root span status
+    trace_id_unset = "test_trace_unset_" + str(uuid.uuid4().hex)
+
+    unset_context = mock.Mock()
+    unset_context.trace_id = 23456
+    unset_context.span_id = 333
+    unset_context.is_remote = False
+    unset_context.trace_flags = trace_api.TraceFlags(1)
+    unset_context.trace_state = trace_api.TraceState()
+
+    root_otel_unset = OTelReadableSpan(
+        name="root_span_unset",
+        context=unset_context,
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id_unset),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=3000000000,
+        end_time=4000000000,
+        status=trace_api.Status(trace_api.StatusCode.UNSET),
+        resource=_OTelResource.get_empty(),
+    )
+    root_span_unset = create_mlflow_span(root_otel_unset, trace_id_unset, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span_unset])
+    else:
+        store.log_spans(experiment_id, [root_span_unset])
+
+    traces, _ = store.search_traces([experiment_id])
+    trace_unset = [t for t in traces if t.request_id == trace_id_unset][0]
+    assert trace_unset.state.value == "STATE_UNSPECIFIED"
+
+    # Test with OK root span status
+    trace_id_ok = "test_trace_ok_" + str(uuid.uuid4().hex)
+
+    ok_context = mock.Mock()
+    ok_context.trace_id = 34567
+    ok_context.span_id = 444
+    ok_context.is_remote = False
+    ok_context.trace_flags = trace_api.TraceFlags(1)
+    ok_context.trace_state = trace_api.TraceState()
+
+    root_otel_ok = OTelReadableSpan(
+        name="root_span_ok",
+        context=ok_context,
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id_ok),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=5000000000,
+        end_time=6000000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        resource=_OTelResource.get_empty(),
+    )
+    root_span_ok = create_mlflow_span(root_otel_ok, trace_id_ok, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span_ok])
+    else:
+        store.log_spans(experiment_id, [root_span_ok])
+
+    traces, _ = store.search_traces([experiment_id])
+    trace_ok = [t for t in traces if t.request_id == trace_id_ok][0]
+    assert trace_ok.state.value == "OK"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_unspecified_trace_status_from_root_span(
+    store: SqlAlchemyStore, is_async: bool
+):
+    """Test that unspecified trace status is updated from root span on subsequent logs."""
+    experiment_id = store.create_experiment("test_trace_status_update")
+    trace_id = "test_trace_update_" + str(uuid.uuid4().hex)
+
+    # First, log a non-root span which will create trace with default OK status
+    child_context = mock.Mock()
+    child_context.trace_id = 45678
+    child_context.span_id = 666
+    child_context.is_remote = False
+    child_context.trace_flags = trace_api.TraceFlags(1)
+    child_context.trace_state = trace_api.TraceState()
+
+    parent_context = mock.Mock()
+    parent_context.trace_id = 45678
+    parent_context.span_id = 555  # Will be root span later
+    parent_context.is_remote = False
+    parent_context.trace_flags = trace_api.TraceFlags(1)
+    parent_context.trace_state = trace_api.TraceState()
+
+    child_otel_span = OTelReadableSpan(
+        name="child_span",
+        context=child_context,
+        parent=parent_context,  # Has parent, not a root span
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=1100000000,
+        end_time=1900000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        resource=_OTelResource.get_empty(),
+    )
+    child_span = create_mlflow_span(child_otel_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [child_span])
+    else:
+        store.log_spans(experiment_id, [child_span])
+
+    # Manually update trace status to UNSPECIFIED to simulate the update scenario
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
+
+        session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+            {"status": "STATE_UNSPECIFIED"}
+        )
+        session.commit()
+
+    # Verify trace is now UNSPECIFIED
+    traces, _ = store.search_traces([experiment_id])
+    trace = [t for t in traces if t.request_id == trace_id][0]
+    assert trace.state.value == "STATE_UNSPECIFIED"
+
+    # Now log root span with ERROR status
+    root_context = mock.Mock()
+    root_context.trace_id = 45678
+    root_context.span_id = 555
+    root_context.is_remote = False
+    root_context.trace_flags = trace_api.TraceFlags(1)
+    root_context.trace_state = trace_api.TraceState()
+
+    root_otel_span = OTelReadableSpan(
+        name="root_span",
+        context=root_context,
+        parent=None,  # Root span
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=1000000000,
+        end_time=2000000000,
+        status=trace_api.Status(trace_api.StatusCode.ERROR, "Root span error"),
+        resource=_OTelResource.get_empty(),
+    )
+    root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span])
+    else:
+        store.log_spans(experiment_id, [root_span])
+
+    # Check trace status was updated to ERROR from root span
+    traces, _ = store.search_traces([experiment_id])
+    trace = [t for t in traces if t.request_id == trace_id][0]
+    assert trace.state.value == "ERROR"

@@ -2685,13 +2685,27 @@ class SqlAlchemyStore(AbstractStore):
                 min_start_time = min(span.start_time_ns for span in spans)
                 max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
+                # Determine trace status from root span if available
+                trace_status = "OK"  # Default status
+                for span in spans:
+                    if span.parent_id is None:  # Found root span (no parent)
+                        # Map span status to trace status
+                        span_status = span.status.status_code.value
+                        if span_status == "ERROR":
+                            trace_status = "ERROR"
+                        elif span_status == "UNSET":
+                            trace_status = "STATE_UNSPECIFIED"
+                        else:  # OK or any other status
+                            trace_status = "OK"
+                        break
+
                 # Create the SqlTraceInfo directly in the session
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_time // 1_000_000,
                     execution_time_ms=(max_end_time - min_start_time) // 1_000_000,
-                    status="OK",
+                    status=trace_status,
                     client_request_id=None,
                 )
 
@@ -2714,27 +2728,43 @@ class SqlAlchemyStore(AbstractStore):
 
             from sqlalchemy import case
 
-            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
-                {
-                    SqlTraceInfo.timestamp_ms: case(
+            # Check if we need to update trace status from root span
+            update_dict = {
+                SqlTraceInfo.timestamp_ms: case(
+                    (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                    else_=SqlTraceInfo.timestamp_ms,
+                ),
+                SqlTraceInfo.execution_time_ms: (
+                    case(
+                        (
+                            (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                            > max_end_ms,
+                            SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                        ),
+                        else_=max_end_ms,
+                    )
+                    - case(
                         (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                         else_=SqlTraceInfo.timestamp_ms,
-                    ),
-                    SqlTraceInfo.execution_time_ms: (
-                        case(
-                            (
-                                (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
-                                > max_end_ms,
-                                SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
-                            ),
-                            else_=max_end_ms,
-                        )
-                        - case(
-                            (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                            else_=SqlTraceInfo.timestamp_ms,
-                        )
-                    ),
-                },
+                    )
+                ),
+            }
+
+            # If trace status is unspecified, check for root span to update it
+            if sql_trace_info.status == "STATE_UNSPECIFIED":
+                for span in spans:
+                    if span.parent_id is None:  # Found root span
+                        span_status = span.status.status_code.value
+                        if span_status == "ERROR":
+                            update_dict[SqlTraceInfo.status] = "ERROR"
+                        elif span_status == "UNSET":
+                            update_dict[SqlTraceInfo.status] = "STATE_UNSPECIFIED"
+                        else:  # OK or any other status
+                            update_dict[SqlTraceInfo.status] = "OK"
+                        break
+
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+                update_dict,
                 synchronize_session=False,
             )
 
