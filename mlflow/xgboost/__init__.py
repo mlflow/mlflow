@@ -904,7 +904,3 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         )
 
 
-def test():
-    """
-    test
-    """
