@@ -2720,29 +2720,31 @@ class SqlAlchemyStore(AbstractStore):
             # This works by comparing and updating in a single statement
             from sqlalchemy import case
 
-            # Update timestamp_ms to the minimum of current value and new min_start_ms
-            new_timestamp = case(
-                (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                else_=SqlTraceInfo.timestamp_ms,
-            )
-
-            # Update execution_time_ms to ensure it covers the full span range
-            new_execution = case(
-                (
-                    (SqlTraceInfo.timestamp_ms > min_start_ms)
-                    | ((SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms) < max_end_ms),
-                    case(
-                        (SqlTraceInfo.timestamp_ms > min_start_ms, max_end_ms - min_start_ms),
-                        else_=max_end_ms - SqlTraceInfo.timestamp_ms,
-                    ),
-                ),
-                else_=SqlTraceInfo.execution_time_ms,
-            )
+            # Calculate the new start and end times based on existing trace and new spans
+            # new_start = min(current_start, spans_min_start)
+            # new_end = max(current_end, spans_max_end)
+            # new_duration = new_end - new_start
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 {
-                    SqlTraceInfo.timestamp_ms: new_timestamp,
-                    SqlTraceInfo.execution_time_ms: new_execution,
+                    SqlTraceInfo.timestamp_ms: case(
+                        (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                        else_=SqlTraceInfo.timestamp_ms,
+                    ),
+                    SqlTraceInfo.execution_time_ms: (
+                        case(
+                            (
+                                (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                                > max_end_ms,
+                                SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                            ),
+                            else_=max_end_ms,
+                        )
+                        - case(
+                            (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                            else_=SqlTraceInfo.timestamp_ms,
+                        )
+                    ),
                 },
                 synchronize_session=False,
             )

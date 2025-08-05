@@ -5171,6 +5171,201 @@ def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore):
         assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
 
 
+def test_log_spans_multiple_calls_updates_trace_times(store: SqlAlchemyStore):
+    """Test that multiple log_spans calls correctly update trace start/end times."""
+
+    from mlflow.entities.span import create_mlflow_span
+    from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
+
+    experiment_id = _create_experiments(store, "test_multiple_log_spans")
+    trace_id = "tr-multi-span-test-456"
+
+    # Helper to verify trace times
+    def get_trace_times(session):
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        return trace.timestamp_ms, trace.execution_time_ms
+
+    # First batch: Create trace with spans from 5s to 10s
+    spans_batch1 = [
+        create_mlflow_span(
+            OTelReadableSpan(
+                name="span1",
+                context=trace_api.SpanContext(
+                    trace_id=12345,
+                    span_id=1,
+                    is_remote=False,
+                    trace_flags=trace_api.TraceFlags(1),
+                ),
+                parent=None,
+                attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+                start_time=5_000_000_000,  # 5 seconds
+                end_time=8_000_000_000,  # 8 seconds
+                resource=_OTelResource.get_empty(),
+            ),
+            trace_id,
+        ),
+        create_mlflow_span(
+            OTelReadableSpan(
+                name="span2",
+                context=trace_api.SpanContext(
+                    trace_id=12345,
+                    span_id=2,
+                    is_remote=False,
+                    trace_flags=trace_api.TraceFlags(1),
+                ),
+                parent=None,
+                attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+                start_time=7_000_000_000,  # 7 seconds
+                end_time=10_000_000_000,  # 10 seconds
+                resource=_OTelResource.get_empty(),
+            ),
+            trace_id,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans_batch1)
+
+    # Verify initial trace times: should be 5s start, 5s duration (5s to 10s)
+    with store.ManagedSessionMaker() as session:
+        start_ms, duration_ms = get_trace_times(session)
+        assert start_ms == 5_000
+        assert duration_ms == 5_000
+
+    # Second batch: Add span that starts earlier (2s)
+    span_earlier = create_mlflow_span(
+        OTelReadableSpan(
+            name="earlier_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=3,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_000_000_000,  # 2 seconds (earlier than current start)
+            end_time=6_000_000_000,  # 6 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    store.log_spans(experiment_id, [span_earlier])
+
+    # Verify trace updated: should now be 2s start, 8s duration (2s to 10s)
+    with store.ManagedSessionMaker() as session:
+        start_ms, duration_ms = get_trace_times(session)
+        assert start_ms == 2_000
+        assert duration_ms == 8_000
+
+    # Third batch: Add span that ends later (15s)
+    span_later = create_mlflow_span(
+        OTelReadableSpan(
+            name="later_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=4,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=12_000_000_000,  # 12 seconds
+            end_time=15_000_000_000,  # 15 seconds (later than current end)
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    store.log_spans(experiment_id, [span_later])
+
+    # Verify trace updated: should now be 2s start, 13s duration (2s to 15s)
+    with store.ManagedSessionMaker() as session:
+        start_ms, duration_ms = get_trace_times(session)
+        assert start_ms == 2_000
+        assert duration_ms == 13_000
+
+    # Fourth batch: Add multiple spans, one earlier and one later
+    spans_batch4 = [
+        create_mlflow_span(
+            OTelReadableSpan(
+                name="very_early_span",
+                context=trace_api.SpanContext(
+                    trace_id=12345,
+                    span_id=5,
+                    is_remote=False,
+                    trace_flags=trace_api.TraceFlags(1),
+                ),
+                parent=None,
+                attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+                start_time=1_000_000_000,  # 1 second (even earlier)
+                end_time=3_000_000_000,  # 3 seconds
+                resource=_OTelResource.get_empty(),
+            ),
+            trace_id,
+        ),
+        create_mlflow_span(
+            OTelReadableSpan(
+                name="very_late_span",
+                context=trace_api.SpanContext(
+                    trace_id=12345,
+                    span_id=6,
+                    is_remote=False,
+                    trace_flags=trace_api.TraceFlags(1),
+                ),
+                parent=None,
+                attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+                start_time=14_000_000_000,  # 14 seconds
+                end_time=20_000_000_000,  # 20 seconds (even later)
+                resource=_OTelResource.get_empty(),
+            ),
+            trace_id,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans_batch4)
+
+    # Verify final trace times: should be 1s start, 19s duration (1s to 20s)
+    with store.ManagedSessionMaker() as session:
+        start_ms, duration_ms = get_trace_times(session)
+        assert start_ms == 1_000
+        assert duration_ms == 19_000
+
+    # Fifth batch: Add span in the middle (shouldn't change trace times)
+    span_middle = create_mlflow_span(
+        OTelReadableSpan(
+            name="middle_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=7,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=8_000_000_000,  # 8 seconds
+            end_time=12_000_000_000,  # 12 seconds (within current range)
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    store.log_spans(experiment_id, [span_middle])
+
+    # Verify trace times unchanged: still 1s start, 19s duration
+    with store.ManagedSessionMaker() as session:
+        start_ms, duration_ms = get_trace_times(session)
+        assert start_ms == 1_000
+        assert duration_ms == 19_000
+
+    # Verify all spans were saved
+    with store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+        span_count = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).count()
+        assert span_count == 7  # Total spans across all batches
+
+
 def test_log_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
