@@ -190,7 +190,7 @@ def test_enable_git_model_versioning_custom_remote_name(tmp_git_repo: Path):
     assert context.info.repo_url == "https://github.com/upstream/repo.git"
 
 
-def test_enable_git_model_versioning_nonexistent_remote(tmp_git_repo: Path):
-    # No remotes added - repo should be None
-    context = enable_git_model_versioning(remote_name="nonexistent")
+def test_enable_git_model_versioning_no_remote(tmp_git_repo: Path):
+    # No remote - repo_url should be None
+    context = enable_git_model_versioning()
     assert context.info.repo_url is None
