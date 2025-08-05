@@ -1,6 +1,8 @@
 import type { getOctokit } from "@actions/github";
 import type { context as ContextType } from "@actions/github";
 import OpenAI from "openai";
+import { z } from "zod";
+import { zodResponseFormat } from "openai/helpers/zod";
 
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
@@ -72,7 +74,7 @@ ${filteredLabels}
 
 TASK OVERVIEW:
 
-Analyze the issue content above and list appropriate area labels (e.g., \`area/tracing\`) and domain labels (e.g., \`domain/genai\`) that should be added to this issue.
+Analyze the issue content above and list appropriate domain labels (e.g., \`domain/genai\`) that should be added to this issue.
 
 IMPORTANT GUIDELINES:
 
@@ -93,20 +95,38 @@ export async function getAutoLabelsFromOpenAI({
   apiKey: string;
   baseUrl: string;
   prompt: string;
-}): Promise<string> {
+}): Promise<
+  | {
+      name: string;
+      reason: string;
+    }[]
+  | undefined
+> {
   const client = new OpenAI({
     apiKey,
     baseURL: baseUrl,
   });
 
-  const response = await client.chat.completions.create({
+  const responseSchema = z.object({
+    labels: z
+      .array(
+        z.object({
+          name: z.string().describe("The name of the label to add"),
+          reason: z.string().describe("The reason for adding this label"),
+        })
+      )
+      .describe("A list of labels to add to the issue"),
+  });
+
+  const response = await client.chat.completions.parse({
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     max_tokens: 1000,
     temperature: 0.0,
+    response_format: zodResponseFormat(responseSchema, "labels"),
   });
 
-  return response.choices[0].message.content || "";
+  return response.choices[0]?.message.parsed?.labels;
 }
 
 export async function autoLabel({
@@ -115,7 +135,7 @@ export async function autoLabel({
 }: {
   github: GitHub;
   context: Context;
-}): Promise<string> {
+}): Promise<void> {
   const apiKey = process.env.OPENAI_API_KEY;
   const baseUrl = process.env.OPENAI_API_BASE;
 
@@ -128,5 +148,6 @@ export async function autoLabel({
   }
 
   const prompt = await generateAutoLabelPrompt({ github, context });
-  return getAutoLabelsFromOpenAI({ apiKey, baseUrl, prompt });
+  const labels = await getAutoLabelsFromOpenAI({ apiKey, baseUrl, prompt });
+  console.log("Labels to add:", labels);
 }
