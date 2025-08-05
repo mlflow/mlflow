@@ -439,8 +439,8 @@ def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list
     if diff := set(tracing_reqs) - set(skinny_reqs):
         raise RuntimeError(
             "Tracing requirements must be a subset of skinny requirements. "
-            "Please check the requirements/skinny-requirements.txt and "
-            "requirements/tracing-requirements.txt files.\n"
+            "Please check the requirements/skinny-requirements.yaml and "
+            "requirements/tracing-requirements.yaml files.\n"
             f"Diff: {diff}"
         )
 
