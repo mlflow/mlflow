@@ -593,7 +593,9 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
         assert response == "Hello world"
     else:
         response = asyncio.run(engine.achat("Hello")) if is_async else engine.chat("Hello")
-        assert response.response == '[{"role": "user", "content": "Hello"}]'
+        # a default prompt is added in llama-index 0.13.0
+        # https://github.com/run-llama/llama_index/blob/1e02c7a2324838f7bd5a52c811d35c30dc6a6bd2/llama-index-core/llama_index/core/chat_engine/condense_plus_context.py#L40
+        assert '{"role": "user", "content": "Hello"}' in response.response
 
     # Since chat engine is a complex agent-based system, it is challenging to strictly
     # validate the trace structure and attributes. The detailed validation is done in
