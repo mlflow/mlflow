@@ -339,6 +339,67 @@ class Span:
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
         )
 
+    def _to_otel_proto(self):
+        """
+        Convert to OpenTelemetry protobuf span format for OTLP export.
+        This is an internal method used by the REST store for logging spans.
+        """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelSpan
+        from opentelemetry.proto.trace.v1.trace_pb2 import Status
+
+        otel_span = OTelSpan()
+
+        # Convert trace and span IDs to bytes
+        trace_id_int = int(self._trace_id, 16)
+        otel_span.trace_id = trace_id_int.to_bytes(16, byteorder="big")
+
+        span_id_int = int(self.span_id, 16)
+        otel_span.span_id = span_id_int.to_bytes(8, byteorder="big")
+
+        # Set basic properties
+        otel_span.name = self.name
+        otel_span.start_time_unix_nano = self.start_time_ns
+        if self.end_time_ns:
+            otel_span.end_time_unix_nano = self.end_time_ns
+
+        # Set parent span ID if exists
+        if self.parent_id:
+            parent_id_int = int(self.parent_id, 16)
+            otel_span.parent_span_id = parent_id_int.to_bytes(8, byteorder="big")
+
+        # Set status
+        if self.status:
+            if self.status.status_code == SpanStatusCode.OK:
+                otel_span.status.code = Status.StatusCode.STATUS_CODE_OK
+            elif self.status.status_code == SpanStatusCode.ERROR:
+                otel_span.status.code = Status.StatusCode.STATUS_CODE_ERROR
+            else:
+                otel_span.status.code = Status.StatusCode.STATUS_CODE_UNSET
+
+            if self.status.description:
+                otel_span.status.message = self.status.description
+
+        # Add attributes
+        for key, value in self.attributes.items():
+            attribute = otel_span.attributes.add()
+            attribute.key = key
+            # MLflow stores all attributes as JSON strings
+            attribute.value.string_value = json.dumps(value)
+
+        # Add events
+        if self.events:
+            for event in self.events:
+                otel_event = otel_span.events.add()
+                otel_event.name = event.name
+                otel_event.time_unix_nano = event.timestamp
+
+                for k, v in event.attributes.items():
+                    event_attr = otel_event.attributes.add()
+                    event_attr.key = k
+                    event_attr.value.string_value = str(v)
+
+        return otel_span
+
 
 def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131

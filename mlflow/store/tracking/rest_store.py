@@ -17,7 +17,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
-from mlflow.entities.span import Span, SpanStatusCode
+from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -1143,72 +1143,6 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def _convert_mlflow_span_to_otel_span(self, mlflow_span: Span):
-        """
-        Convert an MLflow Span to an OpenTelemetry protobuf span.
-
-        Args:
-            mlflow_span: MLflow Span entity to convert
-
-        Returns:
-            OTel protobuf span object
-        """
-        from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelSpan
-        from opentelemetry.proto.trace.v1.trace_pb2 import Status
-
-        otel_span = OTelSpan()
-
-        # Convert trace and span IDs to bytes
-        trace_id_int = int(mlflow_span._trace_id, 16)
-        otel_span.trace_id = trace_id_int.to_bytes(16, byteorder="big")
-
-        span_id_int = int(mlflow_span.span_id, 16)
-        otel_span.span_id = span_id_int.to_bytes(8, byteorder="big")
-
-        # Set basic properties
-        otel_span.name = mlflow_span.name
-        otel_span.start_time_unix_nano = mlflow_span.start_time_ns
-        if mlflow_span.end_time_ns:
-            otel_span.end_time_unix_nano = mlflow_span.end_time_ns
-
-        # Set parent span ID if exists
-        if mlflow_span.parent_id:
-            parent_id_int = int(mlflow_span.parent_id, 16)
-            otel_span.parent_span_id = parent_id_int.to_bytes(8, byteorder="big")
-
-        # Set status
-        if mlflow_span.status:
-            if mlflow_span.status.status_code == SpanStatusCode.OK:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_OK
-            elif mlflow_span.status.status_code == SpanStatusCode.ERROR:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_ERROR
-            else:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_UNSET
-
-            if mlflow_span.status.description:
-                otel_span.status.message = mlflow_span.status.description
-
-        # Add attributes
-        for key, value in mlflow_span.attributes.items():
-            attribute = otel_span.attributes.add()
-            attribute.key = key
-            # MLflow stores all attributes as JSON strings
-            attribute.value.string_value = json.dumps(value)
-
-        # Add events
-        if mlflow_span.events:
-            for event in mlflow_span.events:
-                otel_event = otel_span.events.add()
-                otel_event.name = event.name
-                otel_event.time_unix_nano = event.timestamp
-
-                for k, v in event.attributes.items():
-                    event_attr = otel_event.attributes.add()
-                    event_attr.key = k
-                    event_attr.value.string_value = str(v)
-
-        return otel_span
-
     async def log_spans(self, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store via the OTel API.
@@ -1246,7 +1180,7 @@ class RestStore(AbstractStore):
         # Create scope spans and add converted MLflow spans
         scope_spans = resource_spans.scope_spans.add()
         for span in spans:
-            otel_span = self._convert_mlflow_span_to_otel_span(span)
+            otel_span = span._to_otel_proto()
             scope_spans.spans.append(otel_span)
 
         # Convert protobuf to JSON and send request
