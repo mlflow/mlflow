@@ -6,7 +6,7 @@ import subprocess
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import toml
 import yaml
@@ -139,11 +139,6 @@ class PackageRequirement(BaseModel):
 
 
 RequirementsYaml = RootModel[dict[str, PackageRequirement]]
-
-
-def validate_requirements_yaml(requirements_yaml: dict[str, dict[str, Any]]) -> RequirementsYaml:
-    """Validate the structure of a requirements YAML file using Pydantic."""
-    return RequirementsYaml(requirements_yaml)
 
 
 def generate_requirements_from_yaml(requirements_yaml: RequirementsYaml) -> list[str]:
