@@ -17,6 +17,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.span import Span, SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -1141,3 +1142,127 @@ class RestStore(AbstractStore):
         endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    async def log_spans(self, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store via the OTel API.
+
+        Args:
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            ValueError: If spans belong to different traces.
+            MlflowException: If the OTel API call fails.
+        """
+        if not spans:
+            return []
+
+        # Verify all spans belong to the same trace
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise ValueError(f"All spans must belong to the same trace. Found traces: {trace_ids}")
+
+        # Import protobuf definitions
+        from google.protobuf.json_format import MessageToJson
+        from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+            ExportTraceServiceRequest,
+        )
+        from opentelemetry.proto.resource.v1.resource_pb2 import Resource
+        from opentelemetry.proto.trace.v1.trace_pb2 import Status
+
+        # Create protobuf request
+        request = ExportTraceServiceRequest()
+        resource_spans = request.resource_spans.add()
+
+        # Add resource (empty for now)
+        resource_spans.resource.CopyFrom(Resource())
+
+        # Create scope spans
+        scope_spans = resource_spans.scope_spans.add()
+
+        # Convert each MLflow span to OTel protobuf span
+        for span in spans:
+            otel_span = scope_spans.spans.add()
+
+            # Extract the numeric trace ID from MLflow format
+            trace_id_int = int(span._trace_id, 16)
+            otel_span.trace_id = trace_id_int.to_bytes(16, byteorder="big")
+
+            # Convert span ID to bytes
+            span_id_int = int(span.span_id, 16)
+            otel_span.span_id = span_id_int.to_bytes(8, byteorder="big")
+
+            # Set span name
+            otel_span.name = span.name
+
+            # Set timestamps (already in nanoseconds)
+            otel_span.start_time_unix_nano = span.start_time_ns
+            if span.end_time_ns:
+                otel_span.end_time_unix_nano = span.end_time_ns
+
+            # Set parent span ID if exists
+            if span.parent_id:
+                parent_id_int = int(span.parent_id, 16)
+                otel_span.parent_span_id = parent_id_int.to_bytes(8, byteorder="big")
+
+            # Set status
+            if span.status:
+                if span.status.status_code == SpanStatusCode.OK:
+                    otel_span.status.code = Status.StatusCode.STATUS_CODE_OK
+                elif span.status.status_code == SpanStatusCode.ERROR:
+                    otel_span.status.code = Status.StatusCode.STATUS_CODE_ERROR
+                else:
+                    otel_span.status.code = Status.StatusCode.STATUS_CODE_UNSET
+
+                if span.status.description:
+                    otel_span.status.message = span.status.description
+
+            # Add trace state if available
+            if hasattr(span, "_trace_state") and span._trace_state:
+                otel_span.trace_state = span._trace_state
+
+            # Add attributes
+            for key, value in span.attributes.items():
+                attribute = otel_span.attributes.add()
+                attribute.key = key
+                # MLflow stores all attributes as JSON strings
+                # Always JSON encode values to ensure consistency with how they are read
+                attribute.value.string_value = json.dumps(value)
+
+            # Add events
+            if span.events:
+                for event in span.events:
+                    otel_event = otel_span.events.add()
+                    otel_event.name = event.name
+                    otel_event.time_unix_nano = event.timestamp
+
+                    for k, v in event.attributes.items():
+                        event_attr = otel_event.attributes.add()
+                        event_attr.key = k
+                        event_attr.value.string_value = str(v)
+
+        # Convert protobuf to JSON for the REST API
+        # Use default behavior (preserving_proto_field_name=False) to get camelCase field names
+        json_str = MessageToJson(request)
+
+        # Call the OTel endpoint using the standard REST store pattern
+        endpoint = "/v1/traces"
+
+        # Use http_request from rest_utils (same pattern as other RestStore methods)
+        from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="POST",
+            json=json.loads(json_str),
+        )
+
+        # Verify response
+        verify_rest_response(response, endpoint)
+
+        # Return the original spans as logged
+        return spans
