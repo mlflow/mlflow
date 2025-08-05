@@ -465,7 +465,7 @@ class AbstractStore:
             List of logged Span entities.
 
         Raises:
-            ValueError: If spans belong to different traces.
+            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -481,7 +481,7 @@ class AbstractStore:
             List of logged Span entities.
 
         Raises:
-            ValueError: If spans belong to different traces.
+            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 

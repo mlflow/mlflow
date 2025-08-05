@@ -329,9 +329,7 @@ class Span:
         return ProtoSpan(
             trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
             span_id=_encode_span_id_to_byte(self._span.context.span_id),
-            trace_state=self._span.context.trace_state.to_header()
-            if self._span.context.trace_state
-            else "",
+            trace_state=self._span.context.trace_state if self._span.context.trace_state else "",
             parent_span_id=parent,
             name=self.name,
             start_time_unix_nano=start_time_unix_nano,
