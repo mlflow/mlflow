@@ -24,7 +24,7 @@ MLflow is an open-source developer platform to build AI/LLM applications and mod
 <div align="center">
 
 [![Python SDK](https://img.shields.io/pypi/v/mlflow)](https://pypi.org/project/mlflow/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/mlflow)](https://pypi.org/project/mlflow/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/mlflow)](https://pepy.tech/projects/mlflow)
 [![License](https://img.shields.io/github/license/mlflow/mlflow)](https://github.com/mlflow/mlflow/blob/main/LICENSE)
 <a href="https://twitter.com/intent/follow?screen_name=mlflow" target="_blank">
 <img src="https://img.shields.io/twitter/follow/mlflow?logo=X&color=%20%23f5f5f5"
