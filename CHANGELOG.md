@@ -1,5 +1,89 @@
 # CHANGELOG
 
+## 3.2.0 (2025-08-05)
+
+MLflow 3.2.0 includes several major features and improvements
+
+Features:
+
+- [] Replace Scheduled Scorers API to a Scorer Registration System (#16977, @dbrx-euirim)
+- [UI] [Optimization][ExperimentViewRunsTable]Create Table By Selected Columns (#16804, @wangh118)
+- [Projects] Add support for uv as an environment manager in mlflow run (#16274, @isuyyy)
+- [] MLflow Telemetry (#16439, @serena-ruan)
+- [Models] Semantic Kernel Tracing (#16469, @michael-berk)
+- [Tracking] Allow setting thread-local tracing destination via mlflow.tracing.set_destination (#16859, @WeichenXu123)
+- [Tracing] Convert DatabricksRM output to MLflow document format (#16866, @WeichenXu123)
+- [Tracing] Include mlflow-tracing as a dependency of mlflow (#16589, @B-Step62)
+- [Evaluation] Replace guideline_adherence to guidelines (#16856, @smoorjani)
+- [Tracing] Merge Typescript SDK branch (#16871, @B-Step62)
+- [Tracking] PydanticAI token count (#16251, @joelrobin18)
+- [Tracking] Smolagents token count (#16362, @joelrobin18)
+- [Tracking] FR(Bedrock): Add unified token usage tracking for Bedrock LLMs (#16351, @mohammadsubhani)
+- [Models] ResponsesAgent tracing aggregation (#16787, @bbqiu)
+- [Tracing] Render multi-modal trace for LangChain (#16799, @B-Step62)
+- [Artifacts / Model Registry] Add support for chat-style prompts with structured output with prompt object (#16341, @harshilprajapati96)
+- [Tracing] Support async tracing for Gemini (#16632, @B-Step62)
+- [Tracking] Add Assessments backend (#16743, @BenWilson2)
+- [Tracing] Support global sampling for tracing (#16700, @B-Step62)
+- [Build] Add select configuration to clint linter with rule-specific test updates (#16705, @harupy)
+- [UI] Add tag filter to the experiments page (#16648, @frontsideair)
+- [Models / Tracking] Introduce MLFLOW_DISABLE_SCHEMA_DETAILS environment variable to toggle detailed schema errors (#16631, @NJAHNAVI2907)
+- [Tracking / UI] Add ability to the UI to edit experiment tags (#16614, @frontsideair)
+- [Tracing] Delete experiment tag (#16610, @frontsideair)
+- [Tracing] Add Agent and LLM complete name (#16613, @joelrobin18)
+- [UI] Experiment home view (#16464, @frontsideair)
+- [Model Registry / UI] Implement UI pagination in model page (#15801, @Flametaa)
+- [Tracking] Add polars dataset (#13006, @AlpAribal)
+- [Tracking] Token count support for LlamaIndex to MLFlow tracing (#16387, @sanatb187)
+- [Tracking] Support PII masking via custom span post-processor (#16344, @B-Step62)
+- [Tracking] Autogen token count (#16313, @joelrobin18)
+- [Tracking] AG2 Token Count + Doc Update (#16312, @joelrobin18)
+- [Tracking] Mistral Token Count + Doc Update (#16340, @joelrobin18)
+- [Scoring] Make spark_udf support 'uv' env manager (#16292, @WeichenXu123)
+- [Docker / Tracking] Add support for responses.parse calls in oai autologger (#16245, @dipakkrishnan)
+- [Tracking] Anthropic token count (#16246, @joelrobin18)
+- [Tracking] Groq token count (#16258, @joelrobin18)
+
+Bug fixes:
+
+- [Tracking] Prevent from tracing DSPy model API keys (#17021, @czyzby)
+- [] Fix pytorch datetime issue (#17030, @serena-ruan)
+- [] Fix predict with pre-releases (#16998, @serena-ruan)
+- [Evaluation] Enable to use make_genai_metric_from_prompt for mlflow.evaluate (#16960, @TomeHirata)
+- [Evaluation] Fix trace detection logic for `mlflow.genai.evaluate` (#16932, @B-Step62)
+- [] Add explicit encoding for decoding streaming Responses (#16855, @aravind-segu)
+- [Tracking / UI] Add missing default headers and replace absolute URLs in new browser client requests (GraphQL & logged models) (#16840, @danilopeixoto)
+- [] Fix tracking_uri positional argument bug in artifact repositories (#16878, @copilot-swe-agent)
+- [Models] Fix UnionType support for Python 3.10 style union syntax (#16882, @harupy)
+- [Tracing / Tracking] Fix OpenAI autolog Pydantic validation for enum values (#16862, @mohammadsubhani)
+- [Tracking] Fix tracing for Anthropic and Langchain combination (#15151, @maver1ck)
+- [Models] Fix OpenAI multimodal message logging support (#16795, @mohammadsubhani)
+- [Tracing] Avoid using nested threading for Azure Databricks trace export (#16733, @TomeHirata)
+- [Evaluation] Bug fix: Databricks GenAI evaluation dataset source returns string, instead of DatasetSource instance (#16712, @dbczumar)
+- [] Fix `get_model_info` to provide logged model info (#16713, @harupy)
+- [] Fix serialization and deserialization for python scorers (#16688, @connorchenn)
+- [] Fix GraphQL handler erroring on NaN metric values (#16628, @daniellok-db)
+- [] Add back video artifact preview (#16620, @daniellok-db)
+- [Tracing] Proper chat message reconstruction from OAI streaming response (#16519, @B-Step62)
+- [Tracing] Convert trace column in search_traces() response to JSON string (#16523, @B-Step62)
+- [Models] Refactor: Replace datetime.utcnow() with datetime.now() for consistency in mlflow/models/model.py Resolves #16510 (#16529, @shushantrishav)
+- [Evaluation] Fix mlflow.evaluate crashes in _get_binary_classifier_metrics due to … (#16485, @mohammadsubhani)
+
+Documentation updates:
+
+- [Docs] Update index.mdx regarding a single Typo (#16999, @premkiran-o7)
+- [Docs] Overhaul of top level version management GenAI docs (#16728, @BenWilson2)
+- [Artifacts / Model Registry] Add support for chat-style prompts with structured output with prompt object (#16341, @harshilprajapati96)
+- [Docs] Fix Additional GenAI Docs pages (#16691, @BenWilson2)
+- [Tracking] Ollama Token Doc Update (#16357, @joelrobin18)
+- [Tracking] Deepseek Token Usage Tracking Doc Update (#16358, @joelrobin18)
+- [Docs] Update the docs selector dropdown (#16280, @BenWilson2)
+- [Docs] Update docs font sizing and link coloring (#16281, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#17003, #17049, #17035, #17026, #16981, #16971, #16953, #16938, #16930, #16917, #16738, #16717, #16693, #16694, #16684, #16678, #16656, #16513, #16459, #16277, #16276, #16275, #16170, #16217, @serena-ruan; #16999, @premkiran-o7; #17050, #17048, #16955, #16894, #16885, #16860, #16841, #16835, #16801, #16701, @daniellok-db; #17017, #17047, #17005, #16989, #16952, #16903, #16951, #16900, #16755, #16762, #16757, #15860, #16661, #16630, #16657, #16605, #16602, #16568, #16569, #16553, #16345, #16454, #16489, #16486, #16438, #16266, #16382, #16381, #16303, @B-Step62; #17020, @he7d3r; #17027, #17028, #16969, #16957, #16852, #16829, #16816, #16808, #16775, #16807, #16806, #16624, #16524, #16410, #16403, @TomeHirata; #16987, @wangh118; #16877, #16502, @bbqiu; #16927, #16915, #16913, #16911, #16909, #16889, #16727, #16600, #16543, #16551, #16526, #16533, #16535, #16531, #16472, #16392, #16389, #16385, #16376, #16369, #16367, #16321, #16311, #16307, #16273, #16268, #16265, #16112, #16243, #16231, #16226, #16221, #16196, @copilot-swe-agent; #16898, #16881, #16858, #16735, #16823, #16814, #16647, #16750, #16809, #16794, #16793, #16789, #16780, #16770, #16773, #16771, #16772, #16768, #16752, #16754, #16751, #16748, #16730, #16729, #16346, #16709, #16704, #16703, #16702, #16658, #16662, #16645, #16639, #16640, #16626, #16572, #16566, #16565, #16563, #16561, #16559, #16544, #16539, #16520, #16508, #16505, #16494, #16495, #16491, #16487, #16482, #16473, #16465, #16456, #16458, #16394, #16445, #16433, #16434, #16413, #16417, #16416, #16414, #16415, #16378, #16350, #16323, #15788, #16263, #16256, #16237, #16234, #16219, #16216, #16207, #16199, #16192, @harupy; #16760, #16761, #16736, #16737, #16699, #16718, #16663, #16676, #16574, #16477, #16552, #16527, #16515, #16452, #16210, #16204, @frontsideair; #16723, #16124, @AveshCSingh; #16744, @BenWilson2; #16683, @dsuhinin; #16619, @AchimGaedkeLynker; #16595, @Aiden-Jeon; #16480, #16479, @shushantrishav; #16398, #16331, #16328, #16329, #16293, @WeichenXu123
+
 ## 3.2.0rc0 (2025-07-29)
 
 MLflow 3.2.0rc0 includes several major features and improvements
