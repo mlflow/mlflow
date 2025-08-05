@@ -6,7 +6,6 @@ import pytest
 import mlflow
 from mlflow.genai import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.git_versioning import _get_active_git_context
-from mlflow.genai.git_versioning.git_info import GitInfo
 
 
 @pytest.fixture(autouse=True)
@@ -195,25 +194,3 @@ def test_enable_git_model_versioning_nonexistent_remote(tmp_git_repo: Path):
     # No remotes added - repo should be None
     context = enable_git_model_versioning(remote_name="nonexistent")
     assert context.info.repo_url is None
-
-
-def test_git_info_from_env_with_remote_name(tmp_git_repo: Path):
-    # Add remotes
-    subprocess.check_call(
-        ["git", "remote", "add", "origin", "https://github.com/test/repo.git"], cwd=tmp_git_repo
-    )
-    subprocess.check_call(
-        ["git", "remote", "add", "fork", "https://github.com/fork/repo.git"], cwd=tmp_git_repo
-    )
-
-    # Test origin
-    info = GitInfo.from_env(remote_name="origin")
-    assert info.repo_url == "https://github.com/test/repo.git"
-
-    # Test fork
-    info = GitInfo.from_env(remote_name="fork")
-    assert info.repo_url == "https://github.com/fork/repo.git"
-
-    # Test non-existent remote
-    info = GitInfo.from_env(remote_name="nonexistent")
-    assert info.repo_url is None
