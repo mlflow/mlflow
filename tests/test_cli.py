@@ -70,30 +70,65 @@ def test_server_uvicorn_options():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test default behavior (uvicorn should be used when no server options specified)
         CliRunner().invoke(server)
-        run_server_mock.assert_called_once()
-        # Since _run_server now only accepts keyword arguments, we can access them directly
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] is None
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts=None,
+        )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with uvicorn-opts
         CliRunner().invoke(server, ["--uvicorn-opts", "--reload --log-level debug"])
-        run_server_mock.assert_called_once()
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts="--reload --log-level debug",
+        )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test with --dev flag (should set uvicorn opts)
         CliRunner().invoke(server, ["--dev"])
-        run_server_mock.assert_called_once()
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
-        assert kwargs["uvicorn_opts"] == "--reload --log-level debug"
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts="--reload --log-level debug",
+        )
 
 
 @pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
@@ -102,11 +137,23 @@ def test_server_gunicorn_options():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         # Test that gunicorn-opts disables uvicorn
         CliRunner().invoke(server, ["--gunicorn-opts", "--log-level debug"])
-        run_server_mock.assert_called_once()
-        kwargs = run_server_mock.call_args.kwargs
-        assert kwargs["gunicorn_opts"] == "--log-level debug"
-        assert kwargs["uvicorn_opts"] is None
-        assert kwargs["waitress_opts"] is None
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts="--log-level debug",
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts=None,
+        )
 
     # Test conflicting options
     result = CliRunner().invoke(
