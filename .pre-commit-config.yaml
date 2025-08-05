@@ -81,19 +81,6 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: generate-requirements
-        name: generate-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --package-names tracing skinny core gateway
-            --requirements-yaml-location requirements
-            --requirements-txt-output-location requirements
-        files: "^requirements/"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
       - id: pyproject
         name: pyproject
         entry: python dev/pyproject.py
