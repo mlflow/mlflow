@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from typing_extensions import Self
 
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_GIT_VERSIONING_BRANCH,
-    MLFLOW_GIT_VERSIONING_COMMIT,
-    MLFLOW_GIT_VERSIONING_DIRTY,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_DIRTY,
 )
 
 
@@ -52,7 +52,7 @@ class GitInfo:
 
     def to_mlflow_tags(self) -> dict[str, str]:
         return {
-            MLFLOW_GIT_VERSIONING_BRANCH: self.branch,
-            MLFLOW_GIT_VERSIONING_COMMIT: self.commit,
-            MLFLOW_GIT_VERSIONING_DIRTY: str(self.dirty).lower(),
+            MLFLOW_GIT_BRANCH: self.branch,
+            MLFLOW_GIT_COMMIT: self.commit,
+            MLFLOW_GIT_DIRTY: str(self.dirty).lower(),
         }

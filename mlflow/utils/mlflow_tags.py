@@ -16,6 +16,7 @@ MLFLOW_SOURCE_TYPE = "mlflow.source.type"
 MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
+MLFLOW_GIT_DIRTY = "mlflow.source.git.dirty"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
 MLFLOW_LOGGED_MODELS = "mlflow.log-model.history"
 MLFLOW_MODEL_IS_EXTERNAL = "mlflow.model.isExternal"
@@ -77,10 +78,6 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 
-# Tags for git model versioning
-MLFLOW_GIT_VERSIONING_BRANCH = "mlflow.git_model_versioning.branch"
-MLFLOW_GIT_VERSIONING_COMMIT = "mlflow.git_model_versioning.commit"
-MLFLOW_GIT_VERSIONING_DIRTY = "mlflow.git_model_versioning.dirty"
 
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
@@ -99,6 +96,7 @@ TRACE_RESOLVE_TAGS_ALLOWLIST = (
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_DIRTY,
 )
 
 
