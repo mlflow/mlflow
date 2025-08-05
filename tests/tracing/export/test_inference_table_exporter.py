@@ -42,13 +42,17 @@ def test_export(experiment_id, monkeypatch):
     span = LiveSpan(otel_span, trace_id)
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs("very long output" * 100)
-    _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id)
+    _register_span_and_trace(
+        span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id
+    )
 
     child_otel_span = create_mock_otel_span(
         name="child", trace_id=_OTEL_TRACE_ID, span_id=2, parent_id=1
     )
     child_span = LiveSpan(child_otel_span, trace_id)
-    _register_span_and_trace(child_span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id)
+    _register_span_and_trace(
+        child_span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id
+    )
 
     # Invalid span should be also ignored
     invalid_otel_span = create_mock_otel_span(trace_id=23456, span_id=1)
@@ -159,7 +163,10 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
 
 
 def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
-    """Test that SIZE_BYTES is correctly set in the trace sent to MLflow backend when experiment ID is set."""
+    """
+    Test that SIZE_BYTES is correctly set in the trace sent
+    to MLflow backend when experiment ID is set.
+    """
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
@@ -226,7 +233,7 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
 
 
 def test_prompt_linking_with_experiment_id(monkeypatch):
-    """Test that prompts are correctly linked when experiment ID is set for MLflow backend export."""
+    """Test that prompts are correctly linked when experiment ID is set."""
     # Set experiment ID to enable MLflow backend export
     experiment_id = "test-experiment-id"
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
