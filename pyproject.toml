@@ -232,6 +232,7 @@ select = [
   "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
+  "UP007",   # non-pep604-annotation-union
   "UP008",   # super-call-with-parameters
   "UP011",   # lru-cache-without-parameters
   "UP012",   # unnecessary-encode-utf8
@@ -239,6 +240,7 @@ select = [
   "UP030",   # format-literals
   "UP031",   # printf-string-format
   "UP034",   # extraneous-parenthesis
+  "UP045",   # non-pep604-annotation-optional
   "W",       # warning
 ]
 ignore = [
@@ -253,6 +255,11 @@ ignore = [
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]
+# TODO: Consider enabling UP007 and UP045 in the following files.
+# Note: Switching to the new union syntax may introduce behavior changes.
+"mlflow/types/type_hints.py" = ["UP007", "UP045"]
+"tests/types/test_type_hints.py" = ["UP007", "UP045"]
+"tests/pyfunc/test_pyfunc_model_with_type_hints.py" = ["UP007", "UP045"]
 
 [tool.ruff.lint.flake8-pytest-style]
 mark-parentheses = false
