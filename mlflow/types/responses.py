@@ -1,4 +1,4 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 if not IS_PYDANTIC_V2_OR_NEWER:
     raise ImportError(
@@ -8,7 +8,7 @@ if not IS_PYDANTIC_V2_OR_NEWER:
 import json
 from typing import Any, Optional, Union
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 
 from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
