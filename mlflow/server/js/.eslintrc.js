@@ -623,7 +623,7 @@ module.exports = {
     },
     {
       files: ['*.test.js', '*-test.js', '*-test.jsx', '*.test.ts', '*-test.ts', '*.test.tsx', '*-test.tsx', 'test/**'],
-      plugins: ['jest', 'chai-expect', 'chai-friendly'],
+      plugins: ['jest', 'chai-expect', 'chai-friendly', 'testing-library'],
       globals: {
         sinon: true,
         chai: true,
