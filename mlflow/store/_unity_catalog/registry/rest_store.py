@@ -1246,7 +1246,22 @@ class UcModelRegistryStore(BaseRestStore):
                 prompt=prompt_proto,
             )
         )
-        response_proto = self._call_endpoint(CreatePromptRequest, req_body)
+        try:
+            response_proto = self._call_endpoint(CreatePromptRequest, req_body)
+        except RestException as e:
+            # Check if the error is related to invalid name format
+            if "name is not a valid name" in e.message.lower():
+                raise MlflowException(
+                    message=(
+                        f"INVALID_PARAMETER_VALUE: Prompt name must be a fully qualified Unity "
+                        f"Catalog name in the format '<catalog>.<schema>.<prompt_name>'. "
+                        f"Got: '{name}'. Please ensure you have permissions to create functions "
+                        f"in the specified catalog and schema."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Re-raise the original exception if it's not a name validation issue
+            raise
         return proto_info_to_mlflow_prompt_info(response_proto, tags or {})
 
     def search_prompts(
@@ -1462,13 +1477,29 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         endpoint, method = self._get_endpoint_from_method(CreatePromptVersionRequest)
-        response_proto = self._edit_endpoint_and_call(
-            endpoint=endpoint,
-            method=method,
-            req_body=req_body,
-            name=name,
-            proto_name=CreatePromptVersionRequest,
-        )
+        try:
+            response_proto = self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                name=name,
+                proto_name=CreatePromptVersionRequest,
+            )
+        except RestException as e:
+            # Check if the error is related to invalid name format
+            if "name is not a valid name" in e.message.lower():
+                # Provide a more helpful error message for Unity Catalog naming requirements
+                raise MlflowException(
+                    message=(
+                        f"INVALID_PARAMETER_VALUE: Prompt name must be a fully qualified Unity "
+                        f"Catalog name in the format '<catalog>.<schema>.<prompt_name>'. "
+                        f"Got: '{name}'. Please ensure you have permissions to create functions "
+                        f"in the specified catalog and schema."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Re-raise the original exception if it's not a name validation issue
+            raise
         return proto_to_mlflow_prompt(response_proto)
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:

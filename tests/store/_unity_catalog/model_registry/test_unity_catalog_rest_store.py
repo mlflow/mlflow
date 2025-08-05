@@ -2227,6 +2227,41 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
         proto_to_prompt.assert_called()
 
 
+def test_create_prompt_invalid_name_format(store):
+    """Test that creating a prompt with invalid Unity Catalog name format provides helpful error."""
+    # Mock the _call_endpoint method to raise a RestException with "name is not a valid name"
+    original_error_message = "INVALID_PARAMETER_VALUE: name is not a valid name"
+    rest_exception = RestException(
+        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(MlflowException) as exc_info:
+            store.create_prompt(name="invalid_prompt", description="test")
+
+    # Verify the exception message includes the helpful Unity Catalog naming format
+    error_message = str(exc_info.value)
+    assert "Prompt name must be a fully qualified Unity Catalog name" in error_message
+    assert "'<catalog>.<schema>.<prompt_name>'" in error_message
+    assert "Got: 'invalid_prompt'" in error_message
+    assert "ensure you have permissions" in error_message
+
+
+def test_create_prompt_other_rest_exceptions_not_modified(store):
+    """Test that RestExceptions unrelated to name validation are re-raised as-is."""
+    original_error_message = "Some other error"
+    rest_exception = RestException(
+        {"error_code": "INTERNAL_ERROR", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(RestException, match=original_error_message) as exc_info:
+            store.create_prompt(name="some_prompt", description="test")
+
+    # Verify the original RestException is re-raised without modification
+    assert str(exc_info.value) == "INTERNAL_ERROR: Some other error"
+
+
 @mock_http_200
 def test_search_prompts_uc(mock_http, store, monkeypatch):
     # Patch proto_info_to_mlflow_prompt_info to return a dummy Prompt
@@ -2732,3 +2767,38 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
 
         expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(run_tag.value) == expected_value
+
+
+def test_create_prompt_version_invalid_name_format(store):
+    """Test that creating a prompt version with invalid Unity Catalog name format provides helpful error."""
+    # Mock the _edit_endpoint_and_call method to raise a RestException with "name is not a valid name"
+    original_error_message = "INVALID_PARAMETER_VALUE: name is not a valid name"
+    rest_exception = RestException(
+        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_edit_endpoint_and_call", side_effect=rest_exception):
+        with pytest.raises(MlflowException) as exc_info:
+            store.create_prompt_version(name="invalid_prompt", template="Hello world!")
+
+    # Verify the exception message includes the helpful Unity Catalog naming format
+    error_message = str(exc_info.value)
+    assert "Prompt name must be a fully qualified Unity Catalog name" in error_message
+    assert "'<catalog>.<schema>.<prompt_name>'" in error_message
+    assert "Got: 'invalid_prompt'" in error_message
+    assert "ensure you have permissions" in error_message
+
+
+def test_create_prompt_version_other_rest_exceptions_not_modified(store):
+    """Test that RestExceptions unrelated to name validation are re-raised as-is."""
+    original_error_message = "Some other error"
+    rest_exception = RestException(
+        {"error_code": "INTERNAL_ERROR", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_edit_endpoint_and_call", side_effect=rest_exception):
+        with pytest.raises(RestException, match=original_error_message) as exc_info:
+            store.create_prompt_version(name="some_prompt", template="Hello world!")
+
+    # Verify the original RestException is re-raised without modification
+    assert str(exc_info.value) == "INTERNAL_ERROR: Some other error"
