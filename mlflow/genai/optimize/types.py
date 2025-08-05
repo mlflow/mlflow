@@ -1,10 +1,13 @@
 import multiprocessing
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from mlflow.entities import Feedback
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
@@ -17,9 +20,17 @@ class PromptOptimizationResult:
 
     Args:
         prompt: A prompt version entity containing the optimized template.
+        initial_prompt: A prompt version entity containing the initial template.
+        optimizer_name: The name of the optimizer.
+        final_eval_score: The final evaluation score of the optimized prompt.
+        initial_eval_score: The initial evaluation score of the optimized prompt.
     """
 
     prompt: PromptVersion
+    initial_prompt: PromptVersion
+    optimizer_name: str
+    final_eval_score: Optional[float]
+    initial_eval_score: Optional[float]
 
 
 @experimental(version="3.0.0")
@@ -59,7 +70,10 @@ class OptimizerConfig:
             Default: (number of CPU cores * 2 + 1)
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
             the target LLM will be used as the teacher.
-        algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
+        algorithm: The optimization algorithm to use. When a string is provided,
+            it must be one of the supported algorithms.
+            When a BasePromptOptimizer is provided, it will be used as the optimizer.
+            Default: "DSPy/MIPROv2"
         verbose: Whether to show optimizer logs during optimization. Default: False
         autolog: Whether to log the optimization parameters, datasets and metrics.
             If set to True, a MLflow run is automatically created to store them.
@@ -72,7 +86,26 @@ class OptimizerConfig:
     max_few_show_examples: int = 6
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
-    algorithm: str = "DSPy/MIPROv2"
+    algorithm: Union[str, "BasePromptOptimizer"] = "DSPy/MIPROv2"
     verbose: bool = False
     autolog: bool = False
     convert_to_single_text: bool = True
+
+
+@experimental(version="3.0.0")
+@dataclass
+class OptimizerOutput:
+    """
+    Output of the `optimize` method of :py:class:`mlflow.genai.optimize.BasePromptOptimizer`.
+
+    Args:
+        optimized_prompt: The optimized prompt version entity.
+        optimizer_name: The name of the optimizer.
+        final_eval_score: The final evaluation score of the optimized prompt.
+        initial_eval_score: The initial evaluation score of the optimized prompt.
+    """
+
+    optimized_prompt: str | dict[str, Any]
+    optimizer_name: str
+    final_eval_score: Optional[float]
+    initial_eval_score: Optional[float]

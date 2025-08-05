@@ -67,9 +67,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         elif score > self._best_score:
             # When best score is updated, register the new prompt
             self._best_score = score
-            template = format_optimized_prompt(
-                program, self.input_fields, self.convert_to_single_text
-            )
+            template = format_optimized_prompt(program, self.convert_to_single_text)
             mlflow.genai.register_prompt(
                 name=self.prompt_name,
                 template=template,

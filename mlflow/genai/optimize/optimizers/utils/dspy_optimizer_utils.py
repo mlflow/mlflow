@@ -6,15 +6,15 @@ if TYPE_CHECKING:
 
 def format_optimized_prompt(
     program: "dspy.Predict",
-    input_fields: dict[str, type],
     convert_to_single_text: bool,
 ) -> dict[str, Any] | str:
     import dspy
 
+    signature = program.signature
     messages = dspy.settings.adapter.format(
-        signature=program.signature,
+        signature=signature,
         demos=program.demos,
-        inputs={key: "{{" + key + "}}" for key in input_fields.keys()},
+        inputs={key: "{{" + key + "}}" for key in signature.input_fields.keys()},
     )
 
     if convert_to_single_text:
