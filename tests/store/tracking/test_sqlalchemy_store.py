@@ -87,6 +87,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSpan,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -4838,8 +4839,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 
     # Verify the span was saved to the database
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlSpan
-
         saved_span = (
             session.query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
@@ -4875,9 +4874,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
     """Test that logging spans from different traces raises an error."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create two different traces
     experiment_id = store.create_experiment("test_multi_trace_experiment")
     trace_info1 = TraceInfo(
@@ -4951,9 +4947,6 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans creates a trace if it doesn't exist."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create an experiment but no trace
     experiment_id = store.create_experiment("test_auto_trace_experiment")
 
@@ -4990,8 +4983,6 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
 
     # Verify the trace was created
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
-
         created_trace = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
         )
@@ -5021,9 +5012,6 @@ async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
     """Test that concurrent trace creation is handled correctly."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create an experiment
     experiment_id = store.create_experiment("test_concurrent_trace")
     trace_id = "tr-concurrent-test"
@@ -5081,8 +5069,6 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
 
     # Verify the trace and span exist in the database
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlTraceInfo
-
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         assert trace.experiment_id == int(experiment_id)
 
@@ -5098,10 +5084,6 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans updates trace time range when new spans extend it."""
-
-    from mlflow.entities.span import create_mlflow_span
-    from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
-
     experiment_id = _create_experiments(store, "test_log_spans_updates_trace")
     trace_id = "tr-time-update-test-123"
 
