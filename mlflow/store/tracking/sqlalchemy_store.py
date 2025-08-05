@@ -2708,22 +2708,44 @@ class SqlAlchemyStore(AbstractStore):
                         .one()
                     )
 
-            # After trace exists (either created or fetched), update its time range
+            # After trace exists (either created or fetched), update its time range atomically
             # to include all spans (both existing and new)
             min_start_time = min(span.start_time_ns for span in spans)
             max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
 
-            # Check if we need to update the trace's time range
-            current_start_ns = sql_trace_info.timestamp_ms * 1_000_000
-            current_end_ns = current_start_ns + (sql_trace_info.execution_time_ms * 1_000_000)
+            min_start_ms = min_start_time // 1_000_000
+            max_end_ms = max_end_time // 1_000_000
 
-            # Update if new spans extend the time range
-            new_start_ns = min(current_start_ns, min_start_time)
-            new_end_ns = max(current_end_ns, max_end_time)
+            # Use SQLAlchemy's case expression for atomic update to avoid race conditions
+            # This works by comparing and updating in a single statement
+            from sqlalchemy import case
 
-            if new_start_ns < current_start_ns or new_end_ns > current_end_ns:
-                sql_trace_info.timestamp_ms = new_start_ns // 1_000_000
-                sql_trace_info.execution_time_ms = (new_end_ns - new_start_ns) // 1_000_000
+            # Update timestamp_ms to the minimum of current value and new min_start_ms
+            new_timestamp = case(
+                (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                else_=SqlTraceInfo.timestamp_ms,
+            )
+
+            # Update execution_time_ms to ensure it covers the full span range
+            new_execution = case(
+                (
+                    (SqlTraceInfo.timestamp_ms > min_start_ms)
+                    | ((SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms) < max_end_ms),
+                    case(
+                        (SqlTraceInfo.timestamp_ms > min_start_ms, max_end_ms - min_start_ms),
+                        else_=max_end_ms - SqlTraceInfo.timestamp_ms,
+                    ),
+                ),
+                else_=SqlTraceInfo.execution_time_ms,
+            )
+
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+                {
+                    SqlTraceInfo.timestamp_ms: new_timestamp,
+                    SqlTraceInfo.execution_time_ms: new_execution,
+                },
+                synchronize_session=False,
+            )
 
             # Create SqlSpan entities for all spans
             for span in spans:
