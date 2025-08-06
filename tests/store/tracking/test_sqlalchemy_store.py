@@ -6123,48 +6123,51 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
-    created_dataset = store.create_evaluation_dataset(
-        name="test_eval_dataset",
-        tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
-        experiment_ids=experiment_ids,
-    )
-
-    assert created_dataset.dataset_id is not None
-    assert created_dataset.dataset_id.startswith("d-")
-    assert created_dataset.name == "test_eval_dataset"
-    assert created_dataset.tags == {
-        "purpose": "testing",
-        "environment": "test",
-        "mlflow.user": "test_user",
-    }
-    assert created_dataset.created_time > 0
-    assert created_dataset.last_update_time > 0
-    assert created_dataset.created_time == created_dataset.last_update_time
-    assert created_dataset.schema is None  # Schema is computed when data is added
-    assert created_dataset.profile is None  # Profile is computed when data is added
-    assert created_dataset.created_by == "test_user"  # Extracted from mlflow.user tag
-
-    retrieved_dataset = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
-    assert retrieved_dataset.dataset_id == created_dataset.dataset_id
-    assert retrieved_dataset.name == created_dataset.name
-    assert retrieved_dataset.tags == created_dataset.tags
-    assert retrieved_dataset._experiment_ids is None
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
-        assert retrieved_dataset.experiment_ids == experiment_ids
-    assert not retrieved_dataset.has_records()
-
-    with pytest.raises(
-        MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
+    with (
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
     ):
-        store.get_evaluation_dataset(dataset_id="d-nonexistent")
+        experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
+        created_dataset = store.create_evaluation_dataset(
+            name="test_eval_dataset",
+            tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
+            experiment_ids=experiment_ids,
+        )
 
-    store.delete_evaluation_dataset(created_dataset.dataset_id)
-    with pytest.raises(MlflowException, match="not found"):
-        store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+        assert created_dataset.dataset_id is not None
+        assert created_dataset.dataset_id.startswith("d-")
+        assert created_dataset.name == "test_eval_dataset"
+        assert created_dataset.tags == {
+            "purpose": "testing",
+            "environment": "test",
+            "mlflow.user": "test_user",
+        }
+        assert created_dataset.created_time > 0
+        assert created_dataset.last_update_time > 0
+        assert created_dataset.created_time == created_dataset.last_update_time
+        assert created_dataset.schema is None  # Schema is computed when data is added
+        assert created_dataset.profile is None  # Profile is computed when data is added
+        assert created_dataset.created_by == "test_user"  # Extracted from mlflow.user tag
 
-    # Verify idempotentcy
-    store.delete_evaluation_dataset("d-nonexistent")
+        retrieved_dataset = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+        assert retrieved_dataset.dataset_id == created_dataset.dataset_id
+        assert retrieved_dataset.name == created_dataset.name
+        assert retrieved_dataset.tags == created_dataset.tags
+        assert retrieved_dataset._experiment_ids is None
+        assert retrieved_dataset.experiment_ids == experiment_ids
+        assert not retrieved_dataset.has_records()
+
+        with pytest.raises(
+            MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
+        ):
+            store.get_evaluation_dataset(dataset_id="d-nonexistent")
+
+        store.delete_evaluation_dataset(created_dataset.dataset_id)
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+
+        # Verify idempotentcy
+        store.delete_evaluation_dataset("d-nonexistent")
 
 
 def test_evaluation_dataset_search_comprehensive(store):

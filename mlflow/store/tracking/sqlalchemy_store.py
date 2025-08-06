@@ -37,7 +37,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.entity_types import EntityType
+from mlflow.entities.entity_types import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -2836,9 +2836,9 @@ class SqlAlchemyStore(AbstractStore):
                     association_id = f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
                     association = SqlEntityAssociation(
                         association_id=association_id,
-                        source_type=EntityType.EVALUATION_DATASET,
+                        source_type=EntityAssociationType.EVALUATION_DATASET,
                         source_id=dataset_id,
-                        destination_type=EntityType.EXPERIMENT,
+                        destination_type=EntityAssociationType.EXPERIMENT,
                         destination_id=str(exp_id),
                         created_time=current_time,
                     )
@@ -2911,11 +2911,13 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlEntityAssociation).filter(
                 or_(
                     and_(
-                        SqlEntityAssociation.destination_type == EntityType.EVALUATION_DATASET,
+                        SqlEntityAssociation.destination_type
+                        == EntityAssociationType.EVALUATION_DATASET,
                         SqlEntityAssociation.destination_id == dataset_id,
                     ),
                     and_(
-                        SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET,
+                        SqlEntityAssociation.source_type
+                        == EntityAssociationType.EVALUATION_DATASET,
                         SqlEntityAssociation.source_id == dataset_id,
                     ),
                 )
@@ -3019,8 +3021,8 @@ class SqlAlchemyStore(AbstractStore):
                 dataset_ids = self._build_association_query(
                     session,
                     select_columns=[SqlEntityAssociation.source_id],
-                    source_type=EntityType.EVALUATION_DATASET,
-                    destination_type=EntityType.EXPERIMENT,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                    destination_type=EntityAssociationType.EXPERIMENT,
                     destination_ids=experiment_ids,
                 ).distinct()
                 query = query.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
@@ -3217,8 +3219,8 @@ class SqlAlchemyStore(AbstractStore):
                 .outerjoin(
                     SqlEntityAssociation,
                     (SqlEntityAssociation.source_id == SqlEvaluationDataset.dataset_id)
-                    & (SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET)
-                    & (SqlEntityAssociation.destination_type == EntityType.EXPERIMENT),
+                    & (SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET)
+                    & (SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT),
                 )
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
             )
