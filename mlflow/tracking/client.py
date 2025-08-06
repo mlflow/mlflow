@@ -6072,7 +6072,6 @@ class MlflowClient:
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 
@@ -6100,7 +6099,6 @@ class MlflowClient:
             key: The tag key to delete.
 
         .. code-block:: python
-            :test:
 
             from mlflow import MlflowClient
 

@@ -6283,7 +6283,7 @@ def test_evaluation_dataset_search_comprehensive(store):
     assert len(test_results) == 1
     assert test_results[0].created_by == "test_user_1"
 
-    store.update_evaluation_dataset_tags(
+    store.set_evaluation_dataset_tags(
         created_user.dataset_id, {"updated": "true"}, updated_by="test_user_2"
     )
 

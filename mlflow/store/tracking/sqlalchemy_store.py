@@ -3079,22 +3079,18 @@ class SqlAlchemyStore(AbstractStore):
                     session.add(sql_record)
                     inserted_count += 1
 
-            # Get the current dataset to merge schema
             dataset = (
                 session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .first()
             )
 
-            # Merge schema incrementally with existing schema
             existing_schema = json.loads(dataset.schema) if dataset.schema else None
             new_schema_info = self._compute_dataset_schema_from_records(records)
             merged_schema = self._merge_schemas(existing_schema, new_schema_info)
 
-            # Compute current dataset profile
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
-            # Update dataset metadata
             update_fields = {
                 "last_update_time": current_time,
                 "last_updated_by": updated_by,
@@ -3188,7 +3184,6 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            # Verify dataset exists
             dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
             if not dataset:
                 raise MlflowException(
@@ -3196,20 +3191,16 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Update the last_update_time and last_updated_by on dataset
             dataset.last_update_time = get_current_time_millis()
             if updated_by:
                 dataset.last_updated_by = updated_by
 
-            # Process each tag update
             for key, value in tags.items():
                 if value is None:
-                    # Delete the tag
                     session.query(SqlEvaluationDatasetTag).filter_by(
                         dataset_id=dataset_id, key=key
                     ).delete()
                 else:
-                    # Set/update the tag
                     existing_tag = (
                         session.query(SqlEvaluationDatasetTag)
                         .filter_by(dataset_id=dataset_id, key=key)
