@@ -38,7 +38,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     with (
         mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False),
         mock.patch(
-            "mlflow.genai.judges.utils.score_model_on_payload", return_value=mock_response
+            "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
         ) as mock_score_model_on_payload,
     ):
         feedback = invoke_judge_model(
