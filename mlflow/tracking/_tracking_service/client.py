@@ -966,9 +966,7 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
-    ) -> None:
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -978,14 +976,11 @@ class TrackingServiceClient:
         Args:
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
-            updated_by: The user making the update.
 
         Raises:
             MlflowException: If dataset not found or invalid parameters.
         """
-        self.store.set_evaluation_dataset_tags(
-            dataset_id=dataset_id, tags=tags, updated_by=updated_by
-        )
+        self.store.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
 
     def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -1002,5 +997,4 @@ class TrackingServiceClient:
         self.store.set_evaluation_dataset_tags(
             dataset_id=dataset_id,
             tags={key: None},
-            updated_by=None,
         )

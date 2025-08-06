@@ -2761,8 +2761,7 @@ class FileStore(AbstractStore):
         pass
 
     @filestore_not_supported
-    @filestore_not_supported
-    def update_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
+    def set_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
         pass
 
     @filestore_not_supported
