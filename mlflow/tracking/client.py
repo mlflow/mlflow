@@ -6059,9 +6059,7 @@ class MlflowClient:
         )
 
     @experimental(version="3.3.0")
-    def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
-    ) -> None:
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -6071,7 +6069,6 @@ class MlflowClient:
         Args:
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
-            updated_by: The user making the update.
 
         .. code-block:: python
             :test:
@@ -6090,9 +6087,7 @@ class MlflowClient:
                 },
             )
         """
-        self._tracking_client.set_evaluation_dataset_tags(
-            dataset_id=dataset_id, tags=tags, updated_by=updated_by
-        )
+        self._tracking_client.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
 
     @experimental(version="3.3.0")
     def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:

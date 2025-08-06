@@ -269,7 +269,6 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 def set_evaluation_dataset_tags(
     dataset_id: str,
     tags: dict[str, Any],
-    updated_by: Optional[str] = None,
 ) -> None:
     """
     Set tags for an evaluation dataset.
@@ -280,7 +279,6 @@ def set_evaluation_dataset_tags(
     Args:
         dataset_id: The ID of the dataset.
         tags: Dictionary of tags to set. Setting a value to None removes the tag.
-        updated_by: The user making the update.
 
     Usage::
 
@@ -306,7 +304,7 @@ def set_evaluation_dataset_tags(
         raise ValueError("'tags' must be provided")
 
     client = MlflowClient()
-    client.set_evaluation_dataset_tags(dataset_id, tags, updated_by)
+    client.set_evaluation_dataset_tags(dataset_id, tags)
 
 
 @experimental(version="3.3.0")

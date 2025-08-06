@@ -2904,13 +2904,11 @@ def test_mlflow_client_set_evaluation_dataset_tags(mock_store):
     MlflowClient().set_evaluation_dataset_tags(
         dataset_id="dataset_123",
         tags={"env": "prod", "version": "2.0"},
-        updated_by="user@example.com",
     )
 
-    mock_store.update_evaluation_dataset_tags.assert_called_once_with(
+    mock_store.set_evaluation_dataset_tags.assert_called_once_with(
         dataset_id="dataset_123",
         tags={"env": "prod", "version": "2.0"},
-        updated_by="user@example.com",
     )
 
 
@@ -2920,9 +2918,7 @@ def test_mlflow_client_delete_evaluation_dataset_tag(mock_store):
         key="deprecated",
     )
 
-    # delete_evaluation_dataset_tag should call update_evaluation_dataset_tags with None value
-    mock_store.update_evaluation_dataset_tags.assert_called_once_with(
+    mock_store.set_evaluation_dataset_tags.assert_called_once_with(
         dataset_id="dataset_123",
         tags={"deprecated": None},
-        updated_by=None,
     )
