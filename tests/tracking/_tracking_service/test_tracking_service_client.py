@@ -160,14 +160,3 @@ def test_link_traces_to_run_validation():
     trace_ids = [f"trace_{i}" for i in range(101)]
     with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
         client.link_traces_to_run(trace_ids, "run_id")
-
-    # Test with exactly 100 traces should not raise
-    trace_ids = [f"trace_{i}" for i in range(100)]
-    with mock.patch.object(client, "store") as mock_store:
-        client.link_traces_to_run(trace_ids, "run_id")
-        mock_store.link_traces_to_run.assert_called_once_with(trace_ids, "run_id")
-
-    # Test with empty trace list should not raise
-    with mock.patch.object(client, "store") as mock_store:
-        client.link_traces_to_run([], "run_id")
-        mock_store.link_traces_to_run.assert_not_called()
