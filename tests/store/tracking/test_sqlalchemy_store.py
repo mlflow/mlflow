@@ -4847,6 +4847,7 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         assert saved_span is not None
         assert saved_span.experiment_id == int(experiment_id)
         assert saved_span.parent_span_id == span.parent_id
+        assert saved_span.status == "UNSET"  # Default OpenTelemetry status
         assert saved_span.status == span.status.status_code
         assert saved_span.start_time_unix_nano == span.start_time_ns
         assert saved_span.end_time_unix_nano == span.end_time_ns
