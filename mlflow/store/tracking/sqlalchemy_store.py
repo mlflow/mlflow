@@ -2740,6 +2740,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
+                # Skip session synchronization for performance - we don't use the object afterward
                 synchronize_session=False,
             )
 
