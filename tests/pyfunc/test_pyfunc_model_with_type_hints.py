@@ -119,7 +119,7 @@ class CustomExample2(pydantic.BaseModel):
             [{"a": ["a", "b"]}],
         ),
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # _noqa: UP007
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # noqa: UP007
         (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),

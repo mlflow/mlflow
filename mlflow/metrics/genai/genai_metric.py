@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -360,7 +360,7 @@ def make_genai_metric(
     examples: Optional[list[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, list[str]]] = None,
+    grading_context_columns: Optional[str | list[str]] = None,
     include_input: bool = True,
     parameters: Optional[dict[str, Any]] = None,
     aggregations: Optional[list[str]] = None,

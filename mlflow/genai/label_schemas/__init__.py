@@ -6,7 +6,7 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
 """
 
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional
 
 from mlflow.genai.label_schemas.label_schemas import (
     InputCategorical,
@@ -37,13 +37,7 @@ def create_label_schema(
     *,
     type: Literal["feedback", "expectation"],
     title: str,
-    input: Union[
-        InputCategorical,
-        InputCategoricalList,
-        InputText,
-        InputTextList,
-        InputNumeric,
-    ],
+    input: InputCategorical | InputCategoricalList | InputText | InputTextList | InputNumeric,
     instruction: Optional[str] = None,
     enable_comment: bool = False,
     overwrite: bool = False,

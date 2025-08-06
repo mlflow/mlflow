@@ -7,7 +7,7 @@ import re
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import google.protobuf.empty_pb2
 from pydantic import BaseModel
@@ -1423,10 +1423,10 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1471,7 +1471,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         return proto_to_mlflow_prompt(response_proto)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> Optional[PromptVersion]:
         """
         Get a specific prompt version from Unity Catalog.
         """
@@ -1496,7 +1496,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+    def delete_prompt_version(self, name: str, version: str | int) -> None:
         """
         Delete a prompt version from Unity Catalog.
         """
@@ -1540,9 +1540,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SearchPromptVersionsRequest,
         )
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a prompt version in Unity Catalog.
         """
@@ -1560,7 +1558,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SetPromptVersionTagRequest,
         )
 
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a prompt version in Unity Catalog.
         """
@@ -1603,7 +1601,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+    def set_prompt_alias(self, name: str, alias: str, version: str | int) -> None:
         """
         Set an alias for a prompt version in Unity Catalog.
         """

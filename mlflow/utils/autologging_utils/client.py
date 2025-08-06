@@ -12,7 +12,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
@@ -180,7 +180,7 @@ class MlflowAutologgingQueueingClient:
 
     def set_terminated(
         self,
-        run_id: Union[str, PendingRunId],
+        run_id: str | PendingRunId,
         status: Optional[str] = None,
         end_time: Optional[int] = None,
     ) -> None:
@@ -192,7 +192,7 @@ class MlflowAutologgingQueueingClient:
             set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: dict[str, Any]) -> None:
+    def log_params(self, run_id: str | PendingRunId, params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -203,7 +203,7 @@ class MlflowAutologgingQueueingClient:
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
     def log_inputs(
-        self, run_id: Union[str, PendingRunId], datasets: Optional[list[DatasetInput]]
+        self, run_id: str | PendingRunId, datasets: Optional[list[DatasetInput]]
     ) -> None:
         """
         Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
@@ -214,7 +214,7 @@ class MlflowAutologgingQueueingClient:
 
     def log_metrics(
         self,
-        run_id: Union[str, PendingRunId],
+        run_id: str | PendingRunId,
         metrics: dict[str, float],
         step: Optional[int] = None,
         dataset: Optional["Dataset"] = None,
@@ -240,7 +240,7 @@ class MlflowAutologgingQueueingClient:
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: dict[str, Any]) -> None:
+    def set_tags(self, run_id: str | PendingRunId, tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """

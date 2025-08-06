@@ -16,7 +16,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional
 
 import cloudpickle
 import pandas as pd
@@ -432,8 +432,8 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[list[Resource], str]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    resources: Optional[list[Resource] | str] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -653,9 +653,9 @@ class _LangChainModelWrapper:
 
     def predict(
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        data: pd.DataFrame | list[str | dict[str, Any]] | Any,
         params: Optional[dict[str, Any]] = None,
-    ) -> list[Union[str, dict[str, Any]]]:
+    ) -> list[str | dict[str, Any]]:
         """
         Args:
             data: Model input data.
@@ -708,11 +708,11 @@ class _LangChainModelWrapper:
 
     def _predict_with_callbacks(
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        data: pd.DataFrame | list[str | dict[str, Any]] | Any,
         params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> list[Union[str, dict[str, Any]]]:
+    ) -> list[str | dict[str, Any]]:
         """
         Args:
             data: Model input data.
@@ -780,7 +780,7 @@ class _LangChainModelWrapper:
         self,
         data: Any,
         params: Optional[dict[str, Any]] = None,
-    ) -> Iterator[Union[str, dict[str, Any]]]:
+    ) -> Iterator[str | dict[str, Any]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -806,7 +806,7 @@ class _LangChainModelWrapper:
         params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[Union[str, dict[str, Any]]]:
+    ) -> Iterator[str | dict[str, Any]]:
         """
         Args:
             data: Model input data, only single input is allowed.

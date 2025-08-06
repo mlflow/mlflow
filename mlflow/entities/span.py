@@ -422,7 +422,7 @@ class LiveSpan(Span):
         """Set a single attribute to the span."""
         self._attributes.set(key, value)
 
-    def set_status(self, status: Union[SpanStatusCode, str]):
+    def set_status(self, status: SpanStatusCode | str):
         """
         Set the status of the span.
 
@@ -456,7 +456,7 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def record_exception(self, exception: Union[str, Exception]):
+    def record_exception(self, exception: str | Exception):
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
 
@@ -485,7 +485,7 @@ class LiveSpan(Span):
         self,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
-        status: Optional[Union[SpanStatus, str]] = None,
+        status: Optional[SpanStatus | str] = None,
         end_time_ns: Optional[int] = None,
     ):
         """
@@ -708,14 +708,14 @@ class NoOpSpan(Span):
     def add_event(self, event: SpanEvent):
         pass
 
-    def record_exception(self, exception: Union[str, Exception]):
+    def record_exception(self, exception: str | Exception):
         pass
 
     def end(
         self,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
-        status: Optional[Union[SpanStatus, str]] = None,
+        status: Optional[SpanStatus | str] = None,
         end_time_ns: Optional[int] = None,
     ):
         pass

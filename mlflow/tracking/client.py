@@ -442,10 +442,10 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -684,7 +684,7 @@ class MlflowClient:
     def load_prompt(
         self,
         name_or_uri: str,
-        version: Optional[Union[str, int]] = None,
+        version: Optional[str | int] = None,
         allow_missing: bool = False,
     ) -> Optional[PromptVersion]:
         """
@@ -737,7 +737,7 @@ class MlflowClient:
     @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
-    def link_prompt_version_to_run(self, run_id: str, prompt: Union[str, PromptVersion]) -> None:
+    def link_prompt_version_to_run(self, run_id: str, prompt: str | PromptVersion) -> None:
         """
         Link a prompt registered within the MLflow Prompt Registry with an MLflow Run.
 
@@ -901,9 +901,7 @@ class MlflowClient:
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a specific prompt version.
 
@@ -918,7 +916,7 @@ class MlflowClient:
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a specific prompt version.
 
@@ -1213,7 +1211,7 @@ class MlflowClient:
         trace_id: str,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
-        status: Union[SpanStatus, str] = "OK",
+        status: SpanStatus | str = "OK",
         end_time_ns: Optional[int] = None,
     ):
         """
@@ -1440,7 +1438,7 @@ class MlflowClient:
         span_id: str,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
-        status: Union[SpanStatus, str] = "OK",
+        status: SpanStatus | str = "OK",
         end_time_ns: Optional[int] = None,
     ):
         """
@@ -5411,7 +5409,7 @@ class MlflowClient:
 
     @experimental(version="3.0.0")
     def finalize_logged_model(
-        self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+        self, model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
     ) -> LoggedModel:
         """
         Finalize a model by updating its status.
@@ -5638,10 +5636,10 @@ class MlflowClient:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -5711,7 +5709,7 @@ class MlflowClient:
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> Optional[PromptVersion]:
         """
         Get a specific prompt version.
 

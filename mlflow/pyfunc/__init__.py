@@ -1075,7 +1075,7 @@ def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
     dst_path: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    model_config: Optional[str | Path | dict[str, Any]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -1715,7 +1715,7 @@ def _check_udf_return_type(data_type):
 
 
 def _convert_struct_values(
-    result: Union[pandas.DataFrame, dict[str, Any]],
+    result: pandas.DataFrame | dict[str, Any],
     result_type,
 ):
     """
@@ -2054,7 +2054,7 @@ def spark_udf(
     params: Optional[dict[str, Any]] = None,
     extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    model_config: Optional[str | Path | dict[str, Any]] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2585,7 +2585,8 @@ e.g., struct<a:int, b:array<int>>.
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
+        # `pandas_udf` does not support modern type annotations
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
@@ -2854,7 +2855,7 @@ def save_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
+    resources: Optional[str | list[Resource]] = None,
     auth_policy: Optional[AuthPolicy] = None,
     **kwargs,
 ):
@@ -3388,9 +3389,9 @@ def log_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
+    resources: Optional[str | list[Resource]] = None,
     auth_policy: Optional[AuthPolicy] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name=None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,

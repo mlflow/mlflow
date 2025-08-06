@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel as _BaseModel
@@ -63,13 +63,11 @@ class AudioContentPart(BaseModel):
 
 
 ContentPartsList = list[
-    Annotated[
-        Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
-    ]
+    Annotated[TextContentPart | ImageContentPart | AudioContentPart, Field(discriminator="type")]
 ]
 
 
-ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
+ContentType = Annotated[str | ContentPartsList, Field(union_mode="left_to_right")]
 
 
 class Function(BaseModel):
@@ -134,7 +132,7 @@ class ParamProperty(ParamType):
     """
 
     description: Optional[str] = None
-    enum: Optional[list[Union[str, int, float, bool]]] = None
+    enum: Optional[list[str | int | float | bool]] = None
     items: Optional[ParamType] = None
 
 

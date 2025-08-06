@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -29,7 +29,7 @@ def traces_to_df(traces: list[Trace]) -> "pandas.DataFrame":
 
 
 def extract_span_inputs_outputs(
-    traces: Union[list["mlflow.entities.Trace"], "pandas.DataFrame"],
+    traces: list["mlflow.entities.Trace"] | "pandas.DataFrame",
     fields: list[str],
     col_name: Optional[str] = None,
 ) -> "pandas.DataFrame":

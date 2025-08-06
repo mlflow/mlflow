@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -165,7 +165,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_pandas(
     df: pd.DataFrame,
-    source: Union[str, DatasetSource] = None,
+    source: str | DatasetSource = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,

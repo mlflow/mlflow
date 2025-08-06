@@ -2,7 +2,7 @@ import json
 import logging
 from functools import cached_property
 from inspect import isclass
-from typing import Any, Final, Optional, TypedDict, Union
+from typing import Any, Final, Optional, TypedDict
 
 import polars as pl
 from polars.datatypes.classes import DataType as PolarsDataType
@@ -26,7 +26,7 @@ def hash_polars_df(df: pl.DataFrame) -> str:
     return str(df.hash_rows().sum())
 
 
-ColSpecType = Union[DataType, Array, Object, str]
+ColSpecType = DataType | Array | Object | str
 TYPE_MAP: Final[dict[PolarsDataTypeClass, DataType]] = {
     pl.Binary: DataType.binary,
     pl.Boolean: DataType.boolean,
@@ -71,7 +71,7 @@ def infer_colspec(col: pl.Series, *, allow_unknown: bool = True) -> ColSpec:
 
 
 def infer_dtype(
-    dtype: Union[PolarsDataType, PolarsDataTypeClass], col_name: str, *, allow_unknown: bool
+    dtype: PolarsDataType | PolarsDataTypeClass, col_name: str, *, allow_unknown: bool
 ) -> ColSpecType:
     cls: PolarsDataTypeClass = dtype if isinstance(dtype, PolarsDataTypeClass) else type(dtype)
     mapped = TYPE_MAP.get(cls)
@@ -290,7 +290,7 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_polars(
     df: pl.DataFrame,
-    source: Union[str, DatasetSource, None] = None,
+    source: str | DatasetSource | None = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,

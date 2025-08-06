@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel, ValidationError
 
@@ -66,14 +66,14 @@ class PromptVersion(_ModelRegistryEntity):
         self,
         name: str,
         version: int,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
         last_updated_timestamp: Optional[int] = None,
         user_id: Optional[str] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ):
         from mlflow.types.chat import ChatMessage
 
@@ -137,7 +137,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     # Core PromptVersion properties
     @property
-    def template(self) -> Union[str, list[dict[str, Any]]]:
+    def template(self) -> str | list[dict[str, Any]]:
         """
         Return the template content of the prompt.
 
@@ -174,7 +174,7 @@ class PromptVersion(_ModelRegistryEntity):
             return None
         return json.loads(self._tags[RESPONSE_FORMAT_TAG_KEY])
 
-    def to_single_brace_format(self) -> Union[str, list[dict[str, Any]]]:
+    def to_single_brace_format(self) -> str | list[dict[str, Any]]:
         """
         Convert the template to single brace format. This is useful for integrating with other
         systems that use single curly braces for variable replacement, such as LangChain's prompt
@@ -191,7 +191,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     @staticmethod
     def convert_response_format_to_dict(
-        response_format: Union[BaseModel, dict[str, Any]],
+        response_format: BaseModel | dict[str, Any],
     ) -> dict[str, Any]:
         """
         Convert a response format specification to a dictionary representation.
@@ -300,7 +300,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     def format(
         self, allow_partial: bool = False, **kwargs
-    ) -> Union[PromptVersion, str, list[dict[str, Any]]]:
+    ) -> PromptVersion | str | list[dict[str, Any]]:
         """
         Format the template with the given keyword arguments.
         By default, it raises an error if there are missing variables. To format
