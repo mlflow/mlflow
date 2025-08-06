@@ -80,6 +80,8 @@ class OptimizerConfig:
             Default: False
         convert_to_single_text: Whether to convert the optimized prompt to a single prompt.
             Default: True
+        extract_instructions: Whether to extract instructions from the initial prompt.
+            Default: True
     """
 
     num_instruction_candidates: int = 6
@@ -90,6 +92,7 @@ class OptimizerConfig:
     verbose: bool = False
     autolog: bool = False
     convert_to_single_text: bool = True
+    extract_instructions: bool = True
 
 
 @experimental(version="3.3.0")
@@ -107,5 +110,5 @@ class OptimizerOutput:
 
     optimized_prompt: str | dict[str, Any]
     optimizer_name: str
-    final_eval_score: float | None
-    initial_eval_score: float | None
+    final_eval_score: float | None = None
+    initial_eval_score: float | None = None

@@ -38,13 +38,20 @@ class _TestDSPyPromptOptimizer(DSPyPromptOptimizer):
         )
 
 
-@pytest.fixture
-def optimizer_config():
+@pytest.fixture(
+    params=[
+        pytest.param(True, id="extract_instructions_true"),
+        pytest.param(False, id="extract_instructions_false"),
+    ],
+    name="optimizer_config",
+)
+def optimizer_config_fixture(request):
     return OptimizerConfig(
         optimizer_llm=LLMParams(
             model_name="gpt-3.5-turbo",
         ),
         verbose=True,
+        extract_instructions=request.param,
     )
 
 
@@ -96,9 +103,9 @@ def mock_extractor():
 
 
 def test_optimize_basic_functionality(
-    target_llm_params, sample_data, sample_prompt, mock_scorer, mock_extractor
+    target_llm_params, sample_data, sample_prompt, mock_scorer, mock_extractor, optimizer_config
 ):
-    optimizer = _TestDSPyPromptOptimizer(OptimizerConfig())
+    optimizer = _TestDSPyPromptOptimizer(optimizer_config)
 
     result = optimizer.optimize(
         prompt=sample_prompt,
@@ -114,6 +121,10 @@ def test_optimize_basic_functionality(
     assert result.final_eval_score == 0.85
     assert result.initial_eval_score == 0.5
     assert result.optimizer_name == "TestDSPyOptimizer"
+    if optimizer_config.extract_instructions:
+        mock_extractor.assert_called_once()
+    else:
+        mock_extractor.assert_not_called()
 
 
 def test_convert_to_dspy_metric(mock_scorer):

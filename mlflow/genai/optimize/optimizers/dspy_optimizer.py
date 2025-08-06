@@ -75,7 +75,10 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         else:
             teacher_lm = lm
 
-        instructions = self._extract_instructions(prompt.template, teacher_lm)
+        if self.optimizer_config.extract_instructions:
+            instructions = self._extract_instructions(prompt.template, teacher_lm)
+        else:
+            instructions = prompt.template
 
         signature = dspy.make_signature(
             {key: (type_, dspy.InputField()) for key, type_ in input_fields.items()}
