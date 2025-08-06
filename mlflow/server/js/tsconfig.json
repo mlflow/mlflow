@@ -1,8 +1,8 @@
 {
-  "extends": "@databricks/tsconfig/tsconfig-app.json",
+  "extends": [],
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "jsx": "preserve",
     "types": [
       "jest",
@@ -46,12 +46,8 @@
     "declarationMap": false,
     "isolatedModules": true
   },
-  "references": [
-    { "path": "../../../design-system/tsconfig.src.json" },
-    { "path": "../../../js/packages/editor/tsconfig.src.json" },
-    { "path": "../../../js/packages/i18n/tsconfig.src.json" },
-    { "path": "../../../js/packages/visualization/tsconfig.src.json" },
-    { "path": "../../../js/packages/web-shared/tsconfig.src.json" }
-  ],
-  "include": ["./src/**/*"]
+  "references": [],
+  "include": [
+    "./src/**/*"
+  ]
 }
