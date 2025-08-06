@@ -266,6 +266,24 @@ CREATE TABLE params (
 )
 
 
+CREATE TABLE spans (
+    trace_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+    experiment_id INTEGER NOT NULL,
+    span_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+    parent_span_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+    name VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+    type VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+    status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+    start_time_unix_nano BIGINT NOT NULL,
+    end_time_unix_nano BIGINT,
+    duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
+    content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+    CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
+    CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+    CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(8000),
