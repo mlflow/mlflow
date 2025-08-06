@@ -1,11 +1,10 @@
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.entities import (
     Assessment,
     DatasetInput,
-    EvaluationDataset,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -14,6 +13,9 @@ from mlflow.entities import (
     LoggedModelTag,
     ViewType,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -901,7 +903,7 @@ class AbstractStore:
         name: str,
         tags: Optional[dict[str, str]] = None,
         experiment_ids: Optional[list[str]] = None,
-    ) -> EvaluationDataset:
+    ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
 
@@ -916,7 +918,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -946,7 +948,7 @@ class AbstractStore:
         max_results: int = 1000,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[EvaluationDataset]:
+    ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
 
