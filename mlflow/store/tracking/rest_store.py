@@ -1149,7 +1149,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    async def log_spans(self, spans: list[Span]) -> list[Span]:
+    def log_spans(self, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store via the OTel API.
 
@@ -1195,3 +1195,19 @@ class RestStore(AbstractStore):
 
         verify_rest_response(response, endpoint)
         return spans
+
+    async def log_spans_async(self, spans: list[Span]) -> list[Span]:
+        """
+        Async wrapper for log_spans method.
+
+        Args:
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            ValueError: If spans belong to different traces.
+            MlflowException: If the OTel API call fails.
+        """
+        return self.log_spans(spans)
