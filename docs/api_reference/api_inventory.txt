@@ -703,6 +703,7 @@ mlflow.genai.optimize.LLMParams
 mlflow.genai.optimize.OptimizerConfig
 mlflow.genai.optimize.OptimizerOutput
 mlflow.genai.optimize.PromptOptimizationResult
+mlflow.genai.optimize.format_dspy_prompt
 mlflow.genai.optimize.optimize_prompt
 mlflow.genai.optimize.optimizers.base_optimizer.BasePromptOptimizer
 mlflow.genai.optimize.optimizers.dspy_optimizer.DSPyPromptOptimizer

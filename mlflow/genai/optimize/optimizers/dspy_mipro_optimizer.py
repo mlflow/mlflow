@@ -27,7 +27,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
 
         from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
         from mlflow.genai.optimize.optimizers.utils.dspy_optimizer_utils import (
-            format_optimized_prompt,
+            format_dspy_prompt,
         )
 
         teacher_settings = {}
@@ -73,7 +73,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
                     requires_permission_to_run=False,
                 )
 
-            template = format_optimized_prompt(
+            template = format_dspy_prompt(
                 program=optimized_program,
                 convert_to_single_text=self.optimizer_config.convert_to_single_text,
             )
