@@ -271,7 +271,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  // DEPRECATED. Use setTraceTagV3 instead.
   rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
     option (rpc) = {
       endpoints: [{
@@ -284,7 +284,20 @@ service MlflowService {
     };
   }
 
-  // Delete a tag from a trace.
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTagV3(SetTraceTagV3) returns (SetTraceTagV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{trace_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag V3",
+    };
+  }
+
+  // DEPRECATED. Use deleteTraceTagV3 instead.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
       endpoints: [{
@@ -294,6 +307,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Trace Tag",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTagV3(DeleteTraceTagV3) returns (DeleteTraceTagV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{trace_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag V3",
     };
   }
 
@@ -530,7 +556,7 @@ service MlflowService {
     };
   }
 
-  // Get metadata of a trace.
+  // DEPRECATED. Use getTraceInfoV3 instead.
   rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
     option (rpc) = {
       endpoints: [{
@@ -558,9 +584,7 @@ service MlflowService {
     };
   }
 
-  // Search for traces that satisfy specified filters
-  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
-  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
+  // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
       endpoints: [{
@@ -570,6 +594,23 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Search Traces",
+    };
+  }
+
+  // Search for traces that satisfy specified filters
+  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
+  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
+  rpc searchTracesV3(SearchTracesV3) returns (SearchTracesV3.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/search"
+          since { major: 3, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces V3",
     };
   }
 
@@ -611,15 +652,33 @@ service MlflowService {
     };
   }
 
+  // DEPRECATED. Use deleteTracesV3 instead.
   rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/delete-traces"
+          since { major: 2, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Traces",
+    };
+  }
+
+  // Delete traces. There are two supported ways to do this:
+  // Case 1: ``max_timestamp_millis`` and ``max_traces`` may both be specified for time-based deletion.
+  // Case 2: ``trace_ids`` may be specified for trace ID-based deletion.
+  rpc deleteTracesV3(DeleteTracesV3) returns (DeleteTracesV3.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
         path: "/mlflow/traces/delete-traces"
-        since { major: 2, minor: 0 },
+        since { major: 3, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Traces",
+      rpc_doc_title: "Delete Traces V3",
     };
   }
 
@@ -793,20 +852,6 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Assessment",
-    };
-  }
-
-  rpc searchTracesV3(SearchTracesV3) returns (SearchTracesV3.Response) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST",
-          path: "/mlflow/traces/search"
-          since { major: 3, minor: 0 },
-        }
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Traces V3",
     };
   }
 }
@@ -1916,6 +1961,28 @@ message DeleteTraces {
   }
 }
 
+message DeleteTracesV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion
+  // The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.
+  optional int64 max_timestamp_millis = 2;
+
+  // The maximum number of traces to delete.
+  optional int32 max_traces = 3;
+
+  // Case 2: request_ids must be specified for ID-based deletion
+  // A set of request IDs to delete
+  repeated string request_ids = 4;
+
+  message Response {
+    optional int32 traces_deleted = 1;
+  }
+}
+
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1934,7 +2001,38 @@ message SetTraceTag {
   }
 }
 
+message SetTraceTagV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string request_id = 1;
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2;
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 3;
+
+  message Response {
+  }
+}
+
 message DeleteTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace from which to delete the tag.
+  optional string request_id = 1;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {
+  }
+}
+
+message DeleteTraceTagV3 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace from which to delete the tag.
