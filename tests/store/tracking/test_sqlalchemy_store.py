@@ -6333,12 +6333,13 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    # Test validation for empty inputs
-    with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
-        store.upsert_evaluation_dataset_records(
-            created_dataset.dataset_id,
-            [{"inputs": {}, "expectations": {"result": "should fail"}}],
-        )
+    result_empty_inputs = store.upsert_evaluation_dataset_records(
+        created_dataset.dataset_id,
+        [{"inputs": {}, "expectations": {"result": "empty inputs allowed"}}],
+        "test_user",
+    )
+    assert result_empty_inputs["inserted"] == 1
+    assert result_empty_inputs["updated"] == 0
 
     empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0

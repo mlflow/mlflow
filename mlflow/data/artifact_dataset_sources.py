@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, TypeVar
 from urllib.parse import urlparse
 
-# Import moved to function scope to avoid circular import
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
