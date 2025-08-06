@@ -75,6 +75,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlScorer,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -1939,6 +1940,53 @@ class SqlAlchemyStore(AbstractStore):
                     f"No tag with key {key!r} found for model with ID {model_id!r}.",
                     RESOURCE_DOES_NOT_EXIST,
                 )
+
+    def register_scorer(self, experiment_id: str, name: str, scorer) -> int:
+        """
+        Register a scorer for an experiment.
+        
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            scorer: The scorer object from mlflow.genai.scorers.Scorer.
+            
+        Returns:
+            The new version number for the scorer.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            
+            # Find the maximum version for this experiment_id and name
+            max_version = (
+                session.query(func.max(SqlScorer.scorer_version))
+                .filter(
+                    SqlScorer.experiment_id == experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .scalar()
+            )
+            
+            # Set new version (0 if no existing scorer, otherwise max + 1)
+            new_version = 0 if max_version is None else max_version + 1
+            
+            # Serialize the scorer using model_dump and convert to JSON
+            scorer_dict = scorer.model_dump()
+            serialized_scorer = json.dumps(scorer_dict)
+            
+            # Create and save the new scorer record
+            sql_scorer = SqlScorer(
+                experiment_id=experiment_id,
+                scorer_name=name,
+                scorer_version=new_version,
+                serialized_scorer=serialized_scorer,
+            )
+            
+            session.add(sql_scorer)
+            session.commit()
+            
+            return new_version
 
     def _apply_order_by_search_logged_models(
         self,
