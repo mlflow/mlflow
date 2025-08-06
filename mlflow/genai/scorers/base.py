@@ -145,7 +145,8 @@ class Scorer(BaseModel):
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
         )
-        return asdict(serialized)
+        self._cached_dump = asdict(serialized)
+        return self._cached_dump
 
     def _extract_source_code_info(self) -> dict[str, Optional[str]]:
         """Extract source code information for the original decorated function."""
