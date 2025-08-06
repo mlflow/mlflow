@@ -37,11 +37,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-<<<<<<< HEAD
-from mlflow.entities.dataset_record_source import DatasetRecordSource
-=======
 from mlflow.entities.entity_types import EntityType
->>>>>>> eval-dataset-sqlstore
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
