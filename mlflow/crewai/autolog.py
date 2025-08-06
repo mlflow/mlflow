@@ -255,18 +255,18 @@ def _parse_tools(tools):
 def _sanitize_value(val):
     """
     Sanitize a value to remove sensitive information.
-    
+
     Args:
         val: The value to sanitize. Can be None, a dict, a list, or other types.
-        
+
     Returns:
         The sanitized value.
     """
     if val is None:
         return None
-    
+
     sensitive_keys = ["api_key", "secret", "password", "token"]
-    
+
     if isinstance(val, dict):
         sanitized = {}
         for k, v in val.items():
@@ -274,8 +274,8 @@ def _sanitize_value(val):
                 continue
             sanitized[k] = _sanitize_value(v)
         return sanitized
-    
+
     elif isinstance(val, list):
         return [_sanitize_value(item) for item in val]
-    
+
     return val
