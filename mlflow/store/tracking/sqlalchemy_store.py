@@ -2671,6 +2671,13 @@ class SqlAlchemyStore(AbstractStore):
 
         trace_id = next(iter(trace_ids))
 
+        # Calculate trace time bounds from spans once
+        min_start_time = min(span.start_time_ns for span in spans)
+        # If no spans have ended, max_end_time should be None (trace still in progress)
+        end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
+        max_end_time = max(end_times) if end_times else None
+        min_start_ms = min_start_time // 1_000_000
+
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
             sql_trace_info = (
@@ -2681,18 +2688,12 @@ class SqlAlchemyStore(AbstractStore):
 
             # If trace doesn't exist, create it
             if sql_trace_info is None:
-                # Get the earliest start time and latest end time
-                min_start_time = min(span.start_time_ns for span in spans)
-                # If no spans have ended, max_end_time should be None (trace still in progress)
-                end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
-                max_end_time = max(end_times) if end_times else None
-
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
-                    timestamp_ms=min_start_time // 1_000_000,
+                    timestamp_ms=min_start_ms,
                     execution_time_ms=(
                         (max_end_time - min_start_time) // 1_000_000 if max_end_time else None
                     ),
@@ -2716,13 +2717,6 @@ class SqlAlchemyStore(AbstractStore):
                         .filter(SqlTraceInfo.request_id == trace_id)
                         .one()
                     )
-
-            min_start_time = min(span.start_time_ns for span in spans)
-            # If no spans have ended, max_end_time should be None (trace still in progress)
-            end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
-            max_end_time = max(end_times) if end_times else None
-
-            min_start_ms = min_start_time // 1_000_000
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
