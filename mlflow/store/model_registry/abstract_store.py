@@ -1169,6 +1169,28 @@ class AbstractStore:
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support list_webhooks")
 
+    def list_webhooks_by_event(
+        self,
+        event: WebhookEvent,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks filtered by event type.
+
+        Args:
+            event: The webhook event to filter by.
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects
+            that are subscribed to the specified event.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support list_webhooks_by_event"
+        )
+
     def update_webhook(
         self,
         webhook_id: str,

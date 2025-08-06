@@ -18,12 +18,14 @@ from datetime import datetime, timezone
 
 import requests
 import urllib3
+from cachetools import TTLCache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
 from mlflow.environment_variables import (
+    MLFLOW_WEBHOOK_CACHE_TTL,
     MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS,
     MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES,
     MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
@@ -51,6 +53,12 @@ _webhook_delivery_executor = ThreadPoolExecutor(
 # Shared session for webhook requests (thread-safe)
 _webhook_session: requests.Session | None = None
 _webhook_session_lock: threading.Lock = threading.Lock()
+
+# Cache for webhook listings by event
+# TTLCache is thread-safe for basic operations, but we still use a lock for
+# complex operations to ensure consistency
+_webhook_cache_lock: threading.Lock = threading.Lock()
+_webhook_cache: TTLCache[WebhookEvent, list[Webhook]] | None = None
 
 
 def _create_webhook_session() -> requests.Session:
@@ -183,6 +191,72 @@ def _send_webhook_request(
         raise
 
 
+def _get_or_create_webhook_cache(ttl_seconds: int) -> TTLCache[WebhookEvent, list[Webhook]]:
+    """Get or create the webhook cache with the specified TTL.
+
+    Args:
+        ttl_seconds: Cache TTL in seconds
+
+    Returns:
+        The webhook cache instance
+    """
+    global _webhook_cache
+
+    if _webhook_cache is None:
+        with _webhook_cache_lock:
+            # Check again in case another thread just created it
+            if _webhook_cache is None:
+                # Max size of 1000 should be enough for event types
+                _webhook_cache = TTLCache(maxsize=1000, ttl=ttl_seconds)
+
+    return _webhook_cache
+
+
+def _get_cached_webhooks_by_event(
+    store: AbstractStore,
+    event: WebhookEvent,
+    ttl_seconds: int,
+) -> list[Webhook]:
+    """Get webhooks for a specific event from cache or fetch from store if cache is stale.
+
+    Args:
+        store: The abstract store to fetch webhooks from
+        event: The webhook event to filter by
+        ttl_seconds: Cache TTL in seconds
+
+    Returns:
+        List of webhooks subscribed to the event
+    """
+    cache = _get_or_create_webhook_cache(ttl_seconds)
+
+    # Try to get from cache first (TTLCache handles expiry automatically)
+    cached_webhooks = cache.get(event)
+    if cached_webhooks is not None:
+        return cached_webhooks
+
+    # Cache miss, need to fetch from store
+    with _webhook_cache_lock:
+        # Check again in case another thread just populated it
+        cached_webhooks = cache.get(event)
+        if cached_webhooks is not None:
+            return cached_webhooks
+
+        # Fetch fresh data - only webhooks for this specific event
+        # Fetch all pages to ensure we don't miss any webhooks
+        webhooks: list[Webhook] = []
+        page_token: str | None = None
+        while True:
+            page = store.list_webhooks_by_event(event, max_results=100, page_token=page_token)
+            webhooks.extend(page)
+            if not page.token:
+                break
+            page_token = page.token
+
+        # Store in cache
+        cache[event] = webhooks
+        return webhooks
+
+
 def _send_webhook_with_error_handling(
     webhook: Webhook,
     payload: WebhookPayload,
@@ -205,8 +279,12 @@ def _deliver_webhook_impl(
     store: AbstractStore,
 ) -> None:
     session = _get_or_create_webhook_session()
-    for webhook in store.list_webhooks():
-        if webhook.status.is_active() and event in webhook.events:
+    ttl_seconds = MLFLOW_WEBHOOK_CACHE_TTL.get()
+
+    # Get only webhooks subscribed to this specific event (filtered at DB level when possible)
+    webhooks = _get_cached_webhooks_by_event(store, event, ttl_seconds)
+    for webhook in webhooks:
+        if webhook.status.is_active():
             _webhook_delivery_executor.submit(
                 _send_webhook_with_error_handling,
                 webhook,
