@@ -117,18 +117,18 @@ endpoints:
 </TabItem>
 <TabItem value="databricks" label="Databricks">
 
-Databricks [Foundation Models APIs](https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/) are compatible with the OpenAI ChatCompletion API, so you can use them with `openai` provider in the AI Gateway. Specify the endpoint name (e.g., `databricks-claude-sonnet-4`) in the `name` field and set the host and token as OpenAI API key and base URL respectively.
+Databricks [Foundation Models APIs](https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/) are compatible with the OpenAI Chat Completions API, so you can use them with `openai` provider in the AI Gateway. Specify the endpoint name (e.g., `databricks-claude-sonnet-4`) in the `name` field and set the host and token as OpenAI API key and base URL respectively.
 
 ```yaml
 endpoints:
   - name: databricks-chat
     endpoint_type: llm/v1/chat
     model:
-      provider: databricks
+      provider: openai
       name: databricks-claude-sonnet-4
       config:
         openai_api_key: $DATABRICKS_TOKEN
-        openai_api_base: https://example.staging.cloud.databricks.com/serving-endpoints/
+        openai_api_base: https://your-workspace.cloud.databricks.com/serving-endpoints/  # Replace with your Databricks workspace URL
 ```
 
 </TabItem>
