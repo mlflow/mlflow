@@ -82,6 +82,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2268,11 +2269,32 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters = _get_filter_clauses_for_search_traces(
-                filter_string, session, self._get_dialect()
+            attribute_filters, non_attribute_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
+
+            # Apply non-attribute filters
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            # If run_id filter is present, we need to handle it specially to include linked traces
+            if run_id_filter:
+                from sqlalchemy import exists, or_
+
+                # Create a subquery to check if a trace is linked to the run via entity associations
+                linked_trace_exists = exists().where(
+                    (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
+                    & (SqlEntityAssociation.source_type == EntityType.TRACE)
+                    & (SqlEntityAssociation.destination_type == EntityType.RUN)
+                    & (SqlEntityAssociation.destination_id == run_id_filter)
+                )
+
+                # Create a subquery to check if trace has run_id in metadata
+                metadata_exists = exists().where(
+                    (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
+                    & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
+                    & (SqlTraceMetadata.value == run_id_filter)
+                )
 
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -2281,6 +2303,22 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+
+            # Build the filter conditions
+            filter_conditions = [
+                SqlTraceInfo.experiment_id.in_(experiment_ids),
+                *attribute_filters,
+            ]
+
+            # If run_id filter is present, add OR condition for linked traces
+            if run_id_filter:
+                filter_conditions.append(
+                    or_(
+                        linked_trace_exists,  # Trace is linked via entity associations
+                        metadata_exists,  # Trace has run_id in metadata
+                    )
+                )
+
             stmt = (
                 # NB: We don't need to distinct the results of joins because of the fact that
                 #   the right tables of the joins are unique on the join key, trace_id.
@@ -2289,10 +2327,7 @@ class SqlAlchemyStore(AbstractStore):
                 #   trace_id is unique in those tables.
                 #   Be careful when changing the query building logic, as it may break this
                 #   uniqueness property and require deduplication, which can be expensive.
-                stmt.filter(
-                    SqlTraceInfo.experiment_id.in_(experiment_ids),
-                    *attribute_filters,
-                )
+                stmt.filter(*filter_conditions)
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
@@ -3174,9 +3209,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
+    Also extracts run_id filter if present for special handling.
     """
     attribute_filters = []
     non_attribute_filters = []
+    run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
     for sql_statement in parsed_filters:
@@ -3192,6 +3229,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
             attribute_filters.append(attr_filter)
         else:
+            # Check if this is a run_id filter (stored as SOURCE_RUN in metadata)
+            if (
+                SearchTraceUtils.is_request_metadata(key_type, comparator)
+                and key_name == TraceMetadataKey.SOURCE_RUN
+                and comparator == "="
+            ):
+                run_id_filter = value
+                # Don't add run_id filter to non_attribute_filters since we handle it specially
+                continue
+
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
@@ -3212,4 +3259,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, non_attribute_filters, run_id_filter

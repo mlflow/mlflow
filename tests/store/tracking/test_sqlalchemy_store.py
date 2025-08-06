@@ -4587,6 +4587,97 @@ def test_search_traces_pagination_tie_breaker(store):
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
+def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
+    """Test that search_traces returns traces linked to a run via entity associations."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_run_filter")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different relationships to the run
+    # Trace 1: Has run_id in metadata (direct association)
+    trace1_id = "tr-direct"
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+
+    # Trace 2: Linked via entity association
+    trace2_id = "tr-linked"
+    _create_trace(store, trace2_id, exp_id)
+    store.link_traces_to_run([trace2_id], run_id)
+
+    # Trace 3: Both metadata and entity association
+    trace3_id = "tr-both"
+    _create_trace(store, trace3_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+    store.link_traces_to_run([trace3_id], run_id)
+
+    # Trace 4: No association with the run
+    trace4_id = "tr-unrelated"
+    _create_trace(store, trace4_id, exp_id)
+
+    # Search for traces with run_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return traces 1, 2, and 3 but not 4
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test with another run to ensure isolation
+    run2 = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run2")
+    run2_id = run2.info.run_id
+
+    # Create a trace linked to run2
+    trace5_id = "tr-run2"
+    _create_trace(store, trace5_id, exp_id)
+    store.link_traces_to_run([trace5_id], run2_id)
+
+    # Search for traces with run2_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run2_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace5
+    assert trace_ids == {trace5_id}
+
+    # Original run_id search should still return the same traces
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+
+def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
+    """Test that search_traces with run_id filter works correctly with other filters."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_combined_filters")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different tags and run associations
+    trace1_id = "tr-tag1-linked"
+    _create_trace(store, trace1_id, exp_id, tags={"type": "training"})
+    store.link_traces_to_run([trace1_id], run_id)
+
+    trace2_id = "tr-tag2-linked"
+    _create_trace(store, trace2_id, exp_id, tags={"type": "inference"})
+    store.link_traces_to_run([trace2_id], run_id)
+
+    trace3_id = "tr-tag1-notlinked"
+    _create_trace(store, trace3_id, exp_id, tags={"type": "training"})
+
+    # Search with run_id and tag filter
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f'run_id = "{run_id}" AND tags.type = "training"'
+    )
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace1 (linked to run AND has training tag)
+    assert trace_ids == {trace1_id}
+
+    # Search with run_id only
+    traces, _ = store.search_traces([exp_id], filter_string=f'run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return both linked traces
+    assert trace_ids == {trace1_id, trace2_id}
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
