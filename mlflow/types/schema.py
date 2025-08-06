@@ -164,6 +164,7 @@ class Property(BaseType):
         name: str,
         dtype: ALLOWED_DTYPES,
         required: bool = True,
+        enum: Optional[list[Any]] = None,
     ) -> None:
         """
         Args:
@@ -188,6 +189,7 @@ class Property(BaseType):
                 EXPECTED_TYPE_MESSAGE.format(arg_name="dtype", passed_type=self.dtype)
             )
         self._required = required
+        self._enum = enum
 
     @property
     def name(self) -> str:
@@ -207,6 +209,15 @@ class Property(BaseType):
     @required.setter
     def required(self, value: bool) -> None:
         self._required = value
+    
+    @property
+    def enum(self) -> Optional[list[Any]]:
+        """List of allowed values for this property."""
+        return self._enum
+
+    @enum.setter
+    def enum(self, value: Optional[list[Any]]) -> None:
+        self._enum = value
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Property):
@@ -214,6 +225,7 @@ class Property(BaseType):
                 self.name == other.name
                 and self.dtype == other.dtype
                 and self.required == other.required
+                and self.enum == other.enum
             )
         return False
 
@@ -222,11 +234,14 @@ class Property(BaseType):
 
     def __repr__(self) -> str:
         required = "required" if self.required else "optional"
-        return f"{self.name}: {self.dtype!r} ({required})"
+        enum_repr = f", enum={self.enum!r}" if self.enum is not None else ""
+        return f"{self.name}: {self.dtype!r} ({required}{enum_repr})"
 
     def to_dict(self):
         d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
         d["required"] = self.required
+        if self.enum is not None:
+            d["enum"] = self.enum
         return {self.name: d}
 
     @classmethod
@@ -246,18 +261,21 @@ class Property(BaseType):
         if not {"type"} <= set(dic.keys()):
             raise MlflowException(f"Missing keys in Property `{name}`. Expected to find key `type`")
         required = dic.pop("required", True)
+        enum = dic.pop("enum", None)
         dtype = dic["type"]
         if dtype == ARRAY_TYPE:
-            return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
+            return cls(name=name, dtype=Array.from_json_dict(**dic), required=required, enum=enum)
         if dtype == SPARKML_VECTOR_TYPE:
             return SparkMLVector()
         if dtype == OBJECT_TYPE:
-            return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
+            return cls(
+                name=name, dtype=Object.from_json_dict(**dic), required=required, enum=enum
+            )
         if dtype == MAP_TYPE:
-            return cls(name=name, dtype=Map.from_json_dict(**dic), required=required)
+            return cls(name=name, dtype=Map.from_json_dict(**dic), required=required, enum=enum)
         if dtype == ANY_TYPE:
-            return cls(name=name, dtype=AnyType(), required=required)
-        return cls(name=name, dtype=dtype, required=required)
+            return cls(name=name, dtype=AnyType(), required=required, enum=enum)
+        return cls(name=name, dtype=dtype, required=required, enum=enum)
 
     def _merge(self, other: BaseType) -> Property:
         """
@@ -305,14 +323,17 @@ class Property(BaseType):
         if self.name != other.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and other.required
+        enum: Optional[list[Any]] = None
+        if self.enum or other.enum:
+            enum = sorted(set((self.enum or []) + (other.enum or [])))
         if isinstance(self.dtype, DataType) and isinstance(other.dtype, DataType):
             if self.dtype == other.dtype:
-                return Property(name=self.name, dtype=self.dtype, required=required)
+                return Property(name=self.name, dtype=self.dtype, required=required, enum=enum)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
         if isinstance(self.dtype, (Array, Object, Map, AnyType)):
             obj = self.dtype._merge(other.dtype)
-            return Property(name=self.name, dtype=obj, required=required)
+            return Property(name=self.name, dtype=obj, required=required, enum=enum)
 
         raise MlflowException("Properties are incompatible")
 
@@ -730,10 +751,12 @@ class ColSpec:
         type: ALLOWED_DTYPES,
         name: Optional[str] = None,
         required: bool = True,
+        enum: Optional[list[Any]] = None,
     ):
         self._name = name
 
         self._required = required
+        self._enum = enum
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -763,24 +786,41 @@ class ColSpec:
         """Whether this column is required."""
         return self._required
 
+    @property
+    def enum(self) -> Optional[list[Any]]:
+        """List of allowed values for this column."""
+        return self._enum
+
+    @enum.setter
+    def enum(self, value: Optional[list[Any]]) -> None:
+        self._enum = value
+
     def to_dict(self) -> dict[str, Any]:
         d = {"type": self.type.name} if isinstance(self.type, DataType) else self.type.to_dict()
         if self.name is not None:
             d["name"] = self.name
         d["required"] = self.required
+        if self.enum is not None:
+            d["enum"] = self.enum
         return d
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ColSpec):
             names_eq = (self.name is None and other.name is None) or self.name == other.name
-            return names_eq and self.type == other.type and self.required == other.required
+            return (
+                names_eq
+                and self.type == other.type
+                and self.required == other.required
+                and self.enum == other.enum
+            )
         return False
 
     def __repr__(self) -> str:
         required = "required" if self.required else "optional"
+        enum_repr = f", enum={self.enum!r}" if self.enum is not None else ""
         if self.name is None:
-            return f"{self.type!r} ({required})"
-        return f"{self.name!r}: {self.type!r} ({required})"
+            return f"{self.type!r} ({required}{enum_repr})"
+        return f"{self.name!r}: {self.type!r} ({required}{enum_repr})"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -795,20 +835,22 @@ class ColSpec:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
         required = kwargs.pop("required", None)
+        enum = kwargs.pop("enum", None)
         if kwargs["type"] == ARRAY_TYPE:
-            return cls(name=name, type=Array.from_json_dict(**kwargs), required=required)
+            return cls(name=name, type=Array.from_json_dict(**kwargs), required=required, enum=enum)
         if kwargs["type"] == OBJECT_TYPE:
             return cls(
                 name=name,
                 type=Object.from_json_dict(**kwargs),
                 required=required,
+                enum=enum,
             )
         if kwargs["type"] == MAP_TYPE:
-            return cls(name=name, type=Map.from_json_dict(**kwargs), required=required)
+            return cls(name=name, type=Map.from_json_dict(**kwargs), required=required, enum=enum)
         if kwargs["type"] == SPARKML_VECTOR_TYPE:
-            return cls(name=name, type=SparkMLVector(), required=required)
+            return cls(name=name, type=SparkMLVector(), required=required, enum=enum)
         if kwargs["type"] == ANY_TYPE:
-            return cls(name=name, type=AnyType(), required=required)
+            return cls(name=name, type=AnyType(), required=required, enum=enum)
 
 
 class TensorInfo:
@@ -1429,6 +1471,23 @@ def convert_dataclass_to_schema(dataclass):
                 inputs.append(
                     ColSpec(type=Array(dtype=dtype), name=field_name, required=not is_optional)
                 )
+            elif isinstance(list_type, type) and issubclass(list_type, Enum):
+                enum_values = [m.value for m in list_type]
+                base_type = type(enum_values[0]) if enum_values else str
+                if dtype := _map_field_type(base_type):
+                    inputs.append(
+                        ColSpec(
+                            type=Array(dtype=dtype),
+                            name=field_name,
+                            required=not is_optional,
+                            enum=enum_values,
+                        )
+                    )
+                else:
+                    raise MlflowException(
+                        f"List field type {list_type} is not supported in dataclass"
+                        f" {dataclass.__name__}"
+                    )
             else:
                 if dtype := _map_field_type(list_type):
                     inputs.append(
@@ -1453,6 +1512,22 @@ def convert_dataclass_to_schema(dataclass):
                     required=not is_optional,
                 )
             )
+        elif isinstance(effective_type, type) and issubclass(effective_type, Enum):
+            enum_values = [m.value for m in effective_type]
+            base_type = type(enum_values[0]) if enum_values else str
+            if dtype := _map_field_type(base_type):
+                inputs.append(
+                    ColSpec(
+                        type=dtype,
+                        name=field_name,
+                        required=not is_optional,
+                        enum=enum_values,
+                    )
+                )
+            else:
+                raise MlflowException(
+                    f"Enum field type {effective_type} is not supported in dataclass {dataclass.__name__}"
+                )
         # confirm the effective type is a basic type
         elif dtype := _map_field_type(effective_type):
             # It's a basic type
@@ -1496,6 +1571,20 @@ def _convert_field_to_property(field_name, field_type):
 
     if get_origin(effective_type) == list:
         list_type = get_args(effective_type)[0]
+        if isinstance(list_type, type) and issubclass(list_type, Enum):
+            enum_values = [m.value for m in list_type]
+            base_type = type(enum_values[0]) if enum_values else str
+            dtype = _map_field_type(base_type)
+            if dtype is None:
+                raise MlflowException(
+                    f"List field type {list_type} is not supported in dataclass"
+                )
+            return Property(
+                name=field_name,
+                dtype=Array(dtype=dtype),
+                required=not is_optional,
+                enum=enum_values,
+            )
         return Property(
             name=field_name,
             dtype=Array(dtype=_map_field_type(list_type)),
@@ -1506,6 +1595,20 @@ def _convert_field_to_property(field_name, field_type):
             name=field_name,
             dtype=_convert_dataclass_to_nested_object(effective_type),
             required=not is_optional,
+        )
+    elif isinstance(effective_type, type) and issubclass(effective_type, Enum):
+        enum_values = [m.value for m in effective_type]
+        base_type = type(enum_values[0]) if enum_values else str
+        dtype = _map_field_type(base_type)
+        if dtype is None:
+            raise MlflowException(
+                f"Enum field type {effective_type} is not supported"
+            )
+        return Property(
+            name=field_name,
+            dtype=dtype,
+            required=not is_optional,
+            enum=enum_values,
         )
     else:
         return Property(

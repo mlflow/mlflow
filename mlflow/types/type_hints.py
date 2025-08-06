@@ -4,6 +4,8 @@ from datetime import datetime
 from functools import lru_cache
 from types import UnionType
 from typing import Any, NamedTuple, Optional, TypeVar, Union, get_args, get_origin
+from enum import Enum
+from inspect import isclass
 
 import pydantic
 import pydantic.fields
@@ -110,6 +112,7 @@ def type_hints_no_signature_inference():
 class ColSpecType(NamedTuple):
     dtype: COLSPEC_TYPES
     required: bool
+    enum: Optional[list[Any]] = None
 
 
 class UnsupportedTypeHintException(MlflowException):
@@ -193,6 +196,12 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
         return ColSpecType(dtype=AnyType(), required=True)
     if datatype := TYPE_HINTS_TO_DATATYPE_MAPPING.get(type_hint):
         return ColSpecType(dtype=datatype, required=True)
+    if isclass(type_hint) and issubclass(type_hint, Enum):
+        enum_values = [m.value for m in type_hint]
+        base_type = type(enum_values[0]) if enum_values else str
+        if datatype := TYPE_HINTS_TO_DATATYPE_MAPPING.get(base_type):
+            return ColSpecType(dtype=datatype, required=True, enum=enum_values)
+        raise UnsupportedTypeHintException(type_hint=type_hint)
     elif _is_pydantic_type_hint(type_hint):
         dtype = _infer_type_from_pydantic_model(type_hint)
         return ColSpecType(dtype=dtype, required=True)
@@ -200,9 +209,11 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
         args = get_args(type_hint)
         if origin_type is list:
             internal_type = _get_element_type_of_list_type_hint(type_hint)
+            internal_colspec = _infer_colspec_type_from_type_hint(type_hint=internal_type)
             return ColSpecType(
-                dtype=Array(_infer_colspec_type_from_type_hint(type_hint=internal_type).dtype),
+                dtype=Array(internal_colspec.dtype),
                 required=True,
+                enum=internal_colspec.enum,
             )
         if origin_type is dict:
             if len(args) == 2:
@@ -211,9 +222,11 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                         message=f"Dictionary key type must be str, got {args[0]} in type hint "
                         f"{_type_hint_repr(type_hint)}"
                     )
+                value_colspec = _infer_colspec_type_from_type_hint(type_hint=args[1])
                 return ColSpecType(
-                    dtype=Map(_infer_colspec_type_from_type_hint(type_hint=args[1]).dtype),
+                    dtype=Map(value_colspec.dtype),
                     required=True,
+                    enum=value_colspec.enum,
                 )
             raise InvalidTypeHintException(
                 message="Dictionary type hint must contain two element types, got "
@@ -230,9 +243,11 @@ def _infer_colspec_type_from_type_hint(type_hint: type[Any]) -> ColSpecType:
                 # Optional type
                 elif len(args) == 2:
                     effective_type = next((arg for arg in args if arg is not NONE_TYPE), None)
+                    inner = _infer_colspec_type_from_type_hint(effective_type)
                     return ColSpecType(
-                        dtype=_infer_colspec_type_from_type_hint(effective_type).dtype,
+                        dtype=inner.dtype,
                         required=False,
+                        enum=inner.enum,
                     )
                 # Optional Union type
                 else:
@@ -297,6 +312,7 @@ def _infer_type_from_pydantic_model(model: pydantic.BaseModel) -> Object:
                 name=field_name,
                 dtype=colspec_type.dtype,
                 required=colspec_type.required,
+                enum=colspec_type.enum,
             )
         )
     if invalid_fields:
@@ -395,7 +411,9 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     # Creating Schema with unnamed optional inputs is not supported
     if col_spec_type.required is False:
         raise InvalidTypeHintException(message=OPTIONAL_INPUT_MSG)
-    return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
+    return Schema(
+        [ColSpec(type=col_spec_type.dtype, required=col_spec_type.required, enum=col_spec_type.enum)]
+    )
 
 
 def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:

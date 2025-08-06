@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional, Union, get_args
 from unittest import mock
 
@@ -45,6 +46,11 @@ class CustomModel2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
     optional_int: Optional[int] = None
+
+
+class Color(Enum):
+    RED = "red"
+    BLUE = "blue"
 
 
 @pytest.mark.parametrize(
@@ -505,3 +511,8 @@ def test_convert_dataframe_to_example_format(data):
         pd.testing.assert_frame_equal(converted_data, data)
     else:
         assert converted_data == data
+
+
+def test_infer_schema_from_enum_type_hint():
+    schema = _infer_schema_from_list_type_hint(list[Color])
+    assert schema == Schema([ColSpec(type=DataType.string, enum=["red", "blue"])])

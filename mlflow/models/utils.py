@@ -959,7 +959,13 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     new_pf_input = {}
     for i, x in enumerate(input_names):
         if isinstance(input_types[i], DataType):
-            new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+            series = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+            col_enum = input_schema.inputs[i].enum
+            if col_enum is not None and not series.isin(col_enum).all():
+                raise MlflowException.invalid_parameter_value(
+                    f"The input column '{x}' contains values not in enum {col_enum}."
+                )
+            new_pf_input[x] = series
         # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
         else:
@@ -986,7 +992,13 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
             else:
                 continue
         if isinstance(input_type, DataType):
-            new_pf_input[name] = _enforce_mlflow_datatype(name, pf_input[name], input_type)
+            series = _enforce_mlflow_datatype(name, pf_input[name], input_type)
+            col_enum = input_dict[name].enum
+            if col_enum is not None and not series.isin(col_enum).all():
+                raise MlflowException.invalid_parameter_value(
+                    f"The input column '{name}' contains values not in enum {col_enum}."
+                )
+            new_pf_input[name] = series
         # If the input_type is objects/arrays/maps, we assume pf_input must be a pandas DataFrame.
         # Otherwise, the schema is not valid.
         else:
@@ -1404,7 +1416,12 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
 
 
 def _enforce_property(data: Any, property: Property):
-    return _enforce_type(data, property.dtype, required=property.required)
+    value = _enforce_type(data, property.dtype, required=property.required)
+    if property.enum is not None and value not in property.enum:
+        raise MlflowException.invalid_parameter_value(
+            f"Property '{property.name}' with value {value} is not in enum {property.enum}."
+        )
+    return value
 
 
 def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
