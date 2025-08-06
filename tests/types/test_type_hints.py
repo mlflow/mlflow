@@ -153,7 +153,7 @@ def test_infer_schema_from_pydantic_model(type_hint, expected_schema):
         (list[dict[str, list[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),
         (list[Dict[str, List[str]]], Schema([ColSpec(type=Map(Array(DataType.string)))])),  # noqa: UP006
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())])),  # _noqa: UP007
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())])),  # noqa: UP007
         (list[int | str], Schema([ColSpec(type=AnyType())])),
         (list[list[int | str]], Schema([ColSpec(type=Array(AnyType()))])),
         # Any
@@ -220,7 +220,7 @@ def test_infer_schema_from_type_hints_errors():
         _infer_schema_from_list_type_hint(list[str | None])
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])  # _noqa: UP007
+        _infer_schema_from_list_type_hint(list[Union[str, int, type(None)]])  # noqa: UP007
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[str | int | type(None)])
@@ -364,12 +364,12 @@ def test_pydantic_model_validation(type_hint, example):
         (list[list[str]], [["a", "b"], ["c", "d"]]),
         (dict[str, int], {"a": 1, "b": 2}),
         (dict[str, list[str]], {"a": ["a", "b"], "b": ["c", "d"]}),
-        (Union[int, str], 1),  # _noqa: UP007
-        (Union[int, str], "a"),  # _noqa: UP007
+        (Union[int, str], 1),  # noqa: UP007
+        (Union[int, str], "a"),  # noqa: UP007
         (int | str, 1),
         (int | str, "a"),
         # Union type is inferred as AnyType, so it accepts double here as well
-        (Union[int, str], 1.2),  # _noqa: UP007
+        (Union[int, str], 1.2),  # noqa: UP007
         (int | str, 1.2),
         (list[Any], [1, "a"]),
     ],

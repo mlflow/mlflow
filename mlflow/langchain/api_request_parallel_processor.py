@@ -24,7 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
@@ -210,7 +210,7 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: Optional[list[Union[Any, dict[str, Any]]]] = None,
+    requests: Optional[list[Any | dict[str, Any]]] = None,
     max_workers: int = 10,
     callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
@@ -295,7 +295,7 @@ def process_api_requests(
 
 def process_stream_request(
     lc_model,
-    request_json: Union[Any, dict[str, Any]],
+    request_json: Any | dict[str, Any],
     callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
     params: Optional[dict[str, Any]] = None,

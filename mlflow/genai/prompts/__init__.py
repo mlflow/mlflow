@@ -1,6 +1,6 @@
 import warnings
 from contextlib import contextmanager
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -28,10 +28,10 @@ def suppress_genai_migration_warning():
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, Any]]],
+    template: str | list[dict[str, Any]],
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
-    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+    response_format: Optional[BaseModel | dict[str, Any]] = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -145,7 +145,7 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: Optional[str | int] = None,
     allow_missing: bool = False,
 ) -> PromptVersion:
     """

@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.utils.enum_utils import StrEnum
@@ -293,7 +293,7 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
 @requires_databricks_agents
 def meets_guidelines(
     *,
-    guidelines: Union[str, list[str]],
+    guidelines: str | list[str],
     context: dict[str, Any],
     name: Optional[str] = None,
 ) -> Feedback:
@@ -349,7 +349,7 @@ def custom_prompt_judge(
     *,
     name: str,
     prompt_template: str,
-    numeric_values: Optional[dict[str, Union[int, float]]] = None,
+    numeric_values: Optional[dict[str, int | float]] = None,
 ) -> Callable[..., Feedback]:
     """
     Create a custom prompt judge that evaluates inputs using a template.

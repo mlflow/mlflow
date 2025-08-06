@@ -4,7 +4,7 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -534,10 +534,10 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, Any]]],
+    template: str | list[dict[str, Any]],
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
-    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+    response_format: Optional[BaseModel | dict[str, Any]] = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -668,7 +668,7 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: Optional[str | int] = None,
     allow_missing: bool = False,
     link_to_model: bool = True,
     model_id: Optional[str] = None,
@@ -787,7 +787,7 @@ def load_prompt(
 @functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
 def _load_prompt_cached(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: Optional[str | int] = None,
     allow_missing: bool = False,
 ) -> Optional[PromptVersion]:
     """
@@ -798,7 +798,7 @@ def _load_prompt_cached(
 
 def _load_prompt_not_cached(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: Optional[str | int] = None,
     allow_missing: bool = False,
 ) -> Optional[PromptVersion]:
     """

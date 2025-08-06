@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 
@@ -23,9 +23,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        features: Union[np.ndarray, dict[str, np.ndarray]],
+        features: np.ndarray | dict[str, np.ndarray],
         source: DatasetSource,
-        targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
+        targets: np.ndarray | dict[str, np.ndarray] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -75,14 +75,14 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def features(self) -> Union[np.ndarray, dict[str, np.ndarray]]:
+    def features(self) -> np.ndarray | dict[str, np.ndarray]:
         """
         The features of the dataset.
         """
         return self._features
 
     @property
-    def targets(self) -> Optional[Union[np.ndarray, dict[str, np.ndarray]]]:
+    def targets(self) -> Optional[np.ndarray | dict[str, np.ndarray]]:
         """
         The targets of the dataset. May be ``None`` if no targets are available.
         """
@@ -154,9 +154,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_numpy(
-    features: Union[np.ndarray, dict[str, np.ndarray]],
-    source: Union[str, DatasetSource] = None,
-    targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
+    features: np.ndarray | dict[str, np.ndarray],
+    source: str | DatasetSource = None,
+    targets: np.ndarray | dict[str, np.ndarray] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> NumpyDataset:

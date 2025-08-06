@@ -4,7 +4,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
@@ -202,7 +202,7 @@ class MlflowAg2Logger(BaseLogger):
         )
 
     @_catch_exception
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: dict[str, Any]):
+    def log_event(self, source: str | Agent, name: str, **kwargs: dict[str, Any]):
         event_end_time = time.time_ns()
         if name == "received_message":
             if (self._chat_state.last_message is not None) and (
@@ -231,9 +231,9 @@ class MlflowAg2Logger(BaseLogger):
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
-        source: Union[str, Agent],
-        request: dict[str, Union[float, str, list[dict[str, str]]]],
-        response: Union[str, ChatCompletion],
+        source: str | Agent,
+        request: dict[str, float | str | list[dict[str, str]]],
+        response: str | ChatCompletion,
         is_cached: int,
         cost: float,
         start_time: str,

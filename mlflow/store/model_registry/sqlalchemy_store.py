@@ -1,6 +1,6 @@
 import logging
 import urllib
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -524,8 +524,8 @@ class SqlAlchemyStore(AbstractStore):
         query: Any,
         tag_filters: dict[str, list[Any]],
         dialect: str,
-        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
-        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+        main_db_model: SqlModelVersion | SqlRegisteredModel,
+        tag_db_model: SqlModelVersionTag | SqlRegisteredModelTag,
     ):
         """
         Update query to exclude all prompt rows and return only normal model or model versions.

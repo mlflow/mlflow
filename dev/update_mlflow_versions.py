@@ -1,7 +1,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import Union
 
 import click
 from packaging.version import Version
@@ -57,7 +56,7 @@ def replace_dev_or_rc_suffix_with(version, repl):
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: list[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str | re.Pattern, repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:

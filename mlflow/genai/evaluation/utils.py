@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
@@ -22,11 +22,11 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
-        EvaluationDatasetTypes = Union[
-            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
-        ]
+        EvaluationDatasetTypes = (
+            pd.DataFrame | pyspark.sql.dataframe.DataFrame | list[dict] | EvaluationDataset
+        )
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = pd.DataFrame | list[dict] | EvaluationDataset
 
 
 _logger = logging.getLogger(__name__)
@@ -206,16 +206,16 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
 
     def eval_fn(
         request_id: str,
-        request: Union[ChatCompletionRequest, str],
+        request: ChatCompletionRequest | str,
         response: Optional[Any],
         expected_response: Optional[Any],
         trace: Optional[Trace],
-        guidelines: Optional[Union[list[str], dict[str, list[str]]]],
+        guidelines: Optional[list[str] | dict[str, list[str]]],
         expected_facts: Optional[list[str]],
         expected_retrieved_context: Optional[list[dict[str, str]]],
         custom_expected: Optional[dict[str, Any]],
         **kwargs,
-    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+    ) -> int | float | bool | str | Assessment | list[Assessment]:
         # Condense all expectations into a single dict
         expectations = {}
         if expected_response is not None:

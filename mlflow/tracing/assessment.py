@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from mlflow.entities.assessment import (
     DEFAULT_FEEDBACK_NAME,
@@ -261,7 +261,7 @@ def log_feedback(
     name: str = DEFAULT_FEEDBACK_NAME,
     value: Optional[FeedbackValueType] = None,
     source: Optional[AssessmentSource] = None,
-    error: Optional[Union[Exception, AssessmentError]] = None,
+    error: Optional[Exception | AssessmentError] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
