@@ -6,7 +6,6 @@ from typing import Any, Generator, Optional, Union
 
 import llama_index.core
 import pydantic
-from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.base.llms.base import BaseLLM
@@ -246,11 +245,21 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         Map LlamaIndex instance type to MLflow span type. Some span type cannot be determined
         by instance type alone, rather need event info e.g. ChatModel, ReRanker
         """
+        base_agent_types = ()
+        if _get_llama_index_version() < Version("0.13.0"):
+            from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
+
+            base_agent_types = (BaseAgent, BaseAgentWorker)
+        else:
+            from llama_index.core.agent.workflow import BaseWorkflowAgent
+
+            base_agent_types = (BaseWorkflowAgent,)
+
         if isinstance(instance, (BaseLLM, MultiModalLLM)):
             return SpanType.LLM
         elif isinstance(instance, BaseRetriever):
             return SpanType.RETRIEVER
-        elif isinstance(instance, (BaseAgent, BaseAgentWorker)):
+        elif isinstance(instance, base_agent_types):
             return SpanType.AGENT
         elif isinstance(instance, BaseEmbedding):
             return SpanType.EMBEDDING
@@ -457,6 +466,14 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
 _StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
 
 
+def _get_task_step_output_type():
+    if _get_llama_index_version() < Version("0.13.0"):
+        from llama_index.core.base.agent.types import TaskStepOutput
+
+        return TaskStepOutput
+    return ()
+
+
 class StreamResolver:
     """
     A class is responsible for closing the pending streaming spans that are waiting
@@ -473,7 +490,10 @@ class StreamResolver:
             inspect.isgenerator(result)  # noqa: SIM101
             or isinstance(result, (StreamingResponse, AsyncStreamingResponse))
             or isinstance(result, StreamingAgentChatResponse)
-            or (isinstance(result, TaskStepOutput) and self.is_streaming_result(result.output))
+            or (
+                isinstance(result, _get_task_step_output_type())
+                and self.is_streaming_result(result.output)
+            )
         )
 
     def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
@@ -493,7 +513,7 @@ class StreamResolver:
             stream = result.response_gen
         elif isinstance(result, StreamingAgentChatResponse):
             stream = result.chat_stream
-        elif isinstance(result, TaskStepOutput):
+        elif isinstance(result, _get_task_step_output_type()):
             stream = result.output.chat_stream
         else:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")
