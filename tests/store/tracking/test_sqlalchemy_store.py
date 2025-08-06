@@ -24,7 +24,6 @@ from mlflow import entities
 from mlflow.entities import (
     AssessmentSource,
     AssessmentSourceType,
-    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -6124,27 +6123,27 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="test_eval_dataset",
-        digest="abcd1234",
-        created_time=0,  # Verify that the backend will set current
-        last_update_time=0,  # Verify that the backend will set current
-        tags={"purpose": "testing", "environment": "test"},
-        schema='{"fields": ["question", "answer"]}',
-        profile='{"num_rows": 100}',
-        created_by="test_user",
-    )
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="test_eval_dataset",
+        tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
+        experiment_ids=experiment_ids,
+    )
 
     assert created_dataset.dataset_id is not None
     assert created_dataset.dataset_id.startswith("d-")
     assert created_dataset.name == "test_eval_dataset"
-    assert created_dataset.tags == {"purpose": "testing", "environment": "test"}
+    assert created_dataset.tags == {
+        "purpose": "testing",
+        "environment": "test",
+        "mlflow.user": "test_user",
+    }
     assert created_dataset.created_time > 0
     assert created_dataset.last_update_time > 0
     assert created_dataset.created_time == created_dataset.last_update_time
+    assert created_dataset.schema is None  # Schema is computed when data is added
+    assert created_dataset.profile is None  # Profile is computed when data is added
+    assert created_dataset.created_by == "test_user"  # Extracted from mlflow.user tag
 
     retrieved_dataset = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved_dataset.dataset_id == created_dataset.dataset_id
@@ -6174,25 +6173,30 @@ def test_evaluation_dataset_search_comprehensive(store):
 
     datasets = []
     for i in range(10):
-        dataset = EvaluationDataset(
-            dataset_id=None,
-            name=f"{test_prefix}dataset_{i:02d}",
-            digest=f"digest_{i:02d}",
-            created_time=0,
-            last_update_time=0,
-            created_by=f"user_{i % 3}",
-            tags={"priority": "high" if i % 2 == 0 else "low"},
-        )
         if i < 3:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[0]])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                experiment_ids=[exp_ids[0]],
+                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+            )
         elif i < 6:
             created = store.create_evaluation_dataset(
-                dataset, experiment_ids=[exp_ids[1], exp_ids[2]]
+                name=f"{test_prefix}dataset_{i:02d}",
+                experiment_ids=[exp_ids[1], exp_ids[2]],
+                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
             )
         elif i < 8:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[exp_ids[2]])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                experiment_ids=[exp_ids[2]],
+                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+            )
         else:
-            created = store.create_evaluation_dataset(dataset, experiment_ids=[])
+            created = store.create_evaluation_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
+                experiment_ids=[],
+                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+            )
         datasets.append(created)
         time.sleep(0.001)
 
@@ -6208,7 +6212,7 @@ def test_evaluation_dataset_search_comprehensive(store):
     names = [d.name for d in test_results]
     assert names == sorted(names)
 
-    results = store.search_evaluation_datasets(order_by=["-name"])
+    results = store.search_evaluation_datasets(order_by=["name DESC"])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     names = [d.name for d in test_results]
     assert names == sorted(names, reverse=True)
@@ -6227,14 +6231,7 @@ def test_evaluation_dataset_search_comprehensive(store):
 
 
 def test_evaluation_dataset_upsert_comprehensive(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="upsert_comprehensive",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-    )
-    created_dataset = store.create_evaluation_dataset(dataset)
+    created_dataset = store.create_evaluation_dataset(name="upsert_comprehensive")
 
     records_batch1 = [
         {
@@ -6336,7 +6333,8 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    with pytest.raises(MlflowException, match="not found"):
+    # Since we rely on foreign key constraints, we'll get an IntegrityError
+    with pytest.raises(Exception, match="FOREIGN KEY constraint failed"):
         store.upsert_evaluation_dataset_records("d-nonexistent", records_batch1)
 
     with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
@@ -6351,15 +6349,11 @@ def test_evaluation_dataset_upsert_comprehensive(store):
 
 
 def test_evaluation_dataset_associations_and_lazy_loading(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="multi_exp_dataset",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-    )
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="multi_exp_dataset",
+        experiment_ids=experiment_ids,
+    )
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
@@ -6401,27 +6395,19 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
 
 def test_evaluation_dataset_get_experiment_ids(store):
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="test_get_experiment_ids",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-    )
     experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
-    created_dataset = store.create_evaluation_dataset(dataset, experiment_ids=experiment_ids)
+    created_dataset = store.create_evaluation_dataset(
+        name="test_get_experiment_ids",
+        experiment_ids=experiment_ids,
+    )
 
     fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
     assert set(fetched_experiment_ids) == set(experiment_ids)
 
-    dataset2 = EvaluationDataset(
-        dataset_id=None,
+    created_dataset2 = store.create_evaluation_dataset(
         name="test_no_experiments",
-        digest="test_digest2",
-        created_time=0,
-        last_update_time=0,
+        experiment_ids=[],
     )
-    created_dataset2 = store.create_evaluation_dataset(dataset2, experiment_ids=[])
     fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(
         created_dataset2.dataset_id
     )
@@ -6438,18 +6424,11 @@ def test_evaluation_dataset_get_experiment_ids(store):
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
-    dataset = EvaluationDataset(
-        dataset_id=None,
-        name="tagged_dataset",
-        digest="test_digest",
-        created_time=0,
-        last_update_time=0,
-        tags=tags,
-        schema='{"type": "object"}',
-        profile='{"rows": 1000}',
-    )
 
-    created = store.create_evaluation_dataset(dataset)
+    created = store.create_evaluation_dataset(
+        name="tagged_dataset",
+        tags=tags,
+    )
     assert created.tags == tags
 
     retrieved = store.get_evaluation_dataset(created.dataset_id)
@@ -6458,26 +6437,16 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     assert retrieved.tags["version"] == "2.0"
     assert retrieved.tags["team"] == "ml-ops"
 
-    dataset_none = EvaluationDataset(
-        dataset_id=None,
+    created_none = store.create_evaluation_dataset(
         name="no_tags_dataset",
-        digest="test_digest_none",
-        created_time=0,
-        last_update_time=0,
         tags=None,
     )
-    created_none = store.create_evaluation_dataset(dataset_none)
     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
     assert retrieved_none.tags == {}
 
-    dataset_empty = EvaluationDataset(
-        dataset_id=None,
+    created_empty = store.create_evaluation_dataset(
         name="empty_tags_dataset",
-        digest="test_digest_empty",
-        created_time=0,
-        last_update_time=0,
         tags={},
     )
-    created_empty = store.create_evaluation_dataset(dataset_empty)
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
