@@ -109,6 +109,32 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         train_data: list["dspy.Example"],
         eval_data: list["dspy.Example"],
     ) -> OptimizerOutput:
+        """
+        Run the optimization process for the given prompt and program.
+
+        Parameters
+        ----------
+        prompt : PromptVersion
+            The prompt version to optimize.
+        program : dspy.Module
+            The DSPy program/module to optimize.
+        metric : Callable[[dspy.Example], float]
+            A callable that computes a metric score for a given example.
+        train_data : list[dspy.Example]
+            List of training examples for optimization.
+        eval_data : list[dspy.Example]
+            List of evaluation examples for validation.
+
+        Returns
+        -------
+        OptimizerOutput
+            The result of the optimization, including the optimized prompt and metrics.
+
+        Raises
+        ------
+        NotImplementedError
+            This method must be implemented by subclasses.
+        """
         raise NotImplementedError(
             "Subclasses of DSPyPromptOptimizer must implement `run_optimization`."
         )
