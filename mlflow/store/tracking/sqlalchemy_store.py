@@ -2672,11 +2672,10 @@ class SqlAlchemyStore(AbstractStore):
         trace_id = next(iter(trace_ids))
 
         # Calculate trace time bounds from spans once
-        min_start_time = min(span.start_time_ns for span in spans)
+        min_start_ms = min(span.start_time_ns for span in spans) // 1_000_000
         # If no spans have ended, max_end_time should be None (trace still in progress)
         end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
-        max_end_time = max(end_times) if end_times else None
-        min_start_ms = min_start_time // 1_000_000
+        max_end_ms = (max(end_times) // 1_000_000) if end_times else None
 
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
@@ -2694,9 +2693,7 @@ class SqlAlchemyStore(AbstractStore):
                     request_id=trace_id,
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_ms,
-                    execution_time_ms=(
-                        (max_end_time - min_start_time) // 1_000_000 if max_end_time else None
-                    ),
+                    execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
                     # TODO: Set trace status based on root span status (span with no parent).
                     # For now, we default to "OK" for all new traces.
                     status="OK",
@@ -2735,8 +2732,7 @@ class SqlAlchemyStore(AbstractStore):
             }
 
             # Only update execution_time_ms if we have at least one ended span
-            if max_end_time is not None:
-                max_end_ms = max_end_time // 1_000_000
+            if max_end_ms is not None:
                 update_dict[SqlTraceInfo.execution_time_ms] = (
                     case(
                         (
