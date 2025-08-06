@@ -60,20 +60,49 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
             current_scorers = list_scorers()
             print(f"Found {len(current_scorers)} registered scorers")
     """
-    try:
-        from databricks.agents.scorers import list_scheduled_scorers
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.exceptions import MlflowException
+    
+    tracking_uri = get_tracking_uri()
+    
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import list_scheduled_scorers
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
 
-    # Get scheduled scorers from the server
-    scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
+        # Get scheduled scorers from the server
+        scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
 
-    # Convert to Scorer instances with registration info
-    scorers = []
-    for scheduled_scorer in scheduled_scorers:
-        scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
+        # Convert to Scorer instances with registration info
+        scorers = []
+        for scheduled_scorer in scheduled_scorers:
+            scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
 
-    return scorers
+        return scorers
+
+    current_store = _get_store()
+    # Check if it's a SQLAlchemy store
+    if isinstance(current_store, SqlAlchemyStore):
+        # Use SqlAlchemyStore.list_scorers method
+        if experiment_id is None:
+            # Get current experiment ID if not provided
+            from mlflow.tracking.fluent import _get_experiment_id
+            experiment_id = _get_experiment_id()
+        
+        return current_store.list_scorers(experiment_id)
+
+    # Unsupported backend
+    raise MlflowException(
+        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
+        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
+    )
 
 
 @experimental(version="3.2.0")
@@ -106,19 +135,48 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
             # Update the scorer
             my_scorer = my_scorer.update(sample_rate=0.5)
     """
-    try:
-        from databricks.agents.scorers import get_scheduled_scorer
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.exceptions import MlflowException
 
-    # Get the scheduled scorer from the server
-    scheduled_scorer = get_scheduled_scorer(
-        scheduled_scorer_name=name,
-        experiment_id=experiment_id,
+    tracking_uri = get_tracking_uri()
+
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import get_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        # Get the scheduled scorer from the server
+        scheduled_scorer = get_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
+        )
+
+        # Extract the scorer and set registration fields
+        return _scheduled_scorer_to_scorer(scheduled_scorer)
+
+    current_store = _get_store()
+    # Check if it's a SQLAlchemy store
+    if isinstance(current_store, SqlAlchemyStore):
+        # Use SqlAlchemyStore.get_scorer method
+        if experiment_id is None:
+            # Get current experiment ID if not provided
+            from mlflow.tracking.fluent import _get_experiment_id
+            experiment_id = _get_experiment_id()
+
+        return current_store.get_scorer(experiment_id, name)
+
+    # Unsupported backend
+    raise MlflowException(
+        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
+        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
     )
-
-    # Extract the scorer and set registration fields
-    return _scheduled_scorer_to_scorer(scheduled_scorer)
 
 
 @experimental(version="3.2.0")
@@ -166,14 +224,45 @@ def delete_scorer(
             # To use the scorer again, it must be re-registered
             new_scorer = RelevanceToQuery().register(name="relevance_checker_v2")
     """
-    try:
-        from databricks.agents.scorers import delete_scheduled_scorer
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.exceptions import MlflowException
+    
+    tracking_uri = get_tracking_uri()
+    
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import delete_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
 
-    delete_scheduled_scorer(
-        experiment_id=experiment_id,
-        scheduled_scorer_name=name,
+        delete_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
+        )
+        return
+
+    current_store = _get_store()
+    # Check if it's a SQLAlchemy store
+    if isinstance(current_store, SqlAlchemyStore):
+        # Use SqlAlchemyStore.delete_scorer method
+        if experiment_id is None:
+            # Get current experiment ID if not provided
+            from mlflow.tracking.fluent import _get_experiment_id
+            experiment_id = _get_experiment_id()
+        
+        current_store.delete_scorer(experiment_id, name)
+        return
+
+    # Unsupported backend
+    raise MlflowException(
+        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
+        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
     )
 
 
