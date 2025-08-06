@@ -2780,6 +2780,163 @@ class SqlAlchemyStore(AbstractStore):
         return query
 
     #######################################################################################
+    # Entity Association Methods
+    #######################################################################################
+
+    def _search_entity_associations(
+        self,
+        entity_id: str,
+        entity_type: EntityAssociationType,
+        target_type: EntityAssociationType,
+        search_direction: str,  # "forward" or "reverse"
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[str]:
+        """
+        Common implementation for searching entity associations.
+
+        Args:
+            entity_id: The ID of the entity to search from.
+            entity_type: The type of the entity to search from.
+            target_type: The type of the target entities to find.
+            search_direction: "forward" to search source->destination, "reverse" for the opposite.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of target entity IDs.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlEntityAssociation)
+
+            if search_direction == "forward":
+                # Search source -> destination
+                query = query.filter(
+                    SqlEntityAssociation.source_type == entity_type,
+                    SqlEntityAssociation.source_id == entity_id,
+                    SqlEntityAssociation.destination_type == target_type,
+                )
+                order_field = SqlEntityAssociation.destination_id
+                result_field = "destination_id"
+            else:
+                # Search destination -> source
+                query = query.filter(
+                    SqlEntityAssociation.destination_type == entity_type,
+                    SqlEntityAssociation.destination_id == entity_id,
+                    SqlEntityAssociation.source_type == target_type,
+                )
+                order_field = SqlEntityAssociation.source_id
+                result_field = "source_id"
+
+            # Parse offset from page_token for pagination
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+            # Add ORDER BY clause for consistent pagination
+            query = query.order_by(SqlEntityAssociation.created_time, order_field)
+            query = query.offset(offset)
+
+            if max_results is not None:
+                query = query.limit(max_results + 1)
+
+            associations = query.all()
+
+            # Compute next token if more results are available
+            next_token = None
+            if max_results is not None and len(associations) == max_results + 1:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+                associations = associations[:max_results]
+
+            return PagedList([getattr(assoc, result_field) for assoc in associations], next_token)
+
+    def search_entities_by_source(
+        self,
+        source_id: str,
+        source_type: EntityAssociationType,
+        destination_type: EntityAssociationType,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[str]:
+        """
+        Get destination IDs associated with a source entity.
+
+        Args:
+            source_id: The ID of the source entity.
+            source_type: The type of the source entity.
+            destination_type: The type of the destination entity.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of destination IDs
+            associated with the source entity.
+        """
+        return self._search_entity_associations(
+            source_id, source_type, destination_type, "forward", max_results, page_token
+        )
+
+    def search_entities_by_destination(
+        self,
+        destination_id: str,
+        destination_type: EntityAssociationType,
+        source_type: EntityAssociationType,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[str]:
+        """
+        Get source IDs associated with a destination entity.
+
+        Args:
+            destination_id: The ID of the destination entity.
+            destination_type: The type of the destination entity.
+            source_type: The type of the source entity.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of source IDs
+            associated with the destination entity.
+        """
+        return self._search_entity_associations(
+            destination_id, destination_type, source_type, "reverse", max_results, page_token
+        )
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        MAX_TRACES_PER_REQUEST = 100
+
+        if not trace_ids:
+            return
+
+        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+            raise MlflowException(
+                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"a single request. Provided {len(trace_ids)} traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            session.add_all(
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_type=EntityAssociationType.TRACE,
+                    source_id=trace_id,
+                    destination_type=EntityAssociationType.RUN,
+                    destination_id=run_id,
+                )
+                for trace_id in trace_ids
+            )
+
+    #######################################################################################
     # Evaluation Dataset Methods
     #######################################################################################
 
@@ -3153,29 +3310,27 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
+        # Verify dataset exists first
         with self.ManagedSessionMaker() as session:
-            query = (
-                session.query(SqlEvaluationDataset.dataset_id, SqlEntityAssociation.destination_id)
-                .outerjoin(
-                    SqlEntityAssociation,
-                    (SqlEntityAssociation.source_id == SqlEvaluationDataset.dataset_id)
-                    & (SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET)
-                    & (SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT),
-                )
+            dataset = (
+                session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
             )
-
-            results = query.all()
-
-            if not results:
+            if not dataset:
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            return [
-                result.destination_id for result in results if result.destination_id is not None
-            ]
+        # Use the new unified entity association API to get experiment IDs
+        experiment_ids = self.search_entities_by_source(
+            source_id=dataset_id,
+            source_type=EntityAssociationType.EVALUATION_DATASET,
+            destination_type=EntityAssociationType.EXPERIMENT,
+        )
+
+        return experiment_ids.to_list()
 
     def set_evaluation_dataset_tags(
         self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None

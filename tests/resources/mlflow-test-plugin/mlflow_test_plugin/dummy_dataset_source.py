@@ -20,7 +20,6 @@ class DummyDatasetSource(DatasetSource):
 
     def load(self) -> str:
         # Ignore the "dummy" URI scheme and download the local path
-        # Import at module level should work now with lazy registration
         from mlflow.artifacts import download_artifacts
 
         parsed_uri = urlparse(self._uri)
