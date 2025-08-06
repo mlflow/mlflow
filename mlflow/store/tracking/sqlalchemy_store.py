@@ -2671,7 +2671,7 @@ class SqlAlchemyStore(AbstractStore):
 
         trace_id = next(iter(trace_ids))
 
-        # Calculate trace time bounds from spans once
+        # Calculate trace time bounds from spans
         min_start_ms = min(span.start_time_ns for span in spans) // 1_000_000
         # If no spans have ended, max_end_time should be None (trace still in progress)
         end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
@@ -2684,7 +2684,6 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
             )
-
             # If trace doesn't exist, create it
             if sql_trace_info is None:
                 # Create trace info for this new trace. We need to establish the trace
@@ -2699,7 +2698,6 @@ class SqlAlchemyStore(AbstractStore):
                     status="OK",
                     client_request_id=None,
                 )
-
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -2720,18 +2718,14 @@ class SqlAlchemyStore(AbstractStore):
             # without race conditions. The database performs the min/max comparisons atomically,
             # ensuring the trace always reflects the earliest start and latest end times across
             # all spans, even when multiple log_spans calls happen simultaneously.
-
-            # Create the timestamp update expression once for reuse
             timestamp_update_expr = case(
                 (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                 else_=SqlTraceInfo.timestamp_ms,
             )
-
             update_dict = {
                 SqlTraceInfo.timestamp_ms: timestamp_update_expr,
             }
-
-            # Only update execution_time_ms if we have at least one ended span
+            # Only attempt to update execution_time_ms if we have at least one ended span
             if max_end_ms is not None:
                 update_dict[SqlTraceInfo.execution_time_ms] = (
                     case(
@@ -2744,7 +2738,6 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     - timestamp_update_expr
                 )
-
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 synchronize_session=False,
