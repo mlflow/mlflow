@@ -2790,10 +2790,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
-            schema: Optional dataset schema.
-            profile: Optional dataset profile.
-            created_by: Optional creator information.
+            experiment_ids: List of experiment IDs to associate with the dataset
 
         Returns:
             The created EvaluationDataset object with backend-generated metadata.

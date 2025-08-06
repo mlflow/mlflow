@@ -2872,7 +2872,7 @@ def test_mlflow_client_search_evaluation_datasets_defaults(mock_store):
 
 
 def test_mlflow_client_evaluation_datasets_filestore_not_supported(tmp_path):
-    file_store_uri = f"file://{tmp_path}"
+    file_store_uri = tmp_path.as_uri()
     client = MlflowClient(tracking_uri=file_store_uri)
 
     with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:

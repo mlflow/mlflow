@@ -6361,7 +6361,10 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with (
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
+    ):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
@@ -6373,13 +6376,19 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with (
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
+    ):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
 
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with (
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
+    ):
         retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 

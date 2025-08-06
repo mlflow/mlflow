@@ -117,6 +117,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
                 The path to the downloaded dataset source on the local filesystem.
             """
             from mlflow.artifacts import download_artifacts
+
             return download_artifacts(artifact_uri=self.uri, dst_path=dst_path)
 
         @staticmethod
