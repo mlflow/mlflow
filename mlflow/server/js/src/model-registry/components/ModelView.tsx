@@ -11,7 +11,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { ACTIVE_STAGES } from '../constants';
+import { ACTIVE_STAGES, MODEL_VERSIONS_PER_PAGE_COMPACT, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
@@ -25,8 +25,7 @@ import {
   SegmentedControlGroup,
   SegmentedControlButton,
   DangerModal,
-  Alert,
-  Typography,
+  CursorPagination,
 } from '@databricks/design-system';
 import { KeyValueEntity } from '../../common/types';
 import { Descriptions } from '../../common/components/Descriptions';
@@ -36,7 +35,9 @@ import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/u
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { TagAssignmentModal } from '../../common/components/TagAssignmentModal';
+import { ColumnSort } from '@tanstack/react-table';
+
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -60,6 +61,16 @@ type ModelViewImplProps = {
   intl: IntlShape;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
+  orderByKey: string;
+  orderByAsc: boolean;
+  currentPage: number;
+  nextPageToken: string | null;
+  onClickNext: () => void;
+  onClickPrev: () => void;
+  onClickSortableColumn: (fieldName: string | null, isDescending: boolean) => void;
+  onSetMaxResult: (key: number) => void;
+  maxResultValue: number;
+  loading?: boolean;
 };
 
 type ModelViewImplState = any;
@@ -71,6 +82,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   state = {
+    maxResultsSelection: MODEL_VERSIONS_PER_PAGE_COMPACT,
     stageFilter: StageFilters.ALL,
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
@@ -92,6 +104,24 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
+
+  handleSetMaxResult = ({ key }: { key: number }) => {
+    this.props.onSetMaxResult(key);
+  };
+
+  getSortFieldName = (column: any) => {
+    switch (column) {
+      case CREATION_TIMESTAMP_COLUMN_INDEX:
+        return MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
+      default:
+        return null;
+    }
+  };
+
+  handleSortChange = (params: { sorter: ColumnSort }) => {
+    const sorter = params.sorter;
+    this.props.onClickSortableColumn(this.getSortFieldName(sorter.id), sorter.desc);
+  };
 
   handleStageFilterChange = (e: any) => {
     this.setState({ stageFilter: e.target.value });
@@ -275,7 +305,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     return (
       <Button
         componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_467"
-        data-testid="descriptionEditButton"
+        data-test-id="descriptionEditButton"
         type="link"
         css={styles.editButton}
         onClick={this.startEditingDescription}
@@ -290,7 +320,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   renderDetails = () => {
-    const { model, modelVersions, tags } = this.props;
+    const { model, modelVersions, tags, currentPage, nextPageToken } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
@@ -325,6 +355,8 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
             {Utils.formatTimestamp(model.last_updated_timestamp, this.props.intl)}
           </Descriptions.Item>
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/prop-types */}
           {(model as any).user_id && (
             <Descriptions.Item
               data-testid="model-view-metadata-item"
@@ -333,6 +365,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 description: 'Lable name for the creator under details tab on the model view page',
               })}
             >
+              {/* eslint-disable-next-line react/prop-types */}
               <div>{(model as any).user_id}</div>
             </Descriptions.Item>
           )}
@@ -358,8 +391,10 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </span>
           }
           forceOpen={showDescriptionEditor}
+          // Reported during ESLint upgrade
+          // eslint-disable-next-line react/prop-types
           defaultCollapsed={!(model as any).description}
-          data-testid="model-description-section"
+          data-test-id="model-description-section"
         >
           <EditableNote
             defaultMarkdown={(model as any).description}
@@ -369,7 +404,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           />
         </CollapsibleSection>
         {!this.sharedTaggingUIEnabled && (
-          <div data-testid="tags-section">
+          <div data-test-id="tags-section">
             <CollapsibleSection
               css={styles.collapsiblePanel}
               title={
@@ -380,7 +415,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 />
               }
               defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-              data-testid="model-tags-section"
+              data-test-id="model-tags-section"
             >
               <EditableTagsTableView
                 // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
@@ -432,7 +467,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 )}
                 <Button
                   componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_619"
-                  data-testid="compareButton"
+                  data-test-id="compareButton"
                   disabled={compareDisabled}
                   onClick={this.onCompare}
                 >
@@ -445,7 +480,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
               </div>
             </>
           }
-          data-testid="model-versions-section"
+          data-test-id="model-versions-section"
         >
           {shouldShowModelsNextUI() && (
             <div
@@ -459,6 +494,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </div>
           )}
           <ModelVersionTable
+            isLoading={this.props.loading || false}
             activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
@@ -467,6 +503,31 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
             aliases={model?.aliases}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            onSortChange={this.handleSortChange}
+            getSortFieldName={this.getSortFieldName}
+            pagination={
+              <div
+                data-testid="model-view-pagination-section"
+                css={{ width: '100%', alignItems: 'center', display: 'flex' }}
+              >
+                <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <CursorPagination
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"
+                    hasNextPage={Boolean(nextPageToken)}
+                    hasPreviousPage={currentPage > 1}
+                    onNextPage={this.props.onClickNext}
+                    onPreviousPage={this.props.onClickPrev}
+                    pageSizeSelect={{
+                      onChange: (num) => this.handleSetMaxResult({ key: num }),
+                      default: this.props.maxResultValue,
+                      options: [10, 25, 50, 100],
+                    }}
+                  />
+                </div>
+              </div>
+            }
           />
         </CollapsibleSection>
 
@@ -513,7 +574,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage="Registered Models"
@@ -523,15 +583,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     ];
     return (
       <div>
-        <TagAssignmentModal
-          isLoading={this.state.isSavingTags}
-          error={this.state.tagSavingError}
-          visible={this.state.isTagAssignmentModalVisible}
-          initialTags={this.getTags()}
-          componentIdPrefix="model-view"
-          onSubmit={this.handleSaveTags}
-          onClose={this.handleCloseTagAssignmentModal}
-        />
         <PageHeader title={modelName} breadcrumbs={breadcrumbs}>
           <OverflowMenu menu={this.getOverflowMenuItems()} />
         </PageHeader>
