@@ -1,7 +1,8 @@
-from typing import Optional
-from unittest.mock import patch
+import json
+from unittest import mock
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import (
     AssessmentError,
@@ -10,31 +11,17 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.genai import judges
-from mlflow.genai.judges.databricks import _sanitize_feedback
+from mlflow.genai.judges.builtin import _sanitize_feedback
+from mlflow.genai.judges.utils import CategoricalRating
 
 
-def test_databricks_judges_are_importable():
-    from mlflow.genai import judges
-    from mlflow.genai.judges import (
-        custom_prompt_judge,
-        is_context_relevant,
-        is_context_sufficient,
-        is_correct,
-        is_grounded,
-        is_safe,
-        meets_guidelines,
-    )
-
-    assert judges.is_context_relevant == is_context_relevant
-    assert judges.is_context_sufficient == is_context_sufficient
-    assert judges.is_correct == is_correct
-    assert judges.is_grounded == is_grounded
-    assert judges.is_safe == is_safe
-    assert judges.meets_guidelines == meets_guidelines
-    assert judges.custom_prompt_judge == custom_prompt_judge
+@pytest.fixture
+def databricks_tracking_uri():
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        yield
 
 
-def create_test_feedback(value: str, error: Optional[str] = None) -> Feedback:
+def create_test_feedback(value: str, error: str | None = None) -> Feedback:
     return Feedback(
         name="test_feedback",
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"),
@@ -73,14 +60,34 @@ def test_sanitize_feedback_error():
     assert result.error == AssessmentError(error_code="test_error")
 
 
-def test_meets_guidelines_happy_path():
-    with patch("databricks.agents.evals.judges.guidelines") as mock_judge:
-        mock_judge.return_value = create_test_feedback("yes")
-        result = judges.meets_guidelines(guidelines="test", context={"response": "test"})
+def test_meets_guidelines_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The response is correct.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-        assert isinstance(result.value, judges.CategoricalRating)
-        assert result.value == judges.CategoricalRating.YES
-        mock_judge.assert_called_once()
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.meets_guidelines(
+            guidelines="The response must be in English.",
+            context={"request": "What is the capital of France?", "response": "Paris"},
+        )
+
+    assert feedback.name == "guidelines"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The response is correct."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert prompt.startswith("Given the following set of guidelines and some inputs")
+    assert "What is the capital of France?" in prompt
 
 
 @pytest.mark.parametrize(
@@ -118,9 +125,13 @@ def test_meets_guidelines_happy_path():
         ),
     ],
 )
-def test_judge_functions_happy_path(judge_func, agents_judge_name, args):
-    with patch(f"databricks.agents.evals.judges.{agents_judge_name}") as mock_judge:
-        mock_judge.return_value = create_test_feedback("yes")
+def test_judge_functions_happy_path(judge_func, agents_judge_name, args, databricks_tracking_uri):
+    with mock.patch(f"databricks.agents.evals.judges.{agents_judge_name}") as mock_judge:
+        mock_judge.return_value = Feedback(
+            name=agents_judge_name,
+            value=judges.CategoricalRating.YES,
+            rationale="The response is correct.",
+        )
         result = judge_func(**args)
         assert isinstance(result.value, judges.CategoricalRating)
         assert result.value == judges.CategoricalRating.YES
@@ -134,8 +145,8 @@ def test_judge_functions_happy_path(judge_func, agents_judge_name, args):
         ("test", "test"),
     ],
 )
-def test_judge_functions_called_with_correct_name(name, expected_name):
-    with patch("databricks.agents.evals.judges.relevance_to_query") as mock_judge:
+def test_judge_functions_called_with_correct_name(name, expected_name, databricks_tracking_uri):
+    with mock.patch("databricks.agents.evals.judges.relevance_to_query") as mock_judge:
         judges.is_context_relevant(request="test", context="test", name=name)
         mock_judge.assert_called_once_with(
             request="test",

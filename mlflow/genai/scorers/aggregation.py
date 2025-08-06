@@ -7,7 +7,7 @@ import numpy as np
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult
-from mlflow.genai.judges.databricks import CategoricalRating
+from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.base import AggregationFunc, Scorer
 
 _logger = logging.getLogger(__name__)

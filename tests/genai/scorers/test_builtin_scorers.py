@@ -5,8 +5,7 @@ from databricks.rag_eval.evaluation.entities import CategoricalRating as Databri
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
-from mlflow.genai.judges import meets_guidelines
-from mlflow.genai.judges.databricks import CategoricalRating
+from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
     ExpectationsGuidelines,
@@ -224,50 +223,52 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     )
 
 
-def test_guidelines():
+@patch("mlflow.genai.judges.meets_guidelines")
+def test_guidelines(mock_guidelines):
     # 1. Called with per-row guidelines
-    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
-        ExpectationsGuidelines()(
-            inputs={"question": "query"},
-            outputs="answer",
-            expectations={"guidelines": ["guideline1", "guideline2"]},
-        )
+    ExpectationsGuidelines()(
+        inputs={"question": "query"},
+        outputs="answer",
+        expectations={"guidelines": ["guideline1", "guideline2"]},
+    )
 
     mock_guidelines.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
         context={"request": "{'question': 'query'}", "response": "answer"},
-        assessment_name="expectations_guidelines",
+        name="expectations_guidelines",
+        model=None,
     )
+    mock_guidelines.reset_mock()
 
     # 2. Called with global guidelines
     is_english = Guidelines(
         name="is_english",
         guidelines=["The response should be in English."],
+        model="openai:/gpt-4.1-mini",
     )
-
-    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
-        is_english(
-            inputs={"question": "query"},
-            outputs="answer",
-        )
+    is_english(inputs={"question": "query"}, outputs="answer")
 
     mock_guidelines.assert_called_once_with(
         guidelines=["The response should be in English."],
         context={"request": "{'question': 'query'}", "response": "answer"},
-        assessment_name="is_english",
+        name="is_english",
+        model="openai:/gpt-4.1-mini",
     )
+    mock_guidelines.reset_mock()
 
-    # 3. Test meets_guidelines judge with string input (should wrap in list)
-    with patch("databricks.agents.evals.judges.guidelines") as mock_guidelines:
-        meets_guidelines(
-            guidelines="Be polite and respectful.",
-            context={"response": "Hello, how are you?"},
-        )
+    # 3. Test with string input (should wrap in list)
+    is_polite = Guidelines(
+        name="is_polite",
+        guidelines="Be polite and respectful.",
+        model="openai:/gpt-4.1-mini",
+    )
+    is_polite(inputs={"question": "query"}, outputs="answer")
 
     mock_guidelines.assert_called_once_with(
         guidelines="Be polite and respectful.",
-        context={"response": "Hello, how are you?"},
-        assessment_name=None,
+        context={"request": "{'question': 'query'}", "response": "answer"},
+        name="is_polite",
+        model="openai:/gpt-4.1-mini",
     )
 
 
