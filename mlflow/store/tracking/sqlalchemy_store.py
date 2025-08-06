@@ -2683,7 +2683,9 @@ class SqlAlchemyStore(AbstractStore):
             if sql_trace_info is None:
                 # Get the earliest start time and latest end time
                 min_start_time = min(span.start_time_ns for span in spans)
-                max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
+                # If no spans have ended, max_end_time should be None (trace still in progress)
+                end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
+                max_end_time = max(end_times) if end_times else None
 
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
@@ -2691,7 +2693,9 @@ class SqlAlchemyStore(AbstractStore):
                     request_id=trace_id,
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_time // 1_000_000,
-                    execution_time_ms=(max_end_time - min_start_time) // 1_000_000,
+                    execution_time_ms=(
+                        (max_end_time - min_start_time) // 1_000_000 if max_end_time else None
+                    ),
                     # TODO: Set trace status based on root span status (span with no parent).
                     # For now, we default to "OK" for all new traces.
                     status="OK",
@@ -2714,37 +2718,45 @@ class SqlAlchemyStore(AbstractStore):
                     )
 
             min_start_time = min(span.start_time_ns for span in spans)
-            max_end_time = max(span.end_time_ns or span.start_time_ns for span in spans)
+            # If no spans have ended, max_end_time should be None (trace still in progress)
+            end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
+            max_end_time = max(end_times) if end_times else None
 
             min_start_ms = min_start_time // 1_000_000
-            max_end_ms = max_end_time // 1_000_000
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
             # without race conditions. The database performs the min/max comparisons atomically,
             # ensuring the trace always reflects the earliest start and latest end times across
             # all spans, even when multiple log_spans calls happen simultaneously.
+
+            # Create the timestamp update expression once for reuse
+            timestamp_update_expr = case(
+                (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                else_=SqlTraceInfo.timestamp_ms,
+            )
+
+            update_dict = {
+                SqlTraceInfo.timestamp_ms: timestamp_update_expr,
+            }
+
+            # Only update execution_time_ms if we have at least one ended span
+            if max_end_time is not None:
+                max_end_ms = max_end_time // 1_000_000
+                update_dict[SqlTraceInfo.execution_time_ms] = (
+                    case(
+                        (
+                            (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                            > max_end_ms,
+                            SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                        ),
+                        else_=max_end_ms,
+                    )
+                    - timestamp_update_expr
+                )
+
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
-                {
-                    SqlTraceInfo.timestamp_ms: case(
-                        (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                        else_=SqlTraceInfo.timestamp_ms,
-                    ),
-                    SqlTraceInfo.execution_time_ms: (
-                        case(
-                            (
-                                (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
-                                > max_end_ms,
-                                SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
-                            ),
-                            else_=max_end_ms,
-                        )
-                        - case(
-                            (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                            else_=SqlTraceInfo.timestamp_ms,
-                        )
-                    ),
-                },
+                update_dict,
                 synchronize_session=False,
             )
 
