@@ -6,7 +6,6 @@ import {
 import { LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
 import { chunk } from 'lodash';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const LOGGED_MODEL_BY_ID_BATCH_LIMIT = 100; // API supports batch size of 100
 
@@ -26,10 +25,7 @@ const queryFn = async ({ queryKey: [, loggedModelIds] }: QueryFunctionContext<Qu
       for (const id of chunkedIds) {
         queryParams.append('model_ids', id);
       }
-      return loggedModelsDataRequest(
-        getAjaxUrl(`ajax-api/2.0/mlflow/logged-models:batchGet?${queryParams.toString()}`),
-        'GET',
-      );
+      return loggedModelsDataRequest(`/ajax-api/2.0/mlflow/logged-models:batchGet?${queryParams.toString()}`, 'GET');
     }),
   );
 };

@@ -38,7 +38,6 @@ import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hook
 import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
 import { useLoggedModelsForExperimentRunsTableV2 } from '../../hooks/useLoggedModelsForExperimentRunsTableV2';
-import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -72,7 +71,6 @@ const createCurrentTime = () => {
 };
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
-const CHARTS_MIN_WIDTH = 350;
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -87,8 +85,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     requestError,
     refreshRuns,
   } = props;
-
-  const isComparingExperiments = experiments.length > 1;
 
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new ExperimentPageViewState());
@@ -270,8 +266,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     [experiments],
   );
 
-  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
-
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
       <RunsChartsSetHighlightContextProvider>
@@ -287,10 +281,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           refreshRuns={refreshRuns}
           uiState={uiState}
           isLoading={isLoadingRuns}
-          isComparingExperiments={isComparingExperiments}
         />
         <div
-          ref={ref}
           css={{
             minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
             height: '100%',
@@ -303,7 +295,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               onResize={setTableAreaWidth}
               runListHidden={runListHidden}
               width={tableAreaWidth}
-              maxWidth={resizableMaxWidth}
             >
               {tableElement}
             </ExperimentViewRunsTableResizer>
@@ -325,7 +316,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               globalLineChartConfig={uiState.globalLineChartConfig}
               chartsSearchFilter={uiState.chartsSearchFilter}
               storageKey={configStorageKey}
-              minWidth={CHARTS_MIN_WIDTH}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

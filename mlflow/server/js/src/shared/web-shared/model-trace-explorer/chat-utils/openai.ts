@@ -1,13 +1,6 @@
 import { compact, get, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
-import {
-  isModelTraceChatResponse,
-  isModelTraceChoices,
-  isRawModelTraceChatMessage,
-  prettyPrintChatMessage,
-  prettyPrintToolCall,
-} from '../ModelTraceExplorer.utils';
-import {
+
+import type {
   OpenAIResponsesInput,
   OpenAIResponsesInputFile,
   OpenAIResponsesInputImage,
@@ -15,7 +8,15 @@ import {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
-} from '../chat-utils/openai.types';
+} from './openai.types';
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
+import {
+  isModelTraceChatResponse,
+  isModelTraceChoices,
+  isRawModelTraceChatMessage,
+  prettyPrintChatMessage,
+  prettyPrintToolCall,
+} from '../ModelTraceExplorer.utils';
 
 // normalize the OpenAI chat input format (object with 'messages' or 'input' key)
 export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | null => {
@@ -88,10 +89,6 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   if (get(obj, 'type') === 'image_generation_call') {
     const outputFormat = get(obj, 'output_format');
     return isString(get(obj, 'result')) && isString(outputFormat) && ['png', 'jpeg', 'webp'].includes(outputFormat);
-  }
-
-  if (get(obj, 'type') === 'reasoning') {
-    return has(obj, 'id') && isArray(get(obj, 'summary'));
   }
 
   return false;
@@ -187,11 +184,6 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
     });
   }
 
-  if (obj.type === 'reasoning') {
-    // Skip reasoning entries as they don't translate to chat messages
-    return null;
-  }
-
   return null;
 };
 
@@ -204,7 +196,7 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
+    return compact(output.map(normalizeOpenAIResponsesOutputItem));
   }
 
   // list of output chunks
@@ -214,118 +206,6 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
     return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
-  }
-
-  return null;
-};
-
-// New functions for OpenAI agent chat pattern
-
-const isOpenAIAgentMessage = (obj: unknown): boolean => {
-  if (!isObject(obj)) {
-    return false;
-  }
-
-  // Check for regular message format (with optional id, status, type fields)
-  if (has(obj, 'role') && has(obj, 'content') && ['user', 'assistant', 'system', 'tool'].includes(obj.role)) {
-    return true;
-  }
-
-  // Check for function call format (with optional id, status fields)
-  if (get(obj, 'type') === 'function_call') {
-    return isString(get(obj, 'call_id')) && isString(get(obj, 'name')) && isString(get(obj, 'arguments'));
-  }
-
-  // Check for function call output format
-  if (get(obj, 'type') === 'function_call_output') {
-    return isString(get(obj, 'call_id')) && isString(get(obj, 'output'));
-  }
-
-  return false;
-};
-
-const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => {
-  // Handle regular message format
-  if (has(obj, 'role') && has(obj, 'content')) {
-    // Handle content that might be an array with output_text objects
-    if (isArray(obj.content)) {
-      const textContent = obj.content
-        .filter((item: any) => item.type === 'output_text' && isString(item.text))
-        .map((item: any) => item.text)
-        .join(' ');
-
-      if (textContent) {
-        return prettyPrintChatMessage({
-          ...obj,
-          content: textContent,
-        });
-      }
-    }
-
-    // Fall back to regular prettyPrintChatMessage for string content
-    return prettyPrintChatMessage(obj);
-  }
-
-  // Handle function call format
-  if (get(obj, 'type') === 'function_call') {
-    const callId = get(obj, 'call_id');
-    const arguments_ = get(obj, 'arguments');
-    const name = get(obj, 'name');
-
-    if (isString(callId) && isString(arguments_) && isString(name)) {
-      return {
-        role: 'assistant',
-        tool_calls: [
-          prettyPrintToolCall({
-            id: callId,
-            function: {
-              arguments: arguments_,
-              name: name,
-            },
-          }),
-        ],
-      };
-    }
-  }
-
-  // Handle function call output format
-  if (get(obj, 'type') === 'function_call_output') {
-    const callId = get(obj, 'call_id');
-    const output = get(obj, 'output');
-
-    if (isString(callId) && isString(output)) {
-      return {
-        role: 'tool',
-        tool_call_id: callId,
-        content: output,
-      };
-    }
-  }
-
-  return null;
-};
-
-export const normalizeOpenAIAgentInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (isNil(obj)) {
-    return null;
-  }
-
-  // Handle array of messages directly
-  if (isArray(obj) && obj.length > 0 && obj.every(isOpenAIAgentMessage)) {
-    return compact(obj.map(normalizeOpenAIAgentMessage));
-  }
-
-  return null;
-};
-
-export const normalizeOpenAIAgentOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  if (isNil(obj)) {
-    return null;
-  }
-
-  // Handle array of messages directly
-  if (isArray(obj) && obj.length > 0 && obj.every(isOpenAIAgentMessage)) {
-    return compact(obj.map(normalizeOpenAIAgentMessage));
   }
 
   return null;

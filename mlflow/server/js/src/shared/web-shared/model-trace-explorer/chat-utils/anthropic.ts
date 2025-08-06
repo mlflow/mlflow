@@ -1,5 +1,6 @@
 import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export type AnthropicMessagesInput = {
@@ -17,9 +18,10 @@ export type AnthropicMessagesOutput = {
   // usage: Usage;
 };
 
-type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock;
+type AnthropicContentBlock = AnthropicTextBlock;
 // | ThinkingBlock
 // | RedactedThinkingBlock
+// | ToolUseBlock
 // | ServerToolUseBlock
 // | WebSearchToolResultBlock;
 
@@ -28,14 +30,12 @@ type AnthropicMessageParam = {
   role: 'user' | 'assistant';
 };
 
-type AnthropicContentBlockParam =
-  | AnthropicTextBlockParam
-  | AnthropicImageBlockParam
-  | AnthropicToolUseBlockParam
-  | AnthropicToolResultBlockParam;
+type AnthropicContentBlockParam = AnthropicTextBlockParam | AnthropicImageBlockParam;
 // | DocumentBlockParam
 // | ThinkingBlockParam
 // | RedactedThinkingBlockParam
+// | ToolUseBlockParam
+// | ToolResultBlockParam
 // | ServerToolUseBlockParam
 // | WebSearchToolResultBlockParam;
 
@@ -65,26 +65,6 @@ type AnthropicURLImageSource = {
   url: string;
 };
 
-type AnthropicToolUseBlockParam = {
-  id: string;
-  input: Record<string, any>;
-  name: string;
-  type: 'tool_use';
-};
-
-type AnthropicToolUseBlock = {
-  id: string;
-  input: Record<string, any>;
-  name: string;
-  type: 'tool_use';
-};
-
-type AnthropicToolResultBlockParam = {
-  content: string;
-  tool_use_id: string;
-  type: 'tool_result';
-};
-
 const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBlockParam => {
   if (isNil(obj)) {
     return false;
@@ -110,14 +90,6 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
       if (obj.source.type === 'url' && has(obj.source, 'url') && isString(obj.source.url)) {
         return true;
       }
-    }
-
-    if (obj.type === 'tool_use' && has(obj, 'id') && has(obj, 'name') && has(obj, 'input')) {
-      return isString(obj.id) && isString(obj.name) && isObject(obj.input);
-    }
-
-    if (obj.type === 'tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
-      return isString(obj.tool_use_id) && isString(obj.content);
     }
   }
   return false;
@@ -155,69 +127,6 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
       }
     }
   }
-  throw new Error(`Unsupported content block type: ${(item as any).type}`);
-};
-
-const processAnthropicMessageContent = (
-  content: AnthropicContentBlockParam[],
-): {
-  messages: ModelTraceChatMessage[];
-  textParts: ModelTraceContentParts[];
-  toolCalls: any[];
-} => {
-  const messages: ModelTraceChatMessage[] = [];
-  const textParts: ModelTraceContentParts[] = [];
-  const toolCalls: any[] = [];
-
-  for (const item of content) {
-    if (item.type === 'text' || item.type === 'image') {
-      textParts.push(normalizeAnthropicContentBlockParam(item));
-    } else if (item.type === 'tool_use') {
-      toolCalls.push({
-        id: item.id,
-        function: {
-          name: item.name,
-          arguments: JSON.stringify(item.input),
-        },
-      });
-    } else if (item.type === 'tool_result') {
-      messages.push({
-        role: 'tool',
-        tool_call_id: item.tool_use_id,
-        content: item.content,
-      });
-    }
-  }
-
-  return { messages, textParts, toolCalls };
-};
-
-const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChatMessage[] => {
-  const messages: ModelTraceChatMessage[] = [];
-
-  if (typeof message.content === 'string') {
-    const chatMessage = prettyPrintChatMessage({
-      type: 'message',
-      content: message.content,
-      role: message.role,
-    });
-    if (chatMessage) messages.push(chatMessage);
-  } else {
-    const { messages: toolMessages, textParts, toolCalls } = processAnthropicMessageContent(message.content);
-    messages.push(...toolMessages);
-
-    if (textParts.length > 0 || toolCalls.length > 0) {
-      const chatMessage = prettyPrintChatMessage({
-        type: 'message',
-        content: textParts.length > 0 ? textParts : undefined,
-        role: message.role,
-        ...(toolCalls.length > 0 && { tool_calls: toolCalls }),
-      });
-      if (chatMessage) messages.push(chatMessage);
-    }
-  }
-
-  return messages;
 };
 
 export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
@@ -226,13 +135,18 @@ export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage
   }
 
   if ('messages' in obj && isArray(obj.messages) && obj.messages.every(isAnthropicMessageParam)) {
-    const messages: ModelTraceChatMessage[] = [];
-
-    for (const message of obj.messages) {
-      messages.push(...processAnthropicMessage(message));
-    }
-
-    return messages;
+    return compact(
+      obj.messages.map((message) =>
+        prettyPrintChatMessage({
+          type: 'message',
+          content:
+            typeof message.content === 'string'
+              ? message.content
+              : message.content.map(normalizeAnthropicContentBlockParam),
+          role: message.role,
+        }),
+      ),
+    );
   }
 
   return null;
@@ -244,7 +158,12 @@ export const normalizeAnthropicChatOutput = (obj: unknown): ModelTraceChatMessag
   }
 
   if (has(obj, 'type') && obj.type === 'message' && isAnthropicMessageParam(obj)) {
-    return processAnthropicMessage(obj);
+    const message = prettyPrintChatMessage({
+      type: 'message',
+      content: typeof obj.content === 'string' ? obj.content : obj.content.map(normalizeAnthropicContentBlockParam),
+      role: obj.role,
+    });
+    return message && [message];
   }
 
   return null;

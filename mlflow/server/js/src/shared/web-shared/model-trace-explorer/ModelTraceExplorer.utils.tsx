@@ -53,13 +53,8 @@ import {
   normalizeDspyChatOutput,
 } from './chat-utils';
 import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
-import { normalizeOpenAIAgentInput, normalizeOpenAIAgentOutput } from './chat-utils/openai';
-import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
-import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
 
-export const getCurrentUser = () => {
-  return 'User';
-};
+export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
@@ -331,7 +326,6 @@ const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
   inputs: any,
   outputs: any,
-  spanAttributes?: Record<string, any>,
 ): ModelTraceChatMessage[] | undefined => {
   // if the `mlflow.chat.messages` attribute is provided
   // and in the correct format, return it as-is
@@ -343,8 +337,8 @@ const getChatMessagesFromSpan = (
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
-  const messagesFromInputs = normalizeConversation(inputs, spanAttributes?.['mlflow.message.format']) ?? [];
-  const messagesFromOutputs = normalizeConversation(outputs, spanAttributes?.['mlflow.message.format']) ?? [];
+  const messagesFromInputs = normalizeConversation(inputs) ?? [];
+  const messagesFromOutputs = normalizeConversation(outputs) ?? [];
 
   // when either input or output is not chat messages, we do not set the chat message fiels.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
@@ -392,10 +386,11 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
-  const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
-  const spanAttributesForChat = messageFormat ? { 'mlflow.message.format': messageFormat } : undefined;
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, spanAttributesForChat);
+  const chatMessages = getChatMessagesFromSpan(
+    tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']),
+    inputs,
+    outputs,
+  );
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -445,7 +440,11 @@ const base64ToHex = (base64: string): string => {
 };
 
 // mlflow span ids are meant to be interpreted as hex strings
-export const decodeSpanId = (spanId: string, isV3Span: boolean): string => {
+export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolean): string => {
+  if (!spanId) {
+    return '';
+  }
+
   if (isV3Span) {
     // v3 span ids are base64 encoded
     try {
@@ -478,11 +477,15 @@ export function isV2ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpan
 }
 
 export function getModelTraceSpanId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span) ? decodeSpanId(span.span_id, true) : decodeSpanId(span.context?.span_id ?? '', false);
+  return isV3ModelTraceSpan(span)
+    ? decodeSpanId(span.span_id ?? '', true)
+    : decodeSpanId(span.context?.span_id ?? '', false);
 }
 
 export function getModelTraceSpanParentId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span) ? decodeSpanId(span.parent_span_id, true) : decodeSpanId(span.parent_id ?? '', false);
+  return isV3ModelTraceSpan(span)
+    ? decodeSpanId(span.parent_span_id ?? '', true)
+    : decodeSpanId(span.parent_id ?? '', false);
 }
 
 export function getModelTraceSpanStartTime(span: ModelTraceSpan): number {
@@ -901,7 +904,7 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  11. Anthropic inputs
  *  12. Anthropic outputs
  */
-export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
+export const normalizeConversation = (input: any): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
   // simply return null to signify that the input is not a chat input.
@@ -911,52 +914,74 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       return compact(input.map(prettyPrintChatMessage));
     }
 
-    switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
-        if (langchainMessages) return langchainMessages;
-        break;
-      case 'llamaindex':
-        const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
-        if (llamaIndexMessages) return llamaIndexMessages;
-        break;
-      case 'openai':
-        const openAIMessages =
-          normalizeOpenAIChatInput(input) ??
-          normalizeOpenAIChatResponse(input) ??
-          normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input);
-        if (openAIMessages) return openAIMessages;
-        break;
-      case 'dspy':
-        const dspyMessages = normalizeDspyChatInput(input) ?? normalizeDspyChatOutput(input);
-        if (dspyMessages) return dspyMessages;
-        break;
-      case 'gemini':
-        const geminiMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
-        if (geminiMessages) return geminiMessages;
-        break;
-      case 'anthropic':
-        const anthropicMessages = normalizeAnthropicChatInput(input) ?? normalizeAnthropicChatOutput(input);
-        if (anthropicMessages) return anthropicMessages;
-        break;
-      case 'openai-agent':
-        const openAIAgentMessages = normalizeOpenAIAgentInput(input) ?? normalizeOpenAIAgentOutput(input);
-        if (openAIAgentMessages) return openAIAgentMessages;
-        break;
-      case 'autogen':
-        const autogenMessages = normalizeAutogenChatInput(input) ?? normalizeAutogenChatOutput(input);
-        if (autogenMessages) return autogenMessages;
-        break;
-      case 'bedrock':
-        const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
-        if (bedrockMessages) return bedrockMessages;
-        break;
-      default:
-        // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
-        if (chatMessages) return chatMessages;
-        break;
+    const langchainChatInput = normalizeLangchainChatInput(input);
+    if (langchainChatInput) {
+      return langchainChatInput;
+    }
+
+    const llamaIndexChatInput = normalizeLlamaIndexChatInput(input);
+    if (llamaIndexChatInput) {
+      return llamaIndexChatInput;
+    }
+
+    const llamaIndexChatResponse = normalizeLlamaIndexChatResponse(input);
+    if (llamaIndexChatResponse) {
+      return llamaIndexChatResponse;
+    }
+
+    const openAIChatInput = normalizeOpenAIChatInput(input);
+    if (openAIChatInput) {
+      return openAIChatInput;
+    }
+
+    const langchainChatResult = normalizeLangchainChatResult(input);
+    if (langchainChatResult) {
+      return langchainChatResult;
+    }
+
+    const openAIChatResponse = normalizeOpenAIChatResponse(input);
+    if (openAIChatResponse) {
+      return openAIChatResponse;
+    }
+
+    const openAIResponsesOutput = normalizeOpenAIResponsesOutput(input);
+    if (openAIResponsesOutput) {
+      return openAIResponsesOutput;
+    }
+
+    const openAIResponsesInput = normalizeOpenAIResponsesInput(input);
+    if (openAIResponsesInput) {
+      return openAIResponsesInput;
+    }
+
+    const dspyChatInput = normalizeDspyChatInput(input);
+    if (dspyChatInput) {
+      return dspyChatInput;
+    }
+
+    const dspyChatOutput = normalizeDspyChatOutput(input);
+    if (dspyChatOutput) {
+      return dspyChatOutput;
+    }
+
+    const geminiChatInput = normalizeGeminiChatInput(input);
+    if (geminiChatInput) {
+      return geminiChatInput;
+    }
+
+    const geminiChatOutput = normalizeGeminiChatOutput(input);
+    if (geminiChatOutput) {
+      return geminiChatOutput;
+    }
+
+    const anthropicChatInput = normalizeAnthropicChatInput(input);
+    if (anthropicChatInput) {
+      return anthropicChatInput;
+    }
+
+    const anthropicChatOutput = normalizeAnthropicChatOutput(input);
+    if (anthropicChatOutput) {
+      return anthropicChatOutput;
     }
 
     return null;

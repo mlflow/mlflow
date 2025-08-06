@@ -34,12 +34,13 @@ import {
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
 import './ArtifactView.css';
-import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
+
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
-import { getArtifactLocationUrl, getLoggedModelArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
+import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
@@ -57,7 +58,6 @@ const { Text } = Typography;
 type ArtifactViewImplProps = DesignSystemHocProps & {
   experimentId: string;
   runUuid: string;
-  loggedModelId?: string;
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
@@ -215,17 +215,12 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(runUuid: any, artifactPath: any, loggedModelId?: string, isFallbackToLoggedModelArtifacts?: boolean) {
-    // Logged model artifact API should be used when falling back to logged model artifacts on the run artifact page.
-    if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
-    } else if (loggedModelId) {
-      window.location.href = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
-    }
+  onDownloadClick(runUuid: any, artifactPath: any) {
+    window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
   }
 
   renderControls() {
-    const { runUuid, loggedModelId, isFallbackToLoggedModelArtifacts } = this.props;
+    const { runUuid } = this.props;
     const { activeNodeId } = this.state;
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -257,9 +252,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_337"
               icon={<DownloadIcon />}
-              onClick={() =>
-                this.onDownloadClick(runUuid, activeNodeId, loggedModelId, isFallbackToLoggedModelArtifacts)
-              }
+              onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
             />
           </LegacyTooltip>
         </div>

@@ -1,5 +1,5 @@
 {
-  "extends": [],
+  "extends": "@databricks/tsconfig/tsconfig-app.json",
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Node",
@@ -46,8 +46,12 @@
     "declarationMap": false,
     "isolatedModules": true
   },
-  "references": [],
-  "include": [
-    "./src/**/*"
-  ]
+  "references": [
+    { "path": "../../../design-system/tsconfig.src.json" },
+    { "path": "../../../js/packages/editor/tsconfig.src.json" },
+    { "path": "../../../js/packages/i18n/tsconfig.src.json" },
+    { "path": "../../../js/packages/visualization/tsconfig.src.json" },
+    { "path": "../../../js/packages/web-shared/tsconfig.src.json" }
+  ],
+  "include": ["./src/**/*"]
 }

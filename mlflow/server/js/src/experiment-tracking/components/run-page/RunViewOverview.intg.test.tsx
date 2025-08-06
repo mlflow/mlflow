@@ -18,16 +18,9 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
-import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
-import { shouldEnableGraphQLRunDetailsPage } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
-}));
-
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  shouldEnableGraphQLRunDetailsPage: jest.fn(),
 }));
 
 jest.mock('../../../common/components/Prompt', () => ({
@@ -41,7 +34,6 @@ jest.mock('../../actions', () => ({
 
 const testPromptName = 'test-prompt';
 const testPromptVersion = 1;
-const testPromptName2 = 'test-prompt-2';
 
 jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
   usePromptVersionsForRunQuery: jest.fn(() => ({
@@ -109,7 +101,6 @@ describe('RunViewOverview integration', () => {
     jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
       usingUnifiedDetailsLayout: false,
     });
-    jest.mocked(shouldEnableGraphQLRunDetailsPage).mockReturnValue(false);
   });
   const renderComponent = ({
     tags = {},
@@ -319,7 +310,7 @@ describe('RunViewOverview integration', () => {
     expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
-  test('Render child run and check for the existing parent run link', async () => {
+  test('Render child run and check for the existing parent run link', () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
@@ -370,30 +361,6 @@ describe('RunViewOverview integration', () => {
     await waitFor(() => {
       expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
       expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
-    });
-  });
-
-  test('Run overview contains prompts from run tags', async () => {
-    renderComponent({
-      tags: {
-        [LINKED_PROMPTS_TAG_KEY]: {
-          key: LINKED_PROMPTS_TAG_KEY,
-          value: JSON.stringify([{ name: testPromptName2, version: testPromptVersion.toString() }]),
-        },
-      },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(`${testPromptName2} (v${testPromptVersion})`)).toBeInTheDocument();
-    });
-  });
-
-  test('Run overview contains prompts from prompt version tags', async () => {
-    renderComponent();
-
-    await waitFor(() => {
-      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
-      expect(usePromptVersionsForRunQuery).toBeCalledWith({ runUuid: testRunUuid });
     });
   });
 

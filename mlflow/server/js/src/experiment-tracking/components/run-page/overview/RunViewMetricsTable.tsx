@@ -13,8 +13,9 @@ import {
 import { LoggedModelProto, MetricEntitiesByName, MetricEntity, RunInfoEntity } from '../../../types';
 import { compact, flatMap, groupBy, isEmpty, keyBy, mapValues, sum, values } from 'lodash';
 import { useMemo, useState } from 'react';
-import { Link } from '../../../../common/utils/RoutingUtils';
+import { Link, useLocation } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
+import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { ColumnDef, Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
@@ -58,6 +59,8 @@ const RunViewMetricsTableSection = ({
 
   const valueColumn = otherColumns.find((column) => column.id === 'value')?.column;
 
+  const location = useLocation();
+
   const anyRowHasModels = metricsList.some(({ loggedModels }) => !isEmpty(loggedModels));
   const modelColumn = otherColumns.find((column) => column.id === 'models')?.column;
 
@@ -85,7 +88,13 @@ const RunViewMetricsTableSection = ({
                 flex: keyColumn.getCanResize() ? keyColumn.getSize() / 100 : undefined,
               }}
             >
-              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+              <Link
+                to={Routes.getRunPageTabRoute(
+                  runInfo.experimentId ?? '',
+                  runInfo.runUuid ?? '',
+                  RunPageTabName.MODEL_METRIC_CHARTS,
+                )}
+              >
                 {key}
               </Link>
             </TableCell>

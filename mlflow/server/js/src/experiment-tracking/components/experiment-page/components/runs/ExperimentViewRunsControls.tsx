@@ -38,7 +38,6 @@ type ExperimentViewRunsControlsProps = {
   refreshRuns: () => void;
   uiState: ExperimentPageUIState;
   isLoading: boolean;
-  isComparingExperiments: boolean;
 };
 
 /**
@@ -58,7 +57,6 @@ export const ExperimentViewRunsControls = React.memo(
     refreshRuns,
     uiState,
     isLoading,
-    isComparingExperiments,
   }: ExperimentViewRunsControlsProps) => {
     const [compareRunsMode, setCompareRunsMode] = useExperimentPageViewMode();
 
@@ -116,7 +114,7 @@ export const ExperimentViewRunsControls = React.memo(
       >
         {/* skip mode switcher if v2 header is enabled
         since the tab selector has been moved into the header */}
-        {!shouldEnableExperimentPageHeaderV2() && !isComparingExperiments && (
+        {shouldEnableExperimentPageHeaderV2() ? null : (
           <ExperimentViewRunsModeSwitch
             hideBorder={false}
             viewState={viewState}

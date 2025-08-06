@@ -50,8 +50,10 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
     };
   }[];
 };
+
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
   /**
    * Create a mlflow experiment
@@ -356,4 +358,28 @@ export class MlflowService {
         request_ids: traceRequestIds,
       },
     }) as Promise<{ traces_deleted: number }>;
+
+  /**
+   * Get scheduled scorers for an experiment
+   */
+  static getScheduledScorers = (experimentId: string) => {
+    type GetScheduledScorersResponse = {
+      experiment_id: string;
+      scheduled_scorers: {
+        scorers: Array<{
+          name: string;
+          serialized_scorer: string;
+          builtin?: {
+            name: string;
+          };
+          custom?: Record<string, unknown>;
+          sample_rate?: number;
+        }>;
+      };
+    };
+
+    return getJson({
+      relativeUrl: `ajax-api/2.0/managed-evals/scheduled-scorers/${experimentId}`,
+    }) as Promise<GetScheduledScorersResponse>;
+  };
 }
