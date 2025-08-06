@@ -3,9 +3,10 @@ endpoints:
     endpoint_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-4o-mini
+      name: my-endpoint
       config:
-        openai_api_key: $OPENAI_API_KEY
+        openai_api_key: $DATABRICKS_TOKEN
+        openai_api_base: https://example.staging.cloud.databricks.com/serving-endpoints/
     limit:
       renewal_period: minute
       calls: 10

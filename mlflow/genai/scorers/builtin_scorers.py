@@ -665,10 +665,12 @@ class Correctness(BuiltInScorer):
                     "reduceByKey aggregates data before shuffling, whereas groupByKey "
                     "shuffles all data, making reduceByKey more efficient."
                 ),
-                "expectations": [
-                    {"expected_response": "reduceByKey aggregates data before shuffling"},
-                    {"expected_response": "groupByKey shuffles all data"},
-                ],
+                "expectations": {
+                    "expected_response": (
+                        "reduceByKey aggregates data before shuffling. "
+                        "groupByKey shuffles all data"
+                    ),
+                },
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[Correctness()])
@@ -742,9 +744,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
             {
                 "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
-                "expectations": [
-                    {"expected_response": "Paris is the capital city of France."},
-                ],
+                "expectations": {"expected_response": "Paris is the capital city of France."},
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())

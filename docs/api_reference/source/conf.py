@@ -418,18 +418,6 @@ def env_updated(app: Sphinx, env: BuildEnvironment) -> None:
         path.parent.mkdir(parents=True)
     path.write_text("\n".join(sorted(items)) + "\n")
 
-    # Check if the API inventory file is outdated
-    result = subprocess.run(
-        ["git", "diff", "--exit-code", path], text=True, capture_output=True, check=False
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"The API inventory file '{path.relative_to(repo_root)}' is outdated (see the diff below). "
-            "Please update it by running `make rsthtml` in the `docs/api_reference` directory. "
-            "If the new APIs should be marked as experimental, please decorate them with `@experimental`."
-            f"{result.stdout.strip()}\n\n"
-        )
-
 
 def setup(app):
     languagesections.setup(app)

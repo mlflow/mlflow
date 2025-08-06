@@ -2,14 +2,16 @@ import abc
 from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig
+from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig, OptimizerOutput
 from mlflow.genai.scorers import Scorer
+from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
-class _BaseOptimizer(abc.ABC):
+@experimental(version="3.3.0")
+class BasePromptOptimizer(abc.ABC):
     def __init__(self, optimizer_config: OptimizerConfig):
         self.optimizer_config = optimizer_config
 
@@ -22,7 +24,7 @@ class _BaseOptimizer(abc.ABC):
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> PromptVersion:
+    ) -> OptimizerOutput:
         """Optimize the given prompt using the specified configuration.
 
         Args:
