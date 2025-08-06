@@ -190,7 +190,7 @@ WORKERS = click.option(
     "-w",
     envvar="MLFLOW_WORKERS",
     default=None,
-    help="Number of gunicorn worker processes to handle requests (default: 4).",
+    help="Number of worker processes to handle requests (default: 4).",
 )
 
 MODELS_WORKERS = click.option(
