@@ -1988,6 +1988,94 @@ class SqlAlchemyStore(AbstractStore):
             
             return new_version
 
+    def list_scorers(self, experiment_id):
+        """
+        List all scorers for an experiment.
+        
+        Args:
+            experiment_id: The experiment ID.
+            
+        Returns:
+            List of mlflow.genai.scorers.Scorer objects.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            
+            # Query all scorers for the experiment
+            sql_scorers = (
+                session.query(SqlScorer)
+                .filter(SqlScorer.experiment_id == experiment.experiment_id)
+                .order_by(SqlScorer.scorer_name, SqlScorer.scorer_version)
+                .all()
+            )
+            
+            # Convert to mlflow.genai.scorers.Scorer objects
+            scorers = []
+            for sql_scorer in sql_scorers:
+                # Deserialize the scorer
+                import json
+                from mlflow.genai.scorers import Scorer
+                
+                scorer_dict = json.loads(sql_scorer.serialized_scorer)
+                scorer = Scorer.model_validate(scorer_dict)
+                scorers.append(scorer)
+            
+            return scorers
+
+    def get_scorer(self, experiment_id, name, version=None):
+        """
+        Get a specific scorer for an experiment.
+        
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, returns the scorer with maximum version.
+            
+        Returns:
+            mlflow.genai.scorers.Scorer object.
+            
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            
+            # Build query
+            query = session.query(SqlScorer).filter(
+                SqlScorer.experiment_id == experiment.experiment_id,
+                SqlScorer.scorer_name == name
+            )
+            
+            if version is not None:
+                # Get specific version
+                sql_scorer = query.filter(SqlScorer.scorer_version == version).first()
+                if sql_scorer is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            else:
+                # Get maximum version
+                sql_scorer = query.order_by(SqlScorer.scorer_version.desc()).first()
+                if sql_scorer is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            
+            # Deserialize the scorer
+            import json
+            from mlflow.genai.scorers import Scorer
+            
+            scorer_dict = json.loads(sql_scorer.serialized_scorer)
+            scorer = Scorer.model_validate(scorer_dict)
+            
+            return scorer
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
