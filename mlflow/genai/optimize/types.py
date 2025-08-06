@@ -107,5 +107,5 @@ class OptimizerOutput:
 
     optimized_prompt: str | dict[str, Any]
     optimizer_name: str
-    final_eval_score: Optional[float]
-    initial_eval_score: Optional[float]
+    final_eval_score: float | None
+    initial_eval_score: float | None
