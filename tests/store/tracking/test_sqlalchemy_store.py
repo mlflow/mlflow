@@ -37,6 +37,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.entity_type import EntityType
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -6113,3 +6114,179 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+def _create_trace_info(trace_id: str, experiment_id: str):
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+
+
+def test_link_traces_to_run(store: SqlAlchemyStore):
+    # Create experiment and run
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Create traces
+    trace_ids = []
+    for i in range(5):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    # Link traces to run
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    associated_runs_result = store.search_entities_by_source(
+        trace_ids[0], EntityType.TRACE, EntityType.RUN
+    )
+    assert run.info.run_id in associated_runs_result
+
+
+def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
+    # Create experiment and run
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Test exceeding the limit (101 traces)
+    trace_ids = []
+    for i in range(101):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
+        store.link_traces_to_run(trace_ids, run.info.run_id)
+
+
+def test_search_entities_by_source(store: SqlAlchemyStore):
+    """Test forward search: trace -> run associations (without pagination)"""
+    # Create experiment and run
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Create traces and link them to the run
+    trace_ids = []
+    for i in range(10):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    # Link traces to run
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # Test forward search: each trace should be associated with the run
+    for trace_id in trace_ids:
+        associated_runs = store.search_entities_by_source(
+            trace_id, EntityType.TRACE, EntityType.RUN
+        )
+        assert len(associated_runs) == 1
+        assert run.info.run_id in associated_runs
+        assert associated_runs.token is None  # No pagination needed
+
+    # Test non-existent trace
+    non_existent_trace_id = "non-existent-trace"
+    associated_runs = store.search_entities_by_source(
+        non_existent_trace_id, EntityType.TRACE, EntityType.RUN
+    )
+    assert len(associated_runs) == 0
+    assert associated_runs.token is None
+
+
+def test_search_entities_by_destination(store: SqlAlchemyStore):
+    """Test reverse search: run -> trace associations (without pagination)"""
+    # Create experiment and run
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Create traces and link them to the run
+    trace_ids = []
+    for i in range(15):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    # Link traces to run
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # Test reverse search: run should be associated with all traces
+    associated_traces = store.search_entities_by_destination(
+        run.info.run_id, EntityType.RUN, EntityType.TRACE
+    )
+    assert len(associated_traces) == 15
+    assert set(trace_ids) == set(associated_traces)
+    assert associated_traces.token is None  # No pagination needed
+
+    # Test non-existent run
+    non_existent_run_id = "non-existent-run"
+    associated_traces = store.search_entities_by_destination(
+        non_existent_run_id, EntityType.RUN, EntityType.TRACE
+    )
+    assert len(associated_traces) == 0
+    assert associated_traces.token is None
+
+
+def test_search_entities_pagination(store: SqlAlchemyStore):
+    """Test pagination functionality for both search directions"""
+    # Create experiment and run
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Create many traces and link them to the run
+    trace_ids = []
+    for i in range(25):  # Create 25 traces for pagination testing
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    # Link all traces to the run
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # Test pagination using reverse search (run -> traces)
+    # Get first page with limit of 10
+    first_page = store.search_entities_by_destination(
+        run.info.run_id, EntityType.RUN, EntityType.TRACE, max_results=10
+    )
+    assert len(first_page) == 10
+    assert first_page.token is not None  # Should have next page token
+
+    # Get second page using the token
+    second_page = store.search_entities_by_destination(
+        run.info.run_id,
+        EntityType.RUN,
+        EntityType.TRACE,
+        max_results=10,
+        page_token=first_page.token,
+    )
+    assert len(second_page) == 10
+    assert second_page.token is not None  # Should have next page token
+
+    # Get third page
+    third_page = store.search_entities_by_destination(
+        run.info.run_id,
+        EntityType.RUN,
+        EntityType.TRACE,
+        max_results=10,
+        page_token=second_page.token,
+    )
+    assert len(third_page) == 5  # Only 5 remaining
+    assert third_page.token is None  # No more pages
+
+    # Verify no overlap between pages
+    all_paginated_results = set(first_page) | set(second_page) | set(third_page)
+    assert len(all_paginated_results) == 25  # All unique results
+    assert set(trace_ids) == all_paginated_results
+
+    # Test getting all results without pagination for comparison
+    all_results_unpaged = store.search_entities_by_destination(
+        run.info.run_id, EntityType.RUN, EntityType.TRACE
+    )
+    assert len(all_results_unpaged) == 25
+    assert all_results_unpaged.token is None  # No pagination needed
+    assert set(trace_ids) == set(all_results_unpaged)
