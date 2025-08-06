@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from typing_extensions import Self
@@ -8,6 +9,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_DIRTY,
     MLFLOW_GIT_REPO_URL,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class GitOperationError(Exception):
@@ -48,6 +51,10 @@ class GitInfo:
             dirty = repo.is_dirty(untracked_files=False)
             # Get repository URL
             repo_url = next((r.url for r in repo.remotes if r.name == remote_name), None)
+            if repo_url is None:
+                _logger.warning(
+                    f"No remote named '{remote_name}' found. Repository URL will not be set."
+                )
             return cls(branch=branch, commit=commit, dirty=dirty, repo_url=repo_url)
 
         except git.GitError as e:
