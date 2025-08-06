@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from typing_extensions import Self
@@ -6,7 +7,10 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_DIRTY,
+    MLFLOW_GIT_REPO_URL,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class GitOperationError(Exception):
@@ -18,9 +22,10 @@ class GitInfo:
     branch: str
     commit: str
     dirty: bool = False
+    repo_url: str | None = None
 
     @classmethod
-    def from_env(cls) -> Self:
+    def from_env(cls, remote_name: str) -> Self:
         try:
             import git
         except ImportError as e:
@@ -44,15 +49,23 @@ class GitInfo:
 
             # Check if repo is dirty
             dirty = repo.is_dirty(untracked_files=False)
-
-            return cls(branch=branch, commit=commit, dirty=dirty)
+            # Get repository URL
+            repo_url = next((r.url for r in repo.remotes if r.name == remote_name), None)
+            if repo_url is None:
+                _logger.warning(
+                    f"No remote named '{remote_name}' found. Repository URL will not be set."
+                )
+            return cls(branch=branch, commit=commit, dirty=dirty, repo_url=repo_url)
 
         except git.GitError as e:
             raise GitOperationError(f"Failed to get repository information: {e}") from e
 
     def to_mlflow_tags(self) -> dict[str, str]:
-        return {
+        tags = {
             MLFLOW_GIT_BRANCH: self.branch,
             MLFLOW_GIT_COMMIT: self.commit,
             MLFLOW_GIT_DIRTY: str(self.dirty).lower(),
         }
+        if self.repo_url is not None:
+            tags[MLFLOW_GIT_REPO_URL] = self.repo_url
+        return tags
