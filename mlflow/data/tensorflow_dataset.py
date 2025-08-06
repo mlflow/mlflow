@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 
@@ -308,7 +308,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_tensorflow(
     features,
-    source: Optional[Union[str, DatasetSource]] = None,
+    source: Optional[str | DatasetSource] = None,
     targets=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,

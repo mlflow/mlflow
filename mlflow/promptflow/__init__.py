@@ -15,7 +15,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -107,7 +107,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,
@@ -419,9 +419,9 @@ class _PromptflowModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]]],
+        data: pd.DataFrame | list[str | dict[str, Any]],
         params: Optional[dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ) -> Union[dict[str, Any], list[Any]]:
+    ) -> dict[str, Any] | list[Any]:
         """
         Args:
             data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.

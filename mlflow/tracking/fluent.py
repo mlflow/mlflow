@@ -2324,7 +2324,7 @@ def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> 
 
 @experimental(version="3.0.0")
 def finalize_logged_model(
-    model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+    model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
     """
     Finalize a model by updating its status.

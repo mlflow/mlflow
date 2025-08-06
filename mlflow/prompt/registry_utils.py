@@ -2,7 +2,7 @@ import functools
 import json
 import re
 from textwrap import dedent
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mlflow
 from mlflow.entities.model_registry.model_version import ModelVersion
@@ -88,7 +88,7 @@ def add_prompt_filter_string(
     return filter_string
 
 
-def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]]) -> bool:
+def has_prompt_tag(tags: Optional[list[RegisteredModelTag] | dict[str, str]]) -> bool:
     """Check if the given tags contain the prompt tag."""
     if isinstance(tags, dict):
         return IS_PROMPT_TAG_KEY in tags if tags else False
@@ -223,8 +223,8 @@ def handle_resource_already_exist_error(
 
 
 def parse_prompt_name_or_uri(
-    name_or_uri: str, version: Optional[Union[str, int]] = None
-) -> tuple[str, Optional[Union[str, int]]]:
+    name_or_uri: str, version: Optional[str | int] = None
+) -> tuple[str, Optional[str | int]]:
     """
     Parse prompt name or URI into (name, version) tuple.
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -104,7 +104,7 @@ def convert_messages_to_prompt(messages: list[dict[str, Any]], tokenizer) -> str
 
 
 def preprocess_llm_inference_input(
-    data: Union[pd.DataFrame, dict[str, Any]],
+    data: pd.DataFrame | dict[str, Any],
     params: Optional[dict[str, Any]] = None,
     flavor_config: Optional[dict[str, Any]] = None,
 ) -> tuple[list[Any], dict[str, Any]]:
@@ -162,7 +162,7 @@ def preprocess_llm_inference_input(
     return update_data, params
 
 
-def _get_stopping_criteria(stop: Optional[Union[str, list[str]]], model_name: Optional[str] = None):
+def _get_stopping_criteria(stop: Optional[str | list[str]], model_name: Optional[str] = None):
     """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
     from transformers import AutoTokenizer, StoppingCriteria
 
@@ -374,7 +374,7 @@ def _get_default_task_for_llm_inference_task(llm_inference_task: Optional[str]) 
 
 
 def preprocess_llm_embedding_params(
-    data: Union[pd.DataFrame, dict[str, Any]],
+    data: pd.DataFrame | dict[str, Any],
 ) -> tuple[list[str], dict[str, Any]]:
     """
     When `llm/v1/embeddings` task is given, extract the input data (with "input" key) and

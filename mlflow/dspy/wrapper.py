@@ -1,7 +1,7 @@
 import importlib.metadata
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from packaging.version import Version
 
@@ -91,7 +91,7 @@ class DspyModelWrapper(PythonModel):
                 else:
                     yield output
 
-    def _get_model_input(self, inputs: Any) -> Union[str, dict[str, Any]]:
+    def _get_model_input(self, inputs: Any) -> str | dict[str, Any]:
         """Convert the PythonModel input into the DSPy program input
 
         Examples of expected conversions:
@@ -206,7 +206,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
             "Streaming is not supported for DSPy model with task 'llm/v1/chat'."
         )
 
-    def _get_model_input(self, inputs: Any) -> Union[str, list[dict[str, Any]]]:
+    def _get_model_input(self, inputs: Any) -> str | list[dict[str, Any]]:
         import pandas as pd
 
         if isinstance(inputs, dict):

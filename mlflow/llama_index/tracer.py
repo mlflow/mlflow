@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, Optional
 
 import llama_index.core
 import pydantic
@@ -429,9 +429,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         """
         self._span_handler.resolve_pending_stream_span(span, event)
 
-    def _extract_token_usage(
-        self, response: Union[ChatResponse, CompletionResponse]
-    ) -> dict[str, int]:
+    def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
@@ -463,7 +461,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
 
 
-_StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
+_StreamEndEvent = LLMChatEndEvent | LLMCompletionEndEvent | ExceptionEvent
 
 
 def _get_task_step_output_type():

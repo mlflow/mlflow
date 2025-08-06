@@ -1,7 +1,7 @@
 import logging
 import os
 import urllib.parse
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 import requests
 
@@ -282,7 +282,7 @@ def _send_request(
 
 def call_deployments_api(
     deployment_uri: str,
-    input_data: Union[str, dict[str, Any]],
+    input_data: str | dict[str, Any],
     eval_parameters: Optional[dict[str, Any]] = None,
     endpoint_type: Optional[str] = None,
 ):
@@ -346,7 +346,7 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, An
 
 def _parse_response(
     response: dict[str, Any], endpoint_type: Optional[str]
-) -> Union[Optional[str], dict[str, Any]]:
+) -> Optional[str] | dict[str, Any]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":

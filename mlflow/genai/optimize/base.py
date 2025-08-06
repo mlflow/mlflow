@@ -2,7 +2,7 @@ import inspect
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
@@ -41,7 +41,7 @@ _logger = logging.getLogger(__name__)
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
-    prompt: Union[str, PromptVersion],
+    prompt: str | PromptVersion,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,

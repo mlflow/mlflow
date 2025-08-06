@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, TypeAlias, Union
+from typing import Any, Callable, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -301,7 +301,7 @@ class Scorer(BaseModel):
         outputs: Any = None,
         expectations: Optional[dict[str, Any]] = None,
         trace: Optional[Trace] = None,
-    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
+    ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
 

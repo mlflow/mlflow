@@ -6,7 +6,7 @@ if not IS_PYDANTIC_V2_OR_NEWER:
         "Please upgrade to Pydantic v2 or newer."
     )
 import json
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import ConfigDict, model_validator
 
@@ -51,7 +51,7 @@ class ResponsesAgentRequest(BaseRequestPayload):
             endpoint. Includes conversation_id and user_id. **Optional** defaults to ``None``
     """
 
-    input: list[Union[Message, OutputItem]]
+    input: list[Message | OutputItem]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None
 
