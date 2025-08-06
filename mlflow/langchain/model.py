@@ -16,7 +16,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -142,7 +142,7 @@ def save_model(
     loader_fn=None,
     persist_dir=None,
     model_config=None,
-    streamable: Optional[bool] = None,
+    streamable: bool | None = None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -417,7 +417,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -432,14 +432,14 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[list[Resource] | str] = None,
-    prompts: Optional[list[str | Prompt]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    resources: list[Resource] | str | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -654,7 +654,7 @@ class _LangChainModelWrapper:
     def predict(
         self,
         data: pd.DataFrame | list[str | dict[str, Any]] | Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> list[str | dict[str, Any]]:
         """
         Args:
@@ -688,7 +688,7 @@ class _LangChainModelWrapper:
 
     def _update_dependencies_schemas_in_prediction_context(
         self, callback_handlers
-    ) -> Optional[Context]:
+    ) -> Context | None:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if (
@@ -709,7 +709,7 @@ class _LangChainModelWrapper:
     def _predict_with_callbacks(
         self,
         data: pd.DataFrame | list[str | dict[str, Any]] | Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         callback_handlers=None,
         convert_chat_responses=False,
     ) -> list[str | dict[str, Any]]:
@@ -779,7 +779,7 @@ class _LangChainModelWrapper:
     def predict_stream(
         self,
         data: Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterator[str | dict[str, Any]]:
         """
         Args:
@@ -803,7 +803,7 @@ class _LangChainModelWrapper:
     def _predict_stream_with_callbacks(
         self,
         data: Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         callback_handlers=None,
         convert_chat_responses=False,
     ) -> Iterator[str | dict[str, Any]]:
@@ -833,7 +833,7 @@ class _LangChainModelWrapper:
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(path: str, model_config: dict[str, Any] | None = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:

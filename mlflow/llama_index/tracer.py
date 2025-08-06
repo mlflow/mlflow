@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 import llama_index.core
 import pydantic
@@ -89,7 +89,7 @@ def remove_llama_index_tracer():
 class _LlamaSpan(BaseSpan, extra="allow"):
     _mlflow_span: LiveSpan = pydantic.PrivateAttr()
 
-    def __init__(self, id_: str, parent_id: Optional[str], mlflow_span: LiveSpan):
+    def __init__(self, id_: str, parent_id: str | None, mlflow_span: LiveSpan):
         super().__init__(id_=id_, parent_id=parent_id)
         self._mlflow_span = mlflow_span
 
@@ -146,8 +146,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self,
         id_: str,
         bound_args: inspect.BoundArguments,
-        instance: Optional[Any] = None,
-        parent_span_id: Optional[str] = None,
+        instance: Any | None = None,
+        parent_span_id: str | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         with self.lock:
@@ -186,7 +186,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def prepare_to_exit_span(
         self,
         id_: str,
-        result: Optional[Any] = None,
+        result: Any | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         try:
@@ -221,7 +221,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self._stream_resolver.resolve(span, event)
         self._pending_spans.pop(event.span_id, None)
 
-    def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
+    def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
         with self.lock:
             llama_span = self.open_spans.get(id_)

@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import Optional
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -3099,7 +3098,7 @@ def _list_logged_model_artifacts(model_id: str):
 
 
 def _list_logged_model_artifacts_impl(
-    model_id: str, artifact_directory_path: Optional[str]
+    model_id: str, artifact_directory_path: str | None
 ) -> Response:
     response = ListLoggedModelArtifacts.Response()
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)

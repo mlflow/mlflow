@@ -1,6 +1,6 @@
 import importlib.metadata
 import json
-from typing import Annotated, Any, Optional, TypedDict
+from typing import Annotated, Any, TypedDict
 from uuid import uuid4
 
 from packaging.version import Version
@@ -268,13 +268,13 @@ class ChatAgentState(TypedDict):
     """
 
     messages: Annotated[list[dict[str, Any]], _add_agent_messages]
-    context: Optional[dict[str, Any]]
-    custom_inputs: Optional[dict[str, Any]]
-    custom_outputs: Optional[dict[str, Any]]
+    context: dict[str, Any] | None
+    custom_inputs: dict[str, Any] | None
+    custom_outputs: dict[str, Any] | None
 
 
 def parse_message(
-    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict[str, Any]] = None
+    msg: AnyMessage, name: str | None = None, attachments: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """
     Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
@@ -303,7 +303,7 @@ class ChatAgentToolNode(ToolNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
+    def invoke(self, input: Input, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
         """
         Wraps the standard ToolNode invoke method to:
         - Parse ChatAgentState into LangChain messages

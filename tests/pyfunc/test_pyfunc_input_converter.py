@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass
-from typing import Optional
 
 import pandas as pd
 import pytest
@@ -63,7 +62,7 @@ class CustomInput:
 
 @dataclass
 class FlexibleChatCompletionRequest(ChatCompletionRequest):
-    custom_input: Optional[CustomInput] = None
+    custom_input: CustomInput | None = None
 
 
 def test_hydrate_child_dataclass():
