@@ -7,7 +7,7 @@ import inspect
 import json
 import logging
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -637,7 +637,7 @@ def search_traces(
     model_id: Optional[str] = None,
     sql_warehouse_id: Optional[str] = None,
     include_spans: bool = True,
-) -> Union["pandas.DataFrame", list[Trace]]:
+) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
 
@@ -953,7 +953,7 @@ def update_current_trace(
     client_request_id: Optional[str] = None,
     request_preview: Optional[str] = None,
     response_preview: Optional[str] = None,
-    state: Optional[Union[TraceState, str]] = None,
+    state: Optional[TraceState | str] = None,
 ):
     """
     Update the current active trace with the given options.
@@ -1164,7 +1164,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
     TracingClient().delete_trace_tag(trace_id, key)
 
 
-def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
+def add_trace(trace: Trace | dict[str, Any], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
 

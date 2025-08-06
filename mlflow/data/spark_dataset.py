@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from packaging.version import Version
 
@@ -118,7 +118,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._predictions
 
     @property
-    def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
+    def source(self) -> SparkDatasetSource | DeltaDatasetSource:
         """
         Spark dataset source information.
 

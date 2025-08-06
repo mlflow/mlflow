@@ -90,19 +90,9 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
-PyFuncLLMSingleInput = Union[
-    dict[str, Any],
-    bool,
-    bytes,
-    float,
-    int,
-    str,
-]
+PyFuncLLMSingleInput = dict[str, Any] | bool | bytes | float | int | str
 
-PyFuncLLMOutputChunk = Union[
-    dict[str, Any],
-    str,
-]
+PyFuncLLMOutputChunk = dict[str, Any] | str
 
 PyFuncInput = Union[
     pd.DataFrame,
@@ -119,11 +109,11 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
 
 if HAS_PYSPARK:
-    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
-    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
+    PyFuncInput = PyFuncInput | SparkDataFrame
+    PyFuncOutput = PyFuncOutput | SparkDataFrame
 
 _logger = logging.getLogger(__name__)
 
@@ -163,7 +153,7 @@ def _handle_ndarray_nans(x: np.ndarray):
         return x
 
 
-def _handle_ndarray_input(input_array: Union[np.ndarray, dict[str, Any]]):
+def _handle_ndarray_input(input_array: np.ndarray | dict[str, Any]):
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -1456,7 +1446,7 @@ def _enforce_map(data: Any, map_type: Map, required: bool = True):
     return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
-def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
+def _enforce_type(data: Any, data_type: DataType | Array | Object | Map, required=True):
     if isinstance(data_type, DataType):
         return _enforce_datatype(data, data_type, required=required)
     if isinstance(data_type, Array):
@@ -1792,7 +1782,7 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data: Any) -> Union[list[Any], dict[str, Any]]:
+def _convert_llm_input_data(data: Any) -> list[Any] | dict[str, Any]:
     """
     Convert input data to a format that can be passed to the model with GenAI flavors such as
     LangChain and LLamaIndex.
@@ -1887,7 +1877,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
 
 @contextmanager
-def _config_context(config: Optional[Union[str, dict[str, Any]]] = None):
+def _config_context(config: Optional[str | dict[str, Any]] = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
@@ -1948,7 +1938,7 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, model_config: Optional[Union[str, dict[str, Any]]]):
+def _load_model_code_path(code_path: str, model_config: Optional[str | dict[str, Any]]):
     with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
@@ -1992,7 +1982,7 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, Any]]):
+def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     """
     Helper function to validate the model can be served and provided input is valid
     prior to serving the model.

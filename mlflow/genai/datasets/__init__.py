@@ -6,7 +6,7 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
@@ -17,7 +17,7 @@ _ERROR_MSG = (
 
 
 def create_dataset(
-    uc_table_name: str, experiment_id: Optional[Union[str, list[str]]] = None
+    uc_table_name: str, experiment_id: Optional[str | list[str]] = None
 ) -> "EvaluationDataset":
     """Create a dataset with the given name and associate it with the given experiment.
 

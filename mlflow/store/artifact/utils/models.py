@@ -1,6 +1,6 @@
 import urllib.parse
 from pathlib import Path
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Optional
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
@@ -107,7 +107,7 @@ def _parse_model_uri(uri, scheme: str = "models") -> ParsedModelUri:
         return ParsedModelUri(parts[0])
 
 
-def _parse_model_id_if_present(possible_model_uri: Union[str, Path]) -> Optional[str]:
+def _parse_model_id_if_present(possible_model_uri: str | Path) -> Optional[str]:
     """
     Parses the model ID from the given string. If the string represents a UC model URI, we get the
     model version to extract the model ID. If the string is not a models:/ URI, returns None.

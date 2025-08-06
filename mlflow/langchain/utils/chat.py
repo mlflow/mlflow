@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pydantic
 from langchain_core.messages import (
@@ -45,7 +45,7 @@ _TOKEN_USAGE_KEY_MAPPING = {
 }
 
 
-def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMessage:
+def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
     """
     Convert LangChain's message format to the MLflow's standard chat message format.
     """
@@ -245,12 +245,12 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 
 def _convert_chat_request_or_throw(
     chat_request: dict[str, Any],
-) -> list[Union[BaseMessage]]:
+) -> list[BaseMessage]:
     model = ChatCompletionRequest.validate_compat(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 
-def _convert_chat_request(chat_request: Union[dict[str, Any], list[dict[str, Any]]]):
+def _convert_chat_request(chat_request: dict[str, Any] | list[dict[str, Any]]):
     if isinstance(chat_request, list):
         return [_convert_chat_request_or_throw(request) for request in chat_request]
     else:

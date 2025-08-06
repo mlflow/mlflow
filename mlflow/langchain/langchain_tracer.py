@@ -1,7 +1,7 @@
 import ast
 import logging
 from contextvars import ContextVar
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Optional, Sequence
 from uuid import UUID
 
 import pydantic
@@ -106,7 +106,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         parent_run_id: Optional[UUID],
         span_type: str,
         run_id: UUID,
-        inputs: Optional[Union[str, dict[str, Any]]] = None,
+        inputs: Optional[str | dict[str, Any]] = None,
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
@@ -276,7 +276,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self,
         token: str,
         *,
-        chunk: Optional[Union[GenerationChunk, ChatGenerationChunk]] = None,
+        chunk: Optional[GenerationChunk | ChatGenerationChunk] = None,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
@@ -353,7 +353,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_chain_start(
         self,
         serialized: dict[str, Any],
-        inputs: Union[dict[str, Any], Any],
+        inputs: dict[str, Any] | Any,
         *,
         run_id: UUID,
         tags: Optional[list[str]] = None,
@@ -381,7 +381,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         outputs: dict[str, Any],
         *,
         run_id: UUID,
-        inputs: Optional[Union[dict[str, Any], Any]] = None,
+        inputs: Optional[dict[str, Any] | Any] = None,
         **kwargs: Any,
     ):
         """Run when chain ends running."""
@@ -394,7 +394,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self,
         error: BaseException,
         *,
-        inputs: Optional[Union[dict[str, Any], Any]] = None,
+        inputs: Optional[dict[str, Any] | Any] = None,
         run_id: UUID,
         **kwargs: Any,
     ):

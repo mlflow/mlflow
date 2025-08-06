@@ -5,7 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -551,10 +551,10 @@ class ModelRegistryClient:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -716,9 +716,7 @@ class ModelRegistryClient:
         """
         return self.store.search_prompt_versions(name, max_results, page_token)
 
-    def link_prompt_version_to_model(
-        self, name: str, version: Union[int, str], model_id: str
-    ) -> None:
+    def link_prompt_version_to_model(self, name: str, version: int | str, model_id: str) -> None:
         """
         Link a prompt version to a model.
 
@@ -729,7 +727,7 @@ class ModelRegistryClient:
         """
         return self.store.link_prompt_version_to_model(name, str(version), model_id)
 
-    def link_prompt_version_to_run(self, name: str, version: Union[int, str], run_id: str) -> None:
+    def link_prompt_version_to_run(self, name: str, version: int | str, run_id: str) -> None:
         """
         Link a prompt version to a run.
 

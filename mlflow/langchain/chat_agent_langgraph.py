@@ -1,6 +1,6 @@
 import importlib.metadata
 import json
-from typing import Annotated, Any, Optional, TypedDict, Union
+from typing import Annotated, Any, Optional, TypedDict
 from uuid import uuid4
 
 from packaging.version import Version
@@ -41,8 +41,8 @@ from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(
-    left: Union[dict[str, Any], list[dict[str, Any]]],
-    right: Union[dict[str, Any], list[dict[str, Any]]],
+    left: dict[str, Any] | list[dict[str, Any]],
+    right: dict[str, Any] | list[dict[str, Any]],
 ):
     if not isinstance(left, list):
         left = [left]

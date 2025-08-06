@@ -24,7 +24,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -912,7 +912,7 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+def get_total_file_size(path: str | pathlib.Path) -> Optional[int]:
     """Return the size of all files under given path, including files in subdirectories.
 
     Args:

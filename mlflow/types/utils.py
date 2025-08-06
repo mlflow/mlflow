@@ -2,7 +2,7 @@ import logging
 import warnings
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -95,7 +95,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
+def _infer_colspec_type(data: Any) -> DataType | Array | Object | AnyType:
     """
     Infer an MLflow Colspec type from the dataset.
 
@@ -120,7 +120,7 @@ class InvalidDataForSignatureInferenceError(MlflowException):
         super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
 
 
-def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
+def _infer_datatype(data: Any) -> Optional[DataType | Array | Object | AnyType]:
     """
     Infer the datatype of input data.
     Data type and inferred schema type mapping:
@@ -168,7 +168,7 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[list[Any], np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: list[Any] | np.ndarray) -> Optional[Array]:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
