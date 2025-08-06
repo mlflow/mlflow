@@ -1310,3 +1310,18 @@ class SqlScorer(Base):
 
     def __repr__(self):
         return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_version})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.Scorer.
+        """
+        from mlflow.entities.scorer import Scorer
+        return Scorer(
+            experiment_id=self.experiment_id,
+            scorer_name=self.scorer_name,
+            scorer_version=self.scorer_version,
+            serialized_scorer=self.serialized_scorer,
+        )
