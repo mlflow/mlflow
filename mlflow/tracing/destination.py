@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import deprecated
 
 
-@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
+@deprecated(alternative="mlflow.set_tracking_uri`` and ``mlflow.set_experiment", since="3.3.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -16,7 +16,7 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
+@deprecated(alternative="mlflow.set_tracking_uri`` and ``mlflow.set_experiment", since="3.3.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -37,7 +37,7 @@ class MlflowExperiment(TraceDestination):
         return "experiment"
 
 
-@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
+@deprecated(alternative="mlflow.set_tracking_uri`` and ``mlflow.set_experiment", since="3.3.0")
 @dataclass
 class Databricks(TraceDestination):
     """

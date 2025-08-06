@@ -182,7 +182,7 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-@deprecated(alternative="mlflow.set_experiment", since="3.3.0")
+@deprecated(alternative="mlflow.set_tracking_uri`` and ``mlflow.set_experiment``", since="3.3.0")
 def set_destination(destination: TraceDestination):
     """
     Set a custom span destination to which MLflow will export the traces.
