@@ -2,7 +2,7 @@ from mlflow.genai.judges.utils import format_prompt
 
 GUIDELINES_FEEDBACK_NAME = "guidelines"
 
-GUIDELINES_PROMPT = """
+GUIDELINES_PROMPT = """\
 Given the following set of guidelines and some inputs, please assess whether the inputs fully comply with all the provided guidelines. Only focus on the provided guidelines and not the correctness, relevance, or effectiveness of the inputs.
 
 <guidelines>

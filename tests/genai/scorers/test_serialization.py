@@ -440,6 +440,7 @@ def test_builtin_scorer_with_parameters_round_trip():
             ),
         },
         name="tone",
+        model=None,
     )
 
     assert isinstance(result, Feedback)

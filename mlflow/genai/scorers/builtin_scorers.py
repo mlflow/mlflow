@@ -6,7 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.builtin import requires_databricks_agents
+from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agents
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
@@ -14,6 +14,7 @@ from mlflow.genai.utils.trace_utils import (
     parse_output_to_str,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
@@ -322,6 +323,7 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
@@ -331,8 +333,10 @@ class Guidelines(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    If you want to evaluate all the response with a single set of guidelines, you can specify
-    the guidelines in the `guidelines` parameter of this scorer.
+    Args:
+        name: The name of the scorer. Defaults to "guidelines".
+        guidelines: A single guideline text or a list of guidelines.
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -387,8 +391,8 @@ class Guidelines(BuiltInScorer):
 
     name: str = "guidelines"
     guidelines: Union[str, list[str]]
-    required_columns: set[str] = {"inputs", "outputs"}
     model: str | None = None
+    required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(
         self,
@@ -429,6 +433,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     `guidelines` field. Then pass this scorer to `mlflow.genai.evaluate` for running full
     evaluation on the input dataset.
 
+    Args:
+        name: The name of the scorer. Defaults to "expectations_guidelines".
+        model: {{ model }}
+
     Example:
 
     In this example, the guidelines specified in the `guidelines` field of the `expectations`
@@ -460,6 +468,7 @@ class ExpectationsGuidelines(BuiltInScorer):
     """
 
     name: str = "expectations_guidelines"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -503,6 +512,7 @@ class ExpectationsGuidelines(BuiltInScorer):
                 "response": parse_output_to_str(outputs),
             },
             name=self.name,
+            model=self.model,
         )
 
 
