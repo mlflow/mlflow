@@ -20,10 +20,10 @@ def test_invoke_judge_model_successful_with_litellm():
             assessment_name="quality_check",
         )
 
-    assert mock_litellm.call_args.kwargs == {
-        "model": "openai/gpt-4",
-        "messages": [{"role": "user", "content": "Evaluate this response"}],
-    }
+    mock_litellm.assert_called_once_with(
+        model="openai/gpt-4",
+        messages=[{"role": "user", "content": "Evaluate this response"}],
+    )
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
@@ -36,7 +36,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     mock_response = json.dumps({"result": "yes", "rationale": "The response meets all criteria."})
 
     with (
-        mock.patch("mlflow.genai.judges.utils._IS_LITELLM_INSTALLED", False),
+        mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False),
         mock.patch(
             "mlflow.genai.judges.utils.score_model_on_payload", return_value=mock_response
         ) as mock_score_model_on_payload,
@@ -47,11 +47,11 @@ def test_invoke_judge_model_successful_with_native_provider():
             assessment_name="quality_check",
         )
 
-    assert mock_score_model_on_payload.call_args.kwargs == {
-        "model_uri": "openai:/gpt-4",
-        "payload": "Evaluate this response",
-        "endpoint_type": "llm/v1/chat",
-    }
+    mock_score_model_on_payload.assert_called_once_with(
+        model_uri="openai:/gpt-4",
+        payload="Evaluate this response",
+        endpoint_type="llm/v1/chat",
+    )
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
@@ -62,7 +62,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
 def test_invoke_judge_model_with_unsupported_provider():
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using 'unsupported' LLM"):
-        with mock.patch("mlflow.genai.judges.utils._IS_LITELLM_INSTALLED", False):
+        with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False):
             invoke_judge_model(
                 model_uri="unsupported:/model", prompt="Test prompt", assessment_name="test"
             )

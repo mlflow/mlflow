@@ -10,7 +10,6 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Feedback,
 )
-from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _sanitize_feedback
 from mlflow.genai.judges.utils import CategoricalRating

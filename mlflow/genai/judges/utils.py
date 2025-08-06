@@ -20,13 +20,6 @@ if not IS_MLFLOW_SKINNY:
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
-try:
-    import litellm  # noqa: F401
-
-    _IS_LITELLM_INSTALLED = True
-except ImportError:
-    _IS_LITELLM_INSTALLED = False
-
 
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
@@ -62,7 +55,7 @@ def invoke_judge_model(model_uri: str, prompt: str, assessment_name: str) -> Fee
     provider, model_name = _parse_model_uri(model_uri)
 
     # Try litellm first for better performance.
-    if _IS_LITELLM_INSTALLED:
+    if _is_litellm_available():
         response = _invoke_litellm(provider, model_name, prompt)
     elif provider in _NATIVE_PROVIDERS:
         response = score_model_on_payload(
@@ -95,6 +88,15 @@ def invoke_judge_model(model_uri: str, prompt: str, assessment_name: str) -> Fee
         ) from e
 
     return feedback
+
+
+def _is_litellm_available() -> bool:
+    try:
+        import litellm  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def _invoke_litellm(provider: str, model_name: str, prompt: str) -> str:

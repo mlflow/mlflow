@@ -20,7 +20,7 @@ Please provide your assessment using the following json format. Do not use any m
 def get_prompt(
     guidelines: str | list[str],
     guidelines_context: dict[str, str],
-):
+) -> str:
     if isinstance(guidelines, str):
         guidelines = [guidelines]
 
@@ -32,15 +32,10 @@ def get_prompt(
 
 
 def _render_guidelines(guidelines: list[str]) -> str:
-    lines = [
-        "<guideline>{guideline}</guideline>".format(guideline=guideline) for guideline in guidelines
-    ]
+    lines = [f"<guideline>{guideline}</guideline>" for guideline in guidelines]
     return "\n".join(lines)
 
 
 def _render_guidelines_context(guidelines_context: dict[str, str]) -> str:
-    lines = [
-        "<{key}>{value}</{key}>".format(key=key, value=value)
-        for key, value in guidelines_context.items()
-    ]
+    lines = [f"<{key}>{value}</{key}>" for key, value in guidelines_context.items()]
     return "\n".join(lines)
