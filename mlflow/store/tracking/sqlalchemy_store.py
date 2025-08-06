@@ -13,7 +13,7 @@ from typing import Any, Optional, TypedDict
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import Column, and_, func, or_, sql, text
+from sqlalchemy import and_, func, or_, sql, text
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -2970,8 +2970,9 @@ class SqlAlchemyStore(AbstractStore):
                 dataset_ids = (
                     session.query(SqlEntityAssociation.source_id)
                     .filter(
-                        SqlEntityAssociation.source_type == EntityType.EVALUATION_DATASET,
-                        SqlEntityAssociation.destination_type == EntityType.EXPERIMENT,
+                        SqlEntityAssociation.source_type
+                        == EntityAssociationType.EVALUATION_DATASET,
+                        SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                         SqlEntityAssociation.destination_id.in_(experiment_ids),
                     )
                     .distinct()
@@ -3188,6 +3189,22 @@ class SqlAlchemyStore(AbstractStore):
                             source = source_data
 
                     inserted_count += 1
+
+                record = DatasetRecord(
+                    dataset_record_id=record_id,
+                    dataset_id=dataset_id,
+                    inputs=record_dict.get("inputs", {}),
+                    created_time=created_time,
+                    last_update_time=current_time,
+                    expectations=merged_expectations,
+                    tags=merged_tags,
+                    source=source,
+                    created_by=created_by,
+                    last_updated_by=updated_by,
+                )
+
+                sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
+                session.merge(sql_record)
 
             dataset = (
                 session.query(SqlEvaluationDataset)

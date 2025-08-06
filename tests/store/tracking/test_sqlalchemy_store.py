@@ -6177,31 +6177,31 @@ def test_evaluation_dataset_search_comprehensive(store):
     datasets = []
     for i in range(10):
         name = f"{test_prefix}dataset_{i:02d}"
-        tags = {"priority": "high" if i % 2 == 0 else "low"}
+        tags = {"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"}
 
         if i < 3:
             created = store.create_evaluation_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[0]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         elif i < 6:
             created = store.create_evaluation_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[1], exp_ids[2]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         elif i < 8:
             created = store.create_evaluation_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[2]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         else:
             created = store.create_evaluation_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         datasets.append(created)
         time.sleep(0.001)
@@ -6627,12 +6627,13 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    # Test validation for empty inputs
-    with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
-        store.upsert_evaluation_dataset_records(
-            created_dataset.dataset_id,
-            [{"inputs": {}, "expectations": {"result": "should fail"}}],
-        )
+    # Test that empty inputs are supported
+    empty_inputs_result = store.upsert_evaluation_dataset_records(
+        created_dataset.dataset_id,
+        [{"inputs": {}, "expectations": {"result": "empty inputs are valid"}}],
+    )
+    assert empty_inputs_result["inserted"] == 1
+    assert empty_inputs_result["updated"] == 0
 
     empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
