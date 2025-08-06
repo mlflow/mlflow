@@ -176,8 +176,9 @@ CREATE TABLE trace_info (
 
 CREATE TABLE webhook_events (
 	webhook_id VARCHAR(256) NOT NULL,
-	event VARCHAR(50) NOT NULL,
-	PRIMARY KEY (webhook_id, event),
+	entity VARCHAR(50) NOT NULL,
+	action VARCHAR(50) NOT NULL,
+	PRIMARY KEY (webhook_id, entity, action),
 	CONSTRAINT webhook_events_ibfk_1 FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 

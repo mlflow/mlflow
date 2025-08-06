@@ -1323,7 +1323,10 @@ class SqlAlchemyStore(AbstractStore):
                 last_updated_timestamp=creation_time,
             )
             session.add(webhook)
-            session.add_all(SqlWebhookEvent(webhook_id=webhook_id, event=e.value) for e in events)
+            session.add_all(
+                SqlWebhookEvent(webhook_id=webhook_id, entity=e.entity.value, action=e.action.value)
+                for e in events
+            )
             session.flush()
             return webhook.to_mlflow_entity()
 
@@ -1394,7 +1397,10 @@ class SqlAlchemyStore(AbstractStore):
                 ).delete()
                 # Create new webhook events
                 session.add_all(
-                    SqlWebhookEvent(webhook_id=webhook_id, event=e.value) for e in events
+                    SqlWebhookEvent(
+                        webhook_id=webhook_id, entity=e.entity.value, action=e.action.value
+                    )
+                    for e in events
                 )
             if description is not None:
                 webhook.description = description

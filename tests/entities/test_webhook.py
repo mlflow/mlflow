@@ -1,8 +1,16 @@
 import pytest
 
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookAction,
+    WebhookEntity,
+    WebhookEvent,
+    WebhookStatus,
+    WebhookTestResult,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
+from mlflow.protos.webhooks_pb2 import WebhookAction as ProtoWebhookAction
+from mlflow.protos.webhooks_pb2 import WebhookEntity as ProtoWebhookEntity
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
 
 
@@ -19,27 +27,104 @@ def test_webhook_status_proto_conversion(proto_status, status_enum):
 
 
 @pytest.mark.parametrize(
-    ("event_enum", "proto_event"),
+    ("entity_enum", "proto_entity"),
     [
-        (WebhookEvent.REGISTERED_MODEL_CREATED, ProtoWebhookEvent.REGISTERED_MODEL_CREATED),
-        (WebhookEvent.MODEL_VERSION_CREATED, ProtoWebhookEvent.MODEL_VERSION_CREATED),
-        (WebhookEvent.MODEL_VERSION_TAG_SET, ProtoWebhookEvent.MODEL_VERSION_TAG_SET),
-        (WebhookEvent.MODEL_VERSION_TAG_DELETED, ProtoWebhookEvent.MODEL_VERSION_TAG_DELETED),
-        (WebhookEvent.MODEL_VERSION_ALIAS_CREATED, ProtoWebhookEvent.MODEL_VERSION_ALIAS_CREATED),
-        (WebhookEvent.MODEL_VERSION_ALIAS_DELETED, ProtoWebhookEvent.MODEL_VERSION_ALIAS_DELETED),
+        (WebhookEntity.REGISTERED_MODEL, ProtoWebhookEntity.REGISTERED_MODEL),
+        (WebhookEntity.MODEL_VERSION, ProtoWebhookEntity.MODEL_VERSION),
+        (WebhookEntity.MODEL_VERSION_TAG, ProtoWebhookEntity.MODEL_VERSION_TAG),
+        (WebhookEntity.MODEL_VERSION_ALIAS, ProtoWebhookEntity.MODEL_VERSION_ALIAS),
     ],
 )
-def test_webhook_event_proto_conversion(event_enum, proto_event):
-    assert WebhookEvent.from_proto(proto_event) == event_enum
-    assert event_enum.to_proto() == proto_event
+def test_webhook_entity_proto_conversion(entity_enum, proto_entity):
+    assert WebhookEntity.from_proto(proto_entity) == entity_enum
+    assert entity_enum.to_proto() == proto_entity
+
+
+@pytest.mark.parametrize(
+    ("action_enum", "proto_action"),
+    [
+        (WebhookAction.CREATED, ProtoWebhookAction.CREATED),
+        (WebhookAction.UPDATED, ProtoWebhookAction.UPDATED),
+        (WebhookAction.DELETED, ProtoWebhookAction.DELETED),
+        (WebhookAction.SET, ProtoWebhookAction.SET),
+    ],
+)
+def test_webhook_action_proto_conversion(action_enum, proto_action):
+    assert WebhookAction.from_proto(proto_action) == action_enum
+    assert action_enum.to_proto() == proto_action
+
+
+def test_webhook_event_creation():
+    event = WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
+    assert event.entity == WebhookEntity.REGISTERED_MODEL
+    assert event.action == WebhookAction.CREATED
+
+
+def test_webhook_event_from_string():
+    event = WebhookEvent("registered_model", "created")
+    assert event.entity == WebhookEntity.REGISTERED_MODEL
+    assert event.action == WebhookAction.CREATED
+
+
+def test_webhook_event_invalid_combination():
+    with pytest.raises(
+        MlflowException, match="Invalid action 'updated' for entity 'model_version_tag'"
+    ):
+        WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.UPDATED)
+
+
+def test_webhook_event_from_str():
+    event = WebhookEvent.from_str("registered_model.created")
+    assert event.entity == WebhookEntity.REGISTERED_MODEL
+    assert event.action == WebhookAction.CREATED
+
+
+def test_webhook_event_from_str_invalid_format():
+    with pytest.raises(MlflowException, match="Invalid event string format"):
+        WebhookEvent.from_str("invalid_format")
+
+
+def test_webhook_event_to_str():
+    event = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
+    assert str(event) == "model_version.created"
+
+
+def test_webhook_event_proto_conversion():
+    event = WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
+    proto_event = event.to_proto()
+    event_from_proto = WebhookEvent.from_proto(proto_event)
+    assert event_from_proto.entity == event.entity
+    assert event_from_proto.action == event.action
+
+
+def test_webhook_event_equality():
+    event1 = WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
+    event2 = WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
+    event3 = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
+
+    assert event1 == event2
+    assert event1 != event3
+    assert hash(event1) == hash(event2)
+    assert hash(event1) != hash(event3)
+
+
+def test_webhook_event_invalid_entity_action_combination():
+    with pytest.raises(
+        MlflowException, match="Invalid action 'deleted' for entity 'registered_model'"
+    ):
+        WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.DELETED)
 
 
 def test_webhook_proto_conversion():
+    events = [
+        WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+        WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED),
+    ]
     webhook = Webhook(
         webhook_id="webhook123",
         name="Test Webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.MODEL_VERSION_ALIAS_CREATED],
+        events=events,
         description="Test webhook description",
         status=WebhookStatus.ACTIVE,
         secret="my-secret",
@@ -59,11 +144,12 @@ def test_webhook_proto_conversion():
 
 
 def test_webhook_no_secret_in_repr():
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
     webhook = Webhook(
         webhook_id="webhook123",
         name="Test Webhook",
         url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        events=events,
         creation_timestamp=1234567890,
         last_updated_timestamp=1234567900,
         description="Test webhook description",
@@ -80,23 +166,30 @@ def test_webhook_invalid_events():
             name="Test Webhook",
             url="https://example.com/webhook",
             events=[],
-            description="Test webhook description",
-            status=WebhookStatus.ACTIVE,
-            creation_timestamp=1234567900,
+            creation_timestamp=1234567890,
             last_updated_timestamp=1234567900,
         )
 
 
-def test_webhook_test_result_proto_conversion():
+def test_webhook_test_result():
+    # Test successful result
     result = WebhookTestResult(
         success=True,
         response_status=200,
-        response_body='{"message": "success"}',
-        error_message=None,
+        response_body='{"status": "ok"}',
     )
-    proto_result = result.to_proto()
-    result_from_proto = WebhookTestResult.from_proto(proto_result)
-    assert result_from_proto.success == result.success
-    assert result_from_proto.response_status == result.response_status
-    assert result_from_proto.response_body == result.response_body
-    assert result_from_proto.error_message == result.error_message
+    assert result.success is True
+    assert result.response_status == 200
+    assert result.response_body == '{"status": "ok"}'
+    assert result.error_message is None
+
+    # Test failed result
+    result = WebhookTestResult(
+        success=False,
+        response_status=500,
+        error_message="Internal server error",
+    )
+    assert result.success is False
+    assert result.response_status == 500
+    assert result.error_message == "Internal server error"
+    assert result.response_body is None

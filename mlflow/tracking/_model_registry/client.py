@@ -890,17 +890,22 @@ class ModelRegistryClient:
 
     @experimental(version="3.3.0")
     def test_webhook(
-        self, webhook_id: str, event: Optional[WebhookEvent] = None
+        self, webhook_id: str, event: Optional[Union[WebhookEvent, str]] = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test payload.
 
         Args:
             webhook_id: The ID of the webhook to test.
-            event: Optional event type to test. If not specified, uses the first event from webhook.
+            event: Optional event type to test. Can be a WebhookEvent object or a string in
+                "entity.action" format (e.g., "model_version.created"). If not specified, uses
+                the first event from webhook.
 
         Returns:
             A :py:class:`mlflow.entities.webhook.WebhookTestResult` indicating success/failure and
             response details.
         """
+        # Convert string to WebhookEvent if needed
+        if isinstance(event, str):
+            event = WebhookEvent.from_str(event)
         return self.store.test_webhook(webhook_id, event)

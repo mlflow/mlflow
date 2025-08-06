@@ -1,8 +1,12 @@
 from enum import Enum
-from typing import Optional, Union
+from typing import Literal, Optional, TypeAlias, Union
+
+from typing_extensions import Self
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import Webhook as ProtoWebhook
+from mlflow.protos.webhooks_pb2 import WebhookAction as ProtoWebhookAction
+from mlflow.protos.webhooks_pb2 import WebhookEntity as ProtoWebhookEntity
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
 from mlflow.protos.webhooks_pb2 import WebhookTestResult as ProtoWebhookTestResult
@@ -16,38 +20,200 @@ class WebhookStatus(str, Enum):
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: int) -> "WebhookStatus":
-        return WebhookStatus(ProtoWebhookStatus.Name(proto))
+    def from_proto(cls, proto: int) -> Self:
+        proto_name = ProtoWebhookStatus.Name(proto)
+        try:
+            return cls(proto_name)
+        except ValueError:
+            raise ValueError(f"Unknown proto status: {proto_name}")
 
     def to_proto(self) -> int:
-        return ProtoWebhookStatus.Value(self.name)
+        return ProtoWebhookStatus.Value(self.value)
 
     def is_active(self) -> bool:
         return self == WebhookStatus.ACTIVE
 
 
-class WebhookEvent(str, Enum):
-    # Registered Model Events
-    REGISTERED_MODEL_CREATED = "REGISTERED_MODEL_CREATED"
-
-    # Model Version Events
-    MODEL_VERSION_CREATED = "MODEL_VERSION_CREATED"
-    MODEL_VERSION_TAG_SET = "MODEL_VERSION_TAG_SET"
-    MODEL_VERSION_TAG_DELETED = "MODEL_VERSION_TAG_DELETED"
-
-    # Model Version Alias Events
-    MODEL_VERSION_ALIAS_CREATED = "MODEL_VERSION_ALIAS_CREATED"
-    MODEL_VERSION_ALIAS_DELETED = "MODEL_VERSION_ALIAS_DELETED"
+class WebhookEntity(str, Enum):
+    REGISTERED_MODEL = "registered_model"
+    MODEL_VERSION = "model_version"
+    MODEL_VERSION_TAG = "model_version_tag"
+    MODEL_VERSION_ALIAS = "model_version_alias"
 
     def __str__(self) -> str:
         return self.value
 
     @classmethod
-    def from_proto(cls, proto: int) -> "WebhookEvent":
-        return cls(ProtoWebhookEvent.Name(proto))
+    def from_proto(cls, proto: int) -> Self:
+        proto_name = ProtoWebhookEntity.Name(proto)
+        entity_value = proto_name.lower()
+        return cls(entity_value)
 
     def to_proto(self) -> int:
-        return ProtoWebhookEvent.Value(self.value)
+        proto_name = self.value.upper()
+        return ProtoWebhookEntity.Value(proto_name)
+
+
+class WebhookAction(str, Enum):
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+    SET = "set"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_proto(cls, proto: int) -> Self:
+        proto_name = ProtoWebhookAction.Name(proto)
+        # Convert UPPER_CASE to lowercase
+        action_value = proto_name.lower()
+        try:
+            return cls(action_value)
+        except ValueError:
+            raise ValueError(f"Unknown proto action: {proto_name}")
+
+    def to_proto(self) -> int:
+        # Convert lowercase to UPPER_CASE
+        proto_name = self.value.upper()
+        return ProtoWebhookAction.Value(proto_name)
+
+
+WebhookEventStr: TypeAlias = Literal[
+    "registered_model.created",
+    "model_version.created",
+    "model_version_tag.set",
+    "model_version_tag.deleted",
+    "model_version_alias.created",
+    "model_version_alias.deleted",
+]
+
+# Valid actions for each entity type
+VALID_ENTITY_ACTIONS: dict[WebhookEntity, set[WebhookAction]] = {
+    WebhookEntity.REGISTERED_MODEL: {
+        WebhookAction.CREATED,
+    },
+    WebhookEntity.MODEL_VERSION: {
+        WebhookAction.CREATED,
+    },
+    WebhookEntity.MODEL_VERSION_TAG: {
+        WebhookAction.SET,
+        WebhookAction.DELETED,
+    },
+    WebhookEntity.MODEL_VERSION_ALIAS: {
+        WebhookAction.CREATED,
+        WebhookAction.DELETED,
+    },
+}
+
+
+class WebhookEvent:
+    """
+    Represents a webhook event with a resource and action.
+    """
+
+    def __init__(
+        self,
+        entity: Union[str, WebhookEntity],
+        action: Union[str, WebhookAction],
+    ):
+        """
+        Initialize a WebhookEvent.
+
+        Args:
+            entity: The entity type (string or WebhookEntity enum)
+            action: The action type (string or WebhookAction enum)
+
+        Raises:
+            MlflowException: If the entity/action combination is invalid
+        """
+        self._entity = WebhookEntity(entity) if isinstance(entity, str) else entity
+        self._action = WebhookAction(action) if isinstance(action, str) else action
+
+        # Validate entity/action combination
+        if not self.is_valid_combination(self._entity, self._action):
+            valid_actions = VALID_ENTITY_ACTIONS.get(self._entity, set())
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid action '{self._action}' for entity '{self._entity}'. "
+                f"Valid actions are: {sorted([a.value for a in valid_actions])}"
+            )
+
+    @property
+    def entity(self) -> WebhookEntity:
+        return self._entity
+
+    @property
+    def action(self) -> WebhookAction:
+        return self._action
+
+    @staticmethod
+    def is_valid_combination(entity: WebhookEntity, action: WebhookAction) -> bool:
+        """
+        Check if an entity/action combination is valid.
+
+        Args:
+            entity: The webhook entity
+            action: The webhook action
+
+        Returns:
+            True if the combination is valid, False otherwise
+        """
+        valid_actions = VALID_ENTITY_ACTIONS.get(entity, set())
+        return action in valid_actions
+
+    @classmethod
+    def from_proto(cls, proto: ProtoWebhookEvent) -> Self:
+        return cls(
+            entity=WebhookEntity.from_proto(proto.entity),
+            action=WebhookAction.from_proto(proto.action),
+        )
+
+    @classmethod
+    def from_str(cls, event_str: WebhookEventStr) -> Self:
+        """
+        Create a WebhookEvent from a dot-separated string representation.
+
+        Args:
+            event_str: Valid webhook event string (e.g., "registered_model.created")
+
+        Returns:
+            A WebhookEvent instance
+        """
+        match event_str.split("."):
+            case [entity_str, action_str]:
+                try:
+                    entity = WebhookEntity(entity_str)
+                    action = WebhookAction(action_str)
+                    return cls(entity=entity, action=action)
+                except ValueError as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid entity or action in event string: {event_str}. Error: {e}"
+                    )
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid event string format: {event_str}. "
+                    "Expected format: 'entity.action' (e.g., 'registered_model.created')"
+                )
+
+    def to_proto(self) -> ProtoWebhookEvent:
+        event = ProtoWebhookEvent()
+        event.entity = self.entity.to_proto()
+        event.action = self.action.to_proto()
+        return event
+
+    def __str__(self) -> str:
+        return f"{self.entity.value}.{self.action.value}"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, WebhookEvent):
+            return False
+        return self.entity == other.entity and self.action == other.action
+
+    def __hash__(self) -> int:
+        return hash((self.entity, self.action))
+
+    def __repr__(self) -> str:
+        return f"WebhookEvent(entity={self.entity}, action={self.action})"
 
 
 class Webhook:
@@ -60,7 +226,7 @@ class Webhook:
         webhook_id: str,
         name: str,
         url: str,
-        events: list[Union[str, WebhookEvent]],
+        events: list[WebhookEvent],
         creation_timestamp: int,
         last_updated_timestamp: int,
         description: Optional[str] = None,
@@ -74,7 +240,7 @@ class Webhook:
             webhook_id: Unique webhook identifier
             name: Human-readable webhook name
             url: Webhook endpoint URL
-            events: List of event types that trigger this webhook (strings or WebhookEvent enums)
+            events: List of WebhookEvent objects that trigger this webhook
             creation_timestamp: Creation timestamp in milliseconds since Unix epoch
             last_updated_timestamp: Last update timestamp in milliseconds since Unix epoch
             description: Optional webhook description
@@ -87,7 +253,7 @@ class Webhook:
         self._url = url
         if not events:
             raise MlflowException.invalid_parameter_value("Webhook events cannot be empty")
-        self._events = [(WebhookEvent(e) if isinstance(e, str) else e) for e in events]
+        self._events = events
         self._description = description
         self._status = WebhookStatus(status) if isinstance(status, str) else status
         self._secret = secret
@@ -131,7 +297,7 @@ class Webhook:
         return self._last_updated_timestamp
 
     @classmethod
-    def from_proto(cls, proto: ProtoWebhook) -> "Webhook":
+    def from_proto(cls, proto: ProtoWebhook) -> Self:
         return cls(
             webhook_id=proto.webhook_id,
             name=proto.name,
@@ -144,16 +310,17 @@ class Webhook:
         )
 
     def to_proto(self):
-        return ProtoWebhook(
-            webhook_id=self.webhook_id,
-            name=self.name,
-            url=self.url,
-            events=[event.to_proto() for event in self.events],
-            description=self.description,
-            status=self.status.to_proto(),
-            creation_timestamp=self.creation_timestamp,
-            last_updated_timestamp=self.last_updated_timestamp,
-        )
+        webhook = ProtoWebhook()
+        webhook.webhook_id = self.webhook_id
+        webhook.name = self.name
+        webhook.url = self.url
+        webhook.events.extend([event.to_proto() for event in self.events])
+        if self.description:
+            webhook.description = self.description
+        webhook.status = self.status.to_proto()
+        webhook.creation_timestamp = self.creation_timestamp
+        webhook.last_updated_timestamp = self.last_updated_timestamp
+        return webhook
 
     def __repr__(self) -> str:
         return (
@@ -212,7 +379,7 @@ class WebhookTestResult:
         return self._error_message
 
     @classmethod
-    def from_proto(cls, proto: ProtoWebhookTestResult) -> "WebhookTestResult":
+    def from_proto(cls, proto: ProtoWebhookTestResult) -> Self:
         return cls(
             success=proto.success,
             response_status=proto.response_status or None,
