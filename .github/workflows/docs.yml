@@ -73,6 +73,16 @@ jobs:
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
         run: |
           npm run build-all -- --no-r --use-npm
+      - name: Check API inventory
+        run: |
+          if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
+            echo "The API inventory file 'docs/api_reference/api_inventory.txt' is outdated (see the diff below)."
+            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory."
+            echo "If the new APIs should be marked as experimental, please decorate them with '@experimental'."
+            echo "Diff:"
+            git diff api_reference/api_inventory.txt
+            exit 1
+          fi
       - name: Test examples
         working-directory: docs/api_reference
         run: |
