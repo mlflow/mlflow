@@ -6,7 +6,7 @@ associations without requiring dedicated junction tables for each relationship t
 """
 
 
-class EntityType:
+class EntityAssociationType:
     """Constants for entity types used in the entity_association table."""
 
     EXPERIMENT = "experiment"

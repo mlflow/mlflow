@@ -33,7 +33,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.entity_type import EntityType
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -82,6 +82,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2271,11 +2272,32 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters = _get_filter_clauses_for_search_traces(
-                filter_string, session, self._get_dialect()
+            attribute_filters, non_attribute_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
+
+            # Apply non-attribute filters
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            # If run_id filter is present, we need to handle it specially to include linked traces
+            if run_id_filter:
+                from sqlalchemy import exists, or_
+
+                # Create a subquery to check if a trace is linked to the run via entity associations
+                linked_trace_exists = exists().where(
+                    (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
+                    & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
+                    & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
+                    & (SqlEntityAssociation.destination_id == run_id_filter)
+                )
+
+                # Create a subquery to check if trace has run_id in metadata
+                metadata_exists = exists().where(
+                    (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
+                    & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
+                    & (SqlTraceMetadata.value == run_id_filter)
+                )
 
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -2285,6 +2307,22 @@ class SqlAlchemyStore(AbstractStore):
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
             experiment_ids = [int(e) for e in experiment_ids]
+
+            # Build the filter conditions
+            filter_conditions = [
+                SqlTraceInfo.experiment_id.in_(experiment_ids),
+                *attribute_filters,
+            ]
+
+            # If run_id filter is present, add OR condition for linked traces
+            if run_id_filter:
+                filter_conditions.append(
+                    or_(
+                        linked_trace_exists,  # Trace is linked via entity associations
+                        metadata_exists,  # Trace has run_id in metadata
+                    )
+                )
+
             stmt = (
                 # NB: We don't need to distinct the results of joins because of the fact that
                 #   the right tables of the joins are unique on the join key, trace_id.
@@ -2293,10 +2331,7 @@ class SqlAlchemyStore(AbstractStore):
                 #   trace_id is unique in those tables.
                 #   Be careful when changing the query building logic, as it may break this
                 #   uniqueness property and require deduplication, which can be expensive.
-                stmt.filter(
-                    SqlTraceInfo.experiment_id.in_(experiment_ids),
-                    *attribute_filters,
-                )
+                stmt.filter(*filter_conditions)
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
@@ -2643,124 +2678,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
         return sql_assessment
 
-    def _search_entity_associations(
-        self,
-        entity_id: str,
-        entity_type: EntityType,
-        target_type: EntityType,
-        search_direction: str,  # "forward" or "reverse"
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[str]:
-        """
-        Common implementation for searching entity associations.
-
-        Args:
-            entity_id: The ID of the entity to search from.
-            entity_type: The type of the entity to search from.
-            target_type: The type of the target entities to find.
-            search_direction: "forward" to search source->destination, "reverse" for the opposite.
-            max_results: Maximum number of results to return. If None, return all results.
-            page_token: Token indicating the page of results to fetch.
-
-        Returns:
-            A :py:class:`mlflow.store.entities.paged_list.PagedList` of target entity IDs.
-        """
-        with self.ManagedSessionMaker() as session:
-            query = session.query(SqlEntityAssociation)
-
-            if search_direction == "forward":
-                # Search source -> destination
-                query = query.filter(
-                    SqlEntityAssociation.source_type == entity_type,
-                    SqlEntityAssociation.source_id == entity_id,
-                    SqlEntityAssociation.destination_type == target_type,
-                )
-                order_field = SqlEntityAssociation.destination_id
-                result_field = "destination_id"
-            else:
-                # Search destination -> source
-                query = query.filter(
-                    SqlEntityAssociation.destination_type == entity_type,
-                    SqlEntityAssociation.destination_id == entity_id,
-                    SqlEntityAssociation.source_type == target_type,
-                )
-                order_field = SqlEntityAssociation.source_id
-                result_field = "source_id"
-
-            # Parse offset from page_token for pagination
-            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-
-            # Add ORDER BY clause for consistent pagination
-            query = query.order_by(SqlEntityAssociation.created_time, order_field)
-            query = query.offset(offset)
-
-            if max_results is not None:
-                query = query.limit(max_results + 1)
-
-            associations = query.all()
-
-            # Compute next token if more results are available
-            next_token = None
-            if max_results is not None and len(associations) == max_results + 1:
-                final_offset = offset + max_results
-                next_token = SearchUtils.create_page_token(final_offset)
-                associations = associations[:max_results]
-
-            return PagedList([getattr(assoc, result_field) for assoc in associations], next_token)
-
-    def search_entities_by_source(
-        self,
-        source_id: str,
-        source_type: EntityType,
-        destination_type: EntityType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[str]:
-        """
-        Get destination IDs associated with a source entity.
-
-        Args:
-            source_id: The ID of the source entity.
-            source_type: The type of the source entity.
-            destination_type: The type of the destination entity.
-            max_results: Maximum number of results to return. If None, return all results.
-            page_token: Token indicating the page of results to fetch.
-
-        Returns:
-            A :py:class:`mlflow.store.entities.paged_list.PagedList` of destination IDs
-            associated with the source entity.
-        """
-        return self._search_entity_associations(
-            source_id, source_type, destination_type, "forward", max_results, page_token
-        )
-
-    def search_entities_by_destination(
-        self,
-        destination_id: str,
-        destination_type: EntityType,
-        source_type: EntityType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[str]:
-        """
-        Get source IDs associated with a destination entity.
-
-        Args:
-            destination_id: The ID of the destination entity.
-            destination_type: The type of the destination entity.
-            source_type: The type of the source entity.
-            max_results: Maximum number of results to return. If None, return all results.
-            page_token: Token indicating the page of results to fetch.
-
-        Returns:
-            A :py:class:`mlflow.store.entities.paged_list.PagedList` of source IDs
-            associated with the destination entity.
-        """
-        return self._search_entity_associations(
-            destination_id, destination_type, source_type, "reverse", max_results, page_token
-        )
-
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating entity associations.
@@ -2788,9 +2705,9 @@ class SqlAlchemyStore(AbstractStore):
             session.add_all(
                 SqlEntityAssociation(
                     association_id=uuid.uuid4().hex,
-                    source_type=EntityType.TRACE,
+                    source_type=EntityAssociationType.TRACE,
                     source_id=trace_id,
-                    destination_type=EntityType.RUN,
+                    destination_type=EntityAssociationType.RUN,
                     destination_id=run_id,
                 )
                 for trace_id in trace_ids
@@ -3178,9 +3095,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
+    Also extracts run_id filter if present for special handling.
     """
     attribute_filters = []
     non_attribute_filters = []
+    run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
     for sql_statement in parsed_filters:
@@ -3196,6 +3115,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
             attribute_filters.append(attr_filter)
         else:
+            # Check if this is a run_id filter (stored as SOURCE_RUN in metadata)
+            if (
+                SearchTraceUtils.is_request_metadata(key_type, comparator)
+                and key_name == TraceMetadataKey.SOURCE_RUN
+                and comparator == "="
+            ):
+                run_id_filter = value
+                # Don't add run_id filter to non_attribute_filters since we handle it specially
+                continue
+
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
@@ -3216,4 +3145,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, non_attribute_filters, run_id_filter
