@@ -2844,8 +2844,6 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     session.add(association)
 
-            session.flush()
-
             sql_dataset_with_tags = (
                 session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
