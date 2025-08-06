@@ -1846,8 +1846,8 @@ Arguments
 | ``port``                      | The port to listen on (default:      |
 |                               | 5000).                               |
 +-------------------------------+--------------------------------------+
-| ``workers``                   | Number of worker processes to handle |
-|                               | requests (default: 4).               |
+| ``workers``                   | Number of gunicorn worker processes  |
+|                               | to handle requests (default: 4).     |
 +-------------------------------+--------------------------------------+
 | ``static_prefix``             | A prefix which will be prepended to  |
 |                               | the path of all static paths.        |
