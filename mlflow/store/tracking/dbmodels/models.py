@@ -1305,11 +1305,11 @@ class SqlSpan(Base):
     Span name: `Text`. Can be null.
     """
 
-    type = Column(String(1000), nullable=True)
+    type = Column(String(500), nullable=True)
     """
-    Span type: `String` (limit 1000 characters). Can be null.
+    Span type: `String` (limit 500 characters). Can be null.
     Uses String instead of Text to support MSSQL indexes.
-    1000 chars should be plenty for most span types.
+    Limited to 500 chars to stay within MySQL's max index key length.
     """
 
     status = Column(String(50), nullable=False)
