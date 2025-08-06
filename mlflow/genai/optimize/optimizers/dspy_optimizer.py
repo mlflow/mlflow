@@ -110,7 +110,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         eval_data: list["dspy.Example"],
     ) -> OptimizerOutput:
         raise NotImplementedError(
-            "Subclasses of DSPyPromptOptimizer must implement `run_optimization`  ."
+            "Subclasses of DSPyPromptOptimizer must implement `run_optimization`."
         )
 
     def _get_input_fields(self, train_data: "pd.DataFrame") -> dict[str, type]:
