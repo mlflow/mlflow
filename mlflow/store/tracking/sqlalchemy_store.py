@@ -2076,6 +2076,40 @@ class SqlAlchemyStore(AbstractStore):
             
             return scorer
 
+    def delete_scorer(self, experiment_id, name):
+        """
+        Delete all versions of a scorer for an experiment.
+        
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            
+            # Query for all versions of the scorer
+            sql_scorers = session.query(SqlScorer).filter(
+                SqlScorer.experiment_id == experiment.experiment_id,
+                SqlScorer.scorer_name == name
+            ).all()
+            
+            if not sql_scorers:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            
+            # Delete all versions of the scorer
+            for sql_scorer in sql_scorers:
+                session.delete(sql_scorer)
+            
+            session.commit()
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
