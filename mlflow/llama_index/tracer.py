@@ -250,6 +250,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
 
             base_agent_types = (BaseAgent, BaseAgentWorker)
+        else:
+            from llama_index.core.agent.workflow import BaseWorkflowAgent
+
+            base_agent_types = (BaseWorkflowAgent,)
 
         if isinstance(instance, (BaseLLM, MultiModalLLM)):
             return SpanType.LLM
