@@ -2724,25 +2724,29 @@ class SqlAlchemyStore(AbstractStore):
             # ensuring the trace always reflects the earliest start and latest end times across
             # all spans, even when multiple log_spans calls happen simultaneously.
 
+            # Create the timestamp update expression once for reuse
+            timestamp_update_expr = case(
+                (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                else_=SqlTraceInfo.timestamp_ms,
+            )
+
             update_dict = {
-                SqlTraceInfo.timestamp_ms: case(
-                    (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                    else_=SqlTraceInfo.timestamp_ms,
-                ),
+                SqlTraceInfo.timestamp_ms: timestamp_update_expr,
             }
 
             # Only update execution_time_ms if we have at least one ended span
             if max_end_time is not None:
                 max_end_ms = max_end_time // 1_000_000
-                update_dict[SqlTraceInfo.execution_time_ms] = case(
-                    (
-                        (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms) > max_end_ms,
-                        SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
-                    ),
-                    else_=max_end_ms,
-                ) - case(
-                    (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
-                    else_=SqlTraceInfo.timestamp_ms,
+                update_dict[SqlTraceInfo.execution_time_ms] = (
+                    case(
+                        (
+                            (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                            > max_end_ms,
+                            SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                        ),
+                        else_=max_end_ms,
+                    )
+                    - timestamp_update_expr
                 )
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
