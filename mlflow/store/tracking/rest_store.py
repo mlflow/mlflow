@@ -2,6 +2,10 @@ import json
 import logging
 from typing import Any, Optional
 
+from google.protobuf.json_format import MessageToJson
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource
+
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -97,6 +101,8 @@ from mlflow.utils.rest_utils import (
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
     get_trace_tag_endpoint,
+    http_request,
+    verify_rest_response,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -1165,13 +1171,6 @@ class RestStore(AbstractStore):
         if len(trace_ids) > 1:
             raise ValueError(f"All spans must belong to the same trace. Found traces: {trace_ids}")
 
-        # Import protobuf definitions
-        from google.protobuf.json_format import MessageToJson
-        from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
-            ExportTraceServiceRequest,
-        )
-        from opentelemetry.proto.resource.v1.resource_pb2 import Resource
-
         # Create protobuf request
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
@@ -1186,8 +1185,6 @@ class RestStore(AbstractStore):
         # Convert protobuf to JSON and send request
         json_str = MessageToJson(request)
         endpoint = "/v1/traces"
-
-        from mlflow.utils.rest_utils import http_request, verify_rest_response
 
         response = http_request(
             host_creds=self.get_host_creds(),
