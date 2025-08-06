@@ -54,8 +54,23 @@ class SimpleChatAgent(ChatAgent):
     ) -> ChatAgentResponse:
         mock_response = get_mock_response(messages)
         return ChatAgentResponse(**mock_response)
+    
+    async def predict_async(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ) -> ChatAgentResponse:
+        mock_response = get_mock_response(messages)
+        return ChatAgentResponse(**mock_response)
 
     def predict_stream(
+        self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
+    ):
+        for i in range(5):
+            mock_response = get_mock_response(messages, f"message {i}")
+            mock_response["delta"] = mock_response["messages"][0]
+            mock_response["delta"]["id"] = str(i)
+            yield ChatAgentChunk(**mock_response)
+            
+    async def predict_stream_async(
         self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ):
         for i in range(5):
@@ -211,6 +226,21 @@ def test_chat_agent_predict(tmp_path):
     response = loaded_model.predict({"messages": messages})
     assert response["messages"][0]["content"] == "You are a helpful assistant"
 
+async def test_chat_agent_predict_async(tmp_path):
+    model = ChatAgentWithCustomInputs()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+
+    # test that a single dictionary will work
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    response = await loaded_model.predict_async({"messages": messages})
+    assert response["messages"][0]["content"] == "You are a helpful assistant"
+
 
 def test_chat_agent_works_with_infer_signature_input_example():
     model = SimpleChatAgent()
@@ -320,6 +350,19 @@ def test_chat_agent_predict_stream(tmp_path):
     ]
 
     responses = list(loaded_model.predict_stream({"messages": messages}))
+    for i, resp in enumerate(responses[:-1]):
+        assert resp["delta"]["content"] == f"message {i}"
+
+async def test_chat_agent_predict_stream_async(tmp_path):
+    model = SimpleChatAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    responses = list(await loaded_model.predict_stream_async({"messages": messages}))
     for i, resp in enumerate(responses[:-1]):
         assert resp["delta"]["content"] == f"message {i}"
 
