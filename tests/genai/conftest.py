@@ -23,7 +23,10 @@ def is_in_databricks(request):
     # NB: The mlflow.genai.evaluate() API is only runnable when the tracking URI is set
     # to Databricks. However, we cannot test against real Databricks server in CI, so
     # we spoof the check by patching the is_databricks_uri() function.
-    with mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param):
+    with (
+        mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param),
+        mock.patch("mlflow.genai.judges.utils.is_databricks_uri", return_value=request.param),
+    ):
         yield request.param
 
 
