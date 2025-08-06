@@ -227,7 +227,12 @@ class SqlAlchemyStore(AbstractStore):
         if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
-        if len(self.search_experiments(view_type=ViewType.ALL)) == 0:
+        # Check if default experiment exists (not just if any experiments exist)
+        # This is important for databases that persist across test runs
+        try:
+            self.get_experiment(str(self.DEFAULT_EXPERIMENT_ID))
+        except MlflowException:
+            # Default experiment doesn't exist, create it
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
