@@ -275,7 +275,7 @@ CREATE TABLE spans (
 	span_id VARCHAR(50) NOT NULL,
 	parent_span_id VARCHAR(50),
 	name TEXT,
-	type VARCHAR(1000),
+	type VARCHAR(500),
 	status VARCHAR(50) NOT NULL,
 	start_time_unix_nano BIGINT NOT NULL,
 	end_time_unix_nano BIGINT,
