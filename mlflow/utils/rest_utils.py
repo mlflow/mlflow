@@ -412,7 +412,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
     Raises:
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
-    from databricks.sdk.errors import DatabricksError
+    from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
 
     start_time = time.time()
     attempt = 0
@@ -422,8 +422,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             return call_func()
         except DatabricksError as e:
             # Get HTTP status code from the error
-            status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
-
+            status_code = next(
+                (code for code, cls in STATUS_CODE_MAPPING.items() if isinstance(e, cls)), 500
+            )
             # Check if this is a retryable error
             if status_code not in retry_codes:
                 raise
