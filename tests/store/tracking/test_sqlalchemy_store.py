@@ -6127,7 +6127,7 @@ def test_evaluation_dataset_crud_operations(store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_evaluation_dataset(
             name="test_eval_dataset",
-            tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
+            tags={"purpose": "testing", "environment": "test", mlflow_tags.MLFLOW_USER: "test_user"},
             experiment_ids=experiment_ids,
         )
 
@@ -6137,7 +6137,7 @@ def test_evaluation_dataset_crud_operations(store):
         assert created_dataset.tags == {
             "purpose": "testing",
             "environment": "test",
-            "mlflow.user": "test_user",
+            mlflow_tags.MLFLOW_USER: "test_user",
         }
         assert created_dataset.created_time > 0
         assert created_dataset.last_update_time > 0
@@ -6281,7 +6281,7 @@ def test_evaluation_dataset_search_comprehensive(store):
 
     created_user = store.create_evaluation_dataset(
         name=f"{test_prefix}_user_dataset",
-        tags={"test": "user", "mlflow.user": "test_user_1"},
+        tags={"test": "user", mlflow_tags.MLFLOW_USER: "test_user_1"},
         experiment_ids=[exp_ids[0]],
     )
 
@@ -6291,7 +6291,7 @@ def test_evaluation_dataset_search_comprehensive(store):
     assert test_results[0].created_by == "test_user_1"
 
     store.set_evaluation_dataset_tags(
-        created_user.dataset_id, {"updated": "true"}, updated_by="test_user_2"
+        created_user.dataset_id, {"updated": "true", mlflow_tags.MLFLOW_USER: "test_user_2"}
     )
 
     results = store.search_evaluation_datasets(filter_string="last_updated_by = 'test_user_2'")
@@ -6369,7 +6369,6 @@ def test_evaluation_dataset_schema_and_profile_computation(store):
 
 
 def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
-    """Test that schema and profile are updated incrementally as records are added."""
     test_prefix = "test_incremental_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
@@ -6423,8 +6422,6 @@ def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
 
 
 def test_evaluation_dataset_user_detection(store):
-    """Test that mlflow.user tag automatically sets created_by field."""
-    from mlflow.utils.mlflow_tags import MLFLOW_USER
 
     test_prefix = "test_user_detection_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
@@ -6435,7 +6432,7 @@ def test_evaluation_dataset_user_detection(store):
         experiment_ids=exp_ids,
     )
     assert dataset1.created_by == "john_doe"
-    assert dataset1.tags[MLFLOW_USER] == "john_doe"
+    assert dataset1.tags[mlflow_tags.MLFLOW_USER] == "john_doe"
 
     dataset2 = store.create_evaluation_dataset(
         name=f"{test_prefix}dataset2", tags={"other": "tag"}, experiment_ids=exp_ids
@@ -6764,9 +6761,8 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
     }
     assert updated.tags == expected_tags
-    # last_updated_by is extracted from tags if mlflow.user is present
-    # Since we didn't set mlflow.user in the tags, it should remain None
-    assert updated.last_updated_by is None or updated.last_updated_by == updated.created_by
+
+    assert updated.last_updated_by == updated.created_by
 
     created_no_tags = store.create_evaluation_dataset(
         name="test_no_initial_tags",
@@ -6774,7 +6770,6 @@ def test_evaluation_dataset_update_tags(store):
         experiment_ids=None,
     )
 
-    # Set mlflow.user in tags to test user extraction
     store.set_evaluation_dataset_tags(
         created_no_tags.dataset_id, {"new_tag": "value", "mlflow.user": "test_user2"}
     )
