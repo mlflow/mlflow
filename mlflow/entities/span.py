@@ -353,6 +353,17 @@ class Span:
         if otel_proto_span.parent_span_id:
             parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
+        from opentelemetry.trace import Status as OTelStatus
+        from opentelemetry.trace import StatusCode as OTelStatusCode
+
+        # Convert OTel proto status code directly to OTel SDK status
+        if otel_proto_span.status.code == 1:  # STATUS_CODE_OK
+            status_code = OTelStatusCode.OK
+        elif otel_proto_span.status.code == 2:  # STATUS_CODE_ERROR
+            status_code = OTelStatusCode.ERROR
+        else:
+            status_code = OTelStatusCode.UNSET
+
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -362,7 +373,7 @@ class Span:
             attributes={
                 attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
             },
-            status=SpanStatus.from_otel_proto_status(otel_proto_span.status).to_otel_status(),
+            status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
                 OTelEvent(
                     name=event.name,
