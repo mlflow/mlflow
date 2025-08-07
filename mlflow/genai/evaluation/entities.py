@@ -155,3 +155,14 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame
+
+    def __repr__(self) -> str:
+        metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
+        return (
+            "EvaluationResult(\n"
+            f"  run_id: {self.run_id}\n"
+            "  metrics:\n"
+            f"    {metrics_str}\n"
+            f"  result_df: [{len(self.result_df)} rows x {len(self.result_df.columns)} cols]\n"
+            ")"
+        )

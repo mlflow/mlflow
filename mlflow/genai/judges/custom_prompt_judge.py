@@ -1,6 +1,6 @@
 import re
 from difflib import unified_diff
-from typing import Callable, Optional
+from typing import Callable
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -22,8 +22,8 @@ def custom_prompt_judge(
     *,
     name: str,
     prompt_template: str,
-    numeric_values: Optional[dict[str, float]] = None,
-    model: Optional[str] = None,
+    numeric_values: dict[str, float] | None = None,
+    model: str | None = None,
 ) -> Callable[..., Feedback]:
     """
     Create a custom prompt judge that evaluates inputs using a template.
