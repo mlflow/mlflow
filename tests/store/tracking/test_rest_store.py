@@ -8,6 +8,7 @@ import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    EvaluationDataset,
     Experiment,
     ExperimentTag,
     InputTag,
@@ -45,13 +46,16 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateAssessment,
+    CreateEvaluationDataset,
     CreateLoggedModel,
     CreateRun,
+    DeleteEvaluationDataset,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     EndTrace,
+    GetEvaluationDataset,
     GetExperimentByName,
     GetLoggedModel,
     GetTraceInfoV3,
@@ -63,6 +67,7 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     RestoreExperiment,
     RestoreRun,
+    SearchEvaluationDatasets,
     SearchExperiments,
     SearchRuns,
     SetExperimentTag,
@@ -70,6 +75,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UpdateEvaluationDatasetTags,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -1458,3 +1464,243 @@ def test_create_logged_models_with_params(
 
         # Verify total number of calls
         assert mock_call_endpoint.call_count == expected_call_count
+
+
+# ============================================================================
+# Evaluation Dataset REST Store Tests
+# ============================================================================
+
+
+def test_create_evaluation_dataset():
+    """Test creating an evaluation dataset via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    with mock_http_request() as mock_http:
+        store.create_evaluation_dataset(
+            name="test_dataset",
+            tags={"env": "test"},
+            experiment_ids=["0", "1"],
+        )
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/create",
+            "POST",
+            message_to_json(
+                CreateEvaluationDataset(
+                    name="test_dataset",
+                    tags={"env": "test"},
+                    experiment_ids=["0", "1"],
+                )
+            ),
+        )
+
+
+def test_get_evaluation_dataset():
+    """Test getting an evaluation dataset by ID via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    
+    with mock_http_request() as mock_http:
+        store.get_evaluation_dataset(dataset_id)
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/get",
+            "GET",
+            message_to_json(GetEvaluationDataset(dataset_id=dataset_id)),
+        )
+
+
+def test_delete_evaluation_dataset():
+    """Test deleting an evaluation dataset via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    
+    with mock_http_request() as mock_http:
+        store.delete_evaluation_dataset(dataset_id)
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/delete",
+            "DELETE",
+            message_to_json(DeleteEvaluationDataset(dataset_id=dataset_id)),
+        )
+
+
+def test_search_evaluation_datasets():
+    """Test searching for evaluation datasets via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    with mock_http_request() as mock_http:
+        store.search_evaluation_datasets(
+            experiment_ids=["0", "1"],
+            filter_string='name = "dataset1"',
+            max_results=10,
+            order_by=["name DESC"],
+            page_token="token123",
+        )
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/search",
+            "POST",
+            message_to_json(
+                SearchEvaluationDatasets(
+                    experiment_ids=["0", "1"],
+                    filter='name = "dataset1"',
+                    max_results=10,
+                    order_by=["name DESC"],
+                    page_token="token123",
+                )
+            ),
+        )
+
+
+def test_set_evaluation_dataset_tags():
+    """Test setting tags for an evaluation dataset via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    tags = {"env": "production", "version": "2.0", "deprecated": None}
+    
+    with mock_http_request() as mock_http:
+        store.set_evaluation_dataset_tags(
+            dataset_id=dataset_id,
+            tags=tags,
+            updated_by="user123",
+        )
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/set-tags",
+            "PATCH",
+            message_to_json(
+                UpdateEvaluationDatasetTags(
+                    dataset_id=dataset_id,
+                    tags=json.dumps(tags),
+                    updated_by="user123",
+                )
+            ),
+        )
+
+
+# test_update_evaluation_dataset_tags removed - method was renamed to set_evaluation_dataset_tags
+
+
+def test_upsert_evaluation_dataset_records():
+    """Test upserting records for an evaluation dataset via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"accuracy": 0.95},
+            "source": {
+                "source_type": "HUMAN",
+                "source_data": {"user": "user123"},
+            },
+        },
+        {
+            "inputs": {"question": "How to use MLflow?"},
+            "expectations": {"accuracy": 0.9},
+            "source": {
+                "source_type": "TRACE",
+                "source_data": {"trace_id": "trace123"},
+            },
+        },
+    ]
+    
+    # TODO: Test disabled until UpsertEvaluationDatasetRecords proto is defined
+    with pytest.raises(NotImplementedError, match="UpsertEvaluationDatasetRecords proto message not yet defined"):
+        store.upsert_evaluation_dataset_records(
+            dataset_id=dataset_id,
+            records=records,
+            updated_by="user123",
+        )
+
+
+def test_get_evaluation_dataset_experiment_ids():
+    """Test getting experiment IDs associated with an evaluation dataset via REST API."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    
+    # TODO: Test disabled until GetEvaluationDatasetExperimentIds proto is defined
+    with pytest.raises(NotImplementedError, match="GetEvaluationDatasetExperimentIds proto message not yet defined"):
+        store.get_evaluation_dataset_experiment_ids(dataset_id)
+
+
+def test_evaluation_dataset_error_handling():
+    """Test error handling for evaluation dataset REST operations."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    # Test 404 Not Found
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        error_response = {
+            "error_code": "RESOURCE_DOES_NOT_EXIST",
+            "message": "Evaluation dataset not found",
+        }
+        response = mock.MagicMock()
+        response.status_code = 404
+        response.text = json.dumps(error_response)
+        mock_http.return_value = response
+        
+        # This should now raise MlflowException from the REST store
+        with pytest.raises(MlflowException, match="Evaluation dataset not found"):
+            store.get_evaluation_dataset("d-nonexistent")
+
+
+def test_evaluation_dataset_pagination():
+    """Test pagination support for search_evaluation_datasets."""
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    
+    # Test first page request
+    with mock_http_request() as mock_http:
+        store.search_evaluation_datasets(max_results=10)
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/search",
+            "POST",
+            message_to_json(
+                SearchEvaluationDatasets(
+                    experiment_ids=[],
+                    filter=None,
+                    max_results=10,
+                    order_by=[],
+                    page_token=None,
+                )
+            ),
+        )
+    
+    # Test second page request with page token
+    with mock_http_request() as mock_http:
+        store.search_evaluation_datasets(max_results=10, page_token="page2")
+        _verify_requests(
+            mock_http,
+            creds,
+            "evaluation-datasets/search",
+            "POST",
+            message_to_json(
+                SearchEvaluationDatasets(
+                    experiment_ids=[],
+                    filter=None,
+                    max_results=10,
+                    order_by=[],
+                    page_token="page2",
+                )
+            ),
+        )
