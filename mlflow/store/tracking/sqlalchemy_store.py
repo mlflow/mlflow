@@ -3382,6 +3382,15 @@ class SqlAlchemyStore(AbstractStore):
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
+            # Extract user who is performing the upsert operation
+            # Look through all records to find mlflow.user tag
+            updated_by = None
+            for record_dict in records:
+                record_tags = record_dict.get("tags", {})
+                if record_tags and "mlflow.user" in record_tags:
+                    updated_by = record_tags["mlflow.user"]
+                    break
+            
             update_fields = {
                 "last_update_time": current_time,
                 "last_updated_by": updated_by,

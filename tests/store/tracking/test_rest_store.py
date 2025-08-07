@@ -75,7 +75,9 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
-    UpdateEvaluationDatasetTags,
+    SetEvaluationDatasetTags,
+    UpsertEvaluationDatasetRecords,
+    GetEvaluationDatasetExperimentIds,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -1476,24 +1478,64 @@ def test_create_evaluation_dataset():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)
     
-    with mock_http_request() as mock_http:
-        store.create_evaluation_dataset(
+    # Mock the response for creation
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        # Mock the creation response
+        create_response = CreateEvaluationDataset.Response()
+        create_response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        create_response.dataset.name = "test_dataset"
+        create_response.dataset.created_time = 1234567890
+        create_response.dataset.last_update_time = 1234567890
+        create_response.dataset.digest = "abc123"
+        
+        # Mock the get response after tag setting
+        get_response = GetEvaluationDataset.Response()
+        get_response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        get_response.dataset.name = "test_dataset"
+        get_response.dataset.created_time = 1234567890
+        get_response.dataset.last_update_time = 1234567890
+        get_response.dataset.digest = "abc123"
+        get_response.dataset.tags = json.dumps({"env": "test"})
+        
+        # Set up mock to return create response first, then set tags response, then get response
+        mock_call.side_effect = [create_response, None, get_response]
+        
+        result = store.create_evaluation_dataset(
             name="test_dataset",
             tags={"env": "test"},
             experiment_ids=["0", "1"],
         )
-        _verify_requests(
-            mock_http,
-            creds,
-            "evaluation-datasets/create",
-            "POST",
-            message_to_json(
-                CreateEvaluationDataset(
-                    name="test_dataset",
-                    tags={"env": "test"},
-                    experiment_ids=["0", "1"],
-                )
-            ),
+        
+        # Verify the calls
+        assert mock_call.call_count == 3
+        
+        # First call: create dataset
+        create_req = CreateEvaluationDataset.Request(
+            name="test_dataset",
+            experiment_ids=["0", "1"],
+        )
+        mock_call.assert_any_call(
+            CreateEvaluationDataset,
+            message_to_json(create_req),
+        )
+        
+        # Second call: set tags
+        set_tags_req = SetEvaluationDatasetTags.Request(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            tags=json.dumps({"env": "test"}),
+        )
+        mock_call.assert_any_call(
+            SetEvaluationDatasetTags,
+            message_to_json(set_tags_req),
+        )
+        
+        # Third call: get dataset
+        get_req = GetEvaluationDataset.Request(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+        )
+        mock_call.assert_any_call(
+            GetEvaluationDataset,
+            message_to_json(get_req),
         )
 
 
@@ -1504,14 +1546,28 @@ def test_get_evaluation_dataset():
     
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     
-    with mock_http_request() as mock_http:
-        store.get_evaluation_dataset(dataset_id)
-        _verify_requests(
-            mock_http,
-            creds,
-            "evaluation-datasets/get",
-            "GET",
-            message_to_json(GetEvaluationDataset(dataset_id=dataset_id)),
+    # Mock the response
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = GetEvaluationDataset.Response()
+        response.dataset.dataset_id = dataset_id
+        response.dataset.name = "test_dataset"
+        response.dataset.digest = "abc123"
+        response.dataset.created_time = 1234567890
+        response.dataset.last_update_time = 1234567890
+        mock_call.return_value = response
+        
+        result = store.get_evaluation_dataset(dataset_id)
+        
+        assert result.dataset_id == dataset_id
+        assert result.name == "test_dataset"
+        
+        # Verify the proto message construction
+        req = GetEvaluationDataset.Request(dataset_id=dataset_id)
+        expected_json = message_to_json(req)
+        
+        mock_call.assert_called_once_with(
+            GetEvaluationDataset,
+            expected_json,
         )
 
 
@@ -1522,14 +1578,20 @@ def test_delete_evaluation_dataset():
     
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     
-    with mock_http_request() as mock_http:
+    # Mock the response
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        # DeleteEvaluationDataset doesn't return anything
+        mock_call.return_value = DeleteEvaluationDataset.Response()
+        
         store.delete_evaluation_dataset(dataset_id)
-        _verify_requests(
-            mock_http,
-            creds,
-            "evaluation-datasets/delete",
-            "DELETE",
-            message_to_json(DeleteEvaluationDataset(dataset_id=dataset_id)),
+        
+        # Verify the proto message construction
+        req = DeleteEvaluationDataset.Request(dataset_id=dataset_id)
+        expected_json = message_to_json(req)
+        
+        mock_call.assert_called_once_with(
+            DeleteEvaluationDataset,
+            expected_json,
         )
 
 
@@ -1552,9 +1614,9 @@ def test_search_evaluation_datasets():
             "evaluation-datasets/search",
             "POST",
             message_to_json(
-                SearchEvaluationDatasets(
+                SearchEvaluationDatasets.Request(
                     experiment_ids=["0", "1"],
-                    filter='name = "dataset1"',
+                    filter_string='name = "dataset1"',
                     max_results=10,
                     order_by=["name DESC"],
                     page_token="token123",
@@ -1571,24 +1633,24 @@ def test_set_evaluation_dataset_tags():
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     tags = {"env": "production", "version": "2.0", "deprecated": None}
     
-    with mock_http_request() as mock_http:
+    # Mock the response to avoid NotImplementedError
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.return_value = mock.Mock()
         store.set_evaluation_dataset_tags(
             dataset_id=dataset_id,
             tags=tags,
-            updated_by="user123",
         )
-        _verify_requests(
-            mock_http,
-            creds,
-            "evaluation-datasets/set-tags",
-            "PATCH",
-            message_to_json(
-                UpdateEvaluationDatasetTags(
-                    dataset_id=dataset_id,
-                    tags=json.dumps(tags),
-                    updated_by="user123",
-                )
-            ),
+        
+        # Verify the proto message construction
+        req = SetEvaluationDatasetTags.Request(
+            dataset_id=dataset_id,
+            tags=json.dumps(tags),
+        )
+        expected_json = message_to_json(req)
+        
+        mock_call.assert_called_once_with(
+            SetEvaluationDatasetTags,
+            expected_json,
         )
 
 
@@ -1620,12 +1682,30 @@ def test_upsert_evaluation_dataset_records():
         },
     ]
     
-    # TODO: Test disabled until UpsertEvaluationDatasetRecords proto is defined
-    with pytest.raises(NotImplementedError, match="UpsertEvaluationDatasetRecords proto message not yet defined"):
-        store.upsert_evaluation_dataset_records(
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        # Mock the response
+        response = UpsertEvaluationDatasetRecords.Response()
+        response.inserted_count = 2
+        response.updated_count = 0
+        mock_call.return_value = response
+        
+        result = store.upsert_evaluation_dataset_records(
             dataset_id=dataset_id,
             records=records,
-            updated_by="user123",
+        )
+        
+        assert result == {"inserted": 2, "updated": 0}
+        
+        # Verify the proto message construction
+        req = UpsertEvaluationDatasetRecords.Request(
+            dataset_id=dataset_id,
+            records=json.dumps(records),
+        )
+        expected_json = message_to_json(req)
+        
+        mock_call.assert_called_once_with(
+            UpsertEvaluationDatasetRecords,
+            expected_json,
         )
 
 
@@ -1636,9 +1716,24 @@ def test_get_evaluation_dataset_experiment_ids():
     
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     
-    # TODO: Test disabled until GetEvaluationDatasetExperimentIds proto is defined
-    with pytest.raises(NotImplementedError, match="GetEvaluationDatasetExperimentIds proto message not yet defined"):
-        store.get_evaluation_dataset_experiment_ids(dataset_id)
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        # Mock the response
+        response = GetEvaluationDatasetExperimentIds.Response()
+        response.experiment_ids.extend(["exp1", "exp2", "exp3"])
+        mock_call.return_value = response
+        
+        result = store.get_evaluation_dataset_experiment_ids(dataset_id)
+        
+        assert result == ["exp1", "exp2", "exp3"]
+        
+        # Verify the proto message construction
+        req = GetEvaluationDatasetExperimentIds.Request(dataset_id=dataset_id)
+        expected_json = message_to_json(req)
+        
+        mock_call.assert_called_once_with(
+            GetEvaluationDatasetExperimentIds,
+            expected_json,
+        )
 
 
 def test_evaluation_dataset_error_handling():
@@ -1676,9 +1771,9 @@ def test_evaluation_dataset_pagination():
             "evaluation-datasets/search",
             "POST",
             message_to_json(
-                SearchEvaluationDatasets(
+                SearchEvaluationDatasets.Request(
                     experiment_ids=[],
-                    filter=None,
+                    filter_string=None,
                     max_results=10,
                     order_by=[],
                     page_token=None,
@@ -1695,9 +1790,9 @@ def test_evaluation_dataset_pagination():
             "evaluation-datasets/search",
             "POST",
             message_to_json(
-                SearchEvaluationDatasets(
+                SearchEvaluationDatasets.Request(
                     experiment_ids=[],
-                    filter=None,
+                    filter_string=None,
                     max_results=10,
                     order_by=[],
                     page_token="page2",

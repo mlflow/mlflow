@@ -1171,15 +1171,21 @@ class RestStore(AbstractStore):
         """
         from mlflow.entities import EvaluationDataset
 
-        req_body = message_to_json(
-            CreateEvaluationDataset(
-                name=name,
-                experiment_ids=experiment_ids or [],
-                tags=tags or {},
-            )
+        req = CreateEvaluationDataset.Request(
+            name=name,
+            experiment_ids=experiment_ids or [],
         )
+        req_body = message_to_json(req)
         response_proto = self._call_endpoint(CreateEvaluationDataset, req_body)
-        return EvaluationDataset.from_proto(response_proto.evaluation_dataset)
+        dataset = EvaluationDataset.from_proto(response_proto.dataset)
+        
+        # Set tags if provided
+        if tags:
+            self.set_evaluation_dataset_tags(dataset.dataset_id, tags)
+            # Refresh the dataset to get updated tags
+            dataset = self.get_evaluation_dataset(dataset.dataset_id)
+        
+        return dataset
 
     def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
@@ -1193,9 +1199,10 @@ class RestStore(AbstractStore):
         """
         from mlflow.entities import EvaluationDataset
 
-        req_body = message_to_json(GetEvaluationDataset(dataset_id=dataset_id))
+        req = GetEvaluationDataset.Request(dataset_id=dataset_id)
+        req_body = message_to_json(req)
         response_proto = self._call_endpoint(GetEvaluationDataset, req_body)
-        return EvaluationDataset.from_proto(response_proto.evaluation_dataset)
+        return EvaluationDataset.from_proto(response_proto.dataset)
 
     def delete_evaluation_dataset(self, dataset_id: str) -> None:
         """
@@ -1204,7 +1211,8 @@ class RestStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset to delete.
         """
-        req_body = message_to_json(DeleteEvaluationDataset(dataset_id=dataset_id))
+        req = DeleteEvaluationDataset.Request(dataset_id=dataset_id)
+        req_body = message_to_json(req)
         self._call_endpoint(DeleteEvaluationDataset, req_body)
 
     def search_evaluation_datasets(
@@ -1230,17 +1238,16 @@ class RestStore(AbstractStore):
         """
         from mlflow.entities import EvaluationDataset
 
-        req_body = message_to_json(
-            SearchEvaluationDatasets(
-                experiment_ids=experiment_ids or [],
-                filter=filter_string,
-                max_results=max_results,
-                order_by=order_by or [],
-                page_token=page_token,
-            )
+        req = SearchEvaluationDatasets.Request(
+            experiment_ids=experiment_ids or [],
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by or [],
+            page_token=page_token,
         )
+        req_body = message_to_json(req)
         response_proto = self._call_endpoint(SearchEvaluationDatasets, req_body)
-        datasets = [EvaluationDataset.from_proto(ds) for ds in response_proto.evaluation_datasets]
+        datasets = [EvaluationDataset.from_proto(ds) for ds in response_proto.datasets]
         return PagedList(datasets, response_proto.next_page_token)
 
     def upsert_evaluation_dataset_records(
