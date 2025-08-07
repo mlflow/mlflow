@@ -42,7 +42,6 @@ dependencies = [
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
-  "opentelemetry-proto<2,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<26",
   "pandas<3",
