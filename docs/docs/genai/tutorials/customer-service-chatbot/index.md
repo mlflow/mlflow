@@ -2,7 +2,7 @@ import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
 import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 
-# Develop, Evaluate, and Deploy a GenAI Customer Service Chatbot with MLflow
+# Develop, Evaluate, and Deploy an Agentic Customer Service Chatbot with MLflow
 
 GenAI application development is complex. It can involve multiple models, multimodal data, and complicated application logic. There are several unique challenges associated with GenAI applications:
 
@@ -12,26 +12,18 @@ GenAI application development is complex. It can involve multiple models, multim
 
 MLflow helps to solve these problems by providing a suite of tools for tracing and visualizing all of your GenAI model calls, evaluating your models and applications, building application logic into custom models, tracking and versioning your models, and deploying your models to production.
 
-This four-part guide will walk you through the entire process of building and deploying GenAI applications with MLflow, from early informal experimentation through production.
+To demonstrate these capabilities, this multi-part guide will walk you through the process of building and deploying a customer service chatbot for a food delivery service, covering the entire lifecycle from early experimentation through structured evaluation.
 
 <CardGroup>
-  <PageCard
-    link="/genai/tutorials/customer-service-chatbot/debug-tracing"
-    headerText="Part 1: Autologging and Tracing"
-    text="Covers informal experimentation with MLflow tracing."
-  />
-  <PageCard
-    headerText="Part 2: Structured Evaluation"
-    text="Coming Soon"
-  />
-  <PageCard
-    headerText="Part 3: Encapsulating Application Logic"
-    text="Coming Soon"
-  />
-  <PageCard
-    headerText="Part 4: Model Deployment"
-    text="Coming Soon"
-  />
+<PageCard
+link="https://www.google.com/search?q=/genai/tutorials/customer-service-chatbot/debug-tracing"
+headerText="Part 1: Autologging and Tracing"
+text="Covers informal experimentation with MLflow tracing."
+/>
+<PageCard
+headerText="Part 2: Structured Evaluation"
+text="Coming Soon"
+/>
 </CardGroup>
 
 ## How to use this guide

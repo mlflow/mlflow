@@ -1,5 +1,7 @@
 # Tutorial: Prototype and Debug AI Agents with MLflow Tracing
 
+import { APILink } from "@site/src/components/APILink";
+
 This is the first part of a tutorial series on developing and iterating on AI agents using MLflow.
 
 There are several unique challenges associated with AI agents and agent systems:
@@ -20,50 +22,48 @@ It's also a use case where mistakes can be costly and can lead to customer churn
 
 The goal of this tutorial is to show you how to use MLflow to prototype, debug, evaluate, and iterate on your AI agents; _not_ to build a complete production-ready system. To that end, we will make a number of simplifications for the sake of brevity and clarity:
 
-- We will only consider single-turn interactions between the agent and the user.
-- Unlike in a real-world application, chats will not be scoped to a single authenticated user.
+- We will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve order statuses from a database or API.
+- We will not implement an authentication system to ensure that the agent only returns information about orders that are associated with the user. In a real-world application, it would be important to ensure that the agent can only access information about orders that are associated with the logged-in user.
 - Tool calls that are intended to take an action on behalf of the user, such as canceling an order, will only trigger simulated API calls and responses.
-- We will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve ordert statuses from a database or API.
 
 ## Setup
 
 Before we build our agent, let's install the dependencies we'll need and prepare our dataset of order statuses.
-{/* What messaging are we going with here? */}
-:::info Managed MLflow
-
-For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here]https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
-
-:::
 
 ### Install Dependencies
 
-{/* Any notes about MLflow3/upgrading/migrating, or are we assuming users will be following along after the stable release? */}
-For this tutorial, we will need to install the latest version of MLflow (we will be using some features only available in MLflow 3). We will be defining our agent using LlamaIndex, so we will also need to install the LlamaIndex and LlamaIndex-LLMs-OpenAI packages. The [databricks-agents](https://pypi.org/project/databricks-agents/) SDK is used by managed MLflow on Databricks for some evaluation-related functionality.
+For this tutorial, we will need to install the latest version of MLflow. We will be defining our agent using LlamaIndex, so we will also need to install the `llama-index` and `LlamaIndex-LLMs-OpenAI` packages.
+
+You can install the dependencies using the following command:
 
 ```bash
-%pip install openai python-dotenv llama-index llama-index-llms-openai databricks-agents pandas
-%pip install mlflow --upgrade --pre -q
-%restart_python
+pip install mlflow llama-index llama-index-llms-openai pandas python-dotenv rich
 ```
 
 ### Set up MLflow
 
-If you are using open-source MLflow, run the following code to start the MLflow tracking server and view the MLflow UI: `mlflow ui`.
+This tutorial uses the open-source version of MLflow. To follow along, you need to start the MLflow Tracking Server. Open a new terminal, navigate to your working directory, and run the following command:
 
-Additionally, it is a good idea to create a new experiment to organize all of the traces, models, and other materials we will be creating.
+```bash
+mlflow ui
+```
+
+This will start the server and print the URL where you can access the MLflow UI (by default, `http://127.0.0.1:5000`)
+
+Next, we will create an MLflow experiment for this tutorial. [MLflow experiments](https://mlflow.org/docs/latest/genai/data-model/experiments/) serve as the top-level container for all of your AI agent experiments, providing a single place to store and compare models, traces, datasets, evaluations, and other MLflow entities.
 
 ```python
 import mlflow
-mlflow.set_experiment("mlflow-agent-tutorial")
+mlflow.set_experiment("caspers-support-chatbot")
 ```
-
-If you are using managed MLflow, you can skip this step.
 
 ### Prepare the Data
 
 Next, we will load a dataset of order statuses for our delivery service. For demonstration purposes, we will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve order statuses from a database or API.
 
 Each order has a unique ID, a customer name, a brand, a list of items, an order total, a timestamp for when the order was placed, a timestamp for when the order was estimated to be delivered, a current status, a driver location, and a timestamp for when the order was last updated.
+
+The diverse statuses and driver locations are designed to simulate the real-world complexity of a delivery service. They will enable us to test the agent's ability to handle different scenarios, such as orders that are running late, orders that were recently placed and not yet being prepared, already-delivered orders, and orders that are in transit.
 
 <details>
 <summary>Show full code for loading the order statuses (click to expand)</summary>
@@ -325,19 +325,23 @@ orders_df
 
 Here are the first few rows of our order statuses table:
 
+<div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+
 | order_id | customer_name | brand      | items                              | order_total | placed_at            | estimated_delivery   | current_status   | driver_location | last_updated         |
 | -------- | ------------- | ---------- | ---------------------------------- | ----------- | -------------------- | -------------------- | ---------------- | --------------- | -------------------- |
 | ORD-001  | Sarah Chen    | McDoodles  | ["Big Stack","Famous Frites"]      | 11.18       | 2025-05-21T09:00:00Z | 2025-05-21T09:30:00Z | Out for Delivery | 0.3 miles away  | 2025-05-21T09:22:00Z |
 | ORD-002  | Mike Johnson  | ChipoLot   | ["Chicken Burrito","Chips & Guac"] | 14.43       | 2025-05-21T09:10:00Z | 2025-05-21T09:45:00Z | Being Prepared   | null            | 2025-05-21T09:15:00Z |
 | ORD-003  | Lisa Park     | Pando Dash | ["Orange Chickadee","Fried Rice"]  | 10.39       | 2025-05-21T08:45:00Z | 2025-05-21T09:20:00Z | Delivered        | null            | 2025-05-21T09:18:00Z |
 
+</div>
+
 ## Prototyping a simple order status agent
 
-Suppose, at this phase, we have a very general sense of what we want to build—an agent for a food delivery service that can help customers with their orders—but we have not yet decided on the specifics. In many cases, the first step is building a very simple agent, trying out different prompts and tools, and iterating in an unstructured and informal way on the agent's behavior.
+The very first step in building an agent is often interactive prototyping in a notebook environment. We want to quickly experiment with different prompts and tools, and iterate in an unstructured and informal way on the agent's behavior.
 
-At this phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
+We might not be particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
 
-We will start by building a very simple agent that can answer questions about the status of an order.
+We will start by building a very simple agent that can answer questions about the status of an order. We will use the OpenAI Python SDK with some simple tools to retrieve order statuses and cancel orders. Later, we will use LlamaIndex to build a more sophisticated agent that can handle more complex tasks.
 
 ### Configure the OpenAI Client
 
@@ -356,6 +360,8 @@ client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 ### Define the Order Status Tool
 
 Next, we will define a simple tool that can retrieve the status of an order based on the order ID. Following OpenAI's [function calling documentation](https://platform.openai.com/docs/guides/function-calling), we will write a function that takes an order ID as input and returns the order status. We will also define a schema for the function, which tells the model what the function does and what arguments it takes.
+
+In a production application, we would likely access the order statuses from a database or API. For this tutorial, we simply obtain them from a pandas DataFrame.
 
 ```python
 def get_order_by_id(order_id: str):
@@ -399,6 +405,7 @@ In the code sample below, we define a simple function that implements this proce
 
 ```python
 import json
+from rich import print
 
 user_query = [{"role": "user", "content": "Hello tell me about order ORD-018"}]
 tools = [get_order_by_id_schema]
@@ -472,33 +479,53 @@ mlflow.openai.autolog()
 request_order_status(client, user_query, tools)
 ```
 
-
 :::tip View Traces in Jupyter Notebooks
 
-You can view traces right in a Jupyter notebook (or Databricks notebook if you are using managed MLflow).
+You can view traces right in a Jupyter notebook.
 
-In open-source MLflow, to view traces in Jupyter notebooks, make sure you have started the tracking server with `mlflow ui` and set the tracking URI to the URL of the tracking server with `mlflow.set_tracking_uri("<URL>")` (`http://localhost:5000` by default).
-
-In both settings, you can also view traces in the MLflow UI.
+To view traces in Jupyter notebooks, make sure you have started the tracking server with `mlflow ui` and set the tracking URI to the URL of the tracking server with `mlflow.set_tracking_uri("<URL>")` (`http://localhost:5000` by default).
 
 :::
 
-Now, whenever we call the `request_order_status` function or otherwise call a model using the OpenAI client, MLflow will automatically log the trace, keeping a complete record of every model call.
+Now, whenever we call the `request_order_status` function or otherwise call a model using the OpenAI client, MLflow will automatically log the trace, keeping a complete record of every model call. You can find the trace in the MLflow UI by clicking on the "Traces" tab in your experiment.
+
+![MLflow Traces](/images/genai-tutorials/customer-service-chatbot/1_openai_trace.png)
 
 This is very useful throughout AI agent development. At this early phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. MLflow's autologging and tracing features make it very straightforward to record all of our experiments.
 
 ### Associating Traces with Models
 
-Developing agents often involves a lot of experimentation, evaluation, and iteration. It's easy to lose track of all of the different experiments we've run on a give model, especially if all of the information we've recorded is spread across many different runs and mixed in with traces of other models. To that end, MLflow provides a way to set an active model with which all of the traces and evaluations will be associated.
+It's easy to lose track of all of the different traces associated with and experiments run on a given model, especially if all of the information we've recorded is spread across many different runs and mixed in with traces of other models. To that end, MLflow provides a way to create a [`LoggedModel`](https://mlflow.org/docs/latest/genai/data-model/logged-model/) object we can use to manage the whole lifecycle of a model.
 
-You can create and set the active model with:
+We will first create an _external model_, which enables us to associate traces, metrics, and other information with a model without storing model artifacts. When we create an external model with <APILink fn="mlflow.create_external_model" />, we can specify the model type, tags, and other metadata.
+
+Here, we set the model type to `agent` (`model_type` is a user-defined string that we can use to search and compare related models). We also create a `version` tag we can use to track the model's version.
 
 ```python
-mlflow.set_active_model(name="simple-agent")
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_1",
+    model_type="agent",
+    tags={"version": "0.1"},
+)
 ```
 
-Now, when we log a trace, it will be associated with the model. You can find your model in the MLflow UI by clicking on the "Models" tab in your experiment.
+Now, we set the model we just created as the active model.
 
+```python
+mlflow.set_active_model(model_id=model.model_id)
+```
+
+Note that we could have just used `mlflow.set_active_model` without first creating the external model. But using the `create_external_model` method enables us to set metadata we can later use to search and compare models.
+
+Now, when we log a trace, metrics, evaluations, and other information, it will be associated with the model. You can find your model in the MLflow UI by clicking on the "Models" tab in your experiment. Let's give it a try.
+
+```python
+request_order_status(client, user_query, tools)
+```
+
+![Traces and Models](/images/genai-tutorials/customer-service-chatbot/2_traces_model.png)
+
+The trace resulting from the above call is now associated with the model we just created.
 
 ### Manual Tracing: Add Tracing to our Agent's Tool
 
@@ -526,13 +553,13 @@ def get_order_by_id(order_id: str):
 
 Now, whenever this function is called, MLflow will automatically log a trace—tracing is not just limited to AI model calls!
 
-Next, we will modify our `request_order_status` function to nest the model and tool calls under the `with mlflow.start_span(span_type="CHAIN") as span:` context manager:
+Next, we will modify our `request_order_status` function to nest the model and tool calls under the `with mlflow.start_span(span_type="CHAT_MODEL") as span:` context manager. Different span types are used for different GenAI operations and have specialized data structures to capture the operations appropriately. The `CHAT_MODEL` span type is for conversational models that may also include tool calls. There are several other span types, including `RETRIEVER` spans for capturing structured document search operations; `EMBEDDING` spans for text embeddings; and `AGENT` spans for autonomous agent workflows. You can learn more about span types [here](/genai/data-model/traces#specialized-span-types-for-genai).
 
 ```python
 def request_order_status(client, messages, tools):
     message_history = messages.copy()
 
-    with mlflow.start_span(span_type="CHAIN") as span:
+    with mlflow.start_span(span_type="CHAT_MODEL") as span:
         span.set_inputs(inputs=message_history)
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -561,10 +588,27 @@ def request_order_status(client, messages, tools):
         span.set_outputs(outputs=final_completion)
 
         return final_completion
+```
 
+Since we have updated our model code, we might want to create a new model version. There are no hard-and-fast rules for when to create a new model version, but it's a good idea to do so when you have made significant changes to the model's behavior or when you want to compare the performance of different versions of the model. So before we run our agent, let's create a new model version.
+
+```python
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_2",
+    model_type="agent",
+    tags={"version": "0.2"},
+)
+
+mlflow.set_active_model(model_id=model.model_id)
+```
+
+Now, we run the order status agent again:
+
+```python
 request_order_status(client, user_query, tools)
 ```
 
+![Manual Tracing](/images/genai-tutorials/customer-service-chatbot/3_manual_trace.png)
 
 Now we can see the _entire_ execution flow in a single trace, including tool calls and their inputs and outputs. This also shows how we can combine automatic and manual tracing: the model calls are still automatically traced; we just nested them under a parent span and added tracing to the tool call.
 
@@ -572,6 +616,7 @@ Now we can see the _entire_ execution flow in a single trace, including tool cal
 
 Complex agents may involve dozens of different tool calls, retrieval steps, model calls, and more, not to mention all of the orchestration logic that ties it all together. When something goes wrong, it's not always obvious where the problem lies. MLflow tracing helps with this as well. Errors are logged in the "Events" tab of a trace and clearly marked in the trace breakdown. Suppose, for instance, we had a bug in our tool call and tried to get data from `order_df` instead of `orders_df`:
 
+![Trace with Error](/images/genai-tutorials/customer-service-chatbot/4_error.png)
 
 The trace makes the error clear and obvious immediately and records all of the relevant information in the Events tab of the trace.
 
@@ -583,10 +628,10 @@ In the rest of this tutorial, we will build a [LlamaIndex agent](https://docs.ll
 
 ### Convert our Simple Agent to LlamaIndex
 
-First, let's replicate our existing agent—with one tool—to a LlamaIndex `ReActAgent`.
+First, let's replicate our existing agent—with one tool—with a LlamaIndex `FunctionAgent`.
 
 ```python
-from llama_index.core.agent.workflow import ReActAgent
+from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 from dotenv import load_dotenv
@@ -612,22 +657,99 @@ tool = FunctionTool.from_defaults(
 
 This is very similar to our previous approach, except that we did not need to manually define a tool schema or orchestrate the model and tool calling logic.
 
+### Define and Register a System Prompt
+
+So far, we have relied on the model to infer the intent of the user's message and to determine which tool to call. We will have much more control over the agent's behavior by providing a system prompt that tells the model exactly what we want it to do and how to use the tools it has available.
+
+Prompts are a significant tool that we will likely refine over time, so it is a good idea to track and version them. The [MLflow Prompt Registry](/genai/prompt-registry/) helps you to create, store, version, and evaluate prompts. Let's create a system prompt for our agent and register it with MLflow. The prompt details how the model should respond to user messages and what tools it can call on to get information. Note that we also specify the "current time" (in this case, May 21, 2025, 09:40 AM, which corresponds to the times in the sample data) so the agent can, for example, reason about whether orders are running late.
+
+```python
+CURRENT_DATETIME = "2025-05-21T09:40:00Z"
+
+system_prompt = f"""You are a helpful customer service agent for a food delivery platform. Your goal is to efficiently resolve customer inquiries while maintaining a positive experience.
+
+The current date and time is {CURRENT_DATETIME}.
+
+## Communication Style
+- Be friendly, clear, and direct. Avoid overly formal or robotic responses
+- Keep responses concise unless more detail is specifically requested
+- Use natural, conversational language
+- Reply in the language used by the customer
+
+## Order Status Inquiries
+- Focus on delivery timing and current status when customers ask about their orders
+- Only mention order contents if explicitly asked ("what did I order?")
+- Prioritize the information customers care most about: "when will it arrive?" and "where is it now?"
+
+## Tool Usage
+- Use get_order_by_id for any order-related inquiries
+
+Focus on being helpful and efficient while maintaining a human touch in your responses.
+"""
+
+mlflow.genai.register_prompt(
+    name="caspers_chatbot_system",
+    template=system_prompt,
+    commit_message="Initial Commit",
+    tags = {
+        "author": "daniel@example.com"
+    })
+```
+
+We can view the registered prompt in the "Prompts" tab of the MLflow UI:
+
+![Registered Prompt](/images/genai-tutorials/customer-service-chatbot/5_reg_prompt.png)
+
+Now let's define our new `FunctionAgent`, passing our registered prompt as the system prompt.
+
+```python
+agent = FunctionAgent(
+    tools=[get_order_by_id],
+    llm=llm,
+    system_prompt=mlflow.genai.load_prompt(
+        "prompts:/caspers_chatbot_system/1"
+    ).template,
+)
+```
+
 ### Enable Tracing and Query the Agent
 
-MLflow supports autologging for LlamaIndex agents, so we can enable tracing with just one line of code. This is also a good time to set a new active model as we want to keep traces and metrics for this agent separate from our previous agent.
+MLflow supports autologging for LlamaIndex agents, so we can enable tracing with just one line of code. This is also a good time to set a new active model.
 
 ```python
-mlflow.set_active_model(name="llamaindex-agent")
+model = mlflow.create_external_model(
+    name="caspers_chatbot_0_3",
+    model_type="agent",
+    tags={"version": "0.3", "framework": "llama_index"},
+)
+
+mlflow.set_active_model(model_id=model.model_id)
+
 mlflow.llama_index.autolog()
+
+response = await agent.run("Hello tell me about order ORD-018")
+print(response.response)
 ```
 
-Now, whenever we call the agent, MLflow will automatically log the trace and associate it with the `llamaindex-agent` model.
+This returns:
 
-```python
-agent = ReActAgent(llm=llm, tools=[tool])
-await agent.run("Hello tell me about order ORD-018")
+```text
+ChatMessage(
+    role=<MessageRole.ASSISTANT: 'assistant'>,
+    additional_kwargs={},
+    blocks=[
+        TextBlock(
+            block_type='text',
+            text='Your order (ORD-018) from GreenSprout has been delivered! You placed it at 08:35 AM, and it was
+estimated to arrive by 09:10 AM. \n\nIf you need anything else, feel free to ask!'
+        )
+    ]
+)
 ```
 
+And, as before, we can view the trace in the MLflow UI:
+
+![LlamaIndex Trace](/images/genai-tutorials/customer-service-chatbot/6_llamaindex_trace.png)
 
 :::info Async Agents
 
@@ -635,14 +757,13 @@ LlamaIndex agents are asynchronous by default, so we use the `await` keyword to 
 
 :::
 
-### Iterate on the Agent
+### Add Funcionality to the Agent
 
 Now that we have a framework and tracing, we are in a great place to iterate on our prototype agent. Tracing provides instant feedback and a record of our experiments, and the LlamaIndex framework provides easy-to-use abstractions for adding tools and updating the agent's behavior.
 
-First, let's add a couple of new tools: one to escalate the chat to a human agent and one to cancel an order. In both cases, the tools will simulate an API call and response with further information the agent can use to respond to the user. The `escalate_to_human` tool tell the agent how long it will take to get back to the user and the `cancel_order` tool will tell the agent whether it was possible to cancel the order based on the order's status.
+First, let's add a couple of new tools: one to escalate the chat to a human agent and one to cancel an order. In both cases, the tools will simulate an API call and response with further information the agent can use to respond to the user. The `escalate_to_human` tool tells the agent how long it will take to get back to the user and the `cancel_order` tool will tell the agent whether it was possible to cancel the order based on the order's status.
 
 ```python
-import json
 from datetime import datetime
 
 def escalate_to_human(issue_summary: str) -> str:
@@ -674,8 +795,6 @@ def escalate_to_human(issue_summary: str) -> str:
         }
 
     api_response = send_api_request(escalation_payload)
-    ticket_id = api_response["ticket_id"]
-
     # Return natural description for the LLM to work with
     return str(api_response)
 
@@ -707,7 +826,7 @@ def cancel_order(order_id: str, reason: str = "customer_request") -> str:
     return f"Cancellation successful. ID: {cancellation_id}, Refund: ${order_total}, ETA: 3 business days"
 ```
 
-We will also write a more detailed system prompt that tells the agent when to use tools and how to respond to the user. Note that we also specify the "current time" (in this case, May 21, 2025, 09:40 AM, which corresponds to the times in the sample data) so the agent can, for example, reason about whether orders are running late.
+We will also update the system prompt now that the agent can do more than just retrieve information about the orders. The updated prompt details the new tools and how to use them. We will also register this new version of the prompt.
 
 ```python
 CURRENT_DATETIME = "2025-05-21T09:40:00Z"
@@ -745,33 +864,49 @@ The current date and time is {CURRENT_DATETIME}.
 
 Focus on being helpful and efficient while maintaining a human touch in your responses.
 """
+
+# register a new version of the prompt
+mlflow.genai.register_prompt(
+    name="caspers_chatbot_system",
+    template=system_prompt,
+    commit_message="Updated with new tools",
+    tags = {
+        "author": "daniel@example.com"
+    })
 ```
 
-Initializing the agent with these tools and the new prompt is straightforward:
+MLflow's prompt registry allows us to compare prompt versions and track changes. You can view the diff between versions in the "Prompts" tab of the MLflow UI.
+
+![Compare Prompts](/images/genai-tutorials/customer-service-chatbot/7_compare_prompt.png)
+
+Now we initialize the agent with the updated tools and prompt:
 
 ```python
-tools = [FunctionTool.from_defaults(get_order_by_id),
-         FunctionTool.from_defaults(escalate_to_human),
-         FunctionTool.from_defaults(cancel_order),
+tools = [get_order_by_id,
+         escalate_to_human,
+         cancel_order,
 ]
 
-agent = ReActAgent(llm=llm, tools=tools, system_prompt=system_prompt)
+agent = FunctionAgent(llm=llm, tools=tools, system_prompt=mlflow.genai.load_prompt(
+        "prompts:/caspers_chatbot_system/2"
+    ).template)
 
 await agent.run("I would like to cancel order ORD-008.")
 ```
 
 The agent responds with:
 
-> I'm unable to cancel order ORD-008 because its status is currently 'Being Prepared'.
+> It looks like I can't cancel order ORD-008 because it's currently being prepared. If you need help with anything else regarding this order, just let me know!
 
-We can click through the trace to see the full execution flow detailing how the agent reached this answer. We can see that it called the `cancel_order` tool, which returned a message indicating that the order could not be canceled because the order was already being prepared.
+Looking at the trace shows that the agent called the `cancel_order` tool, which returned a message indicating that the order could not be canceled because the order was already being prepared.
 
+![Trace with Error](/images/genai-tutorials/customer-service-chatbot/8_trace_tool.png)
 
-We can also see that there is some clear room for improvement in the agent's response. It provided the correct information, but in a tone that was a bit too brusque and did not provide any additional context or information. Now that we have a framework and a set of tools, we can start to define the key quality criteria for our agent and use MLflow to evaluate and iterate on it. That will be the focus of the next tutorial.
+There is some room for improvement in the agent's final response. It provided the correct information, but in a tone that was a bit too brusque and did not provide any additional context or information. Now that we have a framework and a set of tools, we can start to define the key quality criteria for our agent and use MLflow to evaluate and iterate on it. That will be the focus of the next tutorial.
 
 ## Conclusion and Next Steps
 
-In this tutorial, we have seen how MLflow tracing can be used to debug and iterate on AI agents. We experimented with a simple agent, instrumented it with tracing, and then built a more complete agent using LlamaIndex. We saw how autologging offers one-line agent observability for a range of LLM providers and frameworks, and how tracing can be used to understand and debug the whole agent execution flow.
+In this tutorial, we have seen how MLflow tracing can be used to debug and iterate on AI agents. We experimented with a simple agent, instrumented it with tracing, and then built a more complete agent using LlamaIndex. We saw how autologging offers one-line agent observability for a range of LLM providers and frameworks, how tracing can be used to understand and debug the whole agent execution flow, and how to use the prompt registry to version and compare prompts.
 
 In the next tutorial, we will use MLflow to define and evaluate the critical quality criteria for our agent, and how to use MLflow evaluation to iterate on the agent's behavior during development.
 
