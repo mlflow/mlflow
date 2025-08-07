@@ -6161,6 +6161,18 @@ def test_scorer_operations(store: SqlAlchemyStore):
             assert scorer.scorer_version == 1, f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
             assert scorer.serialized_scorer == "relevance_scorer_scorer1"
 
+    # Test list_scorer_versions
+    accuracy_scorer_versions = store.list_scorer_versions(experiment_id, "accuracy_scorer")
+    assert len(accuracy_scorer_versions) == 3, f"Expected 3 versions, got {len(accuracy_scorer_versions)}"
+
+    # Verify versions are ordered by version number
+    assert accuracy_scorer_versions[0].scorer_version == 1
+    assert accuracy_scorer_versions[0].serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_scorer_versions[1].scorer_version == 2
+    assert accuracy_scorer_versions[1].serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_scorer_versions[2].scorer_version == 3
+    assert accuracy_scorer_versions[2].serialized_scorer == "serialized_accuracy_scorer3"
+
     # Step 3: Test get_scorer with specific versions
     # Get accuracy_scorer version 1
     accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
@@ -6250,3 +6262,13 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Verify all scorers are deleted
     final_scorers = store.list_scorers(experiment_id)
     assert len(final_scorers) == 0, f"Expected 0 scorers after all deletions, got {len(final_scorers)}"
+
+    # Step 12: Test list_scorer_versions
+    # Test list_scorer_versions with accuracy_scorer (which was deleted earlier, so we need to re-register it)
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+
+    # Test list_scorer_versions for non-existent scorer
+    with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
+        store.list_scorer_versions(experiment_id, "non_existent_scorer")

@@ -2126,6 +2126,44 @@ class SqlAlchemyStore(AbstractStore):
             
             session.commit()
 
+    def list_scorer_versions(self, experiment_id, name):
+        """
+        List all versions of a specific scorer for an experiment.
+        
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            
+        Returns:
+            List of mlflow.entities.scorer.Scorer objects for all versions of the scorer.
+            
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            
+            # Query for all versions of the scorer
+            sql_scorers = session.query(SqlScorer).filter(
+                SqlScorer.experiment_id == experiment.experiment_id,
+                SqlScorer.scorer_name == name
+            ).order_by(SqlScorer.scorer_version.asc()).all()
+            
+            if not sql_scorers:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            
+            # Convert to mlflow.entities.scorer.Scorer objects
+            scorers = []
+            for sql_scorer in sql_scorers:
+                scorers.append(sql_scorer.to_mlflow_entity())
+            
+            return scorers
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,

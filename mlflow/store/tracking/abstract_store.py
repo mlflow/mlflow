@@ -937,6 +937,22 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def list_scorer_versions(self, experiment_id, name):
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            List of mlflow.entities.scorer.Scorer objects for all versions of the scorer.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
     def delete_scorer(self, experiment_id, name, version=None):
         """
         Delete all versions of a scorer for an experiment.
