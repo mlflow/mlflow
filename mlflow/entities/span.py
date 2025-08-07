@@ -6,6 +6,7 @@ from typing import Any, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -432,7 +433,7 @@ def _bytes_to_id(id_bytes: bytes) -> int:
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
-def _set_value_on_otel_proto(pb_any_value: Any, value: Any) -> None:
+def _set_value_on_otel_proto(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
     Args:
@@ -467,7 +468,7 @@ def _set_value_on_otel_proto(pb_any_value: Any, value: Any) -> None:
         pb_any_value.string_value = str(value)
 
 
-def _decode_otel_value(pb_any_value: Any) -> Any:
+def _decode_otel_value(pb_any_value: AnyValue) -> Any:
     """Decode an OTel protobuf AnyValue.
 
     Args:
