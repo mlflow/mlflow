@@ -100,3 +100,41 @@ class SpanStatus:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls(status_code, otel_status.description or "")
+
+    def to_otel_proto_status(self):
+        """
+        Convert to OpenTelemetry protobuf Status for OTLP export.
+
+        :meta private:
+        """
+        from opentelemetry.proto.trace.v1.trace_pb2 import Status
+
+        status = Status()
+        if self.status_code == SpanStatusCode.OK:
+            status.code = Status.StatusCode.STATUS_CODE_OK
+        elif self.status_code == SpanStatusCode.ERROR:
+            status.code = Status.StatusCode.STATUS_CODE_ERROR
+        else:
+            status.code = Status.StatusCode.STATUS_CODE_UNSET
+
+        if self.description:
+            status.message = self.description
+
+        return status
+
+    @classmethod
+    def from_otel_proto_status(cls, otel_proto_status) -> SpanStatus:
+        """
+        Create a SpanStatus from an OpenTelemetry protobuf Status.
+
+        :meta private:
+        """
+        # Map protobuf status codes to SpanStatusCode
+        if otel_proto_status.code == 1:  # STATUS_CODE_OK
+            status_code = SpanStatusCode.OK
+        elif otel_proto_status.code == 2:  # STATUS_CODE_ERROR
+            status_code = SpanStatusCode.ERROR
+        else:
+            status_code = SpanStatusCode.UNSET
+
+        return cls(status_code, otel_proto_status.message or "")

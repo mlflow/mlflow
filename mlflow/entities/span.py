@@ -346,8 +346,6 @@ class Span:
         This is an internal method used for receiving spans via OTel protocol.
         """
         from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-        from opentelemetry.trace import Status as OTelStatus
-        from opentelemetry.trace import StatusCode as OTelStatusCode
 
         # Convert protobuf bytes to integers for IDs
         trace_id = _bytes_to_id(otel_proto_span.trace_id)
@@ -357,11 +355,10 @@ class Span:
             parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert status
-        status_code = OTelStatusCode.UNSET
-        if otel_proto_span.status.code == 1:  # STATUS_CODE_OK
-            status_code = OTelStatusCode.OK
-        elif otel_proto_span.status.code == 2:  # STATUS_CODE_ERROR
-            status_code = OTelStatusCode.ERROR
+        from mlflow.entities.span_status import SpanStatus
+
+        mlflow_status = SpanStatus.from_otel_proto_status(otel_proto_span.status)
+        otel_sdk_status = mlflow_status.to_otel_status()
 
         # Convert attributes from protobuf to dict
         attributes = {}
@@ -390,7 +387,7 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes=attributes,
-            status=OTelStatus(status_code, otel_proto_span.status.message),
+            status=otel_sdk_status,
             events=events,
             resource=_OTelResource.get_empty(),
         )
@@ -406,7 +403,6 @@ class Span:
             An OpenTelemetry protobuf Span message.
         """
         from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelSpan
-        from opentelemetry.proto.trace.v1.trace_pb2 import Status
 
         otel_span = OTelSpan()
 
@@ -426,15 +422,7 @@ class Span:
 
         # Set status
         if self.status:
-            if self.status.status_code == SpanStatusCode.OK:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_OK
-            elif self.status.status_code == SpanStatusCode.ERROR:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_ERROR
-            else:
-                otel_span.status.code = Status.StatusCode.STATUS_CODE_UNSET
-
-            if self.status.description:
-                otel_span.status.message = self.status.description
+            otel_span.status.CopyFrom(self.status.to_otel_proto_status())
 
         # Add attributes
         for key, value in self.attributes.items():
