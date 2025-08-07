@@ -4,7 +4,7 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -65,8 +65,8 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
-    env_pack: Optional[EnvPackType] = None,
+    tags: dict[str, Any] | None = None,
+    env_pack: EnvPackType | None = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -142,9 +142,9 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
+    tags: dict[str, Any] | None = None,
     local_model_path=None,
-    env_pack: Optional[EnvPackType] = None,
+    env_pack: EnvPackType | None = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -309,9 +309,9 @@ def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[Logged
 
 
 def search_registered_models(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
@@ -414,9 +414,9 @@ def search_registered_models(
 
 
 def search_model_versions(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
@@ -512,8 +512,8 @@ def search_model_versions(
 
 def set_model_version_tag(
     name: str,
-    version: Optional[str] = None,
-    key: Optional[str] = None,
+    version: str | None = None,
+    key: str | None = None,
     value: Any = None,
 ) -> None:
     """
@@ -537,9 +537,9 @@ def set_model_version_tag(
 def register_prompt(
     name: str,
     template: str | list[dict[str, Any]],
-    commit_message: Optional[str] = None,
-    tags: Optional[dict[str, str]] = None,
-    response_format: Optional[BaseModel | dict[str, Any]] = None,
+    commit_message: str | None = None,
+    tags: dict[str, str] | None = None,
+    response_format: BaseModel | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -646,8 +646,8 @@ def register_prompt(
 
 @require_prompt_registry
 def search_prompts(
-    filter_string: Optional[str] = None,
-    max_results: Optional[int] = None,
+    filter_string: str | None = None,
+    max_results: int | None = None,
 ) -> PagedList[Prompt]:
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
@@ -670,10 +670,10 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
-    version: Optional[str | int] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
     link_to_model: bool = True,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -789,9 +789,9 @@ def load_prompt(
 @functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
 def _load_prompt_cached(
     name_or_uri: str,
-    version: Optional[str | int] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
-) -> Optional[PromptVersion]:
+) -> PromptVersion | None:
     """
     Internal cached function to load prompts from registry.
     """
@@ -800,9 +800,9 @@ def _load_prompt_cached(
 
 def _load_prompt_not_cached(
     name_or_uri: str,
-    version: Optional[str | int] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
-) -> Optional[PromptVersion]:
+) -> PromptVersion | None:
     """
     Load prompt from client, handling URI parsing.
     """

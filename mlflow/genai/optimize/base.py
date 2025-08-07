@@ -44,9 +44,9 @@ def optimize_prompt(
     prompt: str | PromptVersion,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    objective: Optional[OBJECTIVE_FN] = None,
+    objective: OBJECTIVE_FN | None = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
-    optimizer_config: Optional[OptimizerConfig] = None,
+    optimizer_config: OptimizerConfig | None = None,
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
@@ -227,7 +227,7 @@ def _maybe_start_autolog(
         yield
 
 
-def _log_optimization_result(final_score: Optional[float], optimized_prompt: PromptVersion):
+def _log_optimization_result(final_score: float | None, optimized_prompt: PromptVersion):
     if not active_run():
         return
 

@@ -12,7 +12,7 @@ from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -202,7 +202,7 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
             *,
             predictions: pd.Series | str | list[str],
             inputs: pd.Series | str | list[str],
-            metrics: Optional[dict[str, MetricValue]] = None,
+            metrics: dict[str, MetricValue] | None = None,
             **kwargs,
         ) -> MetricValue:
             if missed_kwargs := set(allowed_kwargs_names) - set(kwargs.keys()):
@@ -242,7 +242,7 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
                 Parameter(
                     "metrics",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Optional[dict[str, MetricValue]],
+                    annotation=dict[str, MetricValue] | None,
                     default=None,
                 ),
                 *[
@@ -833,7 +833,7 @@ def _resolve_default_evaluator(model_type, default_config) -> list[EvaluatorBund
 def resolve_evaluators_and_configs(
     evaluators: str | list[str] | None,
     evaluator_config: dict[str, Any] | None,
-    model_type: Optional[str] = None,
+    model_type: str | None = None,
 ) -> list[EvaluatorBundle]:
     """
     The `evaluators` and `evaluator_config` arguments of the `evaluate` API can be specified
@@ -1087,7 +1087,7 @@ def _is_model_deployment_endpoint_uri(model: Any) -> bool:
 
 
 def _get_model_from_deployment_endpoint_uri(
-    endpoint_uri: str, params: Optional[dict[str, Any]] = None
+    endpoint_uri: str, params: dict[str, Any] | None = None
 ):
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.pyfunc.model import ModelFromDeploymentEndpoint, _PythonModelPyfuncWrapper

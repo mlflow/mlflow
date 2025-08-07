@@ -33,7 +33,7 @@ class CustomModel(pydantic.BaseModel):
     binary_field: bytes
     datetime_field: datetime.datetime
     any_field: Any
-    optional_str: Optional[str] = None
+    optional_str: str | None = None
 
 
 class Message(pydantic.BaseModel):
@@ -44,7 +44,7 @@ class Message(pydantic.BaseModel):
 class CustomModel2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
-    optional_int: Optional[int] = None
+    optional_int: int | None = None
 
 
 @pytest.mark.parametrize(
@@ -190,7 +190,7 @@ def test_infer_schema_from_type_hints_errors():
         _infer_schema_from_list_type_hint(list)
 
     class InvalidModel(pydantic.BaseModel):
-        bool_field: Optional[bool]
+        bool_field: bool | None
 
     if IS_PYDANTIC_V2_OR_NEWER:
         message = (
@@ -208,13 +208,13 @@ def test_infer_schema_from_type_hints_errors():
 
     message = r"Input cannot be Optional type"
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(Optional[list[str]])  # _noqa: UP045
+        _infer_schema_from_list_type_hint(Optional[list[str]])  # noqa: UP045
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[str] | None)
 
     with pytest.raises(MlflowException, match=message):
-        _infer_schema_from_list_type_hint(list[Optional[str]])  # _noqa: UP045
+        _infer_schema_from_list_type_hint(list[Optional[str]])  # noqa: UP045
 
     with pytest.raises(MlflowException, match=message):
         _infer_schema_from_list_type_hint(list[str | None])
@@ -410,7 +410,7 @@ def test_type_hints_validation_errors():
         MlflowException,
         match=r"Expected type int, but got str",
     ):
-        _validate_data_against_type_hint("a", Optional[int])
+        _validate_data_against_type_hint("a", int | None)
 
     with pytest.raises(
         InvalidTypeHintException,
@@ -425,9 +425,9 @@ def test_type_hints_validation_errors():
         ("a", str, "a"),
         (["a", "b"], list[str], ["a", "b"]),
         ({"a": 1, "b": 2}, dict[str, int], {"a": 1, "b": 2}),
-        (1, Optional[int], 1),  # _noqa: UP045
+        (1, Optional[int], 1),  # noqa: UP045
         (1, int | None, 1),
-        (None, Optional[int], None),  # _noqa: UP045
+        (None, Optional[int], None),  # noqa: UP045
         (None, int | None, None),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),

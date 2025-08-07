@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum
 from types import UnionType
-from typing import Any, Optional, TypedDict, Union, get_args, get_origin
+from typing import Any, TypedDict, Union, get_args, get_origin
 
 import numpy as np
 
@@ -728,7 +728,7 @@ class ColSpec:
     def __init__(
         self,
         type: ALLOWED_DTYPES,
-        name: Optional[str] = None,
+        name: str | None = None,
         required: bool = True,
     ):
         self._name = name
@@ -750,7 +750,7 @@ class ColSpec:
         return self._type
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """The column name or None if the columns is unnamed."""
         return self._name
 
@@ -880,7 +880,7 @@ class TensorSpec:
         self,
         type: np.dtype,
         shape: tuple[int, ...] | list[int],
-        name: Optional[str] = None,
+        name: str | None = None,
     ):
         self._name = name
         self._tensorInfo = TensorInfo(type, shape)
@@ -894,7 +894,7 @@ class TensorSpec:
         return self._tensorInfo.dtype
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """The tensor name or None if the tensor is unnamed."""
         return self._name
 
@@ -1125,7 +1125,7 @@ class ParamSpec:
         name: str,
         dtype: DataType | Object | str,
         default: Any,
-        shape: Optional[tuple[int, ...]] = None,
+        shape: tuple[int, ...] | None = None,
     ):
         self._name = str(name)
         self._shape = tuple(shape) if shape is not None else None
@@ -1162,7 +1162,7 @@ class ParamSpec:
         spec: str,
         value: Any,
         value_type: DataType | Object,
-        shape: Optional[tuple[int, ...]],
+        shape: tuple[int, ...] | None,
     ):
         """
         Validate that the value has the expected type and shape.
@@ -1219,7 +1219,7 @@ class ParamSpec:
         return self._default
 
     @property
-    def shape(self) -> Optional[tuple[int, ...]]:
+    def shape(self) -> tuple[int, ...] | None:
         """
         The parameter shape.
         If shape is None, the parameter is a scalar.
@@ -1230,7 +1230,7 @@ class ParamSpec:
         name: str
         type: str
         default: DataType | list[DataType] | None
-        shape: Optional[tuple[int, ...]]
+        shape: tuple[int, ...] | None
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:

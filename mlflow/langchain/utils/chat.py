@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 from langchain_core.messages import (
@@ -360,7 +360,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
 
 def parse_token_usage(
     lc_generations: list[Generation],
-) -> Optional[dict[str, int]]:
+) -> dict[str, int] | None:
     """Parse the token usage from the LangChain generations."""
     aggregated = defaultdict(int)
     for generation in lc_generations:
@@ -373,7 +373,7 @@ def parse_token_usage(
 
 def _parse_token_usage_from_generation(
     generation: Generation,
-) -> Optional[dict[str, int]]:
+) -> dict[str, int] | None:
     message = getattr(generation, "message", None)
     if not message:
         return None

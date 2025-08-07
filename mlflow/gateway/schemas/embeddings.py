@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
@@ -27,8 +25,8 @@ class EmbeddingObject(ResponseModel):
 
 
 class EmbeddingsUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {

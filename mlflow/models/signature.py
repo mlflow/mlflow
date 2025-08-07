@@ -11,7 +11,7 @@ import re
 import warnings
 from copy import deepcopy
 from dataclasses import is_dataclass
-from typing import TYPE_CHECKING, Any, Optional, get_type_hints
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 import numpy as np
 import pandas as pd
@@ -182,7 +182,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
-    params: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
@@ -389,7 +389,7 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
 @filter_user_warnings_once
 def _infer_signature_from_type_hints(
     func, type_hints: _TypeHints, input_example=None
-) -> Optional[ModelSignature]:
+) -> ModelSignature | None:
     """
     Infer the signature from type hints.
     """
@@ -500,8 +500,8 @@ def _infer_signature_from_type_hints(
 
 
 def _infer_signature_from_input_example(
-    input_example: Optional[_Example], wrapped_model
-) -> Optional[ModelSignature]:
+    input_example: _Example | None, wrapped_model
+) -> ModelSignature | None:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 

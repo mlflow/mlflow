@@ -12,7 +12,7 @@ import functools
 import json
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -97,10 +97,10 @@ def start_span_in_context(name: str) -> trace.Span:
 
 def start_detached_span(
     name: str,
-    parent: Optional[trace.Span] = None,
-    experiment_id: Optional[str] = None,
-    start_time_ns: Optional[int] = None,
-) -> Optional[tuple[str, trace.Span]]:
+    parent: trace.Span | None = None,
+    experiment_id: str | None = None,
+    start_time_ns: int | None = None,
+) -> tuple[str, trace.Span] | None:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.

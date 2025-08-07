@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from dspy import Prediction
 from dspy.utils.callback import BaseCallback
@@ -38,7 +38,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         self,
         call_id: str,
         outputs: Any,
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
     ):
         if exception:
             return

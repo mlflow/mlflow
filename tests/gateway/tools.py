@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 from unittest import mock
 
 import aiohttp
@@ -121,9 +121,7 @@ class MockAsyncResponse:
 
 
 class MockAsyncStreamingResponse:
-    def __init__(
-        self, data: list[bytes], headers: Optional[dict[str, str]] = None, status: int = 200
-    ):
+    def __init__(self, data: list[bytes], headers: dict[str, str] | None = None, status: int = 200):
         self.status = status
         self.headers = headers
         self._content = data

@@ -2,7 +2,6 @@ import ast
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import sqlalchemy
 import sqlparse
@@ -78,7 +77,7 @@ class Comparison:
     value: str | float
 
 
-def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
+def parse_filter_string(filter_string: str | None) -> list[Comparison]:
     if not filter_string:
         return []
     try:

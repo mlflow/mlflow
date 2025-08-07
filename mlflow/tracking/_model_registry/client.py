@@ -5,7 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -223,7 +223,7 @@ class ModelRegistryClient:
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """Create a new model version from given source.
 
@@ -468,8 +468,8 @@ class ModelRegistryClient:
     def create_prompt(
         self,
         name: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Prompt:
         """
         Create a new prompt in the registry.
@@ -487,7 +487,7 @@ class ModelRegistryClient:
         """
         return self.store.create_prompt(name, description, tags)
 
-    def get_prompt(self, name: str) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Prompt | None:
         """
         Get prompt metadata by name.
 
@@ -504,10 +504,10 @@ class ModelRegistryClient:
 
     def search_prompts(
         self,
-        filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -552,9 +552,9 @@ class ModelRegistryClient:
         self,
         name: str,
         template: str | list[dict[str, Any]],
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
-        response_format: Optional[BaseModel | dict[str, Any]] = None,
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
+        response_format: BaseModel | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -696,7 +696,7 @@ class ModelRegistryClient:
         self.store.delete_prompt_alias(name, alias)
 
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self, name: str, max_results: int | None = None, page_token: str | None = None
     ):
         """
         Search prompt versions for a given prompt name.

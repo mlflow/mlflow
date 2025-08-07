@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
@@ -51,7 +51,7 @@ def patched_call(original, self, *args, **kwargs):
             return outputs
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         usage = getattr(output, "usage", None)
         if usage:

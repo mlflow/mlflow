@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from collections.abc import Container, Sequence
-from typing import Any, Optional
+from typing import Any
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
@@ -52,7 +52,7 @@ class MlflowStorage(BaseStorage):
     def __init__(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
+        name: str | None = None,
         batch_flush_interval: float = 1.0,
         batch_size_threshold: int = 100,
     ):
@@ -170,9 +170,9 @@ class MlflowStorage(BaseStorage):
     def _queue_batch_operation(
         self,
         run_id: str,
-        metrics: Optional[list[Metric]] = None,
-        params: Optional[list[Param]] = None,
-        tags: Optional[list[RunTag]] = None,
+        metrics: list[Metric] | None = None,
+        params: list[Param] | None = None,
+        tags: list[RunTag] | None = None,
     ):
         """Queue metrics, parameters, or tags for batched processing."""
         with self._batch_lock:
@@ -234,7 +234,7 @@ class MlflowStorage(BaseStorage):
         )
 
     def create_new_study(
-        self, directions: Sequence[StudyDirection], study_name: Optional[str] = None
+        self, directions: Sequence[StudyDirection], study_name: str | None = None
     ) -> int:
         """Create a new study as a mlflow run."""
         study_name = study_name or DEFAULT_STUDY_NAME_PREFIX + str(uuid.uuid4())
@@ -337,7 +337,7 @@ class MlflowStorage(BaseStorage):
             )
         return studies
 
-    def create_new_trial(self, study_id, template_trial: Optional[FrozenTrial] = None) -> int:
+    def create_new_trial(self, study_id, template_trial: FrozenTrial | None = None) -> int:
         # Ensure study batch is flushed before creating a new trial
         self._flush_batch(study_id)
 
@@ -493,7 +493,7 @@ class MlflowStorage(BaseStorage):
         return float(json.loads(param_value))
 
     def set_trial_state_values(
-        self, trial_id, state: TrialState, values: Optional[Sequence[float]] = None
+        self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
         # Update trial state
         if state.is_finished():
@@ -616,7 +616,7 @@ class MlflowStorage(BaseStorage):
         self,
         study_id,
         deepcopy: bool = True,
-        states: Optional[Container[TrialState]] = None,
+        states: Container[TrialState] | None = None,
     ) -> list[FrozenTrial]:
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()

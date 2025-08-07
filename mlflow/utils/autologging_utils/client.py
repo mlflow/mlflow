@@ -37,14 +37,14 @@ _logger = logging.getLogger(__name__)
 
 class _PendingCreateRun(NamedTuple):
     experiment_id: str
-    start_time: Optional[int]
+    start_time: int | None
     tags: list[RunTag]
-    run_name: Optional[str]
+    run_name: str | None
 
 
 class _PendingSetTerminated(NamedTuple):
-    status: Optional[str]
-    end_time: Optional[int]
+    status: str | None
+    end_time: int | None
 
 
 class PendingRunId:
@@ -150,9 +150,9 @@ class MlflowAutologgingQueueingClient:
     def create_run(
         self,
         experiment_id: str,
-        start_time: Optional[int] = None,
-        tags: Optional[dict[str, Any]] = None,
-        run_name: Optional[str] = None,
+        start_time: int | None = None,
+        tags: dict[str, Any] | None = None,
+        run_name: str | None = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
@@ -181,8 +181,8 @@ class MlflowAutologgingQueueingClient:
     def set_terminated(
         self,
         run_id: str | PendingRunId,
-        status: Optional[str] = None,
-        end_time: Optional[int] = None,
+        status: str | None = None,
+        end_time: int | None = None,
     ) -> None:
         """
         Enqueues an UpdateRun operation with the specified `status` and `end_time` attributes
@@ -202,9 +202,7 @@ class MlflowAutologgingQueueingClient:
         params_arr = [Param(key, str(value)) for key, value in params.items()]
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
-    def log_inputs(
-        self, run_id: str | PendingRunId, datasets: Optional[list[DatasetInput]]
-    ) -> None:
+    def log_inputs(self, run_id: str | PendingRunId, datasets: list[DatasetInput] | None) -> None:
         """
         Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
         """
@@ -216,9 +214,9 @@ class MlflowAutologgingQueueingClient:
         self,
         run_id: str | PendingRunId,
         metrics: dict[str, float],
-        step: Optional[int] = None,
+        step: int | None = None,
         dataset: Optional["Dataset"] = None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the

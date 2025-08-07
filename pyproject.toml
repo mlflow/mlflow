@@ -241,6 +241,7 @@ select = [
   "UP030",   # format-literals
   "UP031",   # printf-string-format
   "UP034",   # extraneous-parenthesis
+  "UP045",   # non-pep604-annotation-optional
   "W",       # warning
 ]
 ignore = [

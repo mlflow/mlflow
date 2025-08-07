@@ -1,7 +1,7 @@
 import importlib.metadata
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
 
@@ -34,14 +34,14 @@ class DspyModelWrapper(PythonModel):
         self,
         model: "dspy.Module",
         dspy_settings: dict[str, Any],
-        model_config: Optional[dict[str, Any]] = None,
+        model_config: dict[str, Any] | None = None,
     ):
         self.model = model
         self.dspy_settings = dspy_settings
         self.model_config = model_config or {}
-        self.output_schema: Optional[Schema] = None
+        self.output_schema: Schema | None = None
 
-    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: dict[str, Any] | None = None):
         import dspy
 
         converted_inputs = self._get_model_input(inputs)
@@ -158,7 +158,7 @@ class DspyModelWrapper(PythonModel):
 class DspyChatModelWrapper(DspyModelWrapper):
     """MLflow PyFunc wrapper class for Dspy chat models."""
 
-    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: dict[str, Any] | None = None):
         import dspy
 
         converted_inputs = self._get_model_input(inputs)
