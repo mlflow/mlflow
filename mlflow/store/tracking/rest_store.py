@@ -1,12 +1,6 @@
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Optional
-<<<<<<< HEAD
-=======
-
-if TYPE_CHECKING:
-    from mlflow.entities import EvaluationDataset
->>>>>>> eval-dataset-search
 
 from mlflow.entities import (
     DatasetInput,
@@ -93,7 +87,9 @@ from mlflow.protos.service_pb2 import (
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
-    UpdateEvaluationDatasetTags,
+    SetEvaluationDatasetTags,
+    UpsertEvaluationDatasetRecords,
+    GetEvaluationDatasetExperimentIds,
     UpdateExperiment,
     UpdateRun,
 )
@@ -1248,7 +1244,7 @@ class RestStore(AbstractStore):
         return PagedList(datasets, response_proto.next_page_token)
 
     def upsert_evaluation_dataset_records(
-        self, dataset_id: str, records: list[dict[str, Any]], updated_by: Optional[str] = None
+        self, dataset_id: str, records: list[dict[str, Any]]
     ) -> dict[str, int]:
         """
         Upsert evaluation dataset records.
@@ -1260,13 +1256,19 @@ class RestStore(AbstractStore):
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
         """
-        # TODO: UpsertEvaluationDatasetRecords proto not yet defined
-        raise NotImplementedError(
-            "UpsertEvaluationDatasetRecords proto message not yet defined in service.proto"
+        req = UpsertEvaluationDatasetRecords.Request(
+            dataset_id=dataset_id,
+            records=json.dumps(records),
         )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(UpsertEvaluationDatasetRecords, req_body)
+        return {
+            "inserted": response_proto.inserted_count,
+            "updated": response_proto.updated_count,
+        }
 
     def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
+        self, dataset_id: str, tags: dict[str, Any]
     ) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1277,17 +1279,13 @@ class RestStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
-            updated_by: The user making the update.
         """
-        # Use UpdateEvaluationDatasetTags which is currently available
-        req_body = message_to_json(
-            UpdateEvaluationDatasetTags(
-                dataset_id=dataset_id,
-                tags=json.dumps(tags),
-                updated_by=updated_by,
-            )
+        req = SetEvaluationDatasetTags.Request(
+            dataset_id=dataset_id,
+            tags=json.dumps(tags),
         )
-        self._call_endpoint(UpdateEvaluationDatasetTags, req_body)
+        req_body = message_to_json(req)
+        self._call_endpoint(SetEvaluationDatasetTags, req_body)
 
     def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
@@ -1299,15 +1297,7 @@ class RestStore(AbstractStore):
         Returns:
             List of experiment IDs associated with the dataset.
         """
-        # TODO: Implement REST endpoint for get_evaluation_dataset_experiment_ids
-        # from mlflow.protos.service_pb2 import GetEvaluationDatasetExperimentIds
-        # req_body = message_to_json(
-        #     GetEvaluationDatasetExperimentIds.Request(dataset_id=dataset_id)
-        # )
-        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}/experiment-ids"
-        # response = self._call_endpoint(GetEvaluationDatasetExperimentIds,
-        # req_body, endpoint=endpoint)
-        # return response.experiment_ids
-        raise NotImplementedError(
-            "GetEvaluationDatasetExperimentIds proto message not yet defined in service.proto"
-        )
+        req = GetEvaluationDatasetExperimentIds.Request(dataset_id=dataset_id)
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(GetEvaluationDatasetExperimentIds, req_body)
+        return list(response_proto.experiment_ids)
