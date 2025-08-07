@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import Scorer as ProtoScorer
 
 
 class Scorer(_MlflowObject):
@@ -34,6 +35,25 @@ class Scorer(_MlflowObject):
     def serialized_scorer(self):
         """String containing the serialized scorer data."""
         return self._serialized_scorer
+
+    @classmethod
+    def from_proto(cls, proto):
+        """Create a Scorer from a protobuf message."""
+        return cls(
+            experiment_id=proto.experiment_id,
+            scorer_name=proto.scorer_name,
+            scorer_version=proto.scorer_version,
+            serialized_scorer=proto.serialized_scorer,
+        )
+
+    def to_proto(self):
+        """Convert this Scorer to a protobuf message."""
+        proto = ProtoScorer()
+        proto.experiment_id = self.experiment_id
+        proto.scorer_name = self.scorer_name
+        proto.scorer_version = self.scorer_version
+        proto.serialized_scorer = self.serialized_scorer
+        return proto
 
     def __repr__(self):
         return f"<Scorer(experiment_id={self.experiment_id}, scorer_name='{self.scorer_name}', scorer_version={self.scorer_version})>" 

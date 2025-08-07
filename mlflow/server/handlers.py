@@ -27,6 +27,7 @@ from mlflow.entities import (
     Metric,
     Param,
     RunTag,
+    Scorer,
     ViewType,
 )
 from mlflow.entities.logged_model import LoggedModel
@@ -100,6 +101,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -114,10 +116,13 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
+    GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
     ListArtifacts,
     ListLoggedModelArtifacts,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -126,6 +131,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -3120,6 +3126,113 @@ def _list_logged_model_artifacts_impl(
     return _wrap_response(response)
 
 
+# =============================================================================
+# Scorer Management Handlers
+# =============================================================================
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _register_scorer():
+    request_message = _get_request_message(
+        RegisterScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "serialized_scorer": [_assert_required, _assert_string],
+        },
+    )
+    version = _get_tracking_store().register_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.serialized_scorer,
+    )
+    response_message = RegisterScorer.Response()
+    response_message.version = version
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorers():
+    request_message = _get_request_message(
+        ListScorers(),
+        schema={"experiment_id": [_assert_required, _assert_string]},
+    )
+    response_message = ListScorers.Response()
+    scorers = _get_tracking_store().list_scorers(request_message.experiment_id)
+    response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorer_versions():
+    request_message = _get_request_message(
+        ListScorerVersions(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    response_message = ListScorerVersions.Response()
+    scorers = _get_tracking_store().list_scorer_versions(
+        request_message.experiment_id, request_message.name
+    )
+    response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_scorer():
+    request_message = _get_request_message(
+        GetScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_intlike],
+        },
+    )
+    response_message = GetScorer.Response()
+    serialized_scorer = _get_tracking_store().get_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message.serialized_scorer = serialized_scorer
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_scorer():
+    request_message = _get_request_message(
+        DeleteScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_intlike],
+        },
+    )
+    _get_tracking_store().delete_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message = DeleteScorer.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -3282,4 +3395,10 @@ HANDLERS = {
     SearchLoggedModels: _search_logged_models,
     ListLoggedModelArtifacts: _list_logged_model_artifacts,
     LogLoggedModelParamsRequest: _log_logged_model_params,
+    # Scorer APIs
+    RegisterScorer: _register_scorer,
+    ListScorers: _list_scorers,
+    ListScorerVersions: _list_scorer_versions,
+    GetScorer: _get_scorer,
+    DeleteScorer: _delete_scorer,
 }
