@@ -79,6 +79,9 @@ class SpanEvent(_MlflowObject):
         """
         Convert to OpenTelemetry protobuf event format for OTLP export.
         This is an internal method used for logging spans via OTel protocol.
+
+        Returns:
+            An OpenTelemetry protobuf Span.Event message.
         """
         from opentelemetry.proto.trace.v1.trace_pb2 import Span
 
@@ -87,10 +90,13 @@ class SpanEvent(_MlflowObject):
         otel_event.time_unix_nano = self.timestamp
 
         # Add attributes
-        for k, v in self.attributes.items():
-            event_attr = otel_event.attributes.add()
-            event_attr.key = k
-            event_attr.value.string_value = str(v)
+        if self.attributes:
+            from mlflow.entities.span import _set_value_on_otel_proto
+
+            for key, value in self.attributes.items():
+                attr = otel_event.attributes.add()
+                attr.key = key
+                _set_value_on_otel_proto(attr.value, value)
 
         return otel_event
 

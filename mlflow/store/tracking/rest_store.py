@@ -4,7 +4,6 @@ from typing import Any, Optional
 
 from google.protobuf.json_format import MessageToJson
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 
 from mlflow.entities import (
     DatasetInput,
@@ -1174,13 +1173,12 @@ class RestStore(AbstractStore):
         # Create protobuf request
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
-        resource_spans.resource.CopyFrom(Resource())
+        # resource_spans.resource is already an empty Resource by default
 
         # Create scope spans and add converted MLflow spans
         scope_spans = resource_spans.scope_spans.add()
         for span in spans:
-            otel_span = span._to_otel_proto()
-            scope_spans.spans.append(otel_span)
+            scope_spans.spans.append(span._to_otel_proto())
 
         # Convert protobuf to JSON and send request
         json_str = MessageToJson(request)
