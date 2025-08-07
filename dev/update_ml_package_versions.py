@@ -18,7 +18,6 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from packaging.version import Version
@@ -226,7 +225,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_min_supported_version(versions_infos: list[VersionInfo]) -> Optional[str]:
+def get_min_supported_version(versions_infos: list[VersionInfo]) -> str | None:
     """
     Get the minimum version that is released within the past two years
     """

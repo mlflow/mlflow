@@ -35,7 +35,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 2.3": ["numpy<2", "transformers<=4.49.0"]
+      "< 2.3": ["numpy<2", "transformers<=4.49.0", "safetensors<0.6.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -71,7 +71,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.10.0"
+    maximum: "3.11.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -81,7 +81,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.10.0"
+    maximum: "3.11.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -133,7 +133,7 @@ xgboost:
 
   models:
     minimum: "2.0.0"
-    maximum: "3.0.2"
+    maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -141,7 +141,7 @@ xgboost:
 
   autologging:
     minimum: "2.0.0"
-    maximum: "3.0.2"
+    maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -225,8 +225,6 @@ semantic_kernel:
   autologging:
     minimum: "1.34.0"
     maximum: "1.35.0"
-    python:
-      ">= 1.34.0": "3.10"
     requirements:
       ">= 1.34.0": ["pydantic>=2.0,<2.12", "openai"]
     run: |
@@ -241,8 +239,6 @@ spacy:
   models:
     minimum: "3.6.1"
     maximum: "3.8.7"
-    python:
-      ">= 3.8.4": "3.10"
     requirements:
       "< 3.8": ["numpy<2"]
     run: |
@@ -452,8 +448,8 @@ transformers:
     install_dev: |
       pip install git+https://github.com/huggingface/transformers
   models:
-    minimum: "4.35.2"
-    maximum: "4.54.0"
+    minimum: "4.38.2"
+    maximum: "4.54.1"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -483,9 +479,7 @@ transformers:
         ]
       # peft >= 0.14 relies on classes from newer versions of transformers
       "< 4.43": ["peft<0.14.0"]
-      # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
-      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
-      ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
       export PYTHONPATH=./
@@ -496,12 +490,10 @@ transformers:
       pip uninstall -y accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
-    minimum: "4.35.2"
-    maximum: "4.54.0"
+    minimum: "4.38.2"
+    maximum: "4.54.1"
     test_every_n_versions: 4
     unsupported: [
-        # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        ">=4.38.0,<4.39.0",
         # https://github.com/huggingface/transformers/issues/38269
         "== 4.52.1",
         "== 4.52.2",
@@ -520,13 +512,13 @@ transformers:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
-      "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
-      ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
       # that version of setfit requires tranformers>=4.41
       # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
-      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3"]
+      # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
+      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
@@ -538,7 +530,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.97.1"
+    maximum: "1.98.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -557,10 +549,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.97.1"
-    python:
-      # OpenAI Swarm requires Python >=3.10
-      ">= 1.33.0": "3.10"
+    maximum: "1.98.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -708,7 +697,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.5.4"
+    maximum: "0.6.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -725,7 +714,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.5.4"
+    maximum: "0.6.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -750,7 +739,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.52"
+    maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -766,7 +755,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.52"
+    maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -801,7 +790,7 @@ autogen:
     module_name: "autogen_agentchat"
   autologging:
     minimum: "0.4.9"
-    maximum: "0.6.4"
+    maximum: "0.7.1"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -820,7 +809,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.27.0"
+    maximum: "1.28.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -835,7 +824,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.59.0"
+    maximum: "0.60.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -852,10 +841,8 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.150.0"
+    maximum: "0.152.0"
     unsupported: ["==0.114.0"]
-    python:
-      ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
     test_tracing_sdk: true
@@ -880,10 +867,8 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
-    python:
-      ">= 0.1.0": "3.10"
     minimum: "0.1.9"
-    maximum: "0.4.7"
+    maximum: "0.4.11"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -898,8 +883,6 @@ smolagents:
   autologging:
     minimum: "1.14.0"
     maximum: "1.20.0"
-    python:
-      ">=1.14.0": "3.10"
     requirements:
       ">= 0.0.0": ["duckduckgo-search"]
     run: pytest tests/smolagents
@@ -951,7 +934,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.0.1"
+    minimum: "5.0.3"
     maximum: "6.0.4"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
@@ -985,14 +968,11 @@ promptflow:
 litellm:
   package_info:
     pip_release: "litellm"
-    # TODO: Uncomment this once https://github.com/BerriAI/litellm/issues/9656 is fixed
-    # install_dev: |
-    #   pip install git+https://github.com/BerriAI/litellm.git
+    install_dev: |
+      pip install git+https://github.com/BerriAI/litellm.git
   autologging:
-    minimum: "1.52.9"
-    maximum: "1.58.4"
-    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
-    unsupported: [">=1.59"]
+    minimum: "1.63.14"
+    maximum: "1.74.9"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -1024,6 +1004,6 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.39.14"
+    maximum: "1.40.1"
     run: pytest tests/bedrock
     test_tracing_sdk: true

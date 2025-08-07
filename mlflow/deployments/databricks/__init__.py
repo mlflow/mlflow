@@ -1,7 +1,7 @@
 import json
 import posixpath
 import warnings
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -124,9 +124,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -152,9 +152,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
     ) -> Iterator[str]:
         call_kwargs = {}
         if method.lower() == "get":
@@ -177,6 +177,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
+        # Explicitly set the encoding to `utf-8` so the `decode_unicode` in the next line
+        # will decode correctly
+        response.encoding = "utf-8"
         return (
             line.strip()
             for line in response.iter_lines(decode_unicode=True)

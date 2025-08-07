@@ -7,7 +7,7 @@ import sys
 import warnings
 from importlib.metadata import version
 from operator import itemgetter
-from typing import Any, Iterator, Mapping, Optional
+from typing import Any, Iterator, Mapping
 from unittest import mock
 
 import langchain
@@ -236,7 +236,7 @@ def create_retriever_tool(monkeypatch):
 class FakeLLM(LLM):
     """Fake LLM wrapper for testing purposes."""
 
-    queries: Optional[Mapping] = None
+    queries: Mapping | None = None
     endpoint_name: str = "fake-llm-endpoint"
 
     @property
@@ -244,7 +244,7 @@ class FakeLLM(LLM):
         """Return type of llm."""
         return "fake"
 
-    def _call(self, prompt: str, stop: Optional[list[str]] = None, run_manager=None) -> str:
+    def _call(self, prompt: str, stop: list[str] | None = None, run_manager=None) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
             return self.queries[prompt]
@@ -354,8 +354,8 @@ def get_fake_chat_model(endpoint_name="fake-endpoint"):
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return "Databricks"
@@ -384,8 +384,8 @@ def fake_classifier_chat_model():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             if "MLflow" in messages[0].content.split(":")[1]:
@@ -2844,8 +2844,8 @@ def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return "Databricks"
@@ -2853,8 +2853,8 @@ def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
         def _stream(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> Iterator[ChatGenerationChunk]:
             for chunk_content, finish_reason in [
@@ -3687,8 +3687,6 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
     # Simulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
-    # write to mlflow backend as well
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "true")
     mlflow.tracing.reset()
 
     model_info = mlflow.langchain.log_model(

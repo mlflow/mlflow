@@ -129,6 +129,17 @@ const config: Config = {
           label: 'API Reference',
         },
         {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
+        },
+        {
+          type: 'custom-versionSelector',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',
@@ -242,7 +253,7 @@ const config: Config = {
         id: 'community',
         path: 'docs/community',
         routeBasePath: 'community',
-        sidebarPath: false,
+        sidebarPath: './communitySidebar.ts',
       },
     ],
     [

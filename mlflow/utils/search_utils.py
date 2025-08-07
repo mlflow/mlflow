@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 
 import sqlparse
 from packaging.version import Version
@@ -1870,7 +1870,7 @@ class SearchLoggedModelsUtils(SearchUtils):
         cls,
         model: LoggedModel,
         condition: dict[str, Any],
-        datasets: Optional[list[dict[str, Any]]] = None,
+        datasets: list[dict[str, Any]] | None = None,
     ):
         key_type = condition.get("type")
         key = condition.get("key")
@@ -1917,8 +1917,8 @@ class SearchLoggedModelsUtils(SearchUtils):
     def filter_logged_models(
         cls,
         models: list[LoggedModel],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
     ):
         """Filters a set of runs based on a search filter string and list of dataset filters."""
         if not filter_string and not datasets:
@@ -1949,8 +1949,8 @@ class SearchLoggedModelsUtils(SearchUtils):
     class OrderBy:
         field_name: str
         ascending: bool = True
-        dataset_name: Optional[str] = None
-        dataset_digest: Optional[str] = None
+        dataset_name: str | None = None
+        dataset_digest: str | None = None
 
     @classmethod
     def parse_order_by_for_logged_models(cls, order_by: dict[str, Any]) -> OrderBy:
@@ -2025,7 +2025,7 @@ class SearchLoggedModelsUtils(SearchUtils):
         return value if order_by.ascending else _Reversor(value)
 
     @classmethod
-    def _get_sort_key(cls, order_by_list: Optional[list[dict[str, Any]]]):
+    def _get_sort_key(cls, order_by_list: list[dict[str, Any]] | None):
         parsed_order_by = list(map(cls.parse_order_by_for_logged_models, order_by_list or []))
 
         # Add a tie-breaker
@@ -2062,8 +2062,8 @@ class _LoggedModelMetricComp:
 @dataclass
 class SearchLoggedModelsPaginationToken:
     experiment_ids: list[str]
-    filter_string: Optional[str] = None
-    order_by: Optional[list[dict[str, Any]]] = None
+    filter_string: str | None = None
+    order_by: list[dict[str, Any]] | None = None
     offset: int = 0
 
     def to_json(self) -> str:
@@ -2089,8 +2089,8 @@ class SearchLoggedModelsPaginationToken:
     def validate(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str],
-        order_by: Optional[list[dict[str, Any]]],
+        filter_string: str | None,
+        order_by: list[dict[str, Any]] | None,
     ) -> None:
         if self.experiment_ids != experiment_ids:
             raise MlflowException.invalid_parameter_value(

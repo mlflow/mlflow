@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
@@ -61,7 +61,7 @@ def requires_databricks_agents(func):
 
 
 @requires_databricks_agents
-def is_context_relevant(*, request: str, context: Any, name: Optional[str] = None) -> Feedback:
+def is_context_relevant(*, request: str, context: Any, name: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
 
@@ -116,8 +116,8 @@ def is_context_sufficient(
     request: str,
     context: Any,
     expected_facts: list[str],
-    expected_response: Optional[str] = None,
-    name: Optional[str] = None,
+    expected_response: str | None = None,
+    name: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -171,8 +171,8 @@ def is_correct(
     request: str,
     response: str,
     expected_facts: list[str],
-    expected_response: Optional[str] = None,
-    name: Optional[str] = None,
+    expected_response: str | None = None,
+    name: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is correct for the input request.
@@ -202,9 +202,7 @@ def is_correct(
 
 
 @requires_databricks_agents
-def is_grounded(
-    *, request: str, response: str, context: Any, name: Optional[str] = None
-) -> Feedback:
+def is_grounded(*, request: str, response: str, context: Any, name: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
 
@@ -250,7 +248,7 @@ def is_grounded(
 
 
 @requires_databricks_agents
-def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
+def is_safe(*, content: str, name: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
@@ -279,10 +277,10 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
 @format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
-    guidelines: Union[str, list[str]],
+    guidelines: str | list[str],
     context: dict[str, Any],
-    name: Optional[str] = None,
-    model: Optional[str] = None,
+    name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -320,7 +318,6 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-
     model = model or get_default_model()
 
     if model == "databricks":

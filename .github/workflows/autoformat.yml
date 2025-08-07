@@ -155,11 +155,11 @@ jobs:
       - if: steps.diff.outputs.docs == 'true'
         working-directory: docs
         run: |
-          yarn install
+          npm ci
       - if: steps.diff.outputs.docs == 'true'
         working-directory: docs
         run: |
-          yarn prettier:fix
+          npm run prettier:fix
       # ************************************************************************
       # R
       # ************************************************************************

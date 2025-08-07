@@ -1,8 +1,8 @@
 # CHANGELOG
 
-## 3.2.0rc0 (2025-07-29)
+## 3.2.0 (2025-08-05)
 
-MLflow 3.2.0rc0 includes several major features and improvements
+MLflow 3.2.0 includes several major features and improvements
 
 ### Major New Features
 
@@ -10,12 +10,13 @@ MLflow 3.2.0rc0 includes several major features and improvements
 - 🔗 **Semantic Kernel Tracing**: MLflow now provides [automatic tracing support for Semantic Kernel](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/semantic_kernel/), simplifying trace capture for SK-based workflows. (#16469, @michael-berk)
 - 🧪 **Feedback Tracking**: MLflow OSS now natively supports tracking [human feedbacks](https://mlflow.org/docs/latest/genai/assessments/feedback/), [ground truths](https://mlflow.org/docs/latest/genai/assessments/expectations/), LLM judges on traces, providing integrated quality monitoring and feedback management capabilities. (#16743, @BenWilson2)
 - 🖥️ **MLflow UI Improvements**: The MLflow UI now features **a redesigned experiment home view** and includes enhancements like pagination on the model page for better usability. (#16464, @frontsideair, #15801, @Flametaa)
+- 🔍 **Updated Trace UI**: The Trace UI now has image support when rendering chat messages for OpenAI, Langchain, and Anthropic! Additionally, we're introducing a "summary view" which is a simplified, flat representation of the important spans in a trace. The full detail view is still available in a separate tab.
 - 🛡️ **PII Masking in Tracing**: Added support for [masking personally identifiable information (PII) via a custom span post-processor](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/masking). (#16344, @B-Step62)
 - 🐻‍❄️ **Polars Dataset Support**: MLflow now supports [Polars datasets](https://mlflow.org/docs/latest/ml/dataset/#dataset), expanding compatibility with performant DataFrame libraries. (#13006, @AlpAribal)
 
 ### 📊 Usage Tracking (New in 3.2.0)
 
-- Starting with version 3.2.0, MLflow will begin collecting anonymized usage data about how core features of the platform are used. This data contains **no sensitive or personally identifiable information**, and users can opt out of data collection at any time. Check [MLflow documentation](https://mlflow.org/docs/latest/community/usage-tracking) for more details. (#16439, @serena-ruan)
+- Starting with version 3.2.0, MLflow will begin collecting anonymized usage data about how core features of the platform are used. This data contains **no sensitive or personally identifiable information**, and users can opt out of data collection at any time. Check [MLflow documentation](https://mlflow.org/docs/latest/community/usage-tracking/) for more details. (#16439, @serena-ruan)
 
 Features:
 
@@ -32,9 +33,12 @@ Features:
 - [Tracking] Introduce MLFLOW_DISABLE_SCHEMA_DETAILS environment variable to toggle detailed schema errors (#16631, @NJAHNAVI2907)
 - [Tracking] Add support for chat-style prompts with structured output with prompt object (#16341, @harshilprajapati96)
 - [Tracking] Add support for responses.parse calls in oai autologger (#16245, @dipakkrishnan)
+- [Tracking] Add support for uv as an environment manager in mlflow run (#16274, @isuyyy)
 - [Evaluation] Replace guideline_adherence to guidelines (#16856, @smoorjani)
+- [Evaluation] Replace Scheduled Scorers API to a Scorer Registration System (#16977, @dbrx-euirim)
 - [UI] Add tag filter to the experiments page (#16648, @frontsideair)
 - [UI] Add ability to the UI to edit experiment tags (#16614, @frontsideair)
+- [UI] Create runs table using selected columns in the experiment view (#16804, @wangh118)
 - [Scoring] Make spark_udf support 'uv' env manager (#16292, @WeichenXu123)
 
 Bug fixes:
@@ -54,6 +58,12 @@ Bug fixes:
 - [Tracing] Proper chat message reconstruction from OAI streaming response (#16519, @B-Step62)
 - [Tracing] Convert trace column in search_traces() response to JSON string (#16523, @B-Step62)
 - [Evaluation] Fix mlflow.evaluate crashes in \_get_binary_classifier_metrics due to … (#16485, @mohammadsubhani)
+- [Evaluation] Fix trace detection logic for `mlflow.genai.evaluate` (#16932, @B-Step62)
+- [Evaluation] Enable to use make_genai_metric_from_prompt for mlflow.evaluate (#16960, @TomeHirata)
+- [Models] Add explicit encoding for decoding streaming Responses (#16855, @aravind-segu)
+- [Tracking] Prevent from tracing DSPy model API keys (#17021, @czyzby)
+- [Tracking] Fix pytorch datetime issue (#17030, @serena-ruan)
+- [Tracking] Fix predict with pre-releases (#16998, @serena-ruan)
 
 Documentation updates:
 
@@ -61,10 +71,11 @@ Documentation updates:
 - [Docs] Fix Additional GenAI Docs pages (#16691, @BenWilson2)
 - [Docs] Update the docs selector dropdown (#16280, @BenWilson2)
 - [Docs] Update docs font sizing and link coloring (#16281, @BenWilson2)
+- [Docs] Fix typo in model deployment page (#16999, @premkiran-o7)
 
 Small bug fixes and documentation updates:
 
-#16930, #16917, #16738, #16717, #16693, #16694, #16684, #16678, #16656, #16513, #16459, #16277, #16276, #16275, #16170, #16217, @serena-ruan; #16927, #16915, #16913, #16911, #16909, #16889, #16727, #16600, #16543, #16551, #16526, #16533, #16535, #16531, #16472, #16392, #16389, #16385, #16376, #16369, #16367, #16321, #16311, #16307, #16273, #16268, #16265, #16112, #16243, #16231, #16226, #16221, #16196, @copilot-swe-agent; #16894, #16885, #16860, #16841, #16835, #16801, #16701, @daniellok-db; #16898, #16881, #16858, #16735, #16823, #16814, #16647, #16750, #16809, #16794, #16793, #16789, #16780, #16770, #16773, #16771, #16772, #16768, #16752, #16754, #16751, #16748, #16730, #16729, #16346, #16709, #16704, #16703, #16702, #16658, #16662, #16645, #16639, #16640, #16626, #16572, #16566, #16565, #16563, #16561, #16559, #16544, #16539, #16520, #16508, #16505, #16494, #16495, #16491, #16487, #16482, #16473, #16465, #16456, #16458, #16394, #16445, #16433, #16434, #16413, #16417, #16416, #16414, #16415, #16378, #16350, #16323, #15788, #16263, #16256, #16237, #16234, #16219, #16216, #16207, #16199, #16192, #16705, @harupy; #16900, #16755, #16762, #16757, #15860, #16661, #16630, #16657, #16605, #16602, #16568, #16569, #16553, #16345, #16454, #16489, #16486, #16438, #16266, #16382, #16381, #16303, @B-Step62; #16852, #16829, #16816, #16808, #16775, #16807, #16806, #16624, #16524, #16410, #16403, @TomeHirata; #16760, #16761, #16736, #16737, #16699, #16718, #16663, #16676, #16574, #16477, #16552, #16527, #16515, #16452, #16210, #16204, #16610, @frontsideair; #16723, #16124, @AveshCSingh; #16744, @BenWilson2; #16683, @dsuhinin; #16502, @bbqiu; #16619, @AchimGaedkeLynker; #16595, @Aiden-Jeon; #16480, #16479, @shushantrishav; #16398, #16331, #16328, #16329, #16293, @WeichenXu123
+#17003, #17049, #17035, #17026, #16981, #16971, #16953, #16930, #16917, #16738, #16717, #16693, #16694, #16684, #16678, #16656, #16513, #16459, #16277, #16276, #16275, #16170, #16217, @serena-ruan; #16927, #16915, #16913, #16911, #16909, #16889, #16727, #16600, #16543, #16551, #16526, #16533, #16535, #16531, #16472, #16392, #16389, #16385, #16376, #16369, #16367, #16321, #16311, #16307, #16273, #16268, #16265, #16112, #16243, #16231, #16226, #16221, #16196, @copilot-swe-agent; #17050, #17048, #16955, #16894, #16885, #16860, #16841, #16835, #16801, #16701, @daniellok-db; #16898, #16881, #16858, #16735, #16823, #16814, #16647, #16750, #16809, #16794, #16793, #16789, #16780, #16770, #16773, #16771, #16772, #16768, #16752, #16754, #16751, #16748, #16730, #16729, #16346, #16709, #16704, #16703, #16702, #16658, #16662, #16645, #16639, #16640, #16626, #16572, #16566, #16565, #16563, #16561, #16559, #16544, #16539, #16520, #16508, #16505, #16494, #16495, #16491, #16487, #16482, #16473, #16465, #16456, #16458, #16394, #16445, #16433, #16434, #16413, #16417, #16416, #16414, #16415, #16378, #16350, #16323, #15788, #16263, #16256, #16237, #16234, #16219, #16216, #16207, #16199, #16192, #16705, @harupy; #17047, #17017, #17005, #16989, #16952, #16951, #16903, #16900, #16755, #16762, #16757, #15860, #16661, #16630, #16657, #16605, #16602, #16568, #16569, #16553, #16345, #16454, #16489, #16486, #16438, #16266, #16382, #16381, #16303, @B-Step62; #17028, #17027, #17020, @he7d3r; #16969, #16957, #16852, #16829, #16816, #16808, #16775, #16807, #16806, #16624, #16524, #16410, #16403, @TomeHirata; #16987, @wangh118; #16760, #16761, #16736, #16737, #16699, #16718, #16663, #16676, #16574, #16477, #16552, #16527, #16515, #16452, #16210, #16204, #16610, @frontsideair; #16723, #16124, @AveshCSingh; #16744, @BenWilson2; #16683, @dsuhinin; #16877, #16502, @bbqiu; #16619, @AchimGaedkeLynker; #16595, @Aiden-Jeon; #16480, #16479, @shushantrishav; #16398, #16331, #16328, #16329, #16293, @WeichenXu123
 
 ## 3.1.4 (2025-07-23)
 
