@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -345,8 +346,6 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-
         # Convert protobuf bytes to integers for IDs
         trace_id = _bytes_to_id(otel_proto_span.trace_id)
         span_id = _bytes_to_id(otel_proto_span.span_id)
@@ -355,10 +354,7 @@ class Span:
             parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert status
-        from mlflow.entities.span_status import SpanStatus
-
         mlflow_status = SpanStatus.from_otel_proto_status(otel_proto_span.status)
-        otel_sdk_status = mlflow_status.to_otel_status()
 
         # Convert attributes from protobuf to dict
         attributes = {}
@@ -366,8 +362,6 @@ class Span:
             attributes[attr.key] = _decode_otel_value(attr.value)
 
         # Convert events
-        from opentelemetry.sdk.trace import Event as OTelEvent
-
         events = []
         for event in otel_proto_span.events:
             event_attrs = {}
@@ -378,7 +372,6 @@ class Span:
             )
 
         # Create OTelReadableSpan
-        from mlflow.tracing.utils import build_otel_context
 
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
@@ -387,7 +380,7 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes=attributes,
-            status=otel_sdk_status,
+            status=mlflow_status.to_otel_status(),
             events=events,
             resource=_OTelResource.get_empty(),
         )
@@ -402,9 +395,7 @@ class Span:
         Returns:
             An OpenTelemetry protobuf Span message.
         """
-        from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelSpan
-
-        otel_span = OTelSpan()
+        otel_span = OTelProtoSpan()
 
         # Convert hex string IDs to bytes for OTel protobuf
         otel_span.trace_id = bytes.fromhex(self._trace_id)
