@@ -1469,7 +1469,8 @@ class UcModelRegistryStore(BaseRestStore):
             name=name,
             proto_name=CreatePromptVersionRequest,
         )
-        return proto_to_mlflow_prompt(response_proto)
+        prompt_version = proto_to_mlflow_prompt(response_proto)
+        return self._add_aliases_to_prompt_version(prompt_version)
 
     def get_prompt_version(self, name: str, version: str | int) -> Optional[PromptVersion]:
         """
@@ -1487,8 +1488,8 @@ class UcModelRegistryStore(BaseRestStore):
                 proto_name=GetPromptVersionRequest,
             )
 
-            # No longer fetch prompt-level tags - keep them completely separate
-            return proto_to_mlflow_prompt(response_proto)
+            prompt_version = proto_to_mlflow_prompt(response_proto)
+            return self._add_aliases_to_prompt_version(prompt_version)
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
                 RESOURCE_DOES_NOT_EXIST
@@ -1592,8 +1593,8 @@ class UcModelRegistryStore(BaseRestStore):
                 proto_name=GetPromptVersionByAliasRequest,
             )
 
-            # No longer fetch prompt-level tags - keep them completely separate
-            return proto_to_mlflow_prompt(response_proto)
+            prompt_version = proto_to_mlflow_prompt(response_proto)
+            return self._add_aliases_to_prompt_version(prompt_version)
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
                 RESOURCE_DOES_NOT_EXIST
@@ -1755,3 +1756,46 @@ class UcModelRegistryStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(proto_name),
         )
+
+    def _add_aliases_to_prompt_version(self, prompt_version: PromptVersion) -> PromptVersion:
+        """
+        Fetch prompt-level aliases and attach all aliases that point to this version.
+
+        Uses the get_prompt method which returns a Prompt entity with aliases as a dict
+        {alias: version}, then filters to find aliases pointing to this version.
+
+        Args:
+            prompt_version: The PromptVersion object to enhance with aliases
+
+        Returns:
+            PromptVersion with all relevant aliases attached
+        """
+        try:
+            # Get prompt info with aliases dict
+            prompt_info = self.get_prompt(prompt_version.name)
+            if not prompt_info or not prompt_info.aliases:
+                return prompt_version
+
+            # Find all aliases that point to this version
+            version_aliases = [
+                alias
+                for alias, version in prompt_info.aliases.items()
+                if str(version) == str(prompt_version.version)
+            ]
+
+            # Create new PromptVersion with all aliases for this version
+            if version_aliases:
+                return PromptVersion(
+                    name=prompt_version.name,
+                    version=prompt_version.version,
+                    template=prompt_version.template,
+                    commit_message=prompt_version.commit_message,
+                    creation_timestamp=prompt_version.creation_timestamp,
+                    tags=prompt_version.tags,
+                    aliases=version_aliases,
+                )
+        except Exception:
+            # Return original version if anything goes wrong
+            pass
+
+        return prompt_version
