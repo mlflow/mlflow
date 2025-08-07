@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from opentelemetry import trace as trace_api
+from opentelemetry.proto.trace.v1.trace_pb2 import Status
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -107,8 +108,6 @@ class SpanStatus:
 
         :meta private:
         """
-        from opentelemetry.proto.trace.v1.trace_pb2 import Status
-
         status = Status()
         if self.status_code == SpanStatusCode.OK:
             status.code = Status.StatusCode.STATUS_CODE_OK

@@ -12,6 +12,8 @@ from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
+from opentelemetry.trace import Status as OTelStatus
+from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
@@ -356,9 +358,6 @@ class Span:
         parent_id = None
         if otel_proto_span.parent_span_id:
             parent_id = otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
-
-        from opentelemetry.trace import Status as OTelStatus
-        from opentelemetry.trace import StatusCode as OTelStatusCode
 
         # Convert OTel proto status code directly to OTel SDK status
         if otel_proto_span.status.code == 1:  # STATUS_CODE_OK

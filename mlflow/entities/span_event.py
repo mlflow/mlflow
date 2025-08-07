@@ -10,6 +10,7 @@ from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.tracing.utils.otlp import set_otel_proto_anyvalue
 
 
 @dataclass
@@ -89,14 +90,10 @@ class SpanEvent(_MlflowObject):
         otel_event.name = self.name
         otel_event.time_unix_nano = self.timestamp
 
-        # Add attributes
-        if self.attributes:
-            from mlflow.tracing.utils.otlp import set_otel_proto_anyvalue
-
-            for key, value in self.attributes.items():
-                attr = otel_event.attributes.add()
-                attr.key = key
-                set_otel_proto_anyvalue(attr.value, value)
+        for key, value in self.attributes.items():
+            attr = otel_event.attributes.add()
+            attr.key = key
+            set_otel_proto_anyvalue(attr.value, value)
 
         return otel_event
 
