@@ -1177,17 +1177,14 @@ class RestStore(AbstractStore):
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span._to_otel_proto() for span in spans)
 
-        json_str = MessageToJson(request)
-        endpoint = OTLP_TRACES_PATH
-
         response = http_request(
             host_creds=self.get_host_creds(),
-            endpoint=endpoint,
+            endpoint=OTLP_TRACES_PATH,
             method="POST",
-            json=json.loads(json_str),
+            json=json.loads(MessageToJson(request)),
         )
 
-        verify_rest_response(response, endpoint)
+        verify_rest_response(response, OTLP_TRACES_PATH)
         return spans
 
     async def log_spans_async(self, spans: list[Span]) -> list[Span]:
