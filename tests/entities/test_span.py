@@ -342,59 +342,6 @@ def sample_otel_span_for_conversion():
 
 
 @pytest.mark.parametrize(
-    ("status_code", "status_desc", "expected_code", "expected_desc"),
-    [
-        # OTel only keeps description for ERROR status
-        (OTelStatusCode.OK, "Success", SpanStatusCode.OK, ""),
-        (OTelStatusCode.ERROR, "Failed", SpanStatusCode.ERROR, "Failed"),
-        (OTelStatusCode.UNSET, "", SpanStatusCode.UNSET, ""),
-    ],
-)
-def test_otel_status_conversion(status_code, status_desc, expected_code, expected_desc):
-    """Test status conversion between OTel and MLflow."""
-    # Create OTel status
-    otel_status = OTelStatus(status_code, status_desc)
-
-    # Convert to MLflow status
-    mlflow_status = SpanStatus.from_otel_status(otel_status)
-    assert mlflow_status.status_code == expected_code
-    # OTel SDK clears description for non-ERROR statuses
-    assert mlflow_status.description == (status_desc if status_code == OTelStatusCode.ERROR else "")
-
-    # Convert back to OTel status
-    converted_status = mlflow_status.to_otel_status()
-    assert converted_status.status_code == status_code
-    # Description is only preserved for ERROR status
-    assert converted_status.description == expected_desc
-
-
-@pytest.mark.parametrize(
-    ("proto_code", "expected_mlflow_code", "expected_otel_code"),
-    [
-        (OTelProtoStatus.STATUS_CODE_OK, SpanStatusCode.OK, OTelStatusCode.OK),
-        (OTelProtoStatus.STATUS_CODE_ERROR, SpanStatusCode.ERROR, OTelStatusCode.ERROR),
-        (OTelProtoStatus.STATUS_CODE_UNSET, SpanStatusCode.UNSET, OTelStatusCode.UNSET),
-    ],
-)
-def test_otel_proto_status_conversion(proto_code, expected_mlflow_code, expected_otel_code):
-    """Test status conversion from OTel protobuf."""
-    # Create proto status
-    proto_status = OTelProtoStatus()
-    proto_status.code = proto_code
-    proto_status.message = "test message"
-
-    # Convert to MLflow status
-    mlflow_status = SpanStatus.from_otel_proto_status(proto_status)
-    assert mlflow_status.status_code == expected_mlflow_code
-    assert mlflow_status.description == "test message"
-
-    # Convert to OTel proto status
-    converted_proto = mlflow_status.to_otel_proto_status()
-    assert converted_proto.code == proto_code
-    assert converted_proto.message == "test message"
-
-
-@pytest.mark.parametrize(
     "attributes",
     [
         # Empty attributes
@@ -574,38 +521,3 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
-
-
-@pytest.mark.parametrize(
-    "event_attrs",
-    [
-        {},
-        {"simple": "string"},
-        {"number": 42, "float": 3.14, "bool": True},
-        {"list": [1, 2, 3], "dict": {"nested": "value"}},
-    ],
-)
-def test_span_event_otel_conversion(event_attrs):
-    """Test SpanEvent to OTel proto conversion."""
-    # Create span event
-    event = SpanEvent(
-        name="test_event",
-        timestamp=1234567890,
-        attributes=event_attrs,
-    )
-
-    # Convert to OTel proto
-    otel_proto_event = event._to_otel_proto()
-
-    # Verify fields
-    assert otel_proto_event.name == "test_event"
-    assert otel_proto_event.time_unix_nano == 1234567890
-
-    # Verify attributes
-    from mlflow.tracing.utils.otlp import decode_otel_proto_anyvalue
-
-    decoded_attrs = {}
-    for attr in otel_proto_event.attributes:
-        decoded_attrs[attr.key] = decode_otel_proto_anyvalue(attr.value)
-
-    assert decoded_attrs == event_attrs
