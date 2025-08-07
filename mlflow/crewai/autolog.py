@@ -21,7 +21,6 @@ def patched_class_call(original, self, *args, **kwargs):
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
         span_type = _get_span_type(self)
-        print(f"span_type: {span_type}, fullname: {fullname}, args: {args}, kwargs: {kwargs}")
         with mlflow.start_span(name=fullname, span_type=span_type) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
@@ -62,10 +61,12 @@ def _get_span_type(instance) -> str:
                     crewai.memory.LongTermMemory,
                     crewai.memory.UserMemory,
                     crewai.memory.EntityMemory,
-                    crewai.Knowledge,
                 ),
             ):
                 return SpanType.MEMORY
+
+            if isinstance(instance, crewai.Knowledge):
+                return SpanType.RETRIEVER
     except AttributeError as e:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
