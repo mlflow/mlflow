@@ -4,7 +4,7 @@ import inspect
 import logging
 import threading
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import mlflow
 from mlflow.entities import Metric
@@ -336,7 +336,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def batch_metrics_logger(run_id: Optional[str] = None, model_id: Optional[str] = None):
+def batch_metrics_logger(run_id: str | None = None, model_id: str | None = None):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
@@ -549,7 +549,7 @@ def is_autolog_supported(integration_name: str) -> bool:
     return "autologging" in _ML_PACKAGE_VERSIONS.get(integration_name, {})
 
 
-def get_autolog_function(integration_name: str) -> Optional[Callable[..., Any]]:
+def get_autolog_function(integration_name: str) -> Callable[..., Any] | None:
     """
     Get the autolog() function for the specified integration.
     Returns None if the flavor does not have an autolog() function.

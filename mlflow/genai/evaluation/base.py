@@ -1,7 +1,7 @@
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -31,7 +31,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
-    from genai.evaluation.utils import EvaluationDatasetTypes
+    from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    predict_fn: Optional[Callable[..., Any]] = None,
-    model_id: Optional[str] = None,
+    predict_fn: Callable[..., Any] | None = None,
+    model_id: str | None = None,
 ) -> EvaluationResult:
     """
     Evaluate the performance of a generative AI model/application using specified

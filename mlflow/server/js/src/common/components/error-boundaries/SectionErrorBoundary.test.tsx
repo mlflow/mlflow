@@ -23,7 +23,7 @@ describe('SectionErrorBoundary', () => {
     expect(screen.queryByTestId('icon-fail')).not.toBeInTheDocument();
   });
 
-  test('test componentDidCatch causes error message to render', () => {
+  test('componentDidCatch causes error message to render', () => {
     const ErrorComponent = () => {
       throw new Error('error msg');
     };

@@ -7,12 +7,13 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, func, sql, text
+from sqlalchemy import and_, case, func, sql, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -41,6 +42,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -75,12 +77,13 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSpan,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceTag,
 )
-from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -836,8 +839,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         run_id: str,
         metrics: list[Metric],
-        dataset_uuid: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        dataset_uuid: str | None = None,
+        experiment_id: str | None = None,
     ) -> None:
         if not metrics:
             return
@@ -1568,8 +1571,8 @@ class SqlAlchemyStore(AbstractStore):
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -1605,8 +1608,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_id,
         run_id,
-        dataset_inputs: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        dataset_inputs: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         dataset_inputs = dataset_inputs or []
         for dataset_input in dataset_inputs:
@@ -1750,7 +1753,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_model_inputs(
         self,
         run_id: str,
-        session: Optional[sqlalchemy.orm.Session] = None,
+        session: sqlalchemy.orm.Session | None = None,
     ) -> list[LoggedModelInput]:
         return [
             LoggedModelInput(model_id=input.destination_id)
@@ -1787,11 +1790,11 @@ class SqlAlchemyStore(AbstractStore):
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[list[LoggedModelTag]] = None,
-        params: Optional[list[LoggedModelParameter]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
     ) -> LoggedModel:
         _validate_logged_model_name(name)
         with self.ManagedSessionMaker() as session:
@@ -1944,7 +1947,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
-        order_by: Optional[list[dict[str, Any]]] = None,
+        order_by: list[dict[str, Any]] | None = None,
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
         has_creation_timestamp = False
@@ -2030,8 +2033,8 @@ class SqlAlchemyStore(AbstractStore):
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         experiment_ids: list[str],
-        filter_string: Optional[str],
-        datasets: Optional[list[dict[str, Any]]],
+        filter_string: str | None,
+        datasets: list[dict[str, Any]] | None,
     ):
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
@@ -2109,11 +2112,11 @@ class SqlAlchemyStore(AbstractStore):
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[DatasetFilter]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[DatasetFilter] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[LoggedModel]:
         if datasets and not all(d.get("dataset_name") for d in datasets):
             raise MlflowException(
@@ -2236,13 +2239,13 @@ class SqlAlchemyStore(AbstractStore):
     def search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -2359,9 +2362,9 @@ class SqlAlchemyStore(AbstractStore):
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -2457,11 +2460,11 @@ class SqlAlchemyStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[ExpectationValue] = None,
-        feedback: Optional[FeedbackValue] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        name: str | None = None,
+        expectation: ExpectationValue | None = None,
+        feedback: FeedbackValue | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Assessment:
         """
         Updates an existing assessment with new values while preserving immutable fields.
@@ -2640,6 +2643,144 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
         return sql_assessment
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        if not spans:
+            return []
+
+        # Validate all spans belong to the same trace
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise MlflowException(
+                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        trace_id = next(iter(trace_ids))
+
+        # Calculate trace time bounds from spans
+        min_start_ms = min(span.start_time_ns for span in spans) // 1_000_000
+        # If no spans have ended, max_end_time should be None (trace still in progress)
+        end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
+        max_end_ms = (max(end_times) // 1_000_000) if end_times else None
+
+        with self.ManagedSessionMaker() as session:
+            # Try to get the trace info to check if trace exists
+            sql_trace_info = (
+                session.query(SqlTraceInfo)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            # If trace doesn't exist, create it
+            if sql_trace_info is None:
+                # Create trace info for this new trace. We need to establish the trace
+                # before we can add spans to it, as spans have a foreign key to trace_info.
+                sql_trace_info = SqlTraceInfo(
+                    request_id=trace_id,
+                    experiment_id=experiment_id,
+                    timestamp_ms=min_start_ms,
+                    execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
+                    # TODO: Set trace status based on root span status (span with no parent).
+                    # For now, we default to "OK" for all new traces.
+                    status="OK",
+                    client_request_id=None,
+                )
+                session.add(sql_trace_info)
+                try:
+                    session.flush()
+                except IntegrityError:
+                    # IntegrityError indicates a race condition: another process/thread
+                    # created the trace between our initial check and insert attempt.
+                    # This is expected in concurrent scenarios. We rollback and fetch
+                    # the trace that was created by the other process.
+                    session.rollback()
+                    sql_trace_info = (
+                        session.query(SqlTraceInfo)
+                        .filter(SqlTraceInfo.request_id == trace_id)
+                        .one()
+                    )
+
+            # Atomic update of trace time range using SQLAlchemy's case expressions.
+            # This is necessary to handle concurrent span additions from multiple processes/threads
+            # without race conditions. The database performs the min/max comparisons atomically,
+            # ensuring the trace always reflects the earliest start and latest end times across
+            # all spans, even when multiple log_spans calls happen simultaneously.
+            timestamp_update_expr = case(
+                (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
+                else_=SqlTraceInfo.timestamp_ms,
+            )
+            update_dict = {
+                SqlTraceInfo.timestamp_ms: timestamp_update_expr,
+            }
+            # Only attempt to update execution_time_ms if we have at least one ended span
+            if max_end_ms is not None:
+                update_dict[SqlTraceInfo.execution_time_ms] = (
+                    case(
+                        (
+                            (SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms)
+                            > max_end_ms,
+                            SqlTraceInfo.timestamp_ms + SqlTraceInfo.execution_time_ms,
+                        ),
+                        else_=max_end_ms,
+                    )
+                    - timestamp_update_expr
+                )
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
+                update_dict,
+                # Skip session synchronization for performance - we don't use the object afterward
+                synchronize_session=False,
+            )
+
+            for span in spans:
+                span_dict = span.to_dict()
+                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+
+                sql_span = SqlSpan(
+                    trace_id=span.trace_id,
+                    experiment_id=sql_trace_info.experiment_id,
+                    span_id=span.span_id,
+                    parent_span_id=span.parent_id,
+                    name=span.name,
+                    type=span.span_type,
+                    status=span.status.status_code,
+                    start_time_unix_nano=span.start_time_ns,
+                    end_time_unix_nano=span.end_time_ns,
+                    content=content_json,
+                )
+
+                session.merge(sql_span)
+
+        return spans
+
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        # TODO: Implement proper async support
+        return self.log_spans(experiment_id, spans)
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.

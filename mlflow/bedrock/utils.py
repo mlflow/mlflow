@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Sequence
 
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.environment_variables import _MLFLOW_TESTING
@@ -45,7 +45,7 @@ def _validate_usage_input(usage_data: Any) -> bool:
     return isinstance(usage_data, dict)
 
 
-def _extract_token_value_by_keys(d: dict[str, Any], names: Sequence[str]) -> Optional[int]:
+def _extract_token_value_by_keys(d: dict[str, Any], names: Sequence[str]) -> int | None:
     """Extract first integer value from dict using sequence of key names.
 
     Args:
@@ -95,7 +95,7 @@ def skip_if_trace_disabled(func: Callable[..., Any]) -> Callable[..., Any]:
 
 def parse_complete_token_usage_from_response(
     usage_data: dict[str, Any],
-) -> Optional[dict[str, int]]:
+) -> dict[str, int] | None:
     """Parse token usage from response, requiring both input and output tokens.
 
     Args:
@@ -135,7 +135,7 @@ def parse_complete_token_usage_from_response(
     return token_usage_data
 
 
-def parse_partial_token_usage_from_response(usage_data: dict[str, Any]) -> Optional[dict[str, int]]:
+def parse_partial_token_usage_from_response(usage_data: dict[str, Any]) -> dict[str, int] | None:
     """Parse partial token usage from response, returning whatever is available.
 
     Args:

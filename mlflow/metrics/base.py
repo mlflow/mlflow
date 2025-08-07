@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional, Union
 
 import numpy as np
 
@@ -26,9 +25,9 @@ class MetricValue:
         aggregate_results: A dictionary mapping the name of the aggregation to its value
     """
 
-    scores: Optional[Union[list[str], list[float]]] = None
-    justifications: Optional[list[str]] = None
-    aggregate_results: Optional[dict[str, float]] = None
+    scores: list[str] | list[float] | None = None
+    justifications: list[str] | None = None
+    aggregate_results: dict[str, float] | None = None
 
     def __post_init__(self):
         if (

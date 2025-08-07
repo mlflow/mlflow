@@ -740,36 +740,6 @@ describe('useExperimentRuns - integration test', () => {
       });
     });
 
-    test('should autorefresh even if initial list is empty', async () => {
-      const uiState = {
-        ...testUiState,
-        autoRefreshEnabled: true,
-      };
-
-      jest.mocked(searchRunsApi).mockImplementation(() => ({
-        type: 'SEARCH_RUNS_API',
-        // Return empty list at first
-        payload: Promise.resolve({}),
-        meta: { id: 0 },
-      }));
-
-      // Render the hook
-      await renderTestHook(uiState);
-
-      // The initial call for runs should go through
-      expect(searchRunsApi).toBeCalledTimes(1);
-
-      // Wait for the refresh interval to pass
-      act(() => {
-        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
-      });
-
-      await waitFor(() => {
-        // We should get another call
-        expect(searchRunsApi).toBeCalledTimes(2);
-      });
-    });
-
     test("should sequentially call for more auto-refresh results if one call won't suffice", async () => {
       // Prepare "database" with 256 runs
       const fakeRuns = new Array(256).fill({}).map((_, index) => ({

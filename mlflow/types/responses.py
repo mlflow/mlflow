@@ -6,7 +6,7 @@ if not IS_PYDANTIC_V2_OR_NEWER:
         "Please upgrade to Pydantic v2 or newer."
     )
 import json
-from typing import Any, Optional, Union
+from typing import Any
 
 from pydantic import ConfigDict, model_validator
 
@@ -51,9 +51,9 @@ class ResponsesAgentRequest(BaseRequestPayload):
             endpoint. Includes conversation_id and user_id. **Optional** defaults to ``None``
     """
 
-    input: list[Union[Message, OutputItem]]
-    custom_inputs: Optional[dict[str, Any]] = None
-    context: Optional[ChatContext] = None
+    input: list[Message | OutputItem]
+    custom_inputs: dict[str, Any] | None = None
+    context: ChatContext | None = None
 
 
 class ResponsesAgentResponse(Response):
@@ -69,7 +69,7 @@ class ResponsesAgentResponse(Response):
             to ``None``
     """
 
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
 
 class ResponsesAgentStreamEvent(BaseModel):
@@ -85,7 +85,7 @@ class ResponsesAgentStreamEvent(BaseModel):
 
     model_config = ConfigDict(extra="allow")
     type: str
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def check_type(self) -> "ResponsesAgentStreamEvent":

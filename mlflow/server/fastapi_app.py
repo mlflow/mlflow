@@ -9,7 +9,6 @@ to FastAPI endpoints.
 from fastapi import FastAPI
 from starlette.middleware.wsgi import WSGIMiddleware
 
-# Import the existing Flask app
 from mlflow.server import app as flask_app
 from mlflow.version import VERSION
 
@@ -26,19 +25,15 @@ def create_fastapi_app():
         title="MLflow Tracking Server",
         description="MLflow Tracking Server API",
         version=VERSION,
-        # Enable API documentation for FastAPI endpoints
-        docs_url="/fastapi/docs",
-        redoc_url="/fastapi/redoc",
-        openapi_url="/fastapi/openapi.json",
+        # TODO: Enable API documentation when we have native FastAPI endpoints
+        # For now, disable docs since we only have Flask routes via WSGI
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
-    # Import and include OTel API router for native FastAPI endpoints
-    from mlflow.server.otel_api import otel_router
-
-    fastapi_app.include_router(otel_router)
-
     # Mount the entire Flask application at the root path
-    # This ensures 100% compatibility with existing APIs
+    # This ensures compatibility with existing APIs
     fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
     return fastapi_app

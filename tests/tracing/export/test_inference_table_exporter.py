@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -494,7 +493,7 @@ def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
 
 
 def _register_span_and_trace(
-    span: LiveSpan, client_request_id: str, experiment_id: Optional[str] = None
+    span: LiveSpan, client_request_id: str, experiment_id: str | None = None
 ):
     trace_manager = InMemoryTraceManager.get_instance()
     if span.parent_id is None:

@@ -1,6 +1,6 @@
 import logging
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Generator
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -69,7 +69,7 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # NB: Dummy NoOp exporter, because OTel span processor requires an exporter
         self.span_exporter = SpanExporter()
 
-    def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
+    def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         # Trigger MLflow's span processor
         tracer = _get_tracer(__name__)
         tracer.span_processor.on_start(span, parent_context)

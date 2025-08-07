@@ -6,6 +6,7 @@ import thunk from 'redux-thunk';
 import { getMetricHistoryApiBulk } from '../../../actions';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import { RunInfoEntity } from '../../../types';
+// eslint-disable-next-line no-restricted-imports -- TODO(FEINF-4383)
 import { act } from 'react-dom/test-utils';
 
 jest.mock('../../../actions', () => ({

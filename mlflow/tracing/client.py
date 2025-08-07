@@ -2,7 +2,7 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Optional, Sequence
+from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -45,7 +45,7 @@ class TracingClient:
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None):
+    def __init__(self, tracking_uri: str | None = None):
         """
         Args:
             tracking_uri: Address of local or remote tracking server.
@@ -77,9 +77,9 @@ class TracingClient:
     def delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         return self.store.delete_traces(
             experiment_id=experiment_id,
@@ -152,12 +152,12 @@ class TracingClient:
     def _search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
     ):
         return self.store.search_traces(
             experiment_ids=experiment_ids,
@@ -172,14 +172,14 @@ class TracingClient:
     def search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        run_id: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        run_id: str | None = None,
         include_spans: bool = True,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -258,7 +258,7 @@ class TracingClient:
 
         is_databricks = is_databricks_uri(self.tracking_uri)
 
-        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
+        def download_trace_extra_fields(trace_info: TraceInfo) -> Trace | None:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
