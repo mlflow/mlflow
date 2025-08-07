@@ -59,8 +59,6 @@ const RunViewMetricsTableSection = ({
 
   const valueColumn = otherColumns.find((column) => column.id === 'value')?.column;
 
-  const location = useLocation();
-
   const anyRowHasModels = metricsList.some(({ loggedModels }) => !isEmpty(loggedModels));
   const modelColumn = otherColumns.find((column) => column.id === 'models')?.column;
 
