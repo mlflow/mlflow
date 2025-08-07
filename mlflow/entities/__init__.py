@@ -115,7 +115,15 @@ __all__ = [
 def __getattr__(name):
     """Lazy loading for EvaluationDataset to avoid circular imports."""
     if name == "EvaluationDataset":
-        from mlflow.entities.evaluation_dataset import EvaluationDataset
+        try:
+            from mlflow.entities.evaluation_dataset import EvaluationDataset
 
-        return EvaluationDataset
+            return EvaluationDataset
+        except ImportError:
+            # EvaluationDataset requires mlflow.data which may not be available
+            # in minimal installations like mlflow-tracing
+            raise AttributeError(
+                "EvaluationDataset is not available. It requires the mlflow.data module "
+                "which is not included in this installation."
+            )
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
