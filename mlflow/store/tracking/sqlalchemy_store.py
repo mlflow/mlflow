@@ -42,8 +42,10 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -2646,21 +2648,21 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
-        Extract trace status from root span if present.
+        Infer trace status from root span if present.
 
         Returns the mapped trace status string or None if no root span found.
         """
         for span in spans:
             if span.parent_id is None:  # Found root span (no parent)
                 # Map span status to trace status
-                span_status = span.status.status_code.value
-                if span_status == "ERROR":
-                    return "ERROR"
+                span_status = span.status.status_code
+                if span_status == SpanStatusCode.ERROR:
+                    return TraceState.ERROR.value
                 else:
+                    # Beyond ERROR, the only other valid span statuses are OK and UNSET.
                     # For both OK and UNSET span statuses, return OK trace status.
                     # UNSET is unexpected in production but we handle it gracefully.
-                    # The only valid span statuses are OK, ERROR, and UNSET.
-                    return "OK"
+                    return TraceState.OK.value
         return None
 
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
@@ -2698,7 +2700,7 @@ class SqlAlchemyStore(AbstractStore):
 
         # Determine trace status from root span if available
         root_span_status = self._get_trace_status_from_root_span(spans)
-        trace_status = root_span_status if root_span_status else "IN_PROGRESS"
+        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
 
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
@@ -2761,7 +2763,10 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             # If trace status is IN_PROGRESS or unspecified, check for root span to update it
-            if sql_trace_info.status in ("IN_PROGRESS", "STATE_UNSPECIFIED"):
+            if sql_trace_info.status in (
+                TraceState.IN_PROGRESS.value,
+                TraceState.STATE_UNSPECIFIED.value,
+            ):
                 if root_span_status:
                     update_dict[SqlTraceInfo.status] = root_span_status
 

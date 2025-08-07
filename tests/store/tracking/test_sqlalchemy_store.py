@@ -131,6 +131,48 @@ ARTIFACT_URI = "artifact_folder"
 pytestmark = pytest.mark.notrackingurimock
 
 
+# Helper functions for span tests
+def create_mock_span_context(trace_id_num=12345, span_id_num=111):
+    """Create a mock span context for testing."""
+    context = mock.Mock()
+    context.trace_id = trace_id_num
+    context.span_id = span_id_num
+    context.is_remote = False
+    context.trace_flags = trace_api.TraceFlags(1)
+    context.trace_state = trace_api.TraceState()
+    return context
+
+
+def create_test_otel_span(
+    trace_id,
+    name="test_span",
+    parent=None,
+    status_code=trace_api.StatusCode.UNSET,
+    status_description=None,
+    start_time=1000000000,
+    end_time=2000000000,
+    span_type="LLM",
+    trace_id_num=12345,
+    span_id_num=111,
+):
+    """Create an OTelReadableSpan for testing with common defaults."""
+    context = create_mock_span_context(trace_id_num, span_id_num)
+
+    return OTelReadableSpan(
+        name=name,
+        context=context,
+        parent=parent,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
+        },
+        start_time=start_time,
+        end_time=end_time,
+        status=trace_api.Status(status_code, status_description),
+        resource=_OTelResource.get_empty(),
+    )
+
+
 def db_types_and_drivers():
     d = {
         "sqlite": [
@@ -6698,32 +6740,19 @@ async def test_log_spans_sets_trace_status_from_root_span(
     experiment_id = store.create_experiment("test_trace_status_from_root")
     trace_id = f"test_trace_{span_status_code.name}_{uuid.uuid4().hex}"
 
-    # Create mock context for root span
-    context = mock.Mock()
-    context.trace_id = 12345 + span_status_code.value
-    context.span_id = 111 + span_status_code.value
-    context.is_remote = False
-    context.trace_flags = trace_api.TraceFlags(1)
-    context.trace_state = trace_api.TraceState()
-
     # Create root span with specified status
     description = (
         f"Root span {span_status_code.name}"
         if span_status_code == trace_api.StatusCode.ERROR
         else None
     )
-    root_otel_span = OTelReadableSpan(
+    root_otel_span = create_test_otel_span(
+        trace_id=trace_id,
         name=f"root_span_{span_status_code.name}",
-        context=context,
-        parent=None,  # Root span has no parent
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
-        },
-        start_time=1000000000,
-        end_time=2000000000,
-        status=trace_api.Status(span_status_code, description),
-        resource=_OTelResource.get_empty(),
+        status_code=span_status_code,
+        status_description=description,
+        trace_id_num=12345 + span_status_code.value,
+        span_id_num=111 + span_status_code.value,
     )
     root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
 
@@ -6749,25 +6778,14 @@ async def test_log_spans_unset_root_span_status_defaults_to_ok(
     trace_id = "test_trace_unset_" + str(uuid.uuid4().hex)
 
     # Create root span with UNSET status (this is unexpected in practice)
-    unset_context = mock.Mock()
-    unset_context.trace_id = 23456
-    unset_context.span_id = 333
-    unset_context.is_remote = False
-    unset_context.trace_flags = trace_api.TraceFlags(1)
-    unset_context.trace_state = trace_api.TraceState()
-
-    root_unset_span = OTelReadableSpan(
+    root_unset_span = create_test_otel_span(
+        trace_id=trace_id,
         name="root_span_unset",
-        context=unset_context,
-        parent=None,
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
-        },
+        status_code=trace_api.StatusCode.UNSET,  # Unexpected in practice
         start_time=3000000000,
         end_time=4000000000,
-        status=trace_api.Status(trace_api.StatusCode.UNSET),  # Unexpected in practice
-        resource=_OTelResource.get_empty(),
+        trace_id_num=23456,
+        span_id_num=333,
     )
     root_span = create_mlflow_span(root_unset_span, trace_id, "LLM")
 
@@ -6792,32 +6810,17 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
     trace_id = "test_trace_update_" + str(uuid.uuid4().hex)
 
     # First, log a non-root span which will create trace with default IN_PROGRESS status
-    child_context = mock.Mock()
-    child_context.trace_id = 45678
-    child_context.span_id = 666
-    child_context.is_remote = False
-    child_context.trace_flags = trace_api.TraceFlags(1)
-    child_context.trace_state = trace_api.TraceState()
+    parent_context = create_mock_span_context(45678, 555)  # Will be root span later
 
-    parent_context = mock.Mock()
-    parent_context.trace_id = 45678
-    parent_context.span_id = 555  # Will be root span later
-    parent_context.is_remote = False
-    parent_context.trace_flags = trace_api.TraceFlags(1)
-    parent_context.trace_state = trace_api.TraceState()
-
-    child_otel_span = OTelReadableSpan(
+    child_otel_span = create_test_otel_span(
+        trace_id=trace_id,
         name="child_span",
-        context=child_context,
         parent=parent_context,  # Has parent, not a root span
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
-        },
+        status_code=trace_api.StatusCode.OK,
         start_time=1100000000,
         end_time=1900000000,
-        status=trace_api.Status(trace_api.StatusCode.OK),
-        resource=_OTelResource.get_empty(),
+        trace_id_num=45678,
+        span_id_num=666,
     )
     child_span = create_mlflow_span(child_otel_span, trace_id, "LLM")
 
@@ -6832,25 +6835,14 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
     assert trace.state.value == "IN_PROGRESS"
 
     # Now log root span with ERROR status
-    root_context = mock.Mock()
-    root_context.trace_id = 45678
-    root_context.span_id = 555
-    root_context.is_remote = False
-    root_context.trace_flags = trace_api.TraceFlags(1)
-    root_context.trace_state = trace_api.TraceState()
-
-    root_otel_span = OTelReadableSpan(
+    root_otel_span = create_test_otel_span(
+        trace_id=trace_id,
         name="root_span",
-        context=root_context,
         parent=None,  # Root span
-        attributes={
-            "mlflow.traceRequestId": json.dumps(trace_id),
-            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
-        },
-        start_time=1000000000,
-        end_time=2000000000,
-        status=trace_api.Status(trace_api.StatusCode.ERROR, "Root span error"),
-        resource=_OTelResource.get_empty(),
+        status_code=trace_api.StatusCode.ERROR,
+        status_description="Root span error",
+        trace_id_num=45678,
+        span_id_num=555,
     )
     root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
 
