@@ -5,6 +5,8 @@ This module provides functions to manage registered scorers that automatically
 evaluate traces in MLflow experiments.
 """
 
+import json
+
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.utils.annotations import experimental
@@ -58,19 +60,50 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
             current_scorers = list_scorers()
             print(f"Found {len(current_scorers)} registered scorers")
     """
-    try:
-        from databricks.agents.scorers import list_scheduled_scorers
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    
+    tracking_uri = get_tracking_uri()
+    
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import list_scheduled_scorers
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
 
-    # Get scheduled scorers from the server
-    scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
+        # Get scheduled scorers from the server
+        scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
 
-    # Convert to Scorer instances with registration info
+        # Convert to Scorer instances with registration info
+        scorers = []
+        for scheduled_scorer in scheduled_scorers:
+            scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
+
+        return scorers
+
+    current_store = _get_store()
+    # Use the store's list_scorers method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
+    
+    # Get the list of mlflow.entities.scorer.Scorer objects
+    entity_scorers = current_store.list_scorers(experiment_id)
+    
+    # Convert to mlflow.genai.scorers.Scorer objects
     scorers = []
-    for scheduled_scorer in scheduled_scorers:
-        scorers.append(_scheduled_scorer_to_scorer(scheduled_scorer))
-
+    for entity_scorer in entity_scorers:
+        from mlflow.genai.scorers import Scorer
+        
+        scorer_dict = json.loads(entity_scorer.serialized_scorer)
+        scorer = Scorer.model_validate(scorer_dict)
+        scorers.append(scorer)
+    
     return scorers
 
 
@@ -104,19 +137,46 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
             # Update the scorer
             my_scorer = my_scorer.update(sample_rate=0.5)
     """
-    try:
-        from databricks.agents.scorers import get_scheduled_scorer
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.genai.scorers import Scorer
 
-    # Get the scheduled scorer from the server
-    scheduled_scorer = get_scheduled_scorer(
-        scheduled_scorer_name=name,
-        experiment_id=experiment_id,
-    )
+    tracking_uri = get_tracking_uri()
 
-    # Extract the scorer and set registration fields
-    return _scheduled_scorer_to_scorer(scheduled_scorer)
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import get_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        # Get the scheduled scorer from the server
+        scheduled_scorer = get_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
+        )
+
+        # Extract the scorer and set registration fields
+        return _scheduled_scorer_to_scorer(scheduled_scorer)
+
+    current_store = _get_store()
+    # Use the store's get_scorer method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
+
+    # Get the serialized scorer string
+    serialized_scorer = current_store.get_scorer(experiment_id, name)
+    
+    # Convert to mlflow.genai.scorers.Scorer object
+    scorer_dict = json.loads(serialized_scorer)
+    scorer = Scorer.model_validate(scorer_dict)
+    
+    return scorer
 
 
 @experimental(version="3.2.0")
@@ -164,15 +224,36 @@ def delete_scorer(
             # To use the scorer again, it must be re-registered
             new_scorer = RelevanceToQuery().register(name="relevance_checker_v2")
     """
-    try:
-        from databricks.agents.scorers import delete_scheduled_scorer
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    # Get the current tracking store
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.utils.databricks_utils import is_databricks_uri
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.exceptions import MlflowException
+    
+    tracking_uri = get_tracking_uri()
+    
+    # Check if it's a Databricks store
+    if is_databricks_uri(tracking_uri):
+        # Use the original Databricks implementation
+        try:
+            from databricks.agents.scorers import delete_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
 
-    delete_scheduled_scorer(
-        experiment_id=experiment_id,
-        scheduled_scorer_name=name,
-    )
+        delete_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
+        )
+        return
+
+    current_store = _get_store()
+    # Use the store's delete_scorer method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
+    
+    current_store.delete_scorer(experiment_id, name)
 
 
 # Private functions for internal use by Scorer methods

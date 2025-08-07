@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -145,7 +146,8 @@ class Scorer(BaseModel):
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
         )
-        return asdict(serialized)
+        self._cached_dump = asdict(serialized)
+        return self._cached_dump
 
     def _extract_source_code_info(self) -> dict[str, str | None]:
         """Extract source code information for the original decorated function."""
@@ -436,7 +438,11 @@ class Scorer(BaseModel):
                     name="output_length_checker", experiment_id="12345"
                 )
         """
-        from mlflow.genai.scorers.registry import add_registered_scorer
+        # Get the current tracking store
+        from mlflow.tracking._tracking_service.utils import _get_store
+        from mlflow.utils.databricks_utils import is_databricks_uri
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.exceptions import MlflowException
 
         self._check_can_be_registered()
 
@@ -450,18 +456,41 @@ class Scorer(BaseModel):
             if new_scorer._cached_dump is not None:
                 new_scorer._cached_dump["name"] = name
 
-        # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        add_registered_scorer(
-            name=new_scorer.name,
-            scorer=new_scorer,
-            sample_rate=0.0,
-            filter_string=None,
-            experiment_id=experiment_id,
-        )
+        tracking_uri = get_tracking_uri()
+        
+        # Check if it's a Databricks store
+        if is_databricks_uri(tracking_uri):
+            # Use the original Databricks implementation with sampling config
+            from mlflow.genai.scorers.registry import add_registered_scorer
 
-        # Set the sampling config on the new instance
-        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+            # Add the scorer to the server with sample_rate=0 (not actively sampling)
+            add_registered_scorer(
+                name=new_scorer.name,
+                scorer=new_scorer,
+                sample_rate=0.0,
+                filter_string=None,
+                experiment_id=experiment_id,
+            )
 
+            # Set the sampling config on the new instance
+            new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+
+            return new_scorer
+
+        current_store = _get_store()
+        # Use the store's register_scorer method (no sampling config needed)
+        if experiment_id is None:
+            # Get current experiment ID if not provided
+            from mlflow.tracking.fluent import _get_experiment_id
+            experiment_id = _get_experiment_id()
+
+        # Serialize the scorer to JSON string
+        scorer_dict = new_scorer.model_dump()
+        serialized_scorer = json.dumps(scorer_dict)
+
+        # Register the scorer using the store's method
+        current_store.register_scorer(experiment_id, new_scorer.name, serialized_scorer)
+        
         return new_scorer
 
     @experimental(version="3.2.0")

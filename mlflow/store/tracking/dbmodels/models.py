@@ -1361,3 +1361,57 @@ class SqlSpan(Base):
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
     )
+
+
+class SqlScorer(Base):
+    """
+    DB model for storing scorer information. These are recorded in ``scorers`` table.
+    """
+
+    __tablename__ = "scorers"
+
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False)
+    """
+    Experiment ID to which this scorer belongs: *Foreign Key* into ``experiments`` table.
+    """
+    scorer_name = Column(String(256), nullable=False)
+    """
+    Scorer name: `String` (limit 256 characters). Part of *Primary Key* for ``scorers`` table.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`. Part of *Primary Key* for ``scorers`` table.
+    """
+    serialized_scorer = Column(Text, nullable=False)
+    """
+    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    """
+
+    experiment = relationship("SqlExperiment", backref=backref("scorers", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("experiment_id", "scorer_name", "scorer_version", name="scorer_pk"),
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
+        Index(f"index_{__tablename__}_experiment_id_scorer_name", "experiment_id", "scorer_name"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_version})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.Scorer.
+        """
+        from mlflow.entities.scorer import Scorer
+        return Scorer(
+            experiment_id=self.experiment_id,
+            scorer_name=self.scorer_name,
+            scorer_version=self.scorer_version,
+            serialized_scorer=self.serialized_scorer,
+        )
