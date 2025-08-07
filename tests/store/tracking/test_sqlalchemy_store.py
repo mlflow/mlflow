@@ -5181,6 +5181,7 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
         assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans with spans that have no end time results in None execution_time."""
