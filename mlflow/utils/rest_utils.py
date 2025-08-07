@@ -421,7 +421,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
         try:
             return call_func()
         except DatabricksError as e:
-            print(e, "✅")  # noqa: T201
+            print(e, "type:", type(e), "✅")  # noqa: T201
             # Get HTTP status code from the error
             status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
 
