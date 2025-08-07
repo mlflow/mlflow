@@ -9,7 +9,7 @@ from mlflow.utils.annotations import experimental
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
-OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
+ObjectiveFn = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
 
 @experimental(version="3.0.0")

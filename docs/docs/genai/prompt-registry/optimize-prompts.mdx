@@ -225,10 +225,10 @@ For custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.Bas
 
 ```python
 from mlflow.genai.optimize import BasePromptOptimizer, OptimizerConfig, OptimizerOutput
-from mlflow.genai.optimize.types import LLMParams, OBJECTIVE_FN
+from mlflow.genai.optimize.types import LLMParams
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.genai.scorers import Scorer
-from typing import Optional
+from typing import Optional, Callable, Any
 import pandas as pd
 
 
@@ -240,7 +240,7 @@ class CustomOptimizer(BasePromptOptimizer):
         target_llm_params: LLMParams,
         train_data: pd.DataFrame,
         scorers: list[Scorer],
-        objective: Optional[OBJECTIVE_FN] = None,
+        objective: Optional[Callable[[dict[str, Any]], float]] = None,
         eval_data: Optional[pd.DataFrame] = None,
     ) -> OptimizerOutput:
         # Implement your custom optimization logic here
