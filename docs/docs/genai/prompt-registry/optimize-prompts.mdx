@@ -186,24 +186,26 @@ MLflow supports creating custom prompt optimization algorithms by extending the 
 
 ### BasePromptOptimizer
 
-For completely custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> class:
+For custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> class:
 
 ```python
 from mlflow.genai.optimize import BasePromptOptimizer, OptimizerConfig, OptimizerOutput
-from mlflow.genai.optimize.types import LLMParams
+from mlflow.genai.optimize.types import LLMParams, OBJECTIVE_FN
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.genai.scorers import Scorer
 from typing import Optional
 import pandas as pd
 
 
 class CustomOptimizer(BasePromptOptimizer):
+    # Inherit the BasePromptOptimizer class and implement the `optimize` method.
     def optimize(
         self,
         prompt: PromptVersion,
         target_llm_params: LLMParams,
         train_data: pd.DataFrame,
-        scorers: list,
-        objective: Optional[callable] = None,
+        scorers: list[Scorer],
+        objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional[pd.DataFrame] = None,
     ) -> OptimizerOutput:
         # Implement your custom optimization logic here
@@ -234,20 +236,23 @@ result = mlflow.genai.optimize_prompt(
 For DSPy-based optimizations, extend the <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> class, which provides DSPy integration infrastructure:
 
 ```python
+import dspy
+from typing import Callable
 from mlflow.genai.optimize import (
     DSPyPromptOptimizer,
     OptimizerOutput,
     format_dspy_prompt,
 )
-import dspy
+from mlflow.entities.model_registry import PromptVersion
 
 
 class CustomDSPyOptimizer(DSPyPromptOptimizer):
+    # Inherit the DSPyPromptOptimizer class and implement the `run_optimization` method.
     def run_optimization(
         self,
-        prompt,
+        prompt: PromptVersion,
         program: dspy.Module,
-        metric,
+        metric: Callable[[dspy.Example], float],
         train_data: list,
         eval_data: list,
     ) -> OptimizerOutput:
@@ -402,7 +407,7 @@ result = mlflow.genai.optimize_prompt(
 
 MLflow provides two base classes for creating custom optimizers:
 
-1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For completely custom optimization logic. You implement the full `optimize` method.
+1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. You implement the `optimize` method.
 2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. You implement the `run_optimization` method and MLflow handles DSPy setup.
 
 Choose <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> when you want complete control over the optimization process, or <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> when you want to leverage DSPy's ecosystem while customizing the optimization strategy.
