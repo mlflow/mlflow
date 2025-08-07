@@ -115,7 +115,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.34.0",
-            "maximum": "1.35.1"
+            "maximum": "1.35.0"
         }
     },
     "spacy": {
@@ -218,11 +218,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.40.2",
-            "maximum": "4.55.0"
+            "maximum": "4.54.1"
         },
         "autologging": {
             "minimum": "4.40.2",
-            "maximum": "4.55.0"
+            "maximum": "4.54.1"
         }
     },
     "openai": {
@@ -231,11 +231,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.99.1"
+            "maximum": "1.98.0"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.99.1"
+            "maximum": "1.98.0"
         }
     },
     "dspy": {
@@ -327,7 +327,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.30.0",
-            "maximum": "0.61.0"
+            "maximum": "0.60.0"
         }
     },
     "crewai": {
@@ -347,7 +347,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.1.9",
-            "maximum": "0.5.0"
+            "maximum": "0.4.11"
         }
     },
     "smolagents": {
@@ -412,7 +412,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.13.0",
-            "maximum": "0.31.0"
+            "maximum": "0.30.0"
         }
     },
     "bedrock": {
@@ -422,7 +422,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.33.0",
-            "maximum": "1.40.3"
+            "maximum": "1.40.1"
         }
     }
 }
