@@ -490,6 +490,7 @@ mlflow.entities.Webhook.from_proto
 mlflow.entities.Webhook.to_proto
 mlflow.entities.WebhookEvent
 mlflow.entities.WebhookEvent.from_proto
+mlflow.entities.WebhookEvent.from_str
 mlflow.entities.WebhookEvent.to_proto
 mlflow.entities.WebhookStatus
 mlflow.entities.WebhookStatus.from_proto
