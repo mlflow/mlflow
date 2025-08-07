@@ -120,6 +120,8 @@ def _show_setup_status(
     experiment_name: Optional[str],
 ) -> None:
     """Show setup completion status."""
+    current_dir = Path.cwd().resolve()
+
     click.echo("\n" + "=" * 50)
     click.echo("🎯 Claude Tracing Setup Complete!")
     click.echo("=" * 50)
@@ -130,7 +132,7 @@ def _show_setup_status(
     if tracking_uri:
         click.echo(f"📊 Tracking URI: {tracking_uri}")
     else:
-        click.echo("📊 Tracking URI: file://./.claude/mlflow/runs (default)")
+        click.echo("📊 Tracking URI: file://./mlruns (default)")
 
     if experiment_id:
         click.echo(f"🔬 Experiment ID: {experiment_id}")
@@ -139,21 +141,22 @@ def _show_setup_status(
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
 
-    click.echo("📋 Environment: MLFLOW_CLAUDE_TRACING_ENABLED=true")
-
     # Show next steps
     click.echo("\n" + "=" * 30)
     click.echo("🚀 Next Steps:")
     click.echo("=" * 30)
-    click.echo(f"1. cd {target_dir}")
-    click.echo("2. claude 'your prompt here'")
-    click.echo("3. Your traces will be automatically captured!")
+
+    # Only show cd if it's a different directory
+    if target_dir != current_dir:
+        click.echo(f"cd {target_dir}")
+
+    click.echo("claude -p 'your prompt here'")
 
     click.echo("\n💡 View your traces:")
     if tracking_uri and tracking_uri.startswith("file://"):
         click.echo(f"   mlflow ui --backend-store-uri {tracking_uri}")
     else:
-        click.echo("   mlflow ui --backend-store-uri file://./.claude/mlflow/runs")
+        click.echo("   mlflow ui --backend-store-uri file://./mlruns")
 
     click.echo("\n🔧 To disable tracing later:")
     click.echo("   mlflow claude trace --disable")

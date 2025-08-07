@@ -1,6 +1,7 @@
 """Configuration management for Claude Code integration with MLflow."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -76,6 +77,34 @@ def get_tracing_status(settings_path: Path) -> dict[str, Any]:
     }
 
 
+def get_env_var(var_name: str, default: str = "") -> str:
+    """Get environment variable from OS or Claude settings as fallback.
+
+    Args:
+        var_name: Environment variable name
+        default: Default value if not found anywhere
+
+    Returns:
+        Environment variable value
+    """
+    # First check OS environment
+    value = os.getenv(var_name)
+    if value:
+        return value
+
+    # Fallback to Claude settings
+    try:
+        settings_path = Path(".claude/settings.json")
+        if settings_path.exists():
+            config = load_claude_config(settings_path)
+            env_vars = config.get(ENVIRONMENT_FIELD, {})
+            return env_vars.get(var_name, default)
+    except Exception:
+        pass
+
+    return default
+
+
 def setup_environment_config(
     settings_path: Path,
     tracking_uri: Optional[str] = None,
@@ -102,7 +131,7 @@ def setup_environment_config(
     if tracking_uri:
         config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = tracking_uri
     elif MLFLOW_TRACKING_URI not in config[ENVIRONMENT_FIELD]:
-        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = "file://./.claude/mlflow/runs"
+        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = "file://./mlruns"
 
     # Set experiment configuration (ID takes precedence over name)
     if experiment_id:
