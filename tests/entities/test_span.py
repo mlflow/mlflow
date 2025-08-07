@@ -305,9 +305,6 @@ def test_set_attribute_directly_to_otel_span():
     assert span.get_attribute("str") == "a"
 
 
-# OTel protobuf conversion tests
-
-
 @pytest.fixture
 def sample_otel_span_for_conversion():
     """Create a sample OTelReadableSpan for testing."""
