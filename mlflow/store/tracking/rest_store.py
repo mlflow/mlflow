@@ -1,6 +1,12 @@
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Optional
+<<<<<<< HEAD
+=======
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
+>>>>>>> eval-dataset-search
 
 from mlflow.entities import (
     DatasetInput,
@@ -1151,7 +1157,10 @@ class RestStore(AbstractStore):
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def create_evaluation_dataset(
-        self, name: str, tags: Optional[dict[str, str]] = None, experiment_ids: Optional[list[str]] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, str]] = None,
+        experiment_ids: Optional[list[str]] = None,
     ) -> "EvaluationDataset":
         """
         Create an evaluation dataset.
@@ -1247,7 +1256,6 @@ class RestStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset.
             records: List of record dictionaries to upsert.
-            updated_by: User ID of who is updating the records.
 
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
@@ -1291,7 +1299,15 @@ class RestStore(AbstractStore):
         Returns:
             List of experiment IDs associated with the dataset.
         """
-        # TODO: GetEvaluationDatasetExperimentIds proto not yet defined
+        # TODO: Implement REST endpoint for get_evaluation_dataset_experiment_ids
+        # from mlflow.protos.service_pb2 import GetEvaluationDatasetExperimentIds
+        # req_body = message_to_json(
+        #     GetEvaluationDatasetExperimentIds.Request(dataset_id=dataset_id)
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}/experiment-ids"
+        # response = self._call_endpoint(GetEvaluationDatasetExperimentIds,
+        # req_body, endpoint=endpoint)
+        # return response.experiment_ids
         raise NotImplementedError(
             "GetEvaluationDatasetExperimentIds proto message not yet defined in service.proto"
         )
