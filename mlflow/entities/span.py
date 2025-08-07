@@ -6,7 +6,6 @@ from typing import Any, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
-from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -27,6 +26,11 @@ from mlflow.tracing.utils import (
     decode_id,
     encode_span_id,
     encode_trace_id,
+)
+from mlflow.tracing.utils.otlp import (
+    decode_otel_proto_anyvalue,
+    otel_proto_bytes_to_id,
+    set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
 
@@ -347,11 +351,11 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
-        span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
+        trace_id = otel_proto_bytes_to_id(otel_proto_span.trace_id)
+        span_id = otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
-            parent_id = _otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
+            parent_id = otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
 
         from opentelemetry.trace import Status as OTelStatus
         from opentelemetry.trace import StatusCode as OTelStatusCode
@@ -371,7 +375,8 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
+                attr.key: decode_otel_proto_anyvalue(attr.value)
+                for attr in otel_proto_span.attributes
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -379,7 +384,8 @@ class Span:
                     name=event.name,
                     timestamp=event.time_unix_nano,
                     attributes={
-                        attr.key: _decode_otel_value(attr.value) for attr in event.attributes
+                        attr.key: decode_otel_proto_anyvalue(attr.value)
+                        for attr in event.attributes
                     },
                 )
                 for event in otel_proto_span.events
@@ -414,7 +420,7 @@ class Span:
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
-            _set_value_on_otel_proto(attr.value, value)
+            set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
             otel_event = event._to_otel_proto()
@@ -437,69 +443,6 @@ def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
     bytes = base64.b64decode(trace_or_span_id_b64)
     return int.from_bytes(bytes, byteorder="big", signed=False)
-
-
-def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
-    # Convert OTel protobuf bytes to integer ID
-    return int.from_bytes(id_bytes, byteorder="big", signed=False)
-
-
-def _set_value_on_otel_proto(pb_any_value: AnyValue, value: Any) -> None:
-    """Set a value on an OTel protobuf AnyValue message.
-
-    Args:
-        pb_any_value: The OTel protobuf AnyValue message to populate.
-        value: The value to set.
-    """
-    if value is None:
-        # Leave the value unset for None
-        pass
-    elif isinstance(value, bool):
-        pb_any_value.bool_value = value
-    elif isinstance(value, str):
-        pb_any_value.string_value = value
-    elif isinstance(value, int):
-        pb_any_value.int_value = value
-    elif isinstance(value, float):
-        pb_any_value.double_value = value
-    elif isinstance(value, bytes):
-        pb_any_value.bytes_value = value
-    elif isinstance(value, (list, tuple)):
-        # Handle arrays
-        for item in value:
-            _set_value_on_otel_proto(pb_any_value.array_value.values.add(), item)
-    elif isinstance(value, dict):
-        # Handle key-value lists
-        for k, v in value.items():
-            kv = pb_any_value.kvlist_value.values.add()
-            kv.key = str(k)
-            _set_value_on_otel_proto(kv.value, v)
-    else:
-        # For unknown types, convert to string
-        pb_any_value.string_value = str(value)
-
-
-def _decode_otel_value(pb_any_value: AnyValue) -> Any:
-    """Decode an OTel protobuf AnyValue.
-
-    Args:
-        pb_any_value: The OTel protobuf AnyValue message to decode.
-
-    Returns:
-        The decoded value.
-    """
-    value_type = pb_any_value.WhichOneof("value")
-    if not value_type:
-        return None
-
-    # Handle complex types that need recursion
-    if value_type == "array_value":
-        return [_decode_otel_value(v) for v in pb_any_value.array_value.values]
-    elif value_type == "kvlist_value":
-        return {kv.key: _decode_otel_value(kv.value) for kv in pb_any_value.kvlist_value.values}
-    else:
-        # For simple types, just get the attribute directly
-        return getattr(pb_any_value, value_type)
 
 
 class LiveSpan(Span):

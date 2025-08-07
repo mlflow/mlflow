@@ -91,12 +91,12 @@ class SpanEvent(_MlflowObject):
 
         # Add attributes
         if self.attributes:
-            from mlflow.entities.span import _set_value_on_otel_proto
+            from mlflow.tracing.utils.otlp import set_otel_proto_anyvalue
 
             for key, value in self.attributes.items():
                 attr = otel_event.attributes.add()
                 attr.key = key
-                _set_value_on_otel_proto(attr.value, value)
+                set_otel_proto_anyvalue(attr.value, value)
 
         return otel_event
 
