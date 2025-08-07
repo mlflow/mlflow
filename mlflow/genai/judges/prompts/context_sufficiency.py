@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from mlflow.genai.judges.utils import format_prompt
 
@@ -20,46 +20,43 @@ Please indicate whether each statement in the claim is supported by the document
   "rationale": "Reason for the assessment. If the claim is not fully supported by the document, state which parts are not supported. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
 }\
-"""
-
-
-def convert_expected_facts_to_expected_response(expected_facts: Optional[List[str]]) -> str:
-    """Convert expected facts list to a formatted string for the context sufficiency prompt."""
-    if not expected_facts:
-        return ""
-    rendered_facts = "\n    - ".join([""] + expected_facts)
-    if rendered_facts:
-        return f"  {rendered_facts.strip()}"
-    return ""
+"""  # noqa: E501
 
 
 def get_prompt(
-    request: str, 
+    request: str,
     context: Any,
     expected_response: Optional[str] = None,
-    expected_facts: Optional[List[str]] = None
+    expected_facts: Optional[list[str]] = None,
 ) -> str:
     """Generate context sufficiency evaluation prompt.
-    
+
     Args:
         request: The input question/request
         context: The retrieval context to evaluate sufficiency of
         expected_response: Expected response (optional)
         expected_facts: List of expected facts (optional, converted to expected_response)
-        
+
     Returns:
         Formatted prompt string
     """
     # Convert expected_facts to expected_response format if provided
     ground_truth = expected_response
     if expected_facts and not expected_response:
-        ground_truth = convert_expected_facts_to_expected_response(expected_facts)
+        ground_truth = _convert_expected_facts_to_expected_response(expected_facts)
     elif not ground_truth:
         ground_truth = ""
-    
+
     return format_prompt(
         CONTEXT_SUFFICIENCY_PROMPT,
         input=request,
         ground_truth=ground_truth,
         retrieval_context=str(context),
     )
+
+
+def _convert_expected_facts_to_expected_response(expected_facts: Optional[list[str]]) -> str:
+    if not expected_facts:
+        return ""
+    rendered_facts = "\n    - ".join([""] + expected_facts)
+    return f"  {rendered_facts.strip()}" if rendered_facts else ""

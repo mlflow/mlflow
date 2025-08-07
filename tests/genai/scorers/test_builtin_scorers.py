@@ -18,31 +18,33 @@ from mlflow.genai.scorers import (
 )
 
 
-def test_retrieval_groundedness(sample_rag_trace):
-    with patch(
-        "databricks.agents.evals.judges.groundedness",
-        side_effect=lambda *args, **kwargs: Feedback(
-            name="retrieval_groundedness", value=DatabricksCategoricalRating.YES
-        ),
-    ) as mock_groundedness:
-        result = RetrievalGroundedness()(trace=sample_rag_trace)
+@patch("mlflow.genai.judges.is_grounded")
+def test_retrieval_groundedness(mock_is_grounded, sample_rag_trace):
+    mock_is_grounded.side_effect = lambda *args, **kwargs: Feedback(
+        name="retrieval_groundedness", value=CategoricalRating.YES
+    )
 
-    mock_groundedness.assert_has_calls(
+    # 1. Test with default scorer
+    result = RetrievalGroundedness()(trace=sample_rag_trace)
+
+    mock_is_grounded.assert_has_calls(
         [
             call(
                 request="{'question': 'query'}",
                 response="answer",
-                retrieved_context=[
+                context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
-                assessment_name="retrieval_groundedness",
+                name="retrieval_groundedness",
+                model=None,
             ),
             call(
                 request="{'question': 'query'}",
                 response="answer",
-                retrieved_context=[{"content": "content_3"}],
-                assessment_name="retrieval_groundedness",
+                context=[{"content": "content_3"}],
+                name="retrieval_groundedness",
+                model=None,
             ),
         ],
     )
@@ -147,34 +149,36 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[2].error.error_code == "test"
 
 
-def test_retrieval_sufficiency(sample_rag_trace):
-    with patch(
-        "databricks.agents.evals.judges.context_sufficiency",
-        side_effect=lambda *args, **kwargs: Feedback(
-            name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES
-        ),
-    ) as mock_context_sufficiency:
-        result = RetrievalSufficiency()(trace=sample_rag_trace)
+@patch("mlflow.genai.judges.is_context_sufficient")
+def test_retrieval_sufficiency(mock_is_context_sufficient, sample_rag_trace):
+    mock_is_context_sufficient.side_effect = lambda *args, **kwargs: Feedback(
+        name="retrieval_sufficiency", value=CategoricalRating.YES
+    )
 
-    mock_context_sufficiency.assert_has_calls(
+    # 1. Test with default scorer
+    result = RetrievalSufficiency()(trace=sample_rag_trace)
+
+    mock_is_context_sufficient.assert_has_calls(
         [
             call(
                 request="{'question': 'query'}",
-                retrieved_context=[
+                context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
                 # Expectations stored in the trace is exploded
                 expected_response="expected answer",
                 expected_facts=["fact1", "fact2"],
-                assessment_name="retrieval_sufficiency",
+                name="retrieval_sufficiency",
+                model=None,
             ),
             call(
                 request="{'question': 'query'}",
-                retrieved_context=[{"content": "content_3"}],
+                context=[{"content": "content_3"}],
                 expected_response="expected answer",
                 expected_facts=["fact1", "fact2"],
-                assessment_name="retrieval_sufficiency",
+                name="retrieval_sufficiency",
+                model=None,
             ),
         ],
     )
@@ -188,36 +192,79 @@ def test_retrieval_sufficiency(sample_rag_trace):
     actual_span_ids = [f.span_id for f in result]
     assert set(actual_span_ids) == set(expected_span_ids)
 
+    mock_is_context_sufficient.reset_mock()
 
-def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
-    with patch(
-        "databricks.agents.evals.judges.context_sufficiency",
-        return_value=Feedback(name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES),
-    ) as mock_context_sufficiency:
-        RetrievalSufficiency()(
-            trace=sample_rag_trace,
-            expectations={"expected_facts": ["fact3"]},
-        )
+    # 2. Test with custom model parameter
+    mock_is_context_sufficient.side_effect = lambda *args, **kwargs: Feedback(
+        name="custom_sufficiency", value=CategoricalRating.YES
+    )
 
-    mock_context_sufficiency.assert_has_calls(
+    custom_scorer = RetrievalSufficiency(
+        name="custom_sufficiency",
+        model="openai:/gpt-4.1-mini",
+    )
+    result = custom_scorer(trace=sample_rag_trace)
+
+    mock_is_context_sufficient.assert_has_calls(
         [
             call(
                 request="{'question': 'query'}",
-                retrieved_context=[
+                context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                expected_response="expected answer",
+                expected_facts=["fact1", "fact2"],
+                name="custom_sufficiency",
+                model="openai:/gpt-4.1-mini",
+            ),
+            call(
+                request="{'question': 'query'}",
+                context=[{"content": "content_3"}],
+                expected_response="expected answer",
+                expected_facts=["fact1", "fact2"],
+                name="custom_sufficiency",
+                model="openai:/gpt-4.1-mini",
+            ),
+        ],
+    )
+    assert len(result) == 2
+
+
+@patch("mlflow.genai.judges.is_context_sufficient")
+def test_retrieval_sufficiency_with_custom_expectations(
+    mock_is_context_sufficient, sample_rag_trace
+):
+    mock_is_context_sufficient.return_value = Feedback(
+        name="retrieval_sufficiency", value=CategoricalRating.YES
+    )
+
+    RetrievalSufficiency()(
+        trace=sample_rag_trace,
+        expectations={"expected_facts": ["fact3"]},
+    )
+
+    mock_is_context_sufficient.assert_has_calls(
+        [
+            call(
+                request="{'question': 'query'}",
+                context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
                 # Expectations stored in the trace is exploded
                 expected_facts=["fact3"],
                 expected_response="expected answer",
-                assessment_name="retrieval_sufficiency",
+                name="retrieval_sufficiency",
+                model=None,
             ),
             call(
                 request="{'question': 'query'}",
-                retrieved_context=[{"content": "content_3"}],
+                context=[{"content": "content_3"}],
                 expected_facts=["fact3"],
                 expected_response="expected answer",
-                assessment_name="retrieval_sufficiency",
+                name="retrieval_sufficiency",
+                model=None,
             ),
         ],
     )

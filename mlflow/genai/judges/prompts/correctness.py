@@ -23,14 +23,7 @@ Please indicate whether each statement in the claim is supported by the document
 # This suffix is only shown when expected facts are provided to squeeze out better judge quality.
 CORRECTNESS_PROMPT_SUFFIX = """
 
-If the claim is fully supported by the document in the context of the question, you must say "The response is correct" in the rationale. If the claim is not fully supported by the document in the context of the question, you must say "The response is not correct"."""
-
-
-def convert_expected_facts_to_expected_response(expected_facts: Optional[list[str]]) -> str:
-    """Convert expected facts list to a formatted string for the correctness prompt."""
-    if not expected_facts:
-        return ""
-    return "\n- ".join([""] + expected_facts)
+If the claim is fully supported by the document in the context of the question, you must say "The response is correct" in the rationale. If the claim is not fully supported by the document in the context of the question, you must say "The response is not correct"."""  # noqa: E501
 
 
 def get_prompt(
@@ -53,7 +46,7 @@ def get_prompt(
     # Convert expected_facts to expected_response format if provided
     ground_truth = expected_response
     if expected_facts and not expected_response:
-        ground_truth = convert_expected_facts_to_expected_response(expected_facts)
+        ground_truth = "\n- ".join([""] + expected_facts) if expected_facts else ""
     elif not ground_truth:
         ground_truth = ""
 

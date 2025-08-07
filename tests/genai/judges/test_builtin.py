@@ -189,6 +189,42 @@ def test_is_context_sufficient_oss():
     assert "Paris is the capital of France." in prompt
 
 
+def test_is_grounded_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The response is grounded.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.is_grounded(
+            request="What is the capital of France?",
+            response="Paris",
+            context=[
+                {"content": "Paris is the capital of France."},
+                {"content": "Paris is known for its Eiffel Tower."},
+            ],
+        )
+
+    assert feedback.name == "groundedness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The response is grounded."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert "Consider the following claim and document" in prompt
+    assert "What is the capital of France?" in prompt
+    assert "Paris" in prompt
+    assert "Paris is the capital of France." in prompt
+
+
 @pytest.mark.parametrize(
     ("judge_func", "agents_judge_name", "args"),
     [

@@ -368,6 +368,7 @@ def test_builtin_scorer_round_trip():
             "explicit programming."
         ),
         name="relevance_to_query",
+        model=None,
     )
 
     assert isinstance(result, Feedback)
