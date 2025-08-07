@@ -346,22 +346,18 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        # Convert protobuf bytes to integers for IDs
         trace_id = _bytes_to_id(otel_proto_span.trace_id)
         span_id = _bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
             parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
-        # Convert status
         mlflow_status = SpanStatus.from_otel_proto_status(otel_proto_span.status)
 
-        # Convert attributes from protobuf to dict
         attributes = {
             attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
         }
 
-        # Convert events
         events = [
             OTelEvent(
                 name=event.name,
@@ -370,8 +366,6 @@ class Span:
             )
             for event in otel_proto_span.events
         ]
-
-        # Create OTelReadableSpan
 
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
@@ -396,31 +390,24 @@ class Span:
             An OpenTelemetry protobuf Span message.
         """
         otel_span = OTelProtoSpan()
-
-        # Convert hex string IDs to bytes for OTel protobuf
         otel_span.trace_id = bytes.fromhex(self._trace_id)
         otel_span.span_id = bytes.fromhex(self.span_id)
 
-        # Set basic properties
         otel_span.name = self.name
         otel_span.start_time_unix_nano = self.start_time_ns
         if self.end_time_ns:
             otel_span.end_time_unix_nano = self.end_time_ns
 
-        # Set parent span ID if exists
         if self.parent_id:
             otel_span.parent_span_id = bytes.fromhex(self.parent_id)
 
-        # Set status
         otel_span.status.CopyFrom(self.status.to_otel_proto_status())
 
-        # Add attributes
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
             _set_value_on_otel_proto(attr.value, value)
 
-        # Add events
         for event in self.events:
             otel_event = event._to_otel_proto()
             otel_span.events.append(otel_event)
