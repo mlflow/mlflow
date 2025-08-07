@@ -14,6 +14,7 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
+    Scorer,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -41,6 +42,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
@@ -53,8 +55,12 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetOnlineTraceDetails,
     GetRun,
+    GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
+    ListLoggedModelArtifacts,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -63,6 +69,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
@@ -1037,6 +1044,98 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
+
+    ############################################################################################
+    # Scorer Management APIs
+    ############################################################################################
+
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            serialized_scorer: String containing the serialized scorer data.
+
+        Returns:
+            The new version number for the scorer.
+        """
+        req_body = message_to_json(
+            RegisterScorer(
+                experiment_id=experiment_id,
+                name=name,
+                serialized_scorer=serialized_scorer,
+            )
+        )
+        response_proto = self._call_endpoint(RegisterScorer, req_body)
+        return response_proto.version
+
+    def list_scorers(self, experiment_id: str) -> list[Scorer]:
+        """
+        List all scorers for an experiment (latest version for each scorer name).
+
+        Args:
+            experiment_id: String ID of the experiment.
+
+        Returns:
+            List of Scorer entities.
+        """
+        req_body = message_to_json(ListScorers(experiment_id=experiment_id))
+        response_proto = self._call_endpoint(ListScorers, req_body)
+        return [Scorer.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def list_scorer_versions(self, experiment_id: str, name: str) -> list[Scorer]:
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+
+        Returns:
+            List of Scorer entities for all versions.
+        """
+        req_body = message_to_json(
+            ListScorerVersions(experiment_id=experiment_id, name=name)
+        )
+        response_proto = self._call_endpoint(ListScorerVersions, req_body)
+        return [Scorer.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def get_scorer(self, experiment_id: str, name: str, version: int | None = None) -> str:
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            version: Integer version of the scorer. If None, returns the scorer with maximum version.
+
+        Returns:
+            The serialized scorer string.
+        """
+        req_body = message_to_json(
+            GetScorer(experiment_id=experiment_id, name=name, version=version)
+        )
+        response_proto = self._call_endpoint(GetScorer, req_body)
+        return response_proto.serialized_scorer
+
+    def delete_scorer(self, experiment_id: str, name: str, version: int | None = None) -> None:
+        """
+        Delete a scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            version: Integer version of the scorer to delete. If None, deletes all versions.
+
+        Returns:
+            None.
+        """
+        req_body = message_to_json(
+            DeleteScorer(experiment_id=experiment_id, name=name, version=version)
+        )
+        self._call_endpoint(DeleteScorer, req_body)
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
