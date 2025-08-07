@@ -90,6 +90,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -1159,8 +1160,7 @@ class RestStore(AbstractStore):
             List of logged Span entities.
 
         Raises:
-            ValueError: If spans belong to different traces.
-            MlflowException: If the OTel API call fails.
+            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         if not spans:
             return []
@@ -1168,21 +1168,23 @@ class RestStore(AbstractStore):
         # Verify all spans belong to the same trace
         trace_ids = {span.trace_id for span in spans}
         if len(trace_ids) > 1:
-            raise ValueError(f"All spans must belong to the same trace. Found traces: {trace_ids}")
+            raise MlflowException(
+                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
 
-        # Create protobuf request
+        # Create protobuf request with spans
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         # resource_spans.resource is already an empty Resource by default
 
-        # Create scope spans and add converted MLflow spans
+        # Add spans directly to scope_spans
         scope_spans = resource_spans.scope_spans.add()
-        for span in spans:
-            scope_spans.spans.append(span._to_otel_proto())
+        scope_spans.spans.extend(span._to_otel_proto() for span in spans)
 
         # Convert protobuf to JSON and send request
         json_str = MessageToJson(request)
-        endpoint = "/v1/traces"
+        endpoint = OTLP_TRACES_PATH
 
         response = http_request(
             host_creds=self.get_host_creds(),
@@ -1205,7 +1207,6 @@ class RestStore(AbstractStore):
             List of logged Span entities.
 
         Raises:
-            ValueError: If spans belong to different traces.
-            MlflowException: If the OTel API call fails.
+            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(spans)
