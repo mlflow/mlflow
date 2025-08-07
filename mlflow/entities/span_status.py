@@ -101,6 +101,8 @@ class SpanStatus:
     def to_otel_proto_status(self):
         """
         Convert to OpenTelemetry protobuf Status for OTLP export.
+
+        :meta private:
         """
         status = Status()
         if self.status_code == SpanStatusCode.OK:
@@ -119,6 +121,8 @@ class SpanStatus:
     def from_otel_proto_status(cls, otel_proto_status) -> SpanStatus:
         """
         Create a SpanStatus from an OpenTelemetry protobuf Status.
+
+        :meta private:
         """
         # Map protobuf status codes to SpanStatusCode
         if otel_proto_status.code == Status.STATUS_CODE_OK:
