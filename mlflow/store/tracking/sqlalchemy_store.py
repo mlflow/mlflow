@@ -1968,8 +1968,8 @@ class SqlAlchemyStore(AbstractStore):
                 .scalar()
             )
             
-            # Set new version (0 if no existing scorer, otherwise max + 1)
-            new_version = 0 if max_version is None else max_version + 1
+            # Set new version (1 if no existing scorer, otherwise max + 1)
+            new_version = 1 if max_version is None else max_version + 1
             
             # Create and save the new scorer record
             sql_scorer = SqlScorer(
@@ -2079,13 +2079,14 @@ class SqlAlchemyStore(AbstractStore):
             
             return sql_scorer.serialized_scorer
 
-    def delete_scorer(self, experiment_id, name):
+    def delete_scorer(self, experiment_id, name, version=None):
         """
-        Delete all versions of a scorer for an experiment.
+        Delete a scorer for an experiment.
         
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
+            version: The scorer version to delete. If None, deletes all versions.
             
         Raises:
             MlflowException: If scorer is not found.
@@ -2095,19 +2096,31 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
             
-            # Query for all versions of the scorer
-            sql_scorers = session.query(SqlScorer).filter(
+            # Build the query
+            query = session.query(SqlScorer).filter(
                 SqlScorer.experiment_id == experiment.experiment_id,
                 SqlScorer.scorer_name == name
-            ).all()
+            )
+            
+            # If version is specified, filter by version
+            if version is not None:
+                query = query.filter(SqlScorer.scorer_version == version)
+            
+            sql_scorers = query.all()
             
             if not sql_scorers:
-                raise MlflowException(
-                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
+                if version is not None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                else:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
             
-            # Delete all versions of the scorer
+            # Delete the scorer(s)
             for sql_scorer in sql_scorers:
                 session.delete(sql_scorer)
             

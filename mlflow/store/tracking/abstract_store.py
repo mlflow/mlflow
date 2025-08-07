@@ -937,13 +937,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_scorer(self, experiment_id, name):
+    def delete_scorer(self, experiment_id, name, version=None):
         """
         Delete all versions of a scorer for an experiment.
 
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
+            version: The scorer version. If None, delete all versions.
 
         Raises:
             MlflowException: If scorer is not found.
