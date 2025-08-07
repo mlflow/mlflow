@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. Built-in support includes [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/), and you can also create custom optimization algorithms by extending MLflow's optimizer base class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/), and you can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
