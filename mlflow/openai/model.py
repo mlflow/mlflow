@@ -5,7 +5,7 @@ import os
 import warnings
 from functools import partial
 from string import Formatter
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -189,7 +189,7 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(content: Union[str, list[Any], dict[str, Any], Any]) -> set[str]:
+def _parse_format_fields(content: str | list[Any] | dict[str, Any] | Any) -> set[str]:
     """Parse format fields from content recursively."""
     if isinstance(content, str):
         return {fn for _, fn, _, _ in Formatter().parse(content) if fn is not None}
@@ -430,7 +430,7 @@ def save_model(
 def log_model(
     model,
     task,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -440,13 +440,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -622,8 +622,8 @@ class _ContentFormatter:
         format_args = {v: params[v] for v in self.variables}
 
         def format_value(
-            value: Union[str, list[Any], dict[str, Any], Any],
-        ) -> Union[str, list[Any], dict[str, Any], Any]:
+            value: str | list[Any] | dict[str, Any] | Any,
+        ) -> str | list[Any] | dict[str, Any] | Any:
             if isinstance(value, str):
                 return value.format(**format_args)
             elif isinstance(value, list):
@@ -806,7 +806,7 @@ class _OpenAIWrapper:
 
         return [row.embedding for batch in results for row in batch.data]
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.

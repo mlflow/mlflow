@@ -3,7 +3,7 @@ import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import langchain
@@ -129,8 +129,8 @@ def create_fake_chat_model():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return TEST_CONTENT
@@ -467,7 +467,7 @@ def _reset_callback_handlers(handlers):
             handler.logs = []
 
 
-def _extract_callback_handlers(config) -> Optional[list[BaseCallbackHandler]]:
+def _extract_callback_handlers(config) -> list[BaseCallbackHandler] | None:
     if isinstance(config, list):
         callbacks = []
         for c in config:

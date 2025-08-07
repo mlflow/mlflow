@@ -1,4 +1,3 @@
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -34,7 +33,7 @@ def test_databricks_judges_are_importable():
     assert judges.custom_prompt_judge == custom_prompt_judge
 
 
-def create_test_feedback(value: str, error: Optional[str] = None) -> Feedback:
+def create_test_feedback(value: str, error: str | None = None) -> Feedback:
     return Feedback(
         name="test_feedback",
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"),

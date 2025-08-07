@@ -7,7 +7,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
@@ -225,7 +225,7 @@ def set_pb_value(proto: Value, value: Any):
         raise ValueError(f"Unsupported value type: {type(value)}")
 
 
-def parse_pb_value(proto: Value) -> Optional[Any]:
+def parse_pb_value(proto: Value) -> Any | None:
     """
     DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
 
@@ -700,7 +700,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: dict[str, Any] | None = None):
     """
     Args:
         data: Input data.

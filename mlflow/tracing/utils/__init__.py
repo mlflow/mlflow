@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatTool
 
 
-def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
+def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
     try:
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
@@ -161,7 +161,7 @@ def decode_id(span_or_trace_id: str) -> int:
     return int(span_or_trace_id, 16)
 
 
-def get_mlflow_span_for_otel_span(span: OTelSpan) -> Optional[LiveSpan]:
+def get_mlflow_span_for_otel_span(span: OTelSpan) -> LiveSpan | None:
     """
     Get the active MLflow span for the given OpenTelemetry span.
     """
@@ -210,7 +210,7 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
             span._span._name = f"{span.name}_{count}"
 
 
-def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
+def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
     input_tokens = 0
     output_tokens = 0
@@ -247,7 +247,7 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]
     }
 
 
-def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
+def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
     """
     Get the attribute value from the OpenTelemetry span in a decoded format.
 
@@ -276,7 +276,7 @@ def _try_get_prediction_context():
     return get_prediction_context()
 
 
-def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
+def maybe_get_request_id(is_evaluate=False) -> str | None:
     """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
     context = _try_get_prediction_context()
     if not context or (is_evaluate and not context.is_evaluate):
@@ -293,13 +293,13 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
+def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
 
 
-def maybe_get_logged_model_id() -> Optional[str]:
+def maybe_get_logged_model_id() -> str | None:
     """
     Get the logged model ID associated with the current prediction context.
     """
@@ -348,7 +348,7 @@ def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
 
 
 @contextmanager
-def maybe_set_prediction_context(context: Optional["Context"]):
+def maybe_set_prediction_context(context: "Context" | None):
     """
     Set the prediction context if the given context
     is not None. Otherwise no-op.
