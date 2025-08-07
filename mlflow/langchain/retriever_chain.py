@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import yaml
 from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
@@ -107,7 +107,7 @@ class _RetrieverChain(Chain):
         return "retriever_chain"
 
     @classmethod
-    def load(cls, file: Union[str, Path], **kwargs: Any) -> _RetrieverChain:
+    def load(cls, file: str | Path, **kwargs: Any) -> _RetrieverChain:
         """Load a _RetrieverChain from a file."""
         # Convert file to Path object.
         file_path = Path(file) if isinstance(file, str) else file

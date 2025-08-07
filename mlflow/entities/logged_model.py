@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -23,10 +23,10 @@ class LoggedModel(_MlflowObject):
         last_updated_timestamp: int,
         model_type: Optional[str] = None,
         source_run_id: Optional[str] = None,
-        status: Union[LoggedModelStatus, int] = LoggedModelStatus.READY,
+        status: LoggedModelStatus | int = LoggedModelStatus.READY,
         status_message: Optional[str] = None,
-        tags: Optional[Union[list[LoggedModelTag], dict[str, str]]] = None,
-        params: Optional[Union[list[LoggedModelParameter], dict[str, str]]] = None,
+        tags: Optional[list[LoggedModelTag] | dict[str, str]] = None,
+        params: Optional[list[LoggedModelParameter] | dict[str, str]] = None,
         metrics: Optional[list[Metric]] = None,
     ):
         super().__init__()

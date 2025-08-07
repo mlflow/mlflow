@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import cloudpickle
 import yaml
@@ -78,13 +78,13 @@ def save_model(
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
+    conda_env: Optional[list[str] | str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
+    resources: Optional[str | Path | list[Resource]] = None,
 ):
     """
     Save a Dspy model.
@@ -268,16 +268,16 @@ def log_model(
     task: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
+    conda_env: Optional[list[str] | str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     registered_model_name: Optional[str] = None,
     await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    resources: Optional[str | Path | list[Resource]] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,

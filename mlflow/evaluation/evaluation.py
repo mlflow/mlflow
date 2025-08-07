@@ -7,7 +7,7 @@ EvaluationEntity objects and related APIs.
 
 import hashlib
 import json
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
@@ -219,7 +219,7 @@ class Evaluation(_MlflowObject):
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
         assessments: Optional[list[Assessment]] = None,
-        metrics: Optional[Union[dict[str, float], list[Metric]]] = None,
+        metrics: Optional[dict[str, float] | list[Metric]] = None,
         tags: Optional[dict[str, str]] = None,
     ):
         """

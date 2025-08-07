@@ -3,7 +3,7 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -685,10 +685,10 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
+        template: str | list[dict[str, Any]],
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        response_format: Optional[BaseModel | dict[str, Any]] = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -755,7 +755,7 @@ class AbstractStore:
 
         return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> Optional[PromptVersion]:
         """
         Get a specific prompt version.
 
@@ -812,7 +812,7 @@ class AbstractStore:
         except Exception:
             return None
 
-    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+    def delete_prompt_version(self, name: str, version: str | int) -> None:
         """
         Delete a specific prompt version.
 
@@ -845,7 +845,7 @@ class AbstractStore:
         """
         return self.get_prompt_version(name, alias)
 
-    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+    def set_prompt_alias(self, name: str, alias: str, version: str | int) -> None:
         """
         Set an alias for a prompt version.
 
@@ -937,9 +937,7 @@ class AbstractStore:
                     updated_tag_value,
                 )
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a prompt version.
 
@@ -962,7 +960,7 @@ class AbstractStore:
         tag = ModelVersionTag(key=key, value=value)
         return self.set_model_version_tag(name, version_int, tag)
 
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a prompt version.
 

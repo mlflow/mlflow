@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -134,7 +134,7 @@ class Trace(_MlflowObject):
     def search_spans(
         self,
         span_type: Optional[SpanType] = None,
-        name: Optional[Union[str, re.Pattern]] = None,
+        name: Optional[str | re.Pattern] = None,
         span_id: Optional[str] = None,
     ) -> list[Span]:
         """

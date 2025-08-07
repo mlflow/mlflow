@@ -12,7 +12,7 @@ from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -200,8 +200,8 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
         def genai_call_method(
             self,
             *,
-            predictions: Union[pd.Series, str, list[str]],
-            inputs: Union[pd.Series, str, list[str]],
+            predictions: pd.Series | str | list[str],
+            inputs: pd.Series | str | list[str],
             metrics: Optional[dict[str, MetricValue]] = None,
             **kwargs,
         ) -> MetricValue:
@@ -232,12 +232,12 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
                 Parameter(
                     "predictions",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, list[str]],
+                    annotation=pd.Series | str | list[str],
                 ),
                 Parameter(
                     "inputs",
                     Parameter.KEYWORD_ONLY,
-                    annotation=Union[pd.Series, str, list[str]],
+                    annotation=pd.Series | str | list[str],
                 ),
                 Parameter(
                     "metrics",
@@ -246,9 +246,7 @@ def _generate_eval_metric_class(eval_fn, require_strict_signature=False):
                     default=None,
                 ),
                 *[
-                    Parameter(
-                        name, Parameter.KEYWORD_ONLY, annotation=Union[pd.Series, str, list[str]]
-                    )
+                    Parameter(name, Parameter.KEYWORD_ONLY, annotation=pd.Series | str | list[str])
                     for name in allowed_kwargs_names
                 ],
             ]
@@ -833,8 +831,8 @@ def _resolve_default_evaluator(model_type, default_config) -> list[EvaluatorBund
 
 
 def resolve_evaluators_and_configs(
-    evaluators: Union[str, list[str], None],
-    evaluator_config: Union[dict[str, Any], None],
+    evaluators: str | list[str] | None,
+    evaluator_config: dict[str, Any] | None,
     model_type: Optional[str] = None,
 ) -> list[EvaluatorBundle]:
     """

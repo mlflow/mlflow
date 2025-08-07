@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Literal, NamedTuple, Optional, Union
+from typing import Any, Callable, Literal, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import yaml
@@ -406,11 +406,11 @@ class Model:
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Optional[dict[str, Any]] = None,
-        model_uuid: Union[str, Callable[[], str], None] = lambda: uuid.uuid4().hex,
-        mlflow_version: Union[str, None] = mlflow.version.VERSION,
+        model_uuid: str | Callable[[], str] | None = lambda: uuid.uuid4().hex,
+        mlflow_version: str | None = mlflow.version.VERSION,
         metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
-        resources: Optional[Union[str, list[Resource]]] = None,
+        resources: Optional[str | list[Resource]] = None,
         env_vars: Optional[list[str]] = None,
         auth_policy: Optional[AuthPolicy] = None,
         model_id: Optional[str] = None,
@@ -631,7 +631,7 @@ class Model:
         return self._resources
 
     @resources.setter
-    def resources(self, value: Optional[Union[str, list[Resource]]]) -> None:
+    def resources(self, value: Optional[str | list[Resource]]) -> None:
         if isinstance(value, (Path, str)):
             serialized_resource = _ResourceBuilder.from_yaml_file(value)
         elif isinstance(value, list) and all(isinstance(resource, Resource) for resource in value):
@@ -654,7 +654,7 @@ class Model:
 
     @experimental(version="2.21.0")
     @auth_policy.setter
-    def auth_policy(self, value: Optional[Union[dict[str, Any], AuthPolicy]]) -> None:
+    def auth_policy(self, value: Optional[dict[str, Any] | AuthPolicy]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
 
     @property

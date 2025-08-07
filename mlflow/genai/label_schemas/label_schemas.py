@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -184,7 +184,7 @@ class LabelSchema:
     title: str
     """Display title shown to stakeholders in the labeling review UI."""
 
-    input: Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]
+    input: InputCategorical | InputCategoricalList | InputText | InputTextList | InputNumeric
     """
     Input type specification that defines how stakeholders will provide their assessment
     (e.g., dropdown, text box, numeric input)

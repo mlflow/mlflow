@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
@@ -26,8 +26,8 @@ from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 # - bool
 # - list of values of the same types as above
 # - dict with string keys and values of the same types as above
-PbValueType = Union[float, int, str, bool]
-FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
+PbValueType = float | int | str | bool
+FeedbackValueType = PbValueType | dict[str, PbValueType] | list[PbValueType]
 
 
 @experimental(version="2.21.0")
@@ -234,7 +234,7 @@ class Feedback(Assessment):
         self,
         name: str = DEFAULT_FEEDBACK_NAME,
         value: Optional[FeedbackValueType] = None,
-        error: Optional[Union[Exception, AssessmentError]] = None,
+        error: Optional[Exception | AssessmentError] = None,
         source: Optional[AssessmentSource] = None,
         trace_id: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,

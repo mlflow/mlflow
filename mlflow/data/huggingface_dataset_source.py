@@ -14,9 +14,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         path: str,
         config_name: Optional[str] = None,
         data_dir: Optional[str] = None,
-        data_files: Optional[
-            Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
-        ] = None,
+        data_files: Optional[str | Sequence[str] | Mapping[str, str | Sequence[str]]] = None,
         split: Optional[Union[str, "datasets.Split"]] = None,
         revision: Optional[Union[str, "datasets.Version"]] = None,
         trust_remote_code: Optional[bool] = None,

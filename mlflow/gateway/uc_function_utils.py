@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _UC_FUNCTION = "uc_function"
 
 
-def uc_type_to_json_schema_type(uc_type_json: Union[str, dict[str, Any]]) -> dict[str, Any]:
+def uc_type_to_json_schema_type(uc_type_json: str | dict[str, Any]) -> dict[str, Any]:
     """
     Converts the JSON representation of a Unity Catalog data type to the corresponding JSON schema
     type. The conversion is lossy because we do not need to convert it back.

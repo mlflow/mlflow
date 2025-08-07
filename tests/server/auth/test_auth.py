@@ -403,7 +403,8 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             str(port),
             "--workers",
             "1",
-            "--dev",
+            "--gunicorn-opts",
+            "--log-level debug",
         ],
         env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:

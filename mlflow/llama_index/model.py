@@ -1,7 +1,7 @@
 import logging
 import os
 import tempfile
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import yaml
 
@@ -123,13 +123,13 @@ def save_model(
     llama_index_model,
     path: str,
     engine_type: Optional[str] = None,
-    model_config: Optional[Union[str, dict[str, Any]]] = None,
+    model_config: Optional[str | dict[str, Any]] = None,
     code_paths=None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> None:
@@ -322,11 +322,11 @@ def log_model(
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: Optional[list[str] | str] = None,
+    extra_pip_requirements: Optional[list[str] | str] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    prompts: Optional[list[str | Prompt]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
     tags: Optional[dict[str, Any]] = None,

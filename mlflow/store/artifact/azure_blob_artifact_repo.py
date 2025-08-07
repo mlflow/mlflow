@@ -4,7 +4,7 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import Optional, Union
+from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -17,7 +17,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUpl
 from mlflow.utils.credentials import get_default_host_creds
 
 
-def encode_base64(data: Union[str, bytes]) -> str:
+def encode_base64(data: str | bytes) -> str:
     if isinstance(data, str):
         data = data.encode("utf-8")
     encoded = base64.b64encode(data)

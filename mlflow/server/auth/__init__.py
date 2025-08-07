@@ -11,7 +11,7 @@ import functools
 import importlib
 import logging
 import re
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 import sqlalchemy
 from flask import (
@@ -518,14 +518,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Union[Authorization, Response]:
+def authenticate_request() -> Authorization | Response:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -537,7 +537,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Union[Authorization, Response]:
+def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     if request.authorization is None:
         return make_basic_auth_response()

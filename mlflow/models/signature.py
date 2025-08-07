@@ -11,7 +11,7 @@ import re
 import warnings
 from copy import deepcopy
 from dataclasses import is_dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
+from typing import TYPE_CHECKING, Any, Optional, get_type_hints
 
 import numpy as np
 import pandas as pd
@@ -46,11 +46,11 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
-        MlflowInferableDataset = Union[
-            pd.DataFrame, np.ndarray, dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-        ]
+        MlflowInferableDataset = (
+            pd.DataFrame | np.ndarray | dict[str, np.ndarray] | pyspark.sql.dataframe.DataFrame
+        )
     except ImportError:
-        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]
+        MlflowInferableDataset = pd.DataFrame | np.ndarray | dict[str, np.ndarray]
 
 _logger = logging.getLogger(__name__)
 
@@ -74,8 +74,8 @@ class ModelSignature:
     def __init__(
         self,
         # `dataclass` is an invalid type annotation. Use `Any` instead as a workaround.
-        inputs: Union[Schema, Any] = None,
-        outputs: Union[Schema, Any] = None,
+        inputs: Schema | Any = None,
+        outputs: Schema | Any = None,
         params: ParamSchema = None,
     ):
         if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
