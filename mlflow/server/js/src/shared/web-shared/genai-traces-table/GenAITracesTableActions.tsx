@@ -110,7 +110,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
-  const isEditTagsDisabled = selectedTraces.length > 1;
+  const isEditTagsDisabled = selectedTraces.length !== 1;
   const noTracesSelected = selectedTraces.length === 0;
   const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
 
@@ -139,7 +139,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   return (
     <>
-      <DropdownMenu.Root>
+      <DropdownMenu.Root open={noTracesSelected ? false : undefined}>
         {noTracesSelected ? (
           <Tooltip
             componentId="mlflow.genai-traces-table.actions-disabled-tooltip"
@@ -158,14 +158,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
         <DropdownMenu.Content>
           {(hasEditTagsAction || hasDeleteAction) && (
             <>
-              {hasExportAction && <DropdownMenu.Separator />}
               <DropdownMenu.Group>
-                <DropdownMenu.Label>
-                  {intl.formatMessage({
-                    defaultMessage: 'Edit',
-                    description: 'Trace actions dropdown group label',
-                  })}
-                </DropdownMenu.Label>
                 {hasEditTagsAction && (
                   <DropdownMenu.Item
                     componentId="mlflow.genai-traces-table.edit-tags"
@@ -179,7 +172,11 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                   </DropdownMenu.Item>
                 )}
                 {hasDeleteAction && (
-                  <DropdownMenu.Item componentId="mlflow.genai-traces-table.delete-traces" onClick={handleDeleteTraces}>
+                  <DropdownMenu.Item
+                    componentId="mlflow.genai-traces-table.delete-traces"
+                    onClick={handleDeleteTraces}
+                    disabled={noTracesSelected}
+                  >
                     {intl.formatMessage({
                       defaultMessage: 'Delete traces',
                       description: 'Delete traces action',
