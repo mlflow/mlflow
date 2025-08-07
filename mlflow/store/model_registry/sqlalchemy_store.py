@@ -1372,8 +1372,8 @@ class SqlAlchemyStore(AbstractStore):
     def list_webhooks_by_event(
         self,
         event: WebhookEvent,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Webhook]:
         max_results = max_results or 100
         if max_results < 1 or max_results > 1000:
