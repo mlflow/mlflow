@@ -31,7 +31,7 @@ Example usage in SQLAlchemy:
 """
 
 
-class EntityType:
+class EntityAssociationType:
     """Constants for entity types used in the entity_association table."""
 
     EXPERIMENT = "experiment"

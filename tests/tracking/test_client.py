@@ -66,6 +66,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+from mlflow.utils.os import is_windows
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -2871,8 +2872,9 @@ def test_mlflow_client_search_evaluation_datasets_defaults(mock_store):
     )
 
 
+@pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
 def test_mlflow_client_evaluation_datasets_filestore_not_supported(tmp_path):
-    file_store_uri = f"file://{tmp_path}"
+    file_store_uri = str(tmp_path)
     client = MlflowClient(tracking_uri=file_store_uri)
 
     with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:

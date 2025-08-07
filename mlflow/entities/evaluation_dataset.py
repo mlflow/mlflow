@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+from mlflow.data import Dataset
+from mlflow.data.evaluation_dataset_source import EvaluationDatasetSource
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
@@ -16,8 +18,7 @@ if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
 
 
-@dataclass
-class EvaluationDataset(_MlflowObject):
+class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     """
     Evaluation dataset for storing inputs and expectations for GenAI evaluation.
 
@@ -25,18 +26,59 @@ class EvaluationDataset(_MlflowObject):
     only metadata is loaded. Records are fetched when to_df() or merge_records() is called.
     """
 
-    dataset_id: str
-    name: str
-    digest: str
-    created_time: int
-    last_update_time: int
-    tags: Optional[dict[str, Any]] = None
-    schema: Optional[str] = None
-    profile: Optional[str] = None
-    created_by: Optional[str] = None
-    last_updated_by: Optional[str] = None
-    _experiment_ids: Optional[list[str]] = field(default=None, init=False, repr=False)
-    _records: Optional[list[DatasetRecord]] = field(default=None, init=False, repr=False)
+    def __init__(
+        self,
+        dataset_id: str,
+        name: str,
+        digest: str,
+        created_time: int,
+        last_update_time: int,
+        tags: Optional[dict[str, Any]] = None,
+        schema: Optional[str] = None,
+        profile: Optional[str] = None,
+        created_by: Optional[str] = None,
+        last_updated_by: Optional[str] = None,
+    ):
+        """Initialize the EvaluationDataset."""
+        self.dataset_id = dataset_id
+        self.created_time = created_time
+        self.last_update_time = last_update_time
+        self.tags = tags
+        self._schema = schema
+        self._profile = profile
+        self.created_by = created_by
+        self.last_updated_by = last_updated_by
+        self._experiment_ids = None
+        self._records = None
+
+        source = EvaluationDatasetSource(dataset_id=self.dataset_id)
+        Dataset.__init__(self, source=source, name=name, digest=digest)
+
+    def _compute_digest(self) -> str:
+        """
+        Compute digest for the dataset. This is called by Dataset.__init__ if no digest is provided.
+        Since we always have a digest from the dataclass initialization, this should not be called.
+        """
+        return self.digest
+
+    @property
+    def source(self) -> EvaluationDatasetSource:
+        """Override source property to return the correct type."""
+        return self._source
+
+    @property
+    def schema(self) -> Optional[str]:
+        """
+        Dataset schema information.
+        """
+        return self._schema
+
+    @property
+    def profile(self) -> Optional[str]:
+        """
+        Dataset profile information.
+        """
+        return self._profile
 
     @property
     def experiment_ids(self) -> list[str]:
@@ -140,7 +182,7 @@ class EvaluationDataset(_MlflowObject):
                     "Each record must have an 'inputs' field"
                 )
 
-        from mlflow.tracking._tracking_service.utils import _get_store
+        from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
         tracking_store = _get_store()
 
@@ -148,9 +190,9 @@ class EvaluationDataset(_MlflowObject):
             tracking_store.get_evaluation_dataset(self.dataset_id)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
-                f"Cannot add records to dataset {self.dataset_id}: Dataset not found in "
-                f"current tracking store. The dataset must exist in the backend before "
-                f"adding records."
+                f"Cannot add records to dataset {self.dataset_id}: Dataset not found. "
+                f"Please verify the dataset exists and check your tracking URI is set correctly "
+                f"(currently set to: {get_tracking_uri()})."
             ) from e
 
         tracking_store.upsert_evaluation_dataset_records(
@@ -250,19 +292,21 @@ class EvaluationDataset(_MlflowObject):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
-        result = {
-            "dataset_id": self.dataset_id,
-            "name": self.name,
-            "tags": self.tags,
-            "schema": self.schema,
-            "profile": self.profile,
-            "digest": self.digest,
-            "created_time": self.created_time,
-            "last_update_time": self.last_update_time,
-            "created_by": self.created_by,
-            "last_updated_by": self.last_updated_by,
-            "experiment_ids": self.experiment_ids,
-        }
+        result = super().to_dict()
+
+        result.update(
+            {
+                "dataset_id": self.dataset_id,
+                "tags": self.tags,
+                "schema": self.schema,
+                "profile": self.profile,
+                "created_time": self.created_time,
+                "last_update_time": self.last_update_time,
+                "created_by": self.created_by,
+                "last_updated_by": self.last_updated_by,
+                "experiment_ids": self.experiment_ids,
+            }
+        )
 
         result["records"] = [record.to_dict() for record in self.records]
 
@@ -271,7 +315,6 @@ class EvaluationDataset(_MlflowObject):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "EvaluationDataset":
         """Create instance from dictionary representation."""
-        # Validate required fields
         if "dataset_id" not in data:
             raise ValueError("dataset_id is required")
         if "name" not in data:
