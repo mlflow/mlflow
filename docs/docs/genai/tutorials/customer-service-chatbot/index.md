@@ -16,7 +16,7 @@ To demonstrate these capabilities, this multi-part guide will walk you through t
 
 <CardGroup>
 <PageCard
-link="https://www.google.com/search?q=/genai/tutorials/customer-service-chatbot/debug-tracing"
+link="/genai/tutorials/customer-service-chatbot/debug-tracing"
 headerText="Part 1: Autologging and Tracing"
 text="Covers informal experimentation with MLflow tracing."
 />
