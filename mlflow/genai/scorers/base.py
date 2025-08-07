@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -488,8 +489,12 @@ class Scorer(BaseModel):
                 from mlflow.tracking.fluent import _get_experiment_id
                 experiment_id = _get_experiment_id()
 
+            # Serialize the scorer to JSON string
+            scorer_dict = new_scorer.model_dump()
+            serialized_scorer = json.dumps(scorer_dict)
+
             # Register the scorer using the SqlAlchemyStore method
-            current_store.register_scorer(experiment_id, new_scorer.name, new_scorer)
+            current_store.register_scorer(experiment_id, new_scorer.name, serialized_scorer)
             
             return new_scorer
 

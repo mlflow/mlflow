@@ -5,6 +5,7 @@ This module provides functions to manage registered scorers that automatically
 evaluate traces in MLflow experiments.
 """
 
+import json
 from typing import Optional
 
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
@@ -96,7 +97,20 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
             from mlflow.tracking.fluent import _get_experiment_id
             experiment_id = _get_experiment_id()
         
-        return current_store.list_scorers(experiment_id)
+        # Get the list of mlflow.entities.scorer.Scorer objects
+        entity_scorers = current_store.list_scorers(experiment_id)
+        
+        # Convert to mlflow.genai.scorers.Scorer objects
+        scorers = []
+        for entity_scorer in entity_scorers:
+            import json
+            from mlflow.genai.scorers import Scorer
+            
+            scorer_dict = json.loads(entity_scorer.serialized_scorer)
+            scorer = Scorer.model_validate(scorer_dict)
+            scorers.append(scorer)
+        
+        return scorers
 
     # Unsupported backend
     raise MlflowException(
@@ -170,7 +184,17 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
             from mlflow.tracking.fluent import _get_experiment_id
             experiment_id = _get_experiment_id()
 
-        return current_store.get_scorer(experiment_id, name)
+        # Get the serialized scorer string
+        serialized_scorer = current_store.get_scorer(experiment_id, name)
+        
+        # Convert to mlflow.genai.scorers.Scorer object
+        import json
+        from mlflow.genai.scorers import Scorer
+        
+        scorer_dict = json.loads(serialized_scorer)
+        scorer = Scorer.model_validate(scorer_dict)
+        
+        return scorer
 
     # Unsupported backend
     raise MlflowException(

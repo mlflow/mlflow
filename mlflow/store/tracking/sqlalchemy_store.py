@@ -1941,14 +1941,14 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def register_scorer(self, experiment_id: str, name: str, scorer) -> int:
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """
         Register a scorer for an experiment.
         
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
-            scorer: The scorer object from mlflow.genai.scorers.Scorer.
+            serialized_scorer: The serialized scorer string (JSON).
             
         Returns:
             The new version number for the scorer.
@@ -1971,10 +1971,6 @@ class SqlAlchemyStore(AbstractStore):
             # Set new version (0 if no existing scorer, otherwise max + 1)
             new_version = 0 if max_version is None else max_version + 1
             
-            # Serialize the scorer using model_dump and convert to JSON
-            scorer_dict = scorer.model_dump()
-            serialized_scorer = json.dumps(scorer_dict)
-            
             # Create and save the new scorer record
             sql_scorer = SqlScorer(
                 experiment_id=experiment_id,
@@ -1996,7 +1992,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id: The experiment ID.
             
         Returns:
-            List of mlflow.genai.scorers.Scorer objects.
+            List of mlflow.entities.scorer.Scorer objects.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2011,15 +2007,17 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             
-            # Convert to mlflow.genai.scorers.Scorer objects
+            # Convert to mlflow.entities.scorer.Scorer objects
             scorers = []
             for sql_scorer in sql_scorers:
-                # Deserialize the scorer
-                import json
-                from mlflow.genai.scorers import Scorer
+                from mlflow.entities.scorer import Scorer
                 
-                scorer_dict = json.loads(sql_scorer.serialized_scorer)
-                scorer = Scorer.model_validate(scorer_dict)
+                scorer = Scorer(
+                    experiment_id=sql_scorer.experiment_id,
+                    scorer_name=sql_scorer.scorer_name,
+                    scorer_version=sql_scorer.scorer_version,
+                    serialized_scorer=sql_scorer.serialized_scorer,
+                )
                 scorers.append(scorer)
             
             return scorers
@@ -2034,7 +2032,7 @@ class SqlAlchemyStore(AbstractStore):
             version: The scorer version. If None, returns the scorer with maximum version.
             
         Returns:
-            mlflow.genai.scorers.Scorer object.
+            The serialized scorer string.
             
         Raises:
             MlflowException: If scorer is not found.
@@ -2067,14 +2065,7 @@ class SqlAlchemyStore(AbstractStore):
                         RESOURCE_DOES_NOT_EXIST,
                     )
             
-            # Deserialize the scorer
-            import json
-            from mlflow.genai.scorers import Scorer
-            
-            scorer_dict = json.loads(sql_scorer.serialized_scorer)
-            scorer = Scorer.model_validate(scorer_dict)
-            
-            return scorer
+            return sql_scorer.serialized_scorer
 
     def delete_scorer(self, experiment_id, name):
         """
