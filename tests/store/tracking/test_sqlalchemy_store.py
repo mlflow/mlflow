@@ -6127,7 +6127,11 @@ def test_evaluation_dataset_crud_operations(store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_evaluation_dataset(
             name="test_eval_dataset",
-            tags={"purpose": "testing", "environment": "test", mlflow_tags.MLFLOW_USER: "test_user"},
+            tags={
+                "purpose": "testing",
+                "environment": "test",
+                mlflow_tags.MLFLOW_USER: "test_user",
+            },
             experiment_ids=experiment_ids,
         )
 
@@ -6422,13 +6426,12 @@ def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
 
 
 def test_evaluation_dataset_user_detection(store):
-
     test_prefix = "test_user_detection_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
     dataset1 = store.create_evaluation_dataset(
         name=f"{test_prefix}dataset1",
-        tags={MLFLOW_USER: "john_doe", "other": "tag"},
+        tags={mlflow_tags.MLFLOW_USER: "john_doe", "other": "tag"},
         experiment_ids=exp_ids,
     )
     assert dataset1.created_by == "john_doe"
@@ -6438,7 +6441,7 @@ def test_evaluation_dataset_user_detection(store):
         name=f"{test_prefix}dataset2", tags={"other": "tag"}, experiment_ids=exp_ids
     )
     assert dataset2.created_by is None
-    assert MLFLOW_USER not in dataset2.tags
+    assert mlflow_tags.MLFLOW_USER not in dataset2.tags
 
     results = store.search_evaluation_datasets(filter_string="created_by = 'john_doe'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]

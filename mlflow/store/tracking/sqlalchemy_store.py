@@ -2968,16 +2968,12 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             if experiment_ids:
-                dataset_ids = (
-                    session.query(SqlEntityAssociation.source_id)
-                    .filter(
-                        SqlEntityAssociation.source_type
-                        == EntityAssociationType.EVALUATION_DATASET,
-                        SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
-                        SqlEntityAssociation.destination_id.in_(experiment_ids),
-                    )
-                    .distinct()
+                dataset_ids_result = self.search_entities_by_destination(
+                    destination_ids=experiment_ids,
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
                 )
+                dataset_ids = dataset_ids_result.to_list()
                 stmt = stmt.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
 
             stmt = stmt.filter(*attribute_filters)
@@ -3001,63 +2997,41 @@ class SqlAlchemyStore(AbstractStore):
 
             return PagedList(datasets, next_page_token)
 
-    def _compute_dataset_schema_from_records(self, record_dicts):
+    def _update_dataset_schema(self, existing_schema_json, record_dicts):
         """
-        Compute schema information from record dictionaries.
+        Update dataset schema with new fields from records.
+
+        This method combines schema computation and merging into a single operation
+        for efficiency, since schemas are stored as JSON strings.
 
         Args:
+            existing_schema_json: JSON string of existing schema or None
             record_dicts: List of record dictionaries being upserted
 
         Returns:
-            Dictionary describing the structure of inputs and expectations.
+            Updated schema dictionary or None if no records and no existing schema
         """
-        if not record_dicts:
+        if not record_dicts and not existing_schema_json:
             return None
 
-        input_fields = {}
-        expectation_fields = {}
+        schema = (
+            json.loads(existing_schema_json)
+            if existing_schema_json
+            else {"inputs": {}, "expectations": {}, "version": "1.0"}
+        )
 
         for record in record_dicts:
             if inputs := record.get("inputs"):
                 for key, value in inputs.items():
-                    if key not in input_fields:
-                        input_fields[key] = self._infer_field_type(value)
+                    if key not in schema["inputs"]:
+                        schema["inputs"][key] = self._infer_field_type(value)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():
-                    if key not in expectation_fields:
-                        expectation_fields[key] = self._infer_field_type(value)
+                    if key not in schema["expectations"]:
+                        schema["expectations"][key] = self._infer_field_type(value)
 
-        return {"inputs": input_fields, "expectations": expectation_fields, "version": "1.0"}
-
-    def _merge_schemas(self, existing_schema, new_schema):
-        """
-        Merge new schema information with existing schema.
-
-        Args:
-            existing_schema: Current schema dictionary or None
-            new_schema: New schema information from recent records
-
-        Returns:
-            Merged schema dictionary
-        """
-        if not new_schema:
-            return existing_schema
-
-        if not existing_schema:
-            return new_schema
-
-        merged_inputs = existing_schema.get("inputs", {}).copy()
-        for field, field_type in new_schema.get("inputs", {}).items():
-            if field not in merged_inputs:
-                merged_inputs[field] = field_type
-
-        merged_expectations = existing_schema.get("expectations", {}).copy()
-        for field, field_type in new_schema.get("expectations", {}).items():
-            if field not in merged_expectations:
-                merged_expectations[field] = field_type
-
-        return {"inputs": merged_inputs, "expectations": merged_expectations, "version": "1.0"}
+        return schema
 
     def _compute_dataset_profile(self, session, dataset_id):
         """
@@ -3142,6 +3116,7 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
+            last_updated_by = None
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3168,6 +3143,8 @@ class SqlAlchemyStore(AbstractStore):
                     merged_tags = existing_record.tags or {}
                     if new_tags := record_dict.get("tags"):
                         merged_tags.update(new_tags)
+                        if MLFLOW_USER in new_tags:
+                            last_updated_by = new_tags[MLFLOW_USER]
 
                     source = None
                     if existing_record.source:
@@ -3177,11 +3154,11 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
                     created_time = current_time
-                    # Extract user from record tags if provided
                     created_by = None
                     merged_tags = record_dict.get("tags")
-                    if merged_tags and "mlflow.user" in merged_tags:
-                        created_by = merged_tags["mlflow.user"]
+                    if merged_tags and MLFLOW_USER in merged_tags:
+                        created_by = merged_tags[MLFLOW_USER]
+                        last_updated_by = created_by
                     merged_expectations = record_dict.get("expectations")
 
                     source = None
@@ -3203,7 +3180,7 @@ class SqlAlchemyStore(AbstractStore):
                     tags=merged_tags,
                     source=source,
                     created_by=created_by,
-                    last_updated_by=created_by,  # Use same user as created_by
+                    last_updated_by=created_by,
                 )
 
                 sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
@@ -3215,19 +3192,18 @@ class SqlAlchemyStore(AbstractStore):
                 .first()
             )
 
-            existing_schema = json.loads(dataset.schema) if dataset.schema else None
-            new_schema_info = self._compute_dataset_schema_from_records(records)
-            merged_schema = self._merge_schemas(existing_schema, new_schema_info)
+            # Update schema with new fields from records
+            updated_schema = self._update_dataset_schema(dataset.schema, records)
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
             update_fields = {
                 "last_update_time": current_time,
-                "last_updated_by": updated_by,
+                "last_updated_by": last_updated_by,
             }
 
-            if merged_schema:
-                update_fields["schema"] = json.dumps(merged_schema)
+            if updated_schema:
+                update_fields["schema"] = json.dumps(updated_schema)
 
             if updated_profile:
                 update_fields["profile"] = json.dumps(updated_profile)
@@ -3258,12 +3234,13 @@ class SqlAlchemyStore(AbstractStore):
 
         # Verify dataset exists first
         with self.ManagedSessionMaker() as session:
-            dataset = (
+            dataset_exists = session.query(
                 session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .first()
-            )
-            if not dataset:
+                .exists()
+            ).scalar()
+
+            if not dataset_exists:
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
@@ -3313,8 +3290,8 @@ class SqlAlchemyStore(AbstractStore):
 
             dataset.last_update_time = get_current_time_millis()
             # Extract user from tags if provided
-            if tags and "mlflow.user" in tags:
-                dataset.last_updated_by = tags["mlflow.user"]
+            if tags and MLFLOW_USER in tags:
+                dataset.last_updated_by = tags[MLFLOW_USER]
 
             for key, value in tags.items():
                 if value is None:
