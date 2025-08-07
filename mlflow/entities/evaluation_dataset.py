@@ -196,7 +196,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             ) from e
 
         tracking_store.upsert_evaluation_dataset_records(
-            dataset_id=self.dataset_id, records=record_dicts, updated_by=self.last_updated_by
+            dataset_id=self.dataset_id, records=record_dicts
         )
         self._records = None
 

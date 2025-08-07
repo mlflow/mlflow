@@ -6259,9 +6259,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         },
     ]
 
-    result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, records_batch1, "test_user"
-    )
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch1)
     assert result["inserted"] == 2
     assert result["updated"] == 1
 
@@ -6468,7 +6466,7 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
         "deprecated": None,
     }
-    store.set_evaluation_dataset_tags(created.dataset_id, update_tags, updated_by="test_user")
+    store.set_evaluation_dataset_tags(created.dataset_id, update_tags)
 
     updated = store.get_evaluation_dataset(created.dataset_id)
     expected_tags = {
