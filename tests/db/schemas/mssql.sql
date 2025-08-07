@@ -174,7 +174,7 @@ CREATE TABLE webhook_events (
 	entity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	action VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
-	CONSTRAINT "FK__webhook_e__webho__0D7A0286" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
+	CONSTRAINT "FK__webhook_e__webho__114A936A" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 

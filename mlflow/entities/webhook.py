@@ -131,7 +131,7 @@ class WebhookEvent:
         self._action = WebhookAction(action) if isinstance(action, str) else action
 
         # Validate entity/action combination
-        if not self.is_valid_combination(self._entity, self._action):
+        if not self._is_valid_combination(self._entity, self._action):
             valid_actions = VALID_ENTITY_ACTIONS.get(self._entity, set())
             raise MlflowException.invalid_parameter_value(
                 f"Invalid action '{self._action}' for entity '{self._entity}'. "
@@ -147,7 +147,7 @@ class WebhookEvent:
         return self._action
 
     @staticmethod
-    def is_valid_combination(entity: WebhookEntity, action: WebhookAction) -> bool:
+    def _is_valid_combination(entity: WebhookEntity, action: WebhookAction) -> bool:
         """
         Check if an entity/action combination is valid.
 
