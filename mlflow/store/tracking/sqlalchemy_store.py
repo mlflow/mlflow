@@ -3243,13 +3243,13 @@ class SqlAlchemyStore(AbstractStore):
 
         # Verify dataset exists first
         with self.ManagedSessionMaker() as session:
-            dataset_exists = session.query(
-                session.query(SqlEvaluationDataset)
+            dataset = (
+                session.query(SqlEvaluationDataset.dataset_id)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .exists()
-            ).scalar()
+                .first()
+            )
 
-            if not dataset_exists:
+            if not dataset:
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
