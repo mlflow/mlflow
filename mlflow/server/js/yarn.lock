@@ -2543,9 +2543,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@databricks/design-system@file:./vendor/design-system::locator=%40mlflow%2Fmlflow%40workspace%3A.":
-  version: 1.0.0-86b7a191
-  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=4548ea&locator=%40mlflow%2Fmlflow%40workspace%3A."
+"@databricks/design-system@npm:^1.12.20":
+  version: 1.12.20
+  resolution: "@databricks/design-system@npm:1.12.20"
   dependencies:
     "@ant-design/icons": "npm:^4.7.0"
     "@babel/runtime": "npm:^7.27.3"
@@ -2587,7 +2587,7 @@ __metadata:
     moment: ^2.25.3
     react: "*"
     react-dom: "*"
-  checksum: 10c0/c6caf89c086656e8b162039101ef7badaf0076626d54057860d13041e5603b7e3007fb1811682b432cd68726fa1bd2e202ebe89fcb54dadbb127880083f255af
+  checksum: 10c0/38d50f7d36093316a29e640e6526f501a0c5eca6ad2fedbb6763c8ca44c6ad8dc036cc381f2c5de3dbc87ef27d660003ce98eea6e7301c012a94fd466be56ebe
   languageName: node
   linkType: hard
 
@@ -4324,7 +4324,7 @@ __metadata:
     "@babel/preset-react": "npm:^7.27.1"
     "@babel/preset-typescript": "npm:^7.27.1"
     "@craco/craco": "npm:7.0.0-alpha.0"
-    "@databricks/design-system": "file:./vendor/design-system"
+    "@databricks/design-system": "npm:^1.12.20"
     "@emotion/babel-plugin": "npm:^11.11.0"
     "@emotion/babel-preset-css-prop": "npm:^11.11.0"
     "@emotion/cache": "npm:^11.11.0"
