@@ -352,30 +352,26 @@ class Span:
         if otel_proto_span.parent_span_id:
             parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
 
-        mlflow_status = SpanStatus.from_otel_proto_status(otel_proto_span.status)
-
-        attributes = {
-            attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
-        }
-
-        events = [
-            OTelEvent(
-                name=event.name,
-                timestamp=event.time_unix_nano,
-                attributes={attr.key: _decode_otel_value(attr.value) for attr in event.attributes},
-            )
-            for event in otel_proto_span.events
-        ]
-
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
-            attributes=attributes,
-            status=mlflow_status.to_otel_status(),
-            events=events,
+            attributes={
+                attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
+            },
+            status=SpanStatus.from_otel_proto_status(otel_proto_span.status).to_otel_status(),
+            events=[
+                OTelEvent(
+                    name=event.name,
+                    timestamp=event.time_unix_nano,
+                    attributes={
+                        attr.key: _decode_otel_value(attr.value) for attr in event.attributes
+                    },
+                )
+                for event in otel_proto_span.events
+            ],
             resource=_OTelResource.get_empty(),
         )
 
