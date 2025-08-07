@@ -357,19 +357,19 @@ class Span:
         mlflow_status = SpanStatus.from_otel_proto_status(otel_proto_span.status)
 
         # Convert attributes from protobuf to dict
-        attributes = {}
-        for attr in otel_proto_span.attributes:
-            attributes[attr.key] = _decode_otel_value(attr.value)
+        attributes = {
+            attr.key: _decode_otel_value(attr.value) for attr in otel_proto_span.attributes
+        }
 
         # Convert events
-        events = []
-        for event in otel_proto_span.events:
-            event_attrs = {}
-            for attr in event.attributes:
-                event_attrs[attr.key] = _decode_otel_value(attr.value)
-            events.append(
-                OTelEvent(name=event.name, timestamp=event.time_unix_nano, attributes=event_attrs)
+        events = [
+            OTelEvent(
+                name=event.name,
+                timestamp=event.time_unix_nano,
+                attributes={attr.key: _decode_otel_value(attr.value) for attr in event.attributes},
             )
+            for event in otel_proto_span.events
+        ]
 
         # Create OTelReadableSpan
 
