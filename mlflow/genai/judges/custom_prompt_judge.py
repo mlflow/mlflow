@@ -1,5 +1,6 @@
 import re
-from typing import Callable, Optional, Union
+from difflib import unified_diff
+from typing import Callable, Optional
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -21,7 +22,7 @@ def custom_prompt_judge(
     *,
     name: str,
     prompt_template: str,
-    numeric_values: Optional[dict[str, Union[int, float]]] = None,
+    numeric_values: Optional[dict[str, float]] = None,
     model: Optional[str] = None,
 ) -> Callable[..., Feedback]:
     """
@@ -36,6 +37,10 @@ def custom_prompt_judge(
             Useful if you want to create a custom judge that returns continuous valued outputs.
             Defaults to None.
         model: {{ model }}
+
+    Returns:
+        A callable that takes keyword arguments mapping to the template variables
+        and returns an mlflow :py:class:`mlflow.entities.Feedback`.
 
     Example prompt template:
 
@@ -60,10 +65,6 @@ def custom_prompt_judge(
     It is required for the prompt template to request choices as outputs, with each choice
     enclosed in square brackets. Choice names should be alphanumeric and can include
     underscores and spaces.
-
-    Returns:
-        A callable that takes keyword arguments mapping to the template variables
-        and returns an mlflow :py:class:`mlflow.entities.Feedback`.
     """
     model = model or get_default_model()
 
@@ -94,11 +95,22 @@ def custom_prompt_judge(
 
     # Validate that choices match numeric_values keys if provided
     if numeric_values is not None:
-        if set(numeric_values.keys()) != set(choices):
+        sorted_numeric_values = sorted(numeric_values.keys())
+        sorted_choices = sorted(choices)
+        if sorted_numeric_values != sorted_choices:
+            diff = "\n".join(
+                unified_diff(
+                    sorted_numeric_values,
+                    sorted_choices,
+                    fromfile="numeric_values_keys",
+                    tofile="choices",
+                )
+            )
             raise ValueError(
                 f"numeric_values keys must match the choices included in the prompt template.\n"
-                f"numeric_values keys: {list(numeric_values.keys())}\n"
-                f"choices in prompt: {choices}\n"
+                f"numeric_values keys: {sorted_numeric_values}\n"
+                f"choices in prompt: {sorted_choices}\n"
+                f"Diff:\n{diff}"
             )
 
         # Validate that numeric_values values are numeric if provided
