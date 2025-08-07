@@ -969,7 +969,6 @@ class AbstractStore:
         self,
         dataset_id: str,
         records: list[dict[str, Any]],
-        updated_by: Optional[str] = None,
     ) -> dict[str, int]:
         """
         Upsert records into an evaluation dataset.
@@ -977,7 +976,6 @@ class AbstractStore:
         Args:
             dataset_id: The ID of the dataset to update.
             records: List of record dictionaries to upsert.
-            updated_by: User ID of who is updating the records.
 
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
@@ -985,9 +983,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
-    ) -> None:
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -997,7 +993,6 @@ class AbstractStore:
         Args:
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
-            updated_by: The user making the update.
 
         Raises:
             MlflowException: If dataset not found or invalid parameters.

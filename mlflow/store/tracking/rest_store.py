@@ -1,6 +1,9 @@
 import json
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 
 from mlflow.entities import (
     DatasetInput,
@@ -1142,21 +1145,41 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def create_evaluation_dataset(self, entity, experiment_ids):
+    def create_evaluation_dataset(
+        self,
+        name: str,
+        tags: Optional[dict[str, str]] = None,
+        experiment_ids: Optional[list[str]] = None,
+    ) -> "EvaluationDataset":
         """
         Create an evaluation dataset.
 
         Args:
-            entity: EvaluationDataset entity to create.
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
             experiment_ids: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created EvaluationDataset.
         """
         # TODO: Implement REST endpoint for create_evaluation_dataset
+        # from mlflow.protos.service_pb2 import CreateEvaluationDataset
+        # from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset
+        #  as ProtoEvaluationDataset
+        # req_body = message_to_json(
+        #     CreateEvaluationDataset.Request(
+        #         name=name,
+        #         tags=json.dumps(tags) if tags else None,
+        #         experiment_ids=experiment_ids
+        #     )
+        # )
+        # endpoint = "/mlflow/evaluation-datasets"
+        # response_proto = self._call_endpoint(CreateEvaluationDataset,
+        # req_body, endpoint=endpoint)
+        # return EvaluationDataset.from_proto(response_proto.dataset)
         raise NotImplementedError("REST endpoint for create_evaluation_dataset not implemented")
 
-    def get_evaluation_dataset(self, dataset_id):
+    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -1167,9 +1190,19 @@ class RestStore(AbstractStore):
             The EvaluationDataset object.
         """
         # TODO: Implement REST endpoint for get_evaluation_dataset
+        # from mlflow.protos.service_pb2 import GetEvaluationDataset
+        # from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset
+        # as ProtoEvaluationDataset
+        # req_body = message_to_json(
+        #     GetEvaluationDataset.Request(dataset_id=dataset_id)
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}"
+        # response_proto = self._call_endpoint(GetEvaluationDataset,
+        # req_body, endpoint=endpoint)
+        # return EvaluationDataset.from_proto(response_proto.dataset)
         raise NotImplementedError("REST endpoint for get_evaluation_dataset not implemented")
 
-    def delete_evaluation_dataset(self, dataset_id):
+    def delete_evaluation_dataset(self, dataset_id: str) -> None:
         """
         Delete an evaluation dataset.
 
@@ -1177,63 +1210,113 @@ class RestStore(AbstractStore):
             dataset_id: The ID of the dataset to delete.
         """
         # TODO: Implement REST endpoint for delete_evaluation_dataset
+        # from mlflow.protos.service_pb2 import DeleteEvaluationDataset
+        # req_body = message_to_json(
+        #     DeleteEvaluationDataset.Request(dataset_id=dataset_id)
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}"
+        # self._call_endpoint(DeleteEvaluationDataset, req_body,
+        # endpoint=endpoint, method="DELETE")
         raise NotImplementedError("REST endpoint for delete_evaluation_dataset not implemented")
 
     def search_evaluation_datasets(
-        self, experiment_ids=None, name=None, page_token=None, max_results=None
-    ):
+        self,
+        experiment_ids: Optional[list[str]] = None,
+        filter_string: Optional[str] = None,
+        max_results: int = 1000,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
 
         Args:
             experiment_ids: List of experiment IDs to filter by.
-            name: Name pattern to filter by.
-            page_token: Token for pagination.
+            filter_string: Filter string for dataset names.
             max_results: Maximum number of results to return.
+            order_by: Ordering criteria.
+            page_token: Token for retrieving the next page of results.
 
         Returns:
-            Tuple of (list of EvaluationDataset objects, next page token).
+            A PagedList of evaluation datasets.
         """
         # TODO: Implement REST endpoint for search_evaluation_datasets
+        # from mlflow.protos.service_pb2 import SearchEvaluationDatasets
+        # from mlflow.store.entities.paged_list import PagedList
+        # req_body = message_to_json(
+        #     SearchEvaluationDatasets.Request(
+        #         experiment_ids=experiment_ids,
+        #         filter_string=filter_string,
+        #         max_results=max_results,
+        #         order_by=order_by,
+        #         page_token=page_token
+        #     )
+        # )
+        # endpoint = "/mlflow/evaluation-datasets/search"
+        # response_proto = self._call_endpoint(SearchEvaluationDatasets,
+        # req_body, endpoint=endpoint)
+        # datasets = [EvaluationDataset.from_proto(d) for d in response_proto.datasets]
+        # return PagedList(datasets, response_proto.next_page_token)
         raise NotImplementedError("REST endpoint for search_evaluation_datasets not implemented")
 
-    def upsert_evaluation_dataset_records(self, dataset_id, records, updated_by=None):
+    def upsert_evaluation_dataset_records(
+        self,
+        dataset_id: str,
+        records: list[dict[str, Any]],
+    ) -> dict[str, int]:
         """
         Upsert evaluation dataset records.
 
         Args:
             dataset_id: The ID of the dataset.
             records: List of record dictionaries to upsert.
-            updated_by: User ID of who is updating the records.
 
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
         """
         # TODO: Implement REST endpoint for upsert_evaluation_dataset_records
+        # from mlflow.protos.service_pb2 import UpsertEvaluationDatasetRecords
+        # req_body = message_to_json(
+        #     UpsertEvaluationDatasetRecords.Request(
+        #         dataset_id=dataset_id,
+        #         records=json.dumps(records)
+        #     )
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}/records"
+        # response_proto = self._call_endpoint(UpsertEvaluationDatasetRecords,
+        # req_body, endpoint=endpoint)
+        # return {"inserted": response_proto.inserted_count,
+        #  "updated": response_proto.updated_count}
         raise NotImplementedError(
             "REST endpoint for upsert_evaluation_dataset_records not implemented"
         )
 
-    def update_evaluation_dataset_tags(self, dataset_id, tags, updated_by=None):
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
-        Update tags for an evaluation dataset.
+        Set tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+        To remove a tag, set its value to None.
 
         Args:
             dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update.
-            updated_by: The user making the update.
+            tags: Dictionary of tags to update. Setting a value to None removes the tag.
         """
-        from mlflow.protos.service_pb2 import UpdateEvaluationDatasetTags
+        # TODO: Implement REST endpoint for set_evaluation_dataset_tags
+        # from mlflow.protos.service_pb2 import SetEvaluationDatasetTags
+        # req_body = message_to_json(
+        #     SetEvaluationDatasetTags.Request(
+        #         dataset_id=dataset_id,
+        #         tags=json.dumps(tags)
+        #     )
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}/tags"
+        # response = self._call_endpoint(SetEvaluationDatasetTags,
+        # req_body, endpoint=endpoint)
+        # Note: Response contains the updated dataset
+        raise NotImplementedError("REST endpoint for set_evaluation_dataset_tags not implemented")
 
-        req_body = message_to_json(
-            UpdateEvaluationDatasetTags(
-                dataset_id=dataset_id, tags=json.dumps(tags), updated_by=updated_by
-            )
-        )
-        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/evaluation-datasets/{dataset_id}/tags"
-        self._call_endpoint(UpdateEvaluationDatasetTags, req_body, endpoint=endpoint)
-
-    def get_evaluation_dataset_experiment_ids(self, dataset_id):
+    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
 
@@ -1244,7 +1327,14 @@ class RestStore(AbstractStore):
             List of experiment IDs associated with the dataset.
         """
         # TODO: Implement REST endpoint for get_evaluation_dataset_experiment_ids
-        # This will be implemented in PR6
+        # from mlflow.protos.service_pb2 import GetEvaluationDatasetExperimentIds
+        # req_body = message_to_json(
+        #     GetEvaluationDatasetExperimentIds.Request(dataset_id=dataset_id)
+        # )
+        # endpoint = f"/mlflow/evaluation-datasets/{dataset_id}/experiment-ids"
+        # response = self._call_endpoint(GetEvaluationDatasetExperimentIds,
+        # req_body, endpoint=endpoint)
+        # return response.experiment_ids
         raise NotImplementedError(
             "REST endpoint for get_evaluation_dataset_experiment_ids not implemented"
         )
