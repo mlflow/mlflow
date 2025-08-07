@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from unittest import mock
@@ -20,6 +21,7 @@ from mlflow.genai.datasets import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import MlflowClient
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 @pytest.fixture
@@ -309,11 +311,11 @@ def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
     dataset = create_evaluation_dataset(
         name="test_user_attribution",
         experiment_ids=experiments[0],
-        tags={"environment": "test", "mlflow.user": "john_doe"},
+        tags={"environment": "test", MLFLOW_USER: "john_doe"},
     )
 
     assert dataset.name == "test_user_attribution"
-    assert dataset.tags["mlflow.user"] == "john_doe"
+    assert dataset.tags[MLFLOW_USER] == "john_doe"
     assert dataset.created_by == "john_doe"
 
     dataset2 = create_evaluation_dataset(
@@ -323,7 +325,7 @@ def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
     )
 
     assert dataset2.name == "test_no_user"
-    assert "mlflow.user" not in dataset2.tags
+    assert MLFLOW_USER not in dataset2.tags
     assert dataset2.created_by is None
 
 
@@ -508,11 +510,9 @@ def test_delete_evaluation_dataset(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset_id)
 
-    # Verify dataset cannot be retrieved
     with pytest.raises(MlflowException, match="Could not find|not found"):
         get_evaluation_dataset(dataset_id=dataset_id)
 
-    # Verify dataset doesn't appear in search results
     search_results = search_evaluation_datasets(experiment_ids=[experiments[0], experiments[1]])
     found_ids = [d.dataset_id for d in search_results]
     assert dataset_id not in found_ids
@@ -805,7 +805,7 @@ def test_trace_deduplication_with_assessments(client, experiment):
 
     record = df.iloc[0]
     assert record["inputs"]["question"] == "What is AI?"
-    assert record["expectations"]["quality"] == 0.9  # Expectations from last trace
+    assert record["expectations"]["quality"] == 0.9
     assert record["source_id"] in trace_ids
 
 
@@ -1043,7 +1043,6 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
         "status": "active",
     }
 
-    # Delete a tag using the delete API
     delete_evaluation_dataset_tag(
         dataset_id=dataset.dataset_id,
         key="priority",
@@ -1058,7 +1057,6 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
-    # Test deletion propagation - all operations should fail after deletion
     with pytest.raises(MlflowException, match="Could not find|not found"):
         get_evaluation_dataset(dataset_id=dataset.dataset_id)
 
@@ -1080,3 +1078,132 @@ def test_set_evaluation_dataset_tags_databricks(mock_databricks_environment):
 def test_delete_evaluation_dataset_tag_databricks(mock_databricks_environment):
     with pytest.raises(NotImplementedError, match="tag operations are not available"):
         delete_evaluation_dataset_tag(dataset_id="test", key="key")
+
+
+def test_evaluation_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
+    dataset = create_evaluation_dataset(
+        name="schema_evolution_test",
+        experiment_ids=[experiments[0]],
+        tags={"test": "schema_evolution", "mlflow.user": "test_user"},
+    )
+
+    stage1_records = [
+        {
+            "inputs": {"prompt": "What is MLflow?"},
+            "expectations": {"response": "MLflow is a platform"},
+        }
+    ]
+    dataset.merge_records(stage1_records)
+
+    ds1 = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    schema1 = json.loads(ds1.schema)
+    assert schema1 is not None
+    assert "prompt" in schema1["inputs"]
+    assert schema1["inputs"]["prompt"] == "string"
+    assert len(schema1["inputs"]) == 1
+    assert len(schema1["expectations"]) == 1
+
+    stage2_records = [
+        {
+            "inputs": {
+                "prompt": "Explain Python",
+                "temperature": 0.7,
+                "max_length": 500,
+                "top_p": 0.95,
+            },
+            "expectations": {
+                "response": "Python is a programming language",
+                "quality_score": 0.85,
+                "token_count": 127,
+            },
+        }
+    ]
+    dataset.merge_records(stage2_records)
+
+    ds2 = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    schema2 = json.loads(ds2.schema)
+    assert "temperature" in schema2["inputs"]
+    assert schema2["inputs"]["temperature"] == "float"
+    assert "max_length" in schema2["inputs"]
+    assert schema2["inputs"]["max_length"] == "integer"
+    assert len(schema2["inputs"]) == 4
+    assert len(schema2["expectations"]) == 3
+
+    stage3_records = [
+        {
+            "inputs": {
+                "prompt": "Complex query",
+                "streaming": True,
+                "stop_sequences": ["\n\n", "END"],
+                "config": {"model": "gpt-4", "version": "1.0"},
+            },
+            "expectations": {
+                "response": "Complex response",
+                "is_valid": True,
+                "citations": ["source1", "source2"],
+                "metadata": {"confidence": 0.9},
+            },
+        }
+    ]
+    dataset.merge_records(stage3_records)
+
+    ds3 = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    schema3 = json.loads(ds3.schema)
+
+    assert schema3["inputs"]["streaming"] == "boolean"
+    assert schema3["inputs"]["stop_sequences"] == "array"
+    assert schema3["inputs"]["config"] == "object"
+    assert schema3["expectations"]["is_valid"] == "boolean"
+    assert schema3["expectations"]["citations"] == "array"
+    assert schema3["expectations"]["metadata"] == "object"
+
+    assert "prompt" in schema3["inputs"]
+    assert "temperature" in schema3["inputs"]
+    assert "quality_score" in schema3["expectations"]
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+        mlflow.log_metrics({"accuracy": 0.92, "f1_score": 0.89})
+
+    run_data = mlflow.get_run(run.info.run_id)
+    assert run_data.inputs is not None
+    assert run_data.inputs.dataset_inputs is not None
+    assert len(run_data.inputs.dataset_inputs) > 0
+
+    dataset_input = run_data.inputs.dataset_inputs[0]
+    assert dataset_input.dataset.name == "schema_evolution_test"
+    assert dataset_input.dataset.source_type == "mlflow_evaluation_dataset"
+
+    tag_dict = {tag.key: tag.value for tag in dataset_input.tags}
+    assert "mlflow.data.context" in tag_dict
+    assert tag_dict["mlflow.data.context"] == "evaluation"
+
+    final_dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    final_schema = json.loads(final_dataset.schema)
+
+    assert "inputs" in final_schema
+    assert "expectations" in final_schema
+    assert "version" in final_schema
+    assert final_schema["version"] == "1.0"
+
+    profile = json.loads(final_dataset.profile)
+    assert profile is not None
+    assert profile["num_records"] == 3
+
+    consistency_records = [
+        {
+            "inputs": {"prompt": "Another test", "temperature": 0.5, "max_length": 200},
+            "expectations": {"response": "Another response", "quality_score": 0.75},
+        }
+    ]
+    dataset.merge_records(consistency_records)
+
+    consistent_dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
+    consistent_schema = json.loads(consistent_dataset.schema)
+
+    assert set(consistent_schema["inputs"].keys()) == set(final_schema["inputs"].keys())
+    assert set(consistent_schema["expectations"].keys()) == set(final_schema["expectations"].keys())
+
+    consistent_profile = json.loads(consistent_dataset.profile)
+    assert consistent_profile["num_records"] == 4

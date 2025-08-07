@@ -8,7 +8,7 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional, TypedDict, Union
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -2657,137 +2657,12 @@ class SqlAlchemyStore(AbstractStore):
         return sql_assessment
 
     #######################################################################################
-    # Generic Entity Association Helper Methods
-    #######################################################################################
-
-    def _create_entity_association(
-        self,
-        source_type: str,
-        source_id: str,
-        destination_type: str,
-        destination_id: str,
-        session,
-        created_time: Optional[int] = None,
-    ) -> str:
-        """
-        Create a generic entity association.
-
-        Args:
-            source_type: Type of the source entity (e.g., 'EVALUATION_DATASET')
-            source_id: ID of the source entity
-            destination_type: Type of the destination entity (e.g., 'EXPERIMENT')
-            destination_id: ID of the destination entity
-            session: Database session
-            created_time: Optional creation timestamp (defaults to current time)
-
-        Returns:
-            The generated association ID
-        """
-        association_id = f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
-        association_args = {
-            "association_id": association_id,
-            "source_type": source_type,
-            "source_id": source_id,
-            "destination_type": destination_type,
-            "destination_id": destination_id,
-        }
-        if created_time is not None:
-            association_args["created_time"] = created_time
-
-        association = SqlEntityAssociation(**association_args)
-        session.add(association)
-        return association_id
-
-    def _get_entity_associations(
-        self,
-        source_type: Optional[str] = None,
-        source_id: Optional[str] = None,
-        destination_type: Optional[str] = None,
-        destination_id: Optional[str] = None,
-        session=None,
-    ) -> list[SqlEntityAssociation]:
-        """
-        Get entity associations based on source and/or destination criteria.
-
-        Args:
-            source_type: Filter by source entity type
-            source_id: Filter by source entity ID
-            destination_type: Filter by destination entity type
-            destination_id: Filter by destination entity ID
-            session: Database session (if None, creates a new session)
-
-        Returns:
-            List of matching entity associations
-        """
-        with self._get_or_create_session(session) as session:
-            query = session.query(SqlEntityAssociation)
-
-            if source_type is not None:
-                query = query.filter(SqlEntityAssociation.source_type == source_type)
-            if source_id is not None:
-                query = query.filter(SqlEntityAssociation.source_id == source_id)
-            if destination_type is not None:
-                query = query.filter(SqlEntityAssociation.destination_type == destination_type)
-            if destination_id is not None:
-                query = query.filter(SqlEntityAssociation.destination_id == destination_id)
-
-            return query.all()
-
-    def _build_association_query(
-        self,
-        session,
-        select_columns: Optional[list[Any]] = None,
-        source_type: Optional[str] = None,
-        source_id: Optional[str] = None,
-        source_ids: Optional[list[str]] = None,
-        destination_type: Optional[str] = None,
-        destination_id: Optional[str] = None,
-        destination_ids: Optional[list[str]] = None,
-    ):
-        """
-        Build a query for entity associations with flexible filtering.
-
-        Args:
-            session: Database session
-            select_columns: List of columns to select (defaults to full SqlEntityAssociation)
-            source_type: Filter by source entity type
-            source_id: Filter by source entity ID
-            source_ids: Filter by multiple source entity IDs (IN clause)
-            destination_type: Filter by destination entity type
-            destination_id: Filter by destination entity ID
-            destination_ids: Filter by multiple destination entity IDs (IN clause)
-
-        Returns:
-            SQLAlchemy query object
-        """
-        query = (
-            session.query(*select_columns)
-            if select_columns
-            else session.query(SqlEntityAssociation)
-        )
-
-        if source_type is not None:
-            query = query.filter(SqlEntityAssociation.source_type == source_type)
-        if source_id is not None:
-            query = query.filter(SqlEntityAssociation.source_id == source_id)
-        if source_ids is not None:
-            query = query.filter(SqlEntityAssociation.source_id.in_(source_ids))
-        if destination_type is not None:
-            query = query.filter(SqlEntityAssociation.destination_type == destination_type)
-        if destination_id is not None:
-            query = query.filter(SqlEntityAssociation.destination_id == destination_id)
-        if destination_ids is not None:
-            query = query.filter(SqlEntityAssociation.destination_id.in_(destination_ids))
-
-        return query
-
-    #######################################################################################
     # Entity Association Methods
     #######################################################################################
 
     def _search_entity_associations(
         self,
-        entity_id: str,
+        entity_ids: Union[str, list[str]],
         entity_type: EntityAssociationType,
         target_type: EntityAssociationType,
         search_direction: str,  # "forward" or "reverse"
@@ -2798,7 +2673,7 @@ class SqlAlchemyStore(AbstractStore):
         Common implementation for searching entity associations.
 
         Args:
-            entity_id: The ID of the entity to search from.
+            entity_ids: The ID(s) of the entity to search from. Can be a single ID or a list.
             entity_type: The type of the entity to search from.
             target_type: The type of the target entities to find.
             search_direction: "forward" to search source->destination, "reverse" for the opposite.
@@ -2808,32 +2683,31 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             A :py:class:`mlflow.store.entities.paged_list.PagedList` of target entity IDs.
         """
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+
         with self.ManagedSessionMaker() as session:
             query = session.query(SqlEntityAssociation)
 
             if search_direction == "forward":
-                # Search source -> destination
                 query = query.filter(
                     SqlEntityAssociation.source_type == entity_type,
-                    SqlEntityAssociation.source_id == entity_id,
+                    SqlEntityAssociation.source_id.in_(entity_ids),
                     SqlEntityAssociation.destination_type == target_type,
                 )
                 order_field = SqlEntityAssociation.destination_id
                 result_field = "destination_id"
             else:
-                # Search destination -> source
                 query = query.filter(
                     SqlEntityAssociation.destination_type == entity_type,
-                    SqlEntityAssociation.destination_id == entity_id,
+                    SqlEntityAssociation.destination_id.in_(entity_ids),
                     SqlEntityAssociation.source_type == target_type,
                 )
                 order_field = SqlEntityAssociation.source_id
                 result_field = "source_id"
 
-            # Parse offset from page_token for pagination
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
-            # Add ORDER BY clause for consistent pagination
             query = query.order_by(SqlEntityAssociation.created_time, order_field)
             query = query.offset(offset)
 
@@ -2842,28 +2716,28 @@ class SqlAlchemyStore(AbstractStore):
 
             associations = query.all()
 
-            # Compute next token if more results are available
             next_token = None
             if max_results is not None and len(associations) == max_results + 1:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
                 associations = associations[:max_results]
 
-            return PagedList([getattr(assoc, result_field) for assoc in associations], next_token)
+            results = list(dict.fromkeys([getattr(assoc, result_field) for assoc in associations]))
+            return PagedList(results, next_token)
 
     def search_entities_by_source(
         self,
-        source_id: str,
+        source_ids: Union[str, list[str]],
         source_type: EntityAssociationType,
         destination_type: EntityAssociationType,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[str]:
         """
-        Get destination IDs associated with a source entity.
+        Get destination IDs associated with source entity/entities.
 
         Args:
-            source_id: The ID of the source entity.
+            source_ids: The ID(s) of the source entity. Can be a single ID or a list.
             source_type: The type of the source entity.
             destination_type: The type of the destination entity.
             max_results: Maximum number of results to return. If None, return all results.
@@ -2871,25 +2745,25 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             A :py:class:`mlflow.store.entities.paged_list.PagedList` of destination IDs
-            associated with the source entity.
+            associated with the source entity/entities.
         """
         return self._search_entity_associations(
-            source_id, source_type, destination_type, "forward", max_results, page_token
+            source_ids, source_type, destination_type, "forward", max_results, page_token
         )
 
     def search_entities_by_destination(
         self,
-        destination_id: str,
+        destination_ids: Union[str, list[str]],
         destination_type: EntityAssociationType,
         source_type: EntityAssociationType,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[str]:
         """
-        Get source IDs associated with a destination entity.
+        Get source IDs associated with destination entity/entities.
 
         Args:
-            destination_id: The ID of the destination entity.
+            destination_ids: The ID(s) of the destination entity. Can be a single ID or a list.
             destination_type: The type of the destination entity.
             source_type: The type of the source entity.
             max_results: Maximum number of results to return. If None, return all results.
@@ -2897,46 +2771,11 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             A :py:class:`mlflow.store.entities.paged_list.PagedList` of source IDs
-            associated with the destination entity.
+            associated with the destination entity/entities.
         """
         return self._search_entity_associations(
-            destination_id, destination_type, source_type, "reverse", max_results, page_token
+            destination_ids, destination_type, source_type, "reverse", max_results, page_token
         )
-
-    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
-        """
-        Link multiple traces to a run by creating entity associations.
-
-        Args:
-            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
-            run_id: ID of the run to link traces to.
-
-        Raises:
-            MlflowException: If more than 100 traces are provided.
-        """
-        MAX_TRACES_PER_REQUEST = 100
-
-        if not trace_ids:
-            return
-
-        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
-            raise MlflowException(
-                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
-                f"a single request. Provided {len(trace_ids)} traces.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        with self.ManagedSessionMaker() as session:
-            session.add_all(
-                SqlEntityAssociation(
-                    association_id=uuid.uuid4().hex,
-                    source_type=EntityAssociationType.TRACE,
-                    source_id=trace_id,
-                    destination_type=EntityAssociationType.RUN,
-                    destination_id=run_id,
-                )
-                for trace_id in trace_ids
-            )
 
     #######################################################################################
     # Evaluation Dataset Methods
@@ -3129,16 +2968,12 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             if experiment_ids:
-                dataset_ids = (
-                    session.query(SqlEntityAssociation.source_id)
-                    .filter(
-                        SqlEntityAssociation.source_type
-                        == EntityAssociationType.EVALUATION_DATASET,
-                        SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
-                        SqlEntityAssociation.destination_id.in_(experiment_ids),
-                    )
-                    .distinct()
+                dataset_ids_result = self.search_entities_by_destination(
+                    destination_ids=experiment_ids,
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
                 )
+                dataset_ids = dataset_ids_result.to_list()
                 stmt = stmt.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
 
             stmt = stmt.filter(*attribute_filters)
@@ -3162,63 +2997,41 @@ class SqlAlchemyStore(AbstractStore):
 
             return PagedList(datasets, next_page_token)
 
-    def _compute_dataset_schema_from_records(self, record_dicts):
+    def _update_dataset_schema(self, existing_schema_json, record_dicts):
         """
-        Compute schema information from record dictionaries.
+        Update dataset schema with new fields from records.
+
+        This method combines schema computation and merging into a single operation
+        for efficiency, since schemas are stored as JSON strings.
 
         Args:
+            existing_schema_json: JSON string of existing schema or None
             record_dicts: List of record dictionaries being upserted
 
         Returns:
-            Dictionary describing the structure of inputs and expectations.
+            Updated schema dictionary or None if no records and no existing schema
         """
-        if not record_dicts:
+        if not record_dicts and not existing_schema_json:
             return None
 
-        input_fields = {}
-        expectation_fields = {}
+        schema = (
+            json.loads(existing_schema_json)
+            if existing_schema_json
+            else {"inputs": {}, "expectations": {}, "version": "1.0"}
+        )
 
         for record in record_dicts:
             if inputs := record.get("inputs"):
                 for key, value in inputs.items():
-                    if key not in input_fields:
-                        input_fields[key] = self._infer_field_type(value)
+                    if key not in schema["inputs"]:
+                        schema["inputs"][key] = self._infer_field_type(value)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():
-                    if key not in expectation_fields:
-                        expectation_fields[key] = self._infer_field_type(value)
+                    if key not in schema["expectations"]:
+                        schema["expectations"][key] = self._infer_field_type(value)
 
-        return {"inputs": input_fields, "expectations": expectation_fields, "version": "1.0"}
-
-    def _merge_schemas(self, existing_schema, new_schema):
-        """
-        Merge new schema information with existing schema.
-
-        Args:
-            existing_schema: Current schema dictionary or None
-            new_schema: New schema information from recent records
-
-        Returns:
-            Merged schema dictionary
-        """
-        if not new_schema:
-            return existing_schema
-
-        if not existing_schema:
-            return new_schema
-
-        merged_inputs = existing_schema.get("inputs", {}).copy()
-        for field, field_type in new_schema.get("inputs", {}).items():
-            if field not in merged_inputs:
-                merged_inputs[field] = field_type
-
-        merged_expectations = existing_schema.get("expectations", {}).copy()
-        for field, field_type in new_schema.get("expectations", {}).items():
-            if field not in merged_expectations:
-                merged_expectations[field] = field_type
-
-        return {"inputs": merged_inputs, "expectations": merged_expectations, "version": "1.0"}
+        return schema
 
     def _compute_dataset_profile(self, session, dataset_id):
         """
@@ -3303,6 +3116,7 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
+            last_updated_by = None
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3329,6 +3143,8 @@ class SqlAlchemyStore(AbstractStore):
                     merged_tags = existing_record.tags or {}
                     if new_tags := record_dict.get("tags"):
                         merged_tags.update(new_tags)
+                        if MLFLOW_USER in new_tags:
+                            last_updated_by = new_tags[MLFLOW_USER]
 
                     source = None
                     if existing_record.source:
@@ -3338,11 +3154,11 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
                     created_time = current_time
-                    # Extract user from record tags if provided
                     created_by = None
                     merged_tags = record_dict.get("tags")
-                    if merged_tags and "mlflow.user" in merged_tags:
-                        created_by = merged_tags["mlflow.user"]
+                    if merged_tags and MLFLOW_USER in merged_tags:
+                        created_by = merged_tags[MLFLOW_USER]
+                        last_updated_by = created_by
                     merged_expectations = record_dict.get("expectations")
 
                     source = None
@@ -3364,7 +3180,7 @@ class SqlAlchemyStore(AbstractStore):
                     tags=merged_tags,
                     source=source,
                     created_by=created_by,
-                    last_updated_by=created_by,  # Use same user as created_by
+                    last_updated_by=created_by,
                 )
 
                 sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
@@ -3376,9 +3192,8 @@ class SqlAlchemyStore(AbstractStore):
                 .first()
             )
 
-            existing_schema = json.loads(dataset.schema) if dataset.schema else None
-            new_schema_info = self._compute_dataset_schema_from_records(records)
-            merged_schema = self._merge_schemas(existing_schema, new_schema_info)
+            # Update schema with new fields from records
+            updated_schema = self._update_dataset_schema(dataset.schema, records)
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
@@ -3393,11 +3208,11 @@ class SqlAlchemyStore(AbstractStore):
             
             update_fields = {
                 "last_update_time": current_time,
-                "last_updated_by": updated_by,
+                "last_updated_by": last_updated_by,
             }
 
-            if merged_schema:
-                update_fields["schema"] = json.dumps(merged_schema)
+            if updated_schema:
+                update_fields["schema"] = json.dumps(updated_schema)
 
             if updated_profile:
                 update_fields["profile"] = json.dumps(updated_profile)
@@ -3428,20 +3243,20 @@ class SqlAlchemyStore(AbstractStore):
 
         # Verify dataset exists first
         with self.ManagedSessionMaker() as session:
-            dataset = (
+            dataset_exists = session.query(
                 session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .first()
-            )
-            if not dataset:
+                .exists()
+            ).scalar()
+
+            if not dataset_exists:
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-        # Use the new unified entity association API to get experiment IDs
         experiment_ids = self.search_entities_by_source(
-            source_id=dataset_id,
+            source_ids=dataset_id,
             source_type=EntityAssociationType.EVALUATION_DATASET,
             destination_type=EntityAssociationType.EXPERIMENT,
         )
@@ -3484,8 +3299,8 @@ class SqlAlchemyStore(AbstractStore):
 
             dataset.last_update_time = get_current_time_millis()
             # Extract user from tags if provided
-            if tags and "mlflow.user" in tags:
-                dataset.last_updated_by = tags["mlflow.user"]
+            if tags and MLFLOW_USER in tags:
+                dataset.last_updated_by = tags[MLFLOW_USER]
 
             for key, value in tags.items():
                 if value is None:
