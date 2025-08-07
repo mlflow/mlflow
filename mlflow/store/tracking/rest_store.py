@@ -1165,7 +1165,6 @@ class RestStore(AbstractStore):
         if not spans:
             return []
 
-        # Verify all spans belong to the same trace
         trace_ids = {span.trace_id for span in spans}
         if len(trace_ids) > 1:
             raise MlflowException(
@@ -1173,16 +1172,11 @@ class RestStore(AbstractStore):
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
-        # Create protobuf request with spans
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
-        # resource_spans.resource is already an empty Resource by default
-
-        # Add spans directly to scope_spans
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span._to_otel_proto() for span in spans)
 
-        # Convert protobuf to JSON and send request
         json_str = MessageToJson(request)
         endpoint = OTLP_TRACES_PATH
 
