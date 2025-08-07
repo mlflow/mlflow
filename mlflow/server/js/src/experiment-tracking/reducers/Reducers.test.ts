@@ -349,7 +349,7 @@ describe('test runInfosByUuid', () => {
     expect(new_state).toEqual({});
   });
 
-  test('test load more runs', () => {
+  test('load more runs', () => {
     const preserved = mockRunInfo('still exists');
     // @ts-expect-error TS(2345): Argument of type '"old"' is not assignable to para... Remove this comment to see the full error message
     const replacedOld = mockRunInfo('replaced', 'old');
@@ -752,7 +752,7 @@ describe('test params(tags)ByRunUuid', () => {
     }
     reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action());
   });
-  test('setTagApi updates non empty state correctly', () => {
+  test('deleteTagApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
       run01: {
         key1: val1,

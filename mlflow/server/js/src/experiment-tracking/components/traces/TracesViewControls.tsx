@@ -1,6 +1,6 @@
 import {
   Button,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   Popover,
   SearchIcon,
@@ -26,7 +26,7 @@ const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
           size="small"
           type="link"
           icon={
-            <InfoIcon
+            <InfoSmallIcon
               css={{
                 svg: { width: 16, height: 16, color: theme.colors.textSecondary },
               }}
