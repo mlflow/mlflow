@@ -113,6 +113,7 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
     override_url = MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get()
     if override_url:
         _logger.debug(f"Using ingest URL from environment variable: {override_url}")
+        _logger.debug(f"TEST: Using ingest URL from environment variable: {override_url}")
         return override_url
 
     # Get host credentials from Databricks context
@@ -372,6 +373,7 @@ class DatabricksTraceServerClient:
                 trace_location=proto_trace_location,
             )
 
+            _logger.debug(f"Getting trace destination for experiment {experiment_id}")
             # Call the trace server API
             request_body = message_to_json(proto_request)
 
