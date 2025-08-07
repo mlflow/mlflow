@@ -30,8 +30,8 @@ def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> No
         config[HOOK_FIELD_HOOKS][hook_type] = []
 
     hook_command = (
-        f'python -c "try: from mlflow.claudecode.claude_code_tracing import {handler_name}; '
-        f'{handler_name}()\\nexcept Exception: pass"'
+        f'python -c "from mlflow.claudecode.claude_code_tracing import {handler_name}; '
+        f'{handler_name}()"'
     )
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}

@@ -50,6 +50,10 @@ def setup_logging() -> logging.Logger:
     logger.setLevel(logging.INFO)
     logger.propagate = False  # Prevent duplicate log messages
 
+    # Suppress other loggers that might output to console
+    logging.getLogger("databricks.sdk").setLevel(logging.WARNING)
+    logging.getLogger("mlflow").setLevel(logging.WARNING)
+
     return logger
 
 
