@@ -525,6 +525,10 @@ class RelevanceToQuery(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
+    Args:
+        name: The name of the scorer. Defaults to "relevance_to_query".
+        model: {{ model }}
+
     Example (direct usage):
 
     .. code-block:: python
@@ -555,6 +559,7 @@ class RelevanceToQuery(BuiltInScorer):
     """
 
     name: str = "relevance_to_query"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
@@ -571,7 +576,9 @@ class RelevanceToQuery(BuiltInScorer):
         """
         request = parse_inputs_to_str(inputs)
         # NB: Reuse is_context_relevant judge to evaluate response
-        return judges.is_context_relevant(request=request, context=outputs, name=self.name)
+        return judges.is_context_relevant(
+            request=request, context=outputs, name=self.name, model=self.model
+        )
 
 
 @experimental(version="3.0.0")

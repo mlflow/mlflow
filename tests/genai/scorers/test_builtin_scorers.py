@@ -272,24 +272,35 @@ def test_guidelines(mock_guidelines):
     )
 
 
-def test_relevance_to_query():
-    with patch(
-        "databricks.agents.evals.judges.relevance_to_query",
-        return_value=Feedback(name="relevance_to_query", value=DatabricksCategoricalRating.YES),
-    ) as mock_relevance_to_query:
-        result = RelevanceToQuery()(
-            inputs={"question": "query"},
-            outputs={"answer": "answer"},
-        )
-
-    mock_relevance_to_query.assert_called_once_with(
-        request="{'question': 'query'}",
-        response=str({"answer": "answer"}),
-        assessment_name="relevance_to_query",
+@patch("mlflow.genai.judges.is_context_relevant")
+def test_relevance_to_query(mock_is_context_relevant):
+    # 1. Test with default scorer
+    RelevanceToQuery()(
+        inputs={"question": "query"},
+        outputs="answer",
     )
 
-    assert result.name == "relevance_to_query"
-    assert result.value == CategoricalRating.YES
+    mock_is_context_relevant.assert_called_once_with(
+        request="{'question': 'query'}",
+        context="answer",
+        name="relevance_to_query",
+        model=None,
+    )
+    mock_is_context_relevant.reset_mock()
+
+    # 2. Test with custom model parameter
+    relevance_custom = RelevanceToQuery(
+        name="custom_relevance",
+        model="openai:/gpt-4.1-mini",
+    )
+    relevance_custom(inputs={"question": "query"}, outputs="answer")
+
+    mock_is_context_relevant.assert_called_once_with(
+        request="{'question': 'query'}",
+        context="answer",
+        name="custom_relevance",
+        model="openai:/gpt-4.1-mini",
+    )
 
 
 def test_safety():

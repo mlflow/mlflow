@@ -2,14 +2,10 @@ from functools import wraps
 from typing import Any, Callable, Optional, Union
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
+from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
-
-# NB: User-facing name for the is_context_relevant assessment.
-_IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
-
 
 _MODEL_API_DOC = {
     "model": """\
@@ -61,8 +57,10 @@ def requires_databricks_agents(func):
     return wrapper
 
 
-@requires_databricks_agents
-def is_context_relevant(*, request: str, context: Any, name: Optional[str] = None) -> Feedback:
+@format_docstring(_MODEL_API_DOC)
+def is_context_relevant(
+    *, request: str, context: Any, name: Optional[str] = None, model: Optional[str] = None
+) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
 
@@ -71,6 +69,7 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
         context: Context to evaluate the relevance to the request.
             Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -98,17 +97,27 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
             print(feedback.value)  # "no"
 
     """
-    from databricks.agents.evals.judges import relevance_to_query
+    from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
 
-    return _sanitize_feedback(
-        relevance_to_query(
+    model = model or get_default_model()
+
+    # NB: User-facing name for the is_context_relevant assessment. This is required
+    #     since the existing databricks judge is called `relevance_to_query`
+    assessment_name = name or RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import relevance_to_query
+
+        feedback = relevance_to_query(
             request=request,
             response=str(context),
-            # NB: User-facing name for the is_context_relevant assessment. This is required since
-            #     the existing databricks judge is called `relevance_to_query`
-            assessment_name=name or _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(request, str(context))
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
 @requires_databricks_agents
@@ -321,6 +330,7 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
+    from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
 
     model = model or get_default_model()
 
