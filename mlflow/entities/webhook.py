@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal, Optional, TypeAlias, Union
+from typing import Literal, TypeAlias
 
 from typing_extensions import Self
 
@@ -114,8 +114,8 @@ class WebhookEvent:
 
     def __init__(
         self,
-        entity: Union[str, WebhookEntity],
-        action: Union[str, WebhookAction],
+        entity: str | WebhookEntity,
+        action: str | WebhookAction,
     ):
         """
         Initialize a WebhookEvent.
@@ -229,9 +229,9 @@ class Webhook:
         events: list[WebhookEvent],
         creation_timestamp: int,
         last_updated_timestamp: int,
-        description: Optional[str] = None,
-        status: Union[str, WebhookStatus] = WebhookStatus.ACTIVE,
-        secret: Optional[str] = None,
+        description: str | None = None,
+        status: str | WebhookStatus = WebhookStatus.ACTIVE,
+        secret: str | None = None,
     ):
         """
         Initialize a Webhook entity.
@@ -277,7 +277,7 @@ class Webhook:
         return self._events
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         return self._description
 
     @property
@@ -285,7 +285,7 @@ class Webhook:
         return self._status
 
     @property
-    def secret(self) -> Optional[str]:
+    def secret(self) -> str | None:
         return self._secret
 
     @property
@@ -344,9 +344,9 @@ class WebhookTestResult:
     def __init__(
         self,
         success: bool,
-        response_status: Optional[int] = None,
-        response_body: Optional[str] = None,
-        error_message: Optional[str] = None,
+        response_status: int | None = None,
+        response_body: str | None = None,
+        error_message: str | None = None,
     ):
         """
         Initialize a WebhookTestResult entity.
@@ -367,15 +367,15 @@ class WebhookTestResult:
         return self._success
 
     @property
-    def response_status(self) -> Optional[int]:
+    def response_status(self) -> int | None:
         return self._response_status
 
     @property
-    def response_body(self) -> Optional[str]:
+    def response_body(self) -> str | None:
         return self._response_body
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         return self._error_message
 
     @classmethod

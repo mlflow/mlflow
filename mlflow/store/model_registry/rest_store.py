@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
@@ -78,8 +77,8 @@ class RestStore(BaseRestStore):
     def _call_webhook_endpoint(
         self,
         api,
-        json_body: Optional[str] = None,
-        webhook_id: Optional[str] = None,
+        json_body: str | None = None,
+        webhook_id: str | None = None,
     ):
         endpoint, method = self._get_webhook_endpoint_from_method(api)
         if webhook_id:
@@ -265,7 +264,7 @@ class RestStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -513,9 +512,9 @@ class RestStore(BaseRestStore):
         name: str,
         url: str,
         events: list[WebhookEvent],
-        description: Optional[str] = None,
-        secret: Optional[str] = None,
-        status: Optional[WebhookStatus] = None,
+        description: str | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
     ) -> Webhook:
         req_body = message_to_json(
             CreateWebhook(
@@ -536,8 +535,8 @@ class RestStore(BaseRestStore):
 
     def list_webhooks(
         self,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Webhook]:
         req_body = message_to_json(ListWebhooks(max_results=max_results, page_token=page_token))
         response_proto = self._call_webhook_endpoint(ListWebhooks, req_body)
@@ -547,12 +546,12 @@ class RestStore(BaseRestStore):
     def update_webhook(
         self,
         webhook_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        url: Optional[str] = None,
-        events: Optional[list[WebhookEvent]] = None,
-        secret: Optional[str] = None,
-        status: Optional[WebhookStatus] = None,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
     ) -> Webhook:
         req_body = message_to_json(
             UpdateWebhook(
@@ -570,9 +569,7 @@ class RestStore(BaseRestStore):
     def delete_webhook(self, webhook_id: str) -> None:
         self._call_webhook_endpoint(DeleteWebhook, webhook_id=webhook_id)
 
-    def test_webhook(
-        self, webhook_id: str, event: Optional[WebhookEvent] = None
-    ) -> WebhookTestResult:
+    def test_webhook(self, webhook_id: str, event: WebhookEvent | None = None) -> WebhookTestResult:
         """
         Test the webhook by sending a test event to the specified URL.
 

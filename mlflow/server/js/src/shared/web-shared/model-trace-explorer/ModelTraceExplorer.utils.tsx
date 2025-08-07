@@ -57,9 +57,7 @@ import { normalizeOpenAIAgentInput, normalizeOpenAIAgentOutput } from './chat-ut
 import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
 import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
 
-export const getCurrentUser = () => {
-  return 'User';
-};
+export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
@@ -482,7 +480,9 @@ export function getModelTraceSpanId(span: ModelTraceSpan): string {
 }
 
 export function getModelTraceSpanParentId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span) ? decodeSpanId(span.parent_span_id, true) : decodeSpanId(span.parent_id ?? '', false);
+  return isV3ModelTraceSpan(span)
+    ? decodeSpanId(span.parent_span_id ?? '', true)
+    : decodeSpanId(span.parent_id ?? '', false);
 }
 
 export function getModelTraceSpanStartTime(span: ModelTraceSpan): number {

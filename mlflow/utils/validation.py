@@ -8,7 +8,6 @@ import numbers
 import posixpath
 import re
 import urllib.parse
-from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -652,7 +651,7 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
         )
 
 
-def _validate_logged_model_name(name: Optional[str]) -> None:
+def _validate_logged_model_name(name: str | None) -> None:
     if name is None:
         return
 
