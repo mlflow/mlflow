@@ -11,7 +11,7 @@ import functools
 import importlib
 import logging
 import re
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import sqlalchemy
 from flask import (
@@ -506,8 +506,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[dict[str, Any]]
-) -> Optional[Callable[[], bool]]:
+    method: str, view_args: dict[str, Any] | None
+) -> Callable[[], bool] | None:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
 
@@ -551,7 +551,7 @@ def authenticate_request_basic_auth() -> Authorization | Response:
         return make_basic_auth_response()
 
 
-def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
+def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
     """

@@ -7,7 +7,7 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -16,7 +16,7 @@ from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_M
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
-_gateway_uri: Optional[str] = None
+_gateway_uri: str | None = None
 
 
 def is_valid_endpoint_name(name: str) -> bool:
@@ -94,7 +94,7 @@ def _get_indent(s: str) -> str:
     return ""
 
 
-def _prepend(docstring: Optional[str], text: str) -> str:
+def _prepend(docstring: str | None, text: str) -> str:
     if not docstring:
         return text
 

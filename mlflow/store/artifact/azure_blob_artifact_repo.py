@@ -4,7 +4,6 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -41,7 +40,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     - DefaultAzureCredential is configured
     """
 
-    def __init__(self, artifact_uri: str, client=None, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, client=None, tracking_uri: str | None = None) -> None:
         super().__init__(artifact_uri, tracking_uri)
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes

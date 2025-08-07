@@ -2,7 +2,7 @@ import json
 import logging
 from functools import cached_property
 from inspect import isclass
-from typing import Any, Final, Optional, TypedDict
+from typing import Any, Final, TypedDict
 
 import polars as pl
 from polars.datatypes.classes import DataType as PolarsDataType
@@ -152,10 +152,10 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pl.DataFrame,
         source: DatasetSource,
-        targets: Optional[str] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
-        predictions: Optional[str] = None,
+        targets: str | None = None,
+        name: str | None = None,
+        digest: str | None = None,
+        predictions: str | None = None,
     ) -> None:
         """
         Args:
@@ -229,7 +229,7 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def targets(self) -> Optional[str]:
+    def targets(self) -> str | None:
         """Name of the target column.
 
         May be ``None`` if no target column is available.
@@ -237,7 +237,7 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
-    def predictions(self) -> Optional[str]:
+    def predictions(self) -> str | None:
         """Name of the predictions column.
 
         May be ``None`` if no predictions column is available.
@@ -257,7 +257,7 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Schema | None:
         """Instance of :py:class:`mlflow.types.Schema` representing the tabular dataset.
 
         May be ``None`` if the schema cannot be inferred from the dataset.
@@ -291,10 +291,10 @@ class PolarsDataset(Dataset, PyFuncConvertibleDatasetMixin):
 def from_polars(
     df: pl.DataFrame,
     source: str | DatasetSource | None = None,
-    targets: Optional[str] = None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
-    predictions: Optional[str] = None,
+    targets: str | None = None,
+    name: str | None = None,
+    digest: str | None = None,
+    predictions: str | None = None,
 ) -> PolarsDataset:
     """Construct a :py:class:`PolarsDataset <mlflow.data.polars_dataset.PolarsDataset>` instance.
 

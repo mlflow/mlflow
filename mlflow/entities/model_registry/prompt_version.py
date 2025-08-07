@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -67,13 +67,13 @@ class PromptVersion(_ModelRegistryEntity):
         name: str,
         version: int,
         template: str | list[dict[str, Any]],
-        commit_message: Optional[str] = None,
-        creation_timestamp: Optional[int] = None,
-        tags: Optional[dict[str, str]] = None,
-        aliases: Optional[list[str]] = None,
-        last_updated_timestamp: Optional[int] = None,
-        user_id: Optional[str] = None,
-        response_format: Optional[BaseModel | dict[str, Any]] = None,
+        commit_message: str | None = None,
+        creation_timestamp: int | None = None,
+        tags: dict[str, str] | None = None,
+        aliases: list[str] | None = None,
+        last_updated_timestamp: int | None = None,
+        user_id: str | None = None,
+        response_format: BaseModel | dict[str, Any] | None = None,
     ):
         from mlflow.types.chat import ChatMessage
 
@@ -114,9 +114,9 @@ class PromptVersion(_ModelRegistryEntity):
 
         template_text = template if isinstance(template, str) else json.dumps(template)
         self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(template_text))
-        self._last_updated_timestamp: Optional[int] = last_updated_timestamp
-        self._description: Optional[str] = commit_message
-        self._user_id: Optional[str] = user_id
+        self._last_updated_timestamp: int | None = last_updated_timestamp
+        self._description: str | None = commit_message
+        self._user_id: str | None = user_id
         self._aliases: list[str] = aliases or []
 
     def __repr__(self) -> str:
@@ -161,7 +161,7 @@ class PromptVersion(_ModelRegistryEntity):
         return self._prompt_type == PROMPT_TYPE_TEXT
 
     @property
-    def response_format(self) -> Optional[dict[str, Any]]:
+    def response_format(self) -> dict[str, Any] | None:
         """
         Return the response format specification for the prompt.
 
@@ -218,7 +218,7 @@ class PromptVersion(_ModelRegistryEntity):
         return self._variables
 
     @property
-    def commit_message(self) -> Optional[str]:
+    def commit_message(self) -> str | None:
         """
         Return the commit message of the prompt version.
         """
@@ -256,7 +256,7 @@ class PromptVersion(_ModelRegistryEntity):
         return self._creation_time
 
     @property
-    def last_updated_timestamp(self) -> Optional[int]:
+    def last_updated_timestamp(self) -> int | None:
         """Integer. Timestamp of last update for this prompt version (milliseconds since the Unix
         epoch).
         """
@@ -267,7 +267,7 @@ class PromptVersion(_ModelRegistryEntity):
         self._last_updated_timestamp = updated_timestamp
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """String. Description"""
         return self._description
 
@@ -276,7 +276,7 @@ class PromptVersion(_ModelRegistryEntity):
         self._description = description
 
     @property
-    def user_id(self) -> Optional[str]:
+    def user_id(self) -> str | None:
         """String. User ID that created this prompt version."""
         return self._user_id
 

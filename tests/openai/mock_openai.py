@@ -1,6 +1,6 @@
 import argparse
 import json
-from typing import Any, Optional
+from typing import Any
 
 import fastapi
 from pydantic import BaseModel
@@ -291,7 +291,7 @@ _DUMMY_RESPONSES_STREAM_EVENTS = [
 
 class ResponsesPayload(BaseModel):
     input: Any
-    tools: Optional[list[Any]] = None
+    tools: list[Any] | None = None
     stream: bool = False
 
 

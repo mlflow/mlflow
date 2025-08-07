@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
 from langchain_core.language_models import LanguageModelLike
 from langchain_core.messages import AIMessage, ToolCall
@@ -72,7 +72,7 @@ tools = [uc_tool_format, lc_tool_format]
 def create_tool_calling_agent(
     model: LanguageModelLike,
     tools: ToolNode | Sequence[BaseTool],
-    agent_prompt: Optional[str] = None,
+    agent_prompt: str | None = None,
 ) -> CompiledStateGraph:
     model = model.bind_tools(tools)
 

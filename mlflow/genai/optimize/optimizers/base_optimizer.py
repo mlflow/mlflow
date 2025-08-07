@@ -22,7 +22,7 @@ class BasePromptOptimizer(abc.ABC):
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: Optional[OBJECTIVE_FN] = None,
+        objective: OBJECTIVE_FN | None = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> OptimizerOutput:
         """Optimize the given prompt using the specified configuration.

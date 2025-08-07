@@ -1,7 +1,7 @@
 import io
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from botocore.client import BaseClient
 from botocore.response import StreamingBody
@@ -62,7 +62,7 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
 
 def _parse_usage_from_response(
     response_data: dict[str, Any] | str,
-) -> Optional[dict[str, int]]:
+) -> dict[str, int] | None:
     """Parse token usage from Bedrock API response body.
 
     Args:

@@ -45,7 +45,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: Optional[OBJECTIVE_FN] = None,
+        objective: OBJECTIVE_FN | None = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> OptimizerOutput:
         import dspy
@@ -170,7 +170,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         input_fields: dict[str, type],
         output_fields: dict[str, type],
         scorers: list[Scorer],
-        objective: Optional[OBJECTIVE_FN] = None,
+        objective: OBJECTIVE_FN | None = None,
     ) -> Callable[["dspy.Example"], float]:
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
             scores = {}

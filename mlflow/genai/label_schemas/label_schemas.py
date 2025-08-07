@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -88,10 +88,10 @@ class InputTextList(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    max_length_each: Optional[int] = None
+    max_length_each: int | None = None
     """Maximum character length for each individual text entry. None means no limit."""
 
-    max_count: Optional[int] = None
+    max_count: int | None = None
     """Maximum number of text entries allowed. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputTextList":
@@ -117,7 +117,7 @@ class InputText(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    max_length: Optional[int] = None
+    max_length: int | None = None
     """Maximum character length for the text input. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputText":
@@ -141,10 +141,10 @@ class InputNumeric(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    min_value: Optional[float] = None
+    min_value: float | None = None
     """Minimum allowed numeric value. None means no minimum limit."""
 
-    max_value: Optional[float] = None
+    max_value: float | None = None
     """Maximum allowed numeric value. None means no maximum limit."""
 
     def _to_databricks_input(self) -> "_InputNumeric":
@@ -189,7 +189,7 @@ class LabelSchema:
     Input type specification that defines how stakeholders will provide their assessment
     (e.g., dropdown, text box, numeric input)
     """
-    instruction: Optional[str] = None
+    instruction: str | None = None
     """Optional detailed instructions shown to stakeholders for guidance."""
 
     enable_comment: bool = False
