@@ -17,7 +17,7 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.dataset_summary import _DatasetSummary
 from mlflow.entities.document import Document
-from mlflow.entities.evaluation_dataset import EvaluationDataset
+from mlflow.entities.entity_types import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
@@ -108,4 +108,22 @@ __all__ = [
     "DatasetRecord",
     "DatasetRecordSource",
     "DatasetRecordSourceType",
+    "EntityAssociationType",
 ]
+
+
+def __getattr__(name):
+    """Lazy loading for EvaluationDataset to avoid circular imports."""
+    if name == "EvaluationDataset":
+        try:
+            from mlflow.entities.evaluation_dataset import EvaluationDataset
+
+            return EvaluationDataset
+        except ImportError:
+            # EvaluationDataset requires mlflow.data which may not be available
+            # in minimal installations like mlflow-tracing
+            raise AttributeError(
+                "EvaluationDataset is not available. It requires the mlflow.data module "
+                "which is not included in this installation."
+            )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

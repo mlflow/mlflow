@@ -38,7 +38,10 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    SearchRuns,
+)
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
@@ -47,15 +50,20 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import (
     _convert_path_parameter_to_flask_format,
+    _create_evaluation_dataset,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
     _delete_artifact_mlflow_artifacts,
+    _delete_evaluation_dataset,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
+    _get_evaluation_dataset,
+    _get_evaluation_dataset_experiment_ids,
+    _get_evaluation_dataset_records,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
@@ -65,15 +73,18 @@ from mlflow.server.handlers import (
     _get_trace_artifact_repo,
     _log_batch,
     _rename_registered_model,
+    _search_evaluation_datasets,
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _set_evaluation_dataset_tags,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _upsert_evaluation_dataset_records,
     _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
@@ -122,6 +133,42 @@ def mock_model_registry_store():
 @pytest.fixture
 def enable_serve_artifacts(monkeypatch):
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+
+
+@pytest.fixture
+def mock_evaluation_dataset():
+    from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+
+    dataset = mock.MagicMock()
+    dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+    dataset.name = "test_dataset"
+    dataset.digest = "abc123"
+    dataset.created_time = 1234567890
+    dataset.last_update_time = 1234567890
+    dataset.created_by = "test_user"
+    dataset.last_updated_by = "test_user"
+    dataset.tags = {"env": "test", "version": "1.0"}
+    dataset.experiment_ids = ["0", "1"]
+    dataset.records = []
+    dataset.schema = json.dumps(
+        {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
+    )
+    dataset.profile = json.dumps({"record_count": 0})
+
+    proto_dataset = ProtoEvaluationDataset()
+    proto_dataset.dataset_id = dataset.dataset_id
+    proto_dataset.name = dataset.name
+    proto_dataset.digest = dataset.digest
+    proto_dataset.created_time = dataset.created_time
+    proto_dataset.last_update_time = dataset.last_update_time
+    proto_dataset.created_by = dataset.created_by
+    proto_dataset.last_updated_by = dataset.last_updated_by
+    proto_dataset.schema = dataset.schema
+    proto_dataset.profile = dataset.profile
+
+    dataset.to_proto = mock.MagicMock(return_value=proto_dataset)
+
+    return dataset
 
 
 def test_health():
@@ -944,3 +991,242 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == ""
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
+    mock_tracking_store.create_evaluation_dataset.return_value = mock_evaluation_dataset
+
+    with app.test_request_context(
+        method="POST",
+        json={
+            "name": "test_dataset",
+            "experiment_ids": ["0", "1"],
+            "tags": json.dumps({"env": "test"}),
+        },
+    ):
+        _create_evaluation_dataset()
+
+    mock_tracking_store.create_evaluation_dataset.assert_called_once_with(
+        name="test_dataset",
+        experiment_ids=["0", "1"],
+        tags={"env": "test"},
+    )
+
+
+def test_get_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
+    mock_tracking_store.get_evaluation_dataset.return_value = mock_evaluation_dataset
+
+    with app.test_request_context(
+        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
+    ):
+        _get_evaluation_dataset()
+
+    mock_tracking_store.get_evaluation_dataset.assert_called_once_with(
+        "d-1234567890abcdef1234567890abcdef"
+    )
+
+
+def test_delete_evaluation_dataset(mock_tracking_store):
+    with app.test_request_context(
+        method="DELETE", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
+    ):
+        _delete_evaluation_dataset()
+
+    mock_tracking_store.delete_evaluation_dataset.assert_called_once_with(
+        "d-1234567890abcdef1234567890abcdef"
+    )
+
+
+def test_search_evaluation_datasets(mock_tracking_store):
+    from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+
+    datasets = []
+    for i in range(2):
+        ds = mock.MagicMock()
+        ds.name = f"dataset_{i}"
+        proto = ProtoEvaluationDataset()
+        proto.dataset_id = f"d-{i:032d}"
+        proto.name = ds.name
+        ds.to_proto.return_value = proto
+        datasets.append(ds)
+
+    paged_list = PagedList(datasets, "next_token")
+    mock_tracking_store.search_evaluation_datasets.return_value = paged_list
+
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_ids": ["0", "1"],
+            "filter_string": "name = 'dataset_1'",
+            "max_results": 10,
+            "order_by": ["name DESC"],
+            "page_token": "token123",
+        },
+    ):
+        _search_evaluation_datasets()
+
+    mock_tracking_store.search_evaluation_datasets.assert_called_once_with(
+        experiment_ids=["0", "1"],
+        filter_string="name = 'dataset_1'",
+        max_results=10,
+        order_by=["name DESC"],
+        page_token="token123",
+    )
+
+
+def test_set_evaluation_dataset_tags(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={
+            "dataset_id": "d-1234567890abcdef1234567890abcdef",
+            "tags": json.dumps({"env": "production", "version": "2.0"}),
+        },
+    ):
+        _set_evaluation_dataset_tags()
+
+    mock_tracking_store.set_evaluation_dataset_tags.assert_called_once_with(
+        dataset_id="d-1234567890abcdef1234567890abcdef",
+        tags={"env": "production", "version": "2.0"},
+        updated_by=None,
+    )
+
+
+def test_upsert_evaluation_dataset_records(mock_tracking_store):
+    mock_tracking_store.upsert_evaluation_dataset_records.return_value = {
+        "inserted": 2,
+        "updated": 0,
+    }
+
+    records = [
+        {"inputs": {"q": "test1"}, "expectations": {"score": 0.9}},
+        {"inputs": {"q": "test2"}, "expectations": {"score": 0.8}},
+    ]
+
+    with app.test_request_context(
+        method="POST",
+        json={
+            "dataset_id": "d-1234567890abcdef1234567890abcdef",
+            "records": json.dumps(records),
+        },
+    ):
+        resp = _upsert_evaluation_dataset_records()
+
+    mock_tracking_store.upsert_evaluation_dataset_records.assert_called_once_with(
+        dataset_id="d-1234567890abcdef1234567890abcdef",
+        records=records,
+        updated_by=None,
+    )
+
+    # Check response
+    response_data = json.loads(resp.get_data())
+    assert response_data["inserted_count"] == 2
+    assert response_data["updated_count"] == 0
+
+
+def test_get_evaluation_dataset_experiment_ids(mock_tracking_store):
+    mock_tracking_store.get_evaluation_dataset_experiment_ids.return_value = [
+        "exp1",
+        "exp2",
+        "exp3",
+    ]
+
+    with app.test_request_context(
+        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
+    ):
+        resp = _get_evaluation_dataset_experiment_ids()
+
+    mock_tracking_store.get_evaluation_dataset_experiment_ids.assert_called_once_with(
+        dataset_id="d-1234567890abcdef1234567890abcdef"
+    )
+
+    # Check response
+    response_data = json.loads(resp.get_data())
+    assert response_data["experiment_ids"] == ["exp1", "exp2", "exp3"]
+
+
+def test_get_evaluation_dataset_records(mock_tracking_store):
+    # Create mock records
+    records = []
+    for i in range(3):
+        record = mock.MagicMock()
+        record.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        record.dataset_record_id = f"r-00{i}"
+        record.inputs = {"question": f"test{i}"}
+        record.expectations = {"score": 0.9 - i * 0.1}
+        record.tags = {}
+        record.created_time = 1234567890 + i
+        record.last_update_time = 1234567890 + i
+        record.to_dict.return_value = {
+            "dataset_id": record.dataset_id,
+            "dataset_record_id": record.dataset_record_id,
+            "inputs": record.inputs,
+            "expectations": record.expectations,
+            "tags": record.tags,
+            "created_time": record.created_time,
+            "last_update_time": record.last_update_time,
+        }
+        records.append(record)
+
+    mock_tracking_store._load_dataset_records.return_value = records
+
+    # Test without pagination
+    with app.test_request_context(
+        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
+    ):
+        resp = _get_evaluation_dataset_records()
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        "d-1234567890abcdef1234567890abcdef"
+    )
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 3
+    assert records_data[0]["dataset_record_id"] == "r-000"
+
+    # Test with pagination
+    with app.test_request_context(
+        method="GET",
+        json={
+            "dataset_id": "d-1234567890abcdef1234567890abcdef",
+            "max_results": 2,
+            "page_token": "0",
+        },
+    ):
+        resp = _get_evaluation_dataset_records()
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 2
+    assert response_data["next_page_token"] == "2"
+
+    # Test pagination - second page
+    with app.test_request_context(
+        method="GET",
+        json={
+            "dataset_id": "d-1234567890abcdef1234567890abcdef",
+            "max_results": 2,
+            "page_token": "2",
+        },
+    ):
+        resp = _get_evaluation_dataset_records()
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 1
+    assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
+
+
+def test_get_evaluation_dataset_records_empty(mock_tracking_store):
+    """Test get_evaluation_dataset_records with no records."""
+    mock_tracking_store._load_dataset_records.return_value = []
+
+    with app.test_request_context(
+        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
+    ):
+        resp = _get_evaluation_dataset_records()
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 0
+    assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
