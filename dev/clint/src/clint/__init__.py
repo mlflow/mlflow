@@ -31,7 +31,7 @@ class Args:
         return cls(files=args.files, output_format=args.output_format)
 
 
-def main():
+def main() -> None:
     config = Config.load()
     args = Args.parse()
     files = args.files

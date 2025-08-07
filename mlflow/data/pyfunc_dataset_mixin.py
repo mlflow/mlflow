@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @dataclass
 class PyFuncInputsOutputs:
     inputs: list["PyFuncInput"]
-    outputs: Optional[list["PyFuncOutput"]] = None
+    outputs: list["PyFuncOutput"] | None = None
 
 
 class PyFuncConvertibleDatasetMixin:

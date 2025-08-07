@@ -9,6 +9,7 @@ import React from 'react';
 import _ from 'lodash';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
+import { TagAssignmentModal } from '../../common/components/TagAssignmentModal';
 import { TagList } from '../../common/components/TagList';
 import { PromoteModelButton } from './PromoteModelButton';
 import { SchemaTable } from './SchemaTable';
@@ -16,7 +17,7 @@ import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
-import { Alert, Modal, Button, InfoIcon, LegacyTooltip, Typography } from '@databricks/design-system';
+import { Alert, Modal, Button, InfoSmallIcon, LegacyTooltip, Typography } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageLabels,
@@ -319,7 +320,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         <div css={{ display: 'flex', alignItems: 'center' }}>
           {StageLabels[modelVersion.current_stage]}
           <LegacyTooltip title={tooltipContent} placement="bottom">
-            <InfoIcon css={{ paddingLeft: '4px' }} />
+            <InfoSmallIcon css={{ paddingLeft: '4px' }} />
           </LegacyTooltip>
         </div>
       </Descriptions.Item>
@@ -402,7 +403,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const link = (
       <>
         <Link
-          data-test-id="copied-from-link"
+          data-testid="copied-from-link"
           to={ModelRegistryRoutes.getModelVersionPageRoute(sourceModelName, sourceModelVersion)}
         >
           {sourceModelName}
@@ -501,7 +502,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     return (
       <Button
         componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_516"
-        data-test-id="descriptionEditButton"
+        data-testid="descriptionEditButton"
         type="link"
         onClick={this.startEditingDescription}
       >
@@ -606,6 +607,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       />
     );
     const breadcrumbs = [
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage="Registered Models"
@@ -613,12 +615,22 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
              view page"
         />
       </Link>,
-      <Link data-test-id="breadcrumbRegisteredModel" to={ModelRegistryRoutes.getModelPageRoute(modelName)}>
+      // eslint-disable-next-line react/jsx-key
+      <Link data-testid="breadcrumbRegisteredModel" to={ModelRegistryRoutes.getModelPageRoute(modelName)}>
         {modelName}
       </Link>,
     ];
     return (
       <div>
+        <TagAssignmentModal
+          isLoading={this.state.isSavingTags}
+          error={this.state.tagSavingError}
+          visible={this.state.isTagAssignmentModalVisible}
+          initialTags={this.getTags()}
+          componentIdPrefix="model-version-view"
+          onSubmit={this.handleSaveTags}
+          onClose={this.handleCloseTagAssignmentModal}
+        />
         {this.getPageHeader(title, breadcrumbs)}
         {this.renderStatusAlert()}
 
@@ -646,7 +658,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
           }
           forceOpen={showDescriptionEditor}
           defaultCollapsed={!description}
-          data-test-id="model-version-description-section"
+          data-testid="model-version-description-section"
         >
           <EditableNote
             defaultMarkdown={description}
@@ -656,7 +668,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
           />
         </CollapsibleSection>
         {!this.sharedTaggingUIEnabled && (
-          <div data-test-id="tags-section">
+          <div data-testid="tags-section">
             <CollapsibleSection
               title={
                 <FormattedMessage
@@ -665,7 +677,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
                 />
               }
               defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-              data-test-id="model-version-tags-section"
+              data-testid="model-version-tags-section"
             >
               <EditableTagsTableView
                 // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
@@ -686,7 +698,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
               description="Title text for the schema section on the model versions view page"
             />
           }
-          data-test-id="model-version-schema-section"
+          data-testid="model-version-schema-section"
         >
           <SchemaTable schema={schema} />
         </CollapsibleSection>

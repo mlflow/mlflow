@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import traceback
 from abc import abstractmethod
-from typing import Any, Callable, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -61,9 +61,9 @@ def _extract_raw_model(model):
 
 
 def _extract_output_and_other_columns(
-    model_predictions: Union[list[Any], dict[str, Any], pd.DataFrame, pd.Series],
-    output_column_name: Optional[str],
-) -> tuple[pd.Series, Optional[pd.DataFrame], str]:
+    model_predictions: list[Any] | dict[str, Any] | pd.DataFrame | pd.Series,
+    output_column_name: str | None,
+) -> tuple[pd.Series, pd.DataFrame | None, str]:
     y_pred = None
     other_output_columns = None
     ERROR_MISSING_OUTPUT_COLUMN_NAME = (
@@ -146,7 +146,7 @@ def _extract_output_and_other_columns(
     )
 
 
-def _extract_predict_fn(model: Any) -> Optional[Callable[..., Any]]:
+def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
     """
     Extracts the predict function from the given model or raw_model.
 
@@ -291,7 +291,7 @@ class BuiltInEvaluator(ModelEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         """Implement the evaluation logic for each evaluator."""
 
     def log_metrics(self):
@@ -447,8 +447,8 @@ class BuiltInEvaluator(ModelEvaluator):
         metric: MetricDefinition,
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
-    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
+        other_output_df: pd.DataFrame | None,
+    ) -> tuple[bool, list[str | pd.DataFrame]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
@@ -548,7 +548,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
-        target: Optional[np.ndarray] = None,
+        target: np.ndarray | None = None,
     ):
         """Evaluate custom artifacts provided by users."""
         if not custom_artifacts:
@@ -642,7 +642,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.ndarray] = None):
+    def _get_eval_df(self, prediction: pd.Series, target: np.ndarray | None = None):
         """
         Create a DataFrame with "prediction" and "target" columns.
 
@@ -657,7 +657,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         """
         Order the list metrics so they can be computed in sequence.
@@ -698,7 +698,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[MetricDefinition],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
@@ -730,8 +730,8 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         prediction: pd.Series,
-        target: Optional[np.ndarray] = None,
-        other_output_df: Optional[pd.DataFrame] = None,
+        target: np.ndarray | None = None,
+        other_output_df: pd.DataFrame | None = None,
     ):
         """
         Evaluate the metrics on the given prediction and target data.

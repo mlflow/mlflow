@@ -3,7 +3,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import opentelemetry.trace as trace_api
@@ -30,9 +30,9 @@ def create_mock_otel_span(
     trace_id: int,
     span_id: int,
     name: str = "test_span",
-    parent_id: Optional[int] = None,
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
+    parent_id: int | None = None,
+    start_time: int | None = None,
+    end_time: int | None = None,
 ):
     """
     Create a mock OpenTelemetry span for testing purposes.
@@ -153,7 +153,7 @@ def purge_traces(experiment_id=None):
     )
 
 
-def get_tracer_tracking_uri() -> Optional[str]:
+def get_tracer_tracking_uri() -> str | None:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
 

@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, TypeAlias
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -18,6 +18,10 @@ _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+_AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
+_AggregationType: TypeAlias = (
+    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
+)
 
 
 class ScorerKind(Enum):
@@ -33,8 +37,8 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
 
-    sample_rate: Optional[float] = None
-    filter_string: Optional[str] = None
+    sample_rate: float | None = None
+    filter_string: str | None = None
 
 
 @dataclass
@@ -45,20 +49,20 @@ class SerializedScorer:
 
     # Core scorer fields
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: list[str] | None = None
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
     serialization_version: int = _SERIALIZATION_VERSION
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
-    builtin_scorer_class: Optional[str] = None
-    builtin_scorer_pydantic_data: Optional[dict[str, Any]] = None
+    builtin_scorer_class: str | None = None
+    builtin_scorer_pydantic_data: dict[str, Any] | None = None
 
     # Decorator scorer fields (for @scorer decorated functions)
-    call_source: Optional[str] = None
-    call_signature: Optional[str] = None
-    original_func_name: Optional[str] = None
+    call_source: str | None = None
+    call_signature: str | None = None
+    original_func_name: str | None = None
 
     def __post_init__(self):
         """Validate that either builtin scorer fields or decorator scorer fields are present."""
@@ -81,20 +85,20 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: list[_AggregationType] | None = None
 
-    _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
-    _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
+    _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
+    _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
 
     @property
     @experimental(version="3.2.0")
-    def sample_rate(self) -> Optional[float]:
+    def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
     @experimental(version="3.2.0")
-    def filter_string(self) -> Optional[str]:
+    def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
 
@@ -143,7 +147,7 @@ class Scorer(BaseModel):
         )
         return asdict(serialized)
 
-    def _extract_source_code_info(self) -> dict[str, Optional[str]]:
+    def _extract_source_code_info(self) -> dict[str, str | None]:
         """Extract source code information for the original decorated function."""
         from mlflow.genai.scorers.scorer_utils import extract_function_body
 
@@ -295,9 +299,9 @@ class Scorer(BaseModel):
         *,
         inputs: Any = None,
         outputs: Any = None,
-        expectations: Optional[dict[str, Any]] = None,
-        trace: Optional[Trace] = None,
-    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
 
@@ -391,9 +395,7 @@ class Scorer(BaseModel):
         return ScorerKind.CLASS
 
     @experimental(version="3.2.0")
-    def register(
-        self, *, name: Optional[str] = None, experiment_id: Optional[str] = None
-    ) -> "Scorer":
+    def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
 
@@ -466,8 +468,8 @@ class Scorer(BaseModel):
     def start(
         self,
         *,
-        name: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -527,8 +529,8 @@ class Scorer(BaseModel):
     def update(
         self,
         *,
-        name: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -590,7 +592,7 @@ class Scorer(BaseModel):
         )
 
     @experimental(version="3.2.0")
-    def stop(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
@@ -650,7 +652,7 @@ class Scorer(BaseModel):
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
 
-    def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
+    def _check_can_be_registered(self, error_message: str | None = None) -> None:
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
                 error_message = (
@@ -664,15 +666,8 @@ class Scorer(BaseModel):
 def scorer(
     func=None,
     *,
-    name: Optional[str] = None,
-    aggregations: Optional[
-        list[
-            Union[
-                Literal["min", "max", "mean", "median", "variance", "p90", "p99"],
-                Callable[[list[Union[int, float]]], Union[int, float]],
-            ]
-        ]
-    ] = None,
+    name: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
 ):
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -733,6 +728,17 @@ def scorer(
 
         The metric name will be determined by the scorer function's name or a custom name
         specified in the `name` parameter for the scorer.
+
+    Args:
+        func: The scorer function to be decorated.
+        name: The name of the scorer.
+        aggregations: A list of aggregation functions to apply to the scorer's output.
+            The aggregation functions can be either a string or a callable.
+
+            * If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
+            * If a callable, it must take a list of values and return a single value.
+
+            By default, "mean" is used as the aggregation function.
 
     Example:
 
@@ -807,7 +813,7 @@ def scorer(
 
     class CustomScorer(Scorer):
         # Store reference to the original function
-        _original_func: Optional[Callable[..., Any]] = PrivateAttr(default=None)
+        _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
 
         def __init__(self, **data):
             super().__init__(**data)

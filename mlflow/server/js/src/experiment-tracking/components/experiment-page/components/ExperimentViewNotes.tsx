@@ -71,7 +71,7 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
       }
       forceOpen={showNotesEditor}
       defaultCollapsed={!storedNote}
-      data-test-id="experiment-notes-section"
+      data-testid="experiment-notes-section"
     >
       <EditableNote
         defaultMarkdown={storedNote}

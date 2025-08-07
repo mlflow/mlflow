@@ -239,7 +239,7 @@ function HTMLNoteContent(props: HTMLNoteContentProps) {
             // @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{ __html: props.content }}
-          ></div>
+          />
         </div>
       </div>
     </div>

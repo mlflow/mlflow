@@ -1,5 +1,6 @@
 import { compact, has, isArray, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export type GeminiChatInput = {
