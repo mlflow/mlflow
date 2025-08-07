@@ -81,7 +81,9 @@ def is_tracing_enabled() -> bool:
         get_logger().error("MLflow not available: %s", e)
         return False
 
-    return os.getenv("MLFLOW_CLAUDE_TRACING_ENABLED", "").lower() in ("true", "1", "yes")
+    from mlflow.claude_code.config import MLFLOW_TRACING_ENABLED, get_env_var
+
+    return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
 
 
 def setup_mlflow() -> None:
@@ -89,16 +91,23 @@ def setup_mlflow() -> None:
     if not is_tracing_enabled():
         return
 
-    # Default to local file storage in .claude directory
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", f"file://{os.getcwd()}/.claude/mlflow/runs")
+    from mlflow.claude_code.config import (
+        MLFLOW_EXPERIMENT_ID,
+        MLFLOW_EXPERIMENT_NAME,
+        MLFLOW_TRACKING_URI,
+        get_env_var,
+    )
+
+    # Default to local file storage in mlruns directory
+    tracking_uri = get_env_var(MLFLOW_TRACKING_URI, f"file://{os.getcwd()}/mlruns")
 
     import mlflow
 
     mlflow.set_tracking_uri(tracking_uri)
 
     # Set experiment if specified via environment variables
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
-    experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME")
+    experiment_id = get_env_var(MLFLOW_EXPERIMENT_ID)
+    experiment_name = get_env_var(MLFLOW_EXPERIMENT_NAME)
 
     try:
         if experiment_id:
