@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Optional, Union
+from typing import Any
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -222,7 +222,7 @@ class RetrievalSufficiency(BuiltInScorer):
             )
 
     def __call__(
-        self, *, trace: Trace, expectations: Optional[dict[str, Any]] = None
+        self, *, trace: Trace, expectations: dict[str, Any] | None = None
     ) -> list[Feedback]:
         """
         Evaluate context sufficiency based on retrieved documents.
@@ -390,7 +390,7 @@ class Guidelines(BuiltInScorer):
     """
 
     name: str = "guidelines"
-    guidelines: Union[str, list[str]]
+    guidelines: str | list[str]
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(
@@ -474,7 +474,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         *,
         inputs: dict[str, Any],
         outputs: Any,
-        expectations: Optional[dict[str, Any]] = None,
+        expectations: dict[str, Any] | None = None,
     ) -> Feedback:
         """
         Evaluate adherence to specified guidelines.

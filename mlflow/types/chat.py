@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel as _BaseModel
@@ -44,7 +44,7 @@ class ImageUrl(BaseModel):
     """
 
     url: str
-    detail: Optional[Literal["auto", "low", "high"]] = None
+    detail: Literal["auto", "low", "high"] | None = None
 
 
 class ImageContentPart(BaseModel):
@@ -63,13 +63,11 @@ class AudioContentPart(BaseModel):
 
 
 ContentPartsList = list[
-    Annotated[
-        Union[TextContentPart, ImageContentPart, AudioContentPart], Field(discriminator="type")
-    ]
+    Annotated[TextContentPart | ImageContentPart | AudioContentPart, Field(discriminator="type")]
 ]
 
 
-ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
+ContentType = Annotated[str | ContentPartsList, Field(union_mode="left_to_right")]
 
 
 class Function(BaseModel):
@@ -100,7 +98,7 @@ class ChatMessage(BaseModel):
     """
 
     role: str
-    content: Optional[ContentType] = None
+    content: ContentType | None = None
     # NB: In the actual OpenAI chat completion API spec, these fields only
     #   present in either the request or response message (tool_call_id is only in
     #   the request, while the other two are only in the response).
@@ -112,15 +110,13 @@ class ChatMessage(BaseModel):
     # TODO: Define a sub classes for different type of messages (request/response, and
     #   system/user/assistant/tool, etc), and create a factory function to allow users
     #   to create them without worrying about the details.
-    tool_calls: Optional[list[ToolCall]] = None
-    refusal: Optional[str] = None
-    tool_call_id: Optional[str] = None
+    tool_calls: list[ToolCall] | None = None
+    refusal: str | None = None
+    tool_call_id: str | None = None
 
 
 class ParamType(BaseModel):
-    type: Optional[Literal["string", "number", "integer", "object", "array", "boolean", "null"]] = (
-        None
-    )
+    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"] | None = None
 
 
 class ParamProperty(ParamType):
@@ -133,23 +129,23 @@ class ParamProperty(ParamType):
     but we restrict to basic scalar types for practical use cases and API safety.
     """
 
-    description: Optional[str] = None
-    enum: Optional[list[Union[str, int, float, bool]]] = None
-    items: Optional[ParamType] = None
+    description: str | None = None
+    enum: list[str | int | float | bool] | None = None
+    items: ParamType | None = None
 
 
 class FunctionParams(BaseModel):
     properties: dict[str, ParamProperty]
     type: Literal["object"] = "object"
-    required: Optional[list[str]] = None
-    additionalProperties: Optional[bool] = None
+    required: list[str] | None = None
+    additionalProperties: bool | None = None
 
 
 class FunctionToolDefinition(BaseModel):
     name: str
-    description: Optional[str] = None
-    parameters: Optional[FunctionParams] = None
-    strict: Optional[bool] = None
+    description: str | None = None
+    parameters: FunctionParams | None = None
+    strict: bool | None = None
 
 
 class ChatTool(BaseModel):
@@ -160,7 +156,7 @@ class ChatTool(BaseModel):
     """
 
     type: Literal["function"]
-    function: Optional[FunctionToolDefinition] = None
+    function: FunctionToolDefinition | None = None
 
 
 class BaseRequestPayload(BaseModel):
@@ -168,13 +164,13 @@ class BaseRequestPayload(BaseModel):
 
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
-    stop: Optional[list[str]] = (
+    stop: list[str] | None = (
         Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
     )
-    max_tokens: Optional[int] = Field(None, ge=1)
-    stream: Optional[bool] = None
-    stream_options: Optional[dict[str, Any]] = None
-    model: Optional[str] = None
+    max_tokens: int | None = Field(None, ge=1)
+    stream: bool | None = None
+    stream_options: dict[str, Any] | None = None
+    model: str | None = None
 
 
 # NB: For interface constructs that rely on other BaseModel implementations, in
@@ -187,30 +183,30 @@ class BaseRequestPayload(BaseModel):
 class ChatChoice(BaseModel):
     index: int
     message: ChatMessage
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
 
 
 class ChatUsage(BaseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 class ChatChoiceDelta(BaseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
+    role: str | None = None
+    content: str | None = None
 
 
 class ChatChunkChoice(BaseModel):
     index: int
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
     delta: ChatChoiceDelta
 
 
 class ChatCompletionChunk(BaseModel):
     """A chunk of a chat completion stream response."""
 
-    id: Optional[str] = None
+    id: str | None = None
     object: str = "chat.completion.chunk"
     created: int
     model: str
@@ -228,7 +224,7 @@ class ChatCompletionRequest(BaseRequestPayload):
     messages: list[ChatMessage] = (
         Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
     )
-    tools: Optional[list[ChatTool]] = (
+    tools: list[ChatTool] | None = (
         Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
     )
 
@@ -241,7 +237,7 @@ class ChatCompletionResponse(BaseModel):
     https://platform.openai.com/docs/api-reference/chat
     """
 
-    id: Optional[str] = None
+    id: str | None = None
     object: str = "chat.completion"
     created: int
     model: str

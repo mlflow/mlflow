@@ -1,5 +1,6 @@
 import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export type AnthropicMessagesInput = {

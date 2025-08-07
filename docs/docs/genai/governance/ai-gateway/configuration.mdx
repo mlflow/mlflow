@@ -101,6 +101,37 @@ endpoints:
 ```
 
 </TabItem>
+<TabItem value="mosaicai" label="MosaicAI">
+
+```yaml
+endpoints:
+  - name: mosaicai-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: mosaicai
+      name: llama2-70b-chat
+      config:
+        mosaicai_api_key: $MOSAICAI_API_KEY
+```
+
+</TabItem>
+<TabItem value="databricks" label="Databricks">
+
+Databricks [Foundation Models APIs](https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/) are compatible with the OpenAI Chat Completions API, so you can use them with `openai` provider in the AI Gateway. Specify the endpoint name (e.g., `databricks-claude-sonnet-4`) in the `name` field and set the host and token as OpenAI API key and base URL respectively.
+
+```yaml
+endpoints:
+  - name: databricks-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: databricks-claude-sonnet-4
+      config:
+        openai_api_key: $DATABRICKS_TOKEN
+        openai_api_base: https://your-workspace.cloud.databricks.com/serving-endpoints/  # Replace with your Databricks workspace URL
+```
+
+</TabItem>
 <TabItem value="mlflow" label="MLflow Models">
 
 ```yaml

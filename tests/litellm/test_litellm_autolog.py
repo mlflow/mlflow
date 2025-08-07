@@ -1,5 +1,4 @@
 import asyncio
-from typing import Optional
 
 import litellm
 import pytest
@@ -144,7 +143,7 @@ async def test_litellm_tracing_async_streaming():
         messages=[{"role": "system", "content": "Hello"}],
         stream=True,
     )
-    chunks: list[Optional[str]] = []
+    chunks: list[str | None] = []
     async for c in response:
         chunks.append(c.choices[0].delta.content)
         # Adding a sleep here to ensure that `content` in the span outputs is

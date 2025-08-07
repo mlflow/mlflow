@@ -428,7 +428,7 @@ module.exports = {
     'react/jsx-no-literals': 0,
     'react/jsx-sort-props': 0,
     'react/jsx-space-before-closing': 0,
-    'react/jsx-uses-react': 2,
+    'react/jsx-uses-react': 0,
     'react/jsx-uses-vars': 2,
     'react/jsx-wrap-multilines': 0,
     'react/no-children-prop': 0,
@@ -445,8 +445,8 @@ module.exports = {
     'react/no-unused-prop-types': 0,
     'react/prefer-es6-class': 0,
     'react/prefer-stateless-function': 0,
-    'react/prop-types': 2,
-    'react/react-in-jsx-scope': 2,
+    'react/prop-types': 0,
+    'react/react-in-jsx-scope': 0,
     'react/require-optimization': 0,
     'react/self-closing-comp': 0,
     'react/sort-comp': 0,
@@ -559,7 +559,6 @@ module.exports = {
         'import/no-duplicates': 0,
         'import/namespace': 0,
         '@typescript-eslint/no-unused-vars': 0,
-        'react/prop-types': 0,
         'max-lines': 0,
         'jsx-a11y/click-events-have-key-events': 0,
         'jsx-a11y/no-static-element-interactions': 0,
@@ -614,9 +613,6 @@ module.exports = {
             },
           },
         ],
-        // By using "auto" JSX runtime in TS, we have react automatically injected and
-        // adding "React" manually results in TS(6133) error
-        'react/react-in-jsx-scope': 'off',
 
         // '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^oss_' }],
       },

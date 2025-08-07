@@ -5,7 +5,7 @@ IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES
 
 import numbers
 import time
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
@@ -26,14 +26,14 @@ class AssessmentEntity(_MlflowObject):
         name: str,
         source: AssessmentSource,
         timestamp: int,
-        boolean_value: Optional[bool] = None,
-        numeric_value: Optional[float] = None,
-        string_value: Optional[str] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
-        span_id: Optional[str] = None,
+        boolean_value: bool | None = None,
+        numeric_value: float | None = None,
+        string_value: str | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+        span_id: str | None = None,
     ):
         """Construct a new mlflow.evaluation.AssessmentEntity instance.
 
@@ -103,22 +103,22 @@ class AssessmentEntity(_MlflowObject):
         return self._timestamp
 
     @property
-    def boolean_value(self) -> Optional[bool]:
+    def boolean_value(self) -> bool | None:
         """The boolean assessment value."""
         return self._boolean_value
 
     @property
-    def numeric_value(self) -> Optional[float]:
+    def numeric_value(self) -> float | None:
         """The numeric assessment value."""
         return self._numeric_value
 
     @property
-    def string_value(self) -> Optional[str]:
+    def string_value(self) -> str | None:
         """The string assessment value."""
         return self._string_value
 
     @property
-    def rationale(self) -> Optional[str]:
+    def rationale(self) -> str | None:
         """The rationale / justification for the assessment."""
         return self._rationale
 
@@ -133,17 +133,17 @@ class AssessmentEntity(_MlflowObject):
         return self._metadata
 
     @property
-    def error_code(self) -> Optional[str]:
+    def error_code(self) -> str | None:
         """The error code."""
         return self._error_code
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """The error message."""
         return self._error_message
 
     @property
-    def span_id(self) -> Optional[str]:
+    def span_id(self) -> str | None:
         """The span ID of the span within the Trace, that the assessment is evaluating."""
         return self._span_id
 
@@ -219,12 +219,12 @@ class Assessment(_MlflowObject):
     def __init__(
         self,
         name: str,
-        source: Optional[AssessmentSource] = None,
-        value: Optional[Union[bool, float, str]] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
+        source: AssessmentSource | None = None,
+        value: bool | float | str | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
     ):
         """Construct a new Assessment instance.
 
@@ -278,12 +278,12 @@ class Assessment(_MlflowObject):
         return self._name
 
     @property
-    def value(self) -> Union[bool, float, str]:
+    def value(self) -> bool | float | str:
         """The assessment value."""
         return self._value
 
     @property
-    def rationale(self) -> Optional[str]:
+    def rationale(self) -> str | None:
         """The rationale / justification for the assessment."""
         return self._rationale
 
@@ -298,12 +298,12 @@ class Assessment(_MlflowObject):
         return self._metadata
 
     @property
-    def error_code(self) -> Optional[str]:
+    def error_code(self) -> str | None:
         """The error code."""
         return self._error_code
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """The error message."""
         return self._error_message
 

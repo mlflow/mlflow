@@ -174,7 +174,7 @@ CREATE TABLE webhook_events (
 	entity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	action VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
-	CONSTRAINT "FK__webhook_e__webho__0D7A0286" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
+	CONSTRAINT "FK__webhook_e__webho__114A936A" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -280,6 +280,24 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__params__run_uuid__46E78A0C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE spans (
+	trace_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	span_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	parent_span_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	name VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	type VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	start_time_unix_nano BIGINT NOT NULL,
+	end_time_unix_nano BIGINT,
+	duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
+	content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
+	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

@@ -7,17 +7,9 @@
     "defaultMessage" : "Enregistré à",
     "description" : "Label name for registered timestamp metadata in model version page"
   },
-  "+5+fnP" : {
-    "defaultMessage" : "Spécialisation des modèles",
-    "description" : "Label for Model Specialization tile type"
-  },
   "+5IQqd" : {
     "defaultMessage" : "Télécharger les données de mesure",
     "description" : "Experiments > metric charts > download full CSV data modal > title"
-  },
-  "+8r+vG" : {
-    "defaultMessage" : "Tags",
-    "description" : "Label for the tags on the registered prompt details page"
   },
   "+927K0" : {
     "defaultMessage" : "AutoML a supprimé les lignes contenant moins de 16 lignes par libellé cible",
@@ -134,6 +126,10 @@
   "//cF4O" : {
     "defaultMessage" : "Mettre à jour",
     "description" : "Text for button to update a serving endpoint"
+  },
+  "//p18b" : {
+    "defaultMessage" : "Cette fonctionnalité est obsolète.",
+    "description" : "Tooltip message for more information on the reproduce runs button for the experiment run"
   },
   "/2MZix" : {
     "defaultMessage" : "ID d’exécution :",
@@ -299,10 +295,6 @@
     "defaultMessage" : "Annulée",
     "description" : "AutoML Step description canceled training"
   },
-  "0HAdiA" : {
-    "defaultMessage" : "Indicateur de chargement pour le bloc de code",
-    "description" : "Aria label for loading code block"
-  },
   "0HbGko" : {
     "defaultMessage" : "Modèle",
     "description" : "Run page > Overview > Logged models > Unknown model flavor"
@@ -374,6 +366,9 @@
   "0je5+r" : {
     "defaultMessage" : "Fournisseur",
     "description" : "Endpoint details page > active configuration table > Column headers > Provider"
+  },
+  "0licT0" : {
+    "defaultMessage" : "Voir {mlflowLink} et {databricksLink} pour en savoir plus."
   },
   "0nbCoE" : {
     "defaultMessage" : "Chemin d'accès au Model Registry",
@@ -454,14 +449,6 @@
   "1CGUz7" : {
     "defaultMessage" : "1. Cliquez sur le nom d’utilisateur dans la barre supérieure du workspace Databricks.",
     "description" : "Text displayed to explain how to get to the preview settings page."
-  },
-  "1EzSlb" : {
-    "defaultMessage" : "Ce champ est obligatoire",
-    "description" : "Validation message for required fields in Agent Monitoring form wizard"
-  },
-  "1GSTtH" : {
-    "defaultMessage" : "Détectez, bloquez ou masquez les données à caractère personnel (DCP) dans les données structurées et non structurées. <link>En savoir plus</link>.",
-    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > description for PII Detection"
   },
   "1Iq+NW" : {
     "defaultMessage" : "Copier",
@@ -648,7 +635,7 @@
     "description" : "Endpoint details page > Foundation model details > Active configuration table > Title"
   },
   "2BRzS+" : {
-    "defaultMessage" : "This endpoint uses legacy inference tables, which will soon be deprecated. Please migrate to <link>AI Gateway inference tables</link>.",
+    "defaultMessage" : "Cet endpoint utilise d’anciennes tables d’inférence, qui seront bientôt obsolètes. Veuillez migrer vers les <link>tables d’inférences AI Gateway</link>.",
     "description" : "Alert message on payload logging warning"
   },
   "2BzYqp" : {
@@ -803,6 +790,10 @@
     "defaultMessage" : "Modifier",
     "description" : "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "39X+ZY" : {
+    "defaultMessage" : "Consultez la <link>documentation sur les scorers programmés</link> pour apprendre à les gérer.",
+    "description" : "Alert description when scheduled scorers exist"
+  },
   "39i3+I" : {
     "defaultMessage" : "Tags de politique budgétaire serverless",
     "description" : "Endpoint form summary title for budget policy tags"
@@ -874,10 +865,6 @@
     "defaultMessage" : "Pour instrumenter manuellement vos propres traces, la méthode la plus pratique est d’utiliser le décorateur de fonctions {code}. Cela entraînera la capture des entrées et des sorties de la fonction dans la trace.",
     "description" : "Description of how to log custom code traces using MLflow. This message is followed by a code example."
   },
-  "3ZD13l" : {
-    "defaultMessage" : "Dernière modification",
-    "description" : "Endpoint details page > External model details > Metadata table > Last modified label"
-  },
   "3ZZtbW" : {
     "defaultMessage" : "Erreur",
     "description" : "UC Models page > Error empty state title"
@@ -885,10 +872,6 @@
   "3bagxW" : {
     "defaultMessage" : "<link>En savoir plus</link>",
     "description" : "Learn more tooltip link to learn more on how to search models"
-  },
-  "3gbNyI" : {
-    "defaultMessage" : "URL",
-    "description" : "Label for 'URL' value on Endpoint details page sidebar"
   },
   "3geT+I" : {
     "defaultMessage" : "Utilisez les API d'artefact de journal pour stocker les fichiers générés lors des exécutions MLflow.",
@@ -946,10 +929,6 @@
     "defaultMessage" : "Vue graphique",
     "description" : "Label for the table view toggle button in the logged model list page"
   },
-  "44f6Jl" : {
-    "defaultMessage" : "DSPy",
-    "description" : "Header for DSPy tab in the MLflow Tracing quickstart guide"
-  },
   "44s7uM" : {
     "defaultMessage" : "Dernière modification",
     "description" : "Title text for the feature table last modified metadata field."
@@ -990,7 +969,7 @@
     "description" : "Header preceding the evaluation metric"
   },
   "4HKr3y" : {
-    "defaultMessage" : "Attributes",
+    "defaultMessage" : "Attributs",
     "description" : "Header for attribute columns in the evaluation runs table column configuration"
   },
   "4HbEVz" : {
@@ -1372,6 +1351,10 @@
   "6ZOPUa" : {
     "defaultMessage" : "Données d'évaluation",
     "description" : "Run Page > FinetuneParamsTable > Evaluation Data"
+  },
+  "6ZhLfu" : {
+    "defaultMessage" : "Visibilité",
+    "description" : "Label for the visibility icon column in the evaluation runs table"
   },
   "6b6fTN" : {
     "defaultMessage" : "Sélectionnez un fichier à prévisualiser",
@@ -1813,10 +1796,6 @@
     "defaultMessage" : "Charger plus de résultats",
     "description" : "Load more button text to load more experiment runs"
   },
-  "9DDsiU" : {
-    "defaultMessage" : "Anthropic",
-    "description" : "Header for Anthropic tab in the MLflow Tracing quickstart guide"
-  },
   "9EEo9X" : {
     "defaultMessage" : "Exemple de réinitialisation",
     "description" : "Button on Call Endpoint modal to populate the request body with an input example"
@@ -1849,10 +1828,6 @@
     "defaultMessage" : "Clé API secrète",
     "description" : "Label for API key secret reference input for external models"
   },
-  "9T0V5C" : {
-    "defaultMessage" : "Le endpoint de mise en service du modèle doit être déployé avec Agent Framework.",
-    "description" : "Agent Monitoring > create monitor > catalog field description"
-  },
   "9TOU1G" : {
     "defaultMessage" : "Aucun graphique dans cette section",
     "description" : "Runs compare page > Charts tab > No charts placeholder title"
@@ -1864,10 +1839,6 @@
   "9URaPt" : {
     "defaultMessage" : "Utilisation de la mémoire (%)",
     "description" : "Graph title for memory usage metrics graph"
-  },
-  "9V3/9U" : {
-    "defaultMessage" : "Tags",
-    "description" : "Endpoint tags label on endpoint page"
   },
   "9VoAP0" : {
     "defaultMessage" : "{price} {priceUnit}",
@@ -2041,10 +2012,6 @@
     "defaultMessage" : "Version de modèle",
     "description" : "Model version label on the configure inference form"
   },
-  "ApNS0Z" : {
-    "defaultMessage" : "Saisissez ici le contenu de l'invite.",
-    "description" : "A placeholder for the prompt content in the prompt creation modal"
-  },
   "Aqq08o" : {
     "defaultMessage" : "HTTP",
     "description" : "Experiment dataset drawer > source type > HTTP source type label"
@@ -2113,10 +2080,6 @@
     "defaultMessage" : "Aucun modèle servi sélectionné",
     "description" : "Title text for logs on the endpoint page when no served model is selected"
   },
-  "B80MC6" : {
-    "defaultMessage" : "Tracé de contour",
-    "description" : "Tab pane title for contour plots on the compare runs page"
-  },
   "B8RvlZ" : {
     "defaultMessage" : "Comparaison des versions {baseline} et {compared}",
     "description" : "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
@@ -2181,12 +2144,16 @@
     "defaultMessage" : "100",
     "description" : "Label for 100 first runs visible in run count selector within runs compare configuration modal"
   },
+  "Bcr4hl" : {
+    "defaultMessage" : "Échec de la récupération des traces",
+    "description" : "Evaluation review > evaluations list > error state title"
+  },
   "BdIXyU" : {
     "defaultMessage" : "Annuler",
     "description" : "Cancel text for update and start endpoint modal on endpoint edit page"
   },
   "BfMFME" : {
-    "defaultMessage" : "Attributes",
+    "defaultMessage" : "Attributs",
     "description" : "Section header for the attributes in a 'group by' selector"
   },
   "Bipp6i" : {
@@ -2613,10 +2580,6 @@
     "defaultMessage" : "Tags",
     "description" : "Endpoint form summary title for tags"
   },
-  "EiWGRz" : {
-    "defaultMessage" : "Erreur lors de la création du moniteur",
-    "description" : "Error message when creating a monitor in the Agent Monitoring create form"
-  },
   "EkUD0b" : {
     "defaultMessage" : "Aucun résultat",
     "description" : "Experiment page > sort selector > no results after filtering by search query"
@@ -2628,10 +2591,6 @@
   "El1fwW" : {
     "defaultMessage" : "Pas prêt",
     "description" : "\"Not ready\" state for payload logging on this endpoint"
-  },
-  "EottoB" : {
-    "defaultMessage" : "Remarque : les invites ne s'affichent pas dans cette interface utilisateur du sélecteur de schéma. Une fois que vous avez sélectionné un schéma, ses invites s’afficheront dans l’experimentation. Vous devez avoir les autorisations <code>MANAGE</code> sur le schéma pour afficher et créer des invites.",
-    "description" : "Explanation for the schema selector in the managed prompts page"
   },
   "EpFST9" : {
     "defaultMessage" : "Aucune donnée de traçage n'est enregistrée",
@@ -2769,10 +2728,6 @@
     "defaultMessage" : "Fournir votre retour d'expérience",
     "description" : "Link to a survey for users to give feedback"
   },
-  "FmV7ce" : {
-    "defaultMessage" : "Suivant",
-    "description" : "Label for a button that moves to the next step in Databricks App creation process"
-  },
   "FmqNVi" : {
     "defaultMessage" : "Données d'entraînement",
     "description" : "Run Page > FinetuneParamsTable > Training Data"
@@ -2816,6 +2771,10 @@
   "G1FWcV" : {
     "defaultMessage" : "Personnalisé",
     "description" : "Custom option once selected in workload size dropdown"
+  },
+  "G1yCn/" : {
+    "defaultMessage" : "Remarque : les invites ne s'affichent pas dans cette interface utilisateur du sélecteur de schéma. Une fois que vous avez sélectionné un schéma, ses invites s’afficheront dans l’experimentation. Vous devez disposer des autorisations <code>CREATE FUNCTION</code>, <code>EXECUTE</code> et <code>MANAGE</code> sur le schéma pour pouvoir afficher et créer des invites.",
+    "description" : "Explanation for the schema selector in the managed prompts page"
   },
   "G3xZ1C" : {
     "defaultMessage" : "Il ne peut y avoir plus de {maxTags} tags par point de terminaison.",
@@ -3204,6 +3163,10 @@
     "defaultMessage" : "jetons/seconde",
     "description" : "Label showing unit of tokens/second for provisioned throughput"
   },
+  "IYhciG" : {
+    "defaultMessage" : "Cliquez ici",
+    "description" : "Link to open the source notebook"
+  },
   "IZ95jb" : {
     "defaultMessage" : "Jeux de données",
     "description" : "Filtering label to filter runs based on datasets used"
@@ -3340,6 +3303,10 @@
     "defaultMessage" : "Les valeurs de tags doivent comporter au maximum 1 000 caractères",
     "description" : "Error message for invalid endpoint tag value input"
   },
+  "JW0GbU" : {
+    "defaultMessage" : "Vous pouvez définir un maximum de {maxLength} valeurs",
+    "description" : "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
+  },
   "JYVQuV" : {
     "defaultMessage" : "ID d'exécution",
     "description" : "Run page > Overview > Run ID section label"
@@ -3463,10 +3430,6 @@
   "KNFnck" : {
     "defaultMessage" : "Veuillez contacter votre administrateur pour ajouter des destinations via Paramètres > Notifications.",
     "description" : "Warning message when no system destinations are available"
-  },
-  "KV3BXl" : {
-    "defaultMessage" : "Sélectionner comme version de référence",
-    "description" : "Label for selecting baseline prompt version in the comparison view"
   },
   "KV3BXl" : {
     "defaultMessage" : "Sélectionner comme version de référence",
@@ -3796,10 +3759,6 @@
     "defaultMessage" : "OK",
     "description" : "Experiment page > traces table > status label > ok"
   },
-  "MrLWEB" : {
-    "defaultMessage" : "État de l'endpoint",
-    "description" : "Endpoint details page > External model details > Metadata table > Status cell label"
-  },
   "Mtj9Ay" : {
     "defaultMessage" : "Modifier la description",
     "description" : "Run page > Overview > Description section > Edit button label"
@@ -4088,10 +4047,6 @@
     "defaultMessage" : "Aperçu de l'étiquette",
     "description" : "Label for review app preview section"
   },
-  "OimAJb" : {
-    "defaultMessage" : "Nuage de points",
-    "description" : "Tab pane title for scatterplots on the compare runs page"
-  },
   "Oj2ENw" : {
     "defaultMessage" : "Aucun modèle enregistré pour l'instant. <link>En savoir plus sur l'enregistrement des modèles</link>.",
     "description" : "Models table > no models present yet"
@@ -4160,10 +4115,6 @@
     "defaultMessage" : "(Mise à jour)",
     "description" : "Text for in progress served model update on the endpoints list page"
   },
-  "P9s9Fd" : {
-    "defaultMessage" : "État de l'endpoint",
-    "description" : "Endpoint details page > Foundation model details > Metadata table > Status cell label"
-  },
   "PBeZnP" : {
     "defaultMessage" : "Vous pouvez commencer à enregistrer les traces dans ce modèle enregistré en appelant d’abord {code} :",
     "description" : "Introductory text for the code example for logging traces to an existing logged model. The code contains reference to \"mlflow.set_active_model\" function call"
@@ -4187,10 +4138,6 @@
   "PEYesH" : {
     "defaultMessage" : "Nouvelle exécution",
     "description" : "Button used to pop up a modal to create a new run"
-  },
-  "PEZuqX" : {
-    "defaultMessage" : "Type d’application",
-    "description" : "Label for the application type field in the Agent Monitoring create form"
   },
   "PGbCZD" : {
     "defaultMessage" : "Production",
@@ -4311,10 +4258,6 @@
     "defaultMessage" : "Restaurer",
     "description" : "String for the restore button to undo the experiments that were deleted"
   },
-  "Q+zDz1" : {
-    "defaultMessage" : "Tags",
-    "description" : "Endpoint details page > Tile model details > Metadata table > Tags label"
-  },
   "Q/evEc" : {
     "defaultMessage" : "Paramètres ({length})",
     "description" : "Run page > Overview > Parameters table > Section title"
@@ -4427,13 +4370,13 @@
     "defaultMessage" : "{ttl, plural, one {{ttl,number} seconde} other {{ttl,number} secondes}}",
     "description" : "Text content for the online store table time to live metadata field in seconds."
   },
-  "QqY6kD" : {
-    "defaultMessage" : "Bedrock",
-    "description" : "Header for Bedrock tab in the MLflow Tracing quickstart guide"
-  },
   "Qr828b" : {
     "defaultMessage" : "Pour télécharger toutes les données d’exécution MLflow, exécutez cet extrait de code dans un notebook Databricks",
     "description" : "Here is the description on where to run the following code snippet"
+  },
+  "QravWY" : {
+    "defaultMessage" : "Optimiser l'invite",
+    "description" : "Title of the optimize prompt modal"
   },
   "Qsgg+9" : {
     "defaultMessage" : "Nom de l'expérience :",
@@ -4503,6 +4446,10 @@
     "defaultMessage" : "Enregistrer",
     "description" : "Save button text"
   },
+  "RUju4k" : {
+    "defaultMessage" : "Graphiques",
+    "description" : "Tooltip for charts page mode toggle in evaluation runs table controls"
+  },
   "RUw2fH" : {
     "defaultMessage" : "Créer un modèle",
     "description" : "Create button to register a new model"
@@ -4543,10 +4490,6 @@
     "defaultMessage" : "Jeu de données",
     "description" : "Experiment page > group by runs control > group by dataset"
   },
-  "Rv42AD" : {
-    "defaultMessage" : "Instrumentez votre application GenAI avec le client Python MLflow.",
-    "description" : "MLFlow Experiment > Monitoring tab > create form > box describing how to log production traces > description"
-  },
   "RzZVxC" : {
     "defaultMessage" : "Une erreur s'est produite lors du rendu de ce composant.",
     "description" : "Description of error fallback component"
@@ -4562,10 +4505,6 @@
   "S6yLL1" : {
     "defaultMessage" : "Données historiques insuffisantes",
     "description" : "AutoML warning shown when the dataset does not have enough historical data for forecasting"
-  },
-  "S7ESYH" : {
-    "defaultMessage" : "Visualisations",
-    "description" : "Tabs title for plots on the compare runs page"
   },
   "SCCJKU" : {
     "defaultMessage" : "Ce comportement peut être désactivé avec la configuration « spark.databricks.automl.scaleCpusPerTask ».",
@@ -4620,7 +4559,7 @@
     "description" : "Label for the time axis on the runs compare chart"
   },
   "SQUVnW" : {
-    "defaultMessage" : "Dataset",
+    "defaultMessage" : "Jeu de données",
     "description" : "Label for the dataset column in the evaluation runs table"
   },
   "SSdelE" : {
@@ -4682,10 +4621,6 @@
   "SvTT/R" : {
     "defaultMessage" : "Modifier la passerelle IA",
     "description" : "Endpoint details page > External model details > AI Gateway details section > Edit button (displayed when AI gateway has existing configuration that can be changed)"
-  },
-  "Sviop4" : {
-    "defaultMessage" : "Gemini",
-    "description" : "Header for Gemini tab in the MLflow Tracing quickstart guide"
   },
   "SzapEm" : {
     "defaultMessage" : "Une fois enregistrés grâce à la dernière version de MLflow, vos modèles apparaîtront ici. <link>En savoir plus</link>.",
@@ -4788,7 +4723,7 @@
     "description" : "Experiment page > compare runs > chart section > delete section warning message"
   },
   "TQ3N+4" : {
-    "defaultMessage" : "Select",
+    "defaultMessage" : "Sélectionner",
     "description" : "Label for the checkbox column in the evaluation runs table"
   },
   "TQZ+X6" : {
@@ -4987,7 +4922,7 @@
     "description" : "Label for API key secret reference input for external models"
   },
   "UWHfmZ" : {
-    "defaultMessage" : "Group:",
+    "defaultMessage" : "Groupe :",
     "description" : "Label for a group of runs in the evaluation runs table"
   },
   "UYSEIN" : {
@@ -5596,10 +5531,6 @@
     "defaultMessage" : "Télécharger l'artefact",
     "description" : "Link to download the artifact of the experiment"
   },
-  "YArB5F" : {
-    "defaultMessage" : "État de l'endpoint au service",
-    "description" : "Serving endpoint state label on endpoint page"
-  },
   "YBFyOi" : {
     "defaultMessage" : "Il est possible que la dernière exécution du job ne se soit pas correctement écrite dans cette table de fonctionnalités.",
     "description" : "Text on the warning icon of the last written column describing the last job run may have not written to the feature table."
@@ -5728,10 +5659,6 @@
     "defaultMessage" : "Affichage des exécutions de {numExperiments} expériences",
     "description" : "Breadcrumb nav item to link to compare-experiments page on compare runs page"
   },
-  "Yl7Wv7" : {
-    "defaultMessage" : "Tâche",
-    "description" : "Endpoint details page > External model details > Metadata table > Task label"
-  },
   "YlavFP" : {
     "defaultMessage" : "Ajouter une section",
     "description" : "Experiment page > compare runs > chart section > add section bar"
@@ -5795,10 +5722,6 @@
   "ZCQucO" : {
     "defaultMessage" : "Trier par",
     "description" : "Search page: default label for sort-by dropdown that allows user to sort results"
-  },
-  "ZDPrE6" : {
-    "defaultMessage" : "Retour",
-    "description" : "Button label for going back to the previous step in the Agent Monitoring create form"
   },
   "ZEp/ot" : {
     "defaultMessage" : "Dernière publication par",
@@ -5875,10 +5798,6 @@
   "Zc48NC" : {
     "defaultMessage" : "(inconnu)",
     "description" : "Filler text when run's time information is unavailable"
-  },
-  "ZcCe40" : {
-    "defaultMessage" : "Tâche",
-    "description" : "Endpoint details page > Foundation model details > Metadata table > Task label"
   },
   "ZgAOhX" : {
     "defaultMessage" : "Appellation du graphique",
@@ -6260,9 +6179,9 @@
     "defaultMessage" : "Sorties",
     "description" : "Table section name for schema outputs in the model comparison page"
   },
-  "bsMmr7" : {
-    "defaultMessage" : "Créé par",
-    "description" : "Endpoint details page > External model details > Metadata table > Created by label"
+  "bthrp2" : {
+    "defaultMessage" : "{modelName} est actuellement désactivé en raison de contraintes de capacité.",
+    "description" : "Disabled message for FMAPI endpoints"
   },
   "bu5NgB" : {
     "defaultMessage" : "Facultatif. Ces balises sont enregistrées dans les journaux de facturation de l'endpoint.",
@@ -6284,6 +6203,10 @@
     "defaultMessage" : "Afficher les détails",
     "description" : "Endpoints list page > Suggested models carousel > Dropdown menu > View details button"
   },
+  "c0ljd6" : {
+    "defaultMessage" : "Documentation MLflow",
+    "description" : "Link to MLflow documentation"
+  },
   "c0lylo" : {
     "defaultMessage" : "Pour en savoir plus, consultez <previews>Gestion des aperçus</previews> et <docs>Lakehouse Monitoring pour GenAI</docs>."
   },
@@ -6302,10 +6225,6 @@
   "c4ULkZ" : {
     "defaultMessage" : "Trafic",
     "description" : "Endpoint details page > active configuration table > Column headers > Traffic"
-  },
-  "c4bR6N" : {
-    "defaultMessage" : "En attente du chargement du bloc de code",
-    "description" : "Aria value text for loading code block"
   },
   "c5AQYh" : {
     "defaultMessage" : "Comparer selon",
@@ -6378,10 +6297,6 @@
     "defaultMessage" : "AutoML effectue une exploration de données et des essais sur un échantillon du jeu de données.",
     "description" : "Text for dataset sampled when running"
   },
-  "cQe2Sa" : {
-    "defaultMessage" : "Dernière modification",
-    "description" : "Endpoint details page > Tile model details > Metadata table > Last modified label"
-  },
   "cSSMIs" : {
     "defaultMessage" : "Copier l'emplacement de l'artefact",
     "description" : "Copy tooltip to copy experiment artifact location from experiment runs table header"
@@ -6389,10 +6304,6 @@
   "cTFkkR" : {
     "defaultMessage" : "Demander la transition vers",
     "description" : "Text for activity description under confirmation modal for model\n             version stage transition request"
-  },
-  "cYUltp" : {
-    "defaultMessage" : "URL",
-    "description" : "Endpoint URL label on endpoint page"
   },
   "ceqHGj" : {
     "defaultMessage" : "La politique budgétaire sélectionnée a dépassé la limite fixée.",
@@ -6486,10 +6397,6 @@
     "defaultMessage" : "Nom du modèle",
     "description" : "Label for model name input"
   },
-  "dN/Ife" : {
-    "defaultMessage" : "Nom du modèle",
-    "description" : "Label for model name input"
-  },
   "dQabrL" : {
     "defaultMessage" : "Prix",
     "description" : "Endpoint details page > active configuration table > Column headers > Price"
@@ -6574,17 +6481,9 @@
     "defaultMessage" : "Voulez-vous vraiment quitter cet écran ? Les modifications de texte en cours seront perdues.",
     "description" : "Prompt text for navigating away before saving changes in editable note in MLflow"
   },
-  "dyOotE" : {
-    "defaultMessage" : "Tâche",
-    "description" : "Task label on endpoint page"
-  },
   "dzoxyA" : {
     "defaultMessage" : "Rejeter la demande en attente",
     "description" : "Title for a model version stage transition modal when rejecting a pending request"
-  },
-  "e1mkAM" : {
-    "defaultMessage" : "Ajouter",
-    "description" : "Endpoint details page > External model details  > Metadata table > Tags > Add tags CTA"
   },
   "e40hC9" : {
     "defaultMessage" : "La limite de vitesse est définie en QPM (requêtes par minute).",
@@ -6605,10 +6504,6 @@
   "e7K2T3" : {
     "defaultMessage" : "Afficher toutes les exécutions",
     "description" : "Experiment page > compare runs tab > chart header > move down option"
-  },
-  "e7c2gE" : {
-    "defaultMessage" : "URL",
-    "description" : "Endpoint details page > Foundation model details > Metadata table > URL label"
   },
   "eAFhRf" : {
     "defaultMessage" : "Exécutions",
@@ -6958,6 +6853,10 @@
     "defaultMessage" : "Tâche",
     "description" : "Title for the task column on endpoint list table"
   },
+  "g4hHzO" : {
+    "defaultMessage" : "Copié",
+    "description" : "Tooltip message displayed on copy action after it has been clicked"
+  },
   "g56Cuk" : {
     "defaultMessage" : "{count, plural, one {Supprimer {count,number} trace } other {Supprimer {count,number} traces }}",
     "description" : "Experiment page > traces view controls > Delete traces modal > Delete button"
@@ -7082,6 +6981,10 @@
     "defaultMessage" : "Graphique à barres",
     "description" : "Experiment tracking > runs charts > add chart menu > bar chart"
   },
+  "ge07be" : {
+    "defaultMessage" : "Déploiement hérité activé uniquement",
+    "description" : "Models table > filters > legacy serving enabled only toggle button"
+  },
   "geizp1" : {
     "defaultMessage" : "Annuler",
     "description" : "Key-value tag editor modal > Unsaved tag message > cancel button"
@@ -7110,10 +7013,6 @@
     "defaultMessage" : "Prêt",
     "description" : "Endpoint ready status text on endpoints list page"
   },
-  "gpy991" : {
-    "defaultMessage" : "URL",
-    "description" : "Endpoint details page > External model details > Metadata table > URL label"
-  },
   "gqfk5C" : {
     "defaultMessage" : "Utilisateur non autorisé.",
     "description" : "Unauthorized (HTTP STATUS 401) generic error message"
@@ -7133,10 +7032,6 @@
   "gutnbA" : {
     "defaultMessage" : "Créer une session",
     "description" : "Default button text for create session modal"
-  },
-  "guBsqD" : {
-    "defaultMessage" : "Liste",
-    "description" : "Label for the list mode on the registered prompt details page"
   },
   "gw6w2l" : {
     "defaultMessage" : "ID de projet de Google Cloud Project",
@@ -7173,6 +7068,10 @@
   "h6jAnw" : {
     "defaultMessage" : "Partagez et gérez des modèles de machine learning.",
     "description" : "Text for model registry onboarding on the model list page on GCP"
+  },
+  "hBAhI8" : {
+    "defaultMessage" : "Copier",
+    "description" : "Tooltip message displayed on copy action"
   },
   "hCleUg" : {
     "defaultMessage" : "Taux de demandes (par seconde)",
@@ -7334,17 +7233,9 @@
     "defaultMessage" : "Faible",
     "description" : "Text describing a low severity AutoML warning"
   },
-  "iA6mqk" : {
-    "defaultMessage" : "Type de problème",
-    "description" : "Endpoint details page > active configuration table > Column headers > Problem Type"
-  },
   "iAwvGx" : {
     "defaultMessage" : "Voulez-vous vraiment démarrer <bold>{endpointName}</bold> ? Une fois démarré, ce endpoint pourra répondre aux requêtes lorsque les ressources seront prêtes.",
     "description" : "Confirmation message for start endpoint modal on endpoint view page"
-  },
-  "iBQaZu" : {
-    "defaultMessage" : "Exécution source :",
-    "description" : "A label for the source run in the prompt details page"
   },
   "iC2Owx" : {
     "defaultMessage" : "Arrêter les séquences : {stopSequences}",
@@ -7606,10 +7497,6 @@
     "defaultMessage" : "Désépingler le groupe",
     "description" : "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
-  "jklaGC" : {
-    "defaultMessage" : "Tâche",
-    "description" : "Endpoint details page > Tile model details > Metadata table > Task label"
-  },
   "jmU47D" : {
     "defaultMessage" : "Tags",
     "description" : "Long form section title for the \"tags\" section of an endpoint"
@@ -7653,10 +7540,6 @@
   "k/7o03" : {
     "defaultMessage" : "Identifiant du client de Microsoft Entra",
     "description" : "Label for Microsoft Entra Client ID input for External Model Provider"
-  },
-  "k3XTHr" : {
-    "defaultMessage" : "Point de terminaison desservi",
-    "description" : "Serving Endpoint title, specifing the header for the model serving endpoint link"
   },
   "k3XTHr" : {
     "defaultMessage" : "Point de terminaison desservi",
@@ -7741,6 +7624,10 @@
   "kiSt83" : {
     "defaultMessage" : "AutoML a interrompu l'entraînement prématurément car la métrique d'évaluation ne s'améliorait pas.",
     "description" : "Action that AutoML took when training is stopped early"
+  },
+  "kjjwE8" : {
+    "defaultMessage" : "Sélectionner un modèle",
+    "description" : "Aria label for the model selection dropdown"
   },
   "kjltRf" : {
     "defaultMessage" : "Cliquez sur une cellule pour prévisualiser les données",
@@ -7875,7 +7762,7 @@
     "description" : "Validation error message for expectations"
   },
   "lS7kq2" : {
-    "defaultMessage" : "Parameters",
+    "defaultMessage" : "Paramètres",
     "description" : "Section header for the parameters in a 'group by' selector"
   },
   "lSnvCt" : {
@@ -7998,12 +7885,16 @@
     "defaultMessage" : "Modèles",
     "description" : "Run page > Overview > Metrics table > Models column header"
   },
+  "mSyJrR" : {
+    "defaultMessage" : "(Bêta)",
+    "description" : "Beta badge to indicate a beta feature"
+  },
   "mULhz5" : {
     "defaultMessage" : "Supprimer",
     "description" : "Delete button text for labeling session modal"
   },
   "mY6f0y" : {
-    "defaultMessage" : "Params",
+    "defaultMessage" : "Paramètres",
     "description" : "Header for parameter columns in the evaluation runs table column configuration"
   },
   "mYV3/n" : {
@@ -8114,10 +8005,6 @@
     "defaultMessage" : "Producteurs ({length})",
     "description" : "Title text for the feature table producers section."
   },
-  "n/Ix2r" : {
-    "defaultMessage" : "Tags",
-    "description" : "Endpoint details page > External model details > Metadata table > Tags label"
-  },
   "n/l2ft" : {
     "defaultMessage" : "Réinitialiser les filtres",
     "description" : "Reset filters button in list"
@@ -8169,6 +8056,10 @@
   "nGLXuf" : {
     "defaultMessage" : "Le SDK de traçage pour TypeScript arrive bientôt !",
     "description" : "Title for TypeScript SDK coming soon message"
+  },
+  "nIk08y" : {
+    "defaultMessage" : "Vue des traces",
+    "description" : "Tooltip for traces preview mode toggle in evaluation runs table controls"
   },
   "nNIors" : {
     "defaultMessage" : "Erreur lors de la récupération des données d’exécution associées : {error}",
@@ -8253,6 +8144,10 @@
   "np5q0T" : {
     "defaultMessage" : "Modifier la limite de vitesse",
     "description" : "Text for change rate limits button on the endpoints page header"
+  },
+  "npHb2a" : {
+    "defaultMessage" : "{count, select, 0 {Afficher plus de colonnes } other {Afficher plus de colonnes ({count} au total)}}",
+    "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "npKSv/" : {
     "defaultMessage" : "Aucune description",
@@ -8525,6 +8420,10 @@
     "defaultMessage" : "Veuillez demandez à votre administrateur l’autorisation de créer une table",
     "description" : "User action recommendation when lacking permission to create a table"
   },
+  "pQ9/8B" : {
+    "defaultMessage" : "Documentation Databricks",
+    "description" : "Link to Databricks documentation"
+  },
   "pRUOaS" : {
     "defaultMessage" : "Événements",
     "description" : "Tab title for the events tab on the endpoint page"
@@ -8544,10 +8443,6 @@
   "pVF+2s" : {
     "defaultMessage" : "Afficher moins",
     "description" : "Label for a link that shows less tags when clicked"
-  },
-  "pVk+C7" : {
-    "defaultMessage" : "Activer les tables d'inférence",
-    "description" : "Checkbox label for payload logging in endpoint view, only shows in pending state"
   },
   "pWDDLN" : {
     "defaultMessage" : "Adresse e-mail non valide",
@@ -8593,10 +8488,6 @@
     "defaultMessage" : "Navigateur",
     "description" : "SegmentedControl text for the browser call the model section on the model version's serving page"
   },
-  "pnqgdy" : {
-    "defaultMessage" : "En savoir plus",
-    "description" : "Agent monitoring log external traces instructions learn more link"
-  },
   "poH+mg" : {
     "defaultMessage" : "Aucune requête en attente.",
     "description" : "Default text in pending requests table when no pending requests for the model version"
@@ -8628,10 +8519,6 @@
   "q82PwF" : {
     "defaultMessage" : "Fonctionnalité",
     "description" : "Title text for the online store published feature column."
-  },
-  "q9eRS2" : {
-    "defaultMessage" : "Créé par",
-    "description" : "Serving endpoint creator label on endpoint page"
   },
   "qAdWdK" : {
     "defaultMessage" : "Erreur",
@@ -8768,10 +8655,6 @@
   "qxgZJB" : {
     "defaultMessage" : "Spécifier le nom de la table du jeu de données dans Unity Catalog.",
     "description" : "Helper text for the field where the user can specify the name of the dataset table"
-  },
-  "r+3/rR" : {
-    "defaultMessage" : "Créé par",
-    "description" : "Endpoint details page > Tile model details > Metadata table > Created by label"
   },
   "r+KCRg" : {
     "defaultMessage" : "Paramètre",
@@ -9037,10 +8920,6 @@
     "defaultMessage" : "Aucun",
     "description" : "Label for the button disabling grouping in the logged model list page"
   },
-  "sPjdP+" : {
-    "defaultMessage" : "URL",
-    "description" : "Endpoint details page > Tile model details > Metadata table > URL label"
-  },
   "sQi+4T" : {
     "defaultMessage" : "Valeurs très asymétriques",
     "description" : "AutoML warning shown when columns are highly skewed"
@@ -9048,10 +8927,6 @@
   "sSXd6i" : {
     "defaultMessage" : "Activer les tables d’inférence : {status}",
     "description" : "Status for inference tables in endpoint view, only shows in pending state"
-  },
-  "sTp/V3" : {
-    "defaultMessage" : "Tracé de coordonnées parallèles",
-    "description" : "Tab pane title for parallel coordinate plots on the compare runs page"
   },
   "sU/shl" : {
     "defaultMessage" : "Le modèle est prêt à être enregistré et déployé. Vous pouvez aussi accéder au code source de l’entraînement du modèle afin d’effectuer des modifications en cliquant sur un notebook dans la colonne {source} de la table ci-dessous.",
@@ -9256,10 +9131,6 @@
     "defaultMessage" : "Corrélations détectées. Pour en savoir plus, consultez le notebook d'exploration des données.",
     "description" : "Action that AutoML took for correlation columns"
   },
-  "u3YPUX" : {
-    "defaultMessage" : "Aucune trace n’a été journalisée",
-    "description" : "Run page > Evaluations tab > No traces logged"
-  },
   "u73gNJ" : {
     "defaultMessage" : "Dernière heure de validité sélectionnée automatiquement",
     "description" : "Warning message when user choose start time for more than 14 days old"
@@ -9407,10 +9278,6 @@
   "uuPC22" : {
     "defaultMessage" : "2. Dans le menu, sélectionnez Aperçus et recherchez « Lakehouse Monitoring pour GenAI » pour activer/désactiver l’option.",
     "description" : "Text displayed to explain how to toggle the preview."
-  },
-  "uuQtH8" : {
-    "defaultMessage" : "État de l’endpoint",
-    "description" : "Endpoint details page > Tile model details > Metadata table > Status cell label"
   },
   "uv+tUl" : {
     "defaultMessage" : "QPM",
@@ -9708,6 +9575,10 @@
     "defaultMessage" : "Voulez-vous vraiment enregistrer et fermer sans ajouter « {tag} »",
     "description" : "Key-value tag editor modal > Unsaved tag message"
   },
+  "wciksY" : {
+    "defaultMessage" : "Voici comment optimiser votre invite avec votre ensemble de données dans votre code Python :",
+    "description" : "Description of how to optimize a prompt with a dataset in Python"
+  },
   "wdqv1v" : {
     "defaultMessage" : "Directives",
     "description" : "Label for the guidelines field in the Agent Monitoring create form"
@@ -9803,6 +9674,10 @@
   "xEJj8d" : {
     "defaultMessage" : "L’enregistrement a échoué.",
     "description" : "Default status message for model versions that have failed registration"
+  },
+  "xFeINr" : {
+    "defaultMessage" : "{link} pour ouvrir le notebook source.",
+    "description" : "Tooltip message for more information on the reproduce runs button for the experiment run"
   },
   "xGF0UT" : {
     "defaultMessage" : "Ajouter un tag",
@@ -9924,10 +9799,6 @@
     "defaultMessage" : "ARN de la table",
     "description" : "Title text for the online store table ARN metadata field."
   },
-  "y3JM9B" : {
-    "defaultMessage" : "Afficher plus de colonnes ",
-    "description" : "Label for a CTA button in experiment runs table which invokes column management dropdown"
-  },
   "y56Vz9" : {
     "defaultMessage" : "En cours",
     "description" : "Experiment page > traces table > status label > in progress"
@@ -9955,10 +9826,6 @@
   "yCncIr" : {
     "defaultMessage" : "Métrique",
     "description" : "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use metric axis in all charts"
-  },
-  "yFBsM9" : {
-    "defaultMessage" : "Politique budgétaire serverless",
-    "description" : "Endpoint budget policy label on endpoint page"
   },
   "yGH3Oz" : {
     "defaultMessage" : "Créé",
@@ -9996,7 +9863,7 @@
     "description" : "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
   },
   "yT3IoX" : {
-    "defaultMessage" : "Set-up API key and environment variables to log traces in your own development environment",
+    "defaultMessage" : "Configurez la clé API et les variables d’environnement pour enregistrer des traces dans votre propre environnement de développement.",
     "description" : "Description of CTA for opening tracing quick start for local development"
   },
   "yZlkia" : {
@@ -10148,7 +10015,7 @@
     "description" : "Run page > Overview > Metrics table > Latest column header"
   },
   "zZCBR9" : {
-    "defaultMessage" : "Metrics",
+    "defaultMessage" : "Métriques",
     "description" : "Header for metric columns in the evaluation runs table column configuration"
   },
   "zZQ8Ql" : {

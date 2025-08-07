@@ -52,7 +52,7 @@ class CustomExample(pydantic.BaseModel):
     bool_field: bool
     double_field: float
     any_field: Any
-    optional_str: Optional[str] = None  # _noqa: UP045
+    optional_str: Optional[str] = None  # noqa: UP045
     str_or_none: str | None = None
 
 
@@ -64,7 +64,7 @@ class Message(pydantic.BaseModel):
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
-    optional_int: Optional[int] = None  # _noqa: UP045
+    optional_int: Optional[int] = None  # noqa: UP045
     int_or_none: int | None = None
 
 
@@ -119,7 +119,7 @@ class CustomExample2(pydantic.BaseModel):
             [{"a": ["a", "b"]}],
         ),
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # _noqa: UP007
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # noqa: UP007
         (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
@@ -262,7 +262,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 class CustomExample3(pydantic.BaseModel):
     custom_field: dict[str, list[str]]
     messages: list[Message]
-    optional_int: Optional[int] = None  # _noqa: UP045
+    optional_int: Optional[int] = None  # noqa: UP045
     int_or_none: int | None = None
 
 
@@ -604,7 +604,7 @@ def test_python_model_local_testing():
 
 def test_python_model_with_optional_input_local_testing():
     class Model(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: list[dict[str, Optional[str]]], params=None) -> Any:
+        def predict(self, model_input: list[dict[str, str | None]], params=None) -> Any:
             return [x["key"] if x.get("key") else "default" for x in model_input]
 
     model = Model()
@@ -1041,7 +1041,7 @@ def test_invalid_type_hint_raise_exception():
     class Message(pydantic.BaseModel):
         role: str
         # this doesn't include default value
-        content: Optional[str]
+        content: str | None
 
     with pytest.raises(MlflowException, match="To disable data validation, remove the type hint"):
 
@@ -1098,7 +1098,7 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
 
     # Subclass of ChatModel should not warn (exception to the rule)
     class ChatModelSubclass(ChatModel):
-        def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
+        def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
             return model_input
 
     assert mock_warning.call_count == 0
@@ -1108,8 +1108,8 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
         def predict(
             self,
             messages: list[ChatAgentMessage],
-            context: Optional[ChatContext] = None,
-            custom_inputs: Optional[dict[str, Any]] = None,
+            context: ChatContext | None = None,
+            custom_inputs: dict[str, Any] | None = None,
         ) -> ChatAgentResponse:
             pass
 

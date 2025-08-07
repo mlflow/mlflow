@@ -1,6 +1,5 @@
 import re
 from functools import reduce
-from typing import Union
 
 try:
     # For spark >= 4.0
@@ -36,7 +35,7 @@ def cast_spark_df_with_vector_to_array(input_spark_df):
     )
 
 
-def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, PipelineModel]):
+def _do_pipeline_transform(df: DataFrame, transformer: Transformer | PipelineModel):
     """
     A util method that runs transform on a pipeline model/transformer
 
@@ -67,7 +66,7 @@ def _get_struct_type_by_cols(input_fields: set[str], df_schema: t.StructType) ->
 
 def get_feature_cols(
     df: DataFrame,
-    transformer: Union[Transformer, PipelineModel],
+    transformer: Transformer | PipelineModel,
 ) -> set[str]:
     """
     Finds feature columns from an input dataset. If a dataset

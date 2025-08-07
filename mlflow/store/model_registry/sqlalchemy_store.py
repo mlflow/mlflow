@@ -1,7 +1,7 @@
 import logging
 import urllib
 import uuid
-from typing import Any, Optional, Union
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -534,8 +534,8 @@ class SqlAlchemyStore(AbstractStore):
         query: Any,
         tag_filters: dict[str, list[Any]],
         dialect: str,
-        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
-        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+        main_db_model: SqlModelVersion | SqlRegisteredModel,
+        tag_db_model: SqlModelVersionTag | SqlRegisteredModelTag,
     ):
         """
         Update query to exclude all prompt rows and return only normal model or model versions.
@@ -727,7 +727,7 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -1301,9 +1301,9 @@ class SqlAlchemyStore(AbstractStore):
         name: str,
         url: str,
         events: list[WebhookEvent],
-        description: Optional[str] = None,
-        secret: Optional[str] = None,
-        status: Optional[WebhookStatus] = None,
+        description: str | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
     ) -> Webhook:
         _validate_webhook_name(name)
         _validate_webhook_url(url)
@@ -1337,8 +1337,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def list_webhooks(
         self,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Webhook]:
         max_results = max_results or 100
         if max_results < 1 or max_results > 1000:
@@ -1411,12 +1411,12 @@ class SqlAlchemyStore(AbstractStore):
     def update_webhook(
         self,
         webhook_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        url: Optional[str] = None,
-        events: Optional[list[WebhookEvent]] = None,
-        secret: Optional[str] = None,
-        status: Optional[WebhookStatus] = None,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
     ) -> Webhook:
         with self.ManagedSessionMaker() as session:
             webhook = self._get_webhook_by_id(session, webhook_id)

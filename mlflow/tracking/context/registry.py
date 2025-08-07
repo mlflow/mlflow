@@ -1,6 +1,5 @@
 import logging
 import warnings
-from typing import Optional
 
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
@@ -64,7 +63,7 @@ _run_context_provider_registry.register(SystemEnvironmentContext)
 _run_context_provider_registry.register_entrypoints()
 
 
-def resolve_tags(tags=None, ignore: Optional[list[RunContextProvider]] = None):
+def resolve_tags(tags=None, ignore: list[RunContextProvider] | None = None):
     """Generate a set of tags for the current run context. Tags are resolved in the order,
     contexts are registered. Argument tags are applied last.
 
