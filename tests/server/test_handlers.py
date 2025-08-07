@@ -1083,8 +1083,8 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
     
     resp = _get_scorer()
     
-    # Verify the tracking store was called with correct arguments
-    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version=version)
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version)
     
     # Verify the response
     response_data = json.loads(resp.get_data())
@@ -1105,8 +1105,8 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
     
     resp = _get_scorer()
     
-    # Verify the tracking store was called with correct arguments (no version)
-    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version=None)
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, None)
     
     # Verify the response
     response_data = json.loads(resp.get_data())
@@ -1127,8 +1127,8 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
     
     resp = _delete_scorer()
     
-    # Verify the tracking store was called with correct arguments
-    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version=version)
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version)
     
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
@@ -1147,8 +1147,8 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     
     resp = _delete_scorer()
     
-    # Verify the tracking store was called with correct arguments (no version)
-    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version=None)
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, None)
     
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
