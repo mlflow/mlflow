@@ -2657,7 +2657,9 @@ class SqlAlchemyStore(AbstractStore):
                 if span_status == "ERROR":
                     return "ERROR"
                 elif span_status == "UNSET":
-                    return "STATE_UNSPECIFIED"
+                    # UNSET span status means trace is still in progress
+                    # STATE_UNSPECIFIED should never be used for a trace with spans
+                    return "IN_PROGRESS"
                 else:  # OK or any other status
                     return "OK"
         return None

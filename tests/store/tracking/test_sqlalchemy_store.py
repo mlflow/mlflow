@@ -4991,8 +4991,8 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
         assert created_trace.experiment_id == int(experiment_id)
         assert created_trace.timestamp_ms == 5000000000 // 1_000_000
         assert created_trace.execution_time_ms == 1000000000 // 1_000_000
-        # When span status is UNSET (default), trace status is STATE_UNSPECIFIED
-        assert created_trace.status == "STATE_UNSPECIFIED"
+        # When span status is UNSET (default), trace status is IN_PROGRESS
+        assert created_trace.status == "IN_PROGRESS"
 
 
 @pytest.mark.asyncio
@@ -6788,7 +6788,7 @@ async def test_log_spans_sets_trace_status_from_root_span(store: SqlAlchemyStore
 
     traces, _ = store.search_traces([experiment_id])
     trace_unset = [t for t in traces if t.request_id == trace_id_unset][0]
-    assert trace_unset.state.value == "STATE_UNSPECIFIED"
+    assert trace_unset.state.value == "IN_PROGRESS"
 
     # Test with OK root span status
     trace_id_ok = "test_trace_ok_" + str(uuid.uuid4().hex)
@@ -6913,12 +6913,12 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that STATE_UNSPECIFIED trace status is updated from root span on subsequent logs."""
+    """Test that IN_PROGRESS trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
     trace_id = "test_trace_unspec_" + str(uuid.uuid4().hex)
 
-    # First, create a trace with STATE_UNSPECIFIED status
-    # We'll log a root span with UNSET status which maps to STATE_UNSPECIFIED
+    # First, create a trace with IN_PROGRESS status
+    # We'll log a root span with UNSET status which maps to IN_PROGRESS
     initial_context = mock.Mock()
     initial_context.trace_id = 67890
     initial_context.span_id = 999
@@ -6946,10 +6946,10 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     else:
         store.log_spans(experiment_id, [initial_span])
 
-    # Verify trace was created with STATE_UNSPECIFIED status
+    # Verify trace was created with IN_PROGRESS status
     traces, _ = store.search_traces([experiment_id])
     trace = [t for t in traces if t.request_id == trace_id][0]
-    assert trace.state.value == "STATE_UNSPECIFIED"
+    assert trace.state.value == "IN_PROGRESS"
 
     # Now log a new root span with OK status
     new_root_context = mock.Mock()
