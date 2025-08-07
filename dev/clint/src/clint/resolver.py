@@ -1,7 +1,6 @@
 import ast
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Optional
 
 
 class Resolver:
@@ -49,7 +48,7 @@ class Resolver:
             module_parts = node.module.split(".")
             self.name_map[name] = module_parts + [alias.name]
 
-    def resolve(self, node: ast.expr) -> Optional[list[str]]:
+    def resolve(self, node: ast.expr) -> list[str] | None:
         """
         Resolve a node to its fully qualified name parts.
 
@@ -79,7 +78,7 @@ class Resolver:
             return base_parts + [node.attr]
         return []
 
-    def _resolve_parts(self, parts: list[str]) -> Optional[list[str]]:
+    def _resolve_parts(self, parts: list[str]) -> list[str] | None:
         if not parts:
             return None
 

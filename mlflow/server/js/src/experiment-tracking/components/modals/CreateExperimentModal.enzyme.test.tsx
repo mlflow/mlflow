@@ -29,8 +29,9 @@ describe('CreateExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      navigate,
+      searchExperimentsApi: () => Promise.resolve([]),
       onExperimentCreated: jest.fn(),
+      navigate,
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });
@@ -56,11 +57,11 @@ describe('CreateExperimentModal', () => {
       },
     ];
     const testPromises: any = [];
-    propsVals.forEach((props) => {
+    propsVals.forEach(async (props) => {
       wrapper = shallow(<CreateExperimentModalImpl {...props} />);
       instance = wrapper.instance();
       const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
-      testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
+      testPromises.push(await expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
     });
     await Promise.all(testPromises);
 

@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 from functools import lru_cache
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
@@ -50,7 +50,7 @@ class SpanType:
 
 
 def create_mlflow_span(
-    otel_span: Any, trace_id: str, span_type: Optional[str] = None
+    otel_span: Any, trace_id: str, span_type: str | None = None
 ) -> Union["Span", "LiveSpan", "NoOpSpan"]:
     """
     Factory function to create a span object.
@@ -124,12 +124,12 @@ class Span:
         return self._span._start_time
 
     @property
-    def end_time_ns(self) -> Optional[int]:
+    def end_time_ns(self) -> int | None:
         """The end time of the span in nanosecond."""
         return self._span._end_time
 
     @property
-    def parent_id(self) -> Optional[str]:
+    def parent_id(self) -> str | None:
         """The span ID of the parent span."""
         if self._span.parent is None:
             return None
@@ -198,7 +198,7 @@ class Span:
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
-    def get_attribute(self, key: str) -> Optional[Any]:
+    def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
 
@@ -340,7 +340,7 @@ class Span:
         )
 
 
-def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
+def _encode_span_id_to_byte(span_id: int | None) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
     return span_id.to_bytes(length=8, byteorder="big", signed=False)
 
@@ -422,7 +422,7 @@ class LiveSpan(Span):
         """Set a single attribute to the span."""
         self._attributes.set(key, value)
 
-    def set_status(self, status: Union[SpanStatusCode, str]):
+    def set_status(self, status: SpanStatusCode | str):
         """
         Set the status of the span.
 
@@ -456,7 +456,7 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def record_exception(self, exception: Union[str, Exception]):
+    def record_exception(self, exception: str | Exception):
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
 
@@ -483,10 +483,10 @@ class LiveSpan(Span):
 
     def end(
         self,
-        outputs: Optional[Any] = None,
-        attributes: Optional[dict[str, Any]] = None,
-        status: Optional[Union[SpanStatus, str]] = None,
-        end_time_ns: Optional[int] = None,
+        outputs: Any | None = None,
+        attributes: dict[str, Any] | None = None,
+        status: SpanStatus | str | None = None,
+        end_time_ns: int | None = None,
     ):
         """
         End the span.
@@ -547,10 +547,10 @@ class LiveSpan(Span):
     def from_immutable_span(
         cls,
         span: Span,
-        parent_span_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        experiment_id: Optional[str] = None,
-        otel_trace_id: Optional[str] = None,
+        parent_span_id: str | None = None,
+        trace_id: str | None = None,
+        experiment_id: str | None = None,
+        otel_trace_id: str | None = None,
         end_trace: bool = True,
     ) -> "LiveSpan":
         """
@@ -708,15 +708,15 @@ class NoOpSpan(Span):
     def add_event(self, event: SpanEvent):
         pass
 
-    def record_exception(self, exception: Union[str, Exception]):
+    def record_exception(self, exception: str | Exception):
         pass
 
     def end(
         self,
-        outputs: Optional[Any] = None,
-        attributes: Optional[dict[str, Any]] = None,
-        status: Optional[Union[SpanStatus, str]] = None,
-        end_time_ns: Optional[int] = None,
+        outputs: Any | None = None,
+        attributes: dict[str, Any] | None = None,
+        status: SpanStatus | str | None = None,
+        end_time_ns: int | None = None,
     ):
         pass
 

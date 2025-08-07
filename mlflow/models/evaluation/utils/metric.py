@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import numpy as np
 
@@ -28,8 +28,8 @@ class MetricDefinition:
     function: Callable[..., Any]
     name: str
     index: int
-    version: Optional[str] = None
-    genai_metric_args: Optional[dict[str, Any]] = None
+    version: str | None = None
+    genai_metric_args: dict[str, Any] | None = None
 
     @classmethod
     def from_index_and_metric(cls, index: int, metric: EvaluationMetric):
@@ -41,7 +41,7 @@ class MetricDefinition:
             genai_metric_args=metric.genai_metric_args,
         )
 
-    def evaluate(self, eval_fn_args) -> Optional[MetricValue]:
+    def evaluate(self, eval_fn_args) -> MetricValue | None:
         """
         This function calls the metric function and performs validations on the returned
         result to ensure that they are in the expected format. It will warn and will not log metrics
