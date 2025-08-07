@@ -442,7 +442,6 @@ class Scorer(BaseModel):
         """
         # Get the current tracking store
         from mlflow.tracking._tracking_service.utils import _get_store
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
         from mlflow.utils.databricks_utils import is_databricks_uri
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.exceptions import MlflowException
@@ -481,28 +480,20 @@ class Scorer(BaseModel):
             return new_scorer
 
         current_store = _get_store()
-        # Check if it's a SQLAlchemy store
-        if isinstance(current_store, SqlAlchemyStore):
-            # Use SqlAlchemyStore.register_scorer method (no sampling config needed)
-            if experiment_id is None:
-                # Get current experiment ID if not provided
-                from mlflow.tracking.fluent import _get_experiment_id
-                experiment_id = _get_experiment_id()
+        # Use the store's register_scorer method (no sampling config needed)
+        if experiment_id is None:
+            # Get current experiment ID if not provided
+            from mlflow.tracking.fluent import _get_experiment_id
+            experiment_id = _get_experiment_id()
 
-            # Serialize the scorer to JSON string
-            scorer_dict = new_scorer.model_dump()
-            serialized_scorer = json.dumps(scorer_dict)
+        # Serialize the scorer to JSON string
+        scorer_dict = new_scorer.model_dump()
+        serialized_scorer = json.dumps(scorer_dict)
 
-            # Register the scorer using the SqlAlchemyStore method
-            current_store.register_scorer(experiment_id, new_scorer.name, serialized_scorer)
-            
-            return new_scorer
-
-        # Unsupported backend
-        raise MlflowException(
-            f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
-            "Only SQLAlchemy and Databricks backends are supported for scorer operations."
-        )
+        # Register the scorer using the store's method
+        current_store.register_scorer(experiment_id, new_scorer.name, serialized_scorer)
+        
+        return new_scorer
 
     @experimental(version="3.2.0")
     def start(

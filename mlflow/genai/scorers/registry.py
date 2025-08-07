@@ -63,7 +63,6 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
     """
     # Get the current tracking store
     from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     from mlflow.utils.databricks_utils import is_databricks_uri
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
     from mlflow.exceptions import MlflowException
@@ -89,34 +88,26 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
         return scorers
 
     current_store = _get_store()
-    # Check if it's a SQLAlchemy store
-    if isinstance(current_store, SqlAlchemyStore):
-        # Use SqlAlchemyStore.list_scorers method
-        if experiment_id is None:
-            # Get current experiment ID if not provided
-            from mlflow.tracking.fluent import _get_experiment_id
-            experiment_id = _get_experiment_id()
+    # Use the store's list_scorers method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
+    
+    # Get the list of mlflow.entities.scorer.Scorer objects
+    entity_scorers = current_store.list_scorers(experiment_id)
+    
+    # Convert to mlflow.genai.scorers.Scorer objects
+    scorers = []
+    for entity_scorer in entity_scorers:
+        import json
+        from mlflow.genai.scorers import Scorer
         
-        # Get the list of mlflow.entities.scorer.Scorer objects
-        entity_scorers = current_store.list_scorers(experiment_id)
-        
-        # Convert to mlflow.genai.scorers.Scorer objects
-        scorers = []
-        for entity_scorer in entity_scorers:
-            import json
-            from mlflow.genai.scorers import Scorer
-            
-            scorer_dict = json.loads(entity_scorer.serialized_scorer)
-            scorer = Scorer.model_validate(scorer_dict)
-            scorers.append(scorer)
-        
-        return scorers
-
-    # Unsupported backend
-    raise MlflowException(
-        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
-        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
-    )
+        scorer_dict = json.loads(entity_scorer.serialized_scorer)
+        scorer = Scorer.model_validate(scorer_dict)
+        scorers.append(scorer)
+    
+    return scorers
 
 
 @experimental(version="3.2.0")
@@ -151,7 +142,6 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
     """
     # Get the current tracking store
     from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     from mlflow.utils.databricks_utils import is_databricks_uri
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
     from mlflow.exceptions import MlflowException
@@ -176,31 +166,23 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
         return _scheduled_scorer_to_scorer(scheduled_scorer)
 
     current_store = _get_store()
-    # Check if it's a SQLAlchemy store
-    if isinstance(current_store, SqlAlchemyStore):
-        # Use SqlAlchemyStore.get_scorer method
-        if experiment_id is None:
-            # Get current experiment ID if not provided
-            from mlflow.tracking.fluent import _get_experiment_id
-            experiment_id = _get_experiment_id()
+    # Use the store's get_scorer method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
 
-        # Get the serialized scorer string
-        serialized_scorer = current_store.get_scorer(experiment_id, name)
-        
-        # Convert to mlflow.genai.scorers.Scorer object
-        import json
-        from mlflow.genai.scorers import Scorer
-        
-        scorer_dict = json.loads(serialized_scorer)
-        scorer = Scorer.model_validate(scorer_dict)
-        
-        return scorer
-
-    # Unsupported backend
-    raise MlflowException(
-        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
-        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
-    )
+    # Get the serialized scorer string
+    serialized_scorer = current_store.get_scorer(experiment_id, name)
+    
+    # Convert to mlflow.genai.scorers.Scorer object
+    import json
+    from mlflow.genai.scorers import Scorer
+    
+    scorer_dict = json.loads(serialized_scorer)
+    scorer = Scorer.model_validate(scorer_dict)
+    
+    return scorer
 
 
 @experimental(version="3.2.0")
@@ -250,7 +232,6 @@ def delete_scorer(
     """
     # Get the current tracking store
     from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     from mlflow.utils.databricks_utils import is_databricks_uri
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
     from mlflow.exceptions import MlflowException
@@ -272,22 +253,13 @@ def delete_scorer(
         return
 
     current_store = _get_store()
-    # Check if it's a SQLAlchemy store
-    if isinstance(current_store, SqlAlchemyStore):
-        # Use SqlAlchemyStore.delete_scorer method
-        if experiment_id is None:
-            # Get current experiment ID if not provided
-            from mlflow.tracking.fluent import _get_experiment_id
-            experiment_id = _get_experiment_id()
-        
-        current_store.delete_scorer(experiment_id, name)
-        return
-
-    # Unsupported backend
-    raise MlflowException(
-        f"Scorer operations are not supported for the current tracking URI: {tracking_uri}. "
-        "Only SQLAlchemy and Databricks backends are supported for scorer operations."
-    )
+    # Use the store's delete_scorer method
+    if experiment_id is None:
+        # Get current experiment ID if not provided
+        from mlflow.tracking.fluent import _get_experiment_id
+        experiment_id = _get_experiment_id()
+    
+    current_store.delete_scorer(experiment_id, name)
 
 
 # Private functions for internal use by Scorer methods
