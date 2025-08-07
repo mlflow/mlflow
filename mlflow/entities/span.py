@@ -412,8 +412,7 @@ class Span:
             otel_span.parent_span_id = bytes.fromhex(self.parent_id)
 
         # Set status
-        if self.status:
-            otel_span.status.CopyFrom(self.status.to_otel_proto_status())
+        otel_span.status.CopyFrom(self.status.to_otel_proto_status())
 
         # Add attributes
         for key, value in self.attributes.items():
@@ -422,10 +421,9 @@ class Span:
             _set_value_on_otel_proto(attr.value, value)
 
         # Add events
-        if self.events:
-            for event in self.events:
-                otel_event = event._to_otel_proto()
-                otel_span.events.append(otel_event)
+        for event in self.events:
+            otel_event = event._to_otel_proto()
+            otel_span.events.append(otel_event)
 
         return otel_span
 
