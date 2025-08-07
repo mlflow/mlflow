@@ -389,7 +389,7 @@ class Span:
 
         return cls(otel_span)
 
-    def _to_otel_proto(self):
+    def _to_otel_proto(self) -> OTelProtoSpan:
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
         This is an internal method used by the REST store for logging spans.
