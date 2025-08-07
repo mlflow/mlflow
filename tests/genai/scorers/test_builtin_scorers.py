@@ -323,18 +323,41 @@ def test_safety():
     )
 
 
-def test_correctness():
-    with patch("databricks.agents.evals.judges.correctness") as mock_correctness:
-        Correctness()(
-            inputs={"question": "query"},
-            outputs="answer",
-            expectations={"expected_facts": ["fact1", "fact2"]},
-        )
+@patch("mlflow.genai.judges.is_correct")
+def test_correctness(mock_is_correct):
+    # 1. Test with expected_facts
+    Correctness()(
+        inputs={"question": "query"},
+        outputs="answer",
+        expectations={"expected_facts": ["fact1", "fact2"]},
+    )
 
-    mock_correctness.assert_called_once_with(
+    mock_is_correct.assert_called_once_with(
         request="{'question': 'query'}",
         response="answer",
         expected_facts=["fact1", "fact2"],
         expected_response=None,
-        assessment_name="correctness",
+        name="correctness",
+        model=None,
+    )
+    mock_is_correct.reset_mock()
+
+    # 2. Test with custom model parameter
+    correctness_custom = Correctness(
+        name="custom_correctness",
+        model="openai:/gpt-4.1-mini",
+    )
+    correctness_custom(
+        inputs={"question": "query"},
+        outputs="answer",
+        expectations={"expected_response": "expected answer"},
+    )
+
+    mock_is_correct.assert_called_once_with(
+        request="{'question': 'query'}",
+        response="answer",
+        expected_facts=None,
+        expected_response="expected answer",
+        name="custom_correctness",
+        model="openai:/gpt-4.1-mini",
     )

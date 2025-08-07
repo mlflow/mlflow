@@ -632,6 +632,7 @@ class Safety(BuiltInScorer):
         return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
@@ -639,6 +640,10 @@ class Correctness(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "correctness".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -690,6 +695,7 @@ class Correctness(BuiltInScorer):
     """
 
     name: str = "correctness"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -737,6 +743,7 @@ class Correctness(BuiltInScorer):
             expected_response=expected_response,
             expected_facts=expected_facts,
             name=self.name,
+            model=self.model,
         )
 
 

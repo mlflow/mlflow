@@ -175,14 +175,15 @@ def is_context_sufficient(
     )
 
 
-@requires_databricks_agents
+@format_docstring(_MODEL_API_DOC)
 def is_correct(
     *,
     request: str,
     response: str,
-    expected_facts: list[str],
+    expected_facts: Optional[list[str]] = None,
     expected_response: Optional[str] = None,
     name: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is correct for the input request.
@@ -190,25 +191,62 @@ def is_correct(
     Args:
         request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
-        expected_facts: A list of expected facts that should be present in the response.
+        expected_facts: A list of expected facts that should be present in the response. Optional.
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the response is correct for the request.
-    """
-    from databricks.agents.evals.judges import correctness
 
-    return _sanitize_feedback(
-        correctness(
+    Example:
+
+        The following example shows how to evaluate whether the response is correct.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_correct
+
+            feedback = is_correct(
+                request="What is the capital of France?",
+                response="Paris is the capital of France.",
+                expected_response="Paris",
+            )
+            print(feedback.value)  # "yes"
+
+            feedback = is_correct(
+                request="What is the capital of France?",
+                response="London is the capital of France.",
+                expected_facts=["Paris is the capital of France"],
+            )
+            print(feedback.value)  # "no"
+    """
+    from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+
+    model = model or get_default_model()
+    assessment_name = name or CORRECTNESS_FEEDBACK_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import correctness
+
+        feedback = correctness(
             request=request,
             response=response,
             expected_facts=expected_facts,
             expected_response=expected_response,
-            assessment_name=name,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(
+            request=request,
+            response=response,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
 @requires_databricks_agents
