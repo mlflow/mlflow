@@ -5,7 +5,7 @@ contexts.
 
 import functools
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, ParamSpec, TypeVar
+from typing import Callable, ParamSpec, TypeVar
 
 import mlflow
 
@@ -20,19 +20,19 @@ class Context(ABC):
     """
 
     @abstractmethod
-    def get_mlflow_experiment_id(self) -> Optional[str]:
+    def get_mlflow_experiment_id(self) -> str | None:
         """
         Get the current MLflow experiment ID, or None if not running within an MLflow experiment.
         """
 
     @abstractmethod
-    def get_mlflow_run_id(self) -> Optional[str]:
+    def get_mlflow_run_id(self) -> str | None:
         """
         Gets the MLflow RunId, or None if not running within an MLflow run.
         """
 
     @abstractmethod
-    def get_user_name(self) -> Optional[str]:
+    def get_user_name(self) -> str | None:
         """
         Get the current user's name.
         """
@@ -43,13 +43,13 @@ class NoneContext(Context):
     A context that does nothing.
     """
 
-    def get_mlflow_experiment_id(self) -> Optional[str]:
+    def get_mlflow_experiment_id(self) -> str | None:
         raise NotImplementedError("Context is not set")
 
-    def get_mlflow_run_id(self) -> Optional[str]:
+    def get_mlflow_run_id(self) -> str | None:
         raise NotImplementedError("Context is not set")
 
-    def get_user_name(self) -> Optional[str]:
+    def get_user_name(self) -> str | None:
         raise NotImplementedError("Context is not set")
 
 
@@ -84,11 +84,11 @@ class RealContext(Context):
         except Exception:
             self._notebook_context = None
 
-    def get_mlflow_experiment_id(self) -> Optional[str]:
+    def get_mlflow_experiment_id(self) -> str | None:
         # Note `_get_experiment_id` is thread-safe
         return mlflow.tracking.fluent._get_experiment_id()
 
-    def get_mlflow_run_id(self) -> Optional[str]:
+    def get_mlflow_run_id(self) -> str | None:
         """
         Gets the MLflow run_id the evaluation harness is running under.
 
@@ -115,7 +115,7 @@ class RealContext(Context):
         """
         self._run_id = run_id
 
-    def get_user_name(self) -> Optional[str]:
+    def get_user_name(self) -> str | None:
         try:
             return self._notebook_context.userName().get()
         except Exception:

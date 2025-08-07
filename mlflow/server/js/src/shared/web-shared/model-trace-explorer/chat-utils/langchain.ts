@@ -1,5 +1,6 @@
 import { compact, has, isNil, isString } from 'lodash';
-import { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
 import { isModelTraceToolCall, prettyPrintToolCall } from '../ModelTraceExplorer.utils';
 
 type LangchainContentPart = {

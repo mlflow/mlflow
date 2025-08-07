@@ -1,4 +1,4 @@
-import { FormUI, InfoIcon, Input, LegacyTooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
+import { FormUI, InfoSmallIcon, Input, LegacyTooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
@@ -84,7 +84,7 @@ export const EvaluationCreatePromptParameters = ({
             <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
               <LegacyTooltip title={<FormattedMessage {...parameterDef.helpString} />} placement="right">
-                <InfoIcon
+                <InfoSmallIcon
                   css={{
                     marginLeft: theme.spacing.sm,
                     verticalAlign: 'text-top',
@@ -93,7 +93,7 @@ export const EvaluationCreatePromptParameters = ({
                 />
               </LegacyTooltip>
             </FormUI.Label>
-            <FormUI.Hint></FormUI.Hint>
+            <FormUI.Hint />
             {parameterDef.name === 'temperature' && (
               <LineSmoothSlider
                 data-testid={parameterDef.name}

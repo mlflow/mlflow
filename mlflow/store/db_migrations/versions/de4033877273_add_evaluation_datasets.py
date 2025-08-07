@@ -1,7 +1,7 @@
 """add evaluation datasets
 
 Revision ID: de4033877273
-Revises: 770bee3ae1dd
+Revises: a1b2c3d4e5f6
 Create Date: 2025-07-28 13:05:53.982327
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.ext.mutable import MutableDict
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
-down_revision = "770bee3ae1dd"
+down_revision = "a1b2c3d4e5f6"
 branch_labels = None
 depends_on = None
 

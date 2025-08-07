@@ -116,6 +116,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, the appropriate environment manager is automatically selected based on
@@ -189,7 +190,7 @@ WORKERS = click.option(
     "-w",
     envvar="MLFLOW_WORKERS",
     default=None,
-    help="Number of gunicorn worker processes to handle requests (default: 4).",
+    help="Number of worker processes to handle requests (default: 4).",
 )
 
 MODELS_WORKERS = click.option(

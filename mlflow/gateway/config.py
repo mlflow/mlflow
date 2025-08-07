@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pydantic
 import yaml
@@ -89,7 +89,7 @@ class AI21LabsConfig(ConfigModel):
 
 class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
-    mosaicml_api_base: Optional[str] = None
+    mosaicml_api_base: str | None = None
 
     @field_validator("mosaicml_api_key", mode="before")
     def validate_mosaicml_api_key(cls, value):
@@ -116,10 +116,10 @@ class OpenAIAPIType(str, Enum):
 class OpenAIConfig(ConfigModel):
     openai_api_key: str
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
-    openai_api_base: Optional[str] = None
-    openai_api_version: Optional[str] = None
-    openai_deployment_name: Optional[str] = None
-    openai_organization: Optional[str] = None
+    openai_api_base: str | None = None
+    openai_api_version: str | None = None
+    openai_deployment_name: str | None = None
+    openai_organization: str | None = None
 
     @field_validator("openai_api_key", mode="before")
     def validate_openai_api_key(cls, value):
@@ -202,7 +202,7 @@ class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
 
 
 class AWSBaseConfig(pydantic.BaseModel):
-    aws_region: Optional[str] = None
+    aws_region: str | None = None
 
 
 class AWSRole(AWSBaseConfig):
@@ -213,12 +213,12 @@ class AWSRole(AWSBaseConfig):
 class AWSIdAndKey(AWSBaseConfig):
     aws_access_key_id: str
     aws_secret_access_key: str
-    aws_session_token: Optional[str] = None
+    aws_session_token: str | None = None
 
 
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -230,7 +230,7 @@ class MistralConfig(ConfigModel):
 
 
 class ModelInfo(ResponseModel):
-    name: Optional[str] = None
+    name: str | None = None
     provider: Provider
 
 
@@ -276,12 +276,12 @@ def _resolve_api_key_from_input(api_key_input):
 
 
 class Model(ConfigModel):
-    name: Optional[str] = None
-    provider: Union[str, Provider]
+    name: str | None = None
+    provider: str | Provider
     if IS_PYDANTIC_V2_OR_NEWER:
-        config: Optional[SerializeAsAny[ConfigModel]] = None
+        config: SerializeAsAny[ConfigModel] | None = None
     else:
-        config: Optional[ConfigModel] = None
+        config: ConfigModel | None = None
 
     @field_validator("provider", mode="before")
     def validate_provider(cls, value):
@@ -334,19 +334,19 @@ class AliasedConfigModel(ConfigModel):
 
 class Limit(LimitModel):
     calls: int
-    key: Optional[str] = None
+    key: str | None = None
     renewal_period: str
 
 
 class LimitsConfig(ConfigModel):
-    limits: Optional[list[Limit]] = []
+    limits: list[Limit] | None = []
 
 
 class RouteConfig(AliasedConfigModel):
     name: str
     endpoint_type: RouteType
     model: Model
-    limit: Optional[Limit] = None
+    limit: Limit | None = None
 
     @field_validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -432,7 +432,7 @@ class RouteConfig(AliasedConfigModel):
 
 
 class RouteModelInfo(ResponseModel):
-    name: Optional[str] = None
+    name: str | None = None
     # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
     # support new providers without breaking the gateway client.
     provider: str
@@ -456,7 +456,7 @@ class Route(ConfigModel):
     route_type: str
     model: RouteModelInfo
     route_url: str
-    limit: Optional[Limit] = None
+    limit: Limit | None = None
 
     class Config:
         if IS_PYDANTIC_V2_OR_NEWER:
@@ -480,7 +480,7 @@ class GatewayConfig(AliasedConfigModel):
     endpoints: list[RouteConfig]
 
 
-def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
+def _load_route_config(path: str | Path) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -503,7 +503,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         ) from e
 
 
-def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
+def _save_route_config(config: GatewayConfig, path: str | Path) -> None:
     if isinstance(path, str):
         path = Path(path)
     path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
