@@ -10,11 +10,14 @@ from typing import Any, Optional, Union
 
 import dateutil.parser
 
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
 # Used multiple times across the module
 NANOSECONDS_PER_MS = 1e6
 NANOSECONDS_PER_S = 1e9
-MAX_PREVIEW_LENGTH = 500
-MAX_OUTPUT_LENGTH = 1000
+MAX_PREVIEW_LENGTH = 1000
 
 MESSAGE_TYPE_USER = "user"
 MESSAGE_TYPE_ASSISTANT = "assistant"
@@ -25,6 +28,11 @@ MESSAGE_FIELD_CONTENT = "content"
 MESSAGE_FIELD_TYPE = "type"
 MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
+
+
+# ============================================================================
+# LOGGING AND SETUP
+# ============================================================================
 
 
 def setup_logging() -> logging.Logger:
@@ -101,6 +109,11 @@ def setup_mlflow() -> None:
         get_logger().warning("Failed to set experiment: %s", e)
 
 
+# ============================================================================
+# INPUT/OUTPUT UTILITIES
+# ============================================================================
+
+
 def read_hook_input() -> dict[str, Any]:
     """Read JSON input from stdin for Claude Code hook processing."""
     try:
@@ -126,6 +139,11 @@ def output_hook_response(continue_execution: bool = True, **kwargs) -> None:
     """Output hook response JSON to stdout for Claude Code hook protocol."""
     response = {"continue": continue_execution, **kwargs}
     print(json.dumps(response))  # noqa: T201
+
+
+# ============================================================================
+# TIMESTAMP AND CONTENT PARSING UTILITIES
+# ============================================================================
 
 
 def parse_timestamp_to_ns(timestamp: Union[str, int, float, None]) -> Optional[int]:
@@ -207,6 +225,11 @@ def find_last_user_message_index(transcript: list[dict[str, Any]]) -> Optional[i
 
             return i
     return None
+
+
+# ============================================================================
+# TRANSCRIPT PROCESSING HELPERS
+# ============================================================================
 
 
 def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> Optional[int]:
@@ -318,7 +341,7 @@ def find_final_assistant_response(
         start_idx: Index to start searching from (typically after last user message)
 
     Returns:
-        Final assistant response text (truncated to MAX_OUTPUT_LENGTH), or None
+        Final assistant response text or None
     """
     final_response = None
 
@@ -338,6 +361,11 @@ def find_final_assistant_response(
                         final_response = text
 
     return final_response
+
+
+# ============================================================================
+# MAIN TRANSCRIPT PROCESSING
+# ============================================================================
 
 
 def process_transcript(transcript_path: str, session_id: Optional[str] = None) -> Optional[Any]:
@@ -432,53 +460,3 @@ def process_transcript(transcript_path: str, session_id: Optional[str] = None) -
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
         return None
-
-
-# Hook handlers that will be called by Claude Code
-
-
-def post_tool_use_handler() -> None:
-    """Hook handler for post-tool-use events."""
-    if not is_tracing_enabled():
-        output_hook_response()
-        return
-
-    try:
-        hook_data = read_hook_input()
-        session_id = hook_data.get("session_id")
-        tool_name = hook_data.get("tool_name")
-
-        get_logger().info("PostToolUse: session=%s, tool=%s", session_id, tool_name)
-        output_hook_response()
-
-    except Exception as e:
-        get_logger().error("Error in PostToolUse hook: %s", e, exc_info=True)
-        output_hook_response(error=str(e))
-        sys.exit(1)
-
-
-def stop_hook_handler() -> None:
-    """Hook handler for conversation end - processes transcript and creates trace."""
-    if not is_tracing_enabled():
-        output_hook_response()
-        return
-
-    try:
-        hook_data = read_hook_input()
-        session_id = hook_data.get("session_id")
-        transcript_path = hook_data.get("transcript_path")
-
-        get_logger().info("Stop hook: session=%s, transcript=%s", session_id, transcript_path)
-
-        # Process the transcript and create MLflow trace
-        trace = process_transcript(transcript_path, session_id)
-
-        if trace:
-            output_hook_response()
-        else:
-            output_hook_response(error="Failed to process transcript")
-
-    except Exception as e:
-        get_logger().error("Error in Stop hook: %s", e, exc_info=True)
-        output_hook_response(error=str(e))
-        sys.exit(1)

@@ -1,0 +1,115 @@
+"""Configuration management for Claude Code integration with MLflow."""
+
+import json
+from pathlib import Path
+from typing import Any, Optional
+
+# Configuration field constants
+HOOK_FIELD_HOOKS = "hooks"
+HOOK_FIELD_COMMAND = "command"
+ENVIRONMENT_FIELD = "environment"
+
+# MLflow environment variable constants
+MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
+MLFLOW_TRACING_ENABLED = "MLFLOW_CLAUDE_TRACING_ENABLED"
+MLFLOW_TRACKING_URI = "MLFLOW_TRACKING_URI"
+MLFLOW_EXPERIMENT_ID = "MLFLOW_EXPERIMENT_ID"
+MLFLOW_EXPERIMENT_NAME = "MLFLOW_EXPERIMENT_NAME"
+
+
+def load_claude_config(settings_path: Path) -> dict[str, Any]:
+    """Load existing Claude configuration from settings file.
+
+    Args:
+        settings_path: Path to Claude settings.json file
+
+    Returns:
+        Configuration dictionary, empty dict if file doesn't exist or is invalid
+    """
+    if settings_path.exists():
+        try:
+            with open(settings_path, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
+
+
+def save_claude_config(settings_path: Path, config: dict[str, Any]) -> None:
+    """Save Claude configuration to settings file.
+
+    Args:
+        settings_path: Path to Claude settings.json file
+        config: Configuration dictionary to save
+    """
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+
+def get_tracing_status(settings_path: Path) -> dict[str, Any]:
+    """Get current tracing status from Claude settings.
+
+    Args:
+        settings_path: Path to Claude settings file
+
+    Returns:
+        Dictionary with tracing status information:
+        - enabled: bool indicating if tracing is active
+        - tracking_uri: MLflow tracking URI or "Not set"
+        - experiment_id: Experiment ID if set
+        - experiment_name: Experiment name if set
+        - reason: Reason if not enabled
+    """
+    if not settings_path.exists():
+        return {"enabled": False, "reason": "No configuration found"}
+
+    config = load_claude_config(settings_path)
+    env_vars = config.get(ENVIRONMENT_FIELD, {})
+    enabled = env_vars.get(MLFLOW_TRACING_ENABLED) == "true"
+
+    return {
+        "enabled": enabled,
+        "tracking_uri": env_vars.get(MLFLOW_TRACKING_URI, "Not set"),
+        "experiment_id": env_vars.get(MLFLOW_EXPERIMENT_ID),
+        "experiment_name": env_vars.get(MLFLOW_EXPERIMENT_NAME),
+    }
+
+
+def setup_environment_config(
+    settings_path: Path,
+    tracking_uri: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+) -> None:
+    """Set up MLflow environment variables in Claude settings.
+
+    Args:
+        settings_path: Path to Claude settings file
+        tracking_uri: MLflow tracking URI, defaults to local file storage
+        experiment_id: MLflow experiment ID (takes precedence over name)
+        experiment_name: MLflow experiment name
+    """
+    config = load_claude_config(settings_path)
+
+    if ENVIRONMENT_FIELD not in config:
+        config[ENVIRONMENT_FIELD] = {}
+
+    # Always enable tracing
+    config[ENVIRONMENT_FIELD][MLFLOW_TRACING_ENABLED] = "true"
+
+    # Set tracking URI
+    if tracking_uri:
+        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = tracking_uri
+    elif MLFLOW_TRACKING_URI not in config[ENVIRONMENT_FIELD]:
+        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = "file://./.claude/mlflow/runs"
+
+    # Set experiment configuration (ID takes precedence over name)
+    if experiment_id:
+        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID] = experiment_id
+        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_NAME, None)
+    elif experiment_name:
+        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME] = experiment_name
+        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID, None)
+
+    save_claude_config(settings_path, config)
