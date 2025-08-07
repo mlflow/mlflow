@@ -129,9 +129,9 @@ class SpanStatus:
         :meta private:
         """
         # Map protobuf status codes to SpanStatusCode
-        if otel_proto_status.code == 1:  # STATUS_CODE_OK
+        if otel_proto_status.code == Status.STATUS_CODE_OK:
             status_code = SpanStatusCode.OK
-        elif otel_proto_status.code == 2:  # STATUS_CODE_ERROR
+        elif otel_proto_status.code == Status.STATUS_CODE_ERROR:
             status_code = SpanStatusCode.ERROR
         else:
             status_code = SpanStatusCode.UNSET

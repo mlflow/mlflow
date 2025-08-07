@@ -7,6 +7,7 @@ from typing import Any, Union
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -360,9 +361,9 @@ class Span:
             parent_id = otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert OTel proto status code directly to OTel SDK status
-        if otel_proto_span.status.code == 1:  # STATUS_CODE_OK
+        if otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_OK:
             status_code = OTelStatusCode.OK
-        elif otel_proto_span.status.code == 2:  # STATUS_CODE_ERROR
+        elif otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_ERROR:
             status_code = OTelStatusCode.ERROR
         else:
             status_code = OTelStatusCode.UNSET
