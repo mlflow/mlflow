@@ -3827,10 +3827,6 @@
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Unsaved tag message > cancel button"
   },
-  "gerwuf": {
-    "defaultMessage": "Edit",
-    "description": "Trace actions dropdown group label"
-  },
   "giZdtW": {
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
