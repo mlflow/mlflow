@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from mlflow.genai.judges.utils import format_prompt
 
@@ -18,7 +18,7 @@ Please indicate whether each statement in the claim is supported by the document
   "rationale": "Reason for the assessment. If the claim is not fully supported by the document in the context of the question, state which parts are not supported. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
 }\
-"""
+"""  # noqa: E501
 
 # This suffix is only shown when expected facts are provided to squeeze out better judge quality.
 CORRECTNESS_PROMPT_SUFFIX = """
@@ -26,7 +26,7 @@ CORRECTNESS_PROMPT_SUFFIX = """
 If the claim is fully supported by the document in the context of the question, you must say "The response is correct" in the rationale. If the claim is not fully supported by the document in the context of the question, you must say "The response is not correct"."""
 
 
-def convert_expected_facts_to_expected_response(expected_facts: Optional[List[str]]) -> str:
+def convert_expected_facts_to_expected_response(expected_facts: Optional[list[str]]) -> str:
     """Convert expected facts list to a formatted string for the correctness prompt."""
     if not expected_facts:
         return ""
@@ -37,7 +37,7 @@ def get_prompt(
     request: str,
     response: str,
     expected_response: Optional[str] = None,
-    expected_facts: Optional[List[str]] = None
+    expected_facts: Optional[list[str]] = None,
 ) -> str:
     """Generate correctness evaluation prompt.
 

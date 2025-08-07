@@ -15,7 +15,7 @@ Please indicate whether the answer contains information that is relevant to the 
   "rationale": "Reason for the assessment. If the answer does not provide any information that is relevant to the question then state which parts are not relevant. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
 }
-Do not output additional lines. `result` must only be `yes` or `no`."""
+Do not output additional lines. `result` must only be `yes` or `no`."""  # noqa: E501
 
 
 def get_prompt(request: str, context: str) -> str:
