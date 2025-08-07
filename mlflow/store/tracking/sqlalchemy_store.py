@@ -2656,10 +2656,10 @@ class SqlAlchemyStore(AbstractStore):
                 span_status = span.status.status_code.value
                 if span_status == "ERROR":
                     return "ERROR"
-                elif span_status == "UNSET":
-                    # If root span is UNSET (unexpected), assume overall trace status is OK
-                    return "OK"
-                else:  # OK or any other status
+                else:
+                    # For both OK and UNSET span statuses, return OK trace status.
+                    # UNSET is unexpected in production but we handle it gracefully.
+                    # The only valid span statuses are OK, ERROR, and UNSET.
                     return "OK"
         return None
 
