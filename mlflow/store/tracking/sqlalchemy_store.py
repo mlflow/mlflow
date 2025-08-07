@@ -3116,7 +3116,6 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
-            last_updated_by = None
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3143,8 +3142,6 @@ class SqlAlchemyStore(AbstractStore):
                     merged_tags = existing_record.tags or {}
                     if new_tags := record_dict.get("tags"):
                         merged_tags.update(new_tags)
-                        if MLFLOW_USER in new_tags:
-                            last_updated_by = new_tags[MLFLOW_USER]
 
                     source = None
                     if existing_record.source:
@@ -3158,7 +3155,6 @@ class SqlAlchemyStore(AbstractStore):
                     merged_tags = record_dict.get("tags")
                     if merged_tags and MLFLOW_USER in merged_tags:
                         created_by = merged_tags[MLFLOW_USER]
-                        last_updated_by = created_by
                     merged_expectations = record_dict.get("expectations")
 
                     source = None
@@ -3192,23 +3188,20 @@ class SqlAlchemyStore(AbstractStore):
                 .first()
             )
 
-            # Update schema with new fields from records
             updated_schema = self._update_dataset_schema(dataset.schema, records)
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
-            # Extract user who is performing the upsert operation
-            # Look through all records to find mlflow.user tag
             updated_by = None
             for record_dict in records:
                 record_tags = record_dict.get("tags", {})
                 if record_tags and "mlflow.user" in record_tags:
                     updated_by = record_tags["mlflow.user"]
                     break
-            
+
             update_fields = {
                 "last_update_time": current_time,
-                "last_updated_by": last_updated_by,
+                "last_updated_by": updated_by,
             }
 
             if updated_schema:
@@ -3241,7 +3234,6 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Verify dataset exists first
         with self.ManagedSessionMaker() as session:
             dataset = (
                 session.query(SqlEvaluationDataset.dataset_id)
@@ -3298,7 +3290,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             dataset.last_update_time = get_current_time_millis()
-            # Extract user from tags if provided
             if tags and MLFLOW_USER in tags:
                 dataset.last_updated_by = tags[MLFLOW_USER]
 

@@ -53,6 +53,8 @@ from mlflow.protos.service_pb2 import (
     FinalizeLoggedModel,
     GetAssessmentRequest,
     GetEvaluationDataset,
+    GetEvaluationDatasetExperimentIds,
+    GetEvaluationDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -78,6 +80,7 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SearchUnifiedTraces,
+    SetEvaluationDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -87,11 +90,9 @@ from mlflow.protos.service_pb2 import (
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
-    SetEvaluationDatasetTags,
-    UpsertEvaluationDatasetRecords,
-    GetEvaluationDatasetExperimentIds,
     UpdateExperiment,
     UpdateRun,
+    UpsertEvaluationDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -1175,17 +1176,13 @@ class RestStore(AbstractStore):
             name=name,
             experiment_ids=experiment_ids or [],
         )
+
+        if tags:
+            req.tags = json.dumps(tags)
+
         req_body = message_to_json(req)
         response_proto = self._call_endpoint(CreateEvaluationDataset, req_body)
-        dataset = EvaluationDataset.from_proto(response_proto.dataset)
-        
-        # Set tags if provided
-        if tags:
-            self.set_evaluation_dataset_tags(dataset.dataset_id, tags)
-            # Refresh the dataset to get updated tags
-            dataset = self.get_evaluation_dataset(dataset.dataset_id)
-        
-        return dataset
+        return EvaluationDataset.from_proto(response_proto.dataset)
 
     def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
@@ -1274,9 +1271,7 @@ class RestStore(AbstractStore):
             "updated": response_proto.updated_count,
         }
 
-    def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any]
-    ) -> None:
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -1308,3 +1303,47 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         response_proto = self._call_endpoint(GetEvaluationDatasetExperimentIds, req_body)
         return list(response_proto.experiment_ids)
+
+    def _load_dataset_records(self, dataset_id: str) -> list:
+        """
+        Load dataset records for lazy loading.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of DatasetRecord objects.
+
+        NB: Return type is unparameterized `list` rather than `list[DatasetRecord]` because
+        DatasetRecord is imported lazily to avoid circular imports with the entities module.
+        """
+        # NB: Lazy import to avoid circular dependency with entities module
+        from mlflow.entities.dataset_record import DatasetRecord
+
+        all_records = []
+        page_token = None
+
+        # Paginate through all records
+        while True:
+            req = GetEvaluationDatasetRecords.Request(
+                dataset_id=dataset_id,
+                max_results=1000,
+            )
+            if page_token:
+                req.page_token = page_token
+
+            req_body = message_to_json(req)
+            response_proto = self._call_endpoint(GetEvaluationDatasetRecords, req_body)
+
+            if response_proto.records:
+                records_dicts = json.loads(response_proto.records)
+                for record_dict in records_dicts:
+                    all_records.append(DatasetRecord.from_dict(record_dict))
+
+            # Check if there are more pages
+            if response_proto.next_page_token:
+                page_token = response_proto.next_page_token
+            else:
+                break
+
+        return all_records

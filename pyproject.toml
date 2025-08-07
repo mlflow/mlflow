@@ -307,6 +307,9 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
+# Ignore specific rules for evaluation dataset implementation
+"mlflow/server/__init__.py" = ["lazy-builtin-import"]
+"mlflow/store/tracking/rest_store.py" = ["unparameterized-generic-type"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

@@ -110,6 +110,8 @@ from mlflow.protos.service_pb2 import (
     FinalizeLoggedModel,
     GetAssessmentRequest,
     GetEvaluationDataset,
+    GetEvaluationDatasetExperimentIds,
+    GetEvaluationDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -137,6 +139,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetEvaluationDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -144,10 +147,9 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
-    UpdateEvaluationDatasetTags,
     UpdateExperiment,
     UpdateRun,
-    UpsertDatasetRecords,
+    UpsertEvaluationDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.server.validation import _validate_content_type
@@ -3205,22 +3207,26 @@ def get_endpoints(get_handler=get_handler):
 @_disable_if_artifacts_only
 def _create_evaluation_dataset():
     request_message = _get_request_message(
-        CreateEvaluationDataset(),
+        CreateEvaluationDataset.Request(),
         schema={
             "name": [_assert_required, _assert_string],
             "experiment_ids": [_assert_array],
+            "tags": [_assert_string],
         },
     )
-    
-    # For now, tags are not supported in the REST API
-    # TODO: Add tags support to the protobuf definition
-    
+
+    tags = None
+    if hasattr(request_message, "tags") and request_message.tags:
+        tags = json.loads(request_message.tags)
+
     dataset = _get_tracking_store().create_evaluation_dataset(
         name=request_message.name,
-        experiment_ids=list(request_message.experiment_ids) if request_message.experiment_ids else None,
-        tags=None,
+        experiment_ids=list(request_message.experiment_ids)
+        if request_message.experiment_ids
+        else None,
+        tags=tags,
     )
-    
+
     response_message = CreateEvaluationDataset.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
     return _wrap_response(response_message)
@@ -3230,12 +3236,11 @@ def _create_evaluation_dataset():
 @_disable_if_artifacts_only
 def _get_evaluation_dataset():
     request_message = _get_request_message(
-        GetEvaluationDataset(),
-        schema={"dataset_id": [_assert_required, _assert_string]}
+        GetEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
     )
-    
+
     dataset = _get_tracking_store().get_evaluation_dataset(request_message.dataset_id)
-    
+
     response_message = GetEvaluationDataset.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
     return _wrap_response(response_message)
@@ -3245,12 +3250,11 @@ def _get_evaluation_dataset():
 @_disable_if_artifacts_only
 def _delete_evaluation_dataset():
     request_message = _get_request_message(
-        DeleteEvaluationDataset(),
-        schema={"dataset_id": [_assert_required, _assert_string]}
+        DeleteEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
     )
-    
+
     _get_tracking_store().delete_evaluation_dataset(request_message.dataset_id)
-    
+
     response_message = DeleteEvaluationDataset.Response()
     return _wrap_response(response_message)
 
@@ -3259,7 +3263,7 @@ def _delete_evaluation_dataset():
 @_disable_if_artifacts_only
 def _search_evaluation_datasets():
     request_message = _get_request_message(
-        SearchEvaluationDatasets(),
+        SearchEvaluationDatasets.Request(),
         schema={
             "experiment_ids": [_assert_array],
             "filter_string": [_assert_string],
@@ -3268,20 +3272,22 @@ def _search_evaluation_datasets():
             "page_token": [_assert_string],
         },
     )
-    
+
     datasets = _get_tracking_store().search_evaluation_datasets(
-        experiment_ids=list(request_message.experiment_ids) if request_message.experiment_ids else None,
+        experiment_ids=list(request_message.experiment_ids)
+        if request_message.experiment_ids
+        else None,
         filter_string=request_message.filter_string if request_message.filter_string else None,
         max_results=request_message.max_results if request_message.max_results else None,
         order_by=list(request_message.order_by) if request_message.order_by else None,
         page_token=request_message.page_token if request_message.page_token else None,
     )
-    
+
     response_message = SearchEvaluationDatasets.Response()
     response_message.datasets.extend([d.to_proto() for d in datasets])
     if datasets.token:
         response_message.next_page_token = datasets.token
-    
+
     return _wrap_response(response_message)
 
 
@@ -3289,24 +3295,22 @@ def _search_evaluation_datasets():
 @_disable_if_artifacts_only
 def _set_evaluation_dataset_tags():
     request_message = _get_request_message(
-        UpdateEvaluationDatasetTags(),
+        SetEvaluationDatasetTags.Request(),
         schema={
             "dataset_id": [_assert_required, _assert_string],
             "tags": [_assert_required, _assert_string],
-            "updated_by": [_assert_string],
         },
     )
-    
-    # Parse tags from JSON string
+
     tags = json.loads(request_message.tags)
-    
+
     _get_tracking_store().set_evaluation_dataset_tags(
         dataset_id=request_message.dataset_id,
         tags=tags,
-        updated_by=request_message.updated_by if request_message.updated_by else None,
+        updated_by=None,  # TODO: Get from auth context when available
     )
-    
-    response_message = UpdateEvaluationDatasetTags.Response()
+
+    response_message = SetEvaluationDatasetTags.Response()
     return _wrap_response(response_message)
 
 
@@ -3314,44 +3318,80 @@ def _set_evaluation_dataset_tags():
 @_disable_if_artifacts_only
 def _upsert_evaluation_dataset_records():
     request_message = _get_request_message(
-        UpsertDatasetRecords(),
+        UpsertEvaluationDatasetRecords.Request(),
         schema={
             "dataset_id": [_assert_required, _assert_string],
-            "records": [_assert_required, _assert_array],
+            "records": [_assert_required, _assert_string],
             "updated_by": [_assert_string],
         },
     )
-    
-    # Convert proto records to dicts
-    records = []
-    for record_proto in request_message.records:
-        record_dict = {}
-        if record_proto.inputs:
-            record_dict["inputs"] = json.loads(record_proto.inputs)
-        else:
-            record_dict["inputs"] = {}
-        
-        if record_proto.expectations:
-            record_dict["expectations"] = json.loads(record_proto.expectations)
-        
-        if record_proto.tags:
-            record_dict["tags"] = json.loads(record_proto.tags)
-        
-        if record_proto.source:
-            record_dict["source"] = json.loads(record_proto.source)
-        
-        records.append(record_dict)
-    
+
+    records = json.loads(request_message.records)
+
     result = _get_tracking_store().upsert_evaluation_dataset_records(
         dataset_id=request_message.dataset_id,
         records=records,
         updated_by=request_message.updated_by if request_message.updated_by else None,
     )
-    
-    response_message = UpsertDatasetRecords.Response()
+
+    response_message = UpsertEvaluationDatasetRecords.Response()
     response_message.inserted_count = result["inserted"]
     response_message.updated_count = result["updated"]
-    
+
+    return _wrap_response(response_message)
+
+
+def _get_evaluation_dataset_experiment_ids():
+    """
+    Get experiment IDs associated with an evaluation dataset.
+    """
+    request_message = _get_request_message(
+        GetEvaluationDatasetExperimentIds.Request(), flask_request=request
+    )
+
+    experiment_ids = _get_tracking_store().get_evaluation_dataset_experiment_ids(
+        dataset_id=request_message.dataset_id
+    )
+
+    response_message = GetEvaluationDatasetExperimentIds.Response()
+    response_message.experiment_ids.extend(experiment_ids)
+
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_evaluation_dataset_records():
+    request_message = _get_request_message(
+        GetEvaluationDatasetRecords.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+
+    # Get records from the backend
+    records = _get_tracking_store()._load_dataset_records(request_message.dataset_id)
+
+    # Apply pagination if requested
+    max_results = request_message.max_results if request_message.max_results else 1000
+    page_token = request_message.page_token if request_message.page_token else "0"
+    start_index = int(page_token)
+
+    paginated_records = records[start_index : start_index + max_results]
+
+    # Prepare response
+    response_message = GetEvaluationDatasetRecords.Response()
+
+    # Convert records to JSON
+    records_dicts = [record.to_dict() for record in paginated_records]
+    response_message.records = json.dumps(records_dicts)
+
+    # Set next page token if there are more records
+    if start_index + max_results < len(records):
+        response_message.next_page_token = str(start_index + max_results)
+
     return _wrap_response(response_message)
 
 
@@ -3388,8 +3428,10 @@ HANDLERS = {
     GetEvaluationDataset: _get_evaluation_dataset,
     DeleteEvaluationDataset: _delete_evaluation_dataset,
     SearchEvaluationDatasets: _search_evaluation_datasets,
-    UpdateEvaluationDatasetTags: _set_evaluation_dataset_tags,
-    UpsertDatasetRecords: _upsert_evaluation_dataset_records,
+    SetEvaluationDatasetTags: _set_evaluation_dataset_tags,
+    UpsertEvaluationDatasetRecords: _upsert_evaluation_dataset_records,
+    GetEvaluationDatasetExperimentIds: _get_evaluation_dataset_experiment_ids,
+    GetEvaluationDatasetRecords: _get_evaluation_dataset_records,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

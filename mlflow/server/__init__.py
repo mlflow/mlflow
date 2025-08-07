@@ -144,37 +144,51 @@ def serve_create_evaluation_dataset():
     return handlers._create_evaluation_dataset()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>"), methods=["GET"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>"), methods=["GET"]
+)
 def serve_get_evaluation_dataset(dataset_id: str):
     # Inject dataset_id into request for handler
     from flask import request
+
     if not hasattr(request, "_cached_json"):
         request._cached_json = request.get_json(silent=True) or {}
     request._cached_json["dataset_id"] = dataset_id
     return handlers._get_evaluation_dataset()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>"), methods=["DELETE"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>"), methods=["DELETE"]
+)
 def serve_delete_evaluation_dataset(dataset_id: str):
     from flask import request
+
     if not hasattr(request, "_cached_json"):
         request._cached_json = request.get_json(silent=True) or {}
     request._cached_json["dataset_id"] = dataset_id
     return handlers._delete_evaluation_dataset()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/tags"), methods=["POST"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/tags"),
+    methods=["POST"],
+)
 def serve_set_evaluation_dataset_tags(dataset_id: str):
     from flask import request
+
     if not hasattr(request, "_cached_json"):
         request._cached_json = request.get_json(silent=True) or {}
     request._cached_json["dataset_id"] = dataset_id
     return handlers._set_evaluation_dataset_tags()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/records"), methods=["POST"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/records"),
+    methods=["POST"],
+)
 def serve_upsert_evaluation_dataset_records(dataset_id: str):
     from flask import request
+
     if not hasattr(request, "_cached_json"):
         request._cached_json = request.get_json(silent=True) or {}
     request._cached_json["dataset_id"] = dataset_id
@@ -182,39 +196,52 @@ def serve_upsert_evaluation_dataset_records(dataset_id: str):
 
 
 # Experiment-Dataset Association endpoints
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/<experiment_id>/evaluation-datasets"), methods=["GET"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/experiments/<experiment_id>/evaluation-datasets"),
+    methods=["GET"],
+)
 def serve_get_experiment_evaluation_datasets(experiment_id: str):
-    from flask import request, json
+    from flask import request
+
     # Set up request body for search with experiment_id filter
     request._cached_json = {"experiment_ids": [experiment_id]}
     return handlers._search_evaluation_datasets()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/experiments"), methods=["GET"])
+@app.route(
+    _add_static_prefix("/ajax-api/2.0/mlflow/evaluation-datasets/<dataset_id>/experiments"),
+    methods=["GET"],
+)
 def serve_get_evaluation_dataset_experiments(dataset_id: str):
-    # Get experiments associated with a specific evaluation dataset
+    # NB: These imports are intentionally lazy to reduce server startup time and memory usage.
+    # This endpoint is rarely used, so we avoid loading these modules unless actually needed.
     import json
+
     from flask import Response
+
+    # Get experiments associated with a specific evaluation dataset
+
     try:
-        experiment_ids = handlers._get_tracking_store().get_evaluation_dataset_experiment_ids(dataset_id)
-        experiments = [handlers._get_tracking_store().get_experiment(exp_id) for exp_id in experiment_ids]
-        
+        experiment_ids = handlers._get_tracking_store().get_evaluation_dataset_experiment_ids(
+            dataset_id
+        )
+        experiments = [
+            handlers._get_tracking_store().get_experiment(exp_id) for exp_id in experiment_ids
+        ]
+
         # Create a simple response format for UI
         response_data = {
             "experiments": [
-                {"experiment_id": exp.experiment_id, "name": exp.name} 
-                for exp in experiments
+                {"experiment_id": exp.experiment_id, "name": exp.name} for exp in experiments
             ]
         }
-        
+
         response = Response(mimetype="application/json")
         response.set_data(json.dumps(response_data))
         return response
     except Exception as e:
         return Response(
-            response=json.dumps({"error": str(e)}),
-            status=500,
-            mimetype="application/json"
+            response=json.dumps({"error": str(e)}), status=500, mimetype="application/json"
         )
 
 
