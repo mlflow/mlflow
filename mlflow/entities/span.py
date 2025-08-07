@@ -347,11 +347,11 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        trace_id = _bytes_to_id(otel_proto_span.trace_id)
-        span_id = _bytes_to_id(otel_proto_span.span_id)
+        trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
+        span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
-            parent_id = _bytes_to_id(otel_proto_span.parent_span_id)
+            parent_id = _otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
 
         from opentelemetry.trace import Status as OTelStatus
         from opentelemetry.trace import StatusCode as OTelStatusCode
@@ -439,8 +439,8 @@ def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     return int.from_bytes(bytes, byteorder="big", signed=False)
 
 
-def _bytes_to_id(id_bytes: bytes) -> int:
-    # Convert raw bytes to integer ID (used for protobuf conversion)
+def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
+    # Convert OTel protobuf bytes to integer ID
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
