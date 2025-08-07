@@ -22,6 +22,10 @@ def test_suppress_prompt_api_migration_warning():
         mlflow.genai.load_prompt("prompts:/test_prompt/1")
         mlflow.genai.set_prompt_alias("test_prompt", "test_alias", 1)
         mlflow.genai.delete_prompt_alias("test_prompt", "test_alias")
+        mlflow.genai.set_prompt_tag("test_prompt", "key", "value")
+        mlflow.genai.get_prompt("test_prompt")
+        mlflow.genai.get_prompt_tags("test_prompt")
+        mlflow.genai.delete_prompt_tag("test_prompt", "key")
 
 
 def test_prompt_api_migration_warning():
@@ -266,3 +270,11 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+def test_set_and_delete_prompt_tag_genai():
+    mlflow.genai.register_prompt(name="tag_prompt", template="Hi")
+    mlflow.genai.set_prompt_tag("tag_prompt", "env", "prod")
+    assert mlflow.genai.get_prompt("tag_prompt").tags["env"] == "prod"
+    assert mlflow.genai.get_prompt_tags("tag_prompt") == {"env":"prod"}
+    mlflow.genai.delete_prompt_tag("tag_prompt", "env")
+    assert "env" not in mlflow.genai.get_prompt("tag_prompt").tags
