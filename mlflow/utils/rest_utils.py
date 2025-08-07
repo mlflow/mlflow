@@ -422,7 +422,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             return call_func()
         except DatabricksError as e:
             # Get HTTP status code from the error
-            status_code = next((k for k, v in STATUS_CODE_MAPPING.items() if isinstance(e, v)), 500)
+            status_code = next(
+                (code for code, cls in STATUS_CODE_MAPPING.items() if isinstance(e, cls)), 500
+            )
             # Check if this is a retryable error
             if status_code not in retry_codes:
                 raise
