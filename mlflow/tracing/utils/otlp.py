@@ -7,6 +7,13 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
+# Standard OTLP trace endpoint path as per OpenTelemetry specification
+# https://opentelemetry.io/docs/specs/otlp/#otlphttp-request
+OTLP_TRACES_PATH = "/v1/traces"
+
+# Custom header for passing MLflow experiment ID with OTLP requests
+MLFLOW_EXPERIMENT_ID_HEADER = "X-MLflow-Experiment-ID"
+
 
 def should_use_otlp_exporter() -> bool:
     return _get_otlp_endpoint() is not None

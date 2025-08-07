@@ -90,7 +90,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -1172,6 +1172,13 @@ class RestStore(AbstractStore):
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
+        # Get the trace ID and fetch trace info to get experiment ID
+        trace_id = next(iter(trace_ids))
+        trace_info = self.get_trace_info(trace_id)
+
+        # Prepare headers with experiment ID
+        headers = {MLFLOW_EXPERIMENT_ID_HEADER: trace_info.experiment_id}
+
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         scope_spans = resource_spans.scope_spans.add()
@@ -1182,6 +1189,7 @@ class RestStore(AbstractStore):
             endpoint=OTLP_TRACES_PATH,
             method="POST",
             json=json.loads(MessageToJson(request)),
+            extra_headers=headers,
         )
 
         verify_rest_response(response, OTLP_TRACES_PATH)
