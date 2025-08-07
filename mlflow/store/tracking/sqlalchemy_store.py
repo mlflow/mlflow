@@ -1992,33 +1992,45 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id: The experiment ID.
             
         Returns:
-            List of mlflow.entities.scorer.Scorer objects.
+            List of mlflow.entities.scorer.Scorer objects (latest version for each scorer name).
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
             
-            # Query all scorers for the experiment
+            # Query the latest version of each scorer for the experiment
+            # Use a subquery to get the max version for each scorer name
+            from sqlalchemy import func
+            
+            latest_versions = (
+                session.query(
+                    SqlScorer.experiment_id,
+                    SqlScorer.scorer_name,
+                    func.max(SqlScorer.scorer_version).label("max_version")
+                )
+                .filter(SqlScorer.experiment_id == experiment.experiment_id)
+                .group_by(SqlScorer.experiment_id, SqlScorer.scorer_name)
+                .subquery()
+            )
+            
+            # Query the actual scorer records with the latest versions
             sql_scorers = (
                 session.query(SqlScorer)
-                .filter(SqlScorer.experiment_id == experiment.experiment_id)
-                .order_by(SqlScorer.scorer_name, SqlScorer.scorer_version)
+                .join(
+                    latest_versions,
+                    (SqlScorer.experiment_id == latest_versions.c.experiment_id) &
+                    (SqlScorer.scorer_name == latest_versions.c.scorer_name) &
+                    (SqlScorer.scorer_version == latest_versions.c.max_version)
+                )
+                .order_by(SqlScorer.scorer_name)
                 .all()
             )
             
-            # Convert to mlflow.entities.scorer.Scorer objects
+            # Convert to mlflow.entities.scorer.Scorer objects using to_mlflow_entity()
             scorers = []
             for sql_scorer in sql_scorers:
-                from mlflow.entities.scorer import Scorer
-                
-                scorer = Scorer(
-                    experiment_id=sql_scorer.experiment_id,
-                    scorer_name=sql_scorer.scorer_name,
-                    scorer_version=sql_scorer.scorer_version,
-                    serialized_scorer=sql_scorer.serialized_scorer,
-                )
-                scorers.append(scorer)
+                scorers.append(sql_scorer.to_mlflow_entity())
             
             return scorers
 
