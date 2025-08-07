@@ -75,8 +75,6 @@ class SpanStatus:
     def to_otel_status(self) -> trace_api.Status:
         """
         Convert :py:class:`mlflow.entities.SpanStatus` object to OpenTelemetry status object.
-
-        :meta private:
         """
         try:
             status_code = getattr(trace_api.StatusCode, self.status_code.name)
@@ -90,8 +88,6 @@ class SpanStatus:
     def from_otel_status(cls, otel_status: trace_api.Status) -> SpanStatus:
         """
         Convert OpenTelemetry status object to our status object.
-
-        :meta private:
         """
         try:
             status_code = SpanStatusCode(otel_status.status_code.name)
@@ -105,8 +101,6 @@ class SpanStatus:
     def to_otel_proto_status(self):
         """
         Convert to OpenTelemetry protobuf Status for OTLP export.
-
-        :meta private:
         """
         status = Status()
         if self.status_code == SpanStatusCode.OK:
@@ -125,8 +119,6 @@ class SpanStatus:
     def from_otel_proto_status(cls, otel_proto_status) -> SpanStatus:
         """
         Create a SpanStatus from an OpenTelemetry protobuf Status.
-
-        :meta private:
         """
         # Map protobuf status codes to SpanStatusCode
         if otel_proto_status.code == Status.STATUS_CODE_OK:
