@@ -30,7 +30,8 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas as pd
-    from genai.evaluation.utils import EvaluationDatasetTypes
+
+    from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 
