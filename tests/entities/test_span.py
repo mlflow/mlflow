@@ -512,7 +512,24 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     assert roundtrip_span.inputs == mlflow_span.inputs
     assert roundtrip_span.outputs == mlflow_span.outputs
 
-    # Verify all custom attributes are preserved
+    # Verify ALL attributes are preserved by iterating through them
+    # Get all attribute keys from both spans
+    original_attributes = mlflow_span.attributes
+    roundtrip_attributes = roundtrip_span.attributes
+
+    # Check we have the same number of attributes
+    assert len(original_attributes) == len(roundtrip_attributes)
+
+    # Check each attribute is preserved correctly
+    for attr_key in original_attributes:
+        assert attr_key in roundtrip_attributes, f"Attribute {attr_key} missing after roundtrip"
+        original_value = original_attributes[attr_key]
+        roundtrip_value = roundtrip_attributes[attr_key]
+        assert original_value == roundtrip_value, (
+            f"Attribute {attr_key} changed: {original_value} != {roundtrip_value}"
+        )
+
+    # Also explicitly verify specific important attributes
     # The original span has a custom_attr that should be preserved
     original_custom_attr = mlflow_span.get_attribute("custom_attr")
     roundtrip_custom_attr = roundtrip_span.get_attribute("custom_attr")
