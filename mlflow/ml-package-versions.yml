@@ -225,8 +225,6 @@ semantic_kernel:
   autologging:
     minimum: "1.34.0"
     maximum: "1.35.0"
-    python:
-      ">= 1.34.0": "3.10"
     requirements:
       ">= 1.34.0": ["pydantic>=2.0,<2.12", "openai"]
     run: |
@@ -241,8 +239,6 @@ spacy:
   models:
     minimum: "3.6.1"
     maximum: "3.8.7"
-    python:
-      ">= 3.8.4": "3.10"
     requirements:
       "< 3.8": ["numpy<2"]
     run: |
@@ -558,9 +554,6 @@ openai:
   autologging:
     minimum: "1.17.0"
     maximum: "1.98.0"
-    python:
-      # OpenAI Swarm requires Python >=3.10
-      ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -854,8 +847,6 @@ crewai:
     minimum: "0.80.0"
     maximum: "0.152.0"
     unsupported: ["==0.114.0"]
-    python:
-      ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
     test_tracing_sdk: true
@@ -880,8 +871,6 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
-    python:
-      ">= 0.1.0": "3.10"
     minimum: "0.1.9"
     maximum: "0.4.11"
     requirements:
@@ -898,8 +887,6 @@ smolagents:
   autologging:
     minimum: "1.14.0"
     maximum: "1.20.0"
-    python:
-      ">=1.14.0": "3.10"
     requirements:
       ">= 0.0.0": ["duckduckgo-search"]
     run: pytest tests/smolagents
