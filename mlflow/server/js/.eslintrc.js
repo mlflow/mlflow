@@ -618,8 +618,8 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
-      plugins: ['jest', 'chai-expect', 'chai-friendly'],
+      files: ['*.test.js', '*-test.js', '*-test.jsx', '*.test.ts', '*-test.ts', '*.test.tsx', '*-test.tsx', 'test/**'],
+      plugins: ['jest', 'chai-expect', 'chai-friendly', 'testing-library'],
       globals: {
         sinon: true,
         chai: true,
@@ -635,6 +635,7 @@ module.exports = {
         'testing-library/no-debugging-utils': 'error',
         'testing-library/no-dom-import': 'error',
         'testing-library/await-async-utils': 'error',
+        '@typescript-eslint/no-non-null-assertion': 'off',
       },
     },
     {
