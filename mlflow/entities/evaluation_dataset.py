@@ -11,7 +11,6 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
-from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -100,6 +99,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
     def _load_experiment_ids(self):
         """Load experiment IDs from the backend."""
+        from mlflow.tracking._tracking_service.utils import _get_store
+
         tracking_store = _get_store()
         self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(self.dataset_id)
 
@@ -112,6 +113,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         when accessed for the first time.
         """
         if self._records is None:
+            from mlflow.tracking._tracking_service.utils import _get_store
+
             tracking_store = _get_store()
             self._records = tracking_store._load_dataset_records(self.dataset_id)
         return self._records or []
@@ -178,6 +181,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 raise MlflowException.invalid_parameter_value(
                     "Each record must have an 'inputs' field"
                 )
+
+        from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
         tracking_store = _get_store()
 

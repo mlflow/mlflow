@@ -6123,10 +6123,7 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    with (
-        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
-        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
-    ):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_evaluation_dataset(
             name="test_eval_dataset",
@@ -6627,13 +6624,13 @@ def test_evaluation_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    # Test that empty inputs are supported
-    empty_inputs_result = store.upsert_evaluation_dataset_records(
+    result_empty_inputs = store.upsert_evaluation_dataset_records(
         created_dataset.dataset_id,
-        [{"inputs": {}, "expectations": {"result": "empty inputs are valid"}}],
+        [{"inputs": {}, "expectations": {"result": "empty inputs allowed"}}],
+        "test_user",
     )
-    assert empty_inputs_result["inserted"] == 1
-    assert empty_inputs_result["updated"] == 0
+    assert result_empty_inputs["inserted"] == 1
+    assert result_empty_inputs["updated"] == 0
 
     empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
@@ -6649,10 +6646,7 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
-    with (
-        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
-        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
-    ):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
@@ -6664,19 +6658,13 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
-    with (
-        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
-        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
-    ):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
 
-    with (
-        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
-        mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store),
-    ):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 
