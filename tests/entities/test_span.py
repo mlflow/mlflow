@@ -3,14 +3,19 @@ from datetime import datetime
 
 import opentelemetry.trace as trace_api
 import pytest
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
+from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import Status as OTelStatus
+from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _get_tracer, trace_disabled
-from mlflow.tracing.utils import encode_span_id, encode_trace_id
+from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 
 
 def test_create_live_span():
@@ -301,13 +306,6 @@ def test_set_attribute_directly_to_otel_span():
 
 
 # OTel protobuf conversion tests
-from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
-from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
-from opentelemetry.sdk.trace import Event as OTelEvent
-from opentelemetry.trace import Status as OTelStatus
-from opentelemetry.trace import StatusCode as OTelStatusCode
-
-from mlflow.tracing.utils import build_otel_context
 
 
 @pytest.fixture
