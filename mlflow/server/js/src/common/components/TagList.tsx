@@ -26,8 +26,10 @@ export const TagList = ({ tags, onEdit }: Props) => {
       {tags?.map((tag) => (
         <Tag key={tag.key} componentId={tag.key}>
           <strong>
-            {tag.key} {tag.value ? ':' : null}
-          </strong>{' '}
+            {tag.key}
+            {tag.value ? ':' : null}
+          </strong>
+          &nbsp;
           {tag.value}
         </Tag>
       ))}
