@@ -3199,7 +3199,7 @@ class SqlAlchemyStore(AbstractStore):
             return [record.to_mlflow_entity() for record in sql_records]
 
     def upsert_evaluation_dataset_records(
-        self, dataset_id: str, records: list[dict[str, Any]], updated_by: Optional[str] = None
+        self, dataset_id: str, records: list[dict[str, Any]]
     ) -> dict[str, int]:
         """
         Bulk upsert records with input-based deduplication.
@@ -3207,7 +3207,6 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset.
             records: List of record dictionaries.
-            updated_by: User ID performing the update.
 
         Returns:
             Dictionary with counts of inserted and updated records.
@@ -3252,9 +3251,12 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
                     created_time = current_time
-                    created_by = updated_by
-                    merged_expectations = record_dict.get("expectations")
+                    # Extract user from record tags if provided
+                    created_by = None
                     merged_tags = record_dict.get("tags")
+                    if merged_tags and "mlflow.user" in merged_tags:
+                        created_by = merged_tags["mlflow.user"]
+                    merged_expectations = record_dict.get("expectations")
 
                     source = None
                     if source_data := record_dict.get("source"):
@@ -3275,7 +3277,7 @@ class SqlAlchemyStore(AbstractStore):
                     tags=merged_tags,
                     source=source,
                     created_by=created_by,
-                    last_updated_by=updated_by,
+                    last_updated_by=created_by,  # Use same user as created_by
                 )
 
                 sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
@@ -3286,7 +3288,7 @@ class SqlAlchemyStore(AbstractStore):
             ).update(
                 {
                     "last_update_time": current_time,
-                    "last_updated_by": updated_by,
+                    # Note: last_updated_by can be set from record tags if needed
                 }
             )
 
@@ -3332,9 +3334,7 @@ class SqlAlchemyStore(AbstractStore):
 
         return experiment_ids.to_list()
 
-    def set_evaluation_dataset_tags(
-        self, dataset_id: str, tags: dict[str, Any], updated_by: Optional[str] = None
-    ) -> None:
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Update tags for an evaluation dataset.
 
@@ -3344,7 +3344,6 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update. Setting a value to None removes the tag.
-            updated_by: The user making the update.
 
         Raises:
             MlflowException: If dataset not found or invalid parameters.
@@ -3370,8 +3369,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             dataset.last_update_time = get_current_time_millis()
-            if updated_by:
-                dataset.last_updated_by = updated_by
+            # Extract user from tags if provided
+            if tags and "mlflow.user" in tags:
+                dataset.last_updated_by = tags["mlflow.user"]
 
             for key, value in tags.items():
                 if value is None:

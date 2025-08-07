@@ -8,10 +8,9 @@ import logging
 import os
 import sys
 from itertools import zip_longest
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from mlflow.entities import (
-    EvaluationDataset,
     ExperimentTag,
     FileInfo,
     LoggedModel,
@@ -26,6 +25,9 @@ from mlflow.entities import (
     RunTag,
     ViewType,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException
@@ -898,7 +900,7 @@ class TrackingServiceClient:
         name: str,
         experiment_ids: Optional[list[str]] = None,
         tags: Optional[dict[str, Any]] = None,
-    ) -> EvaluationDataset:
+    ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
 
@@ -916,7 +918,7 @@ class TrackingServiceClient:
             experiment_ids=experiment_ids,
         )
 
-    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -944,7 +946,7 @@ class TrackingServiceClient:
         max_results: int = 1000,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[EvaluationDataset]:
+    ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
 
