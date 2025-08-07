@@ -5,7 +5,7 @@ import os
 import warnings
 from functools import partial
 from string import Formatter
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -430,7 +430,7 @@ def save_model(
 def log_model(
     model,
     task,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -440,13 +440,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    prompts: Optional[list[str | Prompt]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -806,7 +806,7 @@ class _OpenAIWrapper:
 
         return [row.embedding for batch in results for row in batch.data]
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.

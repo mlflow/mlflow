@@ -2,7 +2,6 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import Optional
 
 import requests
 
@@ -84,7 +83,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         artifact_uri: str,
         credential=None,
         credential_refresh_def=None,
-        tracking_uri: Optional[str] = None,
+        tracking_uri: str | None = None,
     ) -> None:
         super().__init__(artifact_uri, tracking_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes

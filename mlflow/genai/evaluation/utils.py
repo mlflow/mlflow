@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
@@ -207,13 +207,13 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     def eval_fn(
         request_id: str,
         request: ChatCompletionRequest | str,
-        response: Optional[Any],
-        expected_response: Optional[Any],
-        trace: Optional[Trace],
-        guidelines: Optional[list[str] | dict[str, list[str]]],
-        expected_facts: Optional[list[str]],
-        expected_retrieved_context: Optional[list[dict[str, str]]],
-        custom_expected: Optional[dict[str, Any]],
+        response: Any | None,
+        expected_response: Any | None,
+        trace: Trace | None,
+        guidelines: list[str] | dict[str, list[str]] | None,
+        expected_facts: list[str] | None,
+        expected_retrieved_context: list[dict[str, str]] | None,
+        custom_expected: dict[str, Any] | None,
         **kwargs,
     ) -> int | float | bool | str | Assessment | list[Assessment]:
         # Condense all expectations into a single dict

@@ -13,7 +13,7 @@ import uuid
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -458,7 +458,7 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
-def convert_input_example_to_serving_input(input_example) -> Optional[str]:
+def convert_input_example_to_serving_input(input_example) -> str | None:
     """
     Helper function to convert a model's input example to a serving input example that
     can be used for model inference in the scoring server.
@@ -479,8 +479,8 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
 
 
 def _save_example(
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str
-) -> Optional[_Example]:
+    mlflow_model: Model, input_example: ModelInputExample | None, path: str
+) -> _Example | None:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
 
@@ -512,7 +512,7 @@ def _save_example(
 
 def _get_mlflow_model_input_example_dict(
     mlflow_model: Model, uri_or_path: str
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Args:
         mlflow_model: Model metadata.
@@ -539,7 +539,7 @@ def _get_mlflow_model_input_example_dict(
     )
 
 
-def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
+def _load_serving_input_example(mlflow_model: Model, path: str) -> str | None:
     """
     Load serving input example from a model directory. Returns None if there is no serving input
     example.
@@ -1126,7 +1126,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | None = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -1291,7 +1291,7 @@ def _enforce_pyspark_dataframe_schema(
     original_pf_input: SparkDataFrame,
     pf_input_as_pandas,
     input_schema: Schema,
-    flavor: Optional[str] = None,
+    flavor: str | None = None,
 ):
     """
     Enforce that the input PySpark DataFrame conforms to the model's input schema.
@@ -1601,7 +1601,7 @@ def get_model_version_from_model_uri(model_uri):
     return client.get_model_version(name, version)
 
 
-def _enforce_params_schema(params: Optional[dict[str, Any]], schema: Optional[ParamSchema]):
+def _enforce_params_schema(params: dict[str, Any] | None, schema: ParamSchema | None):
     if schema is None:
         if params in [None, {}]:
             return params
@@ -1877,7 +1877,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
 
 @contextmanager
-def _config_context(config: Optional[str | dict[str, Any]] = None):
+def _config_context(config: str | dict[str, Any] | None = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
@@ -1938,7 +1938,7 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, model_config: Optional[str | dict[str, Any]]):
+def _load_model_code_path(code_path: str, model_config: str | dict[str, Any] | None):
     with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"

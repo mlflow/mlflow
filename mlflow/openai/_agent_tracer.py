@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import agents.tracing as oai
 from agents import add_trace_processor
@@ -68,7 +68,7 @@ def remove_mlflow_trace_processor():
 class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
     def __init__(
         self,
-        project_name: Optional[str] = None,
+        project_name: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)

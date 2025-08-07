@@ -21,7 +21,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
         program: "dspy.Module",
         metric: Callable[["dspy.Example"], float],
         train_data: list["dspy.Example"],
-        eval_data: Optional[list["dspy.Example"]],
+        eval_data: list["dspy.Example"] | None,
     ) -> OptimizerOutput:
         import dspy
 
@@ -102,9 +102,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
             return min(35, len(eval_data) // 2)
         return min(35, len(train_data) // 2)
 
-    def _extract_eval_scores(
-        self, program: "dspy.Predict"
-    ) -> tuple[Optional[float], Optional[float]]:
+    def _extract_eval_scores(self, program: "dspy.Predict") -> tuple[float | None, float | None]:
         final_score = getattr(program, "score", None)
         initial_score = None
         # In DSPy < 2.6.17, trial_logs contains initial score in key=-1.
@@ -115,9 +113,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
             initial_score = trial_logs[-1].get("full_eval_score")
         return initial_score, final_score
 
-    def _display_optimization_result(
-        self, initial_score: Optional[float], final_score: Optional[float]
-    ):
+    def _display_optimization_result(self, initial_score: float | None, final_score: float | None):
         _logger.info(f"Optimization complete! Score remained stable at: {final_score}.")
         if final_score is None:
             return

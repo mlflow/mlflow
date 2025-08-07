@@ -1,6 +1,6 @@
 import logging
 import urllib
-from typing import Any, Optional
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -717,7 +717,7 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.

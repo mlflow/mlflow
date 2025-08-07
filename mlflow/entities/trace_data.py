@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities import Span
 from mlflow.tracing.constant import SpanAttributeKey
@@ -17,7 +17,7 @@ class TraceData:
 
     # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
     # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
-    def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
+    def __init__(self, spans: list[Span] | None = None, **kwargs):
         self.spans = spans or []
 
     @classmethod
@@ -30,7 +30,7 @@ class TraceData:
         return {"spans": [span.to_dict() for span in self.spans]}
 
     @property
-    def intermediate_outputs(self) -> Optional[dict[str, Any]]:
+    def intermediate_outputs(self) -> dict[str, Any] | None:
         """
         Returns intermediate outputs produced by the model or agent while handling the request.
         There are mainly two flows to return intermediate outputs:
@@ -50,21 +50,21 @@ class TraceData:
                 if span.parent_id and span.outputs is not None
             }
 
-    def _get_root_span(self) -> Optional[Span]:
+    def _get_root_span(self) -> Span | None:
         for span in self.spans:
             if span.parent_id is None:
                 return span
 
     # `request` and `response` are preserved for backward compatibility with v2
     @property
-    def request(self) -> Optional[str]:
+    def request(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.INPUTS)
         return None
 
     @property
-    def response(self) -> Optional[str]:
+    def response(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
