@@ -483,14 +483,22 @@ def test_predict_stream_success(dummy_model):
         output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
         for o in output:
             results.append(o)
-    assert results == [
-        {"predict_name": "prog.predict", "signature_field_name": "answer", "chunk": "2"},
-        {
-            "predict_name": "prog.predict",
-            "signature_field_name": _REASONING_KEYWORD,
-            "chunk": "reason",
-        },
-    ]
+
+    assert len(results) == 2
+    extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+    assert results[0] == {
+        "predict_name": "prog.predict",
+        "signature_field_name": "answer",
+        "chunk": "2",
+        **extra_kwargs,
+    }
+    extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+    assert results[1] == {
+        "predict_name": "prog.predict",
+        "signature_field_name": _REASONING_KEYWORD,
+        "chunk": "reason",
+        **extra_kwargs,
+    }
 
 
 def test_predict_output(dummy_model):
