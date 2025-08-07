@@ -46,6 +46,8 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. Only root spans for each trace should be exported.
         """
+        _logger.info(f"TEST: Exporting spans")
+        print("TEST: Exporting spans")
         for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
