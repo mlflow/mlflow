@@ -13,7 +13,7 @@ import time
 import urllib.parse
 import uuid
 from subprocess import Popen
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 import mlflow.version
@@ -1405,7 +1405,7 @@ def _get_sagemaker_config_tags(endpoint_name):
 
 def _prepare_sagemaker_tags(
     config_tags: list[dict[str, str]],
-    sagemaker_tags: Optional[dict[str, str]] = None,
+    sagemaker_tags: dict[str, str] | None = None,
 ):
     if not sagemaker_tags:
         return config_tags
@@ -2797,7 +2797,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         deployment_name=None,
         inputs=None,
         endpoint=None,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.

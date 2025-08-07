@@ -63,20 +63,27 @@ class CustomInput:
 
 @dataclass
 class FlexibleChatCompletionRequest(ChatCompletionRequest):
-    custom_input: Optional[CustomInput] = None
+    custom_input: Optional[CustomInput] = None  # noqa: UP045
+    another_custom_input: CustomInput | None = None
 
 
 def test_hydrate_child_dataclass():
     result = _hydrate_dataclass(
         FlexibleChatCompletionRequest,
-        asdict(FlexibleChatCompletionRequest(custom_input=CustomInput())),
+        asdict(
+            FlexibleChatCompletionRequest(
+                custom_input=CustomInput(), another_custom_input=CustomInput()
+            )
+        ),
     )
-    assert result == FlexibleChatCompletionRequest(custom_input=CustomInput())
+    assert result == FlexibleChatCompletionRequest(
+        custom_input=CustomInput(), another_custom_input=CustomInput()
+    )
 
 
 def test_hydrate_optional_dataclass():
     result = _hydrate_dataclass(
         FlexibleChatCompletionRequest,
-        asdict(FlexibleChatCompletionRequest(custom_input=None)),
+        asdict(FlexibleChatCompletionRequest(custom_input=None, another_custom_input=None)),
     )
-    assert result == FlexibleChatCompletionRequest(custom_input=None)
+    assert result == FlexibleChatCompletionRequest(custom_input=None, another_custom_input=None)

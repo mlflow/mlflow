@@ -648,12 +648,6 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 #: (default: ``1.0``)
 MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
 
-#: Whether to writing trace to the MLflow backend from a model running in a Databricks
-#: model serving endpoint. If true, the trace will be written to both the MLflow backend
-#: and the Inference Table.
-_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", False
-)
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(

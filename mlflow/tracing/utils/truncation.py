@@ -1,6 +1,6 @@
 import json
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -24,7 +24,7 @@ def set_request_response_preview(trace_info: TraceInfo, trace_data: TraceData) -
         trace_info.response_preview = _get_truncated_preview(trace_data.response, role="assistant")
 
 
-def _get_truncated_preview(request_or_response: Optional[str], role: str) -> str:
+def _get_truncated_preview(request_or_response: str | None, role: str) -> str:
     """
     Truncate the request preview to fit the max length.
     """
@@ -66,7 +66,7 @@ def _get_max_length() -> int:
     )
 
 
-def _try_extract_messages(obj: dict[str, Any]) -> Optional[list[dict[str, Any]]]:
+def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
     if not isinstance(obj, dict):
         return None
 
@@ -99,7 +99,7 @@ def _is_message(item: Any) -> bool:
     return "role" in item and "content" in item
 
 
-def _get_last_message(messages: list[dict[str, Any]], role: str) -> Optional[dict[str, Any]]:
+def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any] | None:
     """
     Return last message with the given role.
     If the messages don't include a message with the given role, return the last one.

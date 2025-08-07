@@ -37,7 +37,7 @@ import warnings
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional, TypeVar
+from typing import Any, Iterator, TypeVar
 
 import requests
 import yaml
@@ -69,21 +69,21 @@ class Version(OriginalVersion):
 
 class PackageInfo(BaseModel, extra="forbid"):
     pip_release: str
-    install_dev: Optional[str] = None
-    module_name: Optional[str] = None
+    install_dev: str | None = None
+    module_name: str | None = None
 
 
 class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: Optional[list[SpecifierSet]] = None
-    requirements: Optional[dict[str, list[str]]] = None
-    python: Optional[dict[str, str]] = None
-    runs_on: Optional[dict[str, str]] = None
-    java: Optional[dict[str, str]] = None
+    unsupported: list[SpecifierSet] | None = None
+    requirements: dict[str, list[str]] | None = None
+    python: dict[str, str] | None = None
+    runs_on: dict[str, str] | None = None
+    java: dict[str, str] | None = None
     run: str
-    allow_unreleased_max_version: Optional[bool] = None
-    pre_test: Optional[str] = None
+    allow_unreleased_max_version: bool | None = None
+    pre_test: str | None = None
     test_every_n_versions: int = 1
     test_tracing_sdk: bool = False
 
@@ -105,8 +105,8 @@ class TestConfig(BaseModel, extra="forbid"):
 
 class FlavorConfig(BaseModel, extra="forbid"):
     package_info: PackageInfo
-    models: Optional[TestConfig] = None
-    autologging: Optional[TestConfig] = None
+    models: TestConfig | None = None
+    autologging: TestConfig | None = None
 
     @property
     def categories(self) -> list[tuple[str, TestConfig]]:
@@ -132,7 +132,7 @@ class MatrixItem(BaseModel, extra="forbid"):
     supported: bool
     free_disk_space: bool
     runs_on: str
-    pre_test: Optional[str] = None
+    pre_test: str | None = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -282,7 +282,7 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
-def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
+def get_java_version(java: dict[str, str] | None, version: str) -> str:
     if java and (match := next(_find_matches(java, version), None)):
         return match
 
@@ -296,7 +296,7 @@ def pypi_json(package: str) -> dict[str, Any]:
     return resp.json()
 
 
-def _requires_python(package: str, version: str) -> Optional[str]:
+def _requires_python(package: str, version: str) -> str | None:
     package_json = pypi_json(package)
     for ver, dist in package_json.get("releases", {}).items():
         if ver != version:
@@ -336,14 +336,14 @@ def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
             yield val
 
 
-def get_python_version(python: Optional[dict[str, str]], package: str, version: str) -> str:
+def get_python_version(python: dict[str, str] | None, package: str, version: str) -> str:
     if python and (match := next(_find_matches(python, version), None)):
         return match
 
     return infer_python_version(package, version)
 
 
-def get_runs_on(runs_on: Optional[dict[str, str]], version: str) -> str:
+def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
     if runs_on and (match := next(_find_matches(runs_on, version), None)):
         return match
 

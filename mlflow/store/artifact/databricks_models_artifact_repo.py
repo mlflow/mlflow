@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import posixpath
-from typing import Optional
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -54,7 +53,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     when the client is pointing to a Databricks-hosted model registry.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         if not is_using_databricks_registry(artifact_uri):
             raise MlflowException(
                 message="A valid databricks profile is required to instantiate this repository",
@@ -85,7 +84,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             body["page_token"] = page_token
         return body
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         infos = []
         page_token = None
         if not path:

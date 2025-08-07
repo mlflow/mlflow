@@ -1,7 +1,7 @@
 import logging
 import os
 import tempfile
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 
@@ -122,16 +122,16 @@ def _supported_classes():
 def save_model(
     llama_index_model,
     path: str,
-    engine_type: Optional[str] = None,
-    model_config: Optional[Union[str, dict[str, Any]]] = None,
+    engine_type: str | None = None,
+    model_config: str | dict[str, Any] | None = None,
     code_paths=None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """
     Save a LlamaIndex model to a path on the local file system.
@@ -314,25 +314,25 @@ def save_model(
 @trace_disabled  # Suppress traces while loading model
 def log_model(
     llama_index_model,
-    artifact_path: Optional[str] = None,
-    engine_type: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    artifact_path: str | None = None,
+    engine_type: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -562,7 +562,7 @@ def load_model(model_uri, dst_path=None):
     return model
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 
     index = load_model(path)

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class RecordUtils {
   /**
    * This function is our implementation of Immutable.fromJS, but fixes a bug with

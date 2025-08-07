@@ -1,6 +1,7 @@
 import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { shouldUseSharedTaggingUI } from '../../../../common/utils/FeatureUtils';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
+import { useTagAssignmentModal } from '../../../../common/hooks/useTagAssignmentModal';
 import { KeyValueEntity } from '../../../../common/types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -37,6 +38,21 @@ export const RunViewTagsBox = ({
     [tags],
   );
 
+  const tagsKeyValueMap: KeyValueEntity[] = visibleTagEntities.map(({ key, value }) => ({ key, value }));
+
+  const { TagAssignmentModal, showTagAssignmentModal } = useTagAssignmentModal({
+    componentIdPrefix: 'mlflow.run-view-tags-box',
+    initialTags: tagsKeyValueMap,
+    isLoading: isSavingTags,
+    onSubmit: (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
+      setIsSavingTags(true);
+      return dispatch(saveRunTagsApi(runUuid, newTags, deletedTags)).then(() => {
+        setIsSavingTags(false);
+      });
+    },
+    onSuccess: onTagsUpdated,
+  });
+
   const { EditTagsModal, showEditTagsModal, isLoading } = useEditKeyValueTagsModal({
     valueRequired: true,
     allAvailableTags: visibleTagKeys,
@@ -45,6 +61,11 @@ export const RunViewTagsBox = ({
   });
 
   const showEditModal = () => {
+    if (sharedTaggingUIEnabled) {
+      showTagAssignmentModal();
+      return;
+    }
+
     showEditTagsModal({ tags: visibleTagEntities });
   };
 
@@ -67,7 +88,7 @@ export const RunViewTagsBox = ({
         gap: theme.spacing.xs,
       }}
     >
-      {visibleTagEntities.length < 1 ? (
+      {tagsKeyValueMap.length < 1 ? (
         <Button
           componentId="mlflow.run_details.overview.tags.add_button"
           size="small"
@@ -81,7 +102,7 @@ export const RunViewTagsBox = ({
         </Button>
       ) : (
         <>
-          {visibleTagEntities.map((tag) => (
+          {tagsKeyValueMap.map((tag) => (
             <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal css={{ marginRight: 0 }} />
           ))}
           <Tooltip componentId="mlflow.run_details.overview.tags.edit_button.tooltip" content={editTagsLabel}>
@@ -98,6 +119,8 @@ export const RunViewTagsBox = ({
       {isLoading && <Spinner size="small" />}
       {/** Old modal for editing tags */}
       {EditTagsModal}
+      {/** New modal for editing tags, using shared tagging UI */}
+      {TagAssignmentModal}
     </div>
   );
 };

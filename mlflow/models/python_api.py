@@ -170,6 +170,12 @@ def predict(
             current os.environ are passed, and this parameter can be used to override them.
 
             .. note::
+                If your model dependencies include pre-release versions such as `mlflow==3.2.0rc0`
+                and you are using `uv` as the environment manager, set `UV_PRERELEASE` environment
+                variable to "allow" in `extra_envs` to allow installing pre-release versions.
+                e.g. `extra_envs={"UV_PRERELEASE": "allow"}`.
+
+            .. note::
                 This parameter is only supported when `env_manager` is set to "virtualenv",
                 "conda" or "uv".
 
@@ -209,6 +215,14 @@ def predict(
             input_data={"x": 1, "y": 2},
             env_manager="uv",
             output_path="output.json",
+        )
+
+        # Run prediction with pre-release versions
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            extra_envs={"UV_PRERELEASE": "allow"},
         )
 
     """
