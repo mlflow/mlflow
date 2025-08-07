@@ -5,8 +5,6 @@ This module provides functions to manage registered scorers that automatically
 evaluate traces in MLflow experiments.
 """
 
-from typing import Optional
-
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.utils.annotations import experimental
@@ -27,7 +25,7 @@ def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Score
 
 
 @experimental(version="3.2.0")
-def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
+def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     """
     List all registered scorers for an experiment.
 
@@ -77,7 +75,7 @@ def list_scorers(*, experiment_id: Optional[str] = None) -> list[Scorer]:
 
 
 @experimental(version="3.2.0")
-def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
+def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
     """
     Retrieve a specific registered scorer by name.
 
@@ -125,7 +123,7 @@ def get_scorer(*, name: str, experiment_id: Optional[str] = None) -> Scorer:
 def delete_scorer(
     *,
     name: str,
-    experiment_id: Optional[str] = None,
+    experiment_id: str | None = None,
 ) -> None:
     """
     Delete scorer with given name from the server.
@@ -183,8 +181,8 @@ def add_registered_scorer(
     name: str,
     scorer: Scorer,
     sample_rate: float,
-    filter_string: Optional[str] = None,
-    experiment_id: Optional[str] = None,
+    filter_string: str | None = None,
+    experiment_id: str | None = None,
 ) -> Scorer:
     """Internal function to add a registered scorer."""
     try:
@@ -205,10 +203,10 @@ def add_registered_scorer(
 def update_registered_scorer(
     *,
     name: str,
-    scorer: Optional[Scorer] = None,
-    sample_rate: Optional[float] = None,
-    filter_string: Optional[str] = None,
-    experiment_id: Optional[str] = None,
+    scorer: Scorer | None = None,
+    sample_rate: float | None = None,
+    filter_string: str | None = None,
+    experiment_id: str | None = None,
 ) -> Scorer:
     """Internal function to update a registered scorer."""
     try:

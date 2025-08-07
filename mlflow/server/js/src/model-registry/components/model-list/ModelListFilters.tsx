@@ -3,7 +3,7 @@ import {
   TableFilterLayout,
   Button,
   TableFilterInput,
-  InfoIcon,
+  InfoSmallIcon,
   Popover,
   Typography,
 } from '@databricks/design-system';
@@ -38,7 +38,7 @@ export const ModelSearchInputHelpTooltip = ({
         aria-label={labelText}
         css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
       >
-        <InfoIcon />
+        <InfoSmallIcon />
       </Popover.Trigger>
       <Popover.Content align="start">
         <div>

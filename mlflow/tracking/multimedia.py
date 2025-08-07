@@ -4,7 +4,7 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 if TYPE_CHECKING:
     import numpy
@@ -15,7 +15,7 @@ COMPRESSED_IMAGE_SIZE = 256
 
 
 def compress_image_size(
-    image: "PIL.Image.Image", max_size: Optional[int] = COMPRESSED_IMAGE_SIZE
+    image: "PIL.Image.Image", max_size: int | None = COMPRESSED_IMAGE_SIZE
 ) -> "PIL.Image.Image":
     """
     Scale the image to fit within a square with length `max_size` while maintaining

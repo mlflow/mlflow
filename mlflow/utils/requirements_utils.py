@@ -14,7 +14,7 @@ import tempfile
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import importlib_metadata
 from packaging.requirements import Requirement
@@ -268,7 +268,7 @@ def _run_command(cmd, timeout_seconds, env=None):
             timer.cancel()
 
 
-def _get_installed_version(package: str, module: Optional[str] = None) -> str:
+def _get_installed_version(package: str, module: str | None = None) -> str:
     """
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
@@ -596,7 +596,7 @@ def _get_pinned_requirement(req_str, version=None, module=None):
 
 class _MismatchedPackageInfo(NamedTuple):
     package_name: str
-    installed_version: Optional[str]
+    installed_version: str | None
     requirement: str
 
     def __str__(self):

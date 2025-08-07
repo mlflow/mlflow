@@ -27,7 +27,10 @@ def upgrade():
         sa.Column("span_id", sa.String(length=50), nullable=False),
         sa.Column("parent_span_id", sa.String(length=50), nullable=True),
         sa.Column("name", sa.Text(), nullable=True),
-        sa.Column("type", sa.Text(), nullable=True),
+        # Use String instead of Text for type column to support MSSQL indexes.
+        # MSSQL doesn't allow TEXT columns in indexes. Limited to 500 chars
+        # to stay within MySQL's max index key length of 3072 bytes.
+        sa.Column("type", sa.String(length=500), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("start_time_unix_nano", sa.BigInteger(), nullable=False),
         sa.Column("end_time_unix_nano", sa.BigInteger(), nullable=True),
@@ -37,6 +40,9 @@ def upgrade():
             sa.Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
             nullable=True,
         ),
+        # Use LONGTEXT for MySQL to support large span content (up to 4GB).
+        # Standard TEXT in MySQL is limited to 64KB which is insufficient for
+        # spans with extensive attributes, events, or nested data structures.
         sa.Column("content", sa.Text().with_variant(LONGTEXT, "mysql"), nullable=False),
         sa.ForeignKeyConstraint(
             ["trace_id"],

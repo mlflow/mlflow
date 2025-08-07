@@ -10,7 +10,6 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
 from unittest import mock
 
 import pytest
@@ -87,6 +86,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSpan,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -275,7 +275,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list[str]]:
+def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -4838,8 +4838,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 
     # Verify the span was saved to the database
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlSpan
-
         saved_span = (
             session.query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
@@ -4849,6 +4847,7 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         assert saved_span is not None
         assert saved_span.experiment_id == int(experiment_id)
         assert saved_span.parent_span_id == span.parent_id
+        assert saved_span.status == "UNSET"  # Default OpenTelemetry status
         assert saved_span.status == span.status.status_code
         assert saved_span.start_time_unix_nano == span.start_time_ns
         assert saved_span.end_time_unix_nano == span.end_time_ns
@@ -4875,9 +4874,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
     """Test that logging spans from different traces raises an error."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create two different traces
     experiment_id = store.create_experiment("test_multi_trace_experiment")
     trace_info1 = TraceInfo(
@@ -4951,9 +4947,6 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans creates a trace if it doesn't exist."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create an experiment but no trace
     experiment_id = store.create_experiment("test_auto_trace_experiment")
 
@@ -4990,8 +4983,6 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
 
     # Verify the trace was created
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
-
         created_trace = (
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
         )
@@ -5000,8 +4991,7 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
         assert created_trace.experiment_id == int(experiment_id)
         assert created_trace.timestamp_ms == 5000000000 // 1_000_000
         assert created_trace.execution_time_ms == 1000000000 // 1_000_000
-        # Root span has UNSET status, which maps to STATE_UNSPECIFIED
-        assert created_trace.status == "STATE_UNSPECIFIED"
+        assert created_trace.status == "OK"
 
 
 @pytest.mark.asyncio
@@ -5021,9 +5011,6 @@ async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
     """Test that concurrent trace creation is handled correctly."""
-
-    from mlflow.entities.span import create_mlflow_span
-
     # Create an experiment
     experiment_id = store.create_experiment("test_concurrent_trace")
     trace_id = "tr-concurrent-test"
@@ -5081,8 +5068,6 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
 
     # Verify the trace and span exist in the database
     with store.ManagedSessionMaker() as session:
-        from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlTraceInfo
-
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         assert trace.experiment_id == int(experiment_id)
 
@@ -5098,10 +5083,6 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
     """Test that log_spans updates trace time range when new spans extend it."""
-
-    from mlflow.entities.span import create_mlflow_span
-    from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
-
     experiment_id = _create_experiments(store, "test_log_spans_updates_trace")
     trace_id = "tr-time-update-test-123"
 
@@ -5197,6 +5178,107 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
         trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
         assert trace.timestamp_ms == 500  # Still 0.5 seconds (no earlier start)
         assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans with spans that have no end time results in None execution_time."""
+    experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
+    trace_id = "tr-no-end-time-test-123"
+
+    # Create span without end time (in-progress span)
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=None,  # No end time - span still in progress
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
+
+    # Verify trace has timestamp but no execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 1_000  # 1 second
+        assert trace.execution_time_ms is None  # No execution time since span not ended
+
+    # Add a second span that also has no end time
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="another_in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=500_000_000,  # 0.5 seconds - earlier start
+            end_time=None,  # No end time
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log second span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
+
+    # Verify trace timestamp updated but execution_time still None
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Updated to earlier time
+        assert trace.execution_time_ms is None  # Still no execution time
+
+    # Now add a span with an end time
+    span3 = create_mlflow_span(
+        OTelReadableSpan(
+            name="completed_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_000_000_000,  # 2 seconds
+            end_time=3_000_000_000,  # 3 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
+
+    # Verify trace now has execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Still earliest start
+        assert trace.execution_time_ms == 2_500  # 3s - 0.5s = 2.5s
 
 
 def test_log_outputs(store: SqlAlchemyStore):

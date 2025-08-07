@@ -2,7 +2,7 @@ import logging
 import threading
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Optional
+from typing import Any
 
 import dspy
 from dspy.utils.callback import BaseCallback
@@ -41,7 +41,7 @@ def skip_if_trace_disabled(func):
 class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
-    def __init__(self, dependencies_schema: Optional[dict[str, Any]] = None):
+    def __init__(self, dependencies_schema: dict[str, Any] | None = None):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
@@ -86,9 +86,7 @@ class MlflowCallback(BaseCallback):
         self._call_id_to_module[call_id] = instance
 
     @skip_if_trace_disabled
-    def on_module_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
+    def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         instance = self._call_id_to_module.pop(call_id)
 
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
@@ -155,9 +153,7 @@ class MlflowCallback(BaseCallback):
         )
 
     @skip_if_trace_disabled
-    def on_lm_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
+    def on_lm_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         self._end_span(call_id, outputs, exception)
 
     @skip_if_trace_disabled
@@ -172,7 +168,7 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_adapter_format_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+        self, call_id: str, outputs: Any | None, exception: Exception | None = None
     ):
         self._end_span(call_id, outputs, exception)
 
@@ -188,7 +184,7 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_adapter_parse_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+        self, call_id: str, outputs: Any | None, exception: Exception | None = None
     ):
         self._end_span(call_id, outputs, exception)
 
@@ -215,9 +211,7 @@ class MlflowCallback(BaseCallback):
         )
 
     @skip_if_trace_disabled
-    def on_tool_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
+    def on_tool_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         if call_id in self._call_id_to_span:
             self._end_span(call_id, outputs, exception)
 
@@ -252,7 +246,7 @@ class MlflowCallback(BaseCallback):
         self,
         call_id: str,
         outputs: Any,
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
     ):
         """
         Callback handler at the end of evaluation call. Available with DSPy>=2.6.9.
@@ -329,8 +323,8 @@ class MlflowCallback(BaseCallback):
     def _end_span(
         self,
         call_id: str,
-        outputs: Optional[Any],
-        exception: Optional[Exception] = None,
+        outputs: Any | None,
+        exception: Exception | None = None,
     ):
         st = self._call_id_to_span.pop(call_id, None)
 
