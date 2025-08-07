@@ -270,7 +270,7 @@ class CustomDSPyOptimizer(DSPyPromptOptimizer):
         )
 
         return OptimizerOutput(
-            optimized_prompt=format_dspy_prompt(optimized_program),
+            optimized_prompt=format_dspy_prompt(compiled_program),
             optimizer_name="BootstrapFewShot",
         )
 
