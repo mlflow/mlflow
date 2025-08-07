@@ -4991,7 +4991,8 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
         assert created_trace.experiment_id == int(experiment_id)
         assert created_trace.timestamp_ms == 5000000000 // 1_000_000
         assert created_trace.execution_time_ms == 1000000000 // 1_000_000
-        assert created_trace.status == "OK"
+        # When span status is UNSET (default), trace status is STATE_UNSPECIFIED
+        assert created_trace.status == "STATE_UNSPECIFIED"
 
 
 @pytest.mark.asyncio
