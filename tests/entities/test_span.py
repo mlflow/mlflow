@@ -507,10 +507,21 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     assert roundtrip_span.status.status_code == mlflow_span.status.status_code
     assert roundtrip_span.status.description == mlflow_span.status.description
 
-    # Verify attributes
+    # Verify span attributes are preserved
     assert roundtrip_span.span_type == mlflow_span.span_type
     assert roundtrip_span.inputs == mlflow_span.inputs
     assert roundtrip_span.outputs == mlflow_span.outputs
+
+    # Verify all custom attributes are preserved
+    # The original span has a custom_attr that should be preserved
+    original_custom_attr = mlflow_span.get_attribute("custom_attr")
+    roundtrip_custom_attr = roundtrip_span.get_attribute("custom_attr")
+    assert original_custom_attr == roundtrip_custom_attr
+    assert original_custom_attr == {"key": "value"}
+
+    # Verify the trace request ID is preserved
+    assert roundtrip_span.request_id == mlflow_span.request_id
+    assert roundtrip_span.request_id == {"test": "trace_id"}
 
     # Verify events
     assert len(roundtrip_span.events) == len(mlflow_span.events)
