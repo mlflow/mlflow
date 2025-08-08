@@ -2669,4 +2669,6 @@ message Scorer {
   optional int32 scorer_version = 3;
   // The serialized scorer string.
   optional string serialized_scorer = 4;
+  // The creation time of the scorer version (in milliseconds since epoch).
+  optional int64 creation_time = 5;
 }

@@ -1417,6 +1417,10 @@ class SqlScorerVersion(Base):
     """
     Serialized scorer data: `Text`. Contains the serialized scorer object.
     """
+    creation_time = Column(BigInteger(), default=get_current_time_millis)
+    """
+    Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
+    """
 
     # Relationship to the parent scorer
     scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
@@ -1445,4 +1449,5 @@ class SqlScorerVersion(Base):
             scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
+            creation_time=self.creation_time,
         )

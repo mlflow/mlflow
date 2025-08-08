@@ -5,11 +5,12 @@ from mlflow.protos.service_pb2 import Scorer as ProtoScorer
 class Scorer(_MlflowObject):
     """Scorer object associated with an experiment."""
 
-    def __init__(self, experiment_id, scorer_name, scorer_version, serialized_scorer):
+    def __init__(self, experiment_id, scorer_name, scorer_version, serialized_scorer, creation_time=None):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
+        self._creation_time = creation_time
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -36,6 +37,11 @@ class Scorer(_MlflowObject):
         """String containing the serialized scorer data."""
         return self._serialized_scorer
 
+    @property
+    def creation_time(self):
+        """BigInteger creation time of the scorer version."""
+        return self._creation_time
+
     @classmethod
     def from_proto(cls, proto):
         """Create a Scorer from a protobuf message."""
@@ -44,6 +50,7 @@ class Scorer(_MlflowObject):
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
+            creation_time=proto.creation_time,
         )
 
     def to_proto(self):
@@ -53,6 +60,7 @@ class Scorer(_MlflowObject):
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
         proto.serialized_scorer = self.serialized_scorer
+        proto.creation_time = self.creation_time
         return proto
 
     def __repr__(self):

@@ -34,12 +34,13 @@ def upgrade():
         sa.PrimaryKeyConstraint("experiment_id", "scorer_name", name="scorer_pk"),
     )
 
-    # Create the scorer_versions table (scorer_id, scorer_version, serialized_scorer)
+    # Create the scorer_versions table (scorer_id, scorer_version, serialized_scorer, creation_time)
     op.create_table(
         SqlScorerVersion.__tablename__,
         sa.Column("scorer_id", sa.String(length=36), nullable=False),
         sa.Column("scorer_version", sa.Integer(), nullable=False),
         sa.Column("serialized_scorer", sa.Text(), nullable=False),
+        sa.Column("creation_time", sa.BigInteger(), nullable=True),
         sa.ForeignKeyConstraint(
             ["scorer_id"],
             ["scorers.scorer_id"],
