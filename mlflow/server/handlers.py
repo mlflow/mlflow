@@ -27,7 +27,6 @@ from mlflow.entities import (
     Metric,
     Param,
     RunTag,
-    Scorer,
     ViewType,
 )
 from mlflow.entities.logged_model import LoggedModel

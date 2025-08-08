@@ -1,16 +1,17 @@
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
+from mlflow.utils.time import get_current_time_millis
 
 
-class Scorer(_MlflowObject):
-    """Scorer object associated with an experiment."""
+class ScorerVersion(_MlflowObject):
+    """ScorerVersion object associated with an experiment."""
 
     def __init__(self, experiment_id, scorer_name, scorer_version, serialized_scorer, creation_time=None):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
-        self._creation_time = creation_time
+        self._creation_time = creation_time if creation_time is not None else get_current_time_millis()
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -44,7 +45,7 @@ class Scorer(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        """Create a Scorer from a protobuf message."""
+        """Create a ScorerVersion from a protobuf message."""
         return cls(
             experiment_id=proto.experiment_id,
             scorer_name=proto.scorer_name,
@@ -54,7 +55,7 @@ class Scorer(_MlflowObject):
         )
 
     def to_proto(self):
-        """Convert this Scorer to a protobuf message."""
+        """Convert this ScorerVersion to a protobuf message."""
         proto = ProtoScorer()
         proto.experiment_id = self.experiment_id
         proto.scorer_name = self.scorer_name
@@ -64,4 +65,4 @@ class Scorer(_MlflowObject):
         return proto
 
     def __repr__(self):
-        return f"<Scorer(experiment_id={self.experiment_id}, scorer_name='{self.scorer_name}', scorer_version={self.scorer_version})>" 
+        return f"<ScorerVersion(experiment_id={self.experiment_id}, scorer_name='{self.scorer_name}', scorer_version={self.scorer_version})>" 

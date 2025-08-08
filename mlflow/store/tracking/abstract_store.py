@@ -916,7 +916,7 @@ class AbstractStore:
             experiment_id: The experiment ID.
 
         Returns:
-            List of mlflow.entities.scorer.Scorer objects (latest version for each scorer name).
+            List of mlflow.entities.scorer.ScorerVersion objects (latest version for each scorer name).
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -946,7 +946,7 @@ class AbstractStore:
             name: The scorer name.
 
         Returns:
-            List of mlflow.entities.scorer.Scorer objects for all versions of the scorer.
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
 
         Raises:
             MlflowException: If scorer is not found.

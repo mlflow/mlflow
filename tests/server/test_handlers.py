@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType, Scorer
+from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType, ScorerVersion
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -993,13 +993,13 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
     
     # Create mock scorers
     scorers = [
-        Scorer(
+        ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=1,
             serialized_scorer="serialized_accuracy_scorer"
         ),
-        Scorer(
+        ScorerVersion(
             experiment_id=123,
             scorer_name="safety_scorer",
             scorer_version=2,
@@ -1037,13 +1037,13 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
     
     # Create mock scorers with multiple versions
     scorers = [
-        Scorer(
+        ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=1,
             serialized_scorer="serialized_accuracy_scorer_v1"
         ),
-        Scorer(
+        ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=2,

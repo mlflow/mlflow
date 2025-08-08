@@ -14,7 +14,7 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
-    Scorer,
+    ScorerVersion,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -1071,7 +1071,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(RegisterScorer, req_body)
         return response_proto.version
 
-    def list_scorers(self, experiment_id: str) -> list[Scorer]:
+    def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
         """
         List all scorers for an experiment (latest version for each scorer name).
 
@@ -1083,9 +1083,9 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(ListScorers(experiment_id=experiment_id))
         response_proto = self._call_endpoint(ListScorers, req_body)
-        return [Scorer.from_proto(scorer) for scorer in response_proto.scorers]
+        return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
-    def list_scorer_versions(self, experiment_id: str, name: str) -> list[Scorer]:
+    def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -1100,7 +1100,7 @@ class RestStore(AbstractStore):
             ListScorerVersions(experiment_id=experiment_id, name=name)
         )
         response_proto = self._call_endpoint(ListScorerVersions, req_body)
-        return [Scorer.from_proto(scorer) for scorer in response_proto.scorers]
+        return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
     def get_scorer(self, experiment_id: str, name: str, version: int | None = None) -> str:
         """

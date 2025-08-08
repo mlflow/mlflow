@@ -2006,7 +2006,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id: The experiment ID.
             
         Returns:
-            List of mlflow.entities.scorer.Scorer objects (latest version for each scorer name).
+            List of mlflow.entities.scorer.ScorerVersion objects (latest version for each scorer name).
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2050,7 +2050,7 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             
-            # Convert to mlflow.entities.scorer.Scorer objects
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
@@ -2184,7 +2184,7 @@ class SqlAlchemyStore(AbstractStore):
             name: The scorer name.
             
         Returns:
-            List of mlflow.entities.scorer.Scorer objects for all versions of the scorer.
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
             
         Raises:
             MlflowException: If scorer is not found.
@@ -2217,7 +2217,7 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
             
-            # Convert to mlflow.entities.scorer.Scorer objects
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())

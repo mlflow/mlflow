@@ -92,7 +92,7 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
         from mlflow.tracking.fluent import _get_experiment_id
         experiment_id = _get_experiment_id()
     
-    # Get the list of mlflow.entities.scorer.Scorer objects
+    # Get the list of mlflow.entities.scorer.ScorerVersion objects
     entity_scorers = current_store.list_scorers(experiment_id)
     
     # Convert to mlflow.genai.scorers.Scorer objects

@@ -1441,10 +1441,10 @@ class SqlScorerVersion(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            mlflow.entities.Scorer.
+            mlflow.entities.ScorerVersion.
         """
-        from mlflow.entities.scorer import Scorer
-        return Scorer(
+        from mlflow.entities.scorer import ScorerVersion
+        return ScorerVersion(
             experiment_id=self.scorer.experiment_id,
             scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
