@@ -84,6 +84,8 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.NUMBERS;
     case ModelSpanType.RERANKER:
       return ModelIconType.SORT;
+    case ModelSpanType.MEMORY:
+      return ModelIconType.SAVE;
     case ModelSpanType.FUNCTION:
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
@@ -113,6 +115,8 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Embedding';
     case ModelSpanType.RERANKER:
       return 'Reranker';
+    case ModelSpanType.MEMORY:
+      return 'Memory';
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
