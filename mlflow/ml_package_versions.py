@@ -357,7 +357,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.14.0",
-            "maximum": "1.21.0"
+            "maximum": "1.20.0"
         }
     },
     "mistral": {
