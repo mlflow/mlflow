@@ -885,6 +885,7 @@ smolagents:
     maximum: "1.20.0"
     requirements:
       "< 1.21.0": ["duckduckgo-search"]
+      # `duckduckgo_search` has been renamed to `ddgs`:
       # https://github.com/huggingface/smolagents/pull/1593
       ">= 1.21.0": ["ddgs"]
     run: pytest tests/smolagents
