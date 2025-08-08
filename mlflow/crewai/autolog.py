@@ -50,7 +50,7 @@ def _get_span_type(instance) -> str:
         elif isinstance(
             instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
-            return SpanType.RETRIEVER
+            return SpanType.MEMORY
 
         # Knowledge and Memory are not available before 0.83.0
         if Version(crewai.__version__) >= Version("0.83.0"):
@@ -61,9 +61,11 @@ def _get_span_type(instance) -> str:
                     crewai.memory.LongTermMemory,
                     crewai.memory.UserMemory,
                     crewai.memory.EntityMemory,
-                    crewai.Knowledge,
                 ),
             ):
+                return SpanType.MEMORY
+
+            if isinstance(instance, crewai.Knowledge):
                 return SpanType.RETRIEVER
     except AttributeError as e:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
