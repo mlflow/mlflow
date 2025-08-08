@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -10,6 +11,7 @@ from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
@@ -71,18 +73,11 @@ class NoOpTracerPatcher:
         NoOpTracer.start_span = self.original
 
 
-def parse_inputs_to_str(inputs: Any) -> str:
-    """Parse the inputs to a request string compatible with the judges API"""
-    from databricks.rag_eval.utils import input_output_utils
-
-    return input_output_utils.request_to_string(inputs)
-
-
-def parse_output_to_str(output: Any) -> str:
-    """Parse the output to a string compatible with the judges API"""
-    from databricks.rag_eval.utils import input_output_utils
-
-    return input_output_utils.response_to_string(output)
+def parse_inputs_outputs_to_str(value: Any) -> str:
+    """Parse the inputs/outputs to a string compatible with the judges API"""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, default=TraceJSONEncoder)
 
 
 def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:

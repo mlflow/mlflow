@@ -18,6 +18,8 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
+from tests.genai.conftest import databricks_only
+
 
 @pytest.fixture(scope="module")
 def spark():
@@ -413,6 +415,7 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
     assert set(received_args) == set(expected_contents)
 
 
+@databricks_only
 def test_convert_scorer_to_legacy_metric():
     """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
     # Test with a built-in scorer
@@ -446,6 +449,7 @@ def test_convert_scorer_to_legacy_metric():
         [sum, max],
     ],
 )
+@databricks_only
 def test_scorer_pass_through_aggregations(aggregations):
     @scorer(name="custom_scorer", aggregations=aggregations)
     def custom_scorer_func(outputs):

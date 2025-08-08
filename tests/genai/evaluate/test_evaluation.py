@@ -302,6 +302,9 @@ def test_evaluate_with_traces(pass_full_dataframe):
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
+    if not is_in_databricks:
+        pytest.skip("OSS genai evaluator doesn't support managed dataset input yet")
+
     class MockDatasetClient:
         def __init__(self):
             # dataset_id -> list of records
