@@ -6176,25 +6176,31 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Step 3: Test get_scorer with specific versions
     # Get accuracy_scorer version 1
     accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
-    assert accuracy_v1 == "serialized_accuracy_scorer1"
+    assert accuracy_v1.serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_v1.scorer_version == 1
     
     # Get accuracy_scorer version 2
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2 == "serialized_accuracy_scorer2"
+    assert accuracy_v2.serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2.scorer_version == 2
     
     # Get accuracy_scorer version 3 (latest)
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3 == "serialized_accuracy_scorer3"
+    assert accuracy_v3.serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3.scorer_version == 3
     
     # Step 4: Test get_scorer without version (should return latest)
     accuracy_latest = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest == "serialized_accuracy_scorer3"
+    assert accuracy_latest.serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest.scorer_version == 3
     
     safety_latest = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest == "serialized_safety_scorer2"
+    assert safety_latest.serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest.scorer_version == 2
     
     relevance_latest = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest == "relevance_scorer_scorer1"
+    assert relevance_latest.serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest.scorer_version == 1
     
     # Step 5: Test error cases for get_scorer
     # Try to get non-existent scorer
@@ -6215,14 +6221,17 @@ def test_scorer_operations(store: SqlAlchemyStore):
     
     # Verify versions 2 and 3 still exist
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2 == "serialized_accuracy_scorer2"
+    assert accuracy_v2.serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2.scorer_version == 2
     
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3 == "serialized_accuracy_scorer3"
+    assert accuracy_v3.serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3.scorer_version == 3
     
     # Verify latest version still works
     accuracy_latest_after_partial_delete = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest_after_partial_delete == "serialized_accuracy_scorer3"
+    assert accuracy_latest_after_partial_delete.serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest_after_partial_delete.scorer_version == 3
     
     # Step 7: Test delete_scorer - delete all versions of accuracy_scorer
     store.delete_scorer(experiment_id, "accuracy_scorer")
@@ -6233,10 +6242,12 @@ def test_scorer_operations(store: SqlAlchemyStore):
     
     # Verify other scorers still exist
     safety_latest_after_delete = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest_after_delete == "serialized_safety_scorer2"
+    assert safety_latest_after_delete.serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest_after_delete.scorer_version == 2
     
     relevance_latest_after_delete = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest_after_delete == "relevance_scorer_scorer1"
+    assert relevance_latest_after_delete.serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest_after_delete.scorer_version == 1
     
     # Step 8: Test list_scorers after deletion
     scorers_after_delete = store.list_scorers(experiment_id)

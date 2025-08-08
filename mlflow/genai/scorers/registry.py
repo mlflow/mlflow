@@ -169,11 +169,11 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
         from mlflow.tracking.fluent import _get_experiment_id
         experiment_id = _get_experiment_id()
 
-    # Get the serialized scorer string
-    serialized_scorer = current_store.get_scorer(experiment_id, name)
+    # Get the scorer version entity
+    scorer_version = current_store.get_scorer(experiment_id, name)
     
     # Convert to mlflow.genai.scorers.Scorer object
-    scorer_dict = json.loads(serialized_scorer)
+    scorer_dict = json.loads(scorer_version.serialized_scorer)
     scorer = Scorer.model_validate(scorer_dict)
     
     return scorer

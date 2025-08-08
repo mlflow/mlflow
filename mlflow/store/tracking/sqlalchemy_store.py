@@ -2067,7 +2067,7 @@ class SqlAlchemyStore(AbstractStore):
             version: The scorer version. If None, returns the scorer with maximum version.
             
         Returns:
-            The serialized scorer string.
+            A ScorerVersion entity object.
             
         Raises:
             MlflowException: If scorer is not found.
@@ -2111,7 +2111,7 @@ class SqlAlchemyStore(AbstractStore):
                         RESOURCE_DOES_NOT_EXIST,
                     )
             
-            return sql_scorer_version.serialized_scorer
+            return sql_scorer_version.to_mlflow_entity()
 
     def delete_scorer(self, experiment_id, name, version=None):
         """

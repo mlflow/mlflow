@@ -930,7 +930,7 @@ class AbstractStore:
             version: The scorer version. If None, returns the scorer with maximum version.
 
         Returns:
-            The serialized scorer string.
+            A ScorerVersion entity object.
 
         Raises:
             MlflowException: If scorer is not found.

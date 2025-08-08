@@ -3199,12 +3199,12 @@ def _get_scorer():
         },
     )
     response_message = GetScorer.Response()
-    serialized_scorer = _get_tracking_store().get_scorer(
+    scorer_version = _get_tracking_store().get_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.version if request_message.HasField("version") else None,
     )
-    response_message.serialized_scorer = serialized_scorer
+    response_message.scorer.CopyFrom(scorer_version.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

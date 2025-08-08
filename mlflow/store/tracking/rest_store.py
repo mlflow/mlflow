@@ -1102,7 +1102,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(ListScorerVersions, req_body)
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
-    def get_scorer(self, experiment_id: str, name: str, version: int | None = None) -> str:
+    def get_scorer(self, experiment_id: str, name: str, version: int | None = None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -1112,13 +1112,13 @@ class RestStore(AbstractStore):
             version: Integer version of the scorer. If None, returns the scorer with maximum version.
 
         Returns:
-            The serialized scorer string.
+            A ScorerVersion entity object.
         """
         req_body = message_to_json(
             GetScorer(experiment_id=experiment_id, name=name, version=version)
         )
         response_proto = self._call_endpoint(GetScorer, req_body)
-        return response_proto.serialized_scorer
+        return ScorerVersion.from_proto(response_proto.scorer)
 
     def delete_scorer(self, experiment_id: str, name: str, version: int | None = None) -> None:
         """

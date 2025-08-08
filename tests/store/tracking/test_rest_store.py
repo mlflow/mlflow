@@ -1595,14 +1595,22 @@ def test_get_scorer_with_version():
         
         # Mock response
         mock_response = mock.MagicMock()
-        mock_response.serialized_scorer = "serialized_accuracy_scorer_v2"
+        mock_scorer = mock.MagicMock()
+        mock_scorer.experiment_id = 123
+        mock_scorer.scorer_name = "accuracy_scorer"
+        mock_scorer.scorer_version = 2
+        mock_scorer.serialized_scorer = "serialized_accuracy_scorer_v2"
+        mock_scorer.creation_time = 1640995200000
+        mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
         
         # Call the method
         result = store.get_scorer(experiment_id, name, version=version)
         
         # Verify result
-        assert result == "serialized_accuracy_scorer_v2"
+        assert result.serialized_scorer == "serialized_accuracy_scorer_v2"
+        assert result.scorer_version == 2
+        assert result.scorer_name == "accuracy_scorer"
         
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
@@ -1625,14 +1633,22 @@ def test_get_scorer_without_version():
         
         # Mock response
         mock_response = mock.MagicMock()
-        mock_response.serialized_scorer = "serialized_accuracy_scorer_latest"
+        mock_scorer = mock.MagicMock()
+        mock_scorer.experiment_id = 123
+        mock_scorer.scorer_name = "accuracy_scorer"
+        mock_scorer.scorer_version = 3
+        mock_scorer.serialized_scorer = "serialized_accuracy_scorer_latest"
+        mock_scorer.creation_time = 1640995200000
+        mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
         
         # Call the method
         result = store.get_scorer(experiment_id, name)
         
         # Verify result
-        assert result == "serialized_accuracy_scorer_latest"
+        assert result.serialized_scorer == "serialized_accuracy_scorer_latest"
+        assert result.scorer_version == 3
+        assert result.scorer_name == "accuracy_scorer"
         
         # Verify API call
         mock_call_endpoint.assert_called_once_with(

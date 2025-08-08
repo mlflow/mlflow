@@ -2638,8 +2638,8 @@ message GetScorer {
   optional int32 version = 3;
 
   message Response {
-    // The serialized scorer string.
-    optional string serialized_scorer = 1;
+    // The scorer entity.
+    optional Scorer scorer = 1;
   }
 }
 
