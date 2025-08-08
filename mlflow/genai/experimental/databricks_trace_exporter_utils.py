@@ -68,7 +68,7 @@ def create_archival_ingest_sdk():
     return IngestApiSdk(ingest_url, workspace_url, token)
 
 
-def _resolve_ingest_url(workspace_id: str | None = None) -> str:
+def _resolve_ingest_url() -> str:
     """
     Dynamically resolve Databricks ingest URL from workspace host pattern.
 
@@ -88,10 +88,6 @@ def _resolve_ingest_url(workspace_id: str | None = None) -> str:
     Azure Patterns:
     - Staging: *.staging.azuredatabricks.net → <workspace_id>.ingest.staging.azuredatabricks.net
     - Prod: *.azuredatabricks.net → <workspace_id>.ingest.azuredatabricks.net
-
-    Args:
-        workspace_id: Optional workspace ID. If not provided, will be auto-detected
-            from Databricks context
 
     Returns:
         str: The resolved ingest URL
@@ -119,10 +115,9 @@ def _resolve_ingest_url(workspace_id: str | None = None) -> str:
 
     try:
         # Get workspace ID if not provided
-        if workspace_id is None:
-            from mlflow.utils.databricks_utils import get_workspace_id
+        from databricks.sdk import WorkspaceClient
 
-            workspace_id = get_workspace_id()
+        workspace_id = WorkspaceClient().get_workspace_id()
 
         if not workspace_id:
             raise MlflowException(
