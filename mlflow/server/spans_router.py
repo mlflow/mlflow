@@ -5,9 +5,8 @@ from pydantic import BaseModel
 
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 
-router = APIRouter()
 prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "")
-router = APIRouter(prefix=f"{prefix}/api/2.0", tags=["span_router"])
+router = APIRouter(prefix=f"{prefix}/api/2.0")
 
 
 class ListSpansResponse(BaseModel): ...
