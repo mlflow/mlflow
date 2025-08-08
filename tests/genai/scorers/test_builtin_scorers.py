@@ -1,7 +1,5 @@
 from unittest.mock import call, patch
 
-from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksCategoricalRating
-
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
@@ -17,12 +15,17 @@ from mlflow.genai.scorers import (
     Safety,
 )
 
+from tests.genai.conftest import databricks_only
 
+
+@databricks_only
 def test_retrieval_groundedness(sample_rag_trace):
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     with patch(
         "databricks.agents.evals.judges.groundedness",
         side_effect=lambda *args, **kwargs: Feedback(
-            name="retrieval_groundedness", value=DatabricksCategoricalRating.YES
+            name="retrieval_groundedness", value=DatabricksRating.YES
         ),
     ) as mock_groundedness:
         result = RetrievalGroundedness()(trace=sample_rag_trace)
@@ -56,6 +59,7 @@ def test_retrieval_groundedness(sample_rag_trace):
     assert set(actual_span_ids) == set(expected_span_ids)
 
 
+@databricks_only
 def test_retrieval_relevance(sample_rag_trace):
     mock_responses = [
         # First retriever span has 2 chunks
@@ -123,11 +127,14 @@ def test_retrieval_relevance(sample_rag_trace):
     assert results[4].span_id == retriever_span_ids[1]
 
 
+@databricks_only
 def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     mock_responses = [
         # Error feedback
         [
-            Feedback(name="retrieval_relevance", value=DatabricksCategoricalRating.YES),
+            Feedback(name="retrieval_relevance", value=DatabricksRating.YES),
             Feedback(name="retrieval_relevance", error=AssessmentError(error_code="test")),
         ],
         # Empty feedback - skip span
@@ -147,11 +154,14 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[2].error.error_code == "test"
 
 
+@databricks_only
 def test_retrieval_sufficiency(sample_rag_trace):
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     with patch(
         "databricks.agents.evals.judges.context_sufficiency",
         side_effect=lambda *args, **kwargs: Feedback(
-            name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES
+            name="retrieval_sufficiency", value=DatabricksRating.YES
         ),
     ) as mock_context_sufficiency:
         result = RetrievalSufficiency()(trace=sample_rag_trace)
@@ -189,10 +199,13 @@ def test_retrieval_sufficiency(sample_rag_trace):
     assert set(actual_span_ids) == set(expected_span_ids)
 
 
+@databricks_only
 def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     with patch(
         "databricks.agents.evals.judges.context_sufficiency",
-        return_value=Feedback(name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES),
+        return_value=Feedback(name="retrieval_sufficiency", value=DatabricksRating.YES),
     ) as mock_context_sufficiency:
         RetrievalSufficiency()(
             trace=sample_rag_trace,
@@ -234,7 +247,7 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
-        context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": '{"question": "query"}', "response": "answer"},
         name="expectations_guidelines",
         model=None,
     )
@@ -250,7 +263,7 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines=["The response should be in English."],
-        context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": '{"question": "query"}', "response": "answer"},
         name="is_english",
         model="openai:/gpt-4.1-mini",
     )
@@ -266,16 +279,19 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines="Be polite and respectful.",
-        context={"request": "{'question': 'query'}", "response": "answer"},
+        context={"request": '{"question": "query"}', "response": "answer"},
         name="is_polite",
         model="openai:/gpt-4.1-mini",
     )
 
 
+@databricks_only
 def test_relevance_to_query():
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     with patch(
         "databricks.agents.evals.judges.relevance_to_query",
-        return_value=Feedback(name="relevance_to_query", value=DatabricksCategoricalRating.YES),
+        return_value=Feedback(name="relevance_to_query", value=DatabricksRating.YES),
     ) as mock_relevance_to_query:
         result = RelevanceToQuery()(
             inputs={"question": "query"},
@@ -292,6 +308,7 @@ def test_relevance_to_query():
     assert result.value == CategoricalRating.YES
 
 
+@databricks_only
 def test_safety():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
@@ -312,6 +329,7 @@ def test_safety():
     )
 
 
+@databricks_only
 def test_correctness():
     with patch("databricks.agents.evals.judges.correctness") as mock_correctness:
         Correctness()(

@@ -18,6 +18,8 @@ from mlflow.genai.scorers.builtin_scorers import (
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 
+from tests.genai.conftest import databricks_only
+
 
 @pytest.fixture
 def mock_logger():
@@ -43,6 +45,7 @@ def test_validate_scorers_valid():
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
+@databricks_only
 def test_validate_scorers_legacy_metric():
     from databricks.agents.evals import metric
 
