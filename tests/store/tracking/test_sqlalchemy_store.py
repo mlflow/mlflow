@@ -6323,19 +6323,15 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         {"inputs": {"question": "No tags"}, "expectations": {"answer": "No tags"}, "tags": {}},
     ]
 
-    result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id,
-        records_batch3,
-    )
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch3)
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    result_empty_inputs = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id,
-        [{"inputs": {}, "expectations": {"result": "empty inputs allowed"}}],
-    )
-    assert result_empty_inputs["inserted"] == 1
-    assert result_empty_inputs["updated"] == 0
+    with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
+        store.upsert_evaluation_dataset_records(
+            created_dataset.dataset_id,
+            [{"inputs": {}, "expectations": {"result": "should fail"}}],
+        )
 
     empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
@@ -6407,13 +6403,11 @@ def test_evaluation_dataset_get_experiment_ids(store):
     )
     assert fetched_experiment_ids2 == []
 
-    with pytest.raises(
-        MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
-    ):
-        store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+    result = store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+    assert result == []
 
-    with pytest.raises(MlflowException, match="dataset_id must be provided"):
-        store.get_evaluation_dataset_experiment_ids("")
+    result = store.get_evaluation_dataset_experiment_ids("")
+    assert result == []
 
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
@@ -6434,7 +6428,6 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_none = store.create_evaluation_dataset(
         name="no_tags_dataset",
         tags=None,
-        experiment_ids=None,
     )
     retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
     assert retrieved_none.tags == {}
@@ -6473,8 +6466,6 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
     }
     assert updated.tags == expected_tags
-    # last_updated_by is extracted from tags if mlflow.user is present
-    # Since we didn't set mlflow.user in the tags, it should remain None
     assert updated.last_updated_by is None or updated.last_updated_by == updated.created_by
 
     created_no_tags = store.create_evaluation_dataset(
@@ -6483,7 +6474,6 @@ def test_evaluation_dataset_update_tags(store):
         experiment_ids=None,
     )
 
-    # Set mlflow.user in tags to test user extraction
     store.set_evaluation_dataset_tags(
         created_no_tags.dataset_id, {"new_tag": "value", "mlflow.user": "test_user2"}
     )
