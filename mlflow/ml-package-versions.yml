@@ -882,7 +882,7 @@ smolagents:
       pip install "git+https://github.com/huggingface/smolagents"
   autologging:
     minimum: "1.14.0"
-    maximum: "1.20.0"
+    maximum: "1.21.0"
     requirements:
       "< 1.21.0": ["duckduckgo-search"]
       # `duckduckgo_search` has been renamed to `ddgs`:
