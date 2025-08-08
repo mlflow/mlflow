@@ -1,0 +1,272 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book, Code, Activity, Target, BarChart3, TrendingUp, RefreshCw } from "lucide-react";
+
+# Evaluation Datasets
+
+## Transform Your GenAI Testing with Structured Evaluation Data
+
+Evaluation datasets are the foundation of systematic GenAI application testing. They provide a centralized way to manage test data, ground truth expectations, and evaluation results—enabling you to measure and improve the quality of your AI applications with confidence.
+
+## Getting Started in 30 Seconds
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="create" label="Create Dataset" default>
+
+```python
+import mlflow
+from mlflow.genai.datasets import create_evaluation_dataset
+
+# Create your first evaluation dataset
+dataset = create_evaluation_dataset(
+    name="customer_support_qa",
+    experiment_ids=["0", "1"],  # MLflow experiment IDs
+    tags={"team": "support", "version": "v1.0"}
+)
+
+# Add test records with expectations
+records = [
+    {
+        "inputs": {"question": "How do I reset my password?"},
+        "expectations": {
+            "answer": "To reset your password, click 'Forgot Password' on the login page...",
+            "contains_steps": True,
+            "tone": "helpful"
+        }
+    },
+    {
+        "inputs": {"question": "What are your business hours?"},
+        "expectations": {
+            "answer": "Our support team is available Monday-Friday, 9 AM to 5 PM EST.",
+            "accuracy": 1.0
+        }
+    }
+]
+
+dataset.merge_records(records)
+```
+
+</TabItem>
+<TabItem value="from-traces" label="Build from Traces">
+
+```python
+import mlflow
+from mlflow.genai.datasets import create_evaluation_dataset
+
+# Create dataset from production traces
+dataset = create_evaluation_dataset(
+    name="production_validation_set"
+)
+
+# Search for recent traces from your experiments
+traces = mlflow.MlflowClient().search_traces(
+    experiment_ids=["0"],  # Your experiment ID(s)
+    max_results=100,
+    filter_string="attributes.trace_name = 'chat_completion'"
+)
+
+# Convert traces directly to evaluation records
+# The Trace objects can be passed directly to merge_records
+dataset.merge_records(traces)
+
+# Optionally add expectations to specific traces
+for trace in traces[:10]:  # Add expectations to first 10 traces
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_quality",
+        value={"relevance": 0.9, "coherence": 0.95},
+        source={"source_type": "HUMAN", "source_id": "qa_team@company.com"}
+    )
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Why Evaluation Datasets?
+
+<FeatureHighlights features={[
+  {
+    icon: Database,
+    title: "Centralized Test Management",
+    description: "Store all your test cases, expected outputs, and evaluation criteria in one place. No more scattered CSV files or hardcoded test data."
+  },
+  {
+    icon: GitBranch,
+    title: "Version Control for Quality",
+    description: "Track how your test data evolves as your application changes. Compare evaluation results across different model versions and configurations."
+  },
+  {
+    icon: TestTube,
+    title: "Systematic Testing",
+    description: "Move beyond ad-hoc testing to systematic evaluation. Define clear expectations and measure performance consistently across deployments."
+  },
+  {
+    icon: Users,
+    title: "Collaborative Improvement",
+    description: "Enable your entire team to contribute test cases and expectations. Share evaluation datasets across projects and teams."
+  }
+]} />
+
+## The Evaluation Loop
+
+Evaluation datasets are a critical component in the GenAI development lifecycle:
+
+<DAGLoop
+  title="The Evaluation Loop"
+  steps={[
+    {
+      icon: Code,
+      title: "Iterate on Code",
+      description: "Build and improve your GenAI application",
+      detailedDescription: "Whether starting fresh or improving existing code, implement changes to your GenAI application. Use MLflow's comprehensive tracing to monitor each iteration, capture execution details, and track how your modifications impact performance and quality."
+    },
+    {
+      icon: TestTube,
+      title: "Test App",
+      description: "Run initial tests and scenarios",
+      detailedDescription: "Execute thorough testing with diverse prompts including edge cases, adversarial inputs, and typical user scenarios. Use MLflow's tracing to capture every interaction, response time, and token consumption for analysis."
+    },
+    {
+      icon: Activity,
+      title: "Collect Traces",
+      description: "Capture real interactions",
+      detailedDescription: "Systematically collect traces from both testing environments and production deployments. Each trace contains the complete request-response cycle, intermediate steps, and metadata that forms the foundation of your evaluation data."
+    },
+    {
+      icon: Target,
+      title: "Add Expectations",
+      description: "Define ground truth outputs",
+      detailedDescription: "Annotate traces with expected outputs and quality criteria. Domain experts define what constitutes correct behavior, creating a gold standard for evaluation. These expectations become the benchmark against which all AI responses are measured."
+    },
+    {
+      icon: Database,
+      title: "Create Dataset",
+      description: "Organize evaluation data",
+      detailedDescription: "Transform your annotated traces into structured evaluation datasets. These datasets become reusable test suites that can be versioned, shared across teams, and used to consistently measure performance across different model versions and configurations."
+    },
+    {
+      icon: BarChart3,
+      title: "Run Evaluation",
+      description: "Execute systematic evaluation",
+      detailedDescription: "Run comprehensive evaluations using MLflow's evaluation framework with automated scorers, LLM judges, and custom metrics. Generate detailed reports comparing actual outputs against expectations to quantify your AI's performance."
+    },
+    {
+      icon: TrendingUp,
+      title: "Analyze Results",
+      description: "Identify improvements",
+      detailedDescription: "Deep dive into evaluation results to identify patterns, failure modes, and improvement opportunities. Use MLflow's visualization tools to compare performance across experiments and track progress over time."
+    }
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Iterate & Improve"
+  loopBackDescription="After analyzing results, iterate on your application by refining prompts, adjusting model parameters, or enhancing your evaluation criteria. The cycle continues as you progressively improve quality."
+  circleSize={600}
+/>
+
+## Key Features
+
+<FeatureHighlights features={[
+  {
+    title: "Ground Truth Management",
+    description: "Define and maintain expected outputs for your test cases. Capture expert knowledge about what constitutes correct behavior for your AI system."
+  },
+  {
+    title: "Schema Evolution",
+    description: "Automatically track the structure of your test data as it evolves. Add new fields and test dimensions without breaking existing evaluations."
+  },
+  {
+    title: "Incremental Updates",
+    description: "Continuously improve your test suite by adding new cases from production. Update expectations as your understanding of correct behavior evolves."
+  },
+  {
+    title: "Flexible Tagging",
+    description: "Organize datasets with tags for easy discovery and filtering. Track metadata like data sources, annotation guidelines, and quality levels."
+  },
+  {
+    title: "Performance Tracking",
+    description: "Monitor how your application performs against the same test data over time. Identify regressions and improvements across deployments."
+  },
+  {
+    title: "Experiment Integration",
+    description: "Link datasets to MLflow experiments for complete traceability. Understand which test data was used for each model evaluation."
+  }
+]} />
+
+## Core Concepts
+
+<TilesGrid>
+  <TileCard
+    icon={Layers}
+    iconSize={48}
+    title="Dataset Structure"
+    description="Understand how evaluation datasets organize test inputs, expectations, and metadata"
+    href="/genai/concepts/evaluation-datasets"
+    linkText="Learn the concepts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="SDK Guide"
+    description="Complete guide to creating and managing evaluation datasets programmatically"
+    href="/genai/datasets/sdk-guide"
+    linkText="View SDK guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={ChartBar}
+    iconSize={48}
+    title="Evaluation Integration"
+    description="Learn how to use datasets with MLflow's evaluation framework"
+    href="/genai/eval-monitor"
+    linkText="Explore evaluation →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Common Use Cases
+
+Evaluation datasets excel at systematic quality assurance, regression testing across model versions, and maintaining compliance with organizational standards. Teams use them to build comprehensive test suites that evolve with their applications, ensuring consistent quality as AI systems grow more complex.
+
+## Next Steps
+
+Ready to improve your GenAI testing? Start with these resources:
+
+<TilesGrid>
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Setting Expectations"
+    description="Learn how to define ground truth and expected outputs for your AI system"
+    href="/genai/assessments/expectations"
+    linkText="Define expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Tracing Guide"
+    description="Capture detailed execution data from your GenAI applications"
+    href="/genai/tracing"
+    linkText="Start tracing →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={ChartBar}
+    iconSize={48}
+    title="Evaluation Framework"
+    description="Run systematic evaluations using your datasets with automated scorers"
+    href="/genai/eval-monitor"
+    linkText="Learn evaluation →"
+    containerHeight={64}
+  />
+</TilesGrid>

@@ -2,7 +2,7 @@ import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp } from "lucide-react";
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book } from "lucide-react";
 
 # Evaluate & Monitor
 
@@ -32,6 +32,40 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
     description: "Monitor AI performance in real-time production environments to maintain quality standards and catch issues early."
   }
 ]} />
+
+## Evaluation Datasets
+
+Before you can evaluate your GenAI application, you need test data. **Evaluation Datasets** provide a centralized repository for managing test cases, ground truth expectations, and evaluation data at scale.
+
+Think of Evaluation Datasets as your "test database" - a single source of truth for all the data needed to evaluate your AI systems. They enable you to:
+
+- **Centralize test data management** across teams and experiments
+- **Build datasets from production traces** to ensure real-world relevance
+- **Track ground truth expectations** alongside test inputs
+- **Share datasets across teams** for consistent evaluation
+
+By organizing your test data in Evaluation Datasets, you transform ad-hoc testing into systematic quality assurance, ensuring consistent and reliable evaluation across your GenAI development lifecycle.
+
+<TilesGrid>
+  <TileCard
+    icon={Database}
+    iconSize={48}
+    title="Evaluation Datasets Overview"
+    description="Learn how to create and manage centralized test data repositories for systematic evaluation"
+    href="/genai/datasets"
+    linkText="Get started →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Book}
+    iconSize={48}
+    title="SDK Guide"
+    description="Comprehensive guide to creating, updating, and using evaluation datasets programmatically"
+    href="/genai/datasets/sdk-guide"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
 ## Feedback & Expectations
 
