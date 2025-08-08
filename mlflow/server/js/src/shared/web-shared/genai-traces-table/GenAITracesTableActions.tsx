@@ -1,8 +1,16 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState, useEffect } from 'react';
 
-import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
+import {
+  Button,
+  Tooltip,
+  DropdownMenu,
+  ChevronDownIcon,
+  Modal,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
@@ -10,6 +18,9 @@ import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
 import type { RunEvaluationTracesDataEntry, TraceActions, TraceInfoV3 } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, convertTraceInfoV3ToModelTraceInfo, getRowIdFromTrace } from './utils/TraceUtils';
+import { ModelTraceExplorerSummaryView } from '../model-trace-explorer/summary-view/ModelTraceExplorerSummaryView';
+import { ModelTraceExplorerViewStateProvider } from '../model-trace-explorer/ModelTraceExplorerViewStateContext';
+import type { ModelTrace } from '../model-trace-explorer';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -25,6 +36,8 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
   const { traceActions, experimentId, selectedTraces: selectedTracesFromProps, traceInfos, setRowSelection } = props;
 
   const { table, selectedRowIds } = useContext(GenAITracesTableContext);
+  const intl = useIntl();
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const selectedTracesFromContext: RunEvaluationTracesDataEntry[] | undefined = useMemo(
     () =>
@@ -55,13 +68,33 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
 
   const selectedTraces: RunEvaluationTracesDataEntry[] = selectedTracesFromProps || selectedTracesFromContext;
 
+  const handleOpenCompare = useCallback(() => setShowCompareModal(true), []);
+  const handleCloseCompare = useCallback(() => setShowCompareModal(false), []);
+
   return (
-    <TraceActionsDropdown
-      experimentId={experimentId}
-      selectedTraces={selectedTraces}
-      traceActions={traceActions}
-      setRowSelection={setRowSelection ?? table?.setRowSelection}
-    />
+    <>
+      <Button
+        componentId="mlflow.genai-traces-table.compare-traces"
+        disabled={selectedTraces.length < 2}
+        onClick={handleOpenCompare}
+        css={{ marginRight: 8 }}
+      >
+        {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
+      </Button>
+      <TraceActionsDropdown
+        experimentId={experimentId}
+        selectedTraces={selectedTraces}
+        traceActions={traceActions}
+        setRowSelection={setRowSelection ?? table?.setRowSelection}
+      />
+      {showCompareModal && (
+        <TraceComparisonModal
+          traces={selectedTraces}
+          onClose={handleCloseCompare}
+          getTrace={traceActions?.exportToEvals?.getTrace}
+        />
+      )}
+    </>
   );
 };
 
@@ -201,5 +234,72 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
         />
       )}
     </>
+  );
+};
+
+const TraceComparisonModal = ({
+  traces,
+  onClose,
+  getTrace,
+}: {
+  traces: RunEvaluationTracesDataEntry[];
+  onClose: () => void;
+  getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+}) => {
+  const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
+  const [modelTraces, setModelTraces] = useState<ModelTrace[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchTraces = async () => {
+      if (!getTrace) {
+        setModelTraces([]);
+        return;
+      }
+      const results = await Promise.all(
+        traces.map((trace) => getTrace(trace.evaluationId, trace.traceInfo?.trace_id)),
+      );
+      if (!cancelled) {
+        setModelTraces(results.filter((t): t is ModelTrace => Boolean(t)));
+      }
+    };
+    fetchTraces();
+    return () => {
+      cancelled = true;
+    };
+  }, [traces, getTrace]);
+
+  return (
+    <Modal
+      componentId="mlflow.genai-traces-table.compare-modal"
+      visible
+      title={intl.formatMessage({ defaultMessage: 'Compare traces', description: 'Compare traces modal title' })}
+      onCancel={onClose}
+      size="wide"
+      verticalSizing="maxed_out"
+      footer={null}
+      css={{ width: '100% !important' }}
+    >
+      <div css={{ display: 'flex', gap: theme.spacing.lg, overflowX: 'auto', height: '100%' }}>
+        {modelTraces.length === 0 ? (
+          <Typography.Text>
+            {intl.formatMessage({ defaultMessage: 'Loading traces…', description: 'Loading traces message' })}
+          </Typography.Text>
+        ) : (
+          modelTraces.map((modelTrace, index) => (
+            <div key={traces[index].evaluationId} css={{ flex: 1, minWidth: 400, height: '100%', overflow: 'hidden' }}>
+              <ModelTraceExplorerViewStateProvider
+                modelTrace={modelTrace}
+                initialActiveView="summary"
+                assessmentsPaneEnabled
+              >
+                <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
+              </ModelTraceExplorerViewStateProvider>
+            </div>
+          ))
+        )}
+      </div>
+    </Modal>
   );
 };
