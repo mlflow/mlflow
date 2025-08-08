@@ -335,17 +335,17 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     """
     # Databricks and SQL backends support V3 traces
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
-    print(f"TEST: Getting MLflow span processor")
+
     # Try to use the delta archiving exporter if databricks-agents is available
     try:
         from mlflow.genai.experimental import MlflowV3DeltaSpanExporter
-        print(f"TEST: Using MlflowV3DeltaSpanExporter")
+
         exporter = MlflowV3DeltaSpanExporter(tracking_uri=tracking_uri)
         _logger.debug("Using MlflowV3DeltaSpanExporter with Databricks Delta archiving")
     except ImportError:
         # databricks-agents not available, use base exporter
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-        print(f"TEST: Using MlflowV3SpanExporter")
+
         exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
         _logger.debug("Defaulting to MlflowV3SpanExporter (databricks-agents not available)")
 

@@ -166,8 +166,6 @@ def trace(
 
         # Extract the original function if it's a descriptor
         original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
-        print(f"TEST: Tracing function")
-        print(f"TEST: original_fn: {original_fn.__name__}")
 
         # Apply the appropriate wrapper to the original function
         if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
