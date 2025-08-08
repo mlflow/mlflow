@@ -1,0 +1,273 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# GenAI Evaluation Quickstart
+
+This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework. In less than 10 minutes, you'll learn how to evaluate LLM outputs, use built-in scorers, create custom evaluators, and analyze results in the MLflow UI.
+
+## Prerequisites
+
+Install the required packages by running the following command:
+
+```bash
+pip install --upgrade mlflow>=3.3 openai>=1.0.0
+```
+
+:::info
+
+The code examples in this guide use the OpenAI SDK; however, MLflow's evaluation framework works with any LLM provider, including Anthropic, Google, Bedrock, and more.
+
+:::
+
+## Step 1: Set up your environment
+
+### Connect to MLflow
+
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="local" label="Local (CLI)" default>
+
+For the fastest setup, you can run MLflow locally:
+
+```bash
+# Start MLflow tracking server locally
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+
+# This will start the server at http://127.0.0.1:5000
+```
+
+</TabItem>
+
+<TabItem value="local-docker" label="Local (Docker)">
+
+Coming Soon!
+
+```bash
+docker compose up -d
+```
+
+</TabItem>
+
+<TabItem value="remote" label="Remote MLflow Server">
+
+If you have a remote MLflow tracking server, configure the connection:
+
+```python
+import os
+import mlflow
+
+# Set your MLflow tracking URI
+os.environ["MLFLOW_TRACKING_URI"] = "http://your-mlflow-server:5000"
+# Or directly in code
+mlflow.set_tracking_uri("http://your-mlflow-server:5000")
+```
+
+</TabItem>
+
+<TabItem value="databricks" label="Databricks">
+
+If you have a Databricks account, configure the connection:
+
+```python
+import mlflow
+
+mlflow.login()
+```
+
+This will prompt you for your configuration details (Databricks Host url and a PAT).
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+:::tip
+
+If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
+
+:::
+
+### Create a new MLflow Experiment
+
+```python
+import mlflow
+
+# This will create a new experiment called "GenAI Evaluation Quickstart" and set it as active
+mlflow.set_experiment("GenAI Evaluation Quickstart")
+```
+
+### Configure OpenAI API Key (or other LLM providers)
+
+```python
+import os
+
+# Use different env variable when using a different LLM provider
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your actual API key
+```
+
+## Step 2: Evaluate a simple Q&A application
+
+Let's start with evaluating a simple question-answering application. We'll create a dataset with questions and expected answers, then evaluate the model's responses using built-in scorers.
+
+### Create a prediction function
+
+First, we need to create a prediction function that takes a question and returns an answer. Here we use OpenAI's `gpt-4o-mini` model to generate the answer.
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+def qa_predict_fn(question: str) -> str:
+    """Simple Q&A prediction function using OpenAI"""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Answer questions concisely."},
+            {"role": "user", "content": question}
+        ],
+        temperature=0
+    )
+    return response.choices[0].message.content
+```
+
+:::info
+
+MLflow also support evaluating pre-generated outputs or traces, without running the `predict_fn` function. See <ins>[Evaluate Traces](/genai/eval-monitor/evaluate-traces)</ins> for more details.
+
+:::
+
+### Define the evaluation dataset
+
+The evaluation dataset is a list of samples, each with an `inputs` and `expectations` field.
+
+- `inputs`: The input to the `predict_fn` function above. The key must match the parameter name of the `predict_fn` function.
+- `expectations`: The expected output from the `predict_fn` function, namely, ground truth for the answer.
+
+The dataset can be a list of dictionaries, a pandas DataFrame, a spark DataFrame, or an <APILink fn="mlflow.genai.EvaluationDataset">mlflow.genai.EvaluationDataset</APILink>.
+Here we use a list of dictionaries for simplicity.
+
+```python
+# Define a simple Q&A dataset with questions and expected answers
+eval_dataset = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"expected_response": "Paris"}
+    },
+    {
+        "inputs": {"question": "Who was the first person to build an airplane?"},
+        "expectations": {"expected_response": "Wright Brothers"}
+    },
+    {
+        "inputs": {"question": "Who wrote Romeo and Juliet?"},
+        "expectations": {"expected_response": "William Shakespeare"}
+    },
+]
+```
+
+### Run the evaluation with built-in scorers
+
+[Scorer](/genai/eval-monitor/scorers) is a function that computes a score for a given input-output pair against various evaluation criteria.
+MLflow provides a set of built-in scorers for common evaluation criteria, such as correctness of the answer.
+
+```python
+from mlflow.genai.scorers import Correctness, Relevance
+
+scorers = [
+    Correctness(),       # Evaluates if the answer is factually correct
+    RelevanceToQuery(),  # Evaluates if the answer is relevant to the question
+]
+```
+
+Now we have all three components of the evaluation: dataset, prediction function, and scorers. Let's run the evaluation!
+
+```python
+import mlflow
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=qa_predict_fn,
+    scorers=scorers,
+)
+```
+
+After running the code above, go to the MLflow UI and navigate to your experiment. You'll see the evaluation results with detailed metrics for each scorer.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-simple-eval-results.png" alt="Simple Evaluation Results" />
+
+
+## Step 3: Explore results in the MLflow UI
+
+After running evaluations, you can explore detailed results in the MLflow UI:
+
+1. Navigate to your experiment in the MLflow UI
+2. Click on the evaluation run to see detailed metrics
+3. View individual scores for each input-output pair
+4. Compare multiple evaluation runs to track improvements
+
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-detailed-results.png" alt="Detailed Evaluation Results" width="90%" />
+
+The UI provides:
+- **Aggregated metrics**: Overall scores across all examples
+- **Row-by-row analysis**: Individual scores for each test case
+- **Score distributions**: Histograms showing score distributions
+- **Comparison views**: Compare multiple evaluation runs side-by-side
+
+
+## Step 4: Refine evaluation criteria
+
+MLflow allows you to define custom evaluation criteria using the Guidelines scorer. This is particularly useful when you have specific requirements for your application.
+
+```python
+from mlflow.genai.scorers import Guidelines
+
+# Define custom evaluation guidelines
+custom_scorers = [
+    Guidelines(
+        name="conciseness",
+        guidelines="The answer should be concise and under 50 words"
+    ),
+    Guidelines(
+        name="professional_tone",
+        guidelines="The answer should maintain a professional and neutral tone"
+    ),
+    Guidelines(
+        name="no_speculation",
+        guidelines="The answer should not include speculation or unverified information"
+    ),
+]
+
+# Run evaluation with custom guidelines
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=qa_predict_fn,
+    scorers=custom_scorers,
+    experiment_name="GenAI Evaluation Quickstart"
+)
+```
+
+## Summary
+
+Congratulations! You've successfully:
+
+- ✅ Set up MLflow GenAI Evaluation for your applications
+- ✅ Evaluated a Q&A application with built-in scorers
+- ✅ Created custom evaluation guidelines
+- ✅ Learned to analyze results in the MLflow UI
+
+MLflow's evaluation framework provides comprehensive tools for assessing GenAI application quality, helping you build more reliable and effective AI systems.
+
+## Next Steps
+
+Now that you understand the basics, explore these advanced features:
+
+- [Built-in Scorers](/genai/eval-monitor/scorers): Deep dive into all available built-in scorers and their configurations
+- [LLM as Judge](/genai/eval-monitor/llm-judge): Learn how to use LLMs for sophisticated evaluation criteria
+- [Dataset Management](/genai/eval-monitor/datasets): Create and manage evaluation datasets efficiently
+- [Production Monitoring](/genai/eval-monitor/production): Set up continuous evaluation in production environments
+- [Integration with Tracing](/genai/tracing): Combine tracing and evaluation for comprehensive observability

@@ -6,46 +6,19 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { CheckCircle } from "lucide-react";
+import { Rocket, Target, MessageSquare } from "lucide-react";
 
 # Evaluating LLMs/Agents with MLflow
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
-
-<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="Evaluating LLM/Agents with MLflow" />
-
-## Evaluation Driven Development
-
-**Evaluation-Driven Development** is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
-
 <ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" />
+
+The tenets of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
 
 
 <TabsWrapper>
   <Tabs>
-  <TabItem value="feedback" label="Human Feedback">
-    <div class="flex-column">
-      <div class="flex-row">
-        <div class="flex-item">
-
-        #### Track Annotation and Human Feedbacks
-
-        Human feedback is essential for building high-quality GenAI applications that meet user expectations. MLflow supports collecting, managing, and utilizing feedback from end-users and domain experts.
-
-        Feedbacks are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
-
-        [Learn more →](/genai/tracing/collect-user-feedback)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Trace Feedback](/images/llms/tracing/genai-human-feedback.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
   <TabItem value="evaluation" label="Systematic Evaluation">
     <div class="flex-column">
       <div class="flex-row">
@@ -63,6 +36,28 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
 
         <div class="flex-item padding-md">
           ![Trace Evaluation](/images/llms/tracing/genai-trace-evaluation.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="feedback" label="Human Feedback">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Track Annotation and Human Feedbacks
+
+        Human feedback is essential for building high-quality GenAI applications that meet user expectations. MLflow supports collecting, managing, and utilizing feedback from end-users and domain experts.
+
+        Feedbacks are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
+
+        [Learn more →](/genai/tracing/collect-user-feedback)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Feedback](/images/llms/tracing/genai-human-feedback.png)
         </div>
       </div>
     </div>
@@ -147,20 +142,26 @@ Each evaluation is defined by three components:
 The following example shows a simple evaluation of a dataset of questions and expected answers.
 
 ```python
-import mlflow
-from mlflow.genai.evaluation import scorer
-from mlflow.genai.scorers import Correctness
+import os
 import openai
+import mlflow
+from mlflow.genai.scorers import Correctness, Guidelines
 
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Simple QA dataset
+# 1. Define a simple QA dataset
 dataset = [
-  {"inputs": { "question": "Can MLflow manage prompts?" }, "expectations": { "expected_answer": "Yes!" }},
-  {"inputs": { "question": "Can MLflow create a taco for my lunch?" }, "expectations": { "expected_answer": "No, unfortunately, MLflow is not a taco maker." }}
+  {
+      "inputs": {"question": "Can MLflow manage prompts?"},
+      "expectations": {"expected_response": "Yes!"}
+  },
+  {
+      "inputs": {"question": "Can MLflow create a taco for my lunch?"},
+      "expectations": {"expected_response": "No, unfortunately, MLflow is not a taco maker."}
+  },
 ]
 
-# Define a prediction function to generate responses
+# 2. Define a prediction function to generate responses
 def predict_fn(question: str) -> str:
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -168,11 +169,16 @@ def predict_fn(question: str) -> str:
     )
     return response.choices[0].message.content
 
-# Run the evaluation
+# 3.Run the evaluation
 results = mlflow.genai.evaluate(
   data=dataset,
   predict_fn=predict_fn,
-  scorers=[Correctness()], # Built-in LLM judge scorer
+  scorers=[
+      # Built-in LLM judge 
+      Correctness(),
+      # Custom criteria using LLM judge
+      Guidelines(name="is_english", guidelines="The answer must be in English")
+  ]
 )
 ```
 
@@ -186,32 +192,32 @@ mlflow ui --port 5000
 
 If you are using cloud-based MLflow, open the experiment page in the platform.
 
-<ImageBox src="/images/llms/tracing/genai-trace-evaluation.png" alt="Evaluation Results" />
+<ImageBox src="/images/mlflow-3/eval-monitor/landing-page-result.png" alt="Evaluation Results" />
 
 
 ## Next Steps
 
 <TilesGrid>
   <TileCard
-    icon={CheckCircle}
+    icon={Rocket}
     iconSize={48}
-    title="Evaluation Concepts"
-    description="Understand the core concepts of evaluation in MLflow."
-    href="/genai/eval-monitor/concepts"
-    linkText="View the concepts →"
+    title="Quickstart"
+    description="Learn the MLflow's evaluation workflow in action."
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
     containerHeight={64}
   />
   <TileCard
-    icon={CheckCircle}
+    icon={Target}
     iconSize={48}
     title="Define Scorers"
-    description="Learn how to implement advanced scoring criteria for your applications."
+    description="Learn how to implement scoring criteria for your applications."
     href="/genai/eval-monitor/scorers"
     linkText="Learn about scorers →"
     containerHeight={64}
   />
   <TileCard
-    icon={CheckCircle}
+    icon={MessageSquare}
     iconSize={48}
     title="Collect User Feedback"
     description="Understand how to collect user feedbacks for your applications."

@@ -242,11 +242,6 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Quickstart',
         },
         {
-          type: 'doc',
-          id: 'eval-monitor/concepts',
-          label: 'Concepts',
-        },
-        {
           type: 'category',
           label: 'Running Evaluations',
           items: [
@@ -264,6 +259,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/running-evaluation/traces',
               label: 'Evaluate Traces',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/model',
+              label: 'Evaluate MLflow Models',
             },
           ],
           collapsed: false,
@@ -286,6 +286,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/scorers/custom',
               label: 'Custom Scorers',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/integrations',
+              label: 'Third-Party Integrations',
             },
           ],
         },
