@@ -15,6 +15,7 @@ export enum SpanType {
   PARSER = 'PARSER',
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN'
 }
 

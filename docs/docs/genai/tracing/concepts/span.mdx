@@ -72,6 +72,7 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
     | `"RETRIEVER"`  | Represents a context retrieval operation, such as querying a vector database.          |
     | `"PARSER"`     | Represents a parsing operation, transforming text into a structured format.            |
     | `"RERANKER"`   | Represents a re-ranking operation, ordering the retrieved contexts based on relevance. |
+    | `"MEMORY"`     | Represents a memory operation, such as persisting context in a long-term memory db.    |
     | `"UNKNOWN"`    | A default span type that is used when no other span type is specified.                 |
   </TabItem>
   <TabItem value="usage" label="Setting Span Types">
