@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.genai.judges.utils import format_prompt
 
 # NB: User-facing name for the is_correct assessment.
@@ -29,8 +27,8 @@ If the claim is fully supported by the document in the context of the question, 
 def get_prompt(
     request: str,
     response: str,
-    expected_response: Optional[str] = None,
-    expected_facts: Optional[list[str]] = None,
+    expected_response: str | None = None,
+    expected_facts: list[str] | None = None,
 ) -> str:
     """Generate correctness evaluation prompt.
 

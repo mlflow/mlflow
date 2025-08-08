@@ -443,6 +443,7 @@ class Guidelines(BuiltInScorer):
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
@@ -537,6 +538,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.genai.judges.utils import format_prompt
 
@@ -26,8 +26,8 @@ Please indicate whether each statement in the claim is supported by the document
 def get_prompt(
     request: str,
     context: Any,
-    expected_response: Optional[str] = None,
-    expected_facts: Optional[list[str]] = None,
+    expected_response: str | None = None,
+    expected_facts: list[str] | None = None,
 ) -> str:
     """Generate context sufficiency evaluation prompt.
 
@@ -55,7 +55,7 @@ def get_prompt(
     )
 
 
-def _convert_expected_facts_to_expected_response(expected_facts: Optional[list[str]]) -> str:
+def _convert_expected_facts_to_expected_response(expected_facts: list[str] | None) -> str:
     if not expected_facts:
         return ""
     rendered_facts = "\n    - ".join([""] + expected_facts)

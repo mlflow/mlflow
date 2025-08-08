@@ -7,11 +7,11 @@ from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invo
 from mlflow.utils.docstring_utils import format_docstring
 
 _MODEL_API_DOC = {
-    "model": """\
-Judge model to use. Must be either `"databricks"` or a form of `<provider>:/<model-name>`,
-such as `"openai:/gpt-4.1-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`. MLflow
-natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
-and more providers are supported through [LiteLLM](https://docs.litellm.ai/docs/providers).
+    "model": """Judge model to use. Must be either `"databricks"` or a form of
+`<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
+`"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
+`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
+through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
 Default model depends on the tracking URI setup:
 
 * Databricks: `databricks`
@@ -56,7 +56,7 @@ def requires_databricks_agents(func):
     return wrapper
 
 
-@requires_databricks_agents
+@format_docstring(_MODEL_API_DOC)
 def is_context_relevant(
     *, request: str, context: Any, name: str | None = None, model: str | None = None
 ) -> Feedback:
