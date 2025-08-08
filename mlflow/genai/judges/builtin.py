@@ -205,7 +205,7 @@ def is_correct(
     *,
     request: str,
     response: str,
-    expected_facts: list[str],
+    expected_facts: list[str] | None = None,
     expected_response: str | None = None,
     name: str | None = None,
     model: str | None = None,
