@@ -24,7 +24,7 @@ export const SEARCH_REGISTERED_MODELS = 'SEARCH_REGISTERED_MODELS';
 export const searchRegisteredModelsApi = (
   filter?: any,
   maxResults?: any,
-  orderBy?: any,
+  orderBy?: string,
   pageToken?: any,
   id = getUUID(),
 ) => {
