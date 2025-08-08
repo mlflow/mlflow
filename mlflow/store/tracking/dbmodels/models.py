@@ -1378,13 +1378,9 @@ class SqlScorer(Base):
     """
     Scorer name: `String` (limit 256 characters). Part of *Primary Key* for ``scorers`` table.
     """
-    scorer_version = Column(Integer, nullable=False)
+    scorer_id = Column(String(36), nullable=False)
     """
-    Scorer version: `Integer`. Part of *Primary Key* for ``scorers`` table.
-    """
-    serialized_scorer = Column(Text, nullable=False)
-    """
-    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    Scorer ID: `String` (limit 36 characters). Unique identifier for the scorer.
     """
 
     experiment = relationship("SqlExperiment", backref=backref("scorers", cascade="all"))
@@ -1393,13 +1389,48 @@ class SqlScorer(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint("experiment_id", "scorer_name", "scorer_version", name="scorer_pk"),
+        PrimaryKeyConstraint("experiment_id", "scorer_name", name="scorer_pk"),
         Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
-        Index(f"index_{__tablename__}_experiment_id_scorer_name", "experiment_id", "scorer_name"),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id", unique=True),
     )
 
     def __repr__(self):
-        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_version})>"
+        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_id})>"
+
+
+class SqlScorerVersion(Base):
+    """
+    DB model for storing scorer version information. These are recorded in ``scorer_versions`` table.
+    """
+
+    __tablename__ = "scorer_versions"
+
+    scorer_id = Column(String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False)
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`. Part of *Primary Key* for ``scorer_versions`` table.
+    """
+    serialized_scorer = Column(Text, nullable=False)
+    """
+    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", "scorer_version", name="scorer_version_pk"),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerVersion ({self.scorer_id}, {self.scorer_version})>"
 
     def to_mlflow_entity(self):
         """
@@ -1410,8 +1441,8 @@ class SqlScorer(Base):
         """
         from mlflow.entities.scorer import Scorer
         return Scorer(
-            experiment_id=self.experiment_id,
-            scorer_name=self.scorer_name,
+            experiment_id=self.scorer.experiment_id,
+            scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
         )
