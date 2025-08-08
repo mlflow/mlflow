@@ -6259,9 +6259,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         },
     ]
 
-    result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, records_batch1, "test_user"
-    )
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch1)
     assert result["inserted"] == 2
     assert result["updated"] == 1
 
@@ -6295,9 +6293,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         },
     ]
 
-    result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, records_batch2, "test_user"
-    )
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch2)
     assert result["inserted"] == 1
     assert result["updated"] == 1
 
@@ -6327,13 +6323,10 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         {"inputs": {"question": "No tags"}, "expectations": {"answer": "No tags"}, "tags": {}},
     ]
 
-    result = store.upsert_evaluation_dataset_records(
-        created_dataset.dataset_id, records_batch3, "test_user"
-    )
+    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch3)
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    # Test validation for empty inputs
     with pytest.raises(MlflowException, match="inputs must be provided and cannot be empty"):
         store.upsert_evaluation_dataset_records(
             created_dataset.dataset_id,
@@ -6410,13 +6403,11 @@ def test_evaluation_dataset_get_experiment_ids(store):
     )
     assert fetched_experiment_ids2 == []
 
-    with pytest.raises(
-        MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
-    ):
-        store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+    result = store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+    assert result == []
 
-    with pytest.raises(MlflowException, match="dataset_id must be provided"):
-        store.get_evaluation_dataset_experiment_ids("")
+    result = store.get_evaluation_dataset_experiment_ids("")
+    assert result == []
 
 
 def test_evaluation_dataset_tags_with_sql_backend(store):
