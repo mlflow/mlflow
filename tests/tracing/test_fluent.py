@@ -2083,37 +2083,24 @@ def test_set_delete_trace_tag():
 
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
-    # Mock the store
     mock_store = mock.MagicMock()
-    mock_store.search_traces.return_value = ([], None)  # Return empty results
+    mock_store.search_traces.return_value = ([], None)
     mock_store.get_run.return_value = mock.MagicMock()
     mock_store.get_run.return_value.info.experiment_id = "test_exp_id"
 
     test_run_id = "test_run_123"
-
     with (
         mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
-        mock.patch("mlflow.tracing.client.is_databricks_uri", return_value=is_databricks),
         mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"),
     ):
-        # Call search_traces with run_id but no experiment_ids
         mlflow.search_traces(run_id=test_run_id)
 
-        # Verify the store was called with the correct filter string
-        if is_databricks:
-            expected_filter_string = f"attribute.run_id = '{test_run_id}'"
-        else:
-            expected_filter_string = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
-
+        expected_filter_string = f"attribute.run_id = '{test_run_id}'"
         mock_store.search_traces.assert_called()
 
-        # Get the actual arguments passed to the store
         call_args = mock_store.search_traces.call_args
-        actual_filter_string = call_args[1]["filter_string"]  # using keyword arguments
-
-        assert actual_filter_string == expected_filter_string, (
-            f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
-        )
+        actual_filter_string = call_args[1]["filter_string"]
+        assert actual_filter_string == expected_filter_string
 
 
 def test_set_destination_in_threads(async_logging_enabled, tmp_path, monkeypatch):

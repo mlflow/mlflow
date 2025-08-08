@@ -78,6 +78,7 @@ mlflow.client.MlflowClient.get_trace
 mlflow.client.MlflowClient.link_prompt_version_to_model
 mlflow.client.MlflowClient.link_prompt_version_to_run
 mlflow.client.MlflowClient.link_prompt_versions_to_trace
+mlflow.client.MlflowClient.link_traces_to_run
 mlflow.client.MlflowClient.list_artifacts
 mlflow.client.MlflowClient.list_logged_model_artifacts
 mlflow.client.MlflowClient.list_logged_prompts
