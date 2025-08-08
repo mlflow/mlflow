@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/), and you can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/). You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
@@ -320,7 +320,7 @@ result = mlflow.genai.optimize_prompt(
 ```
 
 :::note
-When using custom optimizers, ensure they return an `OptimizerOutput` object with the optimized prompt and evaluation scores. The DSPy-based optimizer provides additional utilities for working with DSPy's ecosystem of optimization techniques.
+When using custom optimizers, ensure they return an `OptimizerOutput` object with the optimized prompt and evaluation scores.
 :::
 
 ## Performance Benchmarks
@@ -441,7 +441,7 @@ result = mlflow.genai.optimize_prompt(
 
 MLflow provides two base classes for creating custom optimizers:
 
-1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. You implement the `optimize` method.
-2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. You implement the `run_optimization` method and MLflow handles DSPy setup.
+1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. In order to customize, you must implement your own `optimize` method.
+2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. Customization of this optimizer involves building a`run_optimization` method. MLflow will handle the required DSPy setup for utilizing your custom interface.
 
 Choose <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> when you want complete control over the optimization process, or <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> when you want to leverage DSPy's ecosystem while customizing the optimization strategy.
