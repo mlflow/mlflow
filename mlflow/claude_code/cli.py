@@ -17,7 +17,7 @@ def commands():
 @commands.command("trace")
 @click.argument("directory", default=".", type=click.Path(file_okay=False, dir_okay=True))
 @click.option(
-    "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://./mlruns')"
+    "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://mlruns')"
 )
 @click.option("--experiment-id", "-e", help="MLflow experiment ID")
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
@@ -131,8 +131,6 @@ def _show_setup_status(
     # Show tracking configuration
     if tracking_uri:
         click.echo(f"📊 Tracking URI: {tracking_uri}")
-    else:
-        click.echo("📊 Tracking URI: file://./mlruns (default)")
 
     if experiment_id:
         click.echo(f"🔬 Experiment ID: {experiment_id}")
@@ -152,11 +150,14 @@ def _show_setup_status(
 
     click.echo("claude -p 'your prompt here'")
 
-    click.echo("\n💡 View your traces:")
     if tracking_uri and tracking_uri.startswith("file://"):
+        click.echo("\n💡 View your traces:")
         click.echo(f"   mlflow ui --backend-store-uri {tracking_uri}")
-    else:
-        click.echo("   mlflow ui --backend-store-uri file://./mlruns")
+    elif not tracking_uri:
+        click.echo("\n💡 View your traces:")
+        click.echo("   mlflow ui")
+    elif tracking_uri == "databricks":
+        click.echo("\n💡 View your traces in your Databricks workspace")
 
     click.echo("\n🔧 To disable tracing later:")
     click.echo("   mlflow claude trace --disable")
