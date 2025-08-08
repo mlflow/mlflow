@@ -582,7 +582,13 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:
-                validate_requirements(cfg.requirements, name, category, package_info, versions)
+                validate_requirements(
+                    cfg.requirements,
+                    name,
+                    category,
+                    package_info,
+                    versions + ([Version.create_dev()] if package_info.install_dev else []),
+                )
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
