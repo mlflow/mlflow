@@ -2,17 +2,17 @@ import { APILink } from "@site/src/components/APILink";
 
 # Webhooks
 
-:::info
-This feature is still experimental and may change in future releases.
+:::warning
+
+- This feature is still experimental and may change in future releases.
+- The file backend doesn't support webhooks.
+- Only OSS MLflow supports webhooks. Databricks or other managed MLflow services may not support this feature.
+
 :::
 
 ## Overview
 
 MLflow webhooks enable real-time notifications when specific events occur in the Model Registry. When you register a model, create a new version, or modify tags and aliases, MLflow can automatically send HTTP POST requests to your specified endpoints. This enables seamless integration with CI/CD pipelines, notification systems, and other external services.
-
-:::warning
-Webhooks are only supported with the SQL backend. The file backend does not support webhooks.
-:::
 
 ## Key Features
 
