@@ -1369,6 +1369,45 @@ class SqlAlchemyStore(AbstractStore):
 
             return PagedList([w.to_mlflow_entity() for w in webhooks], next_page_token)
 
+    def list_webhooks_by_event(
+        self,
+        event: WebhookEvent,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        max_results = max_results or 100
+        if max_results < 1 or max_results > 1000:
+            raise MlflowException(
+                "max_results must be between 1 and 1000.", INVALID_PARAMETER_VALUE
+            )
+
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            # Query webhooks that have the specific event in their related webhook_events
+            query = (
+                session.query(SqlWebhook)
+                .join(SqlWebhookEvent)
+                .filter(SqlWebhook.deleted_timestamp.is_(None))
+                .filter(SqlWebhookEvent.entity == event.entity.value)
+                .filter(SqlWebhookEvent.action == event.action.value)
+                .order_by(SqlWebhook.creation_timestamp.desc())
+                .limit(max_results + 1)
+            )
+
+            if page_token:
+                query = query.offset(offset)
+
+            webhooks = query.all()
+
+            # Check if there's a next page
+            has_next_page = len(webhooks) > max_results
+            next_page_token = None
+            if has_next_page:
+                webhooks = webhooks[:max_results]
+                next_page_token = SearchUtils.create_page_token(offset + max_results)
+
+            return PagedList([w.to_mlflow_entity() for w in webhooks], next_page_token)
+
     def update_webhook(
         self,
         webhook_id: str,

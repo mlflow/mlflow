@@ -901,6 +901,10 @@ MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES", int, 3
 )
 
+#: Specifies the TTL in seconds for webhook list cache
+#: (default: ``60``)
+MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int, 60)
+
 
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)
