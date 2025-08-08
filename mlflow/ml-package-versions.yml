@@ -530,7 +530,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.99.4"
+    maximum: "1.98.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -549,7 +549,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.99.4"
+    maximum: "1.98.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
