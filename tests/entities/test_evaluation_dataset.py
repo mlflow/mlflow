@@ -1,6 +1,5 @@
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.evaluation_dataset import EvaluationDataset
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
 
 
 def test_evaluation_dataset_creation():
@@ -84,8 +83,6 @@ def test_evaluation_dataset_to_from_proto():
     dataset.experiment_ids = ["exp1", "exp2"]
 
     proto = dataset.to_proto()
-    assert isinstance(proto, ProtoEvaluationDataset)
-    assert proto.dataset_id == "dataset123"
     assert proto.name == "test_dataset"
     assert proto.tags == '{"source": "manual", "type": "HUMAN"}'
     assert proto.schema == '{"fields": ["input", "output"]}'
@@ -200,6 +197,8 @@ def test_evaluation_dataset_to_from_dict_minimal():
         created_time=123456789,
         last_update_time=123456789,
     )
+    dataset._experiment_ids = []
+    dataset._records = []
 
     data = dataset.to_dict()
     dataset2 = EvaluationDataset.from_dict(data)
@@ -212,8 +211,8 @@ def test_evaluation_dataset_to_from_dict_minimal():
     assert dataset2.digest == "digest123"
     assert dataset2.created_by is None
     assert dataset2.last_updated_by is None
-    assert dataset2.experiment_ids == []
-    assert dataset2.records == []
+    assert dataset2._experiment_ids == []
+    assert dataset2._records == []
 
 
 def test_evaluation_dataset_has_records():
@@ -277,6 +276,9 @@ def test_evaluation_dataset_complex_tags():
     proto = dataset.to_proto()
     dataset2 = EvaluationDataset.from_proto(proto)
     assert dataset2.tags == complex_tags
+
+    dataset._experiment_ids = []
+    dataset._records = []
 
     data = dataset.to_dict()
     dataset3 = EvaluationDataset.from_dict(data)

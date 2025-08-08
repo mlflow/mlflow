@@ -8,7 +8,7 @@ Create Date: 2025-07-28 13:05:53.982327
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
 revision = "de4033877273"
@@ -17,15 +17,27 @@ branch_labels = None
 depends_on = None
 
 
+def _get_json_type():
+    """Get appropriate JSON type for the current database."""
+    dialect_name = op.get_bind().dialect.name
+    if dialect_name == "mssql":
+        # Use MSSQL-specific JSON type (stored as NVARCHAR(MAX))
+        # This is available in SQLAlchemy 1.4+ and works with SQL Server 2016+
+        return mssql.JSON
+    else:
+        # Use standard JSON type for other databases
+        return sa.JSON
+
+
 def upgrade():
-    json_type = MutableDict.as_mutable(sa.JSON)
+    json_type = _get_json_type()
 
     # Create evaluation_datasets table
     op.create_table(
         "evaluation_datasets",
         sa.Column("dataset_id", sa.String(36), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("tags", json_type, nullable=True),
+        # Note: tags are stored in a separate table, not as JSON column
         sa.Column("schema", sa.Text(), nullable=True),
         sa.Column("profile", sa.Text(), nullable=True),
         sa.Column("digest", sa.String(64), nullable=True),
@@ -46,6 +58,29 @@ def upgrade():
         batch_op.create_index(
             "index_evaluation_datasets_created_time",
             ["created_time"],
+            unique=False,
+        )
+
+    # Create evaluation_dataset_tags table
+    op.create_table(
+        "evaluation_dataset_tags",
+        sa.Column("dataset_id", sa.String(36), nullable=False),
+        sa.Column("key", sa.String(255), nullable=False),
+        sa.Column("value", sa.String(5000), nullable=True),
+        sa.PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+    )
+
+    # Create indexes on evaluation_dataset_tags
+    with op.batch_alter_table("evaluation_dataset_tags", schema=None) as batch_op:
+        batch_op.create_index(
+            "index_evaluation_dataset_tags_dataset_id",
+            ["dataset_id"],
             unique=False,
         )
 
@@ -122,4 +157,5 @@ def downgrade():
     # Drop tables in reverse order to respect foreign key constraints
     op.drop_table("entity_associations")
     op.drop_table("evaluation_dataset_records")
+    op.drop_table("evaluation_dataset_tags")
     op.drop_table("evaluation_datasets")

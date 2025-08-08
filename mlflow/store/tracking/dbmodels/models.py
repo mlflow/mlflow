@@ -17,6 +17,8 @@ from sqlalchemy import (
     UnicodeText,
     UniqueConstraint,
 )
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
@@ -24,6 +26,9 @@ from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Dataset,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -68,6 +73,10 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING),
     RunStatus.to_string(RunStatus.KILLED),
 ]
+
+
+# Create MutableJSON type for tracking mutations in JSON columns
+MutableJSON = MutableDict.as_mutable(JSON)
 
 
 class SqlExperiment(Base):
@@ -1293,11 +1302,6 @@ class SqlEvaluationDataset(Base):
     Dataset name: `String` (limit 255 characters). *Non null* in table schema.
     """
 
-    tags = Column(JSON, nullable=True)
-    """
-    Tags JSON: `JSON`. Stores metadata about the dataset.
-    """
-
     schema = Column(Text, nullable=True)
     """
     Schema information: `Text`.
@@ -1333,15 +1337,125 @@ class SqlEvaluationDataset(Base):
     Last updater user ID: `String` (limit 255 characters).
     """
 
-    # Relationship to records
     records = relationship(
         "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
+    )
+
+    tags = relationship(
+        "SqlEvaluationDatasetTag",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     __table_args__ = (
         PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
         Index("index_evaluation_datasets_name", "name"),
         Index("index_evaluation_datasets_created_time", "created_time"),
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.EvaluationDataset`.
+        """
+
+        records = None
+        # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
+        # or not as calling .records on the EvaluationDataset object will trigger
+        # lazy-loading of the records.
+        state = inspect(self)
+        if "records" in state.dict:
+            records = [record.to_mlflow_entity() for record in self.records]
+
+        # Convert tags from relationship to dict
+        # Since we use lazy="selectin", tags are always loaded
+        # Return empty dict if no tags exist
+        tags_dict = {tag.key: tag.value for tag in self.tags}
+
+        dataset = EvaluationDataset(
+            dataset_id=self.dataset_id,
+            name=self.name,
+            tags=tags_dict,
+            schema=self.schema,
+            profile=self.profile,
+            digest=self.digest,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            # experiment_ids will be loaded lazily when accessed
+        )
+
+        if records is not None:
+            dataset._records = records
+
+        return dataset
+
+    @classmethod
+    def from_mlflow_entity(cls, dataset: EvaluationDataset):
+        """
+        Create SqlEvaluationDataset from EvaluationDataset entity.
+
+        Args:
+            dataset: EvaluationDataset entity
+
+        Returns:
+            SqlEvaluationDataset instance
+        """
+        # Note: tags are not set here - they are handled as
+        # SqlEvaluationDatasetTag objects
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time or get_current_time_millis(),
+            last_update_time=dataset.last_update_time or get_current_time_millis(),
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+        )
+
+
+class SqlEvaluationDatasetTag(Base):
+    """
+    DB model for evaluation dataset tags.
+    """
+
+    __tablename__ = "evaluation_dataset_tags"
+
+    dataset_id = Column(
+        String(36),
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    key = Column(String(255), primary_key=True)
+    """
+    Tag key: `String` (limit 255 characters).
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+        Index("index_evaluation_dataset_tags_dataset_id", "dataset_id"),
     )
 
 
@@ -1365,22 +1479,22 @@ class SqlEvaluationDatasetRecord(Base):
     Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
     """
 
-    inputs = Column(JSON, nullable=False)
+    inputs = Column(MutableJSON, nullable=False)
     """
     Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
-    expectations = Column(JSON, nullable=True)
+    expectations = Column(MutableJSON, nullable=True)
     """
     Expectations JSON: `JSON`.
     """
 
-    tags = Column(JSON, nullable=True)
+    tags = Column(MutableJSON, nullable=True)
     """
     Tags JSON: `JSON`.
     """
 
-    source = Column(JSON, nullable=True)
+    source = Column(MutableJSON, nullable=True)
     """
     Source JSON: `JSON`.
     """
@@ -1420,7 +1534,6 @@ class SqlEvaluationDatasetRecord(Base):
     Hash of inputs for deduplication: `String` (limit 64 characters).
     """
 
-    # Relationship to dataset
     dataset = relationship("SqlEvaluationDataset", back_populates="records")
 
     __table_args__ = (
@@ -1434,6 +1547,69 @@ class SqlEvaluationDatasetRecord(Base):
             ondelete="CASCADE",
         ),
     )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.DatasetRecord`.
+        """
+
+        inputs = self.inputs
+        expectations = self.expectations
+        tags = self.tags
+
+        source = None
+        if self.source:
+            source = DatasetRecordSource.from_dict(self.source)
+
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=inputs,
+            expectations=expectations,
+            tags=tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
+        """
+        Create SqlEvaluationDatasetRecord from DatasetRecord entity.
+
+        Args:
+            record: DatasetRecord entity
+            input_hash: SHA256 hash of inputs for deduplication
+
+        Returns:
+            SqlEvaluationDatasetRecord instance
+        """
+        # With MutableJSON, we store dicts directly, not JSON strings
+        source_dict = None
+        if record.source:
+            source_dict = record.source.to_dict()
+
+        return cls(
+            dataset_record_id=record.dataset_record_id,
+            dataset_id=record.dataset_id,
+            inputs=record.inputs,
+            expectations=record.expectations,
+            tags=record.tags,
+            source=source_dict,
+            source_id=record.source_id,
+            source_type=record.source.source_type if record.source else None,
+            created_time=record.created_time or get_current_time_millis(),
+            last_update_time=record.last_update_time or get_current_time_millis(),
+            created_by=record.created_by,
+            last_updated_by=record.last_updated_by,
+            input_hash=input_hash,
+        )
 
 
 class SqlEntityAssociation(Base):
