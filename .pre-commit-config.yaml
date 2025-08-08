@@ -27,6 +27,7 @@ repos:
         stages: [pre-commit]
         types: [text]
         require_serial: true
+
       - id: ruff
         name: ruff
         entry: python dev/ruff.py
