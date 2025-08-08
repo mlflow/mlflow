@@ -98,8 +98,8 @@ def setup_mlflow() -> None:
         get_env_var,
     )
 
-    # Default to local file storage in mlruns directory
-    tracking_uri = get_env_var(MLFLOW_TRACKING_URI, f"file://{os.getcwd()}/mlruns")
+    # Get tracking URI from environment/settings
+    tracking_uri = get_env_var(MLFLOW_TRACKING_URI)
 
     import mlflow
 

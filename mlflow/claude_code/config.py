@@ -130,8 +130,6 @@ def setup_environment_config(
     # Set tracking URI
     if tracking_uri:
         config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = tracking_uri
-    elif MLFLOW_TRACKING_URI not in config[ENVIRONMENT_FIELD]:
-        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = "file://./mlruns"
 
     # Set experiment configuration (ID takes precedence over name)
     if experiment_id:
