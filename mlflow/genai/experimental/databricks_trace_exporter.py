@@ -61,7 +61,6 @@ class DatabricksDeltaArchivalMixin:
         Args:
             trace: MLflow Trace object containing spans data.
         """
-        print(f"TEST: Archiving trace")
         # Check if delta archival is globally enabled
         if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
             _logger.debug("Trace archival to databricks is disabled")
@@ -138,7 +137,6 @@ class DatabricksDeltaArchivalMixin:
             experiment_id: ID of the experiment for logging.
             spans_table_name: Name of the spans table for logging.
         """
-        print(f"TEST: Archiving trace")
         try:
             # Convert MLflow trace to OTel proto spans
             proto_spans = self._convert_trace_to_proto_spans(trace)
@@ -269,7 +267,6 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        print(f"TEST: Initializing MlflowV3DeltaSpanExporter")
         super().__init__(tracking_uri)
 
         # Delta archiving functionality is now provided by the mixin
@@ -279,7 +276,6 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
         Handles exporting a trace via the MlflowV3SpanExporter with additional archiving to
         Databricks Delta tables.
         """
-        print(f"TEST: Logging trace")
         # Call parent implementation for existing MlflowV3SpanExporter functionality
         super()._log_trace(trace, prompts)
 
@@ -301,7 +297,6 @@ class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDelt
     """
 
     def __init__(self):
-        print(f"TEST: Initializing InferenceTableDeltaSpanExporter")
         super().__init__()
 
     def _export_trace(self, trace: Trace, manager_trace):
