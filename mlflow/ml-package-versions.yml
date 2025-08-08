@@ -742,6 +742,8 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
+          # Exclude problematic versions 1.99.2 and 1.99.3 (issue was fixed in 1.99.4)
+          # See: https://github.com/openai/openai-python/issues/2525
           "openai!=1.99.2,1.99.3",
           # Required to test Databricks integration
           "llama-index-llms-databricks",
@@ -758,6 +760,8 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
+          # Exclude problematic versions 1.99.2 and 1.99.3 (issue was fixed in 1.99.4)
+          # See: https://github.com/openai/openai-python/issues/2525
           "openai!=1.99.2,1.99.3",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
