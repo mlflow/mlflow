@@ -20,12 +20,13 @@ repos:
         require_serial: true
   - repo: local
     hooks:
-      - id: fix-smart-quotes
-        name: fix-smart-quotes
-        entry: python dev/fix_smart_quotes.py
+      - id: normalize-text-chars
+        name: normalize-text-chars
+        entry: python dev/normalize_chars.py
         language: system
         stages: [pre-commit]
         types: [text]
+        exclude: '^mlflow/server/js/'
         require_serial: true
 
       - id: ruff
