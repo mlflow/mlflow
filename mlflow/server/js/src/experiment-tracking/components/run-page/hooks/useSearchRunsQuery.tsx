@@ -102,12 +102,6 @@ export type UseSearchRunsQueryResponse = {
   refetchRun: () => Promise<ApolloQueryResult<SearchRuns>>;
 };
 
-/**
- * Hook that uses SearchRunsDatabricks to fetch run data for a given filter in an experiment.
- * This hook is intended to be used for the Run page, so the filter should be in the form
- * `attributes.runId = '{runId}'`, and the response is at most a single run.
- * SearchRunsDatabricks is used instead of SearchRuns or GetRun because it returns min/max values.
- */
 export const useSearchRunsQuery = ({
   filter,
   experimentIds,
