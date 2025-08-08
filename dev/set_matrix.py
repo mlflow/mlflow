@@ -57,11 +57,7 @@ T = TypeVar("T")
 class Version(OriginalVersion):
     def __init__(self, version: str, release_date: datetime | None = None):
         self._is_dev = version == DEV_VERSION
-        # For dev versions, use current time if no release date provided
-        if self._is_dev and release_date is None:
-            self._release_date = datetime.now(timezone.utc)
-        else:
-            self._release_date = release_date
+        self._release_date = release_date
         super().__init__(DEV_NUMERIC if self._is_dev else version)
 
     def __str__(self):
@@ -194,11 +190,7 @@ def get_released_versions(package_name: str) -> list[Version]:
             if ut := dist.get("upload_time_iso_8601"):
                 upload_times.append(datetime.fromisoformat(ut.replace("Z", "+00:00")))
 
-        # Skip if no upload time is available
-        if not upload_times:
-            continue
-
-        release_date = min(upload_times)
+        release_date = min(upload_times) if upload_times else None
         try:
             version = Version(version_str, release_date)
         except InvalidVersion:
@@ -243,10 +235,10 @@ def filter_versions(
     """
     # Prevent specifying non-existent versions
     assert min_ver in versions, (
-        f"Minimum version {min_ver} is not in the list of versions for {flavor}"
+        f"Minimum version {min_ver} is not in the list of {versions} for {flavor}"
     )
     assert max_ver in versions or allow_unreleased_max_version, (
-        f"Minimum version {max_ver} is not in the list of versions for {flavor}"
+        f"Maximum version {max_ver} is not in the list of {versions} for {flavor}"
     )
 
     def _is_supported(v):
@@ -608,13 +600,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:
-                validate_requirements(
-                    cfg.requirements,
-                    name,
-                    category,
-                    package_info,
-                    versions,
-                )
+                validate_requirements(cfg.requirements, name, category, package_info, versions)
 
             for ver in versions:
                 requirements = [f"{package_info.pip_release}=={ver}"]
