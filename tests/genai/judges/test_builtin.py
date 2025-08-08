@@ -14,6 +14,8 @@ from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _sanitize_feedback
 from mlflow.genai.judges.utils import CategoricalRating
 
+from tests.genai.conftest import databricks_only
+
 
 def create_test_feedback(value: str, error: str | None = None) -> Feedback:
     return Feedback(
@@ -254,7 +256,8 @@ def test_is_grounded_oss():
         ),
     ],
 )
-def test_judge_functions_databricks(judge_func, agents_judge_name, args, databricks_tracking_uri):
+@databricks_only
+def test_judge_functions_databricks(judge_func, agents_judge_name, args):
     with mock.patch(f"databricks.agents.evals.judges.{agents_judge_name}") as mock_judge:
         mock_judge.return_value = Feedback(
             name=agents_judge_name,
@@ -274,7 +277,8 @@ def test_judge_functions_databricks(judge_func, agents_judge_name, args, databri
         ("test", "test"),
     ],
 )
-def test_judge_functions_called_with_correct_name(name, expected_name, databricks_tracking_uri):
+@databricks_only
+def test_judge_functions_called_with_correct_name(name, expected_name):
     with mock.patch("databricks.agents.evals.judges.relevance_to_query") as mock_judge:
         judges.is_context_relevant(request="test", context="test", name=name)
         mock_judge.assert_called_once_with(

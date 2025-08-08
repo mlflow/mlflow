@@ -8,6 +8,8 @@ from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.custom_prompt_judge import _remove_choice_brackets, custom_prompt_judge
 
+from tests.genai.conftest import databricks_only
+
 
 def test_custom_prompt_judge_basic():
     prompt_template = """Evaluate the response.
@@ -46,6 +48,7 @@ def test_custom_prompt_judge_basic():
     assert "Answer ONLY in JSON and NOT in markdown," in prompt
 
 
+@databricks_only
 def test_custom_prompt_judge_databricks():
     prompt_template = """Evaluate the response.
     <request>{{request}}</request>

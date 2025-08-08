@@ -10,8 +10,7 @@ from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agen
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
-    parse_inputs_to_str,
-    parse_output_to_str,
+    parse_inputs_outputs_to_str,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -138,7 +137,7 @@ class RetrievalRelevance(BuiltInScorer):
             for the relevance of its chunks and 1 assessment for the average relevance of all
             chunks.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = parse_inputs_outputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         feedbacks = []
@@ -242,7 +241,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 `expected_response` key is required. Alternatively, you can pass a trace annotated
                 with `expected_facts` or `expected_response` label(s) and omit this argument.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = parse_inputs_outputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         # If expectations are explicitly provided, use them.
@@ -327,8 +326,8 @@ class RetrievalGroundedness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the groundedness of the response.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
-        response = parse_output_to_str(trace.data.spans[0].outputs)
+        request = parse_inputs_outputs_to_str(trace.data.spans[0].inputs)
+        response = parse_inputs_outputs_to_str(trace.data.spans[0].outputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
@@ -435,8 +434,8 @@ class Guidelines(BuiltInScorer):
         return judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
-                "request": parse_inputs_to_str(inputs),
-                "response": parse_output_to_str(outputs),
+                "request": parse_inputs_outputs_to_str(inputs),
+                "response": parse_inputs_outputs_to_str(outputs),
             },
             name=self.name,
             model=self.model,
@@ -530,8 +529,8 @@ class ExpectationsGuidelines(BuiltInScorer):
         return judges.meets_guidelines(
             guidelines=guidelines,
             context={
-                "request": parse_inputs_to_str(inputs),
-                "response": parse_output_to_str(outputs),
+                "request": parse_inputs_outputs_to_str(inputs),
+                "response": parse_inputs_outputs_to_str(outputs),
             },
             name=self.name,
             model=self.model,
@@ -597,7 +596,7 @@ class RelevanceToQuery(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the relevance of the response to the query.
         """
-        request = parse_inputs_to_str(inputs)
+        request = parse_inputs_outputs_to_str(inputs)
         # NB: Reuse is_context_relevant judge to evaluate response
         return judges.is_context_relevant(
             request=request, context=outputs, name=self.name, model=self.model
@@ -652,7 +651,7 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
+        return judges.is_safe(content=parse_inputs_outputs_to_str(outputs), name=self.name)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -751,8 +750,8 @@ class Correctness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the correctness of the response.
         """
-        request = parse_inputs_to_str(inputs)
-        response = parse_output_to_str(outputs)
+        request = parse_inputs_outputs_to_str(inputs)
+        response = parse_inputs_outputs_to_str(outputs)
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
 

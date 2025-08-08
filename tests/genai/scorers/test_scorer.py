@@ -1,21 +1,17 @@
-import importlib
 from collections import defaultdict
 from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
-from databricks.rag_eval.evaluation.entities import CategoricalRating
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 
 from tests.tracing.helper import get_traces, purge_traces
-
-agent_sdk_version = Version(importlib.import_module("databricks.agents").__version__)
 
 
 def always_yes(inputs, outputs, expectations, trace):
