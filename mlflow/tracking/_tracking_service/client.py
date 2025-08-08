@@ -41,6 +41,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
+from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
@@ -912,9 +913,15 @@ class TrackingServiceClient:
         Returns:
             The created EvaluationDataset object.
         """
+        context_tags = context_registry.resolve_tags()
+        merged_tags = tags.copy() if tags else {}
+
+        if MLFLOW_USER not in merged_tags and MLFLOW_USER in context_tags:
+            merged_tags[MLFLOW_USER] = context_tags[MLFLOW_USER]
+
         return self.store.create_evaluation_dataset(
             name=name,
-            tags=tags,
+            tags=merged_tags if merged_tags else None,
             experiment_ids=experiment_ids,
         )
 
@@ -995,8 +1002,4 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found.
         """
-        # Use set_evaluation_dataset_tags with None value to delete
-        self.store.set_evaluation_dataset_tags(
-            dataset_id=dataset_id,
-            tags={key: None},
-        )
+        self.store.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)

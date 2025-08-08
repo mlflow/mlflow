@@ -988,14 +988,27 @@ class AbstractStore:
         Set tags for an evaluation dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
-        To remove a tag, set its value to None.
 
         Args:
             dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            tags: Dictionary of tags to update.
 
         Raises:
             MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
         """
         raise NotImplementedError(self.__class__.__name__)
 

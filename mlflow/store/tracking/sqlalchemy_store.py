@@ -13,11 +13,7 @@ from typing import Any, Optional, TypedDict, Union
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-<<<<<<< HEAD
-from sqlalchemy import Column, and_, func, or_, sql, text
-=======
 from sqlalchemy import and_, func, or_, sql, text
->>>>>>> genai-dataset
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -94,6 +90,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.utils import generate_request_id_v2
+
+# context_registry import removed - context resolution happens on client side
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -184,19 +182,8 @@ class SqlAlchemyStore(AbstractStore):
     TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     EVALUATION_DATASET_ID_PREFIX = "d-"
-    EVALUATION_DATASET_RECORD_ID_PREFIX = "dr-"
-    ENTITY_ASSOCIATION_ID_PREFIX = "a-"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
-
-    def _generate_association_id(self) -> str:
-        """
-        Generate a unique ID for entity associations.
-
-        Returns:
-            A unique association ID with the appropriate prefix.
-        """
-        return f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -2794,6 +2781,23 @@ class SqlAlchemyStore(AbstractStore):
     # Evaluation Dataset Methods
     #######################################################################################
 
+    def _compute_evaluation_dataset_digest(self, name: str, last_update_time: int) -> str:
+        """
+        Compute digest for an evaluation dataset.
+
+        The digest includes the dataset name and last_update_time to ensure
+        that any state change results in a different digest.
+
+        Args:
+            name: Dataset name
+            last_update_time: Last update timestamp in milliseconds
+
+        Returns:
+            8-character digest string
+        """
+        digest_input = f"{name}:{last_update_time}".encode()
+        return hashlib.sha256(digest_input).hexdigest()[:8]
+
     def create_evaluation_dataset(
         self,
         name: str,
@@ -2807,16 +2811,15 @@ class SqlAlchemyStore(AbstractStore):
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
             experiment_ids: List of experiment IDs to associate with the dataset
-            
+
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
         """
         with self.ManagedSessionMaker() as session:
             dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
-            digest = hashlib.sha256(name.encode()).hexdigest()[:8]
-
             current_time = get_current_time_millis()
+            digest = self._compute_evaluation_dataset_digest(name, current_time)
 
             user_id = None
             if tags and MLFLOW_USER in tags:
@@ -2850,7 +2853,6 @@ class SqlAlchemyStore(AbstractStore):
             if experiment_ids:
                 for exp_id in experiment_ids:
                     association = SqlEntityAssociation(
-                        association_id=self._generate_association_id(),
                         source_type=EntityAssociationType.EVALUATION_DATASET,
                         source_id=dataset_id,
                         destination_type=EntityAssociationType.EXPERIMENT,
@@ -3100,6 +3102,29 @@ class SqlAlchemyStore(AbstractStore):
 
             return [record.to_mlflow_entity() for record in sql_records]
 
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        This operation is idempotent - if the tag doesn't exist, it's a no-op.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetTag)
+                .filter_by(dataset_id=dataset_id, key=key)
+                .delete()
+            )
+
+            if deleted_count == 0:
+                _logger.debug(
+                    f"Tag '{key}' not found for evaluation dataset {dataset_id}. "
+                    "It may have already been deleted or never existed."
+                )
+
     def upsert_evaluation_dataset_records(
         self, dataset_id: str, records: list[dict[str, Any]]
     ) -> dict[str, int]:
@@ -3133,31 +3158,14 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
                 if existing_record:
-                    record_id = existing_record.dataset_record_id
-                    created_time = existing_record.created_time
-                    created_by = existing_record.created_by
-
-                    merged_expectations = existing_record.expectations or {}
-                    if new_expectations := record_dict.get("expectations"):
-                        merged_expectations.update(new_expectations)
-
-                    merged_tags = existing_record.tags or {}
-                    if new_tags := record_dict.get("tags"):
-                        merged_tags.update(new_tags)
-
-                    source = None
-                    if existing_record.source:
-                        source = DatasetRecordSource.from_dict(existing_record.source)
-
+                    existing_record.merge(record_dict)
                     updated_count += 1
                 else:
-                    record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
-                    created_time = current_time
+                    tags = record_dict.get("tags")
+
                     created_by = None
-                    merged_tags = record_dict.get("tags")
-                    if merged_tags and MLFLOW_USER in merged_tags:
-                        created_by = merged_tags[MLFLOW_USER]
-                    merged_expectations = record_dict.get("expectations")
+                    if tags and MLFLOW_USER in tags:
+                        created_by = tags[MLFLOW_USER]
 
                     source = None
                     if source_data := record_dict.get("source"):
@@ -3166,29 +3174,35 @@ class SqlAlchemyStore(AbstractStore):
                         else:
                             source = source_data
 
+                    record = DatasetRecord(
+                        dataset_record_id=None,
+                        dataset_id=dataset_id,
+                        inputs=record_dict.get("inputs", {}),
+                        created_time=current_time,
+                        last_update_time=current_time,
+                        expectations=record_dict.get("expectations"),
+                        tags=tags,
+                        source=source,
+                        created_by=created_by,
+                        last_updated_by=created_by,
+                    )
+
+                    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
+                    session.add(sql_record)
                     inserted_count += 1
 
-                record = DatasetRecord(
-                    dataset_record_id=record_id,
-                    dataset_id=dataset_id,
-                    inputs=record_dict.get("inputs", {}),
-                    created_time=created_time,
-                    last_update_time=current_time,
-                    expectations=merged_expectations,
-                    tags=merged_tags,
-                    source=source,
-                    created_by=created_by,
-                    last_updated_by=created_by,
-                )
-
-                sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
-                session.merge(sql_record)
-
-            existing_schema = (
-                session.query(SqlEvaluationDataset.schema)
+            dataset_info = (
+                session.query(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .scalar()
+                .first()
             )
+
+            if dataset_info:
+                existing_schema = dataset_info[0]
+                dataset_name = dataset_info[1]
+            else:
+                existing_schema = None
+                dataset_name = None
 
             updated_schema = self._update_dataset_schema(existing_schema, records)
 
@@ -3201,9 +3215,12 @@ class SqlAlchemyStore(AbstractStore):
                     updated_by = record_tags["mlflow.user"]
                     break
 
+            new_digest = self._compute_evaluation_dataset_digest(dataset_name, current_time)
+
             update_fields = {
                 "last_update_time": current_time,
                 "last_updated_by": updated_by,
+                "digest": new_digest,
             }
 
             if updated_schema:
@@ -3241,33 +3258,19 @@ class SqlAlchemyStore(AbstractStore):
         """
         Update tags for an evaluation dataset.
         This implements an upsert operation - existing tags are merged with new tags.
-        To remove a tag, set its value to None.
 
         Args:
             dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            tags: Dictionary of tags to update.
 
-        Raises:
-            MlflowException: If dataset not found or invalid parameters.
+        Note:
+            If the dataset doesn't exist, the foreign key constraint will raise an
+            IntegrityError which will be converted to an appropriate MlflowException.
         """
-        with self.ManagedSessionMaker() as session:
-            session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).update(
-                {
-                    SqlEvaluationDataset.last_update_time: get_current_time_millis(),
-                    **(
-                        {SqlEvaluationDataset.last_updated_by: tags[MLFLOW_USER]}
-                        if tags and MLFLOW_USER in tags
-                        else {}
-                    ),
-                }
-            )
 
+        with self.ManagedSessionMaker() as session:
             for key, value in tags.items():
-                if value is None:
-                    session.query(SqlEvaluationDatasetTag).filter_by(
-                        dataset_id=dataset_id, key=key
-                    ).delete()
-                else:
+                if value is not None:
                     existing_tag = (
                         session.query(SqlEvaluationDatasetTag)
                         .filter_by(dataset_id=dataset_id, key=key)

@@ -12,9 +12,10 @@ from typing import Any, Optional, Union
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
+from mlflow.tracking import get_tracking_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import deprecated, experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def create_evaluation_dataset(
     else:
         experiment_ids_list = experiment_ids or []
 
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         try:
             from databricks.agents.datasets import create_dataset as db_create
 
@@ -81,7 +82,7 @@ def create_evaluation_dataset(
 
 @experimental(version="3.3.0")
 def get_evaluation_dataset(
-    dataset_id: Optional[str] = None, name: Optional[str] = None
+    *, dataset_id: Optional[str] = None, name: Optional[str] = None
 ) -> EvaluationDataset:
     """
     Get an evaluation dataset by ID (OSS) or name (Databricks).
@@ -98,7 +99,7 @@ def get_evaluation_dataset(
 
         dataset = get_evaluation_dataset(name="catalog.schema.table")
     """
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         if name is None:
             raise ValueError(
                 "Parameter 'name' is required in Databricks environment. "
@@ -128,7 +129,9 @@ def get_evaluation_dataset(
 
 
 @experimental(version="3.3.0")
-def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[str] = None) -> None:
+def delete_evaluation_dataset(
+    *, dataset_id: Optional[str] = None, name: Optional[str] = None
+) -> None:
     """
     Delete an evaluation dataset by ID (OSS) or name (Databricks).
 
@@ -144,7 +147,7 @@ def delete_evaluation_dataset(dataset_id: Optional[str] = None, name: Optional[s
 
         delete_evaluation_dataset(name="catalog.schema.table")
     """
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         if name is None:
             raise ValueError(
                 "Parameter 'name' is required in Databricks environment. "
@@ -197,7 +200,7 @@ def search_evaluation_datasets(
     Note:
         This API is not available in Databricks environments.
     """
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Evaluation Dataset search is not available in Databricks. "
             "Use Unity Catalog search capabilities instead."
@@ -274,11 +277,11 @@ def set_evaluation_dataset_tags(
     Set tags for an evaluation dataset.
 
     This implements a batch tag operation - existing tags are merged with new tags.
-    To remove a tag, set its value to None.
+    To remove a tag, use delete_evaluation_dataset_tag() instead.
 
     Args:
         dataset_id: The ID of the dataset.
-        tags: Dictionary of tags to set. Setting a value to None removes the tag.
+        tags: Dictionary of tags to set.
 
     Usage::
 
@@ -287,14 +290,13 @@ def set_evaluation_dataset_tags(
             tags={
                 "environment": "production",
                 "version": "2.0",
-                "deprecated": None,  # This removes the 'deprecated' tag
             },
         )
 
     Note:
         This API is not available in Databricks environments yet.
     """
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Evaluation Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
@@ -326,7 +328,7 @@ def delete_evaluation_dataset_tag(
     Note:
         This API is not available in Databricks environments yet.
     """
-    if is_in_databricks_runtime():
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Evaluation Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
