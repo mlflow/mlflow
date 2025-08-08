@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from opentelemetry.trace import NoOpTracer
 
@@ -82,7 +82,7 @@ def parse_output_to_str(output: Any) -> str:
     return input_output_utils.response_to_string(output)
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list[Any]]:
+def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.
@@ -153,7 +153,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
-def _parse_chunk(chunk: Any) -> Optional[dict[str, Any]]:
+def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 

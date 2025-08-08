@@ -2,7 +2,7 @@ import inspect
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
@@ -30,7 +30,8 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas as pd
-    from genai.evaluation.utils import EvaluationDatasetTypes
+
+    from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 
@@ -41,12 +42,12 @@ _logger = logging.getLogger(__name__)
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
-    prompt: Union[str, PromptVersion],
+    prompt: str | PromptVersion,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    objective: Optional[ObjectiveFn] = None,
+    objective: ObjectiveFn | None = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
-    optimizer_config: Optional[OptimizerConfig] = None,
+    optimizer_config: OptimizerConfig | None = None,
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
@@ -227,7 +228,7 @@ def _maybe_start_autolog(
         yield
 
 
-def _log_optimization_result(final_score: Optional[float], optimized_prompt: PromptVersion):
+def _log_optimization_result(final_score: float | None, optimized_prompt: PromptVersion):
     if not active_run():
         return
 

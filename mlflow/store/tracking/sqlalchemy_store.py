@@ -7,7 +7,7 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -836,8 +836,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         run_id: str,
         metrics: list[Metric],
-        dataset_uuid: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        dataset_uuid: str | None = None,
+        experiment_id: str | None = None,
     ) -> None:
         if not metrics:
             return
@@ -1568,8 +1568,8 @@ class SqlAlchemyStore(AbstractStore):
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -1605,8 +1605,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_id,
         run_id,
-        dataset_inputs: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        dataset_inputs: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         dataset_inputs = dataset_inputs or []
         for dataset_input in dataset_inputs:
@@ -1750,7 +1750,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_model_inputs(
         self,
         run_id: str,
-        session: Optional[sqlalchemy.orm.Session] = None,
+        session: sqlalchemy.orm.Session | None = None,
     ) -> list[LoggedModelInput]:
         return [
             LoggedModelInput(model_id=input.destination_id)
@@ -1787,11 +1787,11 @@ class SqlAlchemyStore(AbstractStore):
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[list[LoggedModelTag]] = None,
-        params: Optional[list[LoggedModelParameter]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
     ) -> LoggedModel:
         _validate_logged_model_name(name)
         with self.ManagedSessionMaker() as session:
@@ -1944,7 +1944,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
-        order_by: Optional[list[dict[str, Any]]] = None,
+        order_by: list[dict[str, Any]] | None = None,
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
         has_creation_timestamp = False
@@ -2030,8 +2030,8 @@ class SqlAlchemyStore(AbstractStore):
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         experiment_ids: list[str],
-        filter_string: Optional[str],
-        datasets: Optional[list[dict[str, Any]]],
+        filter_string: str | None,
+        datasets: list[dict[str, Any]] | None,
     ):
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
@@ -2109,11 +2109,11 @@ class SqlAlchemyStore(AbstractStore):
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[DatasetFilter]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[DatasetFilter] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[LoggedModel]:
         if datasets and not all(d.get("dataset_name") for d in datasets):
             raise MlflowException(
@@ -2236,13 +2236,13 @@ class SqlAlchemyStore(AbstractStore):
     def search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -2359,9 +2359,9 @@ class SqlAlchemyStore(AbstractStore):
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -2457,11 +2457,11 @@ class SqlAlchemyStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[ExpectationValue] = None,
-        feedback: Optional[FeedbackValue] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        name: str | None = None,
+        expectation: ExpectationValue | None = None,
+        feedback: FeedbackValue | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Assessment:
         """
         Updates an existing assessment with new values while preserving immutable fields.

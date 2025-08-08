@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.assessments_pb2 import AssessmentError as ProtoAssessmentError
@@ -44,8 +43,8 @@ class AssessmentError(_MlflowObject):
     """
 
     error_code: str
-    error_message: Optional[str] = None
-    stack_trace: Optional[str] = None
+    error_message: str | None = None
+    stack_trace: str | None = None
 
     def to_proto(self):
         error = ProtoAssessmentError()
