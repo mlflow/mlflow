@@ -391,6 +391,9 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     another = store.get_experiment(1)
     assert another.name == "aNothEr"
 
+    # Restore the default experiment for subsequent tests
+    store.restore_experiment(0)
+
 
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
     with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):

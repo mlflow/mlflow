@@ -3263,12 +3263,23 @@ class SqlAlchemyStore(AbstractStore):
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update.
 
-        Note:
-            If the dataset doesn't exist, the foreign key constraint will raise an
-            IntegrityError which will be converted to an appropriate MlflowException.
+        Raises:
+            MlflowException: If the dataset doesn't exist.
         """
-
         with self.ManagedSessionMaker() as session:
+            # NB: Checking that the dataset exists within this API avoids
+            # very confusing error messages regarding foreign key constraint
+            # violations that are different for various RDBMS backends and
+            # a generic error message regarding existence of a dependent key.
+            # Use .first() instead of .exists() for MSSQL compatibility
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+
+            if not dataset:
+                raise MlflowException(
+                    f"Could not find evaluation dataset with ID {dataset_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
             for key, value in tags.items():
                 if value is not None:
                     existing_tag = (
