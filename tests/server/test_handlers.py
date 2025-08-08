@@ -1079,7 +1079,15 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
         version=version
     )
     
-    mock_tracking_store.get_scorer.return_value = "serialized_accuracy_scorer_v2"
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=2,
+        serialized_scorer="serialized_accuracy_scorer_v2",
+        creation_time=1640995200000
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
     
     resp = _get_scorer()
     
@@ -1088,7 +1096,11 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
     
     # Verify the response
     response_data = json.loads(resp.get_data())
-    assert response_data == {"serialized_scorer": "serialized_accuracy_scorer_v2"}
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 2
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_v2"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
 
 
 def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
@@ -1101,7 +1113,15 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
         name=name
     )
     
-    mock_tracking_store.get_scorer.return_value = "serialized_accuracy_scorer_latest"
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=3,
+        serialized_scorer="serialized_accuracy_scorer_latest",
+        creation_time=1640995200000
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
     
     resp = _get_scorer()
     
@@ -1110,7 +1130,11 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
     
     # Verify the response
     response_data = json.loads(resp.get_data())
-    assert response_data == {"serialized_scorer": "serialized_accuracy_scorer_latest"}
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 3
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_latest"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
 
 
 def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
