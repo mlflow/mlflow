@@ -502,7 +502,7 @@ Arguments
 +===============================+======================================+
 | ``status``                    | Updated status of the run. Defaults  |
 |                               | to ``FINISHED``. Can also be set to  |
-|                               | "FAILED" or "KILLED".                |
+|                               | “FAILED” or “KILLED”.                |
 +-------------------------------+--------------------------------------+
 | ``end_time``                  | Unix timestamp of when the run ended |
 |                               | in milliseconds.                     |
@@ -782,7 +782,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``path``                      | The run's relative artifact path to  |
+| ``path``                      | The run’s relative artifact path to  |
 |                               | list from. If not specified, it is   |
 |                               | set to the root artifact path        |
 +-------------------------------+--------------------------------------+
@@ -913,7 +913,7 @@ Arguments
 | ``path``                      | The file or directory to log as an   |
 |                               | artifact.                            |
 +-------------------------------+--------------------------------------+
-| ``artifact_path``             | Destination path within the run's    |
+| ``artifact_path``             | Destination path within the run’s    |
 |                               | artifact URI.                        |
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
@@ -972,20 +972,20 @@ Arguments
 +===============================+======================================+
 | ``metrics``                   | A dataframe of metrics to log,       |
 |                               | containing the following columns:    |
-|                               | "key", "value", "step", "timestamp". |
+|                               | “key”, “value”, “step”, “timestamp”. |
 |                               | This dataframe cannot contain any    |
-|                               | missing ('NA') entries.              |
+|                               | missing (‘NA’) entries.              |
 +-------------------------------+--------------------------------------+
 | ``params``                    | A dataframe of params to log,        |
 |                               | containing the following columns:    |
-|                               | "key", "value". This dataframe       |
-|                               | cannot contain any missing ('NA')    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
 |                               | entries.                             |
 +-------------------------------+--------------------------------------+
 | ``tags``                      | A dataframe of tags to log,          |
 |                               | containing the following columns:    |
-|                               | "key", "value". This dataframe       |
-|                               | cannot contain any missing ('NA')    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
 |                               | entries.                             |
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
@@ -1162,8 +1162,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``type``                      | Type of this parameter. Required if  |
 |                               | ``default`` is not set. If           |
-|                               | specified, must be one of "numeric", |
-|                               | "integer", or "string".              |
+|                               | specified, must be one of “numeric”, |
+|                               | “integer”, or “string”.              |
 +-------------------------------+--------------------------------------+
 | ``description``               | Optional description for the         |
 |                               | parameter.                           |
@@ -1223,7 +1223,7 @@ Register an external MLflow observer
 
 Registers an external MLflow observer that will receive a
 ``register_tracking_event(event_name, data)`` callback on any model
-tracking event such as "create_run", "delete_run", or "log_metric". Each
+tracking event such as “create_run”, “delete_run”, or “log_metric”. Each
 observer should have a ``register_tracking_event(event_name, data)``
 callback accepting a character vector ``event_name`` specifying the name
 of the tracking event, and ``data`` containing a list of attributes of
@@ -1281,7 +1281,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``new_name``                  | The experiment's name will be        |
+| ``new_name``                  | The experiment’s name will be        |
 |                               | changed to this. The new name must   |
 |                               | be unique.                           |
 +-------------------------------+--------------------------------------+
@@ -1565,8 +1565,8 @@ Arguments
 | ``env_manager``               | If specified, create an environment  |
 |                               | for the project using the specified  |
 |                               | environment manager. Available       |
-|                               | options are 'local', 'virtualenv',   |
-|                               | and 'conda'.                         |
+|                               | options are ‘local’, ‘virtualenv’,   |
+|                               | and ‘conda’.                         |
 +-------------------------------+--------------------------------------+
 | ``storage_dir``               | Valid only when ``backend`` is       |
 |                               | local. MLflow downloads artifacts    |
@@ -1671,9 +1671,9 @@ Arguments
 |                               | specific experiments. The syntax is  |
 |                               | a subset of SQL which allows only    |
 |                               | ANDing together binary operations.   |
-|                               | Examples: "attribute.name =          |
-|                               | 'MyExperiment'", "tags.problem_type  |
-|                               | = 'iris_regression'"                 |
+|                               | Examples: “attribute.name =          |
+|                               | ‘MyExperiment’”, “tags.problem_type  |
+|                               | = ‘iris_regression’”                 |
 +-------------------------------+--------------------------------------+
 | ``experiment_view_type``      | Experiment view type. Only           |
 |                               | experiments matching this view type  |
@@ -1683,7 +1683,7 @@ Arguments
 |                               | retrieve.                            |
 +-------------------------------+--------------------------------------+
 | ``order_by``                  | List of properties to order by.      |
-|                               | Example: "attribute.name".           |
+|                               | Example: “attribute.name”.           |
 +-------------------------------+--------------------------------------+
 | ``page_token``                | Pagination token to go to the next   |
 |                               | page based on a previous query.      |
@@ -1728,15 +1728,15 @@ Arguments
 |                               | specific registered models. The      |
 |                               | syntax is a subset of SQL which      |
 |                               | allows only ANDing together binary   |
-|                               | operations. Example: "name =         |
-|                               | 'my_model_name' and tag.key =        |
-|                               | 'value1'"                            |
+|                               | operations. Example: “name =         |
+|                               | ‘my_model_name’ and tag.key =        |
+|                               | ‘value1’”                            |
 +-------------------------------+--------------------------------------+
 | ``max_results``               | Maximum number of registered models  |
 |                               | to retrieve.                         |
 +-------------------------------+--------------------------------------+
 | ``order_by``                  | List of registered model properties  |
-|                               | to order by. Example: "name".        |
+|                               | to order by. Example: “name”.        |
 +-------------------------------+--------------------------------------+
 | ``page_token``                | Pagination token to go to the next   |
 |                               | page based on a previous query.      |
@@ -1794,7 +1794,7 @@ Arguments
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
 | ``order_by``                  | List of properties to order by.      |
-|                               | Example: "metrics.acc DESC".         |
+|                               | Example: “metrics.acc DESC”.         |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
@@ -2104,9 +2104,9 @@ Arguments
 +===============================+======================================+
 | ``run_id``                    | If specified, get the run with the   |
 |                               | specified UUID and log metrics and   |
-|                               | params under that run. The run's end |
+|                               | params under that run. The run’s end |
 |                               | time is unset and its status is set  |
-|                               | to running, but the run's other      |
+|                               | to running, but the run’s other      |
 |                               | attributes remain unchanged.         |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | Used only when ``run_id`` is         |
