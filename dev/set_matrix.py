@@ -44,7 +44,7 @@ import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -67,13 +67,15 @@ class Version(OriginalVersion):
         return cls(DEV_VERSION)
 
 
-class PackageInfo(BaseModel, extra="forbid"):
+class PackageInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pip_release: str
     install_dev: str | None = None
     module_name: str | None = None
 
 
-class TestConfig(BaseModel, extra="forbid"):
+class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
     unsupported: list[SpecifierSet] | None = None
@@ -86,24 +88,27 @@ class TestConfig(BaseModel, extra="forbid"):
     pre_test: str | None = None
     test_every_n_versions: int = 1
     test_tracing_sdk: bool = False
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
-
-    @validator("minimum", pre=True)
+    @field_validator("minimum", mode="before")
+    @classmethod
     def validate_minimum(cls, v):
         return Version(v)
 
-    @validator("maximum", pre=True)
+    @field_validator("maximum", mode="before")
+    @classmethod
     def validate_maximum(cls, v):
         return Version(v)
 
-    @validator("unsupported", pre=True)
+    @field_validator("unsupported", mode="before")
+    @classmethod
     def validate_unsupported(cls, v):
         return [SpecifierSet(x) for x in v] if v else None
 
 
-class FlavorConfig(BaseModel, extra="forbid"):
+class FlavorConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     package_info: PackageInfo
     models: TestConfig | None = None
     autologging: TestConfig | None = None
@@ -118,7 +123,7 @@ class FlavorConfig(BaseModel, extra="forbid"):
         return cs
 
 
-class MatrixItem(BaseModel, extra="forbid"):
+class MatrixItem(BaseModel):
     name: str
     flavor: str
     category: str
@@ -133,9 +138,7 @@ class MatrixItem(BaseModel, extra="forbid"):
     free_disk_space: bool
     runs_on: str
     pre_test: str | None = None
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     def __hash__(self):
         return hash(frozenset(dict(self)))
