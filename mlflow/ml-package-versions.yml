@@ -530,7 +530,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.98.0"
+    maximum: "1.99.4"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -549,7 +549,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.98.0"
+    maximum: "1.99.4"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -742,8 +742,7 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          # TODO: Unpin once this issue is resolved: https://github.com/openai/openai-python/issues/2525
-          "openai<=1.99.1",
+          "openai>=1.99.4",
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
@@ -759,8 +758,7 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          # TODO: Unpin once this issue is resolved: https://github.com/openai/openai-python/issues/2525
-          "openai<=1.99.1",
+          "openai>=1.99.4",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",

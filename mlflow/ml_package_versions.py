@@ -231,11 +231,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.98.0"
+            "maximum": "1.99.4"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.98.0"
+            "maximum": "1.99.4"
         }
     },
     "dspy": {
