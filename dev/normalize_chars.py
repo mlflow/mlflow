@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-
 # Mapping of characters to normalize. Start with quotes; extend as needed.
 CHAR_MAP = {
     "\u2018": "'",  # left single quotation mark
@@ -42,4 +41,3 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
