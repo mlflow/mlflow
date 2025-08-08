@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Optional, Union
+from typing import Any
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -7,7 +7,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agents
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -83,6 +83,10 @@ class BuiltInScorer(Scorer):
         missing_columns = self.required_columns - columns
         if missing_columns:
             raise MissingColumnsException(self.name, missing_columns)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.BUILTIN
 
 
 # === Builtin Scorers ===
@@ -225,7 +229,7 @@ class RetrievalSufficiency(BuiltInScorer):
             )
 
     def __call__(
-        self, *, trace: Trace, expectations: Optional[dict[str, Any]] = None
+        self, *, trace: Trace, expectations: dict[str, Any] | None = None
     ) -> list[Feedback]:
         """
         Evaluate context sufficiency based on retrieved documents.
@@ -407,7 +411,7 @@ class Guidelines(BuiltInScorer):
     """
 
     name: str = "guidelines"
-    guidelines: Union[str, list[str]]
+    guidelines: str | list[str]
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
@@ -498,7 +502,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         *,
         inputs: dict[str, Any],
         outputs: Any,
-        expectations: Optional[dict[str, Any]] = None,
+        expectations: dict[str, Any] | None = None,
     ) -> Feedback:
         """
         Evaluate adherence to specified guidelines.
@@ -702,10 +706,12 @@ class Correctness(BuiltInScorer):
                     "reduceByKey aggregates data before shuffling, whereas groupByKey "
                     "shuffles all data, making reduceByKey more efficient."
                 ),
-                "expectations": [
-                    {"expected_response": "reduceByKey aggregates data before shuffling"},
-                    {"expected_response": "groupByKey shuffles all data"},
-                ],
+                "expectations": {
+                    "expected_response": (
+                        "reduceByKey aggregates data before shuffling. "
+                        "groupByKey shuffles all data"
+                    ),
+                },
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[Correctness()])
@@ -781,9 +787,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
             {
                 "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
-                "expectations": [
-                    {"expected_response": "Paris is the capital city of France."},
-                ],
+                "expectations": {"expected_response": "Paris is the capital city of France."},
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())

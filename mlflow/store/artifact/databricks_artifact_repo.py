@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -99,7 +99,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -154,7 +154,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
     @staticmethod
-    def _extract_run_id(artifact_uri: str) -> Optional[str]:
+    def _extract_run_id(artifact_uri: str) -> str | None:
         """
         Extracts the run ID from the run artifact URI.
         """
@@ -765,7 +765,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_file_path=artifact_file_path,
         )
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):

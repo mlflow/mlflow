@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 from opentelemetry.trace import NoOpTracer
 
@@ -7,6 +7,7 @@ import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracking.client import MlflowClient
@@ -21,7 +22,13 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
-    with NoOpTracerPatcher() as counter:
+    with (
+        NoOpTracerPatcher() as counter,
+        # Enable auto-tracing before checking if the predict_fn produces traces, so that
+        # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
+        # identified as traced functions
+        configure_autologging_for_evaluation(enable_tracing=True),
+    ):
         check_model_prediction(predict_fn, sample_input)
 
     if counter.count == 0:
@@ -78,7 +85,7 @@ def parse_output_to_str(output: Any) -> str:
     return input_output_utils.response_to_string(output)
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list[Any]]:
+def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.
@@ -149,7 +156,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
-def _parse_chunk(chunk: Any) -> Optional[dict[str, Any]]:
+def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 

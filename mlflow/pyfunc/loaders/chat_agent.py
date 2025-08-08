@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 import pydantic
 
@@ -17,7 +17,7 @@ from mlflow.types.agent import (
 from mlflow.types.type_hints import model_validate
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     _, chat_agent, _ = _load_context_model_and_signature(model_path, model_config)
     return _ChatAgentPyfuncWrapper(chat_agent)
 
@@ -42,7 +42,7 @@ class _ChatAgentPyfuncWrapper:
 
     def _convert_input(
         self, model_input
-    ) -> tuple[list[ChatAgentMessage], Optional[ChatContext], Optional[dict[str, Any]]]:
+    ) -> tuple[list[ChatAgentMessage], ChatContext | None, dict[str, Any] | None]:
         import pandas
 
         if isinstance(model_input, dict):

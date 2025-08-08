@@ -1,10 +1,9 @@
 from functools import wraps
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _MODEL_API_DOC = {
@@ -57,9 +56,9 @@ def requires_databricks_agents(func):
     return wrapper
 
 
-@format_docstring(_MODEL_API_DOC)
+@requires_databricks_agents
 def is_context_relevant(
-    *, request: str, context: Any, name: Optional[str] = None, model: Optional[str] = None
+    *, request: str, context: Any, name: str | None = None, model: str | None = None
 ) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
@@ -125,10 +124,10 @@ def is_context_sufficient(
     *,
     request: str,
     context: Any,
-    expected_facts: Optional[list[str]] = None,
-    expected_response: Optional[str] = None,
-    name: Optional[str] = None,
-    model: Optional[str] = None,
+    expected_facts: list[str],
+    expected_response: str | None = None,
+    name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -206,10 +205,10 @@ def is_correct(
     *,
     request: str,
     response: str,
-    expected_facts: Optional[list[str]] = None,
-    expected_response: Optional[str] = None,
-    name: Optional[str] = None,
-    model: Optional[str] = None,
+    expected_facts: list[str],
+    expected_response: str | None = None,
+    name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is correct for the input request.
@@ -281,8 +280,8 @@ def is_grounded(
     request: str,
     response: str,
     context: Any,
-    name: Optional[str] = None,
-    model: Optional[str] = None,
+    name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
@@ -353,7 +352,7 @@ def is_grounded(
 
 
 @requires_databricks_agents
-def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
+def is_safe(*, content: str, name: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
@@ -382,10 +381,10 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
 @format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
-    guidelines: Union[str, list[str]],
+    guidelines: str | list[str],
     context: dict[str, Any],
-    name: Optional[str] = None,
-    model: Optional[str] = None,
+    name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -442,60 +441,3 @@ def meets_guidelines(
         )
 
     return _sanitize_feedback(feedback)
-
-
-@experimental(version="3.0.0")
-@requires_databricks_agents
-def custom_prompt_judge(
-    *,
-    name: str,
-    prompt_template: str,
-    numeric_values: Optional[dict[str, Union[int, float]]] = None,
-) -> Callable[..., Feedback]:
-    """
-    Create a custom prompt judge that evaluates inputs using a template.
-
-    Example prompt template:
-
-    .. code-block::
-
-        You will look at the response and determine the formality of the response.
-
-        <request>{{request}}</request>
-        <response>{{response}}</response>
-
-        You must choose one of the following categories.
-
-        [[formal]]: The response is very formal.
-        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the
-        response mentions friendship, etc.
-        [[not_formal]]: The response is not formal.
-
-    Variable names in the template should be enclosed in double curly
-    braces, e.g., `{{request}}`, `{{response}}`. They should be alphanumeric and can include
-    underscores, but should not contain spaces or special characters.
-
-    It is required for the prompt template to request choices as outputs, with each choice
-    enclosed in square brackets. Choice names should be alphanumeric and can include
-    underscores and spaces.
-
-    Args:
-        name: Name of the judge, used as the name of returned
-            :py:class`mlflow.entities.Feedback~` object.
-        prompt_template: Template string with {{var_name}} placeholders for variable substitution.
-            Should be prompted with choices as outputs.
-        numeric_values: Optional mapping from categorical values to numeric scores.
-            Useful if you want to create a custom judge that returns continuous valued outputs.
-            Defaults to None.
-
-    Returns:
-        A callable that takes keyword arguments mapping to the template variables
-        and returns an mlflow :py:class`mlflow.entities.Feedback~`.
-    """
-    from databricks.agents.evals.judges import custom_prompt_judge
-
-    return custom_prompt_judge(
-        name=name,
-        prompt_template=prompt_template,
-        numeric_values=numeric_values,
-    )

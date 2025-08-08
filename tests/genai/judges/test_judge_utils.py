@@ -68,19 +68,6 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
-def test_invoke_judge_model_unknown_rating_value():
-    mock_content = json.dumps({"result": "maybe", "rationale": "Uncertain response"})
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
-
-    with mock.patch("litellm.completion", return_value=mock_response):
-        feedback = invoke_judge_model(
-            model_uri="openai:/gpt-4", prompt="Evaluate", assessment_name="test"
-        )
-
-    assert feedback.value == CategoricalRating.UNKNOWN
-    assert feedback.rationale == "Uncertain response"
-
-
 def test_invoke_judge_model_invalid_json_response():
     mock_content = "This is not valid JSON"
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])

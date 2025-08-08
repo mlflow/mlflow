@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -33,10 +33,10 @@ class EvalItem:
     expectations: dict[str, Any]
 
     """Trace of the model invocation."""
-    trace: Optional[Trace] = None
+    trace: Trace | None = None
 
     """Error message if the model invocation fails."""
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
@@ -124,7 +124,7 @@ class EvalResult:
     """A collection of assessments from scorers."""
     assessments: list[Feedback] = field(default_factory=list)
     """Error message encountered in processing the eval item."""
-    eval_error: Optional[str] = None
+    eval_error: str | None = None
 
     def to_pd_series(self) -> pd.Series:
         """Converts the EvalResult to a flattened pd.Series."""
@@ -155,3 +155,14 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame
+
+    def __repr__(self) -> str:
+        metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
+        return (
+            "EvaluationResult(\n"
+            f"  run_id: {self.run_id}\n"
+            "  metrics:\n"
+            f"    {metrics_str}\n"
+            f"  result_df: [{len(self.result_df)} rows x {len(self.result_df.columns)} cols]\n"
+            ")"
+        )

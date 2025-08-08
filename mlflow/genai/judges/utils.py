@@ -72,7 +72,7 @@ def invoke_judge_model(model_uri: str, prompt: str, assessment_name: str) -> Fee
         response_dict = json.loads(response)
         feedback = Feedback(
             name=assessment_name,
-            value=CategoricalRating(response_dict["result"]),
+            value=response_dict["result"],
             rationale=_sanitize_justification(response_dict.get("rationale", "")),
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,

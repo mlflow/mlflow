@@ -78,8 +78,8 @@ export type ModelTraceSpanV3 = {
   span_id: string;
   // can be empty
   trace_state: string;
-  // can be empty
-  parent_span_id: string;
+  // can be empty or null
+  parent_span_id: string | null;
   name: string;
   start_time_unix_nano: string;
   end_time_unix_nano: string;

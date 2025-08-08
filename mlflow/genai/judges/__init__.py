@@ -1,5 +1,4 @@
 from mlflow.genai.judges.builtin import (
-    custom_prompt_judge,
     is_context_relevant,
     is_context_sufficient,
     is_correct,
@@ -7,6 +6,7 @@ from mlflow.genai.judges.builtin import (
     is_safe,
     meets_guidelines,
 )
+from mlflow.genai.judges.custom_prompt_judge import custom_prompt_judge
 from mlflow.genai.judges.utils import CategoricalRating
 
 __all__ = [

@@ -2,7 +2,7 @@ import json
 import logging
 import math
 from concurrent.futures import Future, as_completed
-from typing import TYPE_CHECKING, Any, Collection, Optional, Union
+from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
@@ -27,11 +27,11 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
-        EvaluationDatasetTypes = Union[
-            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
-        ]
+        EvaluationDatasetTypes = (
+            pd.DataFrame | pyspark.sql.dataframe.DataFrame | list[dict] | EvaluationDataset
+        )
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = pd.DataFrame | list[dict] | EvaluationDataset
 
 
 _logger = logging.getLogger(__name__)
@@ -213,16 +213,16 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
 
     def eval_fn(
         request_id: str,
-        request: Union[ChatCompletionRequest, str],
-        response: Optional[Any],
-        expected_response: Optional[Any],
-        trace: Optional[Trace],
-        guidelines: Optional[Union[list[str], dict[str, list[str]]]],
-        expected_facts: Optional[list[str]],
-        expected_retrieved_context: Optional[list[dict[str, str]]],
-        custom_expected: Optional[dict[str, Any]],
+        request: ChatCompletionRequest | str,
+        response: Any | None,
+        expected_response: Any | None,
+        trace: Trace | None,
+        guidelines: list[str] | dict[str, list[str]] | None,
+        expected_facts: list[str] | None,
+        expected_retrieved_context: list[dict[str, str]] | None,
+        custom_expected: dict[str, Any] | None,
         **kwargs,
-    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+    ) -> int | float | bool | str | Assessment | list[Assessment]:
         # Condense all expectations into a single dict
         expectations = {}
         if expected_response is not None:
@@ -249,6 +249,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
+        aggregations=scorer.aggregations,
     )
     # Add attribute to indicate if this is a built-in scorer
     metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)

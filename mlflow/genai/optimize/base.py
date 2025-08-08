@@ -2,23 +2,30 @@ import inspect
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
-from mlflow.genai.optimize.optimizers import _BaseOptimizer, _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer, _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.types import (
     OBJECTIVE_FN,
     LLMParams,
     OptimizerConfig,
     PromptOptimizationResult,
 )
-from mlflow.genai.prompts import load_prompt
+from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking.fluent import log_params, log_table, start_run
+from mlflow.tracking.fluent import (
+    active_run,
+    log_metric,
+    log_param,
+    log_params,
+    log_table,
+    start_run,
+)
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -34,12 +41,12 @@ _logger = logging.getLogger(__name__)
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
-    prompt: Union[str, PromptVersion],
+    prompt: str | PromptVersion,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    objective: Optional[OBJECTIVE_FN] = None,
+    objective: OBJECTIVE_FN | None = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
-    optimizer_config: Optional[OptimizerConfig] = None,
+    optimizer_config: OptimizerConfig | None = None,
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
@@ -130,7 +137,7 @@ def optimize_prompt(
         prompt: PromptVersion = load_prompt(prompt)
 
     with _maybe_start_autolog(optimizer_config, train_data, eval_data, prompt, target_llm_params):
-        optimized_prompt = optimzer.optimize(
+        optimizer_output = optimzer.optimize(
             prompt=prompt,
             target_llm_params=target_llm_params,
             train_data=train_data,
@@ -139,15 +146,37 @@ def optimize_prompt(
             eval_data=eval_data,
         )
 
-    return PromptOptimizationResult(prompt=optimized_prompt)
+        optimized_prompt = register_prompt(
+            name=prompt.name,
+            template=optimizer_output.optimized_prompt,
+            tags={
+                "overall_eval_score": str(optimizer_output.final_eval_score),
+            },
+        )
+
+        if optimizer_config.autolog:
+            _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
+
+    return PromptOptimizationResult(
+        prompt=optimized_prompt,
+        initial_prompt=prompt,
+        optimizer_name=optimizer_output.optimizer_name,
+        final_eval_score=optimizer_output.final_eval_score,
+        initial_eval_score=optimizer_output.initial_eval_score,
+    )
 
 
-def _select_optimizer(optimizer_config: OptimizerConfig) -> _BaseOptimizer:
+def _select_optimizer(optimizer_config: OptimizerConfig) -> BasePromptOptimizer:
+    if isinstance(optimizer_config.algorithm, type) and issubclass(
+        optimizer_config.algorithm, BasePromptOptimizer
+    ):
+        return optimizer_config.algorithm(optimizer_config)
+
     if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
             f"Unsupported algorithm: '{optimizer_config.algorithm}'. "
-            f"Available algorithms: {list(_ALGORITHMS.keys())}. "
-            "Please choose from the supported algorithms above."
+            f"Please use one of the following algorithms: {list(_ALGORITHMS.keys())}. "
+            "Or provide a custom optimizer class that inherits from BasePromptOptimizer."
         )
 
     return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)
@@ -196,3 +225,15 @@ def _maybe_start_autolog(
             yield
     else:
         yield
+
+
+def _log_optimization_result(final_score: float | None, optimized_prompt: PromptVersion):
+    if not active_run():
+        return
+
+    if final_score:
+        log_metric(
+            "final_eval_score",
+            final_score,
+        )
+    log_param("optimized_prompt_uri", optimized_prompt.uri)

@@ -1,7 +1,7 @@
 import logging
 import os
 import urllib.parse
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
+def get_endpoint_type(endpoint_uri: str) -> str | None:
     """
     Get the type of the endpoint if it is MLflow deployment
     endpoint. For other endpoints e.g. OpenAI, or if the
@@ -111,7 +111,7 @@ def _call_llm_provider_api(
     input_data: str,
     eval_parameters: dict[str, Any],
     extra_headers: dict[str, str],
-    proxy_url: Optional[str] = None,
+    proxy_url: str | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -284,9 +284,9 @@ def _send_request(
 
 def call_deployments_api(
     deployment_uri: str,
-    input_data: Union[str, dict[str, Any]],
-    eval_parameters: Optional[dict[str, Any]] = None,
-    endpoint_type: Optional[str] = None,
+    input_data: str | dict[str, Any],
+    eval_parameters: dict[str, Any] | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the deployment endpoint with the given payload and parameters.
 
@@ -347,8 +347,8 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, An
 
 
 def _parse_response(
-    response: dict[str, Any], endpoint_type: Optional[str]
-) -> Union[Optional[str], dict[str, Any]]:
+    response: dict[str, Any], endpoint_type: str | None
+) -> str | None | dict[str, Any]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":

@@ -142,7 +142,7 @@ jobs:
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
+          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
       - name: Run tests
         run: |
           set +e

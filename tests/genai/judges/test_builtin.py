@@ -15,12 +15,6 @@ from mlflow.genai.judges.builtin import _sanitize_feedback
 from mlflow.genai.judges.utils import CategoricalRating
 
 
-@pytest.fixture
-def databricks_tracking_uri():
-    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
-        yield
-
-
 def create_test_feedback(value: str, error: str | None = None) -> Feedback:
     return Feedback(
         name="test_feedback",

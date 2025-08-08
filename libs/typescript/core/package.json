@@ -32,8 +32,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "prepare": "npm run build"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -41,8 +40,7 @@
     "@types/json-bigint": "^1.0.4",
     "fast-safe-stringify": "^2.1.1",
     "ini": "^5.0.0",
-    "json-bigint": "^1.0.0",
-    "node-cache": "^5.1.2"
+    "json-bigint": "^1.0.0"
   },
   "devDependencies": {
     "@types/ini": "^4.1.1",
