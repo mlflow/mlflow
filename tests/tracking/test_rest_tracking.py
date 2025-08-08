@@ -2721,7 +2721,6 @@ def test_link_traces_to_run_and_search_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow.set_experiment("link traces to run test").experiment_id
 
-    # Create experiment and run
     run = mlflow_client.create_run(experiment_id)
     run_id = run.info.run_id
 

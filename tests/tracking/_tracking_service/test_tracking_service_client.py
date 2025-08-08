@@ -148,15 +148,12 @@ def test_log_batch_with_numpy_array(tracking_client_log_batch):
 def test_link_traces_to_run_validation():
     client = newTrackingServiceClient()
 
-    # Test with empty run_id
     with pytest.raises(MlflowException, match="run_id cannot be empty"):
         client.link_traces_to_run(["trace1", "trace2"], "")
 
-    # Test with None run_id
     with pytest.raises(MlflowException, match="run_id cannot be empty"):
         client.link_traces_to_run(["trace1", "trace2"], None)
 
-    # Test with too many traces (101 traces)
     trace_ids = [f"trace_{i}" for i in range(101)]
     with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
         client.link_traces_to_run(trace_ids, "run_id")
