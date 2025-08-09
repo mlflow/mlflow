@@ -3146,6 +3146,7 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
+            last_updated_by = None
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3280,10 +3281,8 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Extract user from tags if present and update last_updated_by
-            if mlflow_tags.MLFLOW_USER in tags:
-                dataset.last_updated_by = tags[mlflow_tags.MLFLOW_USER]
-                dataset.last_update_time = get_current_time_millis()
+            # Note: Tags are just metadata and do not affect last_update_time or last_updated_by
+            # Only actual data changes (records) should update those fields
 
             for key, value in tags.items():
                 if value is not None:
