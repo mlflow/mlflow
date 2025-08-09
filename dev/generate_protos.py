@@ -48,11 +48,11 @@ def _get_python_output_path(proto_file_path: Path) -> Path:
     return proto_file_path.parent / (proto_file_path.stem + "_pb2.py")
 
 
-def pathify(*args: str) -> list[Path]:
+def to_paths(*args: str) -> list[Path]:
     return list(map(Path, args))
 
 
-basic_proto_files = pathify(
+basic_proto_files = to_paths(
     "databricks.proto",
     "service.proto",
     "model_registry.proto",
@@ -62,7 +62,7 @@ basic_proto_files = pathify(
     "scalapb/scalapb.proto",
     "assessments.proto",
 )
-uc_proto_files = pathify(
+uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
     "databricks_managed_catalog_service.proto",
     "databricks_uc_registry_messages.proto",
@@ -73,10 +73,10 @@ uc_proto_files = pathify(
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = pathify("databricks_trace_server.proto")
-facet_proto_files = pathify("facet_feature_statistics.proto")
+tracing_proto_files = to_paths("databricks_trace_server.proto")
+facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
-test_proto_files = pathify("test_message.proto")
+test_proto_files = to_paths("test_message.proto")
 
 
 python_gencode_replacements = [
