@@ -8,19 +8,19 @@ from typing import Literal
 
 from packaging.version import Version
 
-cache_dir = ".cache/protobuf_cache"
+cache_dir = Path(".cache/protobuf_cache")
 
 mlflow_protos_dir = Path("mlflow/protos")
 test_protos_dir = Path("tests/protos")
 
 
 def gen_protos(
-    proto_dir: str | Path,
+    proto_dir: Path,
     proto_files: list[str],
     lang: Literal["python", "java"],
-    protoc_bin: str | Path,
-    protoc_include_path: str | Path,
-    out_dir: str | Path,
+    protoc_bin: Path,
+    protoc_include_path: Path,
+    out_dir: Path,
 ) -> None:
     assert lang in ["python", "java"]
 
@@ -174,7 +174,7 @@ def build_protoc_from_source(version: str) -> tuple[Path, Path]:
     return protoc_bin, protoc_include_path
 
 
-def download_file(url: str, output_path: str | Path) -> None:
+def download_file(url: str, output_path: Path) -> None:
     """
     Download a file using wget on Linux and curl on macOS.
     """
@@ -302,7 +302,7 @@ def main() -> None:
         "java",
         protoc3194,
         protoc3194_include,
-        "mlflow/java/client/src/main/java",
+        Path("mlflow/java/client/src/main/java"),
     )
 
     # Graphql code generation.
