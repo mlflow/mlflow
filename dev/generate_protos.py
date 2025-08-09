@@ -6,12 +6,11 @@ import textwrap
 from pathlib import Path
 from typing import Literal
 
-from packaging.version import Version
-
-cache_dir = Path(".cache/protobuf_cache")
-
-mlflow_protos_dir = Path("mlflow/protos")
-test_protos_dir = Path("tests/protos")
+SYSTEM = platform.system()
+MACHINE = platform.machine()
+CACHE_DIR = Path(".cache/protobuf_cache")
+MLFLOW_PROTOS_DIR = Path("mlflow/protos")
+TEST_PROTOS_DIR = Path("tests/protos")
 
 
 def gen_protos(
@@ -118,7 +117,7 @@ python_gencode_replacements = [
 
 def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path) -> None:
     gen_protos(
-        mlflow_protos_dir,
+        MLFLOW_PROTOS_DIR,
         python_proto_files,
         "python",
         protoc_bin,
@@ -127,7 +126,7 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
     )
 
     gen_protos(
-        test_protos_dir,
+        TEST_PROTOS_DIR,
         test_proto_files,
         "python",
         protoc_bin,
@@ -139,17 +138,15 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
         apply_python_gencode_replacement(out_dir / _get_python_output_filename(file_name))
 
 
-def build_protoc_from_source(version: str) -> tuple[Path, Path]:
+def build_protoc_from_source(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
     """
     Build and install protoc from source for macOS arm64 version 3.19.4 only.
     """
-    assert (
-        platform.system() == "Darwin"
-        and platform.machine() == "arm64"
-        and Version(version) < Version("26")
-    ), "This function is intended for macOS arm64 only and version 3.19.4."
+    assert SYSTEM == "Darwin" and MACHINE == "arm64" and version == "3.19.4", (
+        "This function is intended for macOS arm64 only and version 3.19.4."
+    )
 
-    src_dir = Path(cache_dir) / f"protobuf-{version}"
+    src_dir = CACHE_DIR / f"protobuf-{version}"
     build_dir = src_dir / "cmake" / "build"
 
     if not build_dir.exists():
@@ -162,7 +159,7 @@ def build_protoc_from_source(version: str) -> tuple[Path, Path]:
                 "-L",
                 f"https://github.com/protocolbuffers/protobuf/archive/refs/tags/v{version}.tar.gz",
                 "-o",
-                Path(cache_dir) / f"protobuf-{version}.tar.gz",
+                CACHE_DIR / f"protobuf-{version}.tar.gz",
             ]
         )
 
@@ -171,9 +168,9 @@ def build_protoc_from_source(version: str) -> tuple[Path, Path]:
             [
                 "tar",
                 "-xzf",
-                Path(cache_dir) / f"protobuf-{version}.tar.gz",
+                CACHE_DIR / f"protobuf-{version}.tar.gz",
                 "-C",
-                cache_dir,
+                CACHE_DIR,
             ]
         )
 
@@ -191,7 +188,7 @@ def download_file(url: str, output_path: Path) -> None:
     """
     Download a file using wget on Linux and curl on macOS.
     """
-    if platform.system() == "Darwin":
+    if SYSTEM == "Darwin":
         subprocess.check_call(
             [
                 "curl",
@@ -212,54 +209,45 @@ def download_file(url: str, output_path: Path) -> None:
         )
 
 
-def download_and_extract_protoc(version: str) -> tuple[Path, Path]:
+def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
     """
     Download and extract specific version protoc tool, return extracted protoc executable file path
     and include path.
     """
-    assert platform.system() in [
-        "Darwin",
-        "Linux",
-    ], "The script only supports MacOS or Linux system."
-    assert platform.machine() in [
-        "x86_64",
-        "aarch64",
-        "arm64",
-    ], "The script only supports x86_64, arm64 or aarch64 CPU."
+    assert SYSTEM in ["Darwin", "Linux"], "The script only supports MacOS or Linux system."
+    assert MACHINE in ["x86_64", "aarch64", "arm64"], (
+        "The script only supports x86_64, arm64 or aarch64 CPU."
+    )
 
-    if (
-        platform.system() == "Darwin"
-        and platform.machine() == "arm64"
-        and Version(version) <= Version("3.19.4")
-    ):
+    if SYSTEM == "Darwin" and MACHINE == "arm64" and version == "3.19.4":
         return build_protoc_from_source(version)
 
-    os_type = "osx" if platform.system() == "Darwin" else "linux"
-    cpu_type = "x86_64" if platform.machine() == "x86_64" else "aarch_64"
+    os_type = "osx" if SYSTEM == "Darwin" else "linux"
+    cpu_type = "x86_64" if MACHINE == "x86_64" else "aarch_64"
 
-    if platform.system() == "Darwin" and platform.machine() == "arm64":
+    if SYSTEM == "Darwin" and MACHINE == "arm64":
         protoc_zip_filename = f"protoc-{version}-osx-universal_binary.zip"
     else:
         protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
 
-    downloaded_protoc_bin = Path(cache_dir) / f"protoc-{version}" / "bin" / "protoc"
-    downloaded_protoc_include_path = Path(cache_dir) / f"protoc-{version}" / "include"
+    downloaded_protoc_bin = CACHE_DIR / f"protoc-{version}" / "bin" / "protoc"
+    downloaded_protoc_include_path = CACHE_DIR / f"protoc-{version}" / "include"
 
     if not (downloaded_protoc_bin.is_file() and downloaded_protoc_include_path.is_dir()):
         download_file(
             f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
-            Path(cache_dir) / protoc_zip_filename,
+            CACHE_DIR / protoc_zip_filename,
         )
         subprocess.check_call(
             [
                 "unzip",
                 "-o",
                 "-d",
-                Path(cache_dir) / f"protoc-{version}",
-                Path(cache_dir) / protoc_zip_filename,
+                CACHE_DIR / f"protoc-{version}",
+                CACHE_DIR / protoc_zip_filename,
             ]
         )
-        (Path(cache_dir) / protoc_zip_filename).unlink()
+        (CACHE_DIR / protoc_zip_filename).unlink()
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
 
@@ -281,7 +269,7 @@ else:
 
 
 def main() -> None:
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
@@ -296,8 +284,8 @@ def main() -> None:
         gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
 
         for proto_files, protos_dir in [
-            (python_proto_files, mlflow_protos_dir),
-            (test_proto_files, test_protos_dir),
+            (python_proto_files, MLFLOW_PROTOS_DIR),
+            (test_proto_files, TEST_PROTOS_DIR),
         ]:
             for file_name in proto_files:
                 gencode_filename = _get_python_output_filename(file_name)
@@ -310,7 +298,7 @@ def main() -> None:
 
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(
-        mlflow_protos_dir,
+        MLFLOW_PROTOS_DIR,
         basic_proto_files,
         "java",
         protoc3194,
