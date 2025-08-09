@@ -289,6 +289,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'eval-monitor/scorers/alignment',
+              label: 'How to write a good LLM judge?',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/scorers/integrations',
               label: 'Third-Party Integrations',
             },

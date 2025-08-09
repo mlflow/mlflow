@@ -1,0 +1,35 @@
+# How to write a good LLM judge?
+
+--- INSTRUCTION TO AUTHOR ---
+This guide shows how to write a good LLM judge and align it with human evaluation.
+
+Technology used:
+- MLflow GenAI evaluation
+- MLflow Feedback tracking
+- MLflow Prompt Registry
+- MLflow Prompt Optimizer
+
+Contents:
+1. Why LLM judge is hard to write?
+  - LLM judge doesn't follow required structure
+  - Judge score does not align with human evaluation
+  - LLM model changes constantly
+2. How to write a good LLM judge?
+  - Best practices of LLM judge (research on it and give summary)
+  - Iterate over the prompt template (using prompt registry)
+  - Use MLflow Prompt Optimizer to auto-optimize the prompt to align with human evaluation
+3. Tutorial
+  - Common setup (installation, connect to tracking server, refer to the quickstart guide)
+  - Define a simple task
+  - Define a minimum LLM judge scorer
+  - Run the evaluation and show what's wrong
+  - Annotate results using MLflow Feedback tracking
+  - Optimize the judge prompt with MLflow Prompt Optimizer
+  - Run the evaluation again and show the improvement (compare prompt stored in MLflow prompt registry)
+
+--- END INSTRUCTION TO AUTHOR ---
+
+Problems:
+- LLM judge doesn't follow required structure
+- Judge score does not align with human evaluation
+- What LLM model to use?

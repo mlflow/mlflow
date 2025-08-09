@@ -1,1 +1,46 @@
 # Evaluating MLflow Models
+
+--- INSTRUCTION TO AUTHOR ---
+This guide shows how to evaluate a model logged/registered to MLflow.
+
+Technology used:
+- MLflow GenAI evaluation
+- MLflow Model tracking and registry (use DSPy model logged to MLflow)
+
+The steps will be
+- Common setup (installation, connect to tracking server, refer to the quickstart guide)
+- Create simple DSPy model and log it to MLflow
+- Define scorer and dataset
+- Load the model *outside predict_fn* and run evaluation
+- Review the results in MLflow
+
+--- END INSTRUCTION TO AUTHOR ---
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations (and optionally pre-generated outputs and traces)</small></td>
+      <td>
+        List of dictionaries
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Guidelines, RetrievalSufficiency), and custom scorers.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small></small></td>
+      <td>
+        MLflow Models loaded with <code>mlflow.genai.to_predict_fn</code>.
+      </td>
+    </tr>
+  </tbody>
+</table>

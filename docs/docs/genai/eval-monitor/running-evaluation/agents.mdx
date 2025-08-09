@@ -1,1 +1,49 @@
 # Evaluating Agents
+
+--- INSTRUCTION TO AUTHOR ---
+This guide shows how to evaluate agent quality with MLflow.
+
+Technology used:
+- MLflow GenAI evaluation
+- OpenAI Agent
+- Tool calling
+
+The steps will be
+- Common setup (installation, connect to tracking server, refer to the quickstart guide)
+- Create a simple OpenAI Agent with tool calling
+- Create predict_fn that wraps the agent
+- Define dataset+scorers for evaluation
+- Run GenAI evaluation
+- Review the results in MLflow
+- Log the agent with models-from-code
+
+--- END INSTRUCTION TO AUTHOR ---
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations (and optionally pre-generated outputs and traces)</small></td>
+      <td>
+        List of dictionaries
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Guidelines, RetrievalSufficiency), and custom scorers.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small></small></td>
+      <td>
+        The agent model defined by LangGraph.
+      </td>
+    </tr>
+  </tbody>
+</table>

@@ -1,1 +1,53 @@
 # Evaluating Prompts
+
+
+--- INSTRUCTION TO AUTHOR ---
+This guide shows how to evaluate prompts quality with MLflow.
+
+Technology used:
+- MLflow GenAI evaluation
+- MLflow prompt registry
+- OpenAI
+
+The steps will be
+- Common setup (installation, connect to tracking server, refer to the quickstart guide)
+- Create a prompt template in prompt registry
+- Create predict_fn that loads the prompt template
+- Define dataset+scorers for evaluation
+- Run GenAI evaluation
+- Improve the prompt template
+- Run GenAI evaluation again
+- Compare results in the MLflow UI
+- "Not satisfied with the results? Check out prompt optimization!" (link to prompt optimization guide)
+
+A good reference: https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval
+--- END INSTRUCTION TO AUTHOR ---
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations (and optionally pre-generated outputs and traces)</small></td>
+      <td>
+        List of dictionaries
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Guidelines, RetrievalSufficiency), and custom scorers.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small></small></td>
+      <td>
+        A wrapper function around registered prompts in the MLflow Prompt Registry.
+      </td>
+    </tr>
+  </tbody>
+</table>

@@ -135,9 +135,35 @@ The tenets of MLflow's evaluation capabilities is **Evaluation-Driven Developmen
 
 Each evaluation is defined by three components:
 
-1. **Dataset**: A collection of inputs and expectations (ground truth) to evaluate.
-2. **Scorers**: A list of evaluation criteria to evaluate the dataset, defined as a scorer function.
-3. **Predict function (Optional)**: A generic function that produces outputs to be evaluated by the scorers. Alternatively, you can pass the pre-generated outputs or traces in the form of a dataset, which is useful for evaluating existing apps.
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations (and optionally pre-generated outputs and traces)</small></td>
+      <td>
+        <pre><code>\[<br/>  \{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}},<br/>  \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}<br/>\]</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        <pre><code>@scorer<br/>def exact_match(expectations, outputs):<br/>    return expectations == outputs</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small>Generates outputs for the dataset</small></td>
+      <td>
+        <pre><code>def predict_fn(question: str) -> str:<br/>    response = client.chat.completions.create(<br/>        model="gpt-4.1-mini",<br/>        messages=\[\{"role": "user", "content": question\}\]<br/>    )<br/>    return response.choices[0].message.content</code></pre>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
 
 The following example shows a simple evaluation of a dataset of questions and expected answers.
 
@@ -174,7 +200,7 @@ results = mlflow.genai.evaluate(
   data=dataset,
   predict_fn=predict_fn,
   scorers=[
-      # Built-in LLM judge 
+      # Built-in LLM judge
       Correctness(),
       # Custom criteria using LLM judge
       Guidelines(name="is_english", guidelines="The answer must be in English")
