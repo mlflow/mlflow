@@ -112,9 +112,7 @@ python_gencode_replacements = [
 ]
 
 
-def gen_python_protos(
-    protoc_bin: str | Path, protoc_include_path: str | Path, out_dir: str | Path
-) -> None:
+def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path) -> None:
     gen_protos(
         mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_path, out_dir
     )
