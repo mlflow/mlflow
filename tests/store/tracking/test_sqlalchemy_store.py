@@ -6305,9 +6305,14 @@ def test_evaluation_dataset_search_comprehensive(store):
     assert len(test_results) == 1
     assert test_results[0].created_by == "test_user_1"
 
-    store.set_evaluation_dataset_tags(
-        created_user.dataset_id, {"updated": "true", mlflow_tags.MLFLOW_USER: "test_user_2"}
-    )
+    records_with_user = [
+        {
+            "inputs": {"test": "data"},
+            "expectations": {"result": "expected"},
+            "tags": {mlflow_tags.MLFLOW_USER: "test_user_2"},
+        }
+    ]
+    store.upsert_evaluation_dataset_records(created_user.dataset_id, records_with_user)
 
     results = store.search_evaluation_datasets(filter_string="last_updated_by = 'test_user_2'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
@@ -6758,7 +6763,7 @@ def test_evaluation_dataset_update_tags(store):
     update_tags = {
         "environment": "production",
         "team": "ml-ops",
-        "deprecated": None,  # This will be ignored, not delete the tag
+        "deprecated": None,
     }
     store.set_evaluation_dataset_tags(created.dataset_id, update_tags)
 
@@ -6766,7 +6771,7 @@ def test_evaluation_dataset_update_tags(store):
     expected_tags = {
         "environment": "production",  # Updated
         "version": "1.0",  # Preserved
-        "deprecated": "true",  # Preserved (None didn't delete it)
+        "deprecated": "true",  # Preserved (None is ignored)
         "team": "ml-ops",  # Added
     }
     assert updated.tags == expected_tags
