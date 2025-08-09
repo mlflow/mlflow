@@ -28,6 +28,22 @@ def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, ou
     )
 
 
+def gen_proto_docs(proto_dir, proto_files, protoc_bin, protoc_include_path, out_dir):
+    """Generate proto documentation using the custom plugin."""
+    plugin_path = Path("dev/protoc_gen_doc.py").absolute()
+
+    subprocess.check_call(
+        [
+            protoc_bin,
+            f"-I={protoc_include_path}",
+            f"-I={proto_dir}",
+            f"--plugin=protoc-gen-doc={plugin_path}",
+            f"--doc_out={out_dir}",
+            *[f"{proto_dir}/{proto_file}" for proto_file in proto_files],
+        ]
+    )
+
+
 def apply_python_gencode_replacement(file_path):
     content = file_path.read_text()
 
@@ -300,6 +316,15 @@ def main():
 
     # Graphql code generation.
     subprocess.check_call([sys.executable, "./dev/proto_to_graphql/code_generator.py"])
+
+    # Generate proto documentation
+    gen_proto_docs(
+        mlflow_protos_dir,
+        python_proto_files,
+        protoc3194,
+        protoc3194_include,
+        mlflow_protos_dir,
+    )
 
 
 if __name__ == "__main__":
