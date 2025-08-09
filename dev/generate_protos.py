@@ -22,6 +22,7 @@ def gen_protos(
     out_dir: Path,
 ) -> None:
     assert lang in ["python", "java"]
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     subprocess.check_call(
         [
