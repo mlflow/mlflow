@@ -3311,6 +3311,11 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
+            # Extract user from tags if present and update last_updated_by
+            if mlflow_tags.MLFLOW_USER in tags:
+                dataset.last_updated_by = tags[mlflow_tags.MLFLOW_USER]
+                dataset.last_update_time = get_current_time_millis()
+
             for key, value in tags.items():
                 if value is not None:
                     existing_tag = (
