@@ -84,6 +84,141 @@ def test_meets_guidelines_oss():
     assert "What is the capital of France?" in prompt
 
 
+def test_is_context_relevant_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The answer is relevant to the question.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.is_context_relevant(
+            request="What is the capital of France?",
+            context="Paris is the capital of France.",
+        )
+
+    assert feedback.name == "relevance_to_context"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The answer is relevant to the question."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert "Consider the following question and answer" in prompt
+    assert "What is the capital of France?" in prompt
+    assert "Paris is the capital of France." in prompt
+
+
+def test_is_correct_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The response is correct.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.is_correct(
+            request="What is the capital of France?",
+            response="Paris is the capital of France.",
+            expected_response="Paris",
+        )
+
+    assert feedback.name == "correctness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The response is correct."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert "Consider the following question, claim and document" in prompt
+    assert "What is the capital of France?" in prompt
+    assert "Paris is the capital of France." in prompt
+    assert "Paris" in prompt
+
+
+def test_is_context_sufficient_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The context is sufficient.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.is_context_sufficient(
+            request="What is the capital of France?",
+            context=[
+                {"content": "Paris is the capital of France."},
+                {"content": "Paris is known for its Eiffel Tower."},
+            ],
+            expected_facts=["Paris is the capital of France."],
+        )
+
+    assert feedback.name == "context_sufficiency"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The context is sufficient."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert "Consider the following claim and document" in prompt
+    assert "What is the capital of France?" in prompt
+    assert "Paris is the capital of France." in prompt
+
+
+def test_is_grounded_oss():
+    mock_content = json.dumps(
+        {
+            "result": "yes",
+            "rationale": "Let's think step by step. The response is grounded.",
+        }
+    )
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = judges.is_grounded(
+            request="What is the capital of France?",
+            response="Paris",
+            context=[
+                {"content": "Paris is the capital of France."},
+                {"content": "Paris is known for its Eiffel Tower."},
+            ],
+        )
+
+    assert feedback.name == "groundedness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The response is grounded."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4.1-mini"
+
+    assert mock_litellm.call_count == 1
+    kwargs = mock_litellm.call_args.kwargs
+    assert kwargs["model"] == "openai/gpt-4.1-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    prompt = kwargs["messages"][0]["content"]
+    assert "Consider the following claim and document" in prompt
+    assert "What is the capital of France?" in prompt
+    assert "Paris" in prompt
+    assert "Paris is the capital of France." in prompt
+
+
 @pytest.mark.parametrize(
     ("judge_func", "agents_judge_name", "args"),
     [
@@ -119,7 +254,7 @@ def test_meets_guidelines_oss():
         ),
     ],
 )
-def test_judge_functions_happy_path(judge_func, agents_judge_name, args, databricks_tracking_uri):
+def test_judge_functions_databricks(judge_func, agents_judge_name, args, databricks_tracking_uri):
     with mock.patch(f"databricks.agents.evals.judges.{agents_judge_name}") as mock_judge:
         mock_judge.return_value = Feedback(
             name=agents_judge_name,

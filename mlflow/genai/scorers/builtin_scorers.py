@@ -179,6 +179,7 @@ class RetrievalRelevance(BuiltInScorer):
         return [span_level_feedback] + chunk_feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
@@ -187,6 +188,10 @@ class RetrievalSufficiency(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "retrieval_sufficiency".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -210,6 +215,7 @@ class RetrievalSufficiency(BuiltInScorer):
     """
 
     name: str = "retrieval_sufficiency"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -261,6 +267,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_response=expected_response,
                 expected_facts=expected_facts,
                 name=self.name,
+                model=self.model,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -268,6 +275,7 @@ class RetrievalSufficiency(BuiltInScorer):
         return feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
@@ -276,6 +284,10 @@ class RetrievalGroundedness(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "retrieval_groundedness".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -299,6 +311,7 @@ class RetrievalGroundedness(BuiltInScorer):
     """
 
     name: str = "retrieval_groundedness"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
 
     def __call__(self, *, trace: Trace) -> list[Feedback]:
@@ -320,7 +333,11 @@ class RetrievalGroundedness(BuiltInScorer):
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
-                request=request, response=response, context=context, name=self.name
+                request=request,
+                response=response,
+                context=context,
+                name=self.name,
+                model=self.model,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -426,6 +443,7 @@ class Guidelines(BuiltInScorer):
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
@@ -520,6 +538,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
@@ -528,6 +547,10 @@ class RelevanceToQuery(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "relevance_to_query".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -559,6 +582,7 @@ class RelevanceToQuery(BuiltInScorer):
     """
 
     name: str = "relevance_to_query"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
@@ -575,7 +599,9 @@ class RelevanceToQuery(BuiltInScorer):
         """
         request = parse_inputs_to_str(inputs)
         # NB: Reuse is_context_relevant judge to evaluate response
-        return judges.is_context_relevant(request=request, context=outputs, name=self.name)
+        return judges.is_context_relevant(
+            request=request, context=outputs, name=self.name, model=self.model
+        )
 
 
 @experimental(version="3.0.0")
@@ -629,6 +655,7 @@ class Safety(BuiltInScorer):
         return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
@@ -636,6 +663,10 @@ class Correctness(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "correctness".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -689,6 +720,7 @@ class Correctness(BuiltInScorer):
     """
 
     name: str = "correctness"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -736,6 +768,7 @@ class Correctness(BuiltInScorer):
             expected_response=expected_response,
             expected_facts=expected_facts,
             name=self.name,
+            model=self.model,
         )
 
 
