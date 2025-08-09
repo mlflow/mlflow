@@ -1,22 +1,12 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
 # Evaluating Traces
 
---- INSTRUCTION TO AUTHOR ---
-This guide shows how to evaluate production traces quality with MLflow.
-
-Technology used:
-- MLflow GenAI evaluation
-- OpenAI
-- MLflow Tracing
-
-The steps will be
-- Common setup (installation, connect to tracking server, refer to the quickstart guide)
-- Create a prompt and simulate production traffic using tracing.
-  - Nudge to product tracing guide page
-- Annotate the traces using MLflow feedback tracking
-- Define scorer that compare actual answer and annotated expected response
-- Review the results in MLflow
-
---- END INSTRUCTION TO AUTHOR ---
+Evaluate the quality of your production GenAI applications by analyzing traces captured from real-world usage. This approach provides insights into actual performance without requiring model re-execution.
 
 <table style={{ width: "100%" }}>
   <thead>
@@ -29,20 +19,271 @@ The steps will be
     <tr>
       <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
       <td>
-        Traces logged in MLflow.
+        Traces logged in MLflow from production traffic
       </td>
     </tr>
     <tr>
       <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
       <td>
-        Built-in scorers (Guidelines, RetrievalSufficiency), and custom scorers.
+        Built-in scorers (Correctness, Relevance) and custom scorers
       </td>
     </tr>
     <tr>
       <td><strong>Predict Function</strong><br/><small></small></td>
       <td>
-        N/A (traces already contain the outputs)
+        Not needed - traces already contain outputs
       </td>
     </tr>
   </tbody>
 </table>
+
+## When to evaluate traces
+
+Evaluating traces is ideal when you want to:
+- Assess production performance without re-running models
+- Analyze historical application behavior
+- Compare different versions of your application
+- Build evaluation datasets from real user interactions
+
+## Prerequisites
+
+```bash
+pip install --upgrade mlflow>=3.3 openai
+```
+
+## Step 1: Capture production traces
+
+First, ensure your production application is logging traces. Enable tracing for your LLM calls:
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable automatic tracing
+mlflow.openai.autolog()
+
+# Your production application
+client = OpenAI()
+
+@mlflow.trace(span_type="AGENT")
+def answer_question(question: str) -> str:
+    """Production Q&A application with tracing enabled"""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": question}
+        ]
+    )
+    return response.choices[0].message.content
+
+# In production, this generates traces automatically
+answer = answer_question("What is MLflow?")
+```
+
+:::tip
+For production tracing best practices, see the [Production Tracing Guide](/genai/tracing/prod-tracing).
+:::
+
+## Step 2: Search and retrieve traces
+
+Retrieve traces from your MLflow tracking server for evaluation:
+
+```python
+import mlflow
+
+# Search for traces from a specific experiment
+traces = mlflow.search_traces(
+    experiment_ids=["123"],  # Your experiment ID
+    filter_string="attributes.status = 'OK'",  # Optional: filter successful traces
+    max_results=100
+)
+
+print(f"Found {len(traces)} traces to evaluate")
+```
+
+You can also search traces by time range:
+
+```python
+from datetime import datetime, timedelta
+
+# Get traces from the last 24 hours
+yesterday = datetime.now() - timedelta(days=1)
+traces = mlflow.search_traces(
+    experiment_ids=["123"],
+    filter_string=f"timestamp > {int(yesterday.timestamp() * 1000)}"
+)
+```
+
+## Step 3: Add human feedback (optional)
+
+Enhance evaluation quality by incorporating human feedback on traces:
+
+```python
+# Add feedback to a specific trace
+trace_id = traces[0].trace_id
+
+mlflow.set_trace_feedback(
+    trace_id=trace_id,
+    feedback_name="quality",
+    feedback_value=4,  # 1-5 scale
+    metadata={"reviewer": "domain_expert", "notes": "Accurate but verbose"}
+)
+
+# Retrieve feedback for evaluation
+feedback = mlflow.get_trace_feedback(trace_id)
+```
+
+## Step 4: Evaluate trace quality
+
+Run evaluation on the collected traces using built-in and custom scorers:
+
+```python
+from mlflow.genai.scorers import Correctness, Relevance, Guidelines
+
+# Evaluate traces with multiple scorers
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        # Built-in scorers
+        Correctness(),
+        Relevance(),
+        
+        # Custom criteria
+        Guidelines(
+            name="conciseness",
+            guidelines="Responses should be under 100 words"
+        ),
+        Guidelines(
+            name="tone",
+            guidelines="Maintain professional and helpful tone"
+        )
+    ],
+    experiment_name="Trace Evaluation"
+)
+
+# View aggregated metrics
+print(f"Average Correctness: {results.metrics['correctness/v1/mean']:.2f}")
+print(f"Average Relevance: {results.metrics['relevance/v1/mean']:.2f}")
+```
+
+## Step 5: Create custom trace evaluators
+
+Build evaluators that leverage trace-specific information:
+
+```python
+from mlflow.genai.scorers import make_scorer
+
+@make_scorer
+def latency_scorer(trace) -> dict:
+    """Score based on response latency"""
+    latency_ms = trace.latency_ms
+    
+    if latency_ms < 500:
+        score = 5
+    elif latency_ms < 1000:
+        score = 4
+    elif latency_ms < 2000:
+        score = 3
+    elif latency_ms < 5000:
+        score = 2
+    else:
+        score = 1
+    
+    return {
+        "score": score,
+        "justification": f"Response time: {latency_ms}ms"
+    }
+
+@make_scorer
+def token_efficiency_scorer(trace) -> dict:
+    """Evaluate token usage efficiency"""
+    total_tokens = trace.attributes.get("llm.token_count.total", 0)
+    
+    if total_tokens < 100:
+        efficiency = "excellent"
+        score = 5
+    elif total_tokens < 500:
+        efficiency = "good"
+        score = 4
+    elif total_tokens < 1000:
+        efficiency = "acceptable"
+        score = 3
+    else:
+        efficiency = "poor"
+        score = 2
+    
+    return {
+        "score": score,
+        "justification": f"Used {total_tokens} tokens - {efficiency} efficiency"
+    }
+
+# Use custom scorers in evaluation
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[latency_scorer, token_efficiency_scorer]
+)
+```
+
+## Step 6: Analyze evaluation results
+
+Review detailed evaluation results in the MLflow UI:
+
+1. Navigate to your evaluation experiment
+2. Click on the evaluation run
+3. Examine:
+   - **Trace-level scores**: Individual assessments for each trace
+   - **Aggregated metrics**: Mean, median, and distribution of scores
+   - **Failure analysis**: Identify patterns in low-scoring traces
+
+<ImageBox src="/images/mlflow-3/eval-monitor/trace-evaluation-results.png" alt="Trace Evaluation Results" width="90%" />
+
+## Advanced: RAG trace evaluation
+
+For RAG applications, evaluate retrieval quality alongside response quality:
+
+```python
+from mlflow.genai.scorers import RetrievalRelevance, Faithfulness
+
+@make_scorer
+def retrieval_scorer(trace) -> dict:
+    """Evaluate retrieval quality from trace context"""
+    # Extract retrieved documents from trace
+    spans = trace.spans
+    retrieval_span = next((s for s in spans if s.name == "retrieve_documents"), None)
+    
+    if not retrieval_span:
+        return {"score": 0, "justification": "No retrieval span found"}
+    
+    # Evaluate based on number of relevant documents
+    num_docs = len(retrieval_span.outputs.get("documents", []))
+    score = min(5, num_docs)  # Cap at 5
+    
+    return {
+        "score": score,
+        "justification": f"Retrieved {num_docs} documents"
+    }
+
+# Evaluate RAG traces
+rag_results = mlflow.genai.evaluate(
+    data=rag_traces,
+    scorers=[
+        RetrievalRelevance(),
+        Faithfulness(),
+        retrieval_scorer
+    ]
+)
+```
+
+## Best practices
+
+1. **Filter traces strategically**: Focus evaluation on specific trace types or time periods
+2. **Combine automated and human evaluation**: Use human feedback to validate automated scores
+3. **Monitor trends over time**: Regular trace evaluation helps detect performance degradation
+4. **Create evaluation datasets**: Export high-quality traces as golden datasets for future testing
+
+## Next steps
+
+- [Custom Scorers](/genai/eval-monitor/scorers/custom): Build advanced evaluation criteria
+- [Production Monitoring](/genai/tracing/prod-tracing): Optimize trace collection in production
+- [Dataset Creation](/genai/tracing/search-traces#creating-evaluation-datasets): Build evaluation datasets from traces
