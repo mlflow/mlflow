@@ -391,8 +391,16 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     another = store.get_experiment(1)
     assert another.name == "aNothEr"
 
-    # Restore the default experiment for subsequent tests
-    store.restore_experiment(0)
+    if MLFLOW_TRACKING_URI.get():
+        with store.ManagedSessionMaker() as session:
+            default_exp = (
+                session.query(SqlExperiment)
+                .filter(SqlExperiment.experiment_id == store.DEFAULT_EXPERIMENT_ID)
+                .first()
+            )
+            if default_exp:
+                default_exp.lifecycle_stage = entities.LifecycleStage.ACTIVE
+                session.commit()
 
 
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
@@ -6126,7 +6134,8 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    # Need to patch where _get_store is imported in the entity class
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_evaluation_dataset(
             name="test_eval_dataset",
@@ -6351,7 +6360,7 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
@@ -6363,13 +6372,13 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
 
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 
