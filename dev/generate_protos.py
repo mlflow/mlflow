@@ -83,7 +83,10 @@ python_gencode_replacements = [
         "from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
         "from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
     ),
-    ("import databricks_pb2 as databricks__pb2", "from . import databricks_pb2 as databricks__pb2"),
+    (
+        "import databricks_pb2 as databricks__pb2",
+        "from . import databricks_pb2 as databricks__pb2",
+    ),
     (
         "import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",
         "from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2",
@@ -115,11 +118,21 @@ python_gencode_replacements = [
 
 def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path) -> None:
     gen_protos(
-        mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_path, out_dir
+        mlflow_protos_dir,
+        python_proto_files,
+        "python",
+        protoc_bin,
+        protoc_include_path,
+        out_dir,
     )
 
     gen_protos(
-        test_protos_dir, test_proto_files, "python", protoc_bin, protoc_include_path, out_dir
+        test_protos_dir,
+        test_proto_files,
+        "python",
+        protoc_bin,
+        protoc_include_path,
+        out_dir,
     )
 
     for file_name in python_proto_files:
@@ -268,7 +281,7 @@ else:
 
 
 def main() -> None:
-    Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
