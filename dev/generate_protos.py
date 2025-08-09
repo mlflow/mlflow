@@ -4,19 +4,20 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from typing import Literal
 
 from packaging.version import Version
 
 cache_dir = ".cache/protobuf_cache"
 
-mlflow_protos_dir = "mlflow/protos"
-test_protos_dir = "tests/protos"
+mlflow_protos_dir = Path("mlflow/protos")
+test_protos_dir = Path("tests/protos")
 
 
 def gen_protos(
     proto_dir: str | Path,
     proto_files: list[str],
-    lang: str,
+    lang: Literal["python", "java"],
     protoc_bin: str | Path,
     protoc_include_path: str | Path,
     out_dir: str | Path,
