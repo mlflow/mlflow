@@ -2737,11 +2737,15 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     created_dataset.experiment_ids = ["exp1", "exp2"]
     mock_store.create_evaluation_dataset.return_value = created_dataset
 
-    dataset = MlflowClient().create_evaluation_dataset(
-        name="qa_evaluation",
-        experiment_ids=["exp1", "exp2"],
-        tags={"environment": "production", "version": "1.0"},
-    )
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_evaluation_dataset(
+            name="qa_evaluation",
+            experiment_ids=["exp1", "exp2"],
+            tags={"environment": "production", "version": "1.0"},
+        )
 
     assert dataset.dataset_id == "test_dataset_id"
     assert dataset.name == "test_dataset"
@@ -2764,7 +2768,11 @@ def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
     )
     mock_store.create_evaluation_dataset.return_value = created_dataset
 
-    dataset = MlflowClient().create_evaluation_dataset(name="test_dataset")
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_evaluation_dataset(name="test_dataset")
 
     assert dataset.dataset_id == "test_dataset_id"
     assert dataset.name == "test_dataset"
@@ -2920,7 +2928,7 @@ def test_mlflow_client_delete_evaluation_dataset_tag(mock_store):
         key="deprecated",
     )
 
-    mock_store.set_evaluation_dataset_tags.assert_called_once_with(
+    mock_store.delete_evaluation_dataset_tag.assert_called_once_with(
         dataset_id="dataset_123",
-        tags={"deprecated": None},
+        key="deprecated",
     )
