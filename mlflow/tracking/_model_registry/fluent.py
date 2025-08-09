@@ -871,3 +871,68 @@ def delete_prompt_alias(name: str, alias: str) -> None:
     )
 
     MlflowClient().delete_prompt_alias(name=name, alias=alias)
+
+
+@require_prompt_registry
+def get_prompt(name: str) -> Prompt:
+    """Get a prompt's metadata from the MLflow Prompt Registry.
+    
+    Args:
+        name: The name of the prompt.
+    """
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="get_prompt"),
+        category=FutureWarning,
+        stacklevel=3,
+    )
+
+    return MlflowClient().get_prompt(name)
+
+@require_prompt_registry
+def get_prompt_tags(name: str) -> Prompt:
+    """Get a prompt's metadata from the MLflow Prompt Registry.
+    
+    Args:
+        name: The name of the prompt.
+    """
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="get_prompt"),
+        category=FutureWarning,
+        stacklevel=3,
+    )
+
+    return MlflowClient().load_prompt(name).tags
+
+@require_prompt_registry
+def set_prompt_tag(name: str, key: str, value: str) -> None:
+    """Set a tag on a prompt in the MLflow Prompt Registry.
+    
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="set_prompt_tag"),
+        category=FutureWarning,
+        stacklevel=3,
+    )
+
+    MlflowClient().set_prompt_tag(name=name, key=key, value=value)
+
+
+@require_prompt_registry
+def delete_prompt_tag(name: str, key: str) -> None:
+    """Delete a tag from a prompt in the MLflow Prompt Registry.
+    
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+    """
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="delete_prompt_tag"),
+        category=FutureWarning,
+        stacklevel=3,
+    )
+
+    MlflowClient().delete_prompt_tag(name=name, key=key)
