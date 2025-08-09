@@ -1,0 +1,48 @@
+---
+sidebarTitle: Haystack
+title: Haystack
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing Haystack
+
+![Haystack tracing via autolog](/images/llms/haystack/haystack-tracing.png)
+
+MLflow Tracing provides automatic tracing capability when using Haystack pipelines and components.
+When Haystack auto-tracing is enabled by calling the <APILink fn="mlflow.haystack.autolog" /> function,
+usage of Haystack pipelines and components will automatically record generated traces during interactive development.
+
+## Example Usage
+
+```python
+import mlflow
+from haystack import Pipeline
+from haystack.components.generators import OpenAIGenerator
+from haystack.components.builders.prompt_builder import PromptBuilder
+
+# Turn on auto tracing for Haystack by calling mlflow.haystack.autolog()
+mlflow.haystack.autolog()
+
+# Initialize the pipeline
+pipeline = Pipeline()
+
+# Configure the LLM component
+llm = OpenAIGenerator(model="gpt-4o-mini")
+prompt_template = """Answer the question. {{question}}"""
+prompt_builder = PromptBuilder(template=prompt_template)
+
+# Build the pipeline
+pipeline = Pipeline()
+pipeline.add_component("prompt_builder", prompt_builder)
+pipeline.add_component("llm", llm)
+pipeline.connect("prompt_builder", "llm")
+
+# Run the pipeline
+question = "Who lives in Paris?"
+results = pipeline.run({"prompt_builder": {"question": question}})
+```
+
+## Disable auto-tracing
+
+Auto tracing for Haystack can be disabled globally by calling `mlflow.haystack.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

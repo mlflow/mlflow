@@ -415,6 +415,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.30.0"
         }
     },
+    "haystack": {
+        "package_info": {
+            "pip_release": "haystack-ai",
+            "module_name": "haystack"
+        },
+        "autologging": {
+            "minimum": "2.0.0",
+            "maximum": "2.10.0"
+        }
+    },
     "bedrock": {
         "package_info": {
             "pip_release": "boto3",
@@ -457,6 +467,7 @@ FLAVOR_TO_MODULE_NAME = {
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
+    "haystack": "haystack",
     "bedrock": "boto3",
     "pyspark.ml": "pyspark"
 }
