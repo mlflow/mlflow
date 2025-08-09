@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.document import Document
 from mlflow.entities.span import SpanType
+from mlflow.tracking.client import MlflowClient
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +29,20 @@ def is_in_databricks(request):
         mock.patch("mlflow.genai.judges.utils.is_databricks_uri", return_value=request.param),
     ):
         yield request.param
+
+
+@pytest.fixture(autouse=True)
+def mock_mlflow_client():
+    # MLFlowClient in databricks-agents package calls LinkTracesToRun REST endpoint directly,
+    # so we need to mock it.
+    mock_client = mock.MagicMock()
+    mock_client.link_traces_to_run.side_effect = (
+        lambda trace_ids, run_id: MlflowClient().link_traces_to_run(trace_ids, run_id)
+    )
+    with mock.patch(
+        "databricks.rag_eval.clients.mlflow_client.MLFlowClient", return_value=mock_client
+    ):
+        yield
 
 
 @pytest.fixture

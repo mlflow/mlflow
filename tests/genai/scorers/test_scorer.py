@@ -4,7 +4,6 @@ from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
-from databricks.rag_eval.evaluation.entities import CategoricalRating
 from packaging.version import Version
 
 import mlflow
@@ -67,25 +66,7 @@ def test_scorer_name_works(sample_data, dummy_scorer, is_in_databricks):
 
 
 def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
-
-    with (
-        patch(
-            "databricks.agents.evals.judges.correctness",
-            return_value=Feedback(name="correctness", value=CategoricalRating.YES),
-        ) as mock_correctness,
-        patch(
-            "databricks.agents.evals.judges.guidelines",
-            return_value=Feedback(name="guidelines", value=CategoricalRating.YES),
-        ) as mock_guidelines,
-        patch(
-            "databricks.agents.evals.judges.groundedness",
-            return_value=Feedback(name="groundedness", value=CategoricalRating.YES),
-        ) as mock_groundedness,
-        # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-        patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}),
-    ):
+    with patch("mlflow.genai.scorers.builtin_scorers.judges") as mock_judges:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [sample_rag_trace]}),
             scorers=[
@@ -95,49 +76,46 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_datab
             ],
         )
 
-    assert mock_correctness.call_count == 1
-    assert mock_guidelines.call_count == 1
-    assert mock_groundedness.call_count == 2  # Called per retriever span
+    assert mock_judges.is_correct.call_count == 1
+    assert mock_judges.meets_guidelines.call_count == 1
+    assert mock_judges.is_grounded.call_count == 2  # Called per retriever span
 
-    mock_correctness.assert_called_once_with(
+    mock_judges.is_correct.assert_called_once_with(
         request="{'question': 'query'}",
         response="answer",
         expected_facts=["fact1", "fact2"],
         expected_response="expected answer",
-        assessment_name="correctness",
+        name="correctness",
     )
-    mock_guidelines.assert_called_once_with(
+    mock_judges.meets_guidelines.assert_called_once_with(
         guidelines=["write in english"],
         context={"request": "{'question': 'query'}", "response": "answer"},
-        assessment_name="english",
+        name="english",
     )
-    mock_groundedness.assert_has_calls(
+    mock_judges.is_grounded.assert_has_calls(
         [
             call(
                 request="{'question': 'query'}",
                 response="answer",
-                retrieved_context=[
+                context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
-                assessment_name="retrieval_groundedness",
+                name="retrieval_groundedness",
             ),
             call(
                 request="{'question': 'query'}",
                 response="answer",
-                retrieved_context=[
+                context=[
                     {"content": "content_3"},
                 ],
-                assessment_name="retrieval_groundedness",
+                name="retrieval_groundedness",
             ),
         ]
     )
 
 
 def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
-
     actual_call_args_list = []
 
     @scorer
@@ -177,9 +155,6 @@ def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
 
 
 def test_trace_passed_correctly(is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
-
     @mlflow.trace
     def predict_fn(question):
         return "output: " + str(question)

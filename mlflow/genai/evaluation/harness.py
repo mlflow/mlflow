@@ -27,6 +27,8 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
+from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -92,10 +94,10 @@ def _run_single(
 ) -> EvalResult:
     """Run the logic of the eval harness for a single eval item."""
     # Set the MLflow run ID in the context for this thread
+    ctx = context.get_context()
     if run_id:
         # Manually set the mlflow_run_id for this context to be the same as was set in
         # the parent thread. This is required because MLflow runs are thread-local.
-        ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
     # TODO: Support another pattern that are currently supported in the DBX agent harness,
@@ -113,15 +115,35 @@ def _run_single(
                 )
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
+        expectations_to_log = eval_item.get_expectation_assessments()
+    elif eval_item.trace:
+        active_exp_id = ctx.get_mlflow_experiment_id()
+        if eval_item.trace.info.experiment_id != active_exp_id:
+            # If the trace is not from the same experiment, copy it to the current experiment.
+            copy_trace_to_experiment(eval_item.trace.to_dict(), active_exp_id)
+
+        MlflowClient().link_traces_to_run([eval_item.trace.info.trace_id], run_id)
+
+        # Expectations are already in the trace, so we don't need to log them again.
+        expectations_to_log = []
     else:
         # When static dataset (a pair of inputs and outputs) is given, we create a minimal
         # trace with root span only, to log the assessments on it.
         minimal_trace = create_minimal_trace(eval_item)
         eval_item.trace = minimal_trace
+        expectations_to_log = eval_item.get_expectation_assessments()
 
     # Execute the scorers
     assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
-    assessments.extend(eval_item.get_expectation_assessments())
+
+    # Add run_id metadata to the feedbacks
+    for assessment in assessments:
+        assessment.metadata = {
+            **(assessment.metadata or {}),
+            AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
+        }
+
+    assessments.extend(expectations_to_log)
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
     try:
