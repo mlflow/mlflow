@@ -708,6 +708,11 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
+      type: 'doc',
+      id: 'webhooks/index',
+      label: 'Webhooks',
+    },
+    {
       type: 'category',
       label: 'Team Collaboration',
       className: 'sidebar-top-level-category',
