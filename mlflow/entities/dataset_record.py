@@ -35,8 +35,8 @@ class DatasetRecord(_MlflowObject):
     last_updated_by: Optional[str] = None
 
     def __post_init__(self):
-        if not self.inputs:
-            raise ValueError("inputs must be provided and cannot be empty")
+        if self.inputs is None:
+            raise ValueError("inputs must be provided")
 
         if self.tags is None:
             self.tags = {}
