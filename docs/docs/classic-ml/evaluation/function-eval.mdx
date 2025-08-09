@@ -501,6 +501,28 @@ When using function evaluation, consider these best practices:
   <li><strong>Version Control</strong>: Use MLflow's tagging and naming conventions to track function versions</li>
 </ul>
 
+## Error Handling and Retrying Failed Examples
+
+When evaluating functions using `mlflow.evaluate()`, your prediction function may encounter exceptions for some input rows. To handle these gracefully, wrap your prediction logic in a `try`/`except` block, capture errors, and then retry failed examples after addressing the issues.
+
+```python
+errors = {}
+outputs = []
+for idx, row in eval_data.iterrows():
+    try:
+        outputs.append(predict_function(row))
+    except Exception as e:
+        errors[idx] = str(e)
+
+# After fixing the issues that caused errors, rerun only the failed examples:
+failed_examples = eval_data.loc[errors.keys()]
+for idx, row in failed_examples.iterrows():
+    outputs.append(predict_function(row))
+```
+
+This pattern allows you to inspect and log errors without interrupting the entire evaluation and to rerun only the problematic examples once they've been fixed.
+
+
 ## Conclusion
 
 Function evaluation in MLflow provides a lightweight, flexible approach to assessing prediction functions without the overhead of model persistence. This capability is essential for rapid prototyping, testing complex business logic, and evaluating custom algorithms that don't fit traditional model paradigms.
