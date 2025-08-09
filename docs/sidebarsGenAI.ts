@@ -66,6 +66,18 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Tutorials',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'tutorials/customer-service-chatbot/index',
+          label: 'Customer Service Chatbot',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Tracing (Observability)',
       className: 'sidebar-top-level-category',
       items: [
