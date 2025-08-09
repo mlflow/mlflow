@@ -402,6 +402,7 @@ class IngestStreamFactory:
         else:
             _logger.debug("Creating new thread-local stream for Databricks Delta export")
             ingest_sdk = create_archival_ingest_sdk()
+            print(f"TEST: Creating new stream")
             new_stream = ingest_sdk.create_stream(self.table_properties)
 
             # Store with metadata

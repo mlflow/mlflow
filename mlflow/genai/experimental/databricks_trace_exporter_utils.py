@@ -66,6 +66,7 @@ def create_archival_ingest_sdk():
     _logger.debug(
         f"Creating IngestApiSdk with ingest URL: {ingest_url}, workspace URL: {workspace_url} "
     )
+    _logger.debug(f"TEST: Using token: {token[:10]}...")
     return IngestApiSdk(ingest_url, workspace_url, token)
 
 
@@ -259,7 +260,7 @@ def _resolve_archival_token() -> str:
     # Check for environment variable override first
     override_token = MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
     if override_token:
-        _logger.debug("Using authentication token from environment variable")
+        _logger.debug("TEST: Using authentication token from environment variable")
         return override_token
 
     # Get token from Databricks host credentials
