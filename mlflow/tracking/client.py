@@ -752,10 +752,6 @@ class MlflowClient:
         """
         if isinstance(prompt, str):
             prompt = self.load_prompt(prompt)
-        elif isinstance(prompt, PromptVersion):
-            # NB: We need to load the prompt once from the registry because the tags in
-            # local prompt object may not be in sync with the registry.
-            prompt = self.load_prompt(prompt.uri)
         elif not isinstance(prompt, PromptVersion):
             raise MlflowException.invalid_parameter_value(
                 "The `prompt` argument must be a Prompt object or a prompt URI.",
