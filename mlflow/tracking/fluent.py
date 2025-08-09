@@ -10,8 +10,10 @@ import inspect
 import logging
 import os
 import threading
+import time as pytime
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
+from dataclasses import dataclass, asdict
 
 import mlflow
 from mlflow.entities import (
@@ -95,6 +97,17 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
+@dataclass
+class Event:
+    name: str
+    timestamp: float
+    type: str = "event"
+    description: Optional[str] = None
+
+@dataclass
+class Stage(Event):
+    start_time: float = 0.0
+    type: str = "stage"
 
 _active_experiment_id = None
 
@@ -504,6 +517,72 @@ def start_run(
     active_run_stack.append(ActiveRun(active_run_obj))
     return active_run_stack[-1]
 
+def log_event(
+    name: str,
+    time: Optional[float] = None,
+    start_time: Optional[float] = None,
+    description: Optional[str] = None,
+    run_id: Optional[str] = None,
+) -> None:
+    """
+    Log an event or stage under the current run. If no run is active, this method will create a new active run.
+
+    Args:
+        name: Event or stage name.
+        time: Timestamp (float, UNIX time) for the event or stage end. Defaults to now.
+        start_time: Optional start time for a stage (float, UNIX time).
+        description: Optional description for UI hover text.
+        run_id: If specified, log the event to the specified run. If not specified, log to the currently active run.
+
+    Raises:
+        ValueError: If name is empty or invalid.
+    """
+    if not name or not isinstance(name, str):
+        logging.error("Event name must be a non-empty string.")
+        raise ValueError("Event name must be a non-empty string.")
+    try:
+        run_id = run_id or _get_or_start_run().info.run_id
+        now = pytime.time()
+        if start_time is not None:
+            if time is None:
+                time = now
+            event_obj = Stage(name=name, start_time=start_time, timestamp=time, description=description)
+        else:
+            event_obj = Event(name=name, timestamp=time if time is not None else now, description=description)
+        MlflowClient().log_event(run_id, asdict(event_obj))
+        logging.info(f"Logged event '{name}' for run {run_id}.")
+    except Exception as exc:
+        logging.exception(f"Failed to log event '{name}' for run {run_id}: {exc}")
+        raise
+
+
+@contextlib.contextmanager
+def log_stage(name: str, description: Optional[str] = None, run_id: Optional[str] = None):
+    """
+    Context manager to automatically log a stage (duration) as an event.
+
+    Usage:
+        with mlflow.log_stage("data_loading"):
+            ...
+
+    Args:
+        name: Stage name.
+        description: Optional description for the stage.
+        run_id: If specified, log the stage to the specified run. If not specified, log to the currently active run.
+    """
+    start = pytime.time()
+    try:
+        yield
+    except Exception as exc:
+        logging.exception(f"Exception in stage '{name}': {exc}")
+        raise
+    finally:
+        end = pytime.time()
+        try:
+            log_event(name, time=end, start_time=start, description=description, run_id=run_id)
+            logging.info(f"Logged stage '{name}' for run {run_id}.")
+        except Exception as exc:
+            logging.exception(f"Failed to log stage '{name}' for run {run_id}: {exc}")
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     """
