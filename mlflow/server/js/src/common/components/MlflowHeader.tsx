@@ -48,12 +48,10 @@ export const MlflowHeader = ({
           icon={<MenuIcon />}
         />
         <Link to={ExperimentTrackingRoutes.rootRoute}>
-          <MlflowLogo
-            css={{
-              display: 'block',
-              height: theme.spacing.md * 2,
-              color: theme.colors.textPrimary,
-            }}
+          <img
+            src="/assets/variphi-logo.png"
+            alt="Variphi Logo"
+            style={{ display: 'block', height: theme.spacing.md * 2, color: theme.colors.textPrimary }}
           />
         </Link>
         <span
@@ -69,6 +67,7 @@ export const MlflowHeader = ({
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>
+        <a href="/logout" style={{ fontWeight: 600, color: theme.colors.textSecondary }}>Logout</a>
       </div>
     </header>
   );
