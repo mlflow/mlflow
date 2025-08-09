@@ -15,7 +15,7 @@ TEST_PROTOS_DIR = Path("tests/protos")
 
 def gen_protos(
     proto_dir: Path,
-    proto_files: list[str],
+    proto_files: list[Path],
     lang: Literal["python", "java"],
     protoc_bin: Path,
     protoc_include_path: Path,
@@ -44,12 +44,15 @@ def apply_python_gencode_replacement(file_path: Path) -> None:
     file_path.write_text(content, encoding="UTF-8")
 
 
-def _get_python_output_path(proto_file_path: str) -> Path:
-    f = Path(proto_file_path)
-    return f.parent / (f.stem + "_pb2.py")
+def _get_python_output_path(proto_file_path: Path) -> Path:
+    return proto_file_path.parent / (proto_file_path.stem + "_pb2.py")
 
 
-basic_proto_files = [
+def pathify(*args: str) -> list[Path]:
+    return list(map(Path, args))
+
+
+basic_proto_files = pathify(
     "databricks.proto",
     "service.proto",
     "model_registry.proto",
@@ -58,8 +61,8 @@ basic_proto_files = [
     "internal.proto",
     "scalapb/scalapb.proto",
     "assessments.proto",
-]
-uc_proto_files = [
+)
+uc_proto_files = pathify(
     "databricks_managed_catalog_messages.proto",
     "databricks_managed_catalog_service.proto",
     "databricks_uc_registry_messages.proto",
@@ -69,13 +72,11 @@ uc_proto_files = [
     "unity_catalog_oss_service.proto",
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
-]
-tracing_proto_files = [
-    "databricks_trace_server.proto",
-]
-facet_proto_files = ["facet_feature_statistics.proto"]
+)
+tracing_proto_files = pathify("databricks_trace_server.proto")
+facet_proto_files = pathify("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
-test_proto_files = ["test_message.proto"]
+test_proto_files = pathify("test_message.proto")
 
 
 python_gencode_replacements = [
