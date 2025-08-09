@@ -129,7 +129,7 @@ message DirectoryEntry {
 
   // Name of the file or directory.
   // There is no slash at the end of the directory names.
-  // Example: “file.txt” or “mydirectory”
+  // Example: "file.txt" or "mydirectory"
   optional string name = 5;
 }
 

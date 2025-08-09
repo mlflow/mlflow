@@ -107,7 +107,7 @@ message TraceInfo {
 
   repeated assessments.Assessment assessments = 10;
 
-  // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
+  // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
   map<string, string> tags = 11;
 }
 

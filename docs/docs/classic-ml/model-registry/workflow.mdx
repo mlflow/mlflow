@@ -117,7 +117,7 @@ with mlflow.start_run() as run:
     )
 ```
 
-In the above code snippet, if a registered model with the name doesn’t exist, the method registers a new model and creates Version 1.
+In the above code snippet, if a registered model with the name doesn't exist, the method registers a new model and creates Version 1.
 If a registered model with the name exists, the method creates a new model version.
 
 The second way is to use the <APILink fn="mlflow.register_model" /> method, after all your experiment runs complete and when you have decided which model is most suitable to add
@@ -129,7 +129,7 @@ result = mlflow.register_model(
 )
 ```
 
-If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
+If a registered model with the name doesn't exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
 If a registered model with the name exists, the method creates a new model version and returns the version object.
 
 And finally, you can use the <APILink fn="mlflow.client.MlflowClient.create_registered_model">`create_registered_model()`</APILink> to create a new registered model.
@@ -363,7 +363,7 @@ to which the current model version will be copied.
 
 #### Adding or Updating an MLflow Model Descriptions
 
-At any point in a model’s lifecycle development, you can update a model version's description
+At any point in a model's lifecycle development, you can update a model version's description
 using <APILink fn="mlflow.client.MlflowClient.update_model_version">`update_model_version()`</APILink>.
 
 ```python
@@ -749,9 +749,9 @@ Model Stages are deprecated and will be removed in a future major release. To le
 
 See the sections below on using Model Stages in the MLflow Model Registry.
 
-**Transitioning an MLflow Model’s Stage**
+**Transitioning an MLflow Model's Stage**
 
-Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
+Over the course of the model's lifecycle, a model evolves—from development to staging to production.
 You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
 
 ```python
@@ -846,7 +846,7 @@ See the information below to learn how to use the new tools for your legacy Mode
 
 To set up separate environments and permissions for your model versions, create separate registered models:
 
-- Given a base name for your model’s use-case, e.g. `revenue_forecasting`, set up various registered models corresponding
+- Given a base name for your model's use-case, e.g. `revenue_forecasting`, set up various registered models corresponding
   to your environments with different prefixes.
 - For example, if you want three separate dev, staging, and production environments, you can set up
   `dev.ml_team.revenue_forecasting`, `staging.ml_team.revenue_forecasting`, and `prod.ml_team.revenue_forecasting` registered models.

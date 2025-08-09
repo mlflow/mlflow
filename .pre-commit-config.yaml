@@ -18,8 +18,18 @@ repos:
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
+
   - repo: local
     hooks:
+      - id: normalize-chars
+        name: normalize-chars
+        entry: python dev/normalize_chars.py
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: '^mlflow/server/js/|^docs/api_reference/source/R-api\.rst$'
+        require_serial: true
+
       - id: ruff
         name: ruff
         entry: python dev/ruff.py

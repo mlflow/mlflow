@@ -22,7 +22,7 @@ def main():
         endpoint="embeddings",
         inputs={
             "input": [
-                "How does your culture celebrate the New Year, and how does it differ from other countries’ "
+                "How does your culture celebrate the New Year, and how does it differ from other countries' "
                 "celebrations?"
             ]
         },

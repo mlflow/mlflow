@@ -587,7 +587,7 @@ as a minimum supported version.
     - `ChatResponse` → `ChatCompletionResponse` for the same reason as the input interface.
     - `metadata` fields within `ChatRequest` and `ChatResponse` → `custom_inputs` and `custom_outputs`, respectively.
   - **Streaming Updates**:
-    - `predict_stream` will be updated to enable true streaming for custom GenAI applications. Currently, it returns a generator with synchronous outputs from predict. In a future release, it will return a generator of `ChatCompletionChunks`, enabling asynchronous streaming. While the API call structure will remain the same, the returned data payload will change significantly, aligning with LangChain’s implementation.
+    - `predict_stream` will be updated to enable true streaming for custom GenAI applications. Currently, it returns a generator with synchronous outputs from predict. In a future release, it will return a generator of `ChatCompletionChunks`, enabling asynchronous streaming. While the API call structure will remain the same, the returned data payload will change significantly, aligning with LangChain's implementation.
   - **Legacy Dataclass Deprecation**:
     - Dataclasses in `mlflow.models.rag_signatures` will be deprecated, merging into unified `ChatCompletionRequest`, `ChatCompletionResponse`, and `ChatCompletionChunks`.
 
@@ -1149,7 +1149,7 @@ With this release, we're pleased to introduce several major new features that ar
 
 - **PromptFlow**: Introducing the new PromptFlow flavor, designed to enrich the GenAI landscape within MLflow. This feature simplifies the creation and management of dynamic prompts, enhancing user interaction with AI models and streamlining prompt engineering processes. (#11311, #11385 @brynn-code)
 
-- **Enhanced Metadata Sharing for Unity Catalog**: MLflow now supports the ability to share metadata (and not model weights) within Databricks Unity Catalog. When logging a model, this functionality enables the automatic duplication of metadata into a dedicated subdirectory, distinct from the model’s actual storage location, allowing for different sharing permissions and access control limits. (#11357, #11720 @WeichenXu123)
+- **Enhanced Metadata Sharing for Unity Catalog**: MLflow now supports the ability to share metadata (and not model weights) within Databricks Unity Catalog. When logging a model, this functionality enables the automatic duplication of metadata into a dedicated subdirectory, distinct from the model's actual storage location, allowing for different sharing permissions and access control limits. (#11357, #11720 @WeichenXu123)
 
 - **Code Paths Unification and Standardization**: We have unified and standardized the `code_paths` parameter across all MLflow flavors to ensure a cohesive and streamlined user experience. This change promotes consistency and reduces complexity in the model deployment lifecycle. (#11688, @BenWilson2)
 
@@ -3341,7 +3341,7 @@ In MLflow Projects:
 
 In MLflow Tracking:
 
-- Paginated “load more” and backend sorting for experiment search view UI. This change allows the UI to scalably display the sorted runs from large experiments. (#1564, @Zangr)
+- Paginated "load more" and backend sorting for experiment search view UI. This change allows the UI to scalably display the sorted runs from large experiments. (#1564, @Zangr)
 - Search results are encoded in the URL. This allows you to share searches through their URL and to deep link to them. (#1416, @apurva-koti)
 - Ability to serve MLflow UI behind `jupyter-server-proxy` or outside of the root path `/`. Previous to MLflow 1.1, the UI could only be hosted on `/` since the Javascript makes requests directly to `/ajax-api/...`. With this patch, MLflow will make requests to `ajax-api/...` or a path relative to where the HTML is being served. (#1413, @xhochy)
 
@@ -3373,7 +3373,7 @@ MLflow 1.0 includes many significant features and improvements. From this versio
 
 Major features, improvements, and breaking changes
 
-- Support for recording, querying, and visualizing metrics along a new “step” axis (x coordinate), providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
+- Support for recording, querying, and visualizing metrics along a new "step" axis (x coordinate), providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0's enhanced metrics UI enables you to visualize the change in a metric's value as a function of its step, augmenting MLflow's existing UI for plotting a metric's value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
 - Search improvements. MLflow 1.0 includes additional support in both the API and UI for searching runs within a single experiment or a group of experiments. The search filter API supports a simplified version of the `SQL WHERE` clause. In addition to searching using run's metrics and params, the API has been enhanced to support a subset of run attributes as well as user and [system tags](https://mlflow.org/docs/latest/tracking.html#system-tags). For details see [Search syntax](https://mlflow.org/docs/latest/search-syntax.html#syntax) and [examples for programmatically searching runs](https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs). (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
 - Logging metrics in batches. MLflow 1.0 now has a `runs/log-batch` REST API endpoint for logging multiple metrics, params, and tags in a single API request. The endpoint useful for performant logging of multiple metrics at the end of a model training epoch (see [example](https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161)), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (`mlflow.log_metrics`, `mlflow.log_params`, `mlflow.set_tags`), R (`mlflow_log_batch`), and Java (`MlflowClient.logBatch`). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
