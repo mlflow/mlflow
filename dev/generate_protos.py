@@ -44,9 +44,9 @@ def apply_python_gencode_replacement(file_path: Path) -> None:
     file_path.write_text(content, encoding="UTF-8")
 
 
-def _get_python_output_filename(proto_file_name: str) -> Path:
-    file_path = Path(proto_file_name)
-    return file_path.parent / (Path(file_path.name).stem + "_pb2.py")
+def _get_python_output_path(proto_file_path: str) -> Path:
+    f = Path(proto_file_path)
+    return f.parent / (f.stem + "_pb2.py")
 
 
 basic_proto_files = [
@@ -135,8 +135,8 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
         out_dir,
     )
 
-    for file_name in python_proto_files:
-        apply_python_gencode_replacement(out_dir / _get_python_output_filename(file_name))
+    for proto_file in python_proto_files:
+        apply_python_gencode_replacement(out_dir / _get_python_output_path(proto_file))
 
 
 def build_protoc_from_source(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
@@ -288,13 +288,13 @@ def main() -> None:
             (python_proto_files, MLFLOW_PROTOS_DIR),
             (test_proto_files, TEST_PROTOS_DIR),
         ]:
-            for file_name in proto_files:
-                gencode_filename = _get_python_output_filename(file_name)
+            for proto_file in proto_files:
+                gencode_path = _get_python_output_path(proto_file)
 
                 generate_final_python_gencode(
-                    proto3194_out / gencode_filename,
-                    proto5260_out / gencode_filename,
-                    Path(protos_dir, gencode_filename),
+                    proto3194_out / gencode_path,
+                    proto5260_out / gencode_path,
+                    protos_dir / gencode_path,
                 )
 
     # generate java gencode using pinned protoc 3.19.4 version.
