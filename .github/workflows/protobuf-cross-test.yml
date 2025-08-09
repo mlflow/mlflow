@@ -36,6 +36,7 @@ env:
   SPARK_LOCAL_IP: localhost
   PYTHONUTF8: "1"
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 jobs:
   core_tests:

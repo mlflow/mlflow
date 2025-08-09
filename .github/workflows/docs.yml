@@ -28,6 +28,9 @@ defaults:
   run:
     working-directory: docs
 
+env:
+  _MLFLOW_TESTING_TELEMETRY: "true"
+
 jobs:
   check:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
