@@ -1,0 +1,441 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# Evaluating MLflow Models
+
+Evaluate models that are logged or registered in MLflow's model registry. This approach enables consistent evaluation across model versions and simplifies the deployment pipeline.
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
+      <td>
+        Evaluation dataset with test cases
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Correctness, Relevance) and custom scorers
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Model</strong><br/><small></small></td>
+      <td>
+        MLflow model loaded from registry or run
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+## When to evaluate MLflow models
+
+This approach is ideal when:
+- Comparing multiple model versions before deployment
+- Validating models after training or fine-tuning
+- Establishing quality gates in your ML pipeline
+- Evaluating models from different frameworks consistently
+
+## Prerequisites
+
+```bash
+pip install --upgrade mlflow>=3.3 openai transformers torch
+```
+
+## Step 1: Create and log a model
+
+First, create a simple model and log it to MLflow:
+
+```python
+import mlflow
+import mlflow.pyfunc
+from openai import OpenAI
+
+client = OpenAI()
+
+class QAModel(mlflow.pyfunc.PythonModel):
+    """Simple Q&A model using OpenAI"""
+    
+    def __init__(self, system_prompt="You are a helpful assistant."):
+        self.system_prompt = system_prompt
+    
+    def predict(self, context, model_input):
+        """Process questions and return answers"""
+        questions = model_input["question"].tolist() if hasattr(model_input, "columns") else model_input
+        
+        answers = []
+        for question in questions:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                temperature=0
+            )
+            answers.append(response.choices[0].message.content)
+        
+        return answers
+
+# Log the model
+with mlflow.start_run() as run:
+    model = QAModel(system_prompt="You are a concise assistant. Keep answers under 50 words.")
+    
+    # Log model with signature
+    mlflow.pyfunc.log_model(
+        "qa_model",
+        python_model=model,
+        input_example={"question": "What is MLflow?"},
+        signature=mlflow.models.infer_signature(
+            {"question": "What is MLflow?"},
+            ["MLflow is an open-source platform for ML lifecycle management."]
+        ),
+        metadata={"version": "1.0", "framework": "openai"}
+    )
+    
+    model_uri = f"runs:/{run.info.run_id}/qa_model"
+    print(f"Model logged with URI: {model_uri}")
+```
+
+## Step 2: Register model version (optional)
+
+For production workflows, register the model:
+
+```python
+# Register the model
+model_name = "qa-assistant"
+registered_model = mlflow.register_model(
+    model_uri=model_uri,
+    name=model_name
+)
+
+# Transition to staging
+mlflow_client = mlflow.tracking.MlflowClient()
+mlflow_client.transition_model_version_stage(
+    name=model_name,
+    version=registered_model.version,
+    stage="Staging"
+)
+
+print(f"Model registered as {model_name} version {registered_model.version}")
+```
+
+## Step 3: Create evaluation dataset
+
+Design comprehensive test cases:
+
+```python
+eval_dataset = [
+    {
+        "inputs": {"question": "What is machine learning?"},
+        "expectations": {
+            "contains_key_concepts": ["algorithms", "data", "patterns"],
+            "max_length": 50
+        }
+    },
+    {
+        "inputs": {"question": "Explain quantum computing"},
+        "expectations": {
+            "contains_key_concepts": ["qubits", "superposition", "quantum"],
+            "max_length": 50
+        }
+    },
+    {
+        "inputs": {"question": "What are the benefits of cloud computing?"},
+        "expectations": {
+            "contains_key_concepts": ["scalability", "cost", "flexibility"],
+            "max_length": 50
+        }
+    },
+    {
+        "inputs": {"question": "How does blockchain work?"},
+        "expectations": {
+            "contains_key_concepts": ["distributed", "ledger", "blocks"],
+            "max_length": 50
+        }
+    }
+]
+```
+
+## Step 4: Load model for evaluation
+
+Load the model from MLflow registry:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="from-run" label="From Run" default>
+
+```python
+# Load model from a specific run
+loaded_model = mlflow.pyfunc.load_model(model_uri)
+
+# Create predict function from model
+def predict_fn(question: str) -> str:
+    return loaded_model.predict({"question": question})[0]
+```
+
+</TabItem>
+<TabItem value="from-registry" label="From Registry">
+
+```python
+# Load latest version from registry
+model_name = "qa-assistant"
+stage = "Staging"  # or "Production"
+
+loaded_model = mlflow.pyfunc.load_model(
+    model_uri=f"models:/{model_name}/{stage}"
+)
+
+# Create predict function from model
+def predict_fn(question: str) -> str:
+    return loaded_model.predict({"question": question})[0]
+```
+
+</TabItem>
+<TabItem value="specific-version" label="Specific Version">
+
+```python
+# Load specific model version
+model_name = "qa-assistant"
+version = 1
+
+loaded_model = mlflow.pyfunc.load_model(
+    model_uri=f"models:/{model_name}/{version}"
+)
+
+# Create predict function from model
+def predict_fn(question: str) -> str:
+    return loaded_model.predict({"question": question})[0]
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Step 5: Define evaluation scorers
+
+Create scorers tailored to your model's requirements:
+
+```python
+from mlflow.genai.scorers import make_scorer, Guidelines
+
+@make_scorer
+def concept_coverage_scorer(outputs: str, expectations: dict) -> dict:
+    """Check if output contains expected concepts"""
+    output_lower = outputs.lower()
+    expected_concepts = expectations.get("contains_key_concepts", [])
+    
+    if not expected_concepts:
+        return {"score": 5, "justification": "No concepts to check"}
+    
+    found = [concept for concept in expected_concepts if concept.lower() in output_lower]
+    coverage = len(found) / len(expected_concepts)
+    
+    score = int(coverage * 5)
+    missing = set(expected_concepts) - set(found)
+    
+    return {
+        "score": score,
+        "justification": f"Found {len(found)}/{len(expected_concepts)} concepts" + 
+                       (f". Missing: {', '.join(missing)}" if missing else "")
+    }
+
+@make_scorer
+def length_compliance_scorer(outputs: str, expectations: dict) -> dict:
+    """Check if output meets length requirements"""
+    max_length = expectations.get("max_length", float('inf'))
+    word_count = len(outputs.split())
+    
+    if word_count <= max_length:
+        score = 5
+        status = "compliant"
+    elif word_count <= max_length * 1.2:  # 20% tolerance
+        score = 3
+        status = "slightly over"
+    else:
+        score = 1
+        status = "too long"
+    
+    return {
+        "score": score,
+        "justification": f"{word_count} words - {status} (max: {max_length})"
+    }
+```
+
+## Step 6: Run model evaluation
+
+Evaluate the loaded model:
+
+```python
+from mlflow.genai.scorers import Relevance, Fluency
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=predict_fn,
+    scorers=[
+        # Custom scorers
+        concept_coverage_scorer,
+        length_compliance_scorer,
+        
+        # Built-in scorers
+        Relevance(),
+        Fluency(),
+        Guidelines(
+            name="accuracy",
+            guidelines="Answers should be factually accurate and informative"
+        )
+    ],
+    experiment_name="Model Evaluation"
+)
+
+# Display results
+print(f"Concept Coverage: {results.metrics['concept_coverage_scorer/v1/mean']:.2f}")
+print(f"Length Compliance: {results.metrics['length_compliance_scorer/v1/mean']:.2f}")
+print(f"Relevance: {results.metrics['relevance/v1/mean']:.2f}")
+```
+
+## Step 7: Compare model versions
+
+Evaluate multiple versions to select the best:
+
+```python
+def evaluate_model_version(model_uri, version_name):
+    """Evaluate a specific model version"""
+    model = mlflow.pyfunc.load_model(model_uri)
+    
+    def predict_fn(question: str) -> str:
+        return model.predict({"question": question})[0]
+    
+    results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        predict_fn=predict_fn,
+        scorers=[concept_coverage_scorer, length_compliance_scorer, Relevance()],
+        experiment_name=f"Model Comparison - {version_name}"
+    )
+    
+    return results.metrics
+
+# Compare different model versions
+versions_to_compare = [
+    ("models:/qa-assistant/1", "v1-baseline"),
+    ("models:/qa-assistant/2", "v2-improved-prompt"),
+    ("models:/qa-assistant/Staging", "staging")
+]
+
+comparison_results = {}
+for uri, name in versions_to_compare:
+    try:
+        metrics = evaluate_model_version(uri, name)
+        comparison_results[name] = metrics
+        print(f"\n{name} Results:")
+        for key, value in metrics.items():
+            if "mean" in key:
+                print(f"  {key}: {value:.2f}")
+    except Exception as e:
+        print(f"Failed to evaluate {name}: {e}")
+
+# Identify best version
+best_version = max(comparison_results.items(), 
+                  key=lambda x: x[1].get('relevance/v1/mean', 0))
+print(f"\nBest performing version: {best_version[0]}")
+```
+
+## Advanced: Custom model frameworks
+
+Evaluate models from different frameworks uniformly:
+
+```python
+# Example: Evaluating a Transformers model
+from transformers import pipeline
+
+class TransformersModel(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        self.pipeline = pipeline("text-generation", model="gpt2")
+    
+    def predict(self, context, model_input):
+        prompts = model_input["prompt"].tolist() if hasattr(model_input, "columns") else model_input
+        results = self.pipeline(prompts, max_length=50, temperature=0.7)
+        return [r[0]["generated_text"] for r in results]
+
+# Log and evaluate Transformers model
+with mlflow.start_run():
+    mlflow.pyfunc.log_model(
+        "transformers_model",
+        python_model=TransformersModel(),
+        input_example={"prompt": "The future of AI is"},
+        pip_requirements=["transformers", "torch"]
+    )
+
+# The evaluation process remains the same regardless of the underlying framework
+```
+
+## Best practices
+
+1. **Version control datasets**: Store evaluation datasets alongside model versions
+2. **Automate evaluation**: Integrate evaluation into your CI/CD pipeline
+3. **Set quality thresholds**: Define minimum acceptable scores for production
+4. **Track evaluation history**: Monitor model performance over time
+5. **Use consistent metrics**: Evaluate all model versions with the same scorers
+
+## Integration with MLOps
+
+```python
+def promote_model_if_qualified(model_name, version, min_scores):
+    """Promote model to production if it meets quality criteria"""
+    
+    # Load and evaluate model
+    model_uri = f"models:/{model_name}/{version}"
+    model = mlflow.pyfunc.load_model(model_uri)
+    
+    # Run evaluation
+    results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        predict_fn=lambda q: model.predict({"question": q})[0],
+        scorers=[Relevance(), Fluency(), concept_coverage_scorer]
+    )
+    
+    # Check if model meets minimum requirements
+    qualified = all(
+        results.metrics.get(f"{metric}/v1/mean", 0) >= threshold
+        for metric, threshold in min_scores.items()
+    )
+    
+    if qualified:
+        client = mlflow.tracking.MlflowClient()
+        client.transition_model_version_stage(
+            name=model_name,
+            version=version,
+            stage="Production"
+        )
+        print(f"Model {model_name} v{version} promoted to Production")
+    else:
+        print(f"Model {model_name} v{version} did not meet quality criteria")
+    
+    return qualified
+
+# Set quality gates
+min_scores = {
+    "relevance": 4.0,
+    "fluency": 4.0,
+    "concept_coverage_scorer": 3.5
+}
+
+# Promote if qualified
+promote_model_if_qualified("qa-assistant", "2", min_scores)
+```
+
+## Next steps
+
+- [Custom Scorers](/genai/eval-monitor/scorers/custom): Build specialized evaluation metrics
+- [Agent Evaluation](/genai/eval-monitor/running-evaluation/agents): Evaluate complex agent models
+- [Model Registry](/model-registry): Learn more about MLflow's model management

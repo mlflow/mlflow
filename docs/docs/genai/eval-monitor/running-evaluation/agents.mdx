@@ -1,0 +1,418 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# Evaluating Agents
+
+Evaluate the performance and reliability of AI agents that use tools, make decisions, and execute multi-step workflows. This guide demonstrates comprehensive agent evaluation using MLflow.
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
+      <td>
+        Task descriptions with expected outcomes
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Correctness, Guidelines) and agent-specific custom scorers
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small></small></td>
+      <td>
+        Agent implementation with tool calling capabilities
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+## Prerequisites
+
+```bash
+pip install 'langchain[openai]' langgraph -qU
+```
+
+## Step 1: Build a simple agent
+
+Create an agent that can use tools to answer questions:
+
+```python
+import json
+from openai import OpenAI
+import mlflow
+
+client = OpenAI()
+
+# Define available tools
+def calculate(operation: str, a: float, b: float) -> float:
+    """Perform basic arithmetic operations"""
+    operations = {
+        "add": lambda x, y: x + y,
+        "subtract": lambda x, y: x - y,
+        "multiply": lambda x, y: x * y,
+        "divide": lambda x, y: x / y if y != 0 else None
+    }
+    return operations.get(operation, lambda x, y: None)(a, b)
+
+def search_database(query: str) -> list:
+    """Mock database search"""
+    # In production, this would query actual data
+    mock_data = {
+        "product": ["Widget A: $29.99", "Widget B: $39.99"],
+        "inventory": ["Widget A: 150 units", "Widget B: 87 units"],
+        "customer": ["Customer count: 1,250", "Average satisfaction: 4.5/5"]
+    }
+    
+    for key in mock_data:
+        if key in query.lower():
+            return mock_data[key]
+    return ["No results found"]
+
+# Tool specifications for OpenAI
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate",
+            "description": "Perform arithmetic calculations",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["add", "subtract", "multiply", "divide"]
+                    },
+                    "a": {"type": "number"},
+                    "b": {"type": "number"}
+                },
+                "required": ["operation", "a", "b"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_database",
+            "description": "Search company database for information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"}
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
+```
+
+## Step 2: Implement the agent logic
+
+Create an agent that can handle tool calls and generate responses:
+
+```python
+from agents import Agent, Runner, function_tool
+from agents.agent import StopAtTools
+
+
+@function_tool
+def add(a: float, b: float) -> float:
+    """Adds two numbers."""
+    return a + b
+
+@function_tool
+def multiply(a: float, b: float) -> float:
+    """Multiply two numbers."""
+    return a * b
+
+@function_tool
+def modular(a: int, b: int) -> int:
+    """Modular arithmetic"""
+    return a % b
+
+agent = Agent(
+    name="Calculator Agent",
+    instructions="Calculate the result of the given operation.",
+    tools=[add, multiply, modular],
+)
+```
+
+## Step 3: Create evaluation dataset
+
+Design test cases that cover various agent capabilities:
+
+```python
+eval_dataset = [
+    {
+        "inputs": {"task": "What is 15% of 240?"},
+        "expectations": {
+            "answer_contains": "36",
+            "uses_calculator": True
+        }
+    },
+    {
+        "inputs": {"task": "How many Widget A items are in inventory?"},
+        "expectations": {
+            "answer_contains": "150",
+            "uses_database": True
+        }
+    },
+    {
+        "inputs": {"task": "Calculate total revenue if we sell 50 Widget A at regular price"},
+        "expectations": {
+            "answer_contains": "1499",  # 50 * 29.99
+            "uses_multiple_tools": True
+        }
+    },
+    {
+        "inputs": {"task": "What's the weather like?"},
+        "expectations": {
+            "handles_unavailable_info": True,
+            "no_hallucination": True
+        }
+    }
+]
+```
+
+## Step 4: Define agent-specific scorers
+
+Create scorers that evaluate agent-specific behaviors:
+
+```python
+from mlflow.genai.scorers import make_scorer
+
+@make_scorer
+def tool_usage_scorer(outputs: dict, expectations: dict) -> dict:
+    """Evaluate if agent used tools appropriately"""
+    tool_calls = outputs.get("tool_calls", [])
+    tool_names = [tc["function"] for tc in tool_calls]
+    
+    score = 0
+    justification = []
+    
+    # Check if calculator was used when expected
+    if expectations.get("uses_calculator"):
+        if "calculate" in tool_names:
+            score += 1
+            justification.append("✓ Used calculator as expected")
+        else:
+            justification.append("✗ Failed to use calculator")
+    
+    # Check if database was used when expected
+    if expectations.get("uses_database"):
+        if "search_database" in tool_names:
+            score += 1
+            justification.append("✓ Used database as expected")
+        else:
+            justification.append("✗ Failed to use database")
+    
+    # Check for multiple tool usage
+    if expectations.get("uses_multiple_tools"):
+        if len(set(tool_names)) >= 2:
+            score += 1
+            justification.append("✓ Used multiple tools")
+        else:
+            justification.append("✗ Did not use multiple tools")
+    
+    # Normalize score to 0-5 scale
+    max_score = sum(1 for k in expectations if k.startswith("uses_"))
+    normalized_score = (score / max_score * 5) if max_score > 0 else 5
+    
+    return {
+        "score": normalized_score,
+        "justification": "; ".join(justification)
+    }
+
+@make_scorer
+def efficiency_scorer(outputs: dict) -> dict:
+    """Evaluate agent efficiency"""
+    iterations = outputs.get("iterations", 0)
+    tool_calls = outputs.get("tool_calls", [])
+    
+    # Fewer iterations and tool calls = more efficient
+    if iterations == 1 and len(tool_calls) <= 1:
+        score = 5
+        rating = "Excellent"
+    elif iterations <= 2 and len(tool_calls) <= 2:
+        score = 4
+        rating = "Good"
+    elif iterations <= 3 and len(tool_calls) <= 3:
+        score = 3
+        rating = "Average"
+    else:
+        score = 2
+        rating = "Inefficient"
+    
+    return {
+        "score": score,
+        "justification": f"{rating}: {iterations} iterations, {len(tool_calls)} tool calls"
+    }
+
+@make_scorer
+def answer_quality_scorer(outputs: dict, expectations: dict) -> dict:
+    """Evaluate answer correctness and quality"""
+    answer = outputs.get("answer", "").lower()
+    score = 5
+    issues = []
+    
+    # Check if expected content is present
+    if "answer_contains" in expectations:
+        expected = str(expectations["answer_contains"]).lower()
+        if expected not in answer:
+            score -= 2
+            issues.append(f"Missing expected content: {expected}")
+    
+    # Check for hallucination handling
+    if expectations.get("no_hallucination"):
+        hallucination_phrases = ["i can", "the weather", "forecast", "temperature"]
+        if any(phrase in answer for phrase in hallucination_phrases):
+            score -= 3
+            issues.append("Potential hallucination detected")
+    
+    # Check for proper unavailable info handling
+    if expectations.get("handles_unavailable_info"):
+        appropriate_phrases = ["cannot", "don't have", "unavailable", "unable"]
+        if not any(phrase in answer for phrase in appropriate_phrases):
+            score -= 2
+            issues.append("Did not properly handle unavailable information")
+    
+    return {
+        "score": max(1, score),
+        "justification": issues[0] if issues else "Answer meets all criteria"
+    }
+```
+
+## Step 5: Run the evaluation
+
+Evaluate the agent with comprehensive metrics:
+
+```python
+from mlflow.genai.scorers import Correctness, Guidelines
+
+# Wrap agent for evaluation
+def predict_fn(task: str) -> dict:
+    return run_agent(task)
+
+# Run evaluation
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=predict_fn,
+    scorers=[
+        # Custom agent scorers
+        tool_usage_scorer,
+        efficiency_scorer,
+        answer_quality_scorer,
+        
+        # Built-in scorers
+        Guidelines(
+            name="clarity",
+            guidelines="Responses should be clear and well-structured"
+        ),
+        Guidelines(
+            name="safety",
+            guidelines="Agent should refuse unsafe or impossible requests appropriately"
+        )
+    ],
+    experiment_name="Agent Evaluation"
+)
+
+# Display results
+print(f"Tool Usage Score: {results.metrics['tool_usage_scorer/v1/mean']:.2f}")
+print(f"Efficiency Score: {results.metrics['efficiency_scorer/v1/mean']:.2f}")
+print(f"Answer Quality: {results.metrics['answer_quality_scorer/v1/mean']:.2f}")
+```
+
+## Step 6: Log the agent model
+
+Save the evaluated agent for deployment:
+
+```python
+import mlflow.pyfunc
+
+class AgentModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input):
+        """Prediction interface for the agent"""
+        tasks = model_input["task"].tolist() if hasattr(model_input, "tolist") else model_input
+        return [run_agent(task) for task in tasks]
+
+# Log the agent with evaluation results
+with mlflow.start_run() as run:
+    # Log the model
+    mlflow.pyfunc.log_model(
+        "agent",
+        python_model=AgentModel(),
+        input_example={"task": "Calculate 10% of 50"},
+        signature=mlflow.models.infer_signature(
+            {"task": "Calculate 10% of 50"},
+            {"answer": "5", "tool_calls": [], "iterations": 1}
+        )
+    )
+    
+    # Log evaluation metrics
+    mlflow.log_metrics(results.metrics)
+    
+    # Log agent configuration
+    mlflow.log_params({
+        "max_iterations": 5,
+        "num_tools": len(tools),
+        "model": "gpt-4o-mini"
+    })
+
+print(f"Agent logged with run ID: {run.info.run_id}")
+```
+
+## Advanced: Multi-agent evaluation
+
+For systems with multiple cooperating agents:
+
+```python
+@make_scorer
+def coordination_scorer(outputs: dict) -> dict:
+    """Evaluate multi-agent coordination"""
+    # Check for proper handoffs between agents
+    handoffs = outputs.get("agent_handoffs", [])
+    
+    if len(handoffs) == 0:
+        return {"score": 5, "justification": "Single agent task"}
+    
+    # Evaluate handoff quality
+    successful_handoffs = sum(1 for h in handoffs if h.get("success"))
+    score = (successful_handoffs / len(handoffs)) * 5
+    
+    return {
+        "score": score,
+        "justification": f"{successful_handoffs}/{len(handoffs)} successful handoffs"
+    }
+
+# Evaluate multi-agent system
+multi_agent_results = mlflow.genai.evaluate(
+    data=multi_agent_dataset,
+    predict_fn=multi_agent_system,
+    scorers=[coordination_scorer, tool_usage_scorer, efficiency_scorer]
+)
+```
+
+## Best practices
+
+1. **Test edge cases**: Include scenarios where tools fail or return unexpected results
+2. **Measure efficiency**: Track iterations and tool calls to identify inefficient patterns
+3. **Validate tool usage**: Ensure agents use appropriate tools for each task
+4. **Monitor consistency**: Run multiple evaluations to assess non-deterministic behavior
+5. **Version control prompts**: Track changes to system prompts and their impact on performance
+
+## Next steps
+
+- [Custom Scorers](/genai/eval-monitor/scorers/custom): Build advanced evaluation criteria for agents
+- [Trace Evaluation](/genai/eval-monitor/running-evaluation/traces): Analyze detailed agent execution traces
+- [LLM Judge](/genai/eval-monitor/scorers/llm-judge): Use LLMs to evaluate complex agent behaviors

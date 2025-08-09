@@ -1,0 +1,182 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+import ServerSetup from "@site/src/content/setup_server.mdx";
+
+# Evaluating Prompts
+
+Systematically evaluate and improve prompt templates to optimize your GenAI application's performance. This guide demonstrates how to use MLflow's evaluation framework to compare prompt variations and identify the most effective templates.
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>What we use in this guide</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
+      <td>
+        Test cases covering various scenarios
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
+      <td>
+        Built-in scorers (Correctness, Guidelines) and prompt-specific custom scorers
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Predict Function</strong><br/><small></small></td>
+      <td>
+        Function that renders prompt templates and generates responses
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## Prerequisites
+
+```bash
+pip install --upgrade mlflow>=3.3 openai
+```
+
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<ServerSetup />
+
+## Step 1: Create prompt templates
+
+Define a simple prompt template. We use [MLflow Prompt Registry](/genai/mlflow-3/prompt-registry) to version control the prompt, but it is optional for evaluation.
+
+```python
+import mlflow
+
+# Define prompt templates. MLflow support both text and chat format prompt templates.
+PROMPT_V1 = [
+    {
+        "role": "system",
+        "content": "You are a helpful assistant. Answer the following question."
+    },
+    {
+        "role": "user",
+        # Use double curly braces to indicate variables.
+        "content": "Question: {{question}}"
+    },
+]
+
+# Register the prompt template to the MLflow Prompt Registry for version control
+# and convenience of loading the prompt template. This is optional.
+mlflow.genai.register_prompt(
+    name="qa_prompt",
+    template=PROMPT_V1,
+    commit_message="Initial prompt",
+)
+```
+
+## Step 2: Create evaluation dataset
+
+Design pairs of `inputs` and `expectations` as a test dataset.
+
+```python
+eval_dataset = [
+    {
+        "inputs": {"question": "What causes rain?"},
+        "expectations": {"key_concepts": ["evaporation", "condensation", "precipitation"]}
+    },
+    {
+        "inputs": {"question": "Explain the difference between AI and ML"},
+        "expectations": {"key_concepts": ["artificial intelligence", "machine learning", "subset"]}
+    },
+    {
+        "inputs": {"question": "How do vaccines work?"},
+        "expectations": {"key_concepts": ["immune", "antibodies", "protection"]}
+    },
+]
+```
+## Step 3: Create prediction function
+
+Define a prediction function that takes a question and generate a response using the latest prompt template.
+
+**IMPORTANT: The function must take the keyword arguments used in the `inputs` field of the dataset.** Therefore, we use `question` as the argument of the function here.
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+@mlflow.trace
+def predict_fn(question: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/qa_prompt/latest")
+    rendered_prompt = prompt.format(question=question)
+
+    response = client.chat.completions.create(model="gpt-4.1-mini", messages=rendered_prompt)
+    return response.choices[0].message.content
+```
+
+## Step 4: Define task-specific scorers
+
+Define a few [scorers](/genai/eval-monitor/scorers) that evaluate the quality of the response. Here we use two types of scorers:
+- Built-in LLM scorers for evaluating the qualitative aspects of the response.
+- Custom heuristic scorer for evaluating the coverage of the key concepts.
+
+```python
+from mlflow.entities import Feedback
+from mlflow.genai import scorer
+from mlflow.genai.scorers import Guidelines
+
+# Define LLM scorers
+is_concise = Guidelines(name="is_concise", guidelines="The response should be concise and to the point.")
+is_professional = Guidelines(name="is_professional", guidelines="The response should be in professional tone.")
+
+# Evaluate the coverage of the key concepts using custom scorer
+@scorer
+def concept_coverage(outputs: str, expectations: dict) -> Feedback:
+    """Evaluate if response includes key concepts"""
+    concepts = set(expectations.get("key_concepts", []))
+    included = {c for c in concepts if c.lower() in outputs.lower()}
+
+    # Return a Feedback object with the score and rationale
+    return Feedback(
+        value=len(included) / len(concepts),
+        rationale=(f"Included {len(included)} out of {len(concepts)} concepts. Missing: {concepts - included}"
+        )
+    )
+```
+
+:::tip
+
+LLM scorers uses OpenAI's GPT 4.1-mini by default. You can use different models by passing the `model` parameter to the scorer constructor.
+
+:::
+
+## Step 5: Run evaluation
+
+Run evaluation for each prompt template:
+
+```python
+mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=predict_fn,
+    scorers=[is_concise, is_professional, concept_coverage]
+)
+```
+
+## Step 6: Review evaluation results
+
+TODO: A screenshot of run page that has overall metrics and prompt link
+
+TODO: A screenshot of the trace table
+
+## Step 7: Improve prompt
+
+1. Register a new prompt version
+2. Run the same eval again (the new prompt is loaded through the `@latest` alias automatically)
+3. Compare the evaluation results
+
+## Next steps
+
