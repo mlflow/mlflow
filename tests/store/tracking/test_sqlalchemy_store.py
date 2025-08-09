@@ -6134,7 +6134,6 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_evaluation_dataset_crud_operations(store):
-    # Need to patch where _get_store is imported in the entity class
     with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_evaluation_dataset(
