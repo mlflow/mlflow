@@ -1,4 +1,3 @@
-import os
 import platform
 import subprocess
 import sys
@@ -14,7 +13,14 @@ mlflow_protos_dir = "mlflow/protos"
 test_protos_dir = "tests/protos"
 
 
-def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, out_dir):
+def gen_protos(
+    proto_dir: str | Path,
+    proto_files: list[str],
+    lang: str,
+    protoc_bin: str | Path,
+    protoc_include_path: str | Path,
+    out_dir: str | Path,
+) -> None:
     assert lang in ["python", "java"]
 
     subprocess.check_call(
@@ -28,7 +34,7 @@ def gen_protos(proto_dir, proto_files, lang, protoc_bin, protoc_include_path, ou
     )
 
 
-def apply_python_gencode_replacement(file_path):
+def apply_python_gencode_replacement(file_path: Path) -> None:
     content = file_path.read_text()
 
     for old, new in python_gencode_replacements:
@@ -37,7 +43,7 @@ def apply_python_gencode_replacement(file_path):
     file_path.write_text(content, encoding="UTF-8")
 
 
-def _get_python_output_filename(proto_file_name):
+def _get_python_output_filename(proto_file_name: str) -> Path:
     file_path = Path(proto_file_name)
     return file_path.parent / (Path(file_path.name).stem + "_pb2.py")
 
@@ -106,7 +112,9 @@ python_gencode_replacements = [
 ]
 
 
-def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
+def gen_python_protos(
+    protoc_bin: str | Path, protoc_include_path: str | Path, out_dir: str | Path
+) -> None:
     gen_protos(
         mlflow_protos_dir, python_proto_files, "python", protoc_bin, protoc_include_path, out_dir
     )
@@ -119,7 +127,7 @@ def gen_python_protos(protoc_bin, protoc_include_path, out_dir):
         apply_python_gencode_replacement(out_dir / _get_python_output_filename(file_name))
 
 
-def build_protoc_from_source(version):
+def build_protoc_from_source(version: str) -> tuple[Path, Path]:
     """
     Build and install protoc from source for macOS arm64 version 3.19.4 only.
     """
@@ -142,7 +150,7 @@ def build_protoc_from_source(version):
                 "-L",
                 f"https://github.com/protocolbuffers/protobuf/archive/refs/tags/v{version}.tar.gz",
                 "-o",
-                f"{cache_dir}/protobuf-{version}.tar.gz",
+                Path(cache_dir) / f"protobuf-{version}.tar.gz",
             ]
         )
 
@@ -151,9 +159,9 @@ def build_protoc_from_source(version):
             [
                 "tar",
                 "-xzf",
-                f"{cache_dir}/protobuf-{version}.tar.gz",
+                Path(cache_dir) / f"protobuf-{version}.tar.gz",
                 "-C",
-                str(cache_dir),
+                cache_dir,
             ]
         )
 
@@ -164,10 +172,10 @@ def build_protoc_from_source(version):
 
     protoc_bin = src_dir / "src" / "protoc"
     protoc_include_path = src_dir / "src"
-    return str(protoc_bin), str(protoc_include_path)
+    return protoc_bin, protoc_include_path
 
 
-def download_file(url, output_path):
+def download_file(url: str, output_path: str | Path) -> None:
     """
     Download a file using wget on Linux and curl on macOS.
     """
@@ -192,7 +200,7 @@ def download_file(url, output_path):
         )
 
 
-def download_and_extract_protoc(version):
+def download_and_extract_protoc(version: str) -> tuple[Path, Path]:
     """
     Download and extract specific version protoc tool, return extracted protoc executable file path
     and include path.
@@ -222,30 +230,30 @@ def download_and_extract_protoc(version):
     else:
         protoc_zip_filename = f"protoc-{version}-{os_type}-{cpu_type}.zip"
 
-    downloaded_protoc_bin = f"{cache_dir}/protoc-{version}/bin/protoc"
-    downloaded_protoc_include_path = f"{cache_dir}/protoc-{version}/include"
+    downloaded_protoc_bin = Path(cache_dir) / f"protoc-{version}" / "bin" / "protoc"
+    downloaded_protoc_include_path = Path(cache_dir) / f"protoc-{version}" / "include"
 
-    if not (
-        os.path.isfile(downloaded_protoc_bin) and os.path.isdir(downloaded_protoc_include_path)
-    ):
+    if not (downloaded_protoc_bin.is_file() and downloaded_protoc_include_path.is_dir()):
         download_file(
             f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
-            f"{cache_dir}/{protoc_zip_filename}",
+            Path(cache_dir) / protoc_zip_filename,
         )
         subprocess.check_call(
             [
                 "unzip",
                 "-o",
                 "-d",
-                f"{cache_dir}/protoc-{version}",
-                f"{cache_dir}/{protoc_zip_filename}",
+                Path(cache_dir) / f"protoc-{version}",
+                Path(cache_dir) / protoc_zip_filename,
             ]
         )
-        Path(cache_dir, protoc_zip_filename).unlink()
+        (Path(cache_dir) / protoc_zip_filename).unlink()
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
 
-def generate_final_python_gencode(gencode3194_path, gencode5260_path, out_path):
+def generate_final_python_gencode(
+    gencode3194_path: Path, gencode5260_path: Path, out_path: Path
+) -> None:
     gencode3194 = gencode3194_path.read_text()
     gencode5260 = gencode5260_path.read_text()
 
@@ -260,8 +268,8 @@ else:
     out_path.write_text(merged_code, encoding="UTF-8")
 
 
-def main():
-    os.makedirs(cache_dir, exist_ok=True)
+def main() -> None:
+    Path(cache_dir).mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_gencode_dir:
         temp_gencode_path = Path(temp_gencode_dir)
         proto3194_out = temp_gencode_path / "3.19.4"
