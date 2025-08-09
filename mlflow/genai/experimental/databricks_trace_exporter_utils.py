@@ -66,10 +66,11 @@ def create_archival_ingest_sdk():
     _logger.debug(
         f"Creating IngestApiSdk with ingest URL: {ingest_url}, workspace URL: {workspace_url} "
     )
+    _logger.debug(f"TEST: Using token: {token[:10]}...")
     return IngestApiSdk(ingest_url, workspace_url, token)
 
 
-def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
+def _resolve_ingest_url() -> str:
     """
     Dynamically resolve Databricks ingest URL from workspace host pattern.
 
@@ -89,10 +90,6 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
     Azure Patterns:
     - Staging: *.staging.azuredatabricks.net → <workspace_id>.ingest.staging.azuredatabricks.net
     - Prod: *.azuredatabricks.net → <workspace_id>.ingest.azuredatabricks.net
-
-    Args:
-        workspace_id: Optional workspace ID. If not provided, will be auto-detected
-            from Databricks context
 
     Returns:
         str: The resolved ingest URL
@@ -120,10 +117,8 @@ def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
 
     try:
         # Get workspace ID if not provided
-        if workspace_id is None:
-            from mlflow.utils.databricks_utils import get_workspace_id
-
-            workspace_id = get_workspace_id()
+        from databricks.sdk import WorkspaceClient
+        workspace_id = WorkspaceClient().get_workspace_id()
 
         if not workspace_id:
             raise MlflowException(
@@ -265,7 +260,7 @@ def _resolve_archival_token() -> str:
     # Check for environment variable override first
     override_token = MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
     if override_token:
-        _logger.debug("Using authentication token from environment variable")
+        _logger.debug("TEST: Using authentication token from environment variable")
         return override_token
 
     # Get token from Databricks host credentials
@@ -363,23 +358,11 @@ class DatabricksTraceServerClient:
             MlflowException: If there's an error (other than 404)
         """
         try:
-            # Create proto request
-            proto_trace_location = ProtoTraceLocation()
-            proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
-            proto_trace_location.mlflow_experiment.experiment_id = experiment_id
-
-            proto_request = GetTraceDestinationRequest(
-                trace_location=proto_trace_location,
-            )
-
-            # Call the trace server API
-            request_body = message_to_json(proto_request)
-
             response_proto = call_endpoint(
                 host_creds=self._host_creds,
                 endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
                 method="GET",
-                json_body=request_body,
+                json_body=None,
                 response_proto=ProtoTraceDestination(),
             )
 
