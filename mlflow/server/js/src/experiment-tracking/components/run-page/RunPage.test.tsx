@@ -213,7 +213,13 @@ describe('RunPage (GraphQL API)', () => {
                 data: {
                   __typename: 'MlflowRunData',
                   metrics: [
-                    { __typename: 'MlflowMetric', key: 'test-metric', value: 100, step: '1', timestamp: '1000' },
+                    {
+                      __typename: 'MlflowMetricExtension',
+                      key: 'test-metric',
+                      value: 100,
+                      step: '1',
+                      timestamp: '1000',
+                    },
                   ],
                   params: [{ __typename: 'MlflowParam', key: 'test-param', value: 'test-param-value' }],
                   tags: [
