@@ -30,7 +30,7 @@ def gen_protos(
             f"-I={protoc_include_path}",
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
-            *[f"{proto_dir}/{proto_file}" for proto_file in proto_files],
+            *[proto_dir / pf for pf in proto_files],
         ]
     )
 
