@@ -325,8 +325,8 @@ def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
     )
 
     assert dataset2.name == "test_no_user"
-    assert MLFLOW_USER not in dataset2.tags
-    assert dataset2.created_by is None
+    assert isinstance(dataset2.tags[MLFLOW_USER], str)
+    assert dataset2.created_by == dataset2.tags[MLFLOW_USER]
 
 
 def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
