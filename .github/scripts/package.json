@@ -1,5 +1,5 @@
 {
-  "name": "tools",
+  "name": "scripts",
   "version": "1.0.0",
   "main": "dist/bundle.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "@types/node": "^24.1.0",
     "esbuild": "^0.24.0",
     "openai": "^5.10.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "zod": "^3.25.76"
   }
 }
