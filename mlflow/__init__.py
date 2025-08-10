@@ -101,6 +101,7 @@ shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
 sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
 smolagents = LazyLoader("mlflow.smolagents", globals(), "mlflow.smolagents")
 spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
+strands = LazyLoader("mlflow.strands", globals(), "mlflow.strands")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
@@ -149,6 +150,7 @@ if TYPE_CHECKING:
         shap,
         sklearn,
         smolagents,
+        strands,
         spacy,
         spark,
         statsmodels,
