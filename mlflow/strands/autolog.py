@@ -65,7 +65,6 @@ def setup_strands_tracing():
 
 
 def _set_span_type(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
-
     operation = span.attributes.get("gen_ai.operation.name")
     if isinstance(operation, str) and (
         operation == "invoke_agent" or operation.startswith("invoke_")
@@ -76,7 +75,7 @@ def _set_span_type(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
     elif operation == "chat":
         mlflow_span.set_span_type(SpanType.CHAT_MODEL)
     else:
-        pass 
+        pass
 
 
 def _parse_json(value):
