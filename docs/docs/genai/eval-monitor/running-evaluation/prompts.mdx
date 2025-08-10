@@ -160,7 +160,7 @@ Run evaluation for each prompt template:
 
 ```python
 mlflow.genai.evaluate(
-    data=dataset,
+    data=eval_dataset,
     predict_fn=predict_fn,
     scorers=[is_concise, is_professional, concept_coverage]
 )
