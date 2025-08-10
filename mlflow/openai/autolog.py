@@ -75,6 +75,14 @@ def autolog(
     # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
     # `@autologging_integration` because the function is not executed when `disable=True`.
     try:
+        from agents.run import AgentRunner
+        from mlflow.openai._agent_tracer import _patched_agent_run
+
+        # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
+        # root span, which is not inconvenient. Therefore, we add a patch for the
+        # runner.run() method instead.
+        safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
             remove_mlflow_trace_processor,
