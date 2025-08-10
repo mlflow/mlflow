@@ -8,42 +8,19 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 
 Evaluate the performance and reliability of AI agents that use tools, make decisions, and execute multi-step workflows. This guide demonstrates comprehensive agent evaluation using MLflow.
 
-<table style={{ width: "100%" }}>
-  <thead>
-    <tr>
-      <th style={{ width: "30%" }}>Component</th>
-      <th style={{ width: "70%" }}>What we use in this guide</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
-      <td>
-        Task descriptions with expected outcomes
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
-      <td>
-        Built-in scorers (Correctness, Guidelines) and agent-specific custom scorers
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Predict Function</strong><br/><small></small></td>
-      <td>
-        Agent implementation with tool calling capabilities
-      </td>
-    </tr>
-  </tbody>
-</table>
+## Key Concepts
 
-## Prerequisites
+- Observability: Agent execution is a complex multi-step workflow, so we need to evaluate the agent's behavior precisely, not only the final output.
+- Scorers: 
+- Parallelization: Concurrency is a key for evaluating complex agent workflow effectively. MLflow 
+
+## Example: Evaluating a Tool-Calling Agent
 
 ```bash
 pip install 'mlflow>=3.3' openai-agents -qU
 ```
 
-## Step 1: Build an agent
+### Step 1: Build an agent
 
 Create a math agent that can use tools to answer questions:
 
@@ -87,7 +64,7 @@ print(result.final_output)
 # 36
 ```
 
-## Step 2: Create evaluation dataset
+### Step 2: Create evaluation dataset
 
 Design test cases as a list of dictionaries, each with an `inputs` and `expectations` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
 
@@ -117,13 +94,15 @@ eval_dataset = [
 ]
 ```
 
-## Step 4: Define agent-specific scorers
+### Step 3: Define agent-specific scorers
 
 Create scorers that evaluate agent-specific behaviors.
 
 :::tip
 
-MLflow's scorer can evaluate the **trace** from the agent execution. Trace is a powerful way to evaluate the agent's behavior precisely, not only the final output. For example, here we use the <APILink>Trace.search_spans</APILink> method to extract the order of tool calls and compare it with the expected tool calls.
+MLflow's scorer can take the **Trace** from the agent execution. Trace is a powerful way to evaluate the agent's behavior precisely, not only the final output. For example, here we use the <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> method to extract the order of tool calls and compare it with the expected tool calls.
+
+For more details, see the <ins>[Evaluate Traces](/genai/eval-monitor/running-evaluation/traces)</ins> guide.
 
 :::
 
@@ -137,7 +116,7 @@ def exact_match(outputs, expectations) -> bool:
     return int(outputs) == expectations["answer"]
 
 @scorer
-def uses_correct_tools(trace: Trace, expectations: dict) -> bool:
+def uses_correct_tools(trace: Trace, expectations: dict) -> Feedback:
     """Evaluate if agent used tools appropriately"""
     expected_tools = expectations["tool_calls"]
 
@@ -155,7 +134,7 @@ def uses_correct_tools(trace: Trace, expectations: dict) -> bool:
     return Feedback(value=score, rationale=rationale)
 ```
 
-## Step 5: Run the evaluation
+### Step 4: Run the evaluation
 
 Evaluate the agent with comprehensive metrics:
 
@@ -166,6 +145,16 @@ mlflow.genai.evaluate(
     scorers=[exact_match, uses_correct_tools]
 )
 ```
+
+## Configure parallelization
+
+
+
+## Evaluating MLflow Models
+
+
+
+## Evaluating Deployed Endpoints
 
 
 ## Next steps
