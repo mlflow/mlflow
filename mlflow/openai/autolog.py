@@ -2,7 +2,6 @@ import functools
 import importlib.metadata
 import json
 import logging
-import warnings
 from typing import Any, AsyncIterator, Iterator
 
 from packaging.version import Version
@@ -13,6 +12,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
+from mlflow.openai._agent_tracer import _patched_agent_run
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import (
@@ -75,6 +75,13 @@ def autolog(
     # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
     # `@autologging_integration` because the function is not executed when `disable=True`.
     try:
+        from agents.run import AgentRunner
+
+        # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
+        # root span, which is not inconvenient. Therefore, we add a patch for the
+        # runner.run() method instead.
+        safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
             remove_mlflow_trace_processor,
@@ -142,35 +149,6 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
-
-    # Patch Swarm agent to generate traces
-    try:
-        from swarm import Swarm
-
-        warnings.warn(
-            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
-            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
-            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
-            "(https://github.com/openai/openai-agents-python) for more details.",
-            category=FutureWarning,
-            stacklevel=2,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            Swarm,
-            "get_chat_completion",
-            patched_agent_get_chat_completion,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            Swarm,
-            "run",
-            patched_swarm_run,
-        )
-    except ImportError:
-        pass
 
 
 def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
