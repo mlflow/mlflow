@@ -3,43 +3,29 @@ import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import TilesGrid from '@site/src/components/TilesGrid';
+import TileCard from '@site/src/components/TileCard';
+import { Target, Bot, Zap } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluating Prompts
 
-Systematically evaluate and improve prompt templates to optimize your GenAI application's performance. This guide demonstrates how to use MLflow's evaluation framework to compare prompt variations and identify the most effective templates.
+Prompts are the core components of GenAI applications. However, iterating over prompts can be challenging because it is hard to know if the new prompt is better than the old one. MLflow provides a framework to systematically evaluate prompt templates and track performance over time.
 
-<table style={{ width: "100%" }}>
-  <thead>
-    <tr>
-      <th style={{ width: "30%" }}>Component</th>
-      <th style={{ width: "70%" }}>What we use in this guide</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Dataset</strong><br/><small>Inputs &amp; expectations</small></td>
-      <td>
-        Test cases covering various scenarios
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Scorer</strong><br/><small>Evaluation criteria</small></td>
-      <td>
-        Built-in scorers (Correctness, Guidelines) and prompt-specific custom scorers
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Predict Function</strong><br/><small></small></td>
-      <td>
-        Function that renders prompt templates and generates responses
-      </td>
-    </tr>
-  </tbody>
-</table>
+<ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-hero.png" alt="Prompt Evaluation" width="95%"/>
 
+## Key Components
 
-## Prerequisites
+- **[Scorers](/genai/eval-monitor/scorers)** allows you to define any qualitative and heuristic evaluation criteria for your prompts.
+- **[Experiment and Runs]** let you compare the performance of prompt versions visually and keep track of multiple trials in your projects.
+- **[Prompt Registry](/genai/prompt-registry)** allows you to version control your prompt templates and maintain the changes over time like Git source control.
+- **[Prompt Optimizers](/genai/prompt-registry/optimize-prompts)** empowers you with the state-of-the-art optimization algorithms and automates the prompt engineering process.
+
+## Example: Evaluating a Prompt Template
+
+### Prerequisites
+
+First, install the required packages by running the following command:
 
 ```bash
 pip install --upgrade mlflow>=3.3 openai
@@ -49,9 +35,9 @@ MLflow stores evaluation results in a tracking server. Connect your local enviro
 
 <ServerSetup />
 
-## Step 1: Create prompt templates
+### Step 1: Create prompt templates
 
-Define a simple prompt template. We use [MLflow Prompt Registry](/genai/mlflow-3/prompt-registry) to version control the prompt, but it is optional for evaluation.
+Let's define a simple prompt template to evaluate. We use [MLflow Prompt Registry](/genai/mlflow-3/prompt-registry) to save the prompt and version control it, but it is optional for evaluation.
 
 ```python
 import mlflow
@@ -78,9 +64,9 @@ mlflow.genai.register_prompt(
 )
 ```
 
-## Step 2: Create evaluation dataset
+### Step 2: Create evaluation dataset
 
-Design pairs of `inputs` and `expectations` as a test dataset.
+The evaluation dataset is defined as a list of dictionaries, each with an `inputs` and `expectations` field.
 
 ```python
 eval_dataset = [
@@ -98,11 +84,9 @@ eval_dataset = [
     },
 ]
 ```
-## Step 3: Create prediction function
+### Step 3: Create prediction function
 
-Define a prediction function that takes a question and generate a response using the latest prompt template.
-
-**IMPORTANT: The function must take the keyword arguments used in the `inputs` field of the dataset.** Therefore, we use `question` as the argument of the function here.
+Now wrap the prompt template in a simple function that takes a question to generate responses using the prompt template. **IMPORTANT: The function must take the keyword arguments used in the `inputs` field of the dataset.** Therefore, we use `question` as the argument of the function here.
 
 ```python
 from openai import OpenAI
@@ -118,9 +102,9 @@ def predict_fn(question: str) -> str:
     return response.choices[0].message.content
 ```
 
-## Step 4: Define task-specific scorers
+### Step 4: Define task-specific scorers
 
-Define a few [scorers](/genai/eval-monitor/scorers) that evaluate the quality of the response. Here we use two types of scorers:
+Finally, let's define a few [scorers](/genai/eval-monitor/scorers) that decides the evaluation criteria. Here we use two types of scorers:
 - Built-in LLM scorers for evaluating the qualitative aspects of the response.
 - Custom heuristic scorer for evaluating the coverage of the key concepts.
 
@@ -136,11 +120,8 @@ is_professional = Guidelines(name="is_professional", guidelines="The response sh
 # Evaluate the coverage of the key concepts using custom scorer
 @scorer
 def concept_coverage(outputs: str, expectations: dict) -> Feedback:
-    """Evaluate if response includes key concepts"""
     concepts = set(expectations.get("key_concepts", []))
     included = {c for c in concepts if c.lower() in outputs.lower()}
-
-    # Return a Feedback object with the score and rationale
     return Feedback(
         value=len(included) / len(concepts),
         rationale=(f"Included {len(included)} out of {len(concepts)} concepts. Missing: {concepts - included}"
@@ -154,9 +135,9 @@ LLM scorers uses OpenAI's GPT 4.1-mini by default. You can use different models 
 
 :::
 
-## Step 5: Run evaluation
+### Step 5: Run evaluation
 
-Run evaluation for each prompt template:
+Now we are ready to run the evaluation!
 
 ```python
 mlflow.genai.evaluate(
@@ -166,17 +147,76 @@ mlflow.genai.evaluate(
 )
 ```
 
-## Step 6: Review evaluation results
+Once the evaluation is done, open the MLflow UI in your browser and navigate to the experiment page. You should see MLflow creates a new Run and logs the evaluation results.
 
-TODO: A screenshot of run page that has overall metrics and prompt link
+<ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-results.png" alt="Prompt Evaluation" width="95%"/>
 
-TODO: A screenshot of the trace table
+By clicking on the each row in the result, you can open the trace and see the detailed score and rationale.
 
-## Step 7: Improve prompt
+<ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-trace.png" alt="Prompt Evaluation" width="95%"/>
 
-1. Register a new prompt version
-2. Run the same eval again (the new prompt is loaded through the `@latest` alias automatically)
-3. Compare the evaluation results
+
+
+
+## Iterating on Prompts
+
+The prompt evaluation is a iterative process. You can register a new prompt version, run the same eval again, and compare the evaluation results. The prompt registry keep track of the version changes and lineage between the prompt versions and evaluation results.
+
+```python
+# Define V2 prompt template
+PROMPT_V2 = [
+    {
+        "role": "system",
+        "content": "You are a helpful assistant. Answer the following question in three sentences."
+    },
+    {
+        "role": "user",
+        "content": "Question: {{question}}"
+    },
+]
+
+mlflow.genai.register_prompt(name="qa_prompt", template=PROMPT_V2)
+
+# Run the same evaluation again.
+# MLflow automatically loads the latest prompt template via the `@latest` alias.
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=predict_fn,
+    scorers=[is_concise, is_professional, concept_coverage]
+)
+```
+
+<ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-compare.png" alt="Prompt Evaluation" width="95%"/>
 
 ## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Customize Scorers"
+    description="Build specialized evaluation metrics for your specific use cases and requirements."
+    href="/genai/eval-monitor/scorers/custom"
+    linkText="Learn about custom scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Bot}
+    iconSize={48}
+    title="Evaluate Agents"
+    description="Evaluate complex AI agents with tool calling and multi-step workflows."
+    href="/genai/eval-monitor/running-evaluation/agents"
+    linkText="Evaluate agents →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Zap}
+    iconSize={48}
+    title="Optimize Prompts"
+    description="Use automated optimization techniques to systematically improve your prompts."
+    href="/genai/prompt-registry/optimize-prompts"
+    linkText="Optimize prompts →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
