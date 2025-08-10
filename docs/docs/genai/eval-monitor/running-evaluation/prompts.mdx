@@ -5,7 +5,9 @@ import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
-import { Target, Bot, Zap } from 'lucide-react';
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+import CollapsibleSection from '@site/src/components/CollapsibleSection';
+import { Target, Bot, Zap, FileText, Database, Code, CheckCircle, Play } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluating Prompts
@@ -14,12 +16,39 @@ Prompts are the core components of GenAI applications. However, iterating over p
 
 <ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-hero.png" alt="Prompt Evaluation" width="95%"/>
 
-## Key Components
 
-- **[Scorers](/genai/eval-monitor/scorers)** allows you to define any qualitative and heuristic evaluation criteria for your prompts.
-- **[Experiment and Runs]** let you compare the performance of prompt versions visually and keep track of multiple trials in your projects.
-- **[Prompt Registry](/genai/prompt-registry)** allows you to version control your prompt templates and maintain the changes over time like Git source control.
-- **[Prompt Optimizers](/genai/prompt-registry/optimize-prompts)** empowers you with the state-of-the-art optimization algorithms and automates the prompt engineering process.
+## Workflow
+
+<WorkflowSteps
+  steps={[
+    {
+    icon: FileText,
+    title: "Create prompt template(s)",
+    description: "Define and register your prompt templates in MLflow Prompt Registry for version control and easy access."
+    },
+    {
+    icon: Database,
+    title: "Prepare evaluation dataset",
+    description: "Create test cases with inputs and expected outcomes to systematically evaluate prompt performance."
+    },
+    {
+    icon: Code,
+    title: "Define a wrapper function to generate responses",
+    description: "Wrap your prompt in a function that takes dataset inputs and generates responses using your model."
+    },
+    {
+    icon: CheckCircle,
+    title: "Define evaluation scorers",
+    description: "Set up built-in and custom scorers to measure quality, accuracy, and task-specific criteria."
+    },
+    {
+    icon: Play,
+    title: "Run evaluation",
+    description: "Execute the evaluation and review results in MLflow UI to analyze performance and iterate."
+    }
+]}
+/>
+
 
 ## Example: Evaluating a Prompt Template
 
@@ -31,9 +60,6 @@ First, install the required packages by running the following command:
 pip install --upgrade mlflow>=3.3 openai
 ```
 
-MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
-
-<ServerSetup />
 
 ### Step 1: Create prompt templates
 
@@ -140,7 +166,7 @@ LLM scorers uses OpenAI's GPT 4.1-mini by default. You can use different models 
 Now we are ready to run the evaluation!
 
 ```python
-mlflow.genai.evaluate(
+results = mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
     scorers=[is_concise, is_professional, concept_coverage]
@@ -179,7 +205,7 @@ mlflow.genai.register_prompt(name="qa_prompt", template=PROMPT_V2)
 
 # Run the same evaluation again.
 # MLflow automatically loads the latest prompt template via the `@latest` alias.
-mlflow.genai.evaluate(
+results = mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
     scorers=[is_concise, is_professional, concept_coverage]

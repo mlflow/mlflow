@@ -38,48 +38,6 @@
   margin-right: auto;
 }
 
-.stepsHeader {
-  margin-bottom: 1rem;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.toggleButton {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 85%;
-  padding: 1rem 1.5rem;
-  background: var(--ifm-background-surface-color);
-  border: 2px solid var(--ifm-color-emphasis-300);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--ifm-color-emphasis-800);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.toggleButton:hover {
-  background: var(--ifm-color-emphasis-100);
-  border-color: var(--ifm-color-primary);
-  color: var(--ifm-color-primary);
-}
-
-.toggleButton:focus {
-  outline: 2px solid var(--ifm-color-primary);
-  outline-offset: 2px;
-}
-
-.toggleText {
-  flex: 1;
-  text-align: left;
-}
 
 .screenshotImage {
   max-width: 100%;
@@ -110,7 +68,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--ifm-color-primary);
+  background: #0194e2;
   color: white;
   font-weight: 600;
   font-size: 0.9rem;
@@ -126,7 +84,7 @@
 .stepConnector {
   width: 2px;
   height: 3rem;
-  background: var(--ifm-color-primary-lightest);
+  background: #b3e0f7;
   margin-top: -0.5rem;
   margin-bottom: 0.5rem;
 }
@@ -165,12 +123,6 @@
   .screenshotContainer {
     padding: 1rem;
     margin-bottom: 1rem;
-  }
-
-  .toggleButton {
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-    width: 85%;
   }
 
   .stepsContainer {
