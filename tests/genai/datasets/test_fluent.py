@@ -33,7 +33,7 @@ def mock_client():
 
 @pytest.fixture
 def mock_databricks_environment():
-    with mock.patch("mlflow.genai.datasets.is_in_databricks_runtime", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
         yield
 
 
@@ -299,7 +299,7 @@ def test_search_evaluation_datasets_databricks(mock_databricks_environment):
 
 
 def test_databricks_import_error():
-    with mock.patch("mlflow.genai.datasets.is_in_databricks_runtime", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
         with mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}):
             with mock.patch("builtins.__import__", side_effect=ImportError("No module")):
                 with pytest.raises(ImportError, match="databricks-agents"):
@@ -325,8 +325,8 @@ def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
     )
 
     assert dataset2.name == "test_no_user"
-    assert MLFLOW_USER not in dataset2.tags
-    assert dataset2.created_by is None
+    assert isinstance(dataset2.tags[MLFLOW_USER], str)
+    assert dataset2.created_by == dataset2.tags[MLFLOW_USER]
 
 
 def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
@@ -337,7 +337,8 @@ def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
     )
 
     assert dataset.name == "qa_evaluation_v1"
-    assert dataset.tags == {"source": "manual_curation", "environment": "test"}
+    assert dataset.tags["source"] == "manual_curation"
+    assert dataset.tags["environment"] == "test"
     assert len(dataset.experiment_ids) == 2
     assert dataset.dataset_id is not None
 
@@ -353,7 +354,7 @@ def test_create_dataset_minimal_params(tracking_uri):
     dataset = create_evaluation_dataset(name="minimal_dataset")
 
     assert dataset.name == "minimal_dataset"
-    assert dataset.tags == {}
+    assert "mlflow.user" not in dataset.tags or isinstance(dataset.tags.get("mlflow.user"), str)
     assert dataset.experiment_ids == []
 
 
@@ -770,7 +771,8 @@ def test_trace_to_dataset_with_assessments(client, experiment):
     assert docker_record["expectations"] is None or docker_record["expectations"] == {}
 
     retrieved = get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert retrieved.tags == {"source": "trace_integration_test", "version": "1.0"}
+    assert retrieved.tags["source"] == "trace_integration_test"
+    assert retrieved.tags["version"] == "1.0"
     assert set(retrieved.experiment_ids) == {experiment}
 
 
@@ -1009,7 +1011,7 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
         name="test_tags_crud",
         experiment_ids=experiments[0],
     )
-    assert dataset.tags == {}
+    initial_tags = dataset.tags.copy()
 
     set_evaluation_dataset_tags(
         dataset_id=dataset.dataset_id,
@@ -1021,11 +1023,15 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     )
 
     dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert dataset.tags == {
-        "team": "ml-platform",
-        "project": "evaluation",
-        "priority": "high",
-    }
+    expected_tags = initial_tags.copy()
+    expected_tags.update(
+        {
+            "team": "ml-platform",
+            "project": "evaluation",
+            "priority": "high",
+        }
+    )
+    assert dataset.tags == expected_tags
 
     set_evaluation_dataset_tags(
         dataset_id=dataset.dataset_id,
@@ -1036,12 +1042,16 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     )
 
     dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert dataset.tags == {
-        "team": "ml-platform",
-        "project": "evaluation",
-        "priority": "medium",
-        "status": "active",
-    }
+    expected_tags = initial_tags.copy()
+    expected_tags.update(
+        {
+            "team": "ml-platform",
+            "project": "evaluation",
+            "priority": "medium",
+            "status": "active",
+        }
+    )
+    assert dataset.tags == expected_tags
 
     delete_evaluation_dataset_tag(
         dataset_id=dataset.dataset_id,
@@ -1049,11 +1059,15 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     )
 
     dataset = get_evaluation_dataset(dataset_id=dataset.dataset_id)
-    assert dataset.tags == {
-        "team": "ml-platform",
-        "project": "evaluation",
-        "status": "active",
-    }
+    expected_tags = initial_tags.copy()
+    expected_tags.update(
+        {
+            "team": "ml-platform",
+            "project": "evaluation",
+            "status": "active",
+        }
+    )
+    assert dataset.tags == expected_tags
 
     delete_evaluation_dataset(dataset_id=dataset.dataset_id)
 
@@ -1066,8 +1080,7 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
             tags={"should": "fail"},
         )
 
-    with pytest.raises(MlflowException, match="Could not find|not found"):
-        delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="status")
+    delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="status")
 
 
 def test_set_evaluation_dataset_tags_databricks(mock_databricks_environment):

@@ -3307,7 +3307,6 @@ def _set_evaluation_dataset_tags():
     _get_tracking_store().set_evaluation_dataset_tags(
         dataset_id=request_message.dataset_id,
         tags=tags,
-        updated_by=None,  # TODO: Get from auth context when available
     )
 
     response_message = SetEvaluationDatasetTags.Response()
@@ -3371,24 +3370,19 @@ def _get_evaluation_dataset_records():
         },
     )
 
-    # Get records from the backend
     records = _get_tracking_store()._load_dataset_records(request_message.dataset_id)
 
-    # Apply pagination if requested
     max_results = request_message.max_results if request_message.max_results else 1000
     page_token = request_message.page_token if request_message.page_token else "0"
     start_index = int(page_token)
 
     paginated_records = records[start_index : start_index + max_results]
 
-    # Prepare response
     response_message = GetEvaluationDatasetRecords.Response()
 
-    # Convert records to JSON
     records_dicts = [record.to_dict() for record in paginated_records]
     response_message.records = json.dumps(records_dicts)
 
-    # Set next page token if there are more records
     if start_index + max_results < len(records):
         response_message.next_page_token = str(start_index + max_results)
 
