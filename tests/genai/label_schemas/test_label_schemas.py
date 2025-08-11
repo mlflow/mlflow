@@ -22,6 +22,10 @@ from mlflow.genai.label_schemas import (
 from mlflow.genai.label_schemas.label_schemas import (
     InputType,
 )
+from mlflow.genai.scorers.validation import IS_DBX_AGENTS_INSTALLED
+
+if not IS_DBX_AGENTS_INSTALLED:
+    pytest.skip("Skipping Databricks only test.", allow_module_level=True)
 
 
 # InputCategorical tests

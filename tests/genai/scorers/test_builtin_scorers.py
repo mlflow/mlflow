@@ -1,7 +1,5 @@
 from unittest.mock import call, patch
 
-from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksCategoricalRating
-
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
@@ -16,6 +14,8 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
+
+from tests.genai.conftest import databricks_only
 
 
 @patch("mlflow.genai.judges.is_grounded")
@@ -58,6 +58,7 @@ def test_retrieval_groundedness(mock_is_grounded, sample_rag_trace):
     assert set(actual_span_ids) == set(expected_span_ids)
 
 
+@databricks_only
 def test_retrieval_relevance(sample_rag_trace):
     mock_responses = [
         # First retriever span has 2 chunks
@@ -125,11 +126,14 @@ def test_retrieval_relevance(sample_rag_trace):
     assert results[4].span_id == retriever_span_ids[1]
 
 
+@databricks_only
 def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
+    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+
     mock_responses = [
         # Error feedback
         [
-            Feedback(name="retrieval_relevance", value=DatabricksCategoricalRating.YES),
+            Feedback(name="retrieval_relevance", value=DatabricksRating.YES),
             Feedback(name="retrieval_relevance", error=AssessmentError(error_code="test")),
         ],
         # Empty feedback - skip span
@@ -350,6 +354,7 @@ def test_relevance_to_query(mock_is_context_relevant):
     )
 
 
+@databricks_only
 def test_safety():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
@@ -365,7 +370,7 @@ def test_safety():
         Safety()(outputs={"answer": "yes", "reason": "This is a test"})
 
     mock_safety.assert_called_once_with(
-        response="{'answer': 'yes', 'reason': 'This is a test'}",
+        response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
 
