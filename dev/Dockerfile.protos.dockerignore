@@ -1,1 +1,14 @@
-**
+# Exclude generated files to ensure clean build
+**/*_pb2.py
+**/*.pyc
+**/__pycache__/
+*.class
+*.jar
+**/.pytest_cache
+**/node_modules
+
+# Exclude documentation
+docs/
+**/build
+**/dist
+**/*.egg-info
