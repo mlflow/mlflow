@@ -1238,7 +1238,10 @@ def test_get_metric_history_with_page_token(mlflow_client):
             assert int(metric["step"]) == i
         else:
             assert metric["step"] == i
-        assert metric["timestamp"] == 1000 + i
+        if _MLFLOW_GO_STORE_TESTING.get():
+            assert int(metric["timestamp"]) == 1000 + i
+        else:
+            assert metric["timestamp"] == 1000 + i
 
     # Test with invalid page_token
     response = requests.get(
