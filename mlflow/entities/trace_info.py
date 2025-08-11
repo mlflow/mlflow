@@ -133,8 +133,8 @@ class TraceInfo(_MlflowObject):
                 proto.client_request_id if proto.HasField("client_request_id") else None
             ),
             trace_location=TraceLocation.from_proto(proto.trace_location),
-            request_preview=proto.request_preview,
-            response_preview=proto.response_preview,
+            request_preview=proto.request_preview if proto.HasField("request_preview") else None,
+            response_preview=proto.response_preview if proto.HasField("response_preview") else None,
             request_time=proto.request_time.ToMilliseconds(),
             execution_duration=(
                 proto.execution_duration.ToMilliseconds()
