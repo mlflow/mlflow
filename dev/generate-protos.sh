@@ -18,7 +18,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if ! docker info >/dev/null 2>&1; then
-    echo "Docker is not available. Please install Docker and try again."
+    echo "Docker is not available. Please install Docker or start Docker daemon and try again."
     exit 1
 fi
 
