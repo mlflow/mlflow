@@ -8,7 +8,9 @@ from mlflow.utils.annotations import deprecated
 @deprecated(alternative="mlflow.set_tracking_uri`` and ``mlflow.set_experiment", since="3.3.0")
 @dataclass
 class TraceDestination:
-    """A configuration object for specifying the destination of trace data."""
+    """
+    A configuration object for specifying the destination of trace data.
+    """
 
     @property
     def type(self) -> str:
