@@ -1,5 +1,4 @@
 import importlib.metadata as _meta
-import inspect
 import logging
 from typing import Any
 
@@ -9,6 +8,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 FLAVOR_NAME = "agno"
@@ -21,14 +21,6 @@ if not hasattr(agno, "__version__"):
         agno.__version__ = _meta.version("agno")
     except _meta.PackageNotFoundError:
         agno.__version__ = "1.7.7"
-
-
-def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
-    sig = inspect.signature(func)
-    bound = sig.bind_partial(*args, **kwargs).arguments
-    return {
-        k: (v.__dict__ if hasattr(v, "__dict__") else v) for k, v in bound.items() if v is not None
-    }
 
 
 def _compute_span_name(instance, original) -> str:
@@ -81,7 +73,7 @@ def _get_agent_attributes(instance) -> dict[str, Any]:
 
 def _get_tools_attribute(instance) -> dict[str, Any]:
     return {
-        f"tool_{key}": val
+        key: val
         for key, val in vars(instance.function).items()
         if not key.startswith("_") and val is not None
     }
@@ -101,6 +93,7 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
         from agno.tools.function import FunctionCall
 
         if isinstance(instance, FunctionCall):
+            span.set_inputs(construct_full_inputs(instance.function))
             span.set_attributes(_get_tools_attribute(instance))
     except Exception as exc:  # pragma: no cover
         _logger.debug("Unable to attach agent attributes: %s", exc)
@@ -119,9 +112,8 @@ def _get_span_type(instance) -> str:
         return SpanType.AGENT
     if isinstance(instance, FunctionCall):
         return SpanType.TOOL
-    # TODO: Update the spanType to Memory when its available in MLflow
     if isinstance(instance, Storage):
-        return SpanType.RETRIEVER
+        return SpanType.MEMORY
 
     return SpanType.UNKNOWN
 
@@ -147,7 +139,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
     span_type = _get_span_type(self)
 
     with mlflow.start_span(name=span_name, span_type=span_type) as span:
-        span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))
+        span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
         _set_span_attributes(span, self)
 
         try:
@@ -170,7 +162,7 @@ def patched_class_call(original, self, *args, **kwargs):
     span_type = _get_span_type(self)
 
     with mlflow.start_span(name=span_name, span_type=span_type) as span:
-        span.set_inputs(_construct_full_inputs(original, self, *args, **kwargs))
+        span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
         _set_span_attributes(span, self)
 
         try:

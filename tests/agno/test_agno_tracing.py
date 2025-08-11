@@ -43,16 +43,16 @@ def simple_agent():
 
 
 def test_run_simple_autolog(simple_agent):
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("Paris")):
-        mlflow.agno.autolog(log_traces=True)
         resp = simple_agent.run("Capital of France?")
     assert resp.content == "Paris"
 
     spans = [s.span_type for s in get_traces()[0].data.spans]
     assert spans == [SpanType.AGENT]
 
+    mlflow.agno.autolog(disable=True)
     with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("Paris")):
-        mlflow.agno.autolog(disable=True)
         simple_agent.run("Again?")
     assert len(get_traces()) == 1
 
@@ -61,8 +61,8 @@ def test_run_failure_tracing(simple_agent):
     def _boom(self, messages, **kw):
         raise RuntimeError("bang")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "response", new=_boom):
-        mlflow.agno.autolog(log_traces=True)
         with pytest.raises(RuntimeError, match="bang"):
             simple_agent.run("fail")
 
@@ -77,8 +77,8 @@ async def test_arun_simple_autolog(simple_agent):
     async def _resp(self, messages, **kw):
         return _safe_resp("Paris")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "aresponse", _resp):
-        mlflow.agno.autolog(log_traces=True)
         resp = await simple_agent.arun("Capital of France?")
     assert resp.content == "Paris"
 
@@ -91,8 +91,8 @@ async def test_arun_failure_tracing(simple_agent):
     async def _boom(self, messages, **kw):
         raise RuntimeError("bang")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "aresponse", new=_boom):
-        mlflow.agno.autolog(log_traces=True)
         with pytest.raises(RuntimeError, match="bang"):
             await simple_agent.arun("fail")
 
@@ -145,8 +145,8 @@ def test_agent_run_with_function_span(simple_agent):
         FunctionCall(function=func).execute()
         return _safe_resp("done")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "response", patched):
-        mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
 
     spans = get_traces()[0].data.spans
@@ -165,8 +165,8 @@ async def test_agent_arun_with_function_span(simple_agent):
         await FunctionCall(function=func).aexecute()
         return _safe_resp("done")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "aresponse", patched):
-        mlflow.agno.autolog(log_traces=True)
         await simple_agent.arun("hi")
 
     spans = get_traces()[0].data.spans
@@ -180,12 +180,11 @@ def test_token_usage_recorded(simple_agent):
     agno_autolog_module = importlib.import_module("mlflow.agno.autolog")
 
     expected = {"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}
-
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(agno_autolog_module, "_parse_usage", lambda result: expected):
         with patch.object(
             Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=metrics)
         ):
-            mlflow.agno.autolog(log_traces=True)
             simple_agent.run("hi")
 
     trace = get_traces()[0]
@@ -195,10 +194,10 @@ def test_token_usage_recorded(simple_agent):
 
 
 def test_token_usage_missing(simple_agent):
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(
         Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=None)
     ):
-        mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
 
     trace = get_traces()[0]
@@ -223,8 +222,8 @@ def test_autolog_disable_prevents_tool_traces():
 
 
 def test_multiple_agent_runs(simple_agent):
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("A")):
-        mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
     with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("B")):
         simple_agent.run("hello")
@@ -285,8 +284,8 @@ def test_agent_run_with_multiple_function_spans(simple_agent):
         FunctionCall(function=func2).execute()
         return _safe_resp("done")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "response", patched):
-        mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
 
     spans = get_traces()[0].data.spans
@@ -310,8 +309,8 @@ async def test_agent_arun_with_multiple_function_spans(simple_agent):
         await FunctionCall(function=func2).aexecute()
         return _safe_resp("done")
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Claude, "aresponse", patched):
-        mlflow.agno.autolog(log_traces=True)
         await simple_agent.arun("hi")
 
     spans = get_traces()[0].data.spans
@@ -320,8 +319,8 @@ async def test_agent_arun_with_multiple_function_spans(simple_agent):
 
 
 def test_autolog_log_traces_false_produces_no_traces(simple_agent):
+    mlflow.agno.autolog(log_traces=False)
     with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("ok")):
-        mlflow.agno.autolog(log_traces=False)
         simple_agent.run("hi")
 
     assert get_traces() == []
@@ -344,9 +343,9 @@ def test_agno_and_anthropic_autolog_single_trace(simple_agent, monkeypatch):
 
     _create.__name__ = "create"
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Messages, "create", _create):
         mlflow.anthropic.autolog(log_traces=True)
-        mlflow.agno.autolog(log_traces=True)
         simple_agent.run("hi")
 
     traces = get_traces()
@@ -377,9 +376,9 @@ async def test_agno_and_anthropic_autolog_single_trace_async(simple_agent, monke
     async def _aresponse(self, messages, **kwargs):
         return self.response(messages, **kwargs)
 
+    mlflow.agno.autolog(log_traces=True)
     with patch.object(Messages, "create", _create), patch.object(Claude, "aresponse", _aresponse):
         mlflow.anthropic.autolog(log_traces=True)
-        mlflow.agno.autolog(log_traces=True)
         await simple_agent.arun("hi")
 
     traces = get_traces()

@@ -16,6 +16,15 @@ _logger = logging.getLogger(__name__)
 @experimental(version="3.3.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
+    """
+    Enables (or disables) and configures autologging from Agno to MLflow.
+
+    Args:
+        log_traces: If ``True``, traces are logged for Agno Agents.
+        disable: If ``True``, disables Agno autologging.
+        silent: If ``True``, suppresses all MLflow event logs and warnings.
+    """
+
     class_map = {
         "agno.agent.Agent": ["run", "arun"],
         "agno.team.Team": ["run", "arun"],
@@ -56,9 +65,6 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
                 )
                 safe_patch(FLAVOR_NAME, cls, method_name, wrapper)
             except AttributeError as exc:
-                _logger.error(
+                _logger.debug(
                     "Agno autologging: cannot patch %s.%s – %s", cls_path, method_name, exc
                 )
-
-    if not silent:
-        _logger.info("MLflow Agno autologging enabled (log_traces=%s).", log_traces)
