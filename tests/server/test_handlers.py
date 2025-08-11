@@ -1087,7 +1087,6 @@ def test_set_evaluation_dataset_tags(mock_tracking_store):
     mock_tracking_store.set_evaluation_dataset_tags.assert_called_once_with(
         dataset_id="d-1234567890abcdef1234567890abcdef",
         tags={"env": "production", "version": "2.0"},
-        updated_by=None,
     )
 
 
@@ -1117,7 +1116,6 @@ def test_upsert_evaluation_dataset_records(mock_tracking_store):
         updated_by=None,
     )
 
-    # Check response
     response_data = json.loads(resp.get_data())
     assert response_data["inserted_count"] == 2
     assert response_data["updated_count"] == 0
@@ -1139,13 +1137,11 @@ def test_get_evaluation_dataset_experiment_ids(mock_tracking_store):
         dataset_id="d-1234567890abcdef1234567890abcdef"
     )
 
-    # Check response
     response_data = json.loads(resp.get_data())
     assert response_data["experiment_ids"] == ["exp1", "exp2", "exp3"]
 
 
 def test_get_evaluation_dataset_records(mock_tracking_store):
-    # Create mock records
     records = []
     for i in range(3):
         record = mock.MagicMock()
@@ -1169,7 +1165,6 @@ def test_get_evaluation_dataset_records(mock_tracking_store):
 
     mock_tracking_store._load_dataset_records.return_value = records
 
-    # Test without pagination
     with app.test_request_context(
         method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
     ):
@@ -1184,7 +1179,6 @@ def test_get_evaluation_dataset_records(mock_tracking_store):
     assert len(records_data) == 3
     assert records_data[0]["dataset_record_id"] == "r-000"
 
-    # Test with pagination
     with app.test_request_context(
         method="GET",
         json={
@@ -1200,7 +1194,6 @@ def test_get_evaluation_dataset_records(mock_tracking_store):
     assert len(records_data) == 2
     assert response_data["next_page_token"] == "2"
 
-    # Test pagination - second page
     with app.test_request_context(
         method="GET",
         json={

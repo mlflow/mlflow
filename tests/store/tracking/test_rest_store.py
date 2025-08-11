@@ -1792,7 +1792,7 @@ def test_evaluation_dataset_merge_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "get_evaluation_dataset") as mock_get:
@@ -1894,8 +1894,6 @@ def test_evaluation_dataset_lazy_loading_records():
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
 
-    from mlflow.entities.evaluation_dataset import EvaluationDataset
-
     eval_dataset = EvaluationDataset(
         dataset_id=dataset_id,
         name="test_dataset",
@@ -1904,7 +1902,7 @@ def test_evaluation_dataset_lazy_loading_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "_load_dataset_records") as mock_load:
@@ -1970,3 +1968,157 @@ def test_evaluation_dataset_pagination():
                 )
             ),
         )
+
+
+def test_evaluation_dataset_created_by_and_updated_by():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        created_response = CreateEvaluationDataset.Response()
+        created_response.dataset.dataset_id = "d-test123"
+        created_response.dataset.name = "test_dataset"
+        created_response.dataset.created_time = 1234567890000
+        created_response.dataset.last_update_time = 1234567890000
+        created_response.dataset.created_by = "user1"
+        created_response.dataset.last_updated_by = "user1"
+        created_response.dataset.digest = "abc123"
+        created_response.dataset.tags = json.dumps({"mlflow.user": "user1", "environment": "test"})
+
+        mock_call.return_value = created_response
+
+        dataset = store.create_evaluation_dataset(
+            name="test_dataset",
+            experiment_ids=["exp1"],
+            tags={"mlflow.user": "user1", "environment": "test"},
+        )
+
+        assert dataset.created_by == "user1"
+        assert dataset.last_updated_by == "user1"
+        assert dataset.tags["mlflow.user"] == "user1"
+
+        upsert_response = UpsertEvaluationDatasetRecords.Response()
+        upsert_response.inserted_count = 1
+        upsert_response.updated_count = 0
+
+        get_response = GetEvaluationDataset.Response()
+        get_response.dataset.dataset_id = "d-test123"
+        get_response.dataset.name = "test_dataset"
+        get_response.dataset.created_time = 1234567890000
+        get_response.dataset.last_update_time = 1234567900000
+        get_response.dataset.created_by = "user1"
+        get_response.dataset.last_updated_by = "user2"
+        get_response.dataset.digest = "def456"
+        get_response.dataset.tags = json.dumps({"mlflow.user": "user1", "environment": "test"})
+
+        mock_call.side_effect = [upsert_response, get_response]
+
+        records = [
+            {
+                "inputs": {"question": "Test?"},
+                "expectations": {"score": 0.9},
+                "tags": {"mlflow.user": "user2"},
+            }
+        ]
+        result = store.upsert_evaluation_dataset_records("d-test123", records)
+
+        assert result["inserted"] == 1
+        assert result["updated"] == 0
+
+        updated_dataset = store.get_evaluation_dataset("d-test123")
+        assert updated_dataset.created_by == "user1"
+        assert updated_dataset.last_updated_by == "user2"
+
+        created_response_no_user = CreateEvaluationDataset.Response()
+        created_response_no_user.dataset.dataset_id = "d-test456"
+        created_response_no_user.dataset.name = "test_dataset_no_user"
+        created_response_no_user.dataset.created_time = 1234567890000
+        created_response_no_user.dataset.last_update_time = 1234567890000
+        created_response_no_user.dataset.digest = "ghi789"
+        created_response_no_user.dataset.tags = json.dumps({"environment": "production"})
+
+        mock_call.side_effect = None
+        mock_call.return_value = created_response_no_user
+
+        dataset_no_user = store.create_evaluation_dataset(
+            name="test_dataset_no_user",
+            experiment_ids=["exp2"],
+            tags={"environment": "production"},
+        )
+
+        assert dataset_no_user.created_by is None
+        assert dataset_no_user.last_updated_by is None
+
+        set_tags_response = SetEvaluationDatasetTags.Response()
+        set_tags_response.dataset.dataset_id = "d-test123"
+        set_tags_response.dataset.name = "test_dataset"
+        set_tags_response.dataset.created_time = 1234567890000
+        set_tags_response.dataset.last_update_time = 1234567890000
+        set_tags_response.dataset.created_by = "user1"
+        set_tags_response.dataset.last_updated_by = "user1"
+        set_tags_response.dataset.digest = "abc123"
+        set_tags_response.dataset.tags = json.dumps(
+            {"mlflow.user": "user3", "environment": "staging", "version": "2.0"}
+        )
+
+        mock_call.return_value = set_tags_response
+
+        store.set_evaluation_dataset_tags(
+            "d-test123",
+            {"mlflow.user": "user3", "version": "2.0", "environment": "staging"},
+        )
+
+        call_args = mock_call.call_args_list[-1]
+        api, json_body = call_args[0]
+        assert api == SetEvaluationDatasetTags
+        request_dict = json.loads(json_body)
+        tags_dict = json.loads(request_dict["tags"])
+        assert "mlflow.user" in tags_dict
+        assert tags_dict["mlflow.user"] == "user3"
+
+
+def test_evaluation_dataset_user_tracking_search():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        search_response = SearchEvaluationDatasets.Response()
+
+        dataset1 = search_response.datasets.add()
+        dataset1.dataset_id = "d-dataset1"
+        dataset1.name = "dataset1"
+        dataset1.created_time = 1234567890000
+        dataset1.last_update_time = 1234567900000
+        dataset1.created_by = "user1"
+        dataset1.last_updated_by = "user2"
+        dataset1.digest = "search1"
+
+        dataset2 = search_response.datasets.add()
+        dataset2.dataset_id = "d-dataset2"
+        dataset2.name = "dataset2"
+        dataset2.created_time = 1234567891000
+        dataset2.last_update_time = 1234567891000
+        dataset2.created_by = "user2"
+        dataset2.last_updated_by = "user2"
+        dataset2.digest = "search2"
+
+        mock_call.return_value = search_response
+
+        results = store.search_evaluation_datasets(filter_string="created_by = 'user1'")
+
+        assert len(results) == 2
+        assert results[0].created_by == "user1"
+        assert results[0].last_updated_by == "user2"
+
+        call_args = mock_call.call_args_list[-1]
+        api, json_body = call_args[0]
+        assert api == SearchEvaluationDatasets
+        request_json = json.loads(json_body)
+        assert request_json["filter_string"] == "created_by = 'user1'"
+
+        results = store.search_evaluation_datasets(filter_string="last_updated_by = 'user2'")
+
+        call_args = mock_call.call_args_list[-1]
+        api, json_body = call_args[0]
+        request_json = json.loads(json_body)
+        assert request_json["filter_string"] == "last_updated_by = 'user2'"
