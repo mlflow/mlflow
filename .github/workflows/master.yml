@@ -318,7 +318,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install databricks-agents openai dspy
+          pip install openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
