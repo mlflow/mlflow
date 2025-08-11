@@ -83,6 +83,8 @@ class NoOpTracerPatcher:
 def parse_inputs_to_str(value: Any) -> str:
     """Parse the inputs to a string compatible with the judges API"""
     if is_none_or_nan(value):
+        # The DBX managed backend doesn't allow empty inputs. This is
+        # a temporary workaround to bypass the validation.
         return " "
     if isinstance(value, str):
         return value
@@ -120,12 +122,16 @@ def parse_outputs_to_str(value: Any) -> str:
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
         content = value[_MESSAGES_KEY][-1][_CONTENT_KEY]
     else:
-        content = json.dumps(value, default=TraceJSONEncoder)
+        content = json.dumps(value, cls=TraceJSONEncoder)
     return content
 
 
 def _is_chat_choices(maybe_choices: Any) -> bool:
-    if not maybe_choices or not isinstance(maybe_choices[0], dict):
+    if (
+        not maybe_choices
+        or not isinstance(maybe_choices, list)
+        or not isinstance(maybe_choices[0], dict)
+    ):
         return False
 
     message = maybe_choices[0].get(_MESSAGE_KEY)
@@ -149,7 +155,7 @@ def _to_dict(obj: Any) -> dict[str, Any]:
         return obj.model_dump()
 
     # Convert to JSON string and then back to dictionary to handle nested objects
-    json_str = json.dumps(obj, default=TraceJSONEncoder)
+    json_str = json.dumps(obj, cls=TraceJSONEncoder)
     return json.loads(json_str)
 
 
