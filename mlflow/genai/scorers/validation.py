@@ -49,11 +49,12 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             valid_scorers.append(scorer)
         else:
             if IS_DBX_AGENTS_INSTALLED:
-                from databricks.agents.evals.metrics import Metric
+                from databricks.rag_eval.evaluation.metrics import Metric
 
                 if isinstance(scorer, Metric):
                     legacy_metrics.append(scorer)
                     valid_scorers.append(scorer)
+                    continue
 
             # Show helpful error message for common mistakes
             if isinstance(scorer, list) and (scorer == get_all_scorers()):

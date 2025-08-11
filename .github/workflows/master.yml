@@ -328,7 +328,7 @@ jobs:
         run: |
           pip install databricks-agents
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
-            --ignore tests/optimize --ignore tests/prompts
+            --ignore tests/genai/optimize --ignore tests/genai/prompts
 
       - name: Run Tests with Local Spark Session
         run: |

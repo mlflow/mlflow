@@ -362,7 +362,7 @@ def test_builtin_scorer_round_trip():
 
     # Verify execution worked correctly
     mock_judge.assert_called_once_with(
-        request='{"question": "What is machine learning?"}',
+        request="{'question': 'What is machine learning?'}",
         context=(
             "Machine learning is a subset of AI that enables computers to learn without "
             "explicit programming."
@@ -434,7 +434,7 @@ def test_builtin_scorer_with_parameters_round_trip():
     mock_judge.assert_called_once_with(
         guidelines=[tone],
         context={
-            "request": '{"question": "What is the issue?"}',
+            "request": "{'question': 'What is the issue?'}",
             "response": (
                 "Thank you for bringing this to my attention. I understand your concern and "
                 "will help resolve this issue promptly."

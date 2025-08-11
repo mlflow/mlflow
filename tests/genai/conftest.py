@@ -34,7 +34,7 @@ def is_in_databricks(request):
     # To be effective, we skip OSS test when running with `databricks-agents`.
     if "GITHUB_ACTIONS" in os.environ:
         if not request.param and IS_DBX_AGENTS_INSTALLED:
-            pytest.skip("Skipping OSS test because `databricks-agents` is installed.")
+            pytest.skip("Skipping OSS test in CI because `databricks-agents` is installed.")
 
     with (
         mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param),

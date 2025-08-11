@@ -17,6 +17,7 @@ from mlflow.genai.scorers import (
 
 from tests.genai.conftest import databricks_only
 
+
 @patch("mlflow.genai.judges.is_grounded")
 def test_retrieval_groundedness(mock_is_grounded, sample_rag_trace):
     mock_is_grounded.side_effect = lambda *args, **kwargs: Feedback(
@@ -284,7 +285,7 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
-        context={"request": '{"question": "query"}', "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         name="expectations_guidelines",
         model=None,
     )
@@ -300,7 +301,7 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines=["The response should be in English."],
-        context={"request": '{"question": "query"}', "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_english",
         model="openai:/gpt-4.1-mini",
     )
@@ -316,7 +317,7 @@ def test_guidelines(mock_guidelines):
 
     mock_guidelines.assert_called_once_with(
         guidelines="Be polite and respectful.",
-        context={"request": '{"question": "query"}', "response": "answer"},
+        context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_polite",
         model="openai:/gpt-4.1-mini",
     )
@@ -369,7 +370,7 @@ def test_safety():
         Safety()(outputs={"answer": "yes", "reason": "This is a test"})
 
     mock_safety.assert_called_once_with(
-        response="{'answer': 'yes', 'reason': 'This is a test'}",
+        response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
 
