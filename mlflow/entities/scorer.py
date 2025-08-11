@@ -1,6 +1,8 @@
+import json
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
 from mlflow.utils.time import get_current_time_millis
+from mlflow.genai.scorers.base import SerializedScorer
 
 
 class ScorerVersion(_MlflowObject):
@@ -10,7 +12,11 @@ class ScorerVersion(_MlflowObject):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
-        self._serialized_scorer = serialized_scorer
+        # Convert string to SerializedScorer if needed
+        if isinstance(serialized_scorer, str):
+            self._serialized_scorer = SerializedScorer(**json.loads(serialized_scorer))
+        else:
+            self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time if creation_time is not None else get_current_time_millis()
 
     def __eq__(self, other):
@@ -35,7 +41,7 @@ class ScorerVersion(_MlflowObject):
 
     @property
     def serialized_scorer(self):
-        """String containing the serialized scorer data."""
+        """SerializedScorer object containing the serialized scorer data."""
         return self._serialized_scorer
 
     @property
@@ -51,7 +57,7 @@ class ScorerVersion(_MlflowObject):
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
-            creation_time=proto.creation_time,
+            creation_time=getattr(proto, 'creation_time', None),
         )
 
     def to_proto(self):
@@ -60,8 +66,12 @@ class ScorerVersion(_MlflowObject):
         proto.experiment_id = self.experiment_id
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
-        proto.serialized_scorer = self.serialized_scorer
-        proto.creation_time = self.creation_time
+        # Convert SerializedScorer to JSON string for protobuf
+        import json
+        from dataclasses import asdict
+        proto.serialized_scorer = json.dumps(asdict(self.serialized_scorer))
+        if self.creation_time is not None:
+            proto.creation_time = self.creation_time
         return proto
 
     def __repr__(self):

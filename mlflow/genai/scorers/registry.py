@@ -100,8 +100,8 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     for entity_scorer in entity_scorers:
         from mlflow.genai.scorers import Scorer
         
-        scorer_dict = json.loads(entity_scorer.serialized_scorer)
-        scorer = Scorer.model_validate(scorer_dict)
+        # Pass SerializedScorer object directly to model_validate
+        scorer = Scorer.model_validate(entity_scorer.serialized_scorer)
         scorers.append(scorer)
     
     return scorers
@@ -173,8 +173,7 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
     scorer_version = current_store.get_scorer(experiment_id, name)
     
     # Convert to mlflow.genai.scorers.Scorer object
-    scorer_dict = json.loads(scorer_version.serialized_scorer)
-    scorer = Scorer.model_validate(scorer_dict)
+    scorer = Scorer.model_validate(scorer_version.serialized_scorer)
     
     return scorer
 

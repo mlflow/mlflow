@@ -168,18 +168,22 @@ class Scorer(BaseModel):
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
-        if not isinstance(obj, dict):
+        # Handle SerializedScorer object
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        # Handle dict object
+        elif isinstance(obj, dict):
+            # Parse the serialized data using our dataclass
+            try:
+                serialized = SerializedScorer(**obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
+        else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer data: expected a dictionary, got {type(obj).__name__}. "
-                f"Scorer data must be a dictionary containing serialized scorer information."
-            )
-
-        # Parse the serialized data using our dataclass
-        try:
-            serialized = SerializedScorer(**obj)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to parse serialized scorer data: {e}"
+                f"Invalid scorer data: expected a SerializedScorer object or dictionary, got {type(obj).__name__}. "
+                f"Scorer data must be either a SerializedScorer object or a dictionary containing serialized scorer information."
             )
 
         # Log version information for debugging
