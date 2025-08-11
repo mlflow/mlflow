@@ -1,7 +1,7 @@
 import logging
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -31,7 +31,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
-    from genai.evaluation.utils import EvaluationDatasetTypes
+    from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    predict_fn: Optional[Callable[..., Any]] = None,
-    model_id: Optional[str] = None,
+    predict_fn: Callable[..., Any] | None = None,
+    model_id: str | None = None,
 ) -> EvaluationResult:
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -68,6 +68,7 @@ def evaluate(
         from mlflow.genai.scorers import Correctness, Safety
         import pandas as pd
 
+        # model_id is a string starting with "m-", e.g. "m-074689226d3b40bfbbdf4c3ff35832cd"
         trace_df = mlflow.search_traces(model_id="<my-model-id>")
 
         mlflow.genai.evaluate(
@@ -207,8 +208,8 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
-        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
-            the evaluation results. Can be also set globally via the
+        model_id: Optional model identifier (e.g. "m-074689226d3b40bfbbdf4c3ff35832cd")
+            to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
     Returns:

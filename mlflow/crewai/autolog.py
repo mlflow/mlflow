@@ -50,7 +50,7 @@ def _get_span_type(instance) -> str:
         elif isinstance(
             instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
-            return SpanType.RETRIEVER
+            return SpanType.MEMORY
 
         # Knowledge and Memory are not available before 0.83.0
         if Version(crewai.__version__) >= Version("0.83.0"):
@@ -61,9 +61,11 @@ def _get_span_type(instance) -> str:
                     crewai.memory.LongTermMemory,
                     crewai.memory.UserMemory,
                     crewai.memory.EntityMemory,
-                    crewai.Knowledge,
                 ),
             ):
+                return SpanType.MEMORY
+
+            if isinstance(instance, crewai.Knowledge):
                 return SpanType.RETRIEVER
     except AttributeError as e:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
@@ -113,6 +115,8 @@ def _set_span_attributes(span: LiveSpan, instance):
                         value = _parse_tasks(value)
                     elif key == "agents":
                         value = _parse_agents(value)
+                    elif key == "embedder":
+                        value = _sanitize_value(value)
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
         elif isinstance(instance, Agent):
@@ -153,6 +157,8 @@ def _get_agent_attributes(instance):
     for key, value in instance.__dict__.items():
         if key == "tools":
             value = _parse_tools(value)
+        elif key == "embedder":
+            value = _sanitize_value(value)
         if value is None:
             continue
         agent[key] = str(value)
@@ -246,3 +252,32 @@ def _parse_tools(tools):
                 }
             )
     return result
+
+
+def _sanitize_value(val):
+    """
+    Sanitize a value to remove sensitive information.
+
+    Args:
+        val: The value to sanitize. Can be None, a dict, a list, or other types.
+
+    Returns:
+        The sanitized value.
+    """
+    if val is None:
+        return None
+
+    sensitive_keys = ["api_key", "secret", "password", "token"]
+
+    if isinstance(val, dict):
+        sanitized = {}
+        for k, v in val.items():
+            if any(sensitive in k.lower() for sensitive in sensitive_keys):
+                continue
+            sanitized[k] = _sanitize_value(v)
+        return sanitized
+
+    elif isinstance(val, list):
+        return [_sanitize_value(item) for item in val]
+
+    return val

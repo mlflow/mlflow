@@ -10,8 +10,8 @@ class UnparameterizedGenericType(Rule):
 
     @staticmethod
     def is_generic_type(node: ast.Name | ast.Attribute, resolver: Resolver) -> bool:
-        if resolved := resolver.resolve(node):
-            return tuple(resolved) in {
+        if names := resolver.resolve(node):
+            return tuple(names) in {
                 ("typing", "Callable"),
                 ("typing", "Sequence"),
             }

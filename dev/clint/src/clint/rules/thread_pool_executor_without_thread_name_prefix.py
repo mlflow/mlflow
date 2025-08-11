@@ -16,8 +16,8 @@ class ThreadPoolExecutorWithoutThreadNamePrefix(Rule):
         """
         Returns True if the call is ThreadPoolExecutor() without a thread_name_prefix parameter.
         """
-        return (
-            (resolved := resolver.resolve(node))
-            and resolved == ["concurrent", "futures", "ThreadPoolExecutor"]
-            and not any(keyword.arg == "thread_name_prefix" for keyword in node.keywords)
-        )
+        if names := resolver.resolve(node):
+            return names == ["concurrent", "futures", "ThreadPoolExecutor"] and not any(
+                kw.arg == "thread_name_prefix" for kw in node.keywords
+            )
+        return False

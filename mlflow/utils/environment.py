@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 from copy import deepcopy
-from typing import Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -273,7 +272,7 @@ def _mlflow_conda_env(
         return env
 
 
-def _get_package_version(package_name: str) -> Optional[str]:
+def _get_package_version(package_name: str) -> str | None:
     try:
         return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:
@@ -478,7 +477,7 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     except _NoDbutilsError:
         return [], {}
 
-    def get_secret(key: str) -> Optional[str]:
+    def get_secret(key: str) -> str | None:
         """
         Retrieves a secret from the Databricks secrets scope.
         """
@@ -505,8 +504,8 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
 
 
 def _lock_requirements(
-    requirements: list[str], constraints: Optional[list[str]] = None
-) -> Optional[list[str]]:
+    requirements: list[str], constraints: list[str] | None = None
+) -> list[str] | None:
     """
     Locks the given requirements using `uv`. Returns the locked requirements when the locking is
     performed successfully, otherwise returns None.

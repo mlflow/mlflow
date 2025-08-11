@@ -232,6 +232,7 @@ select = [
   "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
+  "UP007",   # non-pep604-annotation-union
   "UP008",   # super-call-with-parameters
   "UP011",   # lru-cache-without-parameters
   "UP012",   # unnecessary-encode-utf8
@@ -239,6 +240,7 @@ select = [
   "UP030",   # format-literals
   "UP031",   # printf-string-format
   "UP034",   # extraneous-parenthesis
+  "UP045",   # non-pep604-annotation-optional
   "W",       # warning
 ]
 ignore = [
@@ -298,6 +300,7 @@ example-rules = [
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",
   "multi-assign",
+  "get-artifact-uri",
 ]
 
 [tool.clint.per-file-ignores]
@@ -307,6 +310,8 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
+# This file intentionally shows problematic code as an example of what NOT to do
+"docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -373,3 +378,9 @@ filterwarnings = [
   "error::pytest.PytestCollectionWarning",
 ]
 timeout = 1200
+
+# Currently, type checking is only enabled for `dev/clint`.
+[tool.mypy]
+python_version = "3.10"
+disallow_untyped_defs = true
+exclude_gitignore = true

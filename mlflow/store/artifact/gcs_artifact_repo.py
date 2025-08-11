@@ -3,7 +3,7 @@ import importlib.metadata
 import os
 import posixpath
 import urllib.parse
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from packaging.version import Version
 
@@ -49,7 +49,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         artifact_uri: str,
         client=None,
         credential_refresh_def=None,
-        tracking_uri: Optional[str] = None,
+        tracking_uri: str | None = None,
     ) -> None:
         super().__init__(artifact_uri, tracking_uri)
         from google.auth.exceptions import DefaultCredentialsError

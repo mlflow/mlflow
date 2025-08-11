@@ -33,7 +33,7 @@ class Config:
             return cls()
 
         per_file_ignores_raw = clint.get("per-file-ignores", {})
-        per_file_ignores: dict[re.Pattern[str], list[str]] = {}
+        per_file_ignores: dict[re.Pattern[str], set[str]] = {}
         for pattern, rules in per_file_ignores_raw.items():
             per_file_ignores[re.compile(pattern)] = set(rules)
 
