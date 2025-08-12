@@ -1,29 +1,31 @@
-/* Define color variables for light/dark mode */
+/* Define color variables for light/dark mode - matching TileCard blues */
 :root {
-  --dag-loop-primary: #0b7285;
-  --dag-loop-primary-light: #5cb7cc;
-  --dag-loop-primary-lightest: #e6f7fb;
-  --dag-loop-background: #ffffff;
-  --dag-loop-border: #d1d5db;
-  --dag-loop-text-primary: #374151;
-  --dag-loop-text-secondary: #6b7280;
+  --dag-loop-primary: #0194e2;
+  --dag-loop-primary-dark: #0066cc;
+  --dag-loop-primary-light: rgba(1, 148, 226, 0.3);
+  --dag-loop-primary-lightest: rgba(1, 148, 226, 0.1);
+  --dag-loop-background: var(--ifm-background-color);
+  --dag-loop-border: var(--ifm-border-color);
+  --dag-loop-text-primary: var(--ifm-color-emphasis-900);
+  --dag-loop-text-secondary: var(--ifm-color-emphasis-700);
 }
 
 :global([data-theme='dark']) {
-  --dag-loop-primary: #43c9ed;
-  --dag-loop-primary-light: #54cef0;
-  --dag-loop-primary-lightest: rgba(67, 201, 237, 0.15);
-  --dag-loop-background: #1f2937;
-  --dag-loop-border: #4b5563;
-  --dag-loop-text-primary: #f3f4f6;
-  --dag-loop-text-secondary: #d1d5db;
+  --dag-loop-primary: #0194e2;
+  --dag-loop-primary-dark: #5cb7cc;
+  --dag-loop-primary-light: rgba(1, 148, 226, 0.3);
+  --dag-loop-primary-lightest: rgba(1, 148, 226, 0.15);
+  --dag-loop-background: var(--ifm-background-color);
+  --dag-loop-border: var(--ifm-border-color);
+  --dag-loop-text-primary: var(--ifm-color-emphasis-900);
+  --dag-loop-text-secondary: var(--ifm-color-emphasis-700);
 }
 
 .loopContainer {
   margin: 2rem 0;
   position: relative;
   overflow: visible;
-  min-height: 650px;
+  min-height: 550px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -33,35 +35,39 @@
 
 .loopTitle {
   font-size: 1.25rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   color: var(--dag-loop-text-primary);
   text-align: center;
   font-weight: 600;
+  width: 100%;
 }
 
 
 .loopContent {
   max-width: 900px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1rem 1rem 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
 }
 
 /* Circle layout container */
 .circleContainer {
   position: relative;
-  width: 600px;
-  height: 600px;
-  margin: 3rem auto 2rem;
+  margin: 1rem auto 2rem;
   overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .svgCanvas {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 1;
 }
 
@@ -94,8 +100,8 @@
 }
 
 .stepNodeContent {
-  width: 90px;
-  height: 90px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: var(--dag-loop-background);
   border: 2px solid var(--dag-loop-border);
@@ -104,7 +110,7 @@
   justify-content: center;
   color: var(--dag-loop-primary);
   font-weight: 600;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
 }
@@ -112,13 +118,27 @@
 .stepNode:hover .stepNodeContent {
   border-color: var(--dag-loop-primary);
   background: var(--dag-loop-primary-lightest);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(1, 148, 226, 0.2);
 }
 
 .stepNode.highlighted .stepNodeContent {
   background: var(--dag-loop-primary-lightest);
   border-color: var(--dag-loop-primary);
   border-width: 3px;
+}
+
+/* Focus node styling - subtle emphasis */
+.stepNode.focusNode .stepNodeContent {
+  background: var(--dag-loop-primary);
+  color: white;
+  border-color: var(--dag-loop-primary-dark);
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(1, 148, 226, 0.25);
+}
+
+.stepNode.focusNode:hover .stepNodeContent {
+  background: var(--dag-loop-primary-dark);
+  box-shadow: 0 6px 16px rgba(1, 148, 226, 0.35);
 }
 
 .stepNumber {
@@ -146,8 +166,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   background: var(--dag-loop-background);
   border: 2px solid var(--dag-loop-primary-light);
@@ -159,7 +179,7 @@
 .centerIcon:hover .loopIconWrapper {
   border-color: var(--dag-loop-primary);
   background: var(--dag-loop-primary-lightest);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(1, 148, 226, 0.2);
 }
 
 .loopText {
@@ -171,7 +191,7 @@
 /* Tooltip */
 .tooltip {
   position: absolute;
-  background: var(--dag-loop-background);
+  background: var(--ifm-background-surface-color);
   border: 2px solid var(--dag-loop-primary-light);
   border-radius: 12px;
   padding: 1rem 1.25rem;
@@ -215,7 +235,7 @@
   transform: translateX(-50%) rotate(45deg);
   width: 16px;
   height: 16px;
-  background: var(--dag-loop-background);
+  background: var(--ifm-background-surface-color);
   border-right: 2px solid var(--dag-loop-primary-light);
   border-bottom: 2px solid var(--dag-loop-primary-light);
 }
@@ -223,7 +243,7 @@
 /* Center tooltip */
 .centerTooltip {
   position: absolute;
-  background: var(--dag-loop-background);
+  background: var(--ifm-background-surface-color);
   border: 2px solid var(--dag-loop-primary-light);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
@@ -275,6 +295,13 @@
   color: var(--dag-loop-primary);
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.mobileStepNumber.mobileFocusNode {
+  background: var(--dag-loop-primary);
+  color: white;
+  border-width: 2px;
+  box-shadow: 0 3px 8px rgba(1, 148, 226, 0.2);
 }
 
 .mobileStepConnector {

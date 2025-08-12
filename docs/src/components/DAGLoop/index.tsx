@@ -8,6 +8,7 @@ interface DAGStep {
   detailedDescription?: string;
   icon?: LucideIcon;
   highlight?: boolean;
+  isFocus?: boolean;
 }
 
 interface DAGLoopProps {
@@ -43,9 +44,23 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Adjust size for mobile
+  // Dynamic scaling based on number of elements
+  const getOptimalRadius = () => {
+    const baseRadius = circleSize / 2;
+    const minRadius = isMobile ? 100 : 140;
+    const maxRadius = isMobile ? 130 : 220;
+    
+    // Adjust radius based on number of steps
+    // More steps = larger radius for better spacing
+    const scaleFactor = Math.min(1.2, 0.8 + (steps.length * 0.05));
+    const calculatedRadius = (baseRadius - (isMobile ? 50 : 80)) * scaleFactor;
+    
+    return Math.max(minRadius, Math.min(maxRadius, calculatedRadius));
+  };
+
+  // Adjust size for mobile and dynamic scaling
   const actualCircleSize = isMobile ? 280 : circleSize;
-  const radius = actualCircleSize / 2 - (isMobile ? 50 : 60);
+  const radius = getOptimalRadius();
   const centerX = actualCircleSize / 2;
   const centerY = actualCircleSize / 2;
 
@@ -115,7 +130,7 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
           {steps.map((step, index) => (
             <div key={index} className={styles.mobileStepItem}>
               <div className={styles.mobileStepIndicator}>
-                <div className={styles.mobileStepNumber}>
+                <div className={`${styles.mobileStepNumber} ${step.isFocus ? styles.mobileFocusNode : ''}`}>
                   {step.icon ? <step.icon size={20} /> : <span>{index + 1}</span>}
                 </div>
                 {index < steps.length - 1 && <div className={styles.mobileStepConnector} />}
@@ -151,7 +166,14 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
       {title && <h3 className={styles.loopTitle}>{title}</h3>}
       
       <div className={styles.loopContent}>
-          <div className={styles.circleContainer} ref={containerRef}>
+          <div 
+            className={styles.circleContainer} 
+            ref={containerRef}
+            style={{
+              width: `${actualCircleSize}px`,
+              height: `${actualCircleSize}px`
+            }}
+          >
             <svg 
               width={actualCircleSize} 
               height={actualCircleSize} 
@@ -202,19 +224,19 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
                   style={{ cursor: 'pointer' }}
                 >
                   <foreignObject 
-                    x={centerX - 40} 
-                    y={centerY - 40} 
-                    width="80" 
-                    height="80"
+                    x={centerX - 35} 
+                    y={centerY - 35} 
+                    width="70" 
+                    height="70"
                   >
                     <div className={styles.loopIconWrapper}>
-                      <LoopIcon size={40} />
+                      <LoopIcon size={32} />
                     </div>
                   </foreignObject>
                   {loopBackText && (
                     <text 
                       x={centerX} 
-                      y={centerY + 60} 
+                      y={centerY + 50} 
                       textAnchor="middle" 
                       className={styles.loopText}
                     >
@@ -231,7 +253,7 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
               return (
                 <div
                   key={index}
-                  className={`${styles.stepNode} ${step.highlight ? styles.highlighted : ''}`}
+                  className={`${styles.stepNode} ${step.highlight ? styles.highlighted : ''} ${step.isFocus ? styles.focusNode : ''}`}
                   style={{
                     left: `${position.x}px`,
                     top: `${position.y}px`,
@@ -242,7 +264,7 @@ const DAGLoop: React.FC<DAGLoopProps> = ({
                 >
                   <div className={styles.stepNodeContent}>
                     {step.icon ? (
-                      <step.icon size={28} />
+                      <step.icon size={24} />
                     ) : (
                       <span className={styles.stepNumber}>{index + 1}</span>
                     )}

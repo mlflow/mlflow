@@ -2,620 +2,510 @@ import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Sparkles, Layers, Search, Tag, RefreshCw, Users, Database, FileText, GitBranch, BarChart3, Code, Activity } from "lucide-react";
 
 # Evaluation Datasets SDK Guide
 
-This guide covers the complete SDK for creating and managing evaluation datasets in MLflow. Learn how to build test suites, manage expectations, and integrate with MLflow's evaluation framework.
+Master the APIs for creating, evolving, and managing evaluation datasets through practical workflows and real-world patterns.
 
-## Installation
+## Getting Started
 
-Evaluation datasets are available in MLflow 2.15.0 and later:
+MLflow provides a fluent API for working with evaluation datasets that makes common workflows simple and intuitive:
 
-```bash
-pip install "mlflow>=2.15.0"
+```python
+from mlflow.genai.datasets import (
+    create_evaluation_dataset,
+    get_evaluation_dataset,
+    search_evaluation_datasets,
+    set_evaluation_dataset_tags,
+    delete_evaluation_dataset_tag,
+)
 ```
 
-## Creating Evaluation Datasets
+## Your Dataset Journey
 
-### Basic Creation
+Follow this typical workflow to build and evolve your evaluation datasets:
 
-The simplest way to create an evaluation dataset:
+<DAGLoop
+  title="Complete Development Workflow"
+  steps={[
+    {
+      icon: Database,
+      title: "Create/Get Dataset",
+      description: "Initialize or retrieve existing",
+      detailedDescription: "Create a new evaluation dataset or retrieve an existing one. Link to experiments and set initial tags for organization.",
+      isFocus: true
+    },
+    {
+      icon: FileText,
+      title: "Add Test Cases",
+      description: "From traces or manual",
+      detailedDescription: "Add test cases from production traces with subject matter expert-defined expectations, or manually create critical test scenarios."
+    },
+    {
+      icon: BarChart3,
+      title: "Run Evaluation",
+      description: "Test model performance",
+      detailedDescription: "Execute MLflow evaluation against your dataset to measure model performance against ground truth expectations."
+    },
+    {
+      icon: Code,
+      title: "Improve Code",
+      description: "Fix issues & enhance",
+      detailedDescription: "Based on evaluation results, refine prompts, adjust model parameters, add guardrails, or enhance application logic."
+    },
+    {
+      icon: Activity,
+      title: "Test & Trace",
+      description: "Capture new interactions",
+      detailedDescription: "Test your improved application and capture execution traces from both testing and production environments."
+    },
+    {
+      icon: GitBranch,
+      title: "Update Dataset",
+      description: "Add new cases & expectations",
+      detailedDescription: "Merge new traces into dataset, add edge cases discovered, update expectations based on new insights. Dataset continuously evolves."
+    },
+    {
+      icon: Tag,
+      title: "Update Tags",
+      description: "Track dataset evolution",
+      detailedDescription: "Update dataset tags to reflect new version, validation status, coverage improvements, and other metadata changes."
+    }
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Continuous Improvement"
+  loopBackDescription="Return to evaluation with your enhanced dataset to test improvements. Each iteration strengthens both your application and test suite."
+  circleSize={550}
+/>
+
+### Step 1: Create Your Dataset
+
+Start by creating a new evaluation dataset with meaningful metadata:
 
 ```python
 from mlflow.genai.datasets import create_evaluation_dataset
 
+# Create a new dataset with tags for organization
 dataset = create_evaluation_dataset(
-    name="my_test_suite",
-    experiment_ids=["0"],  # Optional: link to experiments
-    tags={"version": "1.0", "team": "ml-platform"}
+    name="customer_support_qa_v1",
+    experiment_ids=["0"],  # Link to experiments ("0" is default)
+    tags={
+        "version": "1.0",
+        "purpose": "regression_testing",
+        "model": "gpt-4",
+        "team": "ml-platform",
+        "status": "development",
+    },
 )
-
-print(f"Created dataset: {dataset.dataset_id}")
-print(f"Dataset name: {dataset.name}")
 ```
 
-### With Initial Records
+### Step 2: Add Your First Test Cases
 
-Create a dataset with test data from the start:
+Build your dataset by adding test cases from production traces and manual curation. **Expectations are typically defined by subject matter experts (SMEs)** who understand the domain and can establish ground truth for what constitutes correct behavior.
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="traces" label="From Production Traces" default>
 
 ```python
-dataset = create_evaluation_dataset(
-    name="qa_test_suite",
-    tags={"environment": "test", "model": "gpt-4"}
+import mlflow
+
+# Search for production traces to build your dataset
+# Request list format to work with individual Trace objects
+production_traces = mlflow.search_traces(
+    experiment_ids=["0"],  # Your production experiment
+    filter_string="attributes.user_feedback = 'positive'",
+    max_results=100,
+    return_type="list",  # Returns list[Trace] for direct manipulation
 )
 
-# Add test records immediately
-test_records = [
+# Subject matter experts add expectations to define correct behavior
+for trace in production_traces:
+    # Subject matter experts review traces and define what the output should satisfy
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="quality_assessment",
+        value={
+            "should_match_production": True,
+            "minimum_quality": 0.8,
+            "response_time_ms": 2000,
+            "contains_citation": True,
+        },
+    )
+
+    # Can also add textual expectations
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_behavior",
+        value="Response should provide step-by-step instructions with security considerations",
+    )
+
+# Add annotated traces to dataset (expectations are automatically included)
+dataset.merge_records(production_traces)
+```
+
+    </TabItem>
+    <TabItem value="manual" label="Manual Test Cases">
+
+```python
+# Test cases can be manually defined as dictionaries
+# merge_records() accepts both dict and pandas.DataFrame formats
+test_cases = [
     {
         "inputs": {
-            "question": "What is MLflow?",
-            "context": "MLflow is an open source platform..."
+            "question": "How do I reset my password?",
+            "user_type": "premium",
+            "context": "User has been locked out after 3 failed attempts",
         },
         "expectations": {
-            "answer": "MLflow is an open source platform for the machine learning lifecycle.",
-            "relevance": 1.0,
-            "contains_key_terms": ["open source", "platform", "machine learning"]
+            "answer_quality": 0.95,
+            "contains_steps": True,
+            "mentions_security": True,
+            "response": "To reset your password, please follow these steps...",
         },
-        "source": {
-            "source_type": "HUMAN",
-            "source_data": {"annotator": "expert@company.com"}
-        }
+        "tags": {
+            "category": "account_management",
+            "priority": "high",
+            "reviewed_by": "security_team",
+        },
     },
     {
         "inputs": {
-            "question": "How do I track experiments?",
-            "context": "Use mlflow.start_run() to begin tracking..."
+            "question": "What are your business hours?",
+            "user_type": "standard",
         },
         "expectations": {
-            "answer": "You can track experiments using mlflow.start_run() and log metrics with mlflow.log_metric().",
-            "helpfulness": 0.95
-        }
-    }
-]
-
-dataset.merge_records(test_records)
-print(f"Dataset now contains {len(dataset.records)} test cases")
-```
-
-## Managing Records
-
-### Adding Records
-
-Records can be added incrementally as you build your test suite:
-
-```python
-# Add a single record
-new_record = {
-    "inputs": {"prompt": "Summarize this article: ..."},
-    "expectations": {"summary_length": 100, "key_points": 3}
-}
-dataset.merge_records([new_record])
-
-# Add multiple records at once
-batch_records = [
-    {"inputs": {...}, "expectations": {...}},
-    {"inputs": {...}, "expectations": {...}},
-    # ...
-]
-dataset.merge_records(batch_records)
-```
-
-### Record Structure
-
-Each record can contain:
-
-- **inputs** (required): The test input data (prompts, questions, contexts, etc.)
-- **expectations** (optional): Expected outputs or quality criteria
-- **source** (optional): Information about who/what created the record
-- **tags** (optional): Metadata tags for the specific record
-
-```python
-comprehensive_record = {
-    "inputs": {
-        "user_query": "What's the weather like?",
-        "location": "San Francisco",
-        "date": "2024-08-07"
+            "accuracy": 1.0,
+            "includes_timezone": True,
+            "mentions_holidays": True,
+        },
     },
+]
+
+# Add to your dataset (accepts list[dict] or pandas.DataFrame)
+dataset.merge_records(test_cases)
+```
+
+    </TabItem>
+  </Tabs>
+</TabsWrapper>
+
+### Step 3: Evolve Your Dataset
+
+As you discover edge cases and improve your understanding, continuously update your dataset:
+
+```python
+# Capture a production failure
+failure_case = {
+    "inputs": {"question": "'; DROP TABLE users; --", "user_type": "malicious"},
     "expectations": {
-        "should_include": ["temperature", "conditions"],
-        "accuracy_score": 0.9,
-        "response_format": "conversational"
+        "handles_sql_injection": True,
+        "returns_safe_response": True,
+        "logs_security_event": True,
     },
     "source": {
         "source_type": "HUMAN",
-        "source_data": {
-            "annotator_id": "user_123",
-            "annotation_date": "2024-08-01",
-            "guidelines_version": "v2.1"
-        }
+        "source_data": {"discovered_by": "security_team"},
     },
-    "tags": {
-        "category": "weather",
-        "difficulty": "easy",
-        "mlflow.user": "data_scientist@company.com"
-    }
+    "tags": {"category": "security", "severity": "critical"},
 }
+
+# Add the new edge case
+dataset.merge_records([failure_case])
+
+# Update expectations for existing records
+updated_records = []
+for record in dataset.records:
+    if "accuracy" in record.get("expectations", {}):
+        # Raise the quality bar
+        record["expectations"]["accuracy"] = max(
+            0.9, record["expectations"]["accuracy"]
+        )
+        updated_records.append(record)
+
+# Merge updates (intelligently handles duplicates)
+dataset.merge_records(updated_records)
 ```
 
-### Building from Traces
+### Step 4: Organize with Tags
 
-Create datasets from existing production traces:
-
-```python
-# First, search for production traces
-traces = mlflow.search_traces(
-    experiment_ids=["production-exp"],
-    filter_string="attributes.user_feedback = 'positive'",
-    max_traces=100
-)
-
-# Convert traces to evaluation records
-records = []
-for trace in traces:
-    # Add expectations to the trace if needed
-    mlflow.log_expectation(
-        trace_id=trace.info.trace_id,
-        name="expected_sentiment",
-        value="positive",
-        source={"source_type": "HUMAN", "source_id": "reviewer@company.com"}
-    )
-    
-    # Create evaluation record from trace
-    records.append({
-        "inputs": trace.request,
-        "outputs": trace.response,
-        "source": {
-            "source_type": "TRACE",
-            "source_data": {
-                "trace_id": trace.info.trace_id,
-                "experiment_id": trace.info.experiment_id
-            }
-        }
-    })
-
-# Create dataset and add the records
-dataset = create_evaluation_dataset(name="production_test_set")
-dataset.merge_records(records)
-
-print(f"Created dataset from {len(records)} production traces")
-```
-
-## Retrieving and Searching Datasets
-
-### Get a Specific Dataset
-
-```python
-from mlflow.genai.datasets import get_evaluation_dataset
-
-dataset = get_evaluation_dataset(dataset_id="d-1234567890abcdef...")
-print(f"Retrieved: {dataset.name}")
-print(f"Created: {dataset.created_by}")
-print(f"Records: {len(dataset.records)}")
-```
-
-### Search Datasets
-
-Find datasets using filters:
-
-```python
-from mlflow.genai.datasets import search_evaluation_datasets
-
-# Search by experiment
-datasets = search_evaluation_datasets(
-    experiment_ids=["0", "1"],
-    max_results=10
-)
-
-# Search with filter string
-datasets = search_evaluation_datasets(
-    filter_string="name = 'production_test_set'",
-    order_by=["created_time DESC"]
-)
-
-# Search by tags
-datasets = search_evaluation_datasets(
-    filter_string="tags.environment = 'production' AND tags.version = '2.0'"
-)
-
-for dataset in datasets:
-    print(f"{dataset.name}: {len(dataset.records)} records")
-```
-
-## Managing Tags
-
-Tags help organize and categorize your datasets:
-
-### Set Tags
+Use tags to track dataset evolution and enable powerful searches:
 
 ```python
 from mlflow.genai.datasets import set_evaluation_dataset_tags
 
-# Add or update tags
+# Update dataset metadata
 set_evaluation_dataset_tags(
     dataset_id=dataset.dataset_id,
     tags={
         "status": "validated",
-        "quality": "gold",
-        "last_reviewed": "2024-08-07"
-    }
+        "coverage": "comprehensive",
+        "last_review": "2024-11-01",
+    },
 )
 
-# Update existing tags (only specified tags are affected)
+# Remove outdated tags
 set_evaluation_dataset_tags(
     dataset_id=dataset.dataset_id,
-    tags={"status": "needs_review"}  # Only updates status tag
+    tags={"development_only": None},  # Setting to None removes the tag
 )
 ```
 
-### Delete Tags
+### Step 5: Search and Discover
+
+Find datasets using powerful search capabilities:
 
 ```python
-from mlflow.genai.datasets import delete_evaluation_dataset_tag
+from mlflow.genai.datasets import search_evaluation_datasets
 
-# Remove a specific tag
-delete_evaluation_dataset_tag(
-    dataset_id=dataset.dataset_id,
-    key="quality"
-)
-```
-
-### Tag Patterns
-
-Common tagging patterns for organization:
-
-```python
-# Version tracking
-tags = {
-    "dataset_version": "2.1.0",
-    "schema_version": "1.0",
-    "annotation_guidelines": "v3"
-}
-
-# Quality indicators
-tags = {
-    "quality_tier": "gold",  # gold, silver, bronze
-    "validation_status": "approved",
-    "completeness": "full"
-}
-
-# Metadata
-tags = {
-    "source": "production_traces",
-    "date_range": "2024-07-01_to_2024-07-31",
-    "sample_size": "1000"
-}
-
-# Team and ownership
-tags = {
-    "team": "ml-platform",
-    "owner": "data-science@company.com",
-    "project": "customer-support-ai"
-}
-```
-
-## Working with DataFrames
-
-Convert datasets to pandas DataFrames for analysis:
-
-```python
-import pandas as pd
-
-# Convert to DataFrame
-df = dataset.to_df()
-
-print(f"DataFrame shape: {df.shape}")
-print(f"Columns: {df.columns.tolist()}")
-
-# Analyze your test data
-print("\nInput statistics:")
-print(df['inputs'].apply(lambda x: len(str(x))).describe())
-
-# Filter records
-high_quality = df[df['expectations'].apply(
-    lambda x: x.get('quality_score', 0) > 0.9 if x else False
-)]
-print(f"\nHigh quality records: {len(high_quality)}")
-```
-
-## Schema and Profile
-
-Evaluation datasets automatically track schema and data profiles:
-
-```python
-# Schema is computed from records
-dataset = get_evaluation_dataset(dataset_id)
-if dataset.schema:
-    import json
-    schema = json.loads(dataset.schema)
-    print("Input fields:", schema.get("inputs", {}).keys())
-    print("Expectation fields:", schema.get("expectations", {}).keys())
-
-# Profile contains statistics
-if dataset.profile:
-    profile = json.loads(dataset.profile)
-    print(f"Total records: {profile.get('record_count', 0)}")
-```
-
-## Integration with MLflow Experiments
-
-Link datasets to experiments for traceability:
-
-```python
-# Create dataset linked to experiments
-dataset = create_evaluation_dataset(
-    name="experiment_test_suite",
-    experiment_ids=["exp_1", "exp_2"]
-)
-
-# Get all datasets for an experiment
+# Find datasets by experiment
 datasets = search_evaluation_datasets(
-    experiment_ids=["exp_1"]
+    experiment_ids=["0", "1"]  # Search in multiple experiments
 )
 
-# Use dataset in evaluation runs
-with mlflow.start_run(experiment_id="exp_1"):
-    # Log that this dataset was used
-    mlflow.log_input(dataset, context="evaluation")
-    
-    # Run your evaluation
-    results = mlflow.genai.evaluate(
-        model="runs:/abc123/model",
-        dataset=dataset
-    )
+# Search by name pattern
+regression_datasets = search_evaluation_datasets(
+    filter_string="name LIKE '%regression%'"
+)
+
+# Complex search with tags
+production_ready = search_evaluation_datasets(
+    filter_string="tags.status = 'validated' AND tags.coverage = 'comprehensive'",
+    order_by=["last_update_time DESC"],
+    max_results=10,
+)
+
+# The PagedList automatically handles pagination when iterating
+for dataset in production_ready:
+    # Access dataset properties - pagination handled automatically
+    pass
 ```
 
-## Advanced Patterns
+## The Active Record Pattern
 
-### Incremental Dataset Building
-
-Build datasets over time from production feedback:
+The `EvaluationDataset` object follows an active record pattern—it's both a data container and provides methods to interact with the backend:
 
 ```python
-def add_production_samples_to_dataset(dataset_id, date_range):
-    """Add new production samples to existing dataset"""
-    dataset = get_evaluation_dataset(dataset_id)
-    
-    # Query production traces
-    traces = mlflow.search_traces(
-        filter_string=f"timestamp >= '{date_range[0]}' AND timestamp <= '{date_range[1]}'"
-    )
-    
-    # Convert traces to evaluation records
-    records = []
-    for trace in traces:
-        # Check if trace has expectations (optional)
-        records.append({
-            "inputs": trace.request,
-            "outputs": trace.response,
-            "source": {
-                "source_type": "TRACE",
-                "source_data": {
-                    "trace_id": trace.info.trace_id,
-                    "experiment_id": trace.info.experiment_id
-                }
-            }
-        })
-    
-    # Add to dataset
-    if records:
-        dataset.merge_records(records)
-        
-        # Update metadata
-        set_evaluation_dataset_tags(
-            dataset_id=dataset_id,
-            tags={
-                "last_updated": str(date_range[1]),
-                "total_samples": str(len(dataset.records))
-            }
-        )
-    
-    return len(records)
+# Get a dataset
+dataset = get_evaluation_dataset(dataset_id="d-abc123...")
+
+# The dataset object is "live" - it can fetch and update data
+current_record_count = len(dataset.records)  # Lazy loads if needed
+
+# Add new records directly on the object
+new_records = [{"inputs": {...}, "expectations": {...}}]
+dataset.merge_records(new_records)  # Updates backend immediately
+
+# Convert to DataFrame for analysis
+df = dataset.to_df()
+# Access auto-computed properties
+schema = dataset.schema  # Field structure
+profile = dataset.profile  # Dataset statistics
 ```
 
-### Dataset Versioning
+## How Record Merging Works
 
-Create versions of your test suites:
+The `merge_records()` method intelligently handles both new records and updates to existing ones. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags will be updated rather than creating a duplicate record.
 
-```python
-def version_dataset(original_dataset_id, version_tag):
-    """Create a new version of an existing dataset"""
-    original = get_evaluation_dataset(original_dataset_id)
-    
-    # Create new dataset with version tag
-    new_dataset = create_evaluation_dataset(
-        name=f"{original.name}_v{version_tag}",
-        tags={
-            "version": version_tag,
-            "parent_dataset": original_dataset_id,
-            "created_from": original.name
-        }
-    )
-    
-    # Copy records
-    if original.records:
-        new_dataset.merge_records(original.records)
-    
-    return new_dataset
-```
-
-### Stratified Sampling
-
-Create balanced test sets:
+### Adding New Records
 
 ```python
-def create_stratified_dataset(source_dataset_id, sample_size_per_category):
-    """Create a stratified sample from a larger dataset"""
-    source = get_evaluation_dataset(source_dataset_id)
-    df = source.to_df()
-    
-    # Group by category (assuming records have a 'category' tag)
-    stratified_records = []
-    
-    for category in df['tags'].apply(lambda x: x.get('category')).unique():
-        category_df = df[df['tags'].apply(lambda x: x.get('category') == category)]
-        sampled = category_df.sample(
-            n=min(sample_size_per_category, len(category_df))
-        )
-        stratified_records.extend(sampled.to_dict('records'))
-    
-    # Create new dataset
-    stratified_dataset = create_evaluation_dataset(
-        name=f"{source.name}_stratified",
-        tags={"sampling": "stratified", "source": source_dataset_id}
-    )
-    stratified_dataset.merge_records(stratified_records)
-    
-    return stratified_dataset
-```
-
-## Best Practices
-
-### 1. Consistent Naming
-
-Use clear, descriptive names that indicate purpose and scope:
-
-```python
-# Good naming examples
-"customer_support_qa_v2"
-"production_regression_suite_2024_08"
-"safety_compliance_tests_gpt4"
-
-# Avoid vague names
-"test_data"
-"dataset_1"
-"temp"
-```
-
-### 2. Comprehensive Tagging
-
-Always include relevant metadata:
-
-```python
-essential_tags = {
-    "purpose": "regression_testing",
-    "model_version": "gpt-4-0613",
-    "data_source": "production_traces",
-    "quality_status": "validated",
-    "created_date": "2024-08-07"
+# Initial record
+record_v1 = {
+    "inputs": {"question": "What is MLflow?", "context": "ML platform overview"},
+    "expectations": {"accuracy": 0.8, "mentions_tracking": True},
 }
+
+dataset.merge_records([record_v1])
 ```
 
-### 3. Schema Consistency
+### Updating Existing Records
 
-Maintain consistent structure within a dataset:
+When you merge a record with identical inputs, the existing record is updated by **merging** the new expectations and tags with the existing ones:
 
 ```python
-def validate_record_schema(record, expected_schema):
-    """Ensure record matches expected schema"""
-    for field in expected_schema["required_fields"]:
-        if field not in record["inputs"]:
-            raise ValueError(f"Missing required field: {field}")
-    return True
+# Updated version with same inputs but enhanced expectations
+record_v2 = {
+    "inputs": {
+        "question": "What is MLflow?",  # Same question
+        "context": "ML platform overview",  # Same context
+    },
+    "expectations": {
+        "accuracy": 0.95,  # Updates existing value
+        "mentions_models": True,  # Adds new expectation
+        "clarity": 0.9  # Adds new metric
+        # Note: "mentions_tracking": True is preserved from record_v1
+    },
+    "tags": {"reviewed": "true", "reviewer": "ml_team"},
+}
+
+dataset.merge_records([record_v2])
+# The record is updated, not duplicated
+# Final record has all expectations from both v1 and v2 merged together
 ```
 
-### 4. Regular Updates
+### Bulk Updates from Traces
 
-Keep datasets current with production data:
+This update behavior is particularly useful when adding expectations to production traces:
 
 ```python
-# Schedule regular updates
-def update_dataset_weekly(dataset_id):
-    last_week = get_last_week_daterange()
-    new_samples = add_production_samples_to_dataset(
-        dataset_id, 
-        last_week
+# First pass: Add traces without expectations
+traces = mlflow.search_traces(experiment_ids=["0"], max_results=100, return_type="list")
+dataset.merge_records(traces)
+
+# Later: Subject matter experts review and add expectations
+for trace in traces[:20]:  # Review subset
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="quality_check",
+        value={"approved": True, "quality_score": 0.9},
     )
-    print(f"Added {new_samples} new samples")
+
+# Re-merge the same traces - existing records are updated with expectations
+dataset.merge_records(traces[:20])
 ```
 
-### 5. Version Control
+### Input Uniqueness
 
-Track changes to your test suites:
+Records are considered unique based on their **entire inputs dictionary**. Even small differences create separate records:
 
 ```python
-# Before major changes
-backup_dataset = version_dataset(
-    original_dataset_id=dataset.dataset_id,
-    version_tag="backup_2024_08_07"
+# These are treated as different records due to different inputs
+record_a = {
+    "inputs": {"question": "What is MLflow?", "temperature": 0.7},
+    "expectations": {"accuracy": 0.9},
+}
+
+record_b = {
+    "inputs": {
+        "question": "What is MLflow?",
+        "temperature": 0.8,
+    },  # Different temperature
+    "expectations": {"accuracy": 0.9},
+}
+
+dataset.merge_records([record_a, record_b])
+# Results in 2 separate records due to different temperature values
+```
+
+
+## Search Filter Reference
+
+Use these fields in your filter strings. **Note:** The fluent API returns a `PagedList` that can be iterated directly - pagination is handled automatically when you iterate over the results.
+
+| Field | Type | Example |
+|-------|------|---------|
+| `name` | string | `name = 'production_tests'` |
+| `tags.<key>` | string | `tags.status = 'validated'` |
+| `created_by` | string | `created_by = 'alice@company.com'` |
+| `last_updated_by` | string | `last_updated_by = 'bob@company.com'` |
+| `created_time` | timestamp | `created_time > 1698800000000` |
+| `last_update_time` | timestamp | `last_update_time > 1698800000000` |
+
+### Filter Operators
+
+- `=`, `!=`: Exact match
+- `LIKE`, `ILIKE`: Pattern matching with `%` wildcard (ILIKE is case-insensitive)
+- `>`, `<`, `>=`, `<=`: Numeric/timestamp comparison
+- `AND`: Combine conditions (OR is not currently supported for evaluation datasets)
+
+```python
+# Complex filter example
+datasets = search_evaluation_datasets(
+    filter_string="""
+        tags.status = 'production'
+        AND name LIKE '%customer%'
+        AND created_time > 1698800000000
+    """,
+    order_by=["last_update_time DESC"],
 )
 ```
 
-## Error Handling
+## Using the Client API
 
-Handle common scenarios gracefully:
+For applications and advanced use cases, you can also use the `MlflowClient` API which provides the same functionality with an object-oriented interface:
 
-```python
-from mlflow.exceptions import MlflowException
-
-try:
-    dataset = get_evaluation_dataset(dataset_id)
-except MlflowException as e:
-    if "RESOURCE_DOES_NOT_EXIST" in str(e):
-        print(f"Dataset not found: {dataset_id}")
-        # Create new dataset or handle missing data
-    else:
-        raise
-
-# Check for empty datasets
-if not dataset.records:
-    print("Warning: Dataset has no records")
-    # Add initial records or skip evaluation
-```
-
-## Performance Considerations
-
-### Large Datasets
-
-For datasets with many records (>10,000):
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="create" label="Create Dataset" default>
 
 ```python
-# Use pagination when searching
-all_datasets = []
-page_token = None
+from mlflow import MlflowClient
 
-while True:
-    results = search_evaluation_datasets(
-        max_results=100,
-        page_token=page_token
-    )
-    all_datasets.extend(results)
-    
-    if not results.token:  # No more pages
-        break
-    page_token = results.token
+client = MlflowClient()
 
-# Process records in batches
-def process_large_dataset(dataset_id, batch_size=1000):
-    dataset = get_evaluation_dataset(dataset_id)
-    records = dataset.records
-    
-    for i in range(0, len(records), batch_size):
-        batch = records[i:i + batch_size]
-        # Process batch
-        process_batch(batch)
+# Create a dataset
+dataset = client.create_evaluation_dataset(
+    name="customer_support_qa",
+    experiment_ids=["0"],
+    tags={"version": "1.0", "team": "ml-platform"},
+)
 ```
 
-### Memory Management
+    </TabItem>
+    <TabItem value="get" label="Get Dataset">
 
 ```python
-# Load only what you need
-dataset_metadata = get_evaluation_dataset(dataset_id)
-print(f"Dataset size: {len(dataset_metadata.records)} records")
+# Get a dataset by ID
+dataset = client.get_evaluation_dataset(dataset_id="d-abc123...")
 
-# Process records without loading all into memory
-if len(dataset_metadata.records) > 10000:
-    # Use streaming or batch processing
-    process_in_batches(dataset_id)
-else:
-    # Safe to load all records
-    df = dataset_metadata.to_df()
+# Access properties
+print(f"Dataset: {dataset.name}")
+print(f"Records: {len(dataset.records)}")
 ```
+
+    </TabItem>
+    <TabItem value="search" label="Search Datasets">
+
+```python
+# Search for datasets
+datasets = client.search_evaluation_datasets(
+    experiment_ids=["0"],
+    filter_string="tags.status = 'validated'",
+    order_by=["created_time DESC"],
+    max_results=50,
+)
+
+for dataset in datasets:
+    print(f"{dataset.name}: {dataset.dataset_id}")
+```
+
+    </TabItem>
+    <TabItem value="tags" label="Manage Tags">
+
+```python
+# Set tags
+client.set_evaluation_dataset_tags(
+    dataset_id=dataset.dataset_id, tags={"status": "production", "validated": "true"}
+)
+
+# Delete a tag
+client.delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+```
+
+    </TabItem>
+    <TabItem value="delete" label="Delete Dataset">
+
+```python
+# Delete a dataset
+client.delete_evaluation_dataset(dataset_id=dataset.dataset_id)
+```
+
+    </TabItem>
+  </Tabs>
+</TabsWrapper>
+
+The client API provides the same capabilities as the fluent API but is better suited for:
+- Production applications that need explicit client management
+- Scenarios requiring custom tracking URIs or authentication
+- Integration with existing MLflow client-based workflows
 
 ## Next Steps
 
-Now that you understand the SDK, explore these topics:
-
-- [Evaluation Dataset Concepts](/genai/concepts/evaluation-datasets) - Deep dive into the conceptual model
-- [MLflow Evaluation Guide](/genai/eval-monitor) - Using datasets with the evaluation framework
-- [Expectations Guide](/genai/assessments/expectations) - Defining ground truth for your tests
-- [Feedback Integration](/genai/assessments/feedback) - Connecting evaluation results back to datasets
+- [Evaluation Dataset Concepts](/genai/concepts/evaluation-datasets) - Understand the conceptual model
+- [Expectations Guide](/genai/assessments/expectations) - Define ground truth for your tests
+- [MLflow Evaluation](/genai/eval-monitor) - Run evaluations with your datasets
+- [Tracing Integration](/genai/tracing) - Capture production data for datasets

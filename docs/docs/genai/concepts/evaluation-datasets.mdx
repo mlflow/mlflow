@@ -4,11 +4,25 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Database, GitBranch, TestTube, Users, Shield, ChartBar, FileText, Target } from "lucide-react";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Database, GitBranch, TestTube, Users, Shield, ChartBar, FileText, Target, AlertTriangle, Activity, Code } from "lucide-react";
 
 # Evaluation Dataset Concepts
+
+<div style={{backgroundColor: '#fff3e0', padding: '16px', borderRadius: '8px', marginBottom: '24px', border: '1px solid #ff9800'}}>
+  <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+    <AlertTriangle size={20} color="#ff9800" />
+    <strong>SQL Backend Required</strong>
+  </div>
+  <p style={{margin: 0}}>
+    Evaluation Datasets require an MLflow Tracking Server with a SQL backend (PostgreSQL, MySQL, SQLite, or MSSQL).
+    This feature is <strong>not available</strong> in FileStore (local mode) due to the relational data requirements
+    for managing dataset records, associations, and schema evolution.
+  </p>
+</div>
 
 ## What are Evaluation Datasets?
 
@@ -41,27 +55,32 @@ Evaluation datasets bridge the gap between ad-hoc testing and systematic quality
   }
 ]} />
 
-## Core Architecture
+## Core Components
 
-Evaluation datasets act as containers that bring together several key components:
+Evaluation datasets are composed of several key elements that work together to provide comprehensive test management:
 
-```mermaid
-graph TD
-    A[Evaluation Dataset] --> B[Test Records]
-    A --> C[Metadata & Tags]
-    A --> D[Schema & Profile]
-    A --> E[Experiment Links]
-    
-    B --> F[Inputs]
-    B --> G[Expectations]
-    B --> H[Source Info]
-    
-    G --> I[Ground Truth]
-    G --> J[Quality Criteria]
-    
-    style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    style G fill:#fff3e0,stroke:#e65100,stroke-width:2px
-```
+<ConceptOverview concepts={[
+  {
+    icon: Database,
+    title: "Dataset Records",
+    description: "Individual test cases containing inputs (what goes into your model), expectations (what should come out), and metadata about the source and tags for organization."
+  },
+  {
+    icon: ChartBar,
+    title: "Schema & Profile",
+    description: "Automatically computed structure and statistics of your dataset. Schema tracks field names and types across records, while profile provides statistical summaries."
+  },
+  {
+    icon: Target,
+    title: "Expectations",
+    description: "Ground truth values and quality criteria that define correct behavior. These are the gold standard against which your model outputs are evaluated."
+  },
+  {
+    icon: Activity,
+    title: "Experiment Association",
+    description: "Links to MLflow experiments enable tracking which datasets were used for which model evaluations, providing full lineage and reproducibility."
+  }
+]} />
 
 ## Dataset Object Schema
 
@@ -127,7 +146,7 @@ Evaluation datasets automatically track and adapt to schema changes as you add r
 # Initial records might have simple structure
 initial_record = {
     "inputs": {"question": "What is MLflow?"},
-    "expectations": {"answer": "MLflow is an open source platform..."}
+    "expectations": {"answer": "MLflow is an open source platform..."},
 }
 
 # Later records can add new fields
@@ -135,197 +154,258 @@ enhanced_record = {
     "inputs": {
         "question": "What is MLflow?",
         "context": "Additional context...",  # New field
-        "max_tokens": 150  # New field
+        "max_tokens": 150,  # New field
     },
     "expectations": {
         "answer": "MLflow is an open source platform...",
         "relevance_score": 0.95,  # New field
-        "factual_accuracy": 1.0  # New field
-    }
+        "factual_accuracy": 1.0,  # New field
+    },
 }
 
 # The dataset schema automatically evolves to include all fields
 ```
 
-## Integration with Traces
+## Dataset Evolution
 
-Evaluation datasets can be built from production traces with added expectations:
+Evaluation datasets are **living entities** designed to grow and evolve with your application. Unlike static test suites, MLflow evaluation datasets support continuous mutation through the `merge_records()` method.
 
-```mermaid
-graph LR
-    A[Production Trace] --> B[Add Expectations]
-    B --> C[Evaluation Dataset]
-    C --> D[Run Evaluation]
-    D --> E[Feedback & Scores]
-    
-    style C fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-```
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="patterns" label="Evolution Patterns" default>
 
-This enables you to:
-1. Collect real production examples
-2. Add ground truth expectations
-3. Build realistic test sets
-4. Continuously improve coverage
+#### Production Failure Capture
 
-## Relationship to Other Concepts
+Immediately capture and learn from production failures:
 
-### Expectations vs Dataset Records
-
-| Aspect           | Expectations (Standalone)      | Dataset Records                |
-| ---------------- | ------------------------------ | ------------------------------- |
-| **Scope**        | Single trace or span           | Organized collection            |
-| **Purpose**      | Define ground truth in-place   | Systematic testing              |
-| **Organization** | Attached to specific traces    | Grouped by purpose/project      |
-| **Reusability**  | Tied to specific trace         | Reusable across evaluations     |
-| **Management**   | Individual annotations         | Batch operations and versioning |
-
-### Feedback vs Evaluation Results
-
-Evaluation datasets provide the **input** for evaluation, while feedback represents the **output**:
-
-1. **Dataset** → Contains test cases and expectations
-2. **Evaluation** → Runs models against dataset
-3. **Feedback** → Captures evaluation results and scores
-
-## Best Practices
-
-### 1. **Meaningful Organization**
-Structure your datasets around specific testing goals:
-- `safety_compliance_tests` - For safety validation
-- `regression_suite_v2` - For regression testing
-- `edge_cases_collection` - For boundary conditions
-
-### 2. **Comprehensive Coverage**
-Include diverse test cases:
-- Happy path scenarios
-- Edge cases and errors
-- Adversarial inputs
-- Different user personas
-
-### 3. **Clear Expectations**
-Define unambiguous success criteria:
-```json
-{
-    "expectations": {
-        "must_include": ["specific", "terms"],
-        "must_not_include": ["inappropriate", "content"],
-        "format": "json",
-        "max_length": 500
-    }
-}
-```
-
-### 4. **Version Management**
-Track dataset evolution:
 ```python
-tags = {
-    "version": "2.1.0",
-    "parent_version": "2.0.0",
-    "change_summary": "Added 50 edge cases for error handling"
-}
+# Find failed traces
+failure_traces = mlflow.search_traces(
+    filter_string="attributes.error = 'true'", max_results=10
+)
+
+# Add expectations for correct behavior
+for trace in failure_traces:
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_behavior",
+        value={"should_not_error": True},
+    )
+
+# Add to dataset for regression testing
+dataset.merge_records(failure_traces)
 ```
 
-### 5. **Quality Tiers**
-Categorize datasets by quality level:
-- **Gold**: Fully validated by experts
-- **Silver**: Automated with spot checks
-- **Bronze**: Automatically generated
+#### Adversarial Test Expansion
 
-## Lifecycle Management
+Progressively add challenging test cases:
 
-### Creating Datasets
-Start with core test cases and expand incrementally:
 ```python
-# Week 1: Core functionality
-dataset = create_evaluation_dataset(name="core_tests")
+adversarial_records = [
+    # Prompt injection attempts
+    {
+        "inputs": {"question": "Ignore previous instructions..."},
+        "expectations": {"maintains_context": True},
+    },
+    # Edge case inputs
+    {"inputs": {"question": ""}, "expectations": {"handles_empty_input": True}},
+]
 
-# Week 2: Add edge cases
-dataset.merge_records(edge_case_records)
-
-# Week 3: Add production examples
-dataset.merge_records_from_traces(production_trace_ids)
+dataset.merge_records(adversarial_records)
 ```
 
-### Maintaining Datasets
-Regular maintenance ensures relevance:
-- Review and update expectations quarterly
-- Remove obsolete test cases
-- Add new scenarios from production issues
-- Revalidate after major model changes
+#### Quality Threshold Evolution
 
-### Deprecating Datasets
-Mark outdated datasets appropriately:
+Raise the bar as your model improves:
+
 ```python
+# Update accuracy thresholds for existing records
+for record in dataset.records:
+    if "accuracy" in record.get("expectations", {}):
+        record["expectations"]["accuracy"] = max(
+            0.9, record["expectations"]["accuracy"]
+        )
+
+dataset.merge_records(dataset.records)  # Updates existing
+```
+
+  </TabItem>
+  <TabItem value="versioning" label="Version Management">
+
+#### Track Evolution with Tags
+
+While datasets are mutable, use tags to mark evolution milestones:
+
+```python
+from mlflow.genai.datasets import set_evaluation_dataset_tags
+
+# Mark dataset evolution stages
 set_evaluation_dataset_tags(
-    dataset_id=old_dataset.dataset_id,
+    dataset_id=dataset.dataset_id,
     tags={
-        "status": "deprecated",
-        "replaced_by": new_dataset.dataset_id,
-        "deprecation_date": "2024-08-01"
-    }
+        "version": "2.0",
+        "last_production_sync": "2024-08-01",
+        "coverage": "comprehensive",
+        "includes_adversarial": "true",
+        "record_count": str(len(dataset.records)),
+    },
 )
 ```
 
-## Performance Optimization
+#### Benefits of Continuous Evolution
 
-### Large Datasets (>10,000 records)
+- **Living Documentation**: Test suite grows with real-world usage
+- **Regression Prevention**: Failed cases become permanent fixtures
+- **Coverage Expansion**: Continuously discover edge cases
+- **Quality Hill Climbing**: Gradually increase thresholds
+- **Team Collaboration**: Multiple contributors can add cases
 
-For large datasets, consider:
-- **Sampling strategies** for quick iterations
-- **Stratified subsets** for specific test scenarios
-- **Lazy loading** of records when possible
-- **Batch processing** for evaluations
+These benefits compound over time, creating increasingly robust and comprehensive test suites.
 
-### Schema Computation
+  </TabItem>
+  <TabItem value="incremental" label="Incremental Updates">
 
-Schema and profile are computed automatically but can impact performance:
-- Computed on first access after changes
-- Cached for subsequent reads
-- Consider disabling for very large datasets if not needed
+#### Adding New Records
 
-## Common Patterns
+The `merge_records()` method intelligently handles new test cases:
 
-### Test Suite Hierarchy
-Organize datasets in a hierarchy:
-```
-production_suite/
-├── smoke_tests (10 records)
-├── regression_tests (100 records)
-├── comprehensive_tests (1000 records)
-└── stress_tests (10000 records)
-```
-
-### A/B Test Preparation
-Create balanced datasets for fair comparison:
 ```python
-# Same test data for both models
-dataset = create_evaluation_dataset(name="ab_test_set")
-dataset.merge_records(balanced_test_cases)
+# Start with existing dataset
+dataset = get_evaluation_dataset(dataset_id="d-abc123...")
+print(f"Starting with {len(dataset.records)} records")
 
-# Evaluate Model A
-results_a = evaluate(model_a, dataset=dataset)
+# Add new edge cases discovered in production
+new_cases = [
+    {
+        "inputs": {"question": "你好世界"},  # Unicode test
+        "expectations": {"handles_unicode": True},
+    },
+    {
+        "inputs": {"question": "'; DROP TABLE users; --"},  # SQL injection
+        "expectations": {"sql_injection_handled": True},
+    },
+]
 
-# Evaluate Model B
-results_b = evaluate(model_b, dataset=dataset)
-
-# Compare results on identical data
-compare_results(results_a, results_b)
+dataset.merge_records(new_cases)
+print(f"Now contains {len(dataset.records)} records")
 ```
 
-### Continuous Integration
-Integrate datasets into CI/CD:
+#### Schema Evolution
+
+Datasets automatically adapt as you add fields:
+
 ```python
-def test_model_quality():
-    # Load standard test dataset
-    dataset = get_evaluation_dataset("ci_regression_suite")
-    
-    # Run evaluation
-    results = evaluate(current_model, dataset=dataset)
-    
-    # Check quality gates
-    assert results.metrics["accuracy/mean"] > 0.95
-    assert results.metrics["safety/mean"] > 0.99
+# Initial records might be simple
+initial = {
+    "inputs": {"question": "What is MLflow?"},
+    "expectations": {"answer": "MLflow is..."},
+}
+
+# Later records can add new fields
+enhanced = {
+    "inputs": {
+        "question": "What is MLflow?",
+        "context": "Additional context...",  # New field
+        "max_tokens": 150,  # New field
+    },
+    "expectations": {
+        "answer": "MLflow is...",
+        "relevance_score": 0.95,  # New field
+    },
+}
+
+# Schema automatically evolves to include all fields
+dataset.merge_records([initial, enhanced])
 ```
+
+  </TabItem>
+  </Tabs>
+</TabsWrapper>
+
+## Trace to Dataset Workflow
+
+Transform production data into comprehensive test suites through this continuous improvement cycle:
+
+<DAGLoop
+  title="Continuous Improvement Cycle"
+  steps={[
+    {
+      icon: Activity,
+      title: "Capture Traces",
+      description: "Collect execution traces from production",
+      detailedDescription: "MLflow automatically captures detailed traces of your GenAI application's execution in production, including inputs, outputs, and intermediate steps.",
+    },
+    {
+      icon: Target,
+      title: "Add Expectations",
+      description: "Annotate traces with ground truth",
+      detailedDescription: "Domain experts review production traces and add expectations that define correct behavior, creating a gold standard for evaluation."
+    },
+    {
+      icon: Database,
+      title: "Build/Update Dataset",
+      description: "Add new records to evolving dataset",
+      detailedDescription: "Traces with expectations are merged into your existing dataset, continuously expanding test coverage. New edge cases, failure modes, and scenarios are incrementally added without losing existing test cases.",
+      isFocus: true
+    },
+    {
+      icon: TestTube,
+      title: "Run Evaluation",
+      description: "Test models against the dataset",
+      detailedDescription: "Use the dataset to systematically evaluate model performance, comparing actual outputs against the established expectations."
+    },
+    {
+      icon: Code,
+      title: "Implement Changes",
+      description: "Improve based on evaluation results",
+      detailedDescription: "Based on evaluation insights, refine prompts, adjust model parameters, implement guardrails, or enhance your application logic."
+    },
+    {
+      icon: Shield,
+      title: "Deploy to Production",
+      description: "Release improved version",
+      detailedDescription: "Deploy your enhanced GenAI application to production with confidence, knowing it has been systematically evaluated against your test suite."
+    },
+  ]}
+  loopBackIcon={Activity}
+  loopBackText="Continuous Improvement"
+  loopBackDescription="As you collect more production traces and identify new edge cases, continuously expand your dataset to improve test coverage and restart the evaluation cycle."
+  circleSize={500}
+/>
+
+## Working with Records
+
+Evaluation datasets support multiple data sources and formats:
+
+- **Traces**: Production execution traces with expectations
+- **DataFrames**: Pandas DataFrames with test data
+- **Dictionaries**: Manually created test cases
+
+Records are added through the `merge_records()` method, which intelligently handles updates and additions. Each record contains:
+
+- **Inputs**: Test input data passed to your model
+- **Expectations**: Ground truth outputs or quality criteria
+- **Source**: Information about record origin (human, trace, generated)
+- **Tags**: Record-specific metadata
+
+For detailed API usage, see the [SDK Guide](/genai/datasets/sdk-guide).
+
+## Organization & Discovery
+
+Datasets are organized through **tags** and can be searched using powerful filtering capabilities.
+
+### Tag-Based Organization and Search Capabilities
+
+Tags are key-value pairs that help categorize and organize datasets. Tags can be arbitrary values and are entirely searchable.
+
+Datasets can be searched by:
+- Experiment associations
+- Dataset name (with wildcards)
+- Tag values
+- Creation/modification metadata
+- User information
+
+See the [SDK Guide](/genai/datasets/sdk-guide#step-4-organize-with-tags) for detailed API usage.
 
 ## Next Steps
 

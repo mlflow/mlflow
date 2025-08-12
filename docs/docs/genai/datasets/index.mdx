@@ -4,6 +4,7 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import DAGLoop from "@site/src/components/DAGLoop";
@@ -15,76 +16,149 @@ import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book,
 
 Evaluation datasets are the foundation of systematic GenAI application testing. They provide a centralized way to manage test data, ground truth expectations, and evaluation results—enabling you to measure and improve the quality of your AI applications with confidence.
 
-## Getting Started in 30 Seconds
+## Quickstart: Build Your First Evaluation Dataset
+
+There are several ways to create evaluation datasets, each suited to different stages of your GenAI development process. **Expectations are the cornerstone of effective evaluation**—they define the ground truth against which your AI's outputs are measured, enabling systematic quality assessment across iterations.
 
 <TabsWrapper>
 <Tabs>
-<TabItem value="create" label="Create Dataset" default>
+<TabItem value="from-traces" label="Build from Traces" default>
 
 ```python
 import mlflow
 from mlflow.genai.datasets import create_evaluation_dataset
 
-# Create your first evaluation dataset
+# Create your evaluation dataset
 dataset = create_evaluation_dataset(
-    name="customer_support_qa",
-    experiment_ids=["0", "1"],  # MLflow experiment IDs
-    tags={"team": "support", "version": "v1.0"}
+    name="production_validation_set",
+    experiment_ids=["0"],  # "0" is the default experiment
+    tags={"team": "ml-platform", "stage": "validation"},
 )
 
-# Add test records with expectations
-records = [
-    {
-        "inputs": {"question": "How do I reset my password?"},
-        "expectations": {
-            "answer": "To reset your password, click 'Forgot Password' on the login page...",
-            "contains_steps": True,
-            "tone": "helpful"
-        }
-    },
-    {
-        "inputs": {"question": "What are your business hours?"},
-        "expectations": {
-            "answer": "Our support team is available Monday-Friday, 9 AM to 5 PM EST.",
-            "accuracy": 1.0
-        }
-    }
-]
+# First, retrieve traces that will become the basis of the dataset
+# Request list format to work with individual Trace objects
+traces = mlflow.search_traces(
+    experiment_ids=["0"],
+    max_results=50,
+    filter_string="attributes.trace_name = 'chat_completion'",
+    return_type="list",  # Returns list[Trace] for direct manipulation
+)
 
-dataset.merge_records(records)
+# Add expectations to the traces
+for trace in traces[:20]:
+    # Expectations can be numeric or boolean...
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="output_quality",
+        value={"relevance": 0.95, "accuracy": 1.0, "contains_citation": True},
+    )
+
+    # ... and can also be contextual text
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_answer",
+        value="The correct answer should include step-by-step instructions...",
+    )
+
+# Retrieve the traces with added expectations
+annotated_traces = mlflow.search_traces(
+    experiment_ids=["0"], max_results=100, return_type="list"  # Get list[Trace] objects
+)
+
+# Merge the list of Trace objects directly into your dataset
+dataset.merge_records(annotated_traces)
 ```
 
 </TabItem>
-<TabItem value="from-traces" label="Build from Traces">
+<TabItem value="from-dicts" label="From Dictionaries">
 
 ```python
 import mlflow
 from mlflow.genai.datasets import create_evaluation_dataset
 
-# Create dataset from production traces
+# Create dataset with manual test cases
 dataset = create_evaluation_dataset(
-    name="production_validation_set"
+    name="regression_test_suite",
+    experiment_ids=["0", "1"],  # Multiple experiments
+    tags={"type": "regression", "priority": "critical"},
 )
 
-# Search for recent traces from your experiments
-traces = mlflow.MlflowClient().search_traces(
-    experiment_ids=["0"],  # Your experiment ID(s)
-    max_results=100,
-    filter_string="attributes.trace_name = 'chat_completion'"
+# Define test cases with expected outputs
+test_cases = [
+    {
+        "inputs": {
+            "question": "How do I reset my password?",
+            "context": "user_support",
+        },
+        "expectations": {
+            "answer": "To reset your password, click 'Forgot Password' on the login page...",
+            "contains_steps": True,
+            "tone": "helpful",
+            "max_response_time": 2.0,
+        },
+    },
+    {
+        "inputs": {
+            "question": "What are your refund policies?",
+            "context": "customer_service",
+        },
+        "expectations": {
+            "includes_timeframe": True,
+            "mentions_exceptions": True,
+            "accuracy": 1.0,
+        },
+    },
+]
+
+dataset.merge_records(test_cases)
+```
+
+</TabItem>
+<TabItem value="from-pandas" label="From DataFrame">
+
+```python
+import pandas as pd
+import mlflow
+from mlflow.genai.datasets import create_evaluation_dataset
+
+# Create dataset from existing test data
+dataset = create_evaluation_dataset(
+    name="benchmark_dataset",
+    experiment_ids=["0"],  # Use your experiment ID
+    tags={"source": "benchmark", "version": "2024.1"},
 )
 
-# Convert traces directly to evaluation records
-# The Trace objects can be passed directly to merge_records
-dataset.merge_records(traces)
+# Method 1: Use traces from search_traces (default returns DataFrame)
+# search_traces returns a pandas DataFrame by default when pandas is installed
+traces_df = mlflow.search_traces(
+    experiment_ids=["0"],  # Search in your experiment
+    max_results=100
+    # No return_type specified - defaults to "pandas"
+)
 
-# Optionally add expectations to specific traces
-for trace in traces[:10]:  # Add expectations to first 10 traces
-    mlflow.log_expectation(
-        trace_id=trace.info.trace_id,
-        name="expected_quality",
-        value={"relevance": 0.9, "coherence": 0.95},
-        source={"source_type": "HUMAN", "source_id": "qa_team@company.com"}
-    )
+# The DataFrame from search_traces can be passed directly
+dataset.merge_records(traces_df)
+
+# Method 2: Create your own DataFrame with inputs and expectations
+# You can also create a DataFrame with the expected structure
+custom_df = pd.DataFrame(
+    {
+        "inputs.question": [
+            "What is MLflow?",
+            "How do I track experiments?",
+            "Explain model versioning",
+        ],
+        "inputs.domain": ["general", "technical", "technical"],
+        "expectations.relevance": [1.0, 0.95, 0.9],
+        "expectations.technical_accuracy": [1.0, 1.0, 0.95],
+        "expectations.includes_examples": [True, True, False],
+        "tags.priority": ["high", "medium", "medium"],  # Optional tags
+        "tags.reviewed": [True, True, False],
+    }
+)
+
+# merge_records accepts DataFrames with inputs, expectations, and tags columns
+dataset.merge_records(custom_df)
 ```
 
 </TabItem>
@@ -100,9 +174,9 @@ for trace in traces[:10]:  # Add expectations to first 10 traces
     description: "Store all your test cases, expected outputs, and evaluation criteria in one place. No more scattered CSV files or hardcoded test data."
   },
   {
-    icon: GitBranch,
-    title: "Version Control for Quality",
-    description: "Track how your test data evolves as your application changes. Compare evaluation results across different model versions and configurations."
+    icon: RefreshCw,
+    title: "Consistent Evaluation Source",
+    description: "Maintain a concrete representation of test data that can be used repeatedly as your project evolves. Eliminate manual testing and avoid repeatedly assembling evaluation data for each iteration."
   },
   {
     icon: TestTube,
@@ -118,7 +192,7 @@ for trace in traces[:10]:  # Add expectations to first 10 traces
 
 ## The Evaluation Loop
 
-Evaluation datasets are a critical component in the GenAI development lifecycle:
+Evaluation datasets bridge the critical gap between trace generation and evaluation execution in the GenAI development lifecycle. As you test your application and capture traces with expectations, **evaluation datasets transform these individual test cases into a materialized, reusable evaluation suite**. This creates a consistent and evolving collection of evaluation records that grows with your application—each iteration adds new test cases while preserving the historical test coverage. Rather than losing valuable test scenarios after each development cycle, you build a comprehensive evaluation asset that can immediately assess the quality of changes and improvements to your implementation.
 
 <DAGLoop
   title="The Evaluation Loop"
@@ -151,7 +225,8 @@ Evaluation datasets are a critical component in the GenAI development lifecycle:
       icon: Database,
       title: "Create Dataset",
       description: "Organize evaluation data",
-      detailedDescription: "Transform your annotated traces into structured evaluation datasets. These datasets become reusable test suites that can be versioned, shared across teams, and used to consistently measure performance across different model versions and configurations."
+      detailedDescription: "Transform your annotated traces into structured evaluation datasets. These datasets become reusable test suites that can be versioned, shared across teams, and used to consistently measure performance across different model versions and configurations.",
+      isFocus: true
     },
     {
       icon: BarChart3,
@@ -174,28 +249,34 @@ Evaluation datasets are a critical component in the GenAI development lifecycle:
 
 ## Key Features
 
-<FeatureHighlights features={[
+<ConceptOverview concepts={[
   {
+    icon: Target,
     title: "Ground Truth Management",
     description: "Define and maintain expected outputs for your test cases. Capture expert knowledge about what constitutes correct behavior for your AI system."
   },
   {
+    icon: GitBranch,
     title: "Schema Evolution",
     description: "Automatically track the structure of your test data as it evolves. Add new fields and test dimensions without breaking existing evaluations."
   },
   {
+    icon: RefreshCw,
     title: "Incremental Updates",
     description: "Continuously improve your test suite by adding new cases from production. Update expectations as your understanding of correct behavior evolves."
   },
   {
+    icon: FileText,
     title: "Flexible Tagging",
     description: "Organize datasets with tags for easy discovery and filtering. Track metadata like data sources, annotation guidelines, and quality levels."
   },
   {
+    icon: TrendingUp,
     title: "Performance Tracking",
     description: "Monitor how your application performs against the same test data over time. Identify regressions and improvements across deployments."
   },
   {
+    icon: Activity,
     title: "Experiment Integration",
     description: "Link datasets to MLflow experiments for complete traceability. Understand which test data was used for each model evaluation."
   }
@@ -232,10 +313,6 @@ Evaluation datasets are a critical component in the GenAI development lifecycle:
     containerHeight={64}
   />
 </TilesGrid>
-
-## Common Use Cases
-
-Evaluation datasets excel at systematic quality assurance, regression testing across model versions, and maintaining compliance with organizational standards. Teams use them to build comprehensive test suites that evolve with their applications, ensuring consistent quality as AI systems grow more complex.
 
 ## Next Steps
 
