@@ -1,7 +1,11 @@
-import pytest
 import os
-from tests.helper_functions import start_mock_openai_server
+
+import pytest
+
 import mlflow
+
+from tests.helper_functions import start_mock_openai_server
+
 
 @pytest.fixture(autouse=True)
 def clear_autolog_state():
@@ -14,6 +18,7 @@ def clear_autolog_state():
     from opentelemetry.sdk.trace import TracerProvider
 
     trace_api.set_tracer_provider(TracerProvider())
+
 
 @pytest.fixture
 def mock_openai(monkeypatch):

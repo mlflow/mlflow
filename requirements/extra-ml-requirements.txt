@@ -87,3 +87,5 @@ mistralai
 autogen-agentchat
 # Required by mlflow.semantic_kernel
 semantic-kernel
+# Required by Strands Agents SDK
+strands-agents

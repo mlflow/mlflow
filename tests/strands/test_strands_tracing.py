@@ -1,13 +1,10 @@
-import os
-
-import mlflow
-import openai
-import pytest
-from mlflow.entities import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
 from strands.agent.agent_result import AgentResult
 from strands.telemetry.metrics import EventLoopMetrics
 from strands.telemetry.tracer import get_tracer
+
+import mlflow
+from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -35,4 +32,3 @@ def test_strands_autolog_records_span():
         "output_tokens": 2,
         "total_tokens": 3,
     }
-
