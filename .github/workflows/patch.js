@@ -49,6 +49,21 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
+  // Check if a version label already exists
+  const existingLabels = await github.rest.issues.listLabelsOnIssue({
+    owner,
+    repo,
+    issue_number: context.payload.pull_request.number,
+  });
+
+  const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
+  const hasVersionLabel = existingLabels.data.some((label) => versionLabelPattern.test(label.name));
+
+  if (hasVersionLabel) {
+    core.info("Version label already exists on this PR. Skipping label addition.");
+    return;
+  }
+
   const releases = await github.rest.repos.listReleases({
     owner,
     repo,
