@@ -359,6 +359,8 @@ def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
 
 def get_python_version(python: dict[str, str] | None, package: str, version: str) -> str:
     if python and (match := next(_find_matches(python, version), None)):
+        if match == Path(".python-version"):
+            raise ValueError("Unnecessary ")
         return match
 
     return infer_python_version(package, version)
