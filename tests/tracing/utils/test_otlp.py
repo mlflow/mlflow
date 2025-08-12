@@ -151,6 +151,8 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 
     @mlflow.trace(name="child_span")
     def child_function(arg1, arg2):
+        # Test that update_current_trace works in dual export mode
+        mlflow.update_current_trace({"env": "production", "version": "1.0"})
         return f"{arg1} {arg2}"
 
     result = parent_function()
@@ -160,10 +162,17 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 
     client = MlflowClient()
     traces = client.search_traces(experiment_ids=[experiment.experiment_id])
-    mlflow_span_ids = [span.span_id for span in traces[0].data.spans]
     assert len(traces) == 1
     assert len(traces[0].data.spans) == 2
 
+    # Verify trace tags were set correctly
+    assert "env" in traces[0].info.tags
+    assert traces[0].info.tags["env"] == "production"
+    assert "version" in traces[0].info.tags
+    assert traces[0].info.tags["version"] == "1.0"
+
+    # Verify same trace/span IDs in both backends
+    mlflow_span_ids = [span.span_id for span in traces[0].data.spans]
     trace_id = traces[0].info.trace_id.replace("tr-", "")
     _, output_file = otel_collector
     with open(output_file) as f:
