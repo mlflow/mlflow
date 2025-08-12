@@ -19,6 +19,7 @@ export async function getArtifactBlob(artifactLocation: any) {
     // TODO: fix types
     headers: new Headers(getDefaultHeaders(document.cookie) as any),
   });
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(getArtifactRequest);
 
   if (!response.ok) {
@@ -41,6 +42,7 @@ export const getArtifactChunkedText = async (artifactLocation: string) =>
       redirect: 'follow',
       headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
     });
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(getArtifactRequest);
 
     if (!response.ok) {
@@ -112,7 +114,9 @@ export function getArtifactBytesContent(artifactLocation: any) {
 }
 
 export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: string) => {
-  return `logged-models/${loggedModelId}/artifacts/files?artifact_file_path=${encodeURIComponent(path)}`;
+  return `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/files?artifact_file_path=${encodeURIComponent(
+    path,
+  )}`;
 };
 
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {

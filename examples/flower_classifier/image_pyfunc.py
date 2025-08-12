@@ -7,7 +7,7 @@ import base64
 import importlib.metadata
 import os
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 
 import keras
 import numpy as np
@@ -62,7 +62,7 @@ class KerasImageClassifierPyfunc:
     def predict(
         self,
         input,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Generate predictions for the data.
@@ -150,7 +150,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
             )
 
         mlflow.pyfunc.log_model(
-            artifact_path=artifact_path,
+            name=artifact_path,
             signature=signature,
             loader_module=__name__,
             code_paths=[__file__],

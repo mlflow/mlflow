@@ -23,6 +23,8 @@ const SNIPPET_LINE_HEIGHT = 18;
 export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Props): JSX.Element => {
   const { theme } = useDesignSystemTheme();
 
+  const codeSnippetTheme = theme.isDarkMode ? 'duotoneDark' : 'light';
+
   const classical_ml_text = `
 import mlflow
 from sklearn.model_selection import train_test_split
@@ -48,6 +50,8 @@ predictions = rf.predict(X_test)
   const llm_text = `
 import mlflow
 import openai
+import os
+import pandas as pd
 
 # you must set the OPENAI_API_KEY environment variable
 assert (
@@ -70,7 +74,7 @@ mlflow.log_param("system_prompt", system_prompt)
 # with OpenAI. Log the model to MLflow Tracking
 logged_model = mlflow.openai.log_model(
     model="gpt-4o-mini",
-    task=openai.ChatCompletion,
+    task=openai.chat.completions,
     artifact_path="model",
     messages=[
         {"role": "system", "content": system_prompt},
@@ -144,6 +148,7 @@ mlflow.end_run()
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{
@@ -165,6 +170,7 @@ mlflow.end_run()
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{

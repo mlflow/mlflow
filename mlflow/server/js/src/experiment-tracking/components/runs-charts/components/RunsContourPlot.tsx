@@ -17,6 +17,7 @@ import {
 } from './RunsCharts.common';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 export interface RunsContourPlotProps extends RunsPlotsCommonProps {
   /**
@@ -66,7 +67,7 @@ const DEFAULT_COLOR_SCALE: [number, string][] = [
   [1, 'rgb(220,220,220)'],
 ];
 
-export const createTooltipTemplate = (zAxisTitle: string) =>
+const createTooltipTemplate = (zAxisTitle: string) =>
   '<b>%{customdata[1]}:</b><br>' +
   '<b>%{xaxis.title.text}:</b> %{x:.2f}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
@@ -292,6 +293,7 @@ export const RunsContourPlot = React.memo(
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );

@@ -1,8 +1,9 @@
 import functools
 import logging
 import os
-from typing import Optional
+import time
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -27,10 +28,36 @@ def get_latest_commit_for_repo(repo: str) -> str:
             "Please install the `huggingface-hub` package and retry.",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
-    return hub.HfApi().model_info(repo).sha
+
+    from huggingface_hub.errors import HfHubHTTPError
+
+    api = hub.HfApi()
+    for i in range(7):
+        try:
+            return api.model_info(repo).sha
+        except HfHubHTTPError as e:
+            if not _MLFLOW_TESTING.get():
+                raise
+
+            # Retry on rate limit error
+            if e.response.status_code == 429:
+                _logger.warning(
+                    f"Rate limit exceeded while fetching commit hash for repo {repo}. "
+                    f"Retrying in {2**i} seconds. Error: {e}",
+                )
+                time.sleep(2**i)
+                continue
+            raise
+
+    raise MlflowException(
+        "Unable to fetch model commit hash from the HuggingFace model hub. "
+        "This is required for saving Transformer model without base model "
+        "weights, while ensuring the version consistency of the model. ",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
 
 
-def is_valid_hf_repo_id(maybe_repo_id: Optional[str]) -> bool:
+def is_valid_hf_repo_id(maybe_repo_id: str | None) -> bool:
     """
     Check if the given string is a valid HuggingFace repo identifier e.g. "username/repo_id".
     """

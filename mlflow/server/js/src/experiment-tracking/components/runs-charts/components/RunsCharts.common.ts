@@ -2,14 +2,8 @@ import { intersection, throttle, uniq } from 'lodash';
 import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import {
-  ImageEntity,
-  KeyValueEntity,
-  MetricEntitiesByName,
-  MetricEntity,
-  MetricHistoryByName,
-  RunInfoEntity,
-} from '../../../types';
+import { ImageEntity, MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { Theme } from '@emotion/react';
 import { LegendLabelData } from './RunsMetricsLegend';
 import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
@@ -104,6 +98,8 @@ export interface RunsPlotsCommonProps {
 export interface RunsChartAxisDef {
   key: string;
   type: 'METRIC' | 'PARAM';
+  dataAccessKey?: string;
+  datasetName?: string;
 }
 
 export interface RunsChartsRunData {
@@ -375,6 +371,7 @@ export const getLegendDataFromRuns = (
   runsData.map(
     (run): LegendLabelData => ({
       label: run.displayName,
+      uuid: run.uuid,
       color: run.color ?? '',
     }),
   );
@@ -508,7 +505,10 @@ export const isEmptyChartCard = (chartRunData: RunsChartsRunData[], chartCardCon
   }
 
   if (isScatterChartCard(chartCardConfig)) {
-    const metricKeys = [chartCardConfig.xaxis.key, chartCardConfig.yaxis.key];
+    const metricKeys = [
+      chartCardConfig.xaxis.dataAccessKey ?? chartCardConfig.xaxis.key,
+      chartCardConfig.yaxis.dataAccessKey ?? chartCardConfig.yaxis.key,
+    ];
     const metricsInRuns = visibleChartRunData.flatMap(({ metrics }) => Object.keys(metrics));
     return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
   }

@@ -1,4 +1,5 @@
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import { ExperimentEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import {
   Button,
   ChevronDownIcon,
@@ -12,9 +13,9 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
@@ -64,7 +65,8 @@ export const ExperimentViewDescriptionNotes = ({
   });
   setShowAddDescriptionButton(!storedNote);
 
-  const [tmpNote, setTmpNote] = useState(storedNote);
+  const effectiveNote = storedNote || defaultValue;
+  const [tmpNote, setTmpNote] = useState(effectiveNote);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview' | undefined>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -79,7 +81,7 @@ export const ExperimentViewDescriptionNotes = ({
   const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
-    (updatedNote: any) => {
+    (updatedNote?: string) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
       const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
@@ -90,11 +92,11 @@ export const ExperimentViewDescriptionNotes = ({
 
   return (
     <div>
-      {(tmpNote ?? defaultValue) && (
+      {effectiveNote && (
         <div
           style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre',
-            lineHeight: theme.typography.lineHeightSm,
+            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
+            lineHeight: theme.typography.lineHeightLg,
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -109,11 +111,12 @@ export const ExperimentViewDescriptionNotes = ({
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              wordBreak: 'break-word',
             }}
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote ?? defaultValue) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(effectiveNote) }}
             />
           </div>
           <Button
@@ -159,7 +162,7 @@ export const ExperimentViewDescriptionNotes = ({
           setEditing(false);
         }}
         onCancel={() => {
-          setTmpNote(storedNote);
+          setTmpNote(effectiveNote);
           setEditing(false);
         }}
       >

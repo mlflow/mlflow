@@ -6,6 +6,7 @@ import thunk from 'redux-thunk';
 import { getMetricHistoryApiBulk } from '../../../actions';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import { RunInfoEntity } from '../../../types';
+// eslint-disable-next-line no-restricted-imports -- TODO(FEINF-4383)
 import { act } from 'react-dom/test-utils';
 
 jest.mock('../../../actions', () => ({
@@ -21,7 +22,7 @@ const flushPromises = (advance = false) =>
   });
 
 describe('useFetchCompareRunsMetricHistory', () => {
-  const getMetricHistoryApiMock = getMetricHistoryApiBulk as jest.Mock;
+  const getMetricHistoryApiMock = jest.mocked(getMetricHistoryApiBulk);
   // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
   let wrapper: ReactWrapper;
 
@@ -63,6 +64,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
 
   beforeEach(() => {
     getMetricHistoryApiMock.mockClear();
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => ({
       type: 'GET_METRIC_HISTORY_API',
       payload: Promise.resolve(),
@@ -75,8 +77,8 @@ describe('useFetchCompareRunsMetricHistory', () => {
 
   it('fetches metric history for two runs', async () => {
     wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_1'), mockRun('run_2')]);
-    expect(getMetricHistoryApiMock).toBeCalledTimes(1);
-    expect(getMetricHistoryApiMock).toBeCalledWith(['run_1', 'run_2'], 'metric_1', undefined);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledTimes(1);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledWith(['run_1', 'run_2'], 'metric_1', undefined);
 
     await flushPromises();
     wrapper.update();
@@ -87,7 +89,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
 
   it('does not fetch metric history if disabled', async () => {
     wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_1'), mockRun('run_2')], {}, false);
-    expect(getMetricHistoryApiMock).toBeCalledTimes(0);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledTimes(0);
 
     expect(isLoadingIndicatorShown()).toBe(false);
     expect(isErrorIndicatorShown()).toBe(false);
@@ -102,13 +104,14 @@ describe('useFetchCompareRunsMetricHistory', () => {
     act(() => {
       wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_3'), mockRun('run_4')], existingMetricHistoryState);
     });
-    expect(getMetricHistoryApiMock).toBeCalledTimes(1);
-    expect(getMetricHistoryApiMock).toBeCalledWith(['run_4'], 'metric_1', undefined);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledTimes(1);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledWith(['run_4'], 'metric_1', undefined);
   });
 
   it('displays loading indicator', async () => {
     jest.useFakeTimers();
     let fetchPromise: any = null;
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => {
       fetchPromise = new Promise((resolve) => setTimeout(resolve, 2000));
       return {
@@ -118,8 +121,8 @@ describe('useFetchCompareRunsMetricHistory', () => {
     });
 
     wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_1')], {});
-    expect(getMetricHistoryApiMock).toBeCalledTimes(1);
-    expect(getMetricHistoryApiMock).toBeCalledWith(['run_1'], 'metric_1', undefined);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledTimes(1);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledWith(['run_1'], 'metric_1', undefined);
 
     wrapper.update();
 
@@ -135,6 +138,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
   });
 
   it('displays error', async () => {
+    // @ts-expect-error TODO(FEINF-4101)
     getMetricHistoryApiMock.mockImplementation(() => {
       return {
         type: 'GET_METRIC_HISTORY_API_BULK',
@@ -143,8 +147,8 @@ describe('useFetchCompareRunsMetricHistory', () => {
     });
 
     wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_1')], {});
-    expect(getMetricHistoryApiMock).toBeCalledTimes(1);
-    expect(getMetricHistoryApiMock).toBeCalledWith(['run_1'], 'metric_1', undefined);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledTimes(1);
+    expect(getMetricHistoryApiMock).toHaveBeenCalledWith(['run_1'], 'metric_1', undefined);
 
     await flushPromises(true);
     wrapper.update();

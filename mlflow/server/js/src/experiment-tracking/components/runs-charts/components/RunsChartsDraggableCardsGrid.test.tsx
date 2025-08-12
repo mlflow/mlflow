@@ -25,13 +25,19 @@ import {
 import { RunsChartsDraggableCardsGridContextProvider } from './RunsChartsDraggableCardsGridContext';
 import { ChartSectionConfig } from '../../../types';
 import { Checkbox } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableDraggableChartsGridLayout: jest.fn(() => true),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableHidingChartsWithNoData: jest.fn(() => true),
+}));
+
+// Mock useIsInViewport hook to simulate that the chart element is in the viewport
+jest.mock('../hooks/useIsInViewport', () => ({
+  useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
 jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop simlation)

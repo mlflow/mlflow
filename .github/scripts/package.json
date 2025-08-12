@@ -1,0 +1,17 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --target=node20 --format=cjs --minify --outfile=dist/bundle.js"
+  },
+  "devDependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "@octokit/openapi-webhooks-types": "^12.0.3",
+    "@types/node": "^24.1.0",
+    "esbuild": "^0.24.0",
+    "openai": "^5.10.2",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,5 +1,6 @@
 import contextlib
 import json
+import logging
 import os
 import shutil
 import sys
@@ -27,6 +28,8 @@ from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_all_flavor_configurations(model_path):
@@ -177,7 +180,7 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
     # It only picks necessary files, because:
     #  1. Reduce risk of logging files containing user credentials to MLflow
     #     artifact repository.
-    #  2. In databricks runtime, notebook files might exist under a code_path directory,
+    #  2. In databricks runtime, notebook files might exist under a code_paths directory,
     #     if logging the whole directory to MLflow artifact repository, these
     #     notebook files are not accessible and trigger exceptions. On the other
     #     hand, these notebook files are not used as code_paths modules because
@@ -226,7 +229,7 @@ def _validate_path_exists(path, name):
         raise MlflowException(
             message=(
                 f"Failed to copy the specified {name} path '{path}' into the model "
-                f"artifacts. The specified {name }path does not exist. Please specify a valid "
+                f"artifacts. The specified {name}path does not exist. Please specify a valid "
                 f"{name} path and try again."
             ),
             error_code=INVALID_PARAMETER_VALUE,

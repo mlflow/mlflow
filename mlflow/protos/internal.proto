@@ -20,4 +20,14 @@ enum InputVertexType {
   RUN = 1;
 
   DATASET = 2;
+
+  MODEL = 3;
+}
+
+// Types of vertices represented in MLflow Run Outputs. Valid vertices are MLflow objects that can
+// have an output relationship.
+enum OutputVertexType {
+  RUN_OUTPUT = 1;
+
+  MODEL_OUTPUT = 2;
 }

@@ -5,16 +5,13 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
+  Typography,
   WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { getTraceDisplayName } from './TracesView.utils';
 import { useExperimentTraceData } from './hooks/useExperimentTraceData';
-import {
-  type ModelTrace,
-  ModelTraceInfo,
-  ModelTraceExplorerFrameRenderer,
-} from '@databricks/web-shared/model-trace-explorer';
+import { ModelTraceInfo, ModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentTraceInfo } from './hooks/useExperimentTraceInfo';
@@ -24,11 +21,15 @@ export const TraceDataDrawer = ({
   traceInfo,
   loadingTraceInfo,
   onClose,
+  selectedSpanId,
+  onSelectSpan,
 }: {
   requestId: string;
   traceInfo?: ModelTraceInfo;
   loadingTraceInfo?: boolean;
   onClose: () => void;
+  selectedSpanId?: string;
+  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const {
     traceData,
@@ -58,21 +59,27 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
+      return (
+        <Typography.Title level={2} withoutMargins>
+          {getTraceDisplayName(traceInfoToUse as ModelTraceInfo)}
+        </Typography.Title>
+      );
     }
     return requestId;
-  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId, theme]);
+  }, [
+    // Memo dependency list
+    loadingTraceInfo,
+    loadingInternalTracingInfo,
+    traceInfoToUse,
+    requestId,
+  ]);
 
   // Construct the model trace object with the trace info and trace data
   const combinedModelTrace = useMemo(
     () =>
       traceData
         ? {
-            // We're assigning values redunantly due to a name change in the upstream interface,
-            // will be cleaned up shortly
-            trace_info: traceInfoToUse || {},
             info: traceInfoToUse || {},
-            trace_data: traceData,
             data: traceData,
           }
         : undefined,
@@ -83,12 +90,7 @@ export const TraceDataDrawer = ({
 
   const renderContent = () => {
     if (loadingTraceData || loadingTraceInfo || loadingInternalTracingInfo) {
-      return (
-        <>
-          <TitleSkeleton />
-          <TableSkeleton lines={5} />
-        </>
-      );
+      return <ModelTraceExplorer.Skeleton />;
     }
     if (traceInfo?.status === 'IN_PROGRESS') {
       return (
@@ -120,7 +122,7 @@ export const TraceDataDrawer = ({
             image={<DangerIcon />}
             description={
               <FormattedMessage
-                defaultMessage="An error occurred while attemptying to fetch the trace data. Please wait a moment and try again."
+                defaultMessage="An error occurred while attempting to fetch the trace data. Please wait a moment and try again."
                 description="Experiment page > traces data drawer > error state description"
               />
             }
@@ -159,9 +161,14 @@ export const TraceDataDrawer = ({
             marginRight: -theme.spacing.lg,
             marginBottom: -theme.spacing.lg,
           }}
+          // This is required for mousewheel scrolling within `Drawer`
           onWheel={(e) => e.stopPropagation()}
         >
-          <ModelTraceExplorerFrameRenderer modelTrace={combinedModelTrace as ModelTrace} height="100%" />
+          <ModelTraceExplorer
+            modelTrace={combinedModelTrace}
+            selectedSpanId={selectedSpanId}
+            onSelectSpan={onSelectSpan}
+          />
         </div>
       );
     }
@@ -180,7 +187,7 @@ export const TraceDataDrawer = ({
     >
       <Drawer.Content
         componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracedatadrawer.tsx_222"
-        width="85vw"
+        width="90vw"
         title={title}
         expandContentToFullHeight
       >

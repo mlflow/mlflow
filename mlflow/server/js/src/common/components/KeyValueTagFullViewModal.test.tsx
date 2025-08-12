@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
 import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 

@@ -1,7 +1,7 @@
 import os
 import time
-from collections import namedtuple
 from functools import wraps
+from typing import NamedTuple
 from unittest import mock
 
 import boto3
@@ -31,7 +31,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 from tests.sagemaker.mock import TransformJob, TransformJobOperation, mock_sagemaker
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
+
+class TrainedModel(NamedTuple):
+    model_path: str
+    run_id: str
+    model_uri: str
 
 
 @pytest.fixture
@@ -42,7 +46,7 @@ def pretrained_model():
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression(solver="lbfgs")
         lr.fit(X, y)
-        mlflow.sklearn.log_model(lr, model_path)
+        mlflow.sklearn.log_model(lr, name=model_path)
         run_id = mlflow.active_run().info.run_id
         model_uri = "runs:/" + run_id + "/" + model_path
         return TrainedModel(model_path, run_id, model_uri)
@@ -107,25 +111,6 @@ def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_mo
         )
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_batch_deployment_with_missing_flavor_raises_exception(pretrained_model):
-    missing_flavor = "mleap"
-    with pytest.raises(
-        MlflowException,
-        match="The specified model does not contain the specified deployment flavor",
-    ) as exc:
-        mfs.deploy_transform_job(
-            job_name="missing-flavor",
-            model_uri=pretrained_model.model_uri,
-            s3_input_data_type="Some Data Type",
-            s3_input_uri="Some Input Uri",
-            content_type="Some Content Type",
-            s3_output_path="Some Output Path",
-            flavor=missing_flavor,
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):

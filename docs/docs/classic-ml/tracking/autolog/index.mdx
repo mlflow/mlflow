@@ -1,0 +1,500 @@
+---
+sidebar_position: 1
+---
+
+import TOCInline from "@theme/TOCInline";
+import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
+
+# Automatic Logging with MLflow Tracking
+
+Auto logging is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements. All you need to do is to
+call <APILink fn="mlflow.autolog" /> before your training code.
+
+```python
+import mlflow
+
+mlflow.autolog()
+
+with mlflow.start_run():
+    # your training code goes here
+    ...
+```
+
+This will enable MLflow to automatically log various information about your run, including:
+
+- **Metrics** - MLflow pre-selects a set of metrics to log, based on what model and library you use
+- **Parameters** - hyper params specified for the training, plus default values provided by the library if not explicitly set
+- **Model Signature** - logs [Model signature](/ml/model/signatures) instance, which describes input and output schema of the model
+- **Artifacts** - e.g. model checkpoints
+- **Dataset** - dataset object used for training (if applicable), such as _tensorflow.data.Dataset_
+
+## How to Get started
+
+### Step 1 - Get MLflow
+
+MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
+
+```bash
+pip install mlflow
+```
+
+### Step 2 - Insert `mlflow.autolog` in Your Code
+
+For example, following code snippet shows how to enable autologging for a scikit-learn model:
+
+```python
+import mlflow
+
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_diabetes
+from sklearn.ensemble import RandomForestRegressor
+
+mlflow.autolog()
+
+db = load_diabetes()
+X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+# MLflow triggers logging automatically upon model fitting
+rf.fit(X_train, y_train)
+```
+
+### Step 3 - Execute Your Code
+
+```bash
+python YOUR_ML_CODE.py
+```
+
+### Step 4 - View Your Results in the MLflow UI
+
+Once your training job finishes, you can run following command to launch the MLflow UI:
+
+```bash
+mlflow ui --port 8080
+```
+
+Then, navigate to [`http://localhost:8080`](http://localhost:8080) in your browser to view the results.
+
+## Customize Autologging Behavior
+
+You can also control the behavior of autologging by passing arguments to <APILink fn="mlflow.autolog" /> function.
+For example, you can disable logging of model checkpoints and associate tags with your run as follows:
+
+```python
+import mlflow
+
+mlflow.autolog(
+    log_model_signatures=False,
+    extra_tags={"YOUR_TAG": "VALUE"},
+)
+```
+
+See <APILink fn="mlflow.autolog" /> for the full set of arguments you can use.
+
+## Enable / Disable Autologging for Specific Libraries
+
+One common use case is to enable/disable autologging for a specific library. For example, if you train your model on PyTorch but use scikit-learn
+for data preprocessing, you may want to disable autologging for scikit-learn while keeping it enabled for PyTorch. You can achieve this by either
+(1) enable autologging only for PyTorch using PyTorch flavor (2) disable autologging for scikit-learn using its flavor with `disable=True`.
+
+```python
+import mlflow
+
+# Option 1: Enable autologging only for PyTorch
+mlflow.pytorch.autolog()
+
+# Option 2: Disable autologging for scikit-learn, but enable it for other libraries
+mlflow.sklearn.autolog(disable=True)
+mlflow.autolog()
+```
+
+## Supported Libraries
+
+:::note
+The generic autolog function <APILink fn="mlflow.autolog" /> enables autologging for each supported library you have installed as soon as you import it.
+Alternatively, you can use library-specific autolog calls such as <APILink fn="mlflow.pytorch.autolog" /> to explicitly enable (or disable) autologging for a particular library.
+:::
+
+The following list covers the most popular libraries that support autologging within MLflow:
+
+<TOCInline toc={toc.slice(toc.findIndex((l) => l.id === "supported-libraries") + 1)} />
+
+:::note
+There are many more integrations that support autologging and the list of supported libraries is constantly growing. See the dedicated pages
+for further guidance on whether autologging support is available for a given library.
+:::
+
+For flavors that automatically save models as an artifact, [additional files](/ml/model#storage-format) for dependency management are logged.
+
+### Keras/TensorFlow \{#autolog-keras}
+
+Call the generic autolog function or <APILink fn="mlflow.tensorflow.autolog" /> before your training code to enable automatic logging of metrics and parameters. As an example, try running the [Keras/Tensorflow example](https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py).
+
+Note that only versions of `tensorflow>=2.3` are supported.
+The respective metrics associated with `tf.estimator` and `EarlyStopping` are automatically logged.
+As an example, try running the [Keras/TensorFlow example](https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py).
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`tf.keras`</td>
+      <td>Training loss; validation loss; user-specified metrics</td>
+      <td>`fit()` parameters; optimizer name; learning rate; epsilon</td>
+      <td>--</td>
+      <td>Model summary on training start; [MLflow Model](/ml/model) (Keras model); TensorBoard logs on training end</td>
+    </tr>
+    <tr>
+      <td>`tf.keras.callbacks.EarlyStopping`</td>
+      <td>Metrics from the `EarlyStopping` callbacks. For example, `stopped_epoch`, `restored_epoch`, `restore_best_weight`, etc</td>
+      <td>`fit()` parameters from `EarlyStopping`. For example, `min_delta`, `patience`, `baseline`, `restore_best_weights`, etc</td>
+      <td>--</td>
+      <td>--</td>
+    </tr>
+  </tbody>
+</Table>
+
+If no active run exists when `autolog()` captures data, MLflow will automatically create a run to log information to.
+Also, MLflow will then automatically end the run once training ends via calls to `tf.keras.fit()`.
+
+If a run already exists when `autolog()` captures data, MLflow will log to that run but not automatically end that run after training. You will have to manually stop the run if you wish to start a new run context for logging to a new run.
+
+### LightGBM \{#autolog-lightgbm}
+
+Call the generic autolog function <APILink fn="mlflow.lightgbm.autolog" /> before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LightGBM</td>
+      <td>user-specified metrics</td>
+      <td>[lightgbm.train](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train) parameters</td>
+      <td>--</td>
+      <td>[MLflow Model](/ml/model) (LightGBM model) with model signature on training end; feature importance; input example;</td>
+    </tr>
+  </tbody>
+</Table>
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+### Paddle \{#autolog-paddle}
+
+Call the generic autolog function <APILink fn="mlflow.paddle.autolog" /> before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Paddle</td>
+      <td>user-specified metrics</td>
+      <td>[paddle.Model.fit](https://www.paddlepaddle.org.cn/documentation/docs/en/api/paddle/Model_en.html) parameters</td>
+      <td>--</td>
+      <td>[MLflow Model](/ml/model) (Paddle model) with model signature on training end</td>
+    </tr>
+  </tbody>
+</Table>
+
+### PySpark \{#autolog-pyspark}
+
+Call <APILink fn="mlflow.pyspark.ml.autolog" /> before your training code to enable automatic logging of metrics, params, and models.
+See example usage with [PySpark](https://github.com/mlflow/mlflow/tree/master/examples/pyspark_ml_autologging).
+
+Autologging for pyspark ml estimators captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Post training metrics obtained by `Evaluator.evaluate`</td>
+      <td>Parameters obtained by `Estimator.fit`</td>
+      <td>
+        - Class name
+        - Fully qualified class name
+
+      </td>
+      <td>
+        - [MLflow Model](/ml/model) containing a fitted estimator
+        - `metric_info.json` for post training metrics
+
+      </td>
+    </tr>
+
+  </tbody>
+</Table>
+
+### PyTorch \{#autolog-pytorch}
+
+Call the generic autolog function <APILink fn="mlflow.pytorch.autolog" /> before your PyTorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages [here](https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST).
+Note that currently, PyTorch autologging supports only models trained using PyTorch Lightning.
+
+Autologging is triggered on calls to `pytorch_lightning.trainer.Trainer.fit` and captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework/module</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`pytorch_lightning.trainer.Trainer`</td>
+      <td>Training loss; validation loss; average_test_accuracy; user-defined-metrics</td>
+      <td>`fit()` parameters; optimizer name; learning rate; epsilon.</td>
+      <td>--</td>
+      <td>Model summary on training start, [MLflow Model](/ml/model) (PyTorch model) on training end;</td>
+    </tr>
+    <tr>
+      <td>`pytorch_lightning.callbacks.earlystopping`</td>
+      <td>Training loss; validation loss; average_test_accuracy; user-defined-metrics. Metrics from the `EarlyStopping` callbacks. For example, `spotted_epoch`, `restored_epoch`, `restore_best_weight`, etc</td>
+      <td>`fit()` parameters; optimizer name; learning rate; epsilon. Parameters from the `EarlyStopping` callbacks. For example, `min_delta`, `patience`, `baseline`, `restore_best_weights`, etc</td>
+      <td>--</td>
+      <td>Model summary on training start; [MLflow Model](/ml/model) (PyTorch model) on training end; Best PyTorch model checkpoint, if training stops due to early stopping callback.</td>
+    </tr>
+  </tbody>
+</Table>
+
+If no active run exists when `autolog()` captures data, MLflow will automatically create a run to log information, ending the run once
+the call to `pytorch_lightning.trainer.Trainer.fit()` completes.
+
+If a run already exists when `autolog()` captures data, MLflow will log to that run but not automatically end that run after training.
+
+:::note
+
+- Parameters not explicitly passed by users (parameters that use default values) while using `pytorch_lightning.trainer.Trainer.fit()` are not currently automatically logged
+- In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
+
+:::
+
+### Scikit-learn \{#autolog-sklearn}
+
+Call <APILink fn="mlflow.sklearn.autolog" /> before your training code to enable automatic logging of sklearn metrics, params, and models.
+See example usage [here](https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog).
+
+Autologging for estimators (e.g. [LinearRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)) and meta estimators (e.g. [Pipeline](https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html)) creates a single run and logs:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Training score obtained by `estimator.score`</td>
+      <td>Parameters obtained by `estimator.get_params`</td>
+      <td>
+        - Class name
+        - Fully qualified class name
+
+      </td>
+      <td>Fitted estimator</td>
+    </tr>
+
+  </tbody>
+</Table>
+
+Autologging for parameter search estimators (e.g. [GridSearchCV](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html)) creates a single parent run and nested child runs
+
+```
+- Parent run
+  - Child run 1
+  - Child run 2
+  - ...
+```
+
+containing the following data:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Run type</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Parent</td>
+      <td>Training score</td>
+      <td>
+        - Parameter search estimator's parameters
+        - Best parameter combination
+
+      </td>
+      <td>
+        - Class name
+        - Fully qualified class name
+
+      </td>
+      <td>
+        - Fitted parameter search estimator
+        - Fitted best estimator
+        - Search results csv file
+
+      </td>
+    </tr>
+    <tr>
+      <td>Child</td>
+      <td>CV test score for each parameter combination</td>
+      <td>Each parameter combination</td>
+      <td>
+        - Class name
+        - Fully qualified class name
+
+      </td>
+      <td>--</td>
+    </tr>
+
+  </tbody>
+</Table>
+
+### Spark \{#autolog-spark}
+
+Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
+`SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")`) and then
+call the generic autolog function <APILink fn="mlflow.spark.autolog" /> to enable automatic logging of Spark datasource
+information at read-time, without the need for explicit
+log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Spark</td>
+      <td>--</td>
+      <td>--</td>
+      <td>Single tag containing source path, version, format. The tag contains one line per datasource</td>
+      <td>--</td>
+    </tr>
+  </tbody>
+</Table>
+
+:::note
+
+- Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
+
+:::
+
+:::warning important
+With Pyspark 3.2.0 or above, Spark datasource autologging requires `PYSPARK_PIN_THREAD` environment variable to be set to `false`.
+:::
+
+### Statsmodels \{#autolog-statsmodels}
+
+Call the generic autolog function <APILink fn="mlflow.statsmodels.autolog" /> before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Statsmodels</td>
+      <td>user-specified metrics</td>
+      <td>[statsmodels.base.model.Model.fit](https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html) parameters</td>
+      <td>--</td>
+      <td>[MLflow Model](/ml/model) (statsmodels.base.wrapper.ResultsWrapper) on training end</td>
+    </tr>
+  </tbody>
+</Table>
+
+:::note
+
+- Each model subclass that overrides _fit_ expects and logs its own parameters.
+
+:::
+
+### XGBoost \{#autolog-xgboost}
+
+Call the generic autolog function <APILink fn="mlflow.xgboost.autolog" /> before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Metrics</th>
+      <th>Parameters</th>
+      <th>Tags</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>XGBoost</td>
+      <td>user-specified metrics</td>
+      <td>[xgboost.train](https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train) parameters</td>
+      <td>--</td>
+      <td>[MLflow Model](/ml/model) (XGBoost model) with model signature on training end; feature importance; input example</td>
+    </tr>
+  </tbody>
+</Table>
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.

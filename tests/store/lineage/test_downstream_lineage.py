@@ -26,7 +26,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 
 
 class SimpleModel(mlflow.pyfunc.PythonModel):
-    def predict(self, _, model_input):
+    def predict(self, context, model_input):
         return model_input.applymap(lambda x: x * 2)
 
 
@@ -119,6 +119,11 @@ def test_downstream_notebook_job_lineage(
             "mlflow.utils.rest_utils.http_request",
             return_value=mock.MagicMock(status_code=200, text="{}"),
         ) as mock_http,
+        mock.patch.object(
+            mlflow.tracking.MlflowClient,
+            "get_model_version",
+            return_value=mock.Mock(model_id="m-123"),
+        ),
     ):
         mlflow.pyfunc.save_model(path=model_dir, python_model=SimpleModel())
         mlflow.pyfunc.load_model(model_uri)

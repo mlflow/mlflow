@@ -41,15 +41,16 @@ ${codespacesBadge}
 #### Install mlflow from this PR
 
 \`\`\`
-# Use \`%sh\` to run this command on Databricks
-OPTIONS=$(if pip freeze | grep -q 'mlflow @ git+https://github.com/mlflow/mlflow.git'; then echo '--force-reinstall --no-deps'; fi)
-pip install $OPTIONS git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# mlflow
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# mlflow-skinny
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=libs/skinny
 \`\`\`
 
-#### Checkout with GitHub CLI
+For Databricks, use the following command:
 
 \`\`\`
-gh pr checkout ${issue_number}
+%sh curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s pull/${issue_number}/merge
 \`\`\`
 
 </p>

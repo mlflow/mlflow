@@ -1,7 +1,7 @@
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -192,11 +192,11 @@ class ChatMessage(_BaseDataclass):
     """
 
     role: str
-    content: Optional[str] = None
-    refusal: Optional[str] = None
-    name: Optional[str] = None
-    tool_calls: Optional[list[ToolCall]] = None
-    tool_call_id: Optional[str] = None
+    content: str | None = None
+    refusal: str | None = None
+    name: str | None = None
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
@@ -236,11 +236,11 @@ class ChatChoiceDelta(_BaseDataclass):
             **Optional** defaults to ``None``
     """
 
-    role: Optional[str] = "assistant"
-    content: Optional[str] = None
-    refusal: Optional[str] = None
-    name: Optional[str] = None
-    tool_calls: Optional[list[ToolCall]] = None
+    role: str | None = "assistant"
+    content: str | None = None
+    refusal: str | None = None
+    name: str | None = None
+    tool_calls: list[ToolCall] | None = None
 
     def __post_init__(self):
         self._validate_field("role", str, False)
@@ -278,9 +278,9 @@ class ParamProperty(ParamType):
             used to specify the type of its items. **Optional**, defaults to ``None``
     """
 
-    description: Optional[str] = None
-    enum: Optional[list[str]] = None
-    items: Optional[ParamType] = None
+    description: str | None = None
+    enum: list[str] | None = None
+    items: ParamType | None = None
 
     def __post_init__(self):
         self._validate_field("description", str, False)
@@ -305,8 +305,8 @@ class ToolParamsSchema(_BaseDataclass):
 
     properties: dict[str, ParamProperty]
     type: Literal["object"] = "object"
-    required: Optional[list[str]] = None
-    additionalProperties: Optional[bool] = None
+    required: list[str] | None = None
+    additionalProperties: bool | None = None
 
     def __post_init__(self):
         self._convert_dataclass_map("properties", ParamProperty, True)
@@ -332,8 +332,8 @@ class FunctionToolDefinition(_BaseDataclass):
     """
 
     name: str
-    description: Optional[str] = None
-    parameters: Optional[ToolParamsSchema] = None
+    description: str | None = None
+    parameters: ToolParamsSchema | None = None
     strict: bool = False
 
     def __post_init__(self):
@@ -396,25 +396,29 @@ class ChatParams(_BaseDataclass):
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     temperature: float = 1.0
-    max_tokens: Optional[int] = None
-    stop: Optional[list[str]] = None
+    max_tokens: int | None = None
+    stop: list[str] | None = None
     n: int = 1
     stream: bool = False
 
-    top_p: Optional[float] = None
-    top_k: Optional[int] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
+    top_p: float | None = None
+    top_k: int | None = None
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
 
-    custom_inputs: Optional[dict[str, Any]] = None
-    tools: Optional[list[ToolDefinition]] = None
+    custom_inputs: dict[str, Any] | None = None
+    tools: list[ToolDefinition] | None = None
 
     def __post_init__(self):
         self._validate_field("temperature", float, True)
@@ -442,6 +446,13 @@ class ChatParams(_BaseDataclass):
                         "Expected `custom_inputs` to be of type `Dict[str, Any]`, "
                         f"received key of type `{type(key).__name__}` (key: {key})"
                     )
+
+    @classmethod
+    def keys(cls) -> set[str]:
+        """
+        Return the keys of the dataclass
+        """
+        return {field.name for field in fields(cls)}
 
 
 @dataclass()
@@ -474,11 +485,15 @@ class ChatCompletionRequest(ChatParams):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     messages: list[ChatMessage] = field(default_factory=list)
@@ -507,7 +522,7 @@ class TopTokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    bytes: Optional[list[int]] = None
+    bytes: list[int] | None = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -538,7 +553,7 @@ class TokenLogProb(_BaseDataclass):
     token: str
     logprob: float
     top_logprobs: list[TopTokenLogProb]
-    bytes: Optional[list[int]] = None
+    bytes: list[int] | None = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -556,7 +571,7 @@ class ChatChoiceLogProbs(_BaseDataclass):
         content: A list of message content tokens with log probability information.
     """
 
-    content: Optional[list[TokenLogProb]] = None
+    content: list[TokenLogProb] | None = None
 
     def __post_init__(self):
         self._convert_dataclass_list("content", TokenLogProb, False)
@@ -581,7 +596,7 @@ class ChatChoice(_BaseDataclass):
     message: ChatMessage
     index: int = 0
     finish_reason: str = "stop"
-    logprobs: Optional[ChatChoiceLogProbs] = None
+    logprobs: ChatChoiceLogProbs | None = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
@@ -599,7 +614,7 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
@@ -608,8 +623,8 @@ class ChatChunkChoice(_BaseDataclass):
 
     delta: ChatChoiceDelta
     index: int = 0
-    finish_reason: Optional[str] = None
-    logprobs: Optional[ChatChoiceLogProbs] = None
+    finish_reason: str | None = None
+    logprobs: ChatChoiceLogProbs | None = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
@@ -632,9 +647,9 @@ class TokenUsageStats(_BaseDataclass):
             **Optional**, defaults to ``None``
     """
 
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
     def __post_init__(self):
         self._validate_field("prompt_tokens", int, False)
@@ -658,16 +673,17 @@ class ChatCompletionResponse(_BaseDataclass):
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
         custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
     choices: list[ChatChoice]
-    usage: Optional[TokenUsageStats] = None
-    id: Optional[str] = None
-    model: Optional[str] = None
+    usage: TokenUsageStats | None = None
+    id: str | None = None
+    model: str | None = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -694,17 +710,18 @@ class ChatCompletionChunk(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
     choices: list[ChatChunkChoice]
-    usage: Optional[TokenUsageStats] = None
-    id: Optional[str] = None
-    model: Optional[str] = None
+    usage: TokenUsageStats | None = None
+    id: str | None = None
+    model: str | None = None
     object: str = "chat.completion.chunk"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -717,6 +734,21 @@ class ChatCompletionChunk(_BaseDataclass):
 
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+    name="usage",
+    type=Object(
+        [
+            Property("prompt_tokens", DataType.long),
+            Property("completion_tokens", DataType.long),
+            Property("total_tokens", DataType.long),
+        ]
+    ),
+    required=False,
+)
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(AnyType()), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -775,7 +807,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(AnyType()), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -807,24 +839,13 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="custom_outputs", type=Map(AnyType()), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 
 CHAT_MODEL_INPUT_EXAMPLE = {
     "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ],
     "temperature": 1.0,

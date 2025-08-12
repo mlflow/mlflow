@@ -1,5 +1,7 @@
 import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
+import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
+import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../common/utils/FeatureUtils';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
@@ -27,7 +29,7 @@ export interface GetExperimentsContextType {
   /**
    * Contains error descriptor if fetching runs failed
    */
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
 
   /**
    * All experiment-related actions creators
@@ -63,7 +65,9 @@ export const GetExperimentsContextProvider = ({
         const newRequestIds = experimentIds.map((experimentId) => {
           const requestAction = actions.getExperimentApi(experimentId);
           dispatch(requestAction).catch((e) => {
-            Utils.logErrorAndNotifyUser(e);
+            if (!shouldUsePredefinedErrorsInExperimentTracking()) {
+              Utils.logErrorAndNotifyUser(e);
+            }
           });
           return requestAction.meta.id;
         });
@@ -100,6 +104,13 @@ export const GetExperimentsContextProvider = ({
     if (!requestError) {
       requests.forEach((request) => {
         if (request.error) {
+          if (shouldUsePredefinedErrorsInExperimentTracking()) {
+            const maybePredefinedError = mapErrorWrapperToPredefinedError(request.error);
+            if (maybePredefinedError) {
+              setRequestError(maybePredefinedError);
+              return;
+            }
+          }
           setRequestError(request.error);
         }
       });

@@ -6,7 +6,7 @@ import re
 import signal
 import subprocess
 import uuid
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -87,7 +87,11 @@ def get_breast_cancer_dataset():
     return data.data, data.target
 
 
-RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+class RunData(NamedTuple):
+    params: dict[str, Any]
+    metrics: dict[str, Any]
+    tags: dict[str, Any]
+    artifacts: list[str]
 
 
 def get_run_data(run_id):
@@ -115,8 +119,9 @@ def get_local_artifact_path(run_id, artifact_path):
 @pytest.fixture(scope="module")
 def iris_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y}
+    eval_X = X[0::3]
+    eval_y = y[0::3]
+    constructor_args = {"data": eval_X, "targets": eval_y, "name": "dataset"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -125,7 +130,8 @@ def iris_dataset():
 @pytest.fixture(scope="module")
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -144,7 +150,8 @@ def diabetes_spark_dataset():
 @pytest.fixture(scope="module")
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -225,7 +232,7 @@ def get_pipeline_model_uri():
     pipeline.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(pipeline, "pipeline_model")
+        model_info = mlflow.sklearn.log_model(pipeline, name="pipeline_model")
         return model_info.model_uri
 
 
@@ -239,9 +246,9 @@ def get_linear_regressor_model_uri():
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(reg, "reg_model")
-        return get_artifact_uri(run.info.run_id, "reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(reg, name="reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -254,9 +261,9 @@ def get_spark_linear_regressor_model_uri():
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
 
-    with mlflow.start_run() as run:
-        mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        return get_artifact_uri(run.info.run_id, "spark_reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(spark_reg_model, artifact_path="spark_reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -269,9 +276,9 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, name=f"clf_model_{max_iter}_iters")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -284,9 +291,9 @@ def get_binary_logistic_regressor_model_uri():
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "bin_clf_model")
-        return get_artifact_uri(run.info.run_id, "bin_clf_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, name="bin_clf_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -299,15 +306,16 @@ def get_svm_model_url():
     clf = sklearn.svm.LinearSVC()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "svm_model")
-        return get_artifact_uri(run.info.run_id, "svm_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, name="svm_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
 def iris_pandas_df_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     data = pd.DataFrame(
         {
             "f1": eval_X[:, 0],
@@ -326,7 +334,8 @@ def iris_pandas_df_dataset():
 @pytest.fixture
 def iris_pandas_df_num_cols_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
     constructor_args = {"data": data, "targets": "y"}
@@ -361,8 +370,8 @@ def test_mlflow_evaluate_logs_traces():
 def test_pyfunc_evaluate_logs_traces():
     class Model(mlflow.pyfunc.PythonModel):
         @mlflow.trace()
-        def predict(self, _, inputs):
-            return self.add(inputs, inputs)
+        def predict(self, context, model_input):
+            return self.add(model_input, model_input)
 
         @mlflow.trace()
         def add(self, x, y):
@@ -376,16 +385,18 @@ def test_pyfunc_evaluate_logs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
         evaluate(
             model_info.model_uri,
             eval_data,
             targets="ground_truth",
             extra_metrics=[mlflow.metrics.exact_match()],
         )
-    assert len(get_traces()) == 1
-    assert len(get_traces()[0].data.spans) == 2
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 2
+    assert run.info.run_id == traces[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -717,7 +728,7 @@ def test_trace_dataset_hash():
     df = pd.DataFrame(
         {
             "request": ["Hello"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
         }
     )
     dataset = EvaluationDataset(data=df)
@@ -726,7 +737,7 @@ def test_trace_dataset_hash():
     df2 = pd.DataFrame(
         {
             "request": ["Hi"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
         }
     )
     dataset2 = EvaluationDataset(data=df2)
@@ -934,10 +945,10 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 mock_evaluate.assert_called_once_with(
                     model=PyFuncModelMatcher(),
                     model_type="classifier",
+                    model_id=multiclass_logistic_regressor_model_uri.split("/")[-1],
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
-                    custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
                     predictions=None,
@@ -967,11 +978,11 @@ def test_evaluate_with_multi_evaluators(
             return {
                 "model": model,
                 "model_type": "classifier",
+                "model_id": model.model_id,
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
                 "extra_metrics": None,
-                "custom_metrics": None,
                 "custom_artifacts": None,
                 "predictions": None,
             }
@@ -1067,9 +1078,9 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                     dataset=iris_dataset,
                     predictions=None,
                     model_type="classifier",
+                    model_id=None,
                     run_id=run.info.run_id,
                     evaluator_config={},
-                    custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
                 )
@@ -1347,7 +1358,7 @@ def test_evaluate_stdin_scoring_server():
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
 
     with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
         mlflow.evaluate(
@@ -1380,7 +1391,7 @@ def test_evaluate_xgboost_classifier():
     model = xgb.train({"objective": "multi:softmax", "num_class": 3}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.xgboost.log_model(model, "model")
+        model_info = mlflow.xgboost.log_model(model, name="model")
         mlflow.evaluate(
             model_info.model_uri,
             X.assign(y=y),
@@ -1405,7 +1416,7 @@ def test_evaluate_lightgbm_regressor():
     model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.lightgbm.log_model(model, "model")
+        model_info = mlflow.lightgbm.log_model(model, name="model")
         mlflow.evaluate(
             model_info.model_uri,
             X.assign(y=y),
@@ -1553,7 +1564,7 @@ def test_evaluate_with_loaded_pyfunc_model():
     model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.lightgbm.log_model(model, "model")
+        model_info = mlflow.lightgbm.log_model(model, name="model")
         loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
         mlflow.evaluate(
             loaded_model,
@@ -1679,7 +1690,15 @@ def test_binary_classification_missing_minority_class_exception_override(
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
-    assert saved_metrics == eval_result.metrics
+    for key, saved_val in saved_metrics.items():
+        eval_val = eval_result.metrics[key]
+        # some nan fields are due to the class imbalance.
+        # for example, the roc_auc_score metric will return
+        # nan since we override all classes to `1` here
+        if np.isnan(saved_val):
+            assert np.isnan(eval_val)
+        else:
+            assert eval_val == saved_val
 
 
 def test_multiclass_classification_missing_minority_class_exception_override(
@@ -2134,3 +2153,246 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_1.env_manager = "virtualenv"
     assert served_model_1.env_manager == "virtualenv"
+
+
+def test_metrics_logged_to_model_on_evaluation(
+    multiclass_logistic_regressor_model_uri, iris_dataset
+):
+    with mlflow.start_run():
+        # Log the model and retrieve its model_id
+        model_info = mlflow.sklearn.log_model(
+            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), name="model"
+        )
+        model_id = model_info.model_id
+
+        # Evaluate the model using its model_id
+        eval_result = mlflow.evaluate(
+            model=model_info.model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators=["default"],
+        )
+
+        # Retrieve metrics logged to the model
+        logged_model_metrics = mlflow.get_logged_model(model_id).metrics
+
+        # Ensure metrics are logged to the model
+        assert eval_result.metrics == {metric.key: metric.value for metric in logged_model_metrics}
+
+        # Validate that all metrics have the correct model_id in their metadata
+        assert all(metric.model_id == model_id for metric in logged_model_metrics)
+
+
+def test_evaluate_with_model_id(iris_dataset):
+    # Create and log a model
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(model, name="model")
+        model_id = model_info.model_id
+
+    # Evaluate the model with the specified model ID
+    with mlflow.start_run():
+        result = evaluate(
+            model_info.model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            model_id=model_id,
+        )
+
+        # Verify metrics were logged
+        assert result.metrics is not None
+        assert len(result.metrics) > 0
+
+        # Verify metrics are linked to the model ID
+        logged_model = mlflow.get_logged_model(model_id)
+        assert logged_model is not None
+        assert logged_model.model_id == model_id
+
+        # Convert metrics list to a dictionary for easier lookup
+        logged_metrics = {metric.key: metric.value for metric in logged_model.metrics}
+
+        # Verify each metric from the evaluation result matches the logged model metrics
+        for metric_name, metric_value in result.metrics.items():
+            assert metric_name in logged_metrics, (
+                f"Metric {metric_name} not found in logged model metrics"
+            )
+            assert logged_metrics[metric_name] == metric_value, (
+                f"Metric {metric_name} value mismatch: "
+                f"expected {metric_value}, got {logged_metrics[metric_name]}"
+            )
+
+
+def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Test that an error is thrown when the specified model_id contradicts the model's associated ID.
+    """
+    # Create a model with a known model ID
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name="model",
+        )
+        model_uri = model_info.model_uri
+        model_id = model_info.model_uuid
+
+        # Test that specifying matching model_id works
+        evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+            model_id=model_id,
+        )
+
+        # Test that specifying different model_id raises
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"The specified value of the 'model_id' parameter '.*' "
+                r"contradicts the model_id '.*' associated with the model\. Please ensure "
+                r"they match or omit the 'model_id' parameter\."
+            ),
+        ):
+            evaluate(
+                model_uri,
+                iris_dataset._constructor_args["data"],
+                targets=iris_dataset._constructor_args["targets"],
+                model_type="classifier",
+                model_id="different_model_id",
+            )
+
+        # Test that not specifying model_id works
+        evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+        )
+
+
+def test_evaluate_log_metrics_to_active_model(iris_dataset):
+    # Set active model
+    mlflow.set_active_model(name="my-model")
+    active_model_id = mlflow.get_active_model_id()
+
+    model = sklearn.linear_model.LogisticRegression()
+    model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+    eval_df = pd.DataFrame(
+        {
+            "inputs": iris_dataset._constructor_args["data"].tolist(),
+            "targets": iris_dataset._constructor_args["targets"],
+            "predictions": model.predict(iris_dataset._constructor_args["data"]),
+        }
+    )
+
+    eval_dataset = mlflow.data.from_pandas(
+        df=eval_df,
+        name="eval_dataset",
+        targets="targets",
+        predictions="predictions",
+    )
+
+    # Evaluate the model without model_id, active model_id should be used
+    with mlflow.start_run():
+        result = evaluate(
+            data=eval_dataset,
+            model_type="classifier",
+        )
+
+        # Verify metrics were logged
+        assert result.metrics is not None
+        assert len(result.metrics) > 0
+
+        # Verify metrics are linked to the active model ID
+        logged_model = mlflow.get_logged_model(active_model_id)
+        assert logged_model is not None
+        assert logged_model.model_id == active_model_id
+
+        # Convert metrics list to a dictionary for easier lookup
+        logged_metrics = {metric.key: metric.value for metric in logged_model.metrics}
+
+        # Verify each metric from the evaluation result matches the logged model metrics
+        assert logged_metrics.items() <= result.metrics.items()
+
+
+def test_mlflow_evaluate_logs_traces_to_active_model():
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        }
+    )
+
+    @mlflow.trace
+    def model(inputs):
+        return inputs
+
+    # no model_id used when no active model is set or passed
+    evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
+    traces = get_traces()
+    assert len(traces) == 1
+    assert TraceMetadataKey.MODEL_ID not in traces[0].info.request_metadata
+
+    # no active model set and pass model_id explicitly
+    assert mlflow.get_active_model_id() is None
+    model_id = mlflow.create_external_model(name="my-model").model_id
+    evaluate(
+        model,
+        eval_data,
+        targets="ground_truth",
+        extra_metrics=[mlflow.metrics.exact_match()],
+        model_id=model_id,
+    )
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
+
+    # set active model
+    with mlflow.set_active_model(name="my-model") as active_model:
+        model_id = active_model.model_id
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+        traces = get_traces()
+        assert len(traces) == 3
+        assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
+
+        # pass model_id explicitly takes precedence over active model
+        assert mlflow.get_active_model_id() is not None
+        another_model_id = mlflow.create_external_model(name="another-model").model_id
+        evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+            model_id=another_model_id,
+        )
+        traces = get_traces()
+        assert len(traces) == 4
+        assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == another_model_id
+
+        # model_id of the passed model takes precedence over active model
+        assert mlflow.get_active_model_id() is not None
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=model,
+            input_example="What is MLflow?",
+        )
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+        traces = get_traces()
+        assert len(traces) == 5
+        assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+    # TODO: test registered ModelVersion's model_id works after it's supported

@@ -47,7 +47,7 @@ def generate_data(location_data, start_dt) -> pd.DataFrame:
     return pd.concat(generated_listing).reset_index().drop("index", axis=1)
 
 
-def grouped_prophet_example(locations, start_dt, artifact_path):
+def grouped_prophet_example(locations, start_dt):
     print("Generating data...\n")
     data = generate_data(location_data=locations, start_dt=start_dt)
     grouping_keys = ["country", "city"]
@@ -73,7 +73,7 @@ def grouped_prophet_example(locations, start_dt, artifact_path):
     )
     print(f"Cross Validation Metrics: \n{metrics.to_string()}")
 
-    mlflow.diviner.log_model(diviner_model=model, artifact_path=artifact_path)
+    model_info = mlflow.diviner.log_model(diviner_model=model, name="diviner_model")
 
     # As an Alternative to saving metrics and params directly with a `log_dict()` function call,
     # Serializing the DataFrames to local as a .csv can be done as well, without requiring
@@ -99,7 +99,7 @@ def grouped_prophet_example(locations, start_dt, artifact_path):
 
     mlflow.log_dict(metrics.to_dict(), "metrics.json")
 
-    return mlflow.get_artifact_uri(artifact_path=artifact_path)
+    return model_info.model_uri
 
 
 if __name__ == "__main__":
@@ -112,10 +112,9 @@ if __name__ == "__main__":
         ("MX", "MexicoCity"),
     ]
     start_dt = "2022-02-01 04:11:35"
-    artifact_path = "diviner_model"
 
     with mlflow.start_run():
-        uri = grouped_prophet_example(locations, start_dt, artifact_path)
+        uri = grouped_prophet_example(locations, start_dt)
 
     loaded_model = mlflow.diviner.load_model(model_uri=uri)
 
