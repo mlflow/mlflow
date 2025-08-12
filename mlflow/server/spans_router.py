@@ -9,10 +9,19 @@ prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "")
 router = APIRouter(prefix=f"{prefix}/api/2.0")
 
 
-class ListSpansResponse(BaseModel): ...
+class Span(BaseModel):
+    trace_id: str
+    span_id: str
+    # TODO: Add more fields
 
 
-class GetSpanResponse(BaseModel): ...
+class ListSpansResponse(BaseModel):
+    spans: list[Span]
+    next_page_token: str | None = None
+
+
+class GetSpanResponse(BaseModel):
+    span: Span
 
 
 @router.get("/traces/{trace_id}/spans/{span_id}")
