@@ -286,7 +286,6 @@ def _get_span_processors():
     """
     processors = []
 
-    # Check for OTLP export configuration
     if should_use_otlp_exporter():
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
@@ -297,14 +296,11 @@ def _get_span_processors():
         if not MLFLOW_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
-    # Check for user-specified destination (takes precedence)
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
-        # User specified destination - use MLflow processor
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
     elif is_in_databricks_model_serving_environment():
-        # Databricks Model Serving environment
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors
 
@@ -315,7 +311,6 @@ def _get_span_processors():
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
     else:
-        # Default: Add MLflow processor
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
 
@@ -336,7 +331,6 @@ def _setup_tracer_provider(disabled=False):
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    # Set up warning suppression early
     from mlflow.tracing.utils.warning import suppress_warning
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
@@ -353,27 +347,21 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
-    # Configure sampling
     sampler = _get_trace_sampler()
 
-    # Create TracerProvider
     # Setting an empty resource to avoid triggering resource aggregation, which causes
     # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
     tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
 
-    # Get all configured span processors
     processors = _get_span_processors()
 
-    # Special case: Model serving with tracing disabled
     if not processors and is_in_databricks_model_serving_environment():
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
 
-    # Add all processors to the tracer provider
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
-    # Set the global tracer provider
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
 
@@ -381,7 +369,6 @@ def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    # Databricks and SQL backends support V3 traces
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 

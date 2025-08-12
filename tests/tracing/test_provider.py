@@ -361,10 +361,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
 
-    # Set up MLflow tracking
-    mlflow.set_tracking_uri("sqlite:///test.db")
-    mlflow.set_experiment("test_otlp_modes")
-
     # Test 1: OTLP exclusive mode (dual export = false, default)
     monkeypatch.setenv(MLFLOW_ENABLE_OTLP_DUAL_EXPORT.name, "false")
     with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
