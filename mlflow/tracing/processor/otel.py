@@ -129,6 +129,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
                 return None
 
             # Get appropriate metric exporter based on protocol
+            # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
             if protocol == "grpc":
                 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                     OTLPMetricExporter,
@@ -138,7 +139,12 @@ class OtelSpanProcessor(BatchSpanProcessor):
                     OTLPMetricExporter,
                 )
             else:
-                return None
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported OTLP metrics protocol '{protocol}'. "
+                    "Supported protocols are 'grpc' and 'http/protobuf'."
+                )
 
             metric_exporter = OTLPMetricExporter(endpoint=endpoint)
 
