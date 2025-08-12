@@ -73,6 +73,35 @@ def get_logger() -> logging.Logger:
     return _MODULE_LOGGER
 
 
+def setup_mlflow() -> None:
+    """Configure MLflow tracking URI and experiment."""
+    if not is_tracing_enabled():
+        return
+
+    import mlflow
+    from mlflow.claude_code.config import get_env_var
+    from mlflow.environment_variables import (
+        MLFLOW_EXPERIMENT_ID,
+        MLFLOW_EXPERIMENT_NAME,
+        MLFLOW_TRACKING_URI,
+    )
+
+    # Get tracking URI from environment/settings
+    mlflow.set_tracking_uri(get_env_var(MLFLOW_TRACKING_URI.name))
+
+    # Set experiment if specified via environment variables
+    experiment_id = get_env_var(MLFLOW_EXPERIMENT_ID.name)
+    experiment_name = get_env_var(MLFLOW_EXPERIMENT_NAME.name)
+
+    try:
+        if experiment_id:
+            mlflow.set_experiment(experiment_id=experiment_id)
+        elif experiment_name:
+            mlflow.set_experiment(experiment_name)
+    except Exception as e:
+        get_logger().warning("Failed to set experiment: %s", e)
+
+
 def is_tracing_enabled() -> bool:
     """Check if MLflow Claude tracing is enabled via environment variable."""
     try:
@@ -84,38 +113,6 @@ def is_tracing_enabled() -> bool:
     from mlflow.claude_code.config import MLFLOW_TRACING_ENABLED, get_env_var
 
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
-
-
-def setup_mlflow() -> None:
-    """Configure MLflow tracking URI and experiment."""
-    if not is_tracing_enabled():
-        return
-
-    from mlflow.claude_code.config import (
-        MLFLOW_EXPERIMENT_ID,
-        MLFLOW_EXPERIMENT_NAME,
-        MLFLOW_TRACKING_URI,
-        get_env_var,
-    )
-
-    # Get tracking URI from environment/settings
-    tracking_uri = get_env_var(MLFLOW_TRACKING_URI)
-
-    import mlflow
-
-    mlflow.set_tracking_uri(tracking_uri)
-
-    # Set experiment if specified via environment variables
-    experiment_id = get_env_var(MLFLOW_EXPERIMENT_ID)
-    experiment_name = get_env_var(MLFLOW_EXPERIMENT_NAME)
-
-    try:
-        if experiment_id:
-            mlflow.set_experiment(experiment_id=experiment_id)
-        elif experiment_name:
-            mlflow.set_experiment(experiment_name)
-    except Exception as e:
-        get_logger().warning("Failed to set experiment: %s", e)
 
 
 # ============================================================================
@@ -394,6 +391,7 @@ def process_transcript(transcript_path: str, session_id: Optional[str] = None) -
     try:
         import mlflow
         from mlflow import MlflowClient
+        from mlflow.tracing.constant import TraceMetadataKey
         from mlflow.tracing.trace_manager import InMemoryTraceManager
 
         setup_mlflow()
@@ -424,11 +422,6 @@ def process_transcript(transcript_path: str, session_id: Optional[str] = None) -
         trace = client.start_trace(
             name="claude_code_conversation",
             inputs={"prompt": extract_text_content(last_user_prompt)},
-            tags={
-                "session.id": session_id,
-                "user.email": os.environ.get("USER", ""),
-                "working_directory": os.getcwd(),
-            },
             start_time_ns=conv_start_ns,
         )
 
@@ -446,8 +439,13 @@ def process_transcript(transcript_path: str, session_id: Optional[str] = None) -
                     in_memory_trace.info.request_preview = user_prompt_text[:MAX_PREVIEW_LENGTH]
                 if final_response:
                     in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
+                in_memory_trace.info.trace_metadata = {
+                    TraceMetadataKey.TRACE_SESSION: session_id,
+                    TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                    "mlflow.trace.working_directory": os.getcwd(),
+                }
         except Exception as e:
-            get_logger().warning("Failed to update trace previews: %s", e)
+            get_logger().warning("Failed to update trace metadata and previews: %s", e)
 
         # Calculate end time based on last entry or use default duration
         last_entry = transcript[-1] if transcript else last_user_entry

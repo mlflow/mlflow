@@ -7,7 +7,6 @@ This module provides automatic tracing integration between Claude Code and MLflo
 - **`config.py`** - Configuration management (settings files, environment variables)
 - **`hooks.py`** - Claude Code hook setup and management
 - **`cli.py`** - MLflow CLI commands (`mlflow claude trace`)
-- **`wrapper.py`** - Claude CLI wrapper for automatic tracing
 - **`tracing.py`** - Core tracing logic and processors
 - **`hooks/`** - Hook implementation handlers
 
@@ -30,6 +29,7 @@ mlflow claude trace ~/my-project
 
 # Set up with custom tracking URI
 mlflow claude trace -u file://./custom-mlruns
+mlflow claude trace -u sqlite:///mlflow.db
 
 # Set up with Databricks
 mlflow claude trace -u databricks -e 123456789
@@ -70,7 +70,7 @@ The setup creates two types of configuration:
 mlflow claude trace
 cd .
 claude "help me write a function"
-mlflow ui --backend-store-uri file://./.claude/mlflow/runs
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 ### Databricks Integration
@@ -84,10 +84,10 @@ claude "analyze this data"
 ### Custom Project Setup
 
 ```bash
-mlflow claude trace ~/my-ai-project -u file://./traces -n "My AI Project"
+mlflow claude trace ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
 cd ~/my-ai-project
 claude "refactor this code"
-mlflow ui --backend-store-uri file://./traces
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 ## Troubleshooting

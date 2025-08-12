@@ -5,6 +5,12 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
+)
+
 # Configuration field constants
 HOOK_FIELD_HOOKS = "hooks"
 HOOK_FIELD_COMMAND = "command"
@@ -13,9 +19,6 @@ ENVIRONMENT_FIELD = "environment"
 # MLflow environment variable constants
 MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
 MLFLOW_TRACING_ENABLED = "MLFLOW_CLAUDE_TRACING_ENABLED"
-MLFLOW_TRACKING_URI = "MLFLOW_TRACKING_URI"
-MLFLOW_EXPERIMENT_ID = "MLFLOW_EXPERIMENT_ID"
-MLFLOW_EXPERIMENT_NAME = "MLFLOW_EXPERIMENT_NAME"
 
 
 def load_claude_config(settings_path: Path) -> dict[str, Any]:
@@ -71,9 +74,9 @@ def get_tracing_status(settings_path: Path) -> dict[str, Any]:
 
     return {
         "enabled": enabled,
-        "tracking_uri": env_vars.get(MLFLOW_TRACKING_URI, "Not set"),
-        "experiment_id": env_vars.get(MLFLOW_EXPERIMENT_ID),
-        "experiment_name": env_vars.get(MLFLOW_EXPERIMENT_NAME),
+        "tracking_uri": env_vars.get(MLFLOW_TRACKING_URI.name, "Not set"),
+        "experiment_id": env_vars.get(MLFLOW_EXPERIMENT_ID.name),
+        "experiment_name": env_vars.get(MLFLOW_EXPERIMENT_NAME.name),
     }
 
 
@@ -129,14 +132,14 @@ def setup_environment_config(
 
     # Set tracking URI
     if tracking_uri:
-        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI] = tracking_uri
+        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI.name] = tracking_uri
 
     # Set experiment configuration (ID takes precedence over name)
     if experiment_id:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID] = experiment_id
-        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_NAME, None)
+        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID.name] = experiment_id
+        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_NAME.name, None)
     elif experiment_name:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME] = experiment_name
-        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID, None)
+        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME.name] = experiment_name
+        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID.name, None)
 
     save_claude_config(settings_path, config)

@@ -51,7 +51,7 @@ def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> No
 def setup_hooks_config(settings_path: Path) -> None:
     """Set up Claude Code hooks for MLflow tracing.
 
-    Creates or updates PostToolUse and Stop hooks that call MLflow tracing handlers.
+    Creates or updates Stop hook that calls MLflow tracing handler.
     Updates existing MLflow hooks if found, otherwise adds new ones.
 
     Args:
@@ -62,7 +62,6 @@ def setup_hooks_config(settings_path: Path) -> None:
     if HOOK_FIELD_HOOKS not in config:
         config[HOOK_FIELD_HOOKS] = {}
 
-    upsert_hook(config, "PostToolUse", "post_tool_use_handler")
     upsert_hook(config, "Stop", "stop_hook_handler")
 
     save_claude_config(settings_path, config)
@@ -90,7 +89,7 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
     env_removed = False
 
     # Remove MLflow hooks
-    for hook_type in ["PostToolUse", "Stop"]:
+    for hook_type in ["Stop"]:
         if hook_type in config.get(HOOK_FIELD_HOOKS, {}):
             hook_groups = config[HOOK_FIELD_HOOKS][hook_type]
             filtered_groups = []
@@ -115,7 +114,7 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
                 del config[HOOK_FIELD_HOOKS][hook_type]
                 hooks_removed = True
 
-    # Remove environment variables
+    # Remove config variables
     from mlflow.claude_code.config import (
         ENVIRONMENT_FIELD,
         MLFLOW_EXPERIMENT_ID,
@@ -155,35 +154,6 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
 # ============================================================================
 # CLAUDE CODE HOOK HANDLERS
 # ============================================================================
-
-
-def post_tool_use_handler() -> None:
-    """Hook handler for post-tool-use events."""
-    from mlflow.claude_code.tracing import (
-        get_logger,
-        is_tracing_enabled,
-        output_hook_response,
-        read_hook_input,
-    )
-
-    if not is_tracing_enabled():
-        output_hook_response()
-        return
-
-    try:
-        hook_data = read_hook_input()
-        session_id = hook_data.get("session_id")
-        tool_name = hook_data.get("tool_name")
-
-        get_logger().info("PostToolUse: session=%s, tool=%s", session_id, tool_name)
-        output_hook_response()
-
-    except Exception as e:
-        import sys  # clint: disable=lazy-builtin-import
-
-        get_logger().error("Error in PostToolUse hook: %s", e, exc_info=True)
-        output_hook_response(error=str(e))
-        sys.exit(1)
 
 
 def stop_hook_handler() -> None:
