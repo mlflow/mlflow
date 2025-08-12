@@ -73,7 +73,6 @@ MLflow webhooks support the following Model Registry events:
 
 ```python
 from mlflow import MlflowClient
-from mlflow.entities.webhook import WebhookEvent
 
 client = MlflowClient()
 
@@ -109,8 +108,6 @@ You can also test specific event types:
 
 ```python
 # Test with a specific event type
-from mlflow.entities.webhook import WebhookEvent
-
 result = client.test_webhook(webhook.webhook_id, event="model_version.created")
 ```
 
