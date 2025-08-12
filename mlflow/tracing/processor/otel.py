@@ -1,5 +1,10 @@
+import os
+
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.trace import StatusCode
+
+from mlflow.environment_variables import MLFLOW_LOG_OTLP_TRACE_STATISTICS
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -25,6 +30,88 @@ class OtelSpanProcessor(BatchSpanProcessor):
         except AttributeError:
             pass
 
+        # Initialize metrics if enabled
+        self._duration_histogram = None
+
+        if MLFLOW_LOG_OTLP_TRACE_STATISTICS.get():
+            self._duration_histogram = self._setup_metrics()
+
     def on_end(self, span: OTelReadableSpan):
-        # TODO: Emit additional metrics/events for telemetry purposes
+        if self._duration_histogram:
+            # Calculate duration in seconds
+            duration_s = (span.end_time - span.start_time) / 1e9
+
+            # Determine if this is a root span
+            is_root = span.parent is None
+
+            # Get span type from attributes if available
+            span_type = (
+                span.attributes.get("mlflow.spanType", "unknown") if span.attributes else "unknown"
+            )
+
+            # Get span status
+            status = "UNSET"
+            if span.status and span.status.status_code == StatusCode.OK:
+                status = "OK"
+            elif span.status and span.status.status_code == StatusCode.ERROR:
+                status = "ERROR"
+
+            # Record the histogram metric with labels
+            self._duration_histogram.record(
+                duration_s,
+                attributes={
+                    "root": str(is_root),
+                    "span_type": span_type,
+                    "span_status": status,
+                },
+            )
+
         super().on_end(span)
+
+    def _setup_metrics(self):
+        """Set up OpenTelemetry metrics and return histogram, or None if setup fails."""
+        try:
+            from opentelemetry import metrics
+            from opentelemetry.sdk.metrics import MeterProvider
+            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+            # Get OTLP endpoint and protocol
+            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
+                "OTEL_EXPORTER_OTLP_ENDPOINT"
+            )
+            protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+                "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+            )
+
+            if not endpoint:
+                return None
+
+            # Get appropriate metric exporter based on protocol
+            if protocol == "grpc":
+                from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            elif protocol == "http/protobuf":
+                from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            else:
+                return None
+
+            metric_exporter = OTLPMetricExporter(endpoint=endpoint)
+
+            # Set up metrics provider
+            reader = PeriodicExportingMetricReader(metric_exporter)
+            provider = MeterProvider(metric_readers=[reader])
+            metrics.set_meter_provider(provider)
+
+            # Create and return histogram
+            meter = metrics.get_meter("mlflow.tracing")
+            return meter.create_histogram(
+                name="mlflow.trace.span.duration",
+                description="Duration of spans in seconds",
+                unit="s",
+            )
+        except (ImportError, Exception):
+            # Silently fail if metrics setup doesn't work
+            return None
