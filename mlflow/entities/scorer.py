@@ -1,14 +1,16 @@
 import json
+from dataclasses import asdict
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
 from mlflow.utils.time import get_current_time_millis
-from mlflow.genai.scorers.base import SerializedScorer
 
 
 class ScorerVersion(_MlflowObject):
     """ScorerVersion object associated with an experiment."""
 
     def __init__(self, experiment_id, scorer_name, scorer_version, serialized_scorer, creation_time=None):
+        from mlflow.genai.scorers.base import SerializedScorer
+
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
@@ -67,8 +69,6 @@ class ScorerVersion(_MlflowObject):
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
         # Convert SerializedScorer to JSON string for protobuf
-        import json
-        from dataclasses import asdict
         proto.serialized_scorer = json.dumps(asdict(self.serialized_scorer))
         if self.creation_time is not None:
             proto.creation_time = self.creation_time
