@@ -120,8 +120,11 @@ class MlflowSparkStudy(Study):
     """A wrapper of :class:`~optuna.study.Study` to incorporate Optuna with spark
     via MLflow experiment.
 
+    This class automatically resumes existing studies with the same name,
+    allowing for interrupted optimization to continue from where it left off.
+
     .. code-block:: python
-        :caption: Example
+        :caption: Basic Usage
 
         from mlflow.optuna.storage import MlflowStorage
         from mlflow.pyspark.optuna.study import MlflowSparkStudy
@@ -138,6 +141,11 @@ class MlflowSparkStudy(Study):
         storage = MlflowStorage(experiment_id=experiment_id)
         mlflow_study = MlflowSparkStudy(study_name, storage)
         mlflow_study.optimize(objective, n_trials=4)
+        
+        # Later, create another instance with same name to resume
+        resumed_study = MlflowSparkStudy(study_name, storage)
+        print(f"Resumed with {len(resumed_study.trials)} existing trials")
+        resumed_study.optimize(objective, n_trials=4)  # Continue optimization
     """
 
     def __init__(
@@ -161,16 +169,66 @@ class MlflowSparkStudy(Study):
         mlflow.set_tracking_uri(self._mlflow_tracking_env)
         self.mlflow_client = MlflowClient()
 
-        self._study = optuna.create_study(
-            study_name=self.study_name, sampler=self.sampler, storage=self._storage
-        )
-        self._study_id = storage.get_study_id_from_name(self.study_name)
-        self._directions = self._storage.get_study_directions(self._study_id)
-
         if not isinstance(self._storage, MlflowStorage):
             raise ValueError(
                 f"MlflowSparkStudy only works with `MlflowStorage`. But get {type(self._storage)}."
             )
+
+        # Check if study exists and auto-resume if it does
+        if self._storage.study_exists(self.study_name):
+            # Load existing study
+            self._study = optuna.load_study(
+                study_name=self.study_name, sampler=self.sampler, storage=self._storage
+            )
+            self._study_id = self._storage.get_study_id_from_name(self.study_name)
+            self._is_resumed = True
+            _logger.info(f"Resuming existing study '{self.study_name}' with {len(self._study.trials)} trials")
+        else:
+            # Create new study
+            self._study = optuna.create_study(
+                study_name=self.study_name, sampler=self.sampler, storage=self._storage
+            )
+            self._study_id = self._storage.get_study_id_from_name(self.study_name)
+            self._is_resumed = False
+            _logger.info(f"Created new study '{self.study_name}'")
+            
+        self._directions = self._storage.get_study_directions(self._study_id)
+
+    @property
+    def is_resumed_study(self) -> bool:
+        """Check if this study was resumed from existing data.
+        
+        Returns:
+            True if the study was resumed from existing data, False if it's a new study
+        """
+        return self._is_resumed
+
+    @property  
+    def completed_trials_count(self) -> int:
+        """Number of completed trials in the study.
+        
+        Returns:
+            Count of trials that have completed successfully
+        """
+        return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
+
+    def get_resume_info(self) -> dict:
+        """Get information about the resumed study.
+        
+        Returns:
+            Dictionary containing resume information including trial counts and best results
+        """
+        if not self._is_resumed:
+            return {"is_resumed": False}
+        
+        return {
+            "is_resumed": True,
+            "study_name": self.study_name,
+            "existing_trials": len(self._study.trials),
+            "completed_trials": self.completed_trials_count,
+            "best_value": self._study.best_value if self._study.trials else None,
+            "best_params": self._study.best_params if self._study.trials else None,
+        }
 
     def optimize(
         self,
@@ -181,6 +239,15 @@ class MlflowSparkStudy(Study):
         catch: Iterable[type[Exception]] = (),
         callbacks: Iterable[Callable[[Study, FrozenTrial], None]] | None = None,
     ) -> None:
+        # Add logging for resume information
+        if self._is_resumed and self._study.trials:
+            _logger.info(f"Continuing optimization with {len(self._study.trials)} existing trials")
+            _logger.info(f"Current best value: {self._study.best_value}")
+        elif self._is_resumed:
+            _logger.info("Resuming study with no previous trials")
+        else:
+            _logger.info("Starting optimization for new study")
+            
         experiment_id = self._storage._experiment_id
         study_name = self.study_name
         mlflow_tracking_env = self._mlflow_tracking_env
