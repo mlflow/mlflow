@@ -1,8 +1,8 @@
 """add evaluation datasets
 
-Revision ID: de4033877273
-Revises: 770bee3ae1dd
-Create Date: 2025-07-28 13:05:53.982327
+Revision ID: 71994744cf8e
+Revises: de4033877273
+Create Date: 2025-08-12 14:30:00.000000
 
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
-revision = "de4033877273"
-down_revision = "770bee3ae1dd"
+revision = "71994744cf8e"
+down_revision = "de4033877273"
 branch_labels = None
 depends_on = None
 
@@ -121,41 +121,9 @@ def upgrade():
             ["dataset_id", "input_hash"],
         )
 
-    # Create entity_associations table
-    op.create_table(
-        "entity_associations",
-        sa.Column("association_id", sa.String(36), nullable=False),
-        sa.Column("source_type", sa.String(36), nullable=False),
-        sa.Column("source_id", sa.String(36), nullable=False),
-        sa.Column("destination_type", sa.String(36), nullable=False),
-        sa.Column("destination_id", sa.String(36), nullable=False),
-        sa.Column("created_time", sa.BigInteger(), nullable=True),
-        sa.PrimaryKeyConstraint(
-            "source_type",
-            "source_id",
-            "destination_type",
-            "destination_id",
-            name="entity_associations_pk",
-        ),
-    )
-
-    # Create indexes on entity_associations
-    with op.batch_alter_table("entity_associations", schema=None) as batch_op:
-        batch_op.create_index(
-            "index_entity_associations_association_id",
-            ["association_id"],
-            unique=False,
-        )
-        batch_op.create_index(
-            "index_entity_associations_reverse_lookup",
-            ["destination_type", "destination_id", "source_type", "source_id"],
-            unique=False,
-        )
-
 
 def downgrade():
     # Drop tables in reverse order to respect foreign key constraints
-    op.drop_table("entity_associations")
     op.drop_table("evaluation_dataset_records")
     op.drop_table("evaluation_dataset_tags")
     op.drop_table("evaluation_datasets")

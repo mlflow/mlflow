@@ -8,21 +8,13 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-<<<<<<< HEAD
 from typing import Any, Optional, TypedDict, Union
-=======
-from typing import Any, TypedDict
->>>>>>> master
 
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-<<<<<<< HEAD
-from sqlalchemy import and_, func, or_, sql, text
-=======
-from sqlalchemy import and_, case, func, sql, text
+from sqlalchemy import and_, case, func, or_, sql, text
 from sqlalchemy.exc import IntegrityError
->>>>>>> master
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
@@ -46,11 +38,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-<<<<<<< HEAD
-from mlflow.entities.entity_types import EntityAssociationType
-=======
 from mlflow.entities.entity_type import EntityAssociationType
->>>>>>> master
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -83,12 +71,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlDataset,
     SqlEntityAssociation,
-<<<<<<< HEAD
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
     SqlEvaluationDatasetTag,
-=======
->>>>>>> master
     SqlExperiment,
     SqlExperimentTag,
     SqlInput,
