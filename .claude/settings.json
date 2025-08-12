@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()\""
+          }
+        ]
+      }
+    ]
+  },
+  "environment": {
+    "MLFLOW_TRACKING_URI": "databricks",
+    "MLFLOW_EXPERIMENT_ID": "4324632414407533",
+    "MLFLOW_CLAUDE_TRACING_ENABLED": "true"
+  }
+}

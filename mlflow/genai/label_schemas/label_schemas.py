@@ -196,10 +196,7 @@ class LabelSchema:
     """Whether to enable additional comment functionality for reviewers."""
 
     @classmethod
-    def _convert_databricks_input(
-        cls,
-        input_obj: "Union[_InputCategorical, _InputCategoricalList, _InputText, _InputTextList, _InputNumeric]",  # noqa: E501
-    ) -> "Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]":
+    def _convert_databricks_input(cls, input_obj):
         """Convert a Databricks input type to the corresponding MLflow input type."""
         from databricks.agents.review_app import label_schemas as _label_schemas
 

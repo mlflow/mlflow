@@ -1,0 +1,34 @@
+2025-08-12 10:51:54,279 - mlflow.claude_code.tracing - INFO - PostToolUse: session=73eb8987-c0b3-4eeb-b637-cbfe0429bb9c, tool=Bash
+2025-08-12 10:51:57,372 - mlflow.claude_code.tracing - INFO - Stop hook: session=73eb8987-c0b3-4eeb-b637-cbfe0429bb9c, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/73eb8987-c0b3-4eeb-b637-cbfe0429bb9c.jsonl
+2025-08-12 10:51:57,385 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 73eb8987-c0b3-4eeb-b637-cbfe0429bb9c
+2025-08-12 10:51:57,743 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-7ce72d84cdd1935340005324bc40cfed
+2025-08-12 10:52:55,984 - mlflow.claude_code.tracing - INFO - Stop hook: session=f3c2968b-113f-4164-ab92-4bf9ade1b766, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/f3c2968b-113f-4164-ab92-4bf9ade1b766.jsonl
+2025-08-12 10:52:55,986 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: f3c2968b-113f-4164-ab92-4bf9ade1b766
+2025-08-12 10:52:56,262 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-476ca6579d95a1f94e344dd38ad84424
+2025-08-12 10:54:06,982 - mlflow.claude_code.tracing - INFO - Stop hook: session=6963a91b-45ab-4c33-9074-a43c21f8f2f2, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/6963a91b-45ab-4c33-9074-a43c21f8f2f2.jsonl
+2025-08-12 10:54:07,703 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 6963a91b-45ab-4c33-9074-a43c21f8f2f2
+2025-08-12 10:54:08,876 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-6379a068e00e0c8bb0bd5b725049b703
+2025-08-12 10:59:59,144 - mlflow.claude_code.tracing - INFO - Stop hook: session=766e5ddf-b0b9-4c34-b46c-1eb13276f6cf, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/766e5ddf-b0b9-4c34-b46c-1eb13276f6cf.jsonl
+2025-08-12 10:59:59,803 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 766e5ddf-b0b9-4c34-b46c-1eb13276f6cf
+2025-08-12 11:00:00,967 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-9441964c617a9a37957e23b1a78f5f8a
+2025-08-12 11:08:35,777 - mlflow.claude_code.tracing - INFO - Stop hook: session=f08a089c-ff5e-42aa-be9b-6716645c8ad1, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/f08a089c-ff5e-42aa-be9b-6716645c8ad1.jsonl
+2025-08-12 11:08:36,387 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: f08a089c-ff5e-42aa-be9b-6716645c8ad1
+2025-08-12 11:08:37,398 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-e624bfb1ec773fe5b048ff79b9a4e911
+2025-08-12 11:15:53,469 - mlflow.claude_code.tracing - INFO - Stop hook: session=cd57352b-817a-449b-a6e6-5d1f6a10388b, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/cd57352b-817a-449b-a6e6-5d1f6a10388b.jsonl
+2025-08-12 11:15:54,089 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: cd57352b-817a-449b-a6e6-5d1f6a10388b
+2025-08-12 11:15:55,078 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-52e812a663e7d4507b39fd64ef0b5dff
+2025-08-12 11:21:03,645 - mlflow.claude_code.tracing - INFO - Stop hook: session=de52fa51-e2d5-4e49-a51e-bd59f12ee36d, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/de52fa51-e2d5-4e49-a51e-bd59f12ee36d.jsonl
+2025-08-12 11:21:04,259 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: de52fa51-e2d5-4e49-a51e-bd59f12ee36d
+2025-08-12 11:21:05,292 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-bc967575487b4c2a7a6eccd183a6f989
+2025-08-12 12:41:09,605 - mlflow.claude_code.tracing - INFO - Stop hook: session=bcde7038-163b-4ba3-ac06-cee2236931d0, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/bcde7038-163b-4ba3-ac06-cee2236931d0.jsonl
+2025-08-12 12:41:10,252 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: bcde7038-163b-4ba3-ac06-cee2236931d0
+2025-08-12 12:41:12,860 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-0bf153aae7154de607aa8166e330c0da
+2025-08-12 12:46:38,994 - mlflow.claude_code.tracing - INFO - Stop hook: session=0d62aa06-e6f3-4217-8225-4707dec28766, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/0d62aa06-e6f3-4217-8225-4707dec28766.jsonl
+2025-08-12 12:46:39,613 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 0d62aa06-e6f3-4217-8225-4707dec28766
+2025-08-12 12:46:40,683 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-c206eafba8050da137e3a6b3c99f7443
+2025-08-12 12:52:08,023 - mlflow.claude_code.tracing - INFO - Stop hook: session=1bcfe6a3-4c10-46fb-abe4-33d3a389d874, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/1bcfe6a3-4c10-46fb-abe4-33d3a389d874.jsonl
+2025-08-12 12:52:08,623 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 1bcfe6a3-4c10-46fb-abe4-33d3a389d874
+2025-08-12 12:52:09,582 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-5287073209dbaf599a76c668009db2cd
+2025-08-12 12:57:31,502 - mlflow.claude_code.tracing - INFO - Stop hook: session=3af6fea4-5b04-4e05-9f9f-e763a69a1f59, transcript=/Users/samraj.moorjani/.claude/projects/-Users-samraj-moorjani-personal-repos-mlflow/3af6fea4-5b04-4e05-9f9f-e763a69a1f59.jsonl
+2025-08-12 12:57:32,086 - mlflow.claude_code.tracing - INFO - Creating MLflow trace for session: 3af6fea4-5b04-4e05-9f9f-e763a69a1f59
+2025-08-12 12:57:33,113 - mlflow.claude_code.tracing - INFO - Created MLflow trace: tr-1fbbdf372f8270fea77b4261a721314f
