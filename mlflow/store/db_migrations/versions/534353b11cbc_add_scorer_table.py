@@ -31,7 +31,8 @@ def upgrade():
             name="fk_scorers_experiment_id",
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("experiment_id", "scorer_name", name="scorer_pk"),
+        sa.PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
+        sa.UniqueConstraint("experiment_id", "scorer_name", name="uk_scorers_experiment_name"),
     )
 
     # Create the scorer_versions table (scorer_id, scorer_version, serialized_scorer, creation_time)
@@ -53,13 +54,8 @@ def upgrade():
     # Create indexes
     with op.batch_alter_table(SqlScorer.__tablename__, schema=None) as batch_op:
         batch_op.create_index(
-            f"index_{SqlScorer.__tablename__}_experiment_id",
-            ["experiment_id"],
-            unique=False,
-        )
-        batch_op.create_index(
-            f"index_{SqlScorer.__tablename__}_scorer_id",
-            ["scorer_id"],
+            f"index_{SqlScorer.__tablename__}_experiment_id_scorer_name",
+            ["experiment_id", "scorer_name"],
             unique=True,
         )
 

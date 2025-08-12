@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UnicodeText,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import backref, relationship
 
@@ -1445,9 +1446,8 @@ class SqlScorer(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint("experiment_id", "scorer_name", name="scorer_pk"),
-        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
-        Index(f"index_{__tablename__}_scorer_id", "scorer_id", unique=True),
+        PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
+        Index(f"index_{__tablename__}_experiment_id_scorer_name", "experiment_id", "scorer_name", unique=True),
     )
 
     def __repr__(self):

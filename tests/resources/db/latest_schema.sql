@@ -163,8 +163,9 @@ CREATE TABLE scorers (
 	experiment_id INTEGER NOT NULL,
 	scorer_name VARCHAR(256) NOT NULL,
 	scorer_id VARCHAR(36) NOT NULL,
-	CONSTRAINT scorer_pk PRIMARY KEY (experiment_id, scorer_name),
-	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uk_scorers_experiment_name UNIQUE (experiment_id, scorer_name)
 )
 
 

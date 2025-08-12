@@ -314,3 +314,29 @@ CREATE TABLE trace_tags (
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
+
+
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer VARCHAR(MAX) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
+-- Indexes for scorers table
+CREATE INDEX index_scorers_experiment_id_scorer_name ON scorers (experiment_id, scorer_name)
+
+-- Indexes for scorer_versions table  
+CREATE INDEX index_scorer_versions_scorer_id ON scorer_versions (scorer_id)
