@@ -474,14 +474,14 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     if not is_in_databricks_runtime():
         return [], {}
 
-    try:
-        dbutils = _get_dbutils()
-    except _NoDbutilsError:
-        return [], {}
-
     workspace_client = WorkspaceClient()
     secret_scopes = workspace_client.secrets.list_scopes()
     if not any(s.name == "databricks-package-management" for s in secret_scopes):
+        return [], {}
+
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
         return [], {}
 
     def get_secret(key: str) -> str | None:
