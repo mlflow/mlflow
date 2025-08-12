@@ -1527,10 +1527,10 @@ def test_list_scorers():
         assert len(scorers) == 2
         assert scorers[0].scorer_name == "accuracy_scorer"
         assert scorers[0].scorer_version == 1
-        assert scorers[0].serialized_scorer == "serialized_accuracy_scorer"
+        assert scorers[0]._serialized_scorer == "serialized_accuracy_scorer"
         assert scorers[1].scorer_name == "safety_scorer"
         assert scorers[1].scorer_version == 2
-        assert scorers[1].serialized_scorer == "serialized_safety_scorer"
+        assert scorers[1]._serialized_scorer == "serialized_safety_scorer"
         
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
@@ -1570,9 +1570,9 @@ def test_list_scorer_versions():
         # Verify result
         assert len(scorers) == 2
         assert scorers[0].scorer_version == 1
-        assert scorers[0].serialized_scorer == "serialized_accuracy_scorer_v1"
+        assert scorers[0]._serialized_scorer == "serialized_accuracy_scorer_v1"
         assert scorers[1].scorer_version == 2
-        assert scorers[1].serialized_scorer == "serialized_accuracy_scorer_v2"
+        assert scorers[1]._serialized_scorer == "serialized_accuracy_scorer_v2"
         
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
@@ -1608,7 +1608,7 @@ def test_get_scorer_with_version():
         result = store.get_scorer(experiment_id, name, version=version)
         
         # Verify result
-        assert result.serialized_scorer == "serialized_accuracy_scorer_v2"
+        assert result._serialized_scorer == "serialized_accuracy_scorer_v2"
         assert result.scorer_version == 2
         assert result.scorer_name == "accuracy_scorer"
         
@@ -1644,9 +1644,9 @@ def test_get_scorer_without_version():
         
         # Call the method
         result = store.get_scorer(experiment_id, name)
-        
+
         # Verify result
-        assert result.serialized_scorer == "serialized_accuracy_scorer_latest"
+        assert result._serialized_scorer == "serialized_accuracy_scorer_latest"
         assert result.scorer_version == 3
         assert result.scorer_name == "accuracy_scorer"
         
