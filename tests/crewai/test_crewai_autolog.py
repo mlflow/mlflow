@@ -610,7 +610,8 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) == 9
+    expected_num_spans = 9 if Version(crewai.__version__) < Version("0.157.0") else 8
+    assert len(traces[0].data.spans) == expected_num_spans
     # Crew
     span_0 = traces[0].data.spans[0]
     assert span_0.name == "Crew.kickoff"
