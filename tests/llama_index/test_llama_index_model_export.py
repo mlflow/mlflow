@@ -299,7 +299,9 @@ def test_chat_engine_predict(single_index, with_input_example, payload):
     model = mlflow.pyfunc.load_model(model_info.model_uri)
     prediction = model.predict(payload)
     assert isinstance(prediction, str)
-    assert prediction.startswith('[{"role": "user",')
+    # a default prompt is added in llama-index 0.13.0
+    # https://github.com/run-llama/llama_index/blob/1e02c7a2324838f7bd5a52c811d35c30dc6a6bd2/llama-index-core/llama_index/core/chat_engine/condense_plus_context.py#L40
+    assert '{"role": "user", "content": "string"}' in prediction
 
 
 @pytest.mark.parametrize("with_input_example", [True, False])

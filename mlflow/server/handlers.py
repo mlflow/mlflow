@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import Optional
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -103,7 +102,9 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteTag,
     DeleteTraces,
+    DeleteTracesV3,
     DeleteTraceTag,
+    DeleteTraceTagV3,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -115,6 +116,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
     LogBatch,
@@ -137,6 +139,7 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
+    SetTraceTagV3,
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
@@ -2660,6 +2663,26 @@ def _delete_trace_tag(request_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _link_traces_to_run():
+    """
+    A request handler for `POST /mlflow/traces/link-to-run` to link traces to a run.
+    """
+    request_message = _get_request_message(
+        LinkTracesToRun(),
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "run_id": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().link_traces_to_run(
+        trace_ids=request_message.trace_ids,
+        run_id=request_message.run_id,
+    )
+    return _wrap_response(LinkTracesToRun.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def get_trace_artifact_handler():
     request_id = request.args.get("request_id")
 
@@ -3099,7 +3122,7 @@ def _list_logged_model_artifacts(model_id: str):
 
 
 def _list_logged_model_artifacts_impl(
-    model_id: str, artifact_directory_path: Optional[str]
+    model_id: str, artifact_directory_path: str | None
 ) -> Response:
     response = ListLoggedModelArtifacts.Response()
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
@@ -3254,9 +3277,10 @@ HANDLERS = {
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
-    DeleteTraces: _delete_traces,
-    SetTraceTag: _set_trace_tag,
-    DeleteTraceTag: _delete_trace_tag,
+    DeleteTracesV3: _delete_traces,
+    SetTraceTagV3: _set_trace_tag,
+    DeleteTraceTagV3: _delete_trace_tag,
+    LinkTracesToRun: _link_traces_to_run,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
@@ -3267,6 +3291,9 @@ HANDLERS = {
     EndTrace: _deprecated_end_trace_v2,
     GetTraceInfo: _deprecated_get_trace_info_v2,
     SearchTraces: _deprecated_search_traces_v2,
+    DeleteTraces: _delete_traces,
+    SetTraceTag: _set_trace_tag,
+    DeleteTraceTag: _delete_trace_tag,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,

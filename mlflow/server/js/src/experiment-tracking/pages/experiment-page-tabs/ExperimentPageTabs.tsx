@@ -167,7 +167,6 @@ const ExperimentPageTabsImpl = () => {
         )
       ) : (
         <>
-          <Spacer size="sm" shrinks={false} />
           <ExperimentViewRunsModeSwitchV2 experimentId={experimentId} activeTab={activeTab} />
         </>
       )}
@@ -206,7 +205,7 @@ const ExperimentPageTabs = () => {
         display: 'flex',
         flexDirection: 'column',
         padding: theme.spacing.md,
-        paddingTop: theme.spacing.lg,
+        height: '100%',
       }}
     >
       <ExperimentPageTabsImpl />

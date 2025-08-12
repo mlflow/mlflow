@@ -221,7 +221,7 @@ def search_evaluation_datasets(
 
 @deprecated("Use mlflow.genai.datasets.create_evaluation_dataset instead", since="3.3.0")
 def create_dataset(
-    uc_table_name: str, experiment_id: Optional[Union[str, list[str]]] = None
+    uc_table_name: str, experiment_id: str | list[str] | None = None
 ) -> "EvaluationDataset":
     """
     Create a dataset with the given name and associate it with the given experiment.

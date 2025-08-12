@@ -20,7 +20,7 @@ class TraceMetadataKey:
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
-    EVAL_REQUEST_ID = "eval.requestId"
+    EVAL_REQUEST_ID = "mlflow.eval.requestId"
 
 
 class TokenUsageKey:

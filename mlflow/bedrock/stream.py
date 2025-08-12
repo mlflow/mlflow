@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from botocore.eventstream import EventStream
 
@@ -33,7 +33,7 @@ class BaseEventStreamWrapper:
         self,
         stream: EventStream,
         span: LiveSpan,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ):
         self._stream = stream
         self._span = span
@@ -65,7 +65,7 @@ class BaseEventStreamWrapper:
         self._span.end()
 
 
-def _extract_token_usage_from_chunk(chunk: dict[str, Any]) -> Optional[dict[str, int]]:
+def _extract_token_usage_from_chunk(chunk: dict[str, Any]) -> dict[str, int] | None:
     """Extract partial token usage from streaming chunk.
 
     Args:

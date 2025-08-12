@@ -89,7 +89,7 @@ const boldedText = (wholeText: string, shouldBeBold: string) => {
   return (
     // Autocomplete sets font weight to 600 on full match resulting in double bolding.
     // Override this here
-    <span css={{ fontWeight: 'normal' }} data-test-id={wholeText}>
+    <span css={{ fontWeight: 'normal' }} data-testid={wholeText}>
       {textArray.map((item, index) => (
         <React.Fragment key={index}>
           {item}

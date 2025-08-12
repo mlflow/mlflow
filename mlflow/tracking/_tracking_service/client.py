@@ -43,6 +43,8 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -140,6 +142,7 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
+    @record_usage_event(CreateRunEvent)
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -265,6 +268,7 @@ class TrackingServiceClient:
         """
         return self.store.get_experiment_by_name(name)
 
+    @record_usage_event(CreateExperimentEvent)
     def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
@@ -322,10 +326,10 @@ class TrackingServiceClient:
         timestamp=None,
         step=None,
         synchronous=True,
-        dataset_name: Optional[str] = None,
-        dataset_digest: Optional[str] = None,
-        model_id: Optional[str] = None,
-    ) -> Optional[RunOperations]:
+        dataset_name: str | None = None,
+        dataset_digest: str | None = None,
+        model_id: str | None = None,
+    ) -> RunOperations | None:
         """Log a metric against the run ID.
 
         Args:
@@ -422,7 +426,7 @@ class TrackingServiceClient:
         """
         self.store.delete_experiment_tag(experiment_id, key)
 
-    def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
+    def set_tag(self, run_id, key, value, synchronous=True) -> RunOperations | None:
         """Set a tag on the run with the specified ID. Value is converted to a string.
 
         Args:
@@ -486,7 +490,7 @@ class TrackingServiceClient:
 
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
-    ) -> Optional[RunOperations]:
+    ) -> RunOperations | None:
         """Log multiple metrics, params, and/or tags.
 
         Args:
@@ -575,8 +579,8 @@ class TrackingServiceClient:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """Log one or more dataset inputs to a run.
 
@@ -695,9 +699,7 @@ class TrackingServiceClient:
 
         return list_artifacts(run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri)
 
-    def list_logged_model_artifacts(
-        self, model_id: str, path: Optional[str] = None
-    ) -> list[FileInfo]:
+    def list_logged_model_artifacts(self, model_id: str, path: str | None = None) -> list[FileInfo]:
         """List the artifacts for a logged model.
 
         Args:
@@ -710,7 +712,7 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
 
-    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None):
+    def download_artifacts(self, run_id: str, path: str, dst_path: str | None = None):
         """Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
@@ -829,14 +831,18 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
+    @record_usage_event(CreateLoggedModelEvent)
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
-        params: Optional[dict[str, str]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
+        model_type: str | None = None,
+        # This parameter is only used for telemetry purposes, and
+        # does not affect the logged model.
+        flavor: str | None = None,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,
@@ -883,11 +889,11 @@ class TrackingServiceClient:
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ):
         if not isinstance(experiment_ids, list) or not all(
             isinstance(eid, str) for eid in experiment_ids
@@ -1006,3 +1012,28 @@ class TrackingServiceClient:
             MlflowException: If dataset not found.
         """
         self.store.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided or run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        if len(trace_ids) > 100:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot link more than 100 traces to a run in a single request. "
+                f"Provided {len(trace_ids)} traces."
+            )
+
+        return self.store.link_traces_to_run(trace_ids, run_id)

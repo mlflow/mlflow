@@ -19,6 +19,7 @@ export enum ModelSpanType {
   PARSER = 'PARSER',
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -37,6 +38,7 @@ export enum ModelIconType {
   CHAIN = 'chain',
   USER = 'user',
   SYSTEM = 'system',
+  SAVE = 'save',
 }
 
 /**
@@ -78,8 +80,8 @@ export type ModelTraceSpanV3 = {
   span_id: string;
   // can be empty
   trace_state: string;
-  // can be empty
-  parent_span_id: string;
+  // can be empty or null
+  parent_span_id: string | null;
   name: string;
   start_time_unix_nano: string;
   end_time_unix_nano: string;
@@ -224,6 +226,7 @@ export enum ModelTraceSpanType {
   PARSER = 'PARSER',
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN',
 }
 

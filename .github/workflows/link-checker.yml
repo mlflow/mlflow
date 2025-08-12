@@ -30,10 +30,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
         with:
-          cache: "yarn"
+          cache: "npm"
+          cache-dependency-path: docs/package-lock.json
       - name: Install dependencies
         run: |
-          yarn install --immutable
+          npm ci
       - name: Run external links checker
         run: |
-          yarn run check-links
+          npm run check-links
