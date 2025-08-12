@@ -132,7 +132,7 @@ pytestmark = pytest.mark.notrackingurimock
 
 
 # Helper functions for span tests
-def create_mock_span_context(trace_id_num=12345, span_id_num=111):
+def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> mock.Mock:
     """Create a mock span context for testing."""
     context = mock.Mock()
     context.trace_id = trace_id_num
@@ -154,7 +154,7 @@ def create_test_span(
     end_ns=2000000000,
     span_type="LLM",
     trace_num=12345,
-):
+) -> Span:
     """
     Create an MLflow span for testing with minimal boilerplate.
 
@@ -204,7 +204,7 @@ def create_test_otel_span(
     span_type="LLM",
     trace_id_num=12345,
     span_id_num=111,
-):
+) -> OTelReadableSpan:
     """Create an OTelReadableSpan for testing with common defaults."""
     context = create_mock_span_context(trace_id_num, span_id_num)
 
@@ -6730,7 +6730,7 @@ def test_assessment_with_error(store_and_trace_info):
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
     """Test that trace status defaults to IN_PROGRESS when no root span is present."""
     experiment_id = store.create_experiment("test_default_in_progress")
-    trace_id = "test_trace_no_root_" + str(uuid.uuid4().hex)
+    trace_id = f"test_trace_no_root_{uuid.uuid4().hex}"
 
     # Create a child span (has parent, not a root span)
     child_context = mock.Mock()
@@ -6770,7 +6770,7 @@ async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore
 
     # Check trace was created with IN_PROGRESS status (default when no root span)
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == "IN_PROGRESS"
 
 
@@ -6784,7 +6784,10 @@ async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore
     ],
 )
 async def test_log_spans_sets_trace_status_from_root_span(
-    store: SqlAlchemyStore, is_async: bool, span_status_code, expected_trace_status
+    store: SqlAlchemyStore,
+    is_async: bool,
+    span_status_code: trace_api.StatusCode,
+    expected_trace_status: str,
 ):
     """Test that trace status is correctly set from root span status."""
     experiment_id = store.create_experiment("test_trace_status_from_root")
@@ -6814,7 +6817,7 @@ async def test_log_spans_sets_trace_status_from_root_span(
 
     # Verify trace has expected status from root span
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == expected_trace_status
 
 
@@ -6825,7 +6828,7 @@ async def test_log_spans_unset_root_span_status_defaults_to_ok(
 ):
     """Test that UNSET root span status (unexpected) defaults to OK trace status."""
     experiment_id = store.create_experiment("test_unset_root_span")
-    trace_id = "test_trace_unset_" + str(uuid.uuid4().hex)
+    trace_id = f"test_trace_unset_{uuid.uuid4().hex}"
 
     # Create root span with UNSET status (this is unexpected in practice)
     root_unset_span = create_test_otel_span(
@@ -6846,7 +6849,7 @@ async def test_log_spans_unset_root_span_status_defaults_to_ok(
 
     # Verify trace defaults to OK status when root span has UNSET status
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == "OK"
 
 
@@ -6857,7 +6860,7 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 ):
     """Test that IN_PROGRESS trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_trace_status_update")
-    trace_id = "test_trace_update_" + str(uuid.uuid4().hex)
+    trace_id = f"test_trace_update_{uuid.uuid4().hex}"
 
     # First, log a non-root span which will create trace with default IN_PROGRESS status
     parent_context = create_mock_span_context(45678, 555)  # Will be root span later
@@ -6881,7 +6884,7 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 
     # Verify trace was created with IN_PROGRESS status (default when no root span)
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == "IN_PROGRESS"
 
     # Now log root span with ERROR status
@@ -6903,7 +6906,7 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 
     # Check trace status was updated to ERROR from root span
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == "ERROR"
 
 
@@ -6914,7 +6917,7 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
 ):
     """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
-    trace_id = "test_trace_unspec_" + str(uuid.uuid4().hex)
+    trace_id = f"test_trace_unspec_{uuid.uuid4().hex}"
 
     # First, create a trace with OK status by logging a root span with OK status
     initial_span = create_test_span(
@@ -6931,8 +6934,7 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
         store.log_spans(experiment_id, [initial_span])
 
     # Verify trace was created with OK status
-    traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = store.get_trace_info(trace_id)
     assert trace.state.value == "OK"
 
     # Now log a new root span with OK status (earlier start time makes it the new root)
@@ -6953,7 +6955,7 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
 
     # Check trace status was updated to OK from root span
     traces, _ = store.search_traces([experiment_id])
-    trace = [t for t in traces if t.request_id == trace_id][0]
+    trace = next(t for t in traces if t.request_id == trace_id)
     assert trace.state.value == "OK"
 
 
@@ -6966,7 +6968,7 @@ async def test_log_spans_does_not_update_finalized_trace_status(
     experiment_id = store.create_experiment("test_no_update_finalized")
 
     # Test that OK status is not updated
-    trace_id_ok = "test_trace_ok_final_" + str(uuid.uuid4().hex)
+    trace_id_ok = f"test_trace_ok_final_{uuid.uuid4().hex}"
 
     # Create initial root span with OK status
     ok_span = create_test_span(
@@ -6984,7 +6986,7 @@ async def test_log_spans_does_not_update_finalized_trace_status(
 
     # Verify trace has OK status
     traces, _ = store.search_traces([experiment_id])
-    trace_ok = [t for t in traces if t.request_id == trace_id_ok][0]
+    trace_ok = next(t for t in traces if t.request_id == trace_id_ok)
     assert trace_ok.state.value == "OK"
 
     # Now log a new root span with ERROR status
@@ -7006,5 +7008,5 @@ async def test_log_spans_does_not_update_finalized_trace_status(
 
     # Verify trace status is still OK (not updated to ERROR)
     traces, _ = store.search_traces([experiment_id])
-    trace_ok = [t for t in traces if t.request_id == trace_id_ok][0]
+    trace_ok = next(t for t in traces if t.request_id == trace_id_ok)
     assert trace_ok.state.value == "OK"
