@@ -1,41 +1,23 @@
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.utils.enum_utils import StrEnum
-from mlflow.utils.annotations import experimental
+from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.docstring_utils import format_docstring
 
-# NB: User-facing name for the is_context_relevant assessment.
-_IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
+_MODEL_API_DOC = {
+    "model": """Judge model to use. Must be either `"databricks"` or a form of
+`<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
+`"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
+`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
+through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+Default model depends on the tracking URI setup:
 
-
-class CategoricalRating(StrEnum):
-    """
-    A categorical rating for an assessment.
-
-    Example:
-        .. code-block:: python
-
-            from mlflow.genai.judges import CategoricalRating
-            from mlflow.entities import Feedback
-
-            # Create feedback with categorical rating
-            feedback = Feedback(
-                name="my_metric", value=CategoricalRating.YES, rationale="The metric is passing."
-            )
-    """
-
-    YES = "yes"
-    NO = "no"
-    UNKNOWN = "unknown"
-
-    @classmethod
-    def _missing_(cls, value: str):
-        value = value.lower()
-        for member in cls:
-            if member == value:
-                return member
-        return cls.UNKNOWN
+* Databricks: `databricks`
+* Otherwise: `openai:/gpt-4.1-mini`.
+""",
+}
 
 
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
@@ -74,8 +56,10 @@ def requires_databricks_agents(func):
     return wrapper
 
 
-@requires_databricks_agents
-def is_context_relevant(*, request: str, context: Any, name: str | None = None) -> Feedback:
+@format_docstring(_MODEL_API_DOC)
+def is_context_relevant(
+    *, request: str, context: Any, name: str | None = None, model: str | None = None
+) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
 
@@ -84,6 +68,7 @@ def is_context_relevant(*, request: str, context: Any, name: str | None = None) 
         context: Context to evaluate the relevance to the request.
             Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -111,20 +96,30 @@ def is_context_relevant(*, request: str, context: Any, name: str | None = None) 
             print(feedback.value)  # "no"
 
     """
-    from databricks.agents.evals.judges import relevance_to_query
+    from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
 
-    return _sanitize_feedback(
-        relevance_to_query(
+    model = model or get_default_model()
+
+    # NB: User-facing name for the is_context_relevant assessment. This is required
+    #     since the existing databricks judge is called `relevance_to_query`
+    assessment_name = name or RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import relevance_to_query
+
+        feedback = relevance_to_query(
             request=request,
             response=str(context),
-            # NB: User-facing name for the is_context_relevant assessment. This is required since
-            #     the existing databricks judge is called `relevance_to_query`
-            assessment_name=name or _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(request, str(context))
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
-@requires_databricks_agents
+@format_docstring(_MODEL_API_DOC)
 def is_context_sufficient(
     *,
     request: str,
@@ -132,6 +127,7 @@ def is_context_sufficient(
     expected_facts: list[str],
     expected_response: str | None = None,
     name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -139,9 +135,10 @@ def is_context_sufficient(
     Args:
         request: Input to the application to evaluate, user's question or query.
         context: Context to evaluate the sufficiency of. Supports any JSON-serializable object.
-        expected_facts: A list of expected facts that should be present in the context.
+        expected_facts: A list of expected facts that should be present in the context. Optional.
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -165,28 +162,53 @@ def is_context_sufficient(
                 expected_facts=["Paris is the capital of France."],
             )
             print(feedback.value)  # "yes"
-    """
-    from databricks.agents.evals.judges import context_sufficiency
 
-    return _sanitize_feedback(
-        context_sufficiency(
+            feedback = is_context_sufficient(
+                request="What is the capital of France?",
+                context={"content": "France is a country in Europe."},
+                expected_response="Paris is the capital of France.",
+            )
+            print(feedback.value)  # "no"
+    """
+    from mlflow.genai.judges.prompts.context_sufficiency import (
+        CONTEXT_SUFFICIENCY_FEEDBACK_NAME,
+        get_prompt,
+    )
+
+    model = model or get_default_model()
+    assessment_name = name or CONTEXT_SUFFICIENCY_FEEDBACK_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import context_sufficiency
+
+        feedback = context_sufficiency(
             request=request,
             retrieved_context=context,
             expected_facts=expected_facts,
             expected_response=expected_response,
-            assessment_name=name,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(
+            request=request,
+            context=context,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
-@requires_databricks_agents
+@format_docstring(_MODEL_API_DOC)
 def is_correct(
     *,
     request: str,
     response: str,
-    expected_facts: list[str],
+    expected_facts: list[str] | None = None,
     expected_response: str | None = None,
     name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is correct for the input request.
@@ -194,29 +216,73 @@ def is_correct(
     Args:
         request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
-        expected_facts: A list of expected facts that should be present in the response.
+        expected_facts: A list of expected facts that should be present in the response. Optional.
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the response is correct for the request.
-    """
-    from databricks.agents.evals.judges import correctness
 
-    return _sanitize_feedback(
-        correctness(
+    Example:
+
+        The following example shows how to evaluate whether the response is correct.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_correct
+
+            feedback = is_correct(
+                request="What is the capital of France?",
+                response="Paris is the capital of France.",
+                expected_response="Paris",
+            )
+            print(feedback.value)  # "yes"
+
+            feedback = is_correct(
+                request="What is the capital of France?",
+                response="London is the capital of France.",
+                expected_facts=["Paris is the capital of France"],
+            )
+            print(feedback.value)  # "no"
+    """
+    from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+
+    model = model or get_default_model()
+    assessment_name = name or CORRECTNESS_FEEDBACK_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import correctness
+
+        feedback = correctness(
             request=request,
             response=response,
             expected_facts=expected_facts,
             expected_response=expected_response,
-            assessment_name=name,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(
+            request=request,
+            response=response,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
-@requires_databricks_agents
-def is_grounded(*, request: str, response: str, context: Any, name: str | None = None) -> Feedback:
+@format_docstring(_MODEL_API_DOC)
+def is_grounded(
+    *,
+    request: str,
+    response: str,
+    context: Any,
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
 
@@ -225,6 +291,7 @@ def is_grounded(*, request: str, response: str, context: Any, name: str | None =
         response: The response from the application to evaluate.
         context: Context to evaluate the response against. Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -248,17 +315,40 @@ def is_grounded(*, request: str, response: str, context: Any, name: str | None =
                 ],
             )
             print(feedback.value)  # "yes"
-    """
-    from databricks.agents.evals.judges import groundedness
 
-    return _sanitize_feedback(
-        groundedness(
+            feedback = is_grounded(
+                request="What is the capital of France?",
+                response="London is the capital of France.",
+                context=[
+                    {"content": "Paris is the capital of France."},
+                    {"content": "Paris is known for its Eiffel Tower."},
+                ],
+            )
+            print(feedback.value)  # "no"
+    """
+    from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_FEEDBACK_NAME, get_prompt
+
+    model = model or get_default_model()
+    assessment_name = name or GROUNDEDNESS_FEEDBACK_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import groundedness
+
+        feedback = groundedness(
             request=request,
             response=response,
             retrieved_context=context,
-            assessment_name=name,
+            assessment_name=assessment_name,
         )
-    )
+    else:
+        prompt = get_prompt(
+            request=request,
+            response=response,
+            context=context,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
 @requires_databricks_agents
@@ -288,12 +378,13 @@ def is_safe(*, content: str, name: str | None = None) -> Feedback:
     return _sanitize_feedback(safety(response=content, assessment_name=name))
 
 
-@requires_databricks_agents
+@format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
     guidelines: str | list[str],
     context: dict[str, Any],
     name: str | None = None,
+    model: str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -304,6 +395,7 @@ def meets_guidelines(
             pass {"response": "<response text>"} to evaluate whether the response meets
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -330,69 +422,22 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from databricks.agents.evals.judges import guidelines as guidelines_judge
+    from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
 
-    return _sanitize_feedback(
-        guidelines_judge(
+    model = model or get_default_model()
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import guidelines as guidelines_judge
+
+        feedback = guidelines_judge(
             guidelines=guidelines,
             context=context,
             assessment_name=name,
         )
-    )
+    else:
+        prompt = get_prompt(guidelines, context)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME
+        )
 
-
-@experimental(version="3.0.0")
-@requires_databricks_agents
-def custom_prompt_judge(
-    *,
-    name: str,
-    prompt_template: str,
-    numeric_values: dict[str, int | float] | None = None,
-) -> Callable[..., Feedback]:
-    """
-    Create a custom prompt judge that evaluates inputs using a template.
-
-    Example prompt template:
-
-    .. code-block::
-
-        You will look at the response and determine the formality of the response.
-
-        <request>{{request}}</request>
-        <response>{{response}}</response>
-
-        You must choose one of the following categories.
-
-        [[formal]]: The response is very formal.
-        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the
-        response mentions friendship, etc.
-        [[not_formal]]: The response is not formal.
-
-    Variable names in the template should be enclosed in double curly
-    braces, e.g., `{{request}}`, `{{response}}`. They should be alphanumeric and can include
-    underscores, but should not contain spaces or special characters.
-
-    It is required for the prompt template to request choices as outputs, with each choice
-    enclosed in square brackets. Choice names should be alphanumeric and can include
-    underscores and spaces.
-
-    Args:
-        name: Name of the judge, used as the name of returned
-            :py:class`mlflow.entities.Feedback~` object.
-        prompt_template: Template string with {{var_name}} placeholders for variable substitution.
-            Should be prompted with choices as outputs.
-        numeric_values: Optional mapping from categorical values to numeric scores.
-            Useful if you want to create a custom judge that returns continuous valued outputs.
-            Defaults to None.
-
-    Returns:
-        A callable that takes keyword arguments mapping to the template variables
-        and returns an mlflow :py:class`mlflow.entities.Feedback~`.
-    """
-    from databricks.agents.evals.judges import custom_prompt_judge
-
-    return custom_prompt_judge(
-        name=name,
-        prompt_template=prompt_template,
-        numeric_values=numeric_values,
-    )
+    return _sanitize_feedback(feedback)
