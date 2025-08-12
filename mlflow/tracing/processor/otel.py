@@ -1,5 +1,13 @@
+import json
+
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+
+from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
+from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import generate_trace_id_v3
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -25,6 +33,34 @@ class OtelSpanProcessor(BatchSpanProcessor):
         except AttributeError:
             pass
 
+        # Only register traces with trace manager when NOT in dual export mode
+        # In dual export mode, MLflow span processors handle trace registration
+        self._should_register_traces = not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
+        if self._should_register_traces:
+            self._trace_manager = InMemoryTraceManager.get_instance()
+
+    def on_start(self, span: OTelReadableSpan, parent_context=None):
+        if self._should_register_traces and not span.parent:
+            trace_info = self._create_trace_info(span)
+            span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_info.trace_id))
+            self._trace_manager.register_trace(trace_info.trace_id, trace_info)
+
+        super().on_start(span, parent_context)
+
     def on_end(self, span: OTelReadableSpan):
-        # TODO: Emit additional metrics/events for telemetry purposes
+        if self._should_register_traces and not span.parent:
+            self._trace_manager.pop_trace(span.context.trace_id)
+
         super().on_end(span)
+
+    def _create_trace_info(self, span: OTelReadableSpan) -> TraceInfo:
+        """Create a TraceInfo object from an OpenTelemetry span."""
+        return TraceInfo(
+            trace_id=generate_trace_id_v3(span),
+            trace_location=TraceLocation.from_experiment_id(None),
+            request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
+            execution_duration=None,
+            state=TraceState.IN_PROGRESS,
+            trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+            tags={},
+        )
