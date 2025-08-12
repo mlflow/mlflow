@@ -57,10 +57,14 @@ module.exports = async ({ context, github, core }) => {
   });
 
   const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
-  const hasVersionLabel = existingLabels.data.some((label) => versionLabelPattern.test(label.name));
+  const existingVersionLabel = existingLabels.data.find((label) =>
+    versionLabelPattern.test(label.name)
+  );
 
-  if (hasVersionLabel) {
-    core.info("Version label already exists on this PR. Skipping label addition.");
+  if (existingVersionLabel) {
+    core.info(
+      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`
+    );
     return;
   }
 
