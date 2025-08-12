@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
@@ -114,7 +114,7 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
     return parsed_tools
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, Any]]:
+def _parse_usage(output: Any) -> dict[str, Any] | None:
     """
     Parse token usage information from OpenAI response objects.
 

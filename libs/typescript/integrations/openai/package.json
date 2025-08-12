@@ -33,8 +33,7 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "prepare": "npm run build"
+    "format:check": "prettier --check ."
   },
   "peerDependencies": {
     "mlflow-tracing": "^0.1.0-rc.0",

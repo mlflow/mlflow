@@ -41,10 +41,10 @@ build_tsdoc() {
 TYPESCRIPT_BASE="../../libs/typescript"
 DOCS_OUTPUT_BASE="build/html/typescript_api"
 
-# First ensure yarn dependencies are installed at workspace root
+# First ensure dependencies are installed at workspace root
 echo "Ensuring TypeScript workspace dependencies are installed..."
 pushd "$TYPESCRIPT_BASE"
-yarn install
+npm install
 popd
 
 # Remove existing docs if they exist

@@ -102,6 +102,8 @@ mlflow.models.predict(
     model_uri=model_info.model_uri,
     input_data=["a", "b", "c"],
     env_manager="uv",
+    # ONLY SET THIS if your model dependencies include pre-release packages (e.g. mlflow==3.2.0rc0)
+    extra_envs={"UV_PRERELEASE": "allow"},
 )
 ```
 

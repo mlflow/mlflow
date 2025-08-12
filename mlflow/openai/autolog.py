@@ -25,19 +25,13 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
 
 _logger = logging.getLogger(__name__)
 
-_MESSAGE_FORMAT_COMPLETIONS = "openai.completions"
-_MESSAGE_FORMAT_CHAT = "openai.chat.completions"
-_MESSAGE_FORMAT_RESPONSES = "openai.responses"
 
-
-@experimental(version="2.14.0")
 def autolog(
     disable=False,
     exclusive=False,
@@ -186,12 +180,12 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     from openai.resources.embeddings import AsyncEmbeddings, Embeddings
 
     span_type_mapping = {
-        ChatCompletions: (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_CHAT),
-        AsyncChatCompletions: (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_CHAT),
-        Completions: (SpanType.LLM, _MESSAGE_FORMAT_COMPLETIONS),
-        AsyncCompletions: (SpanType.LLM, _MESSAGE_FORMAT_COMPLETIONS),
-        Embeddings: (SpanType.EMBEDDING, None),
-        AsyncEmbeddings: (SpanType.EMBEDDING, None),
+        ChatCompletions: SpanType.CHAT_MODEL,
+        AsyncChatCompletions: SpanType.CHAT_MODEL,
+        Completions: SpanType.LLM,
+        AsyncCompletions: SpanType.LLM,
+        Embeddings: SpanType.EMBEDDING,
+        AsyncEmbeddings: SpanType.EMBEDDING,
     }
 
     try:
@@ -201,8 +195,8 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         )
         from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
 
-        span_type_mapping[BetaChatCompletions] = (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_CHAT)
-        span_type_mapping[BetaAsyncChatCompletions] = (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_CHAT)
+        span_type_mapping[BetaChatCompletions] = SpanType.CHAT_MODEL
+        span_type_mapping[BetaAsyncChatCompletions] = SpanType.CHAT_MODEL
     except ImportError:
         _logger.debug(
             "Failed to import `BetaChatCompletions` or `BetaAsyncChatCompletions`", exc_info=True
@@ -212,8 +206,8 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         # Responses API only available in openai>=1.66.0
         from openai.resources.responses import AsyncResponses, Responses
 
-        span_type_mapping[Responses] = (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_RESPONSES)
-        span_type_mapping[AsyncResponses] = (SpanType.CHAT_MODEL, _MESSAGE_FORMAT_RESPONSES)
+        span_type_mapping[Responses] = SpanType.CHAT_MODEL
+        span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
     except ImportError:
         pass
 
@@ -291,11 +285,11 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
-    span_type, message_format = _get_span_type_and_message_format(instance.__class__)
+    span_type = _get_span_type_and_message_format(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
-    if message_format:
-        attributes[SpanAttributeKey.MESSAGE_FORMAT] = message_format
+    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_span_no_context(

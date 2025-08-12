@@ -5,7 +5,6 @@ import sys
 import time
 import urllib
 from os.path import join
-from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -638,7 +637,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
