@@ -65,10 +65,7 @@ def _get_otlp_protocol() -> str:
 
 
 def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
-    """Convert OTel protobuf bytes to integer ID.
-
-    :meta private:
-    """
+    """Convert OTel protobuf bytes to integer ID."""
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
@@ -78,8 +75,6 @@ def set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     Args:
         pb_any_value: The OTel protobuf AnyValue message to populate.
         value: The value to set.
-
-    :meta private:
     """
     if value is None:
         # Leave the value unset for None
@@ -117,8 +112,6 @@ def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
 
     Returns:
         The decoded value.
-
-    :meta private:
     """
     value_type = pb_any_value.WhichOneof("value")
     if not value_type:
