@@ -6821,7 +6821,8 @@ def test_assessment_with_error(store_and_trace_info):
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
     """Test that trace status defaults to IN_PROGRESS when no root span is present."""
     experiment_id = store.create_experiment("test_default_in_progress")
-    trace_id = f"test_trace_no_root_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
 
     # Create a child span (has parent, not a root span)
     child_context = mock.Mock()
@@ -6882,7 +6883,8 @@ async def test_log_spans_sets_trace_status_from_root_span(
 ):
     """Test that trace status is correctly set from root span status."""
     experiment_id = store.create_experiment("test_trace_status_from_root")
-    trace_id = f"test_trace_{span_status_code.name}_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
 
     # Create root span with specified status
     description = (
@@ -6919,7 +6921,8 @@ async def test_log_spans_unset_root_span_status_defaults_to_ok(
 ):
     """Test that UNSET root span status (unexpected) defaults to OK trace status."""
     experiment_id = store.create_experiment("test_unset_root_span")
-    trace_id = f"test_trace_unset_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
 
     # Create root span with UNSET status (this is unexpected in practice)
     root_unset_span = create_test_otel_span(
@@ -6951,7 +6954,8 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 ):
     """Test that IN_PROGRESS trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_trace_status_update")
-    trace_id = f"test_trace_update_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
 
     # First, log a non-root span which will create trace with default IN_PROGRESS status
     parent_context = create_mock_span_context(45678, 555)  # Will be root span later
@@ -7008,7 +7012,8 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
 ):
     """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
-    trace_id = f"test_trace_unspec_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
 
     # First, create a trace with OK status by logging a root span with OK status
     initial_span = create_test_span(
@@ -7059,7 +7064,8 @@ async def test_log_spans_does_not_update_finalized_trace_status(
     experiment_id = store.create_experiment("test_no_update_finalized")
 
     # Test that OK status is not updated
-    trace_id_ok = f"test_trace_ok_final_{uuid.uuid4().hex[:12]}"
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id_ok = f"tr-{uuid.uuid4().hex}"
 
     # Create initial root span with OK status
     ok_span = create_test_span(
