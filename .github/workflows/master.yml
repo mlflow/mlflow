@@ -318,11 +318,17 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install databricks-agents openai dspy
+          pip install openai dspy
       - uses: ./.github/actions/show-versions
-      - name: Run GenAI Tests
+      - name: Run GenAI Tests (OSS)
         run: |
-          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py
+          pytest tests/genai
+
+      - name: Run GenAI Tests (Databricks)
+        run: |
+          pip install databricks-agents
+          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
+            --ignore tests/genai/optimize --ignore tests/genai/prompts
 
       - name: Run Tests with Local Spark Session
         run: |
@@ -332,11 +338,6 @@ jobs:
           pip uninstall -y databricks-connect pyspark
           pip install pyspark
           pytest tests/genai/evaluate/test_utils.py
-
-      - name: Test imports without databricks-agents package
-        run: |
-          pip uninstall -y databricks-agents
-          pytest tests/genai/test_genai_import_without_agent_sdk.py
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

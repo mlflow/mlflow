@@ -1,3 +1,4 @@
+import importlib
 import logging
 from collections import defaultdict
 from typing import Any, Callable
@@ -19,6 +20,9 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
+IS_DBX_AGENTS_INSTALLED = importlib.util.find_spec("databricks.agents") is not None
+
+
 def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     """
     Validate a list of specified scorers.
@@ -29,8 +33,6 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     Returns:
         A list of valid scorers.
     """
-    from databricks.rag_eval.evaluation.metrics import Metric
-
     if not isinstance(scorers, list) or len(scorers) == 0:
         raise MlflowException.invalid_parameter_value(
             "The `scorers` argument must be a list of scorers with at least one scorer. "
@@ -45,10 +47,15 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     for scorer in scorers:
         if isinstance(scorer, Scorer):
             valid_scorers.append(scorer)
-        elif isinstance(scorer, Metric):
-            legacy_metrics.append(scorer)
-            valid_scorers.append(scorer)
         else:
+            if IS_DBX_AGENTS_INSTALLED:
+                from databricks.rag_eval.evaluation.metrics import Metric
+
+                if isinstance(scorer, Metric):
+                    legacy_metrics.append(scorer)
+                    valid_scorers.append(scorer)
+                    continue
+
             # Show helpful error message for common mistakes
             if isinstance(scorer, list) and (scorer == get_all_scorers()):
                 # Common mistake 1: scorers=[get_all_scorers()]
@@ -99,7 +106,7 @@ def valid_data_for_builtin_scorers(
 
     Args:
         data: The data to validate. This must be a pandas DataFrame converted to
-            the legacy evaluation set schema via `_convert_to_legacy_eval_set`.
+            the legacy evaluation set schema via `_convert_to_eval_set`.
         builtin_scorers: The list of builtin scorers to validate the data for.
         predict_fn: The predict function to validate the data for.
     """
