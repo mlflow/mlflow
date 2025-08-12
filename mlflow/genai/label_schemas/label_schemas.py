@@ -198,14 +198,8 @@ class LabelSchema:
     @classmethod
     def _convert_databricks_input(
         cls,
-        input_obj: Union[
-            "_InputCategorical",
-            "_InputCategoricalList",
-            "_InputText",
-            "_InputTextList",
-            "_InputNumeric",
-        ],
-    ) -> Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]:
+        input_obj: "Union[_InputCategorical, _InputCategoricalList, _InputText, _InputTextList, _InputNumeric]",  # noqa: E501
+    ) -> "Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]":
         """Convert a Databricks input type to the corresponding MLflow input type."""
         from databricks.agents.review_app import label_schemas as _label_schemas
 
