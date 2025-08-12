@@ -493,7 +493,7 @@ transformers:
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
       pip uninstall -y accelerate
-      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
+      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
     maximum: "4.55.0"
@@ -854,6 +854,22 @@ crewai:
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
+    test_tracing_sdk: true
+
+agno:
+  package_info:
+    pip_release: "agno"
+    module_name: "agno"
+    install_dev: |
+      pip install git+https://github.com/agno-agi/agno.git
+  autologging:
+    minimum: "1.7.0"
+    maximum: "1.7.9"
+    python:
+      ">= 1.7.0": "3.10"
+    requirements:
+      ">= 0.0.0": ["anthropic", "yfinance"]
+    run: pytest tests/agno
     test_tracing_sdk: true
 
 pydantic_ai:

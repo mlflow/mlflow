@@ -108,6 +108,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/pydantic_ai',
   },
   {
+    id: 'agno',
+    name: 'Agno',
+    logoPath: '/images/logos/agno-logo.png',
+    link: '/genai/tracing/integrations/listing/agno',
+  },
+  {
     id: 'smolagents',
     name: 'Smolagents',
     logoPath: '/images/logos/smolagents-logo.png',
