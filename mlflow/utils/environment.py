@@ -541,7 +541,7 @@ def _lock_requirements(
             constraints_opt = [f"--constraints={pip_constraint}"]
 
         try:
-            if res := _get_uv_options_for_databricks:
+            if res := _get_uv_options_for_databricks():
                 uv_options, uv_envs = res
             else:
                 uv_options = []
