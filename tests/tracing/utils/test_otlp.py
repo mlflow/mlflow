@@ -154,6 +154,9 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     result = simple_function()
     assert result == "test"
 
+    # Give time for traces to be exported
+    time.sleep(1)
+
     # Check OTLP collector received spans
     _, output_file = otel_collector
     with open(output_file) as f:
