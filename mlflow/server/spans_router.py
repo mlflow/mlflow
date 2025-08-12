@@ -20,7 +20,7 @@ class LightWeightSpan(BaseModel):
     status: str
 
 
-class ListSpansResponse(BaseModel):
+class ListTraceSpansResponse(BaseModel):
     spans: list[LightWeightSpan]
     max_content_length: int
     next_page_token: str | None = None
@@ -38,9 +38,9 @@ async def get_trace_span(trace_id: str, span_id: str) -> GetTraceSpanResponse:
 
 
 @router.get("/traces/{trace_id}/spans")
-async def list_spans(
+async def list_trace_spans(
     trace_id: str,
     span_type: str | None = None,
     page_token: str | None = None,
-) -> ListSpansResponse:
+) -> ListTraceSpansResponse:
     raise NotImplementedError("TODO: Implement span listing logic")
