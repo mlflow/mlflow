@@ -463,6 +463,8 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     - https://docs.databricks.com/aws/en/compute/serverless/dependencies#predefined-secret-scope-name
     - https://docs.astral.sh/uv/configuration/environment/#environment-variables
     """
+    from databricks.sdk import WorkspaceClient
+
     from mlflow.utils.databricks_utils import (
         _get_dbutils,
         _NoDbutilsError,
@@ -475,6 +477,11 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     try:
         dbutils = _get_dbutils()
     except _NoDbutilsError:
+        return [], {}
+
+    workspace_client = WorkspaceClient()
+    secret_scopes = workspace_client.secrets.list_scopes()
+    if not any(s.name == "databricks-package-management" for s in secret_scopes):
         return [], {}
 
     def get_secret(key: str) -> str | None:
