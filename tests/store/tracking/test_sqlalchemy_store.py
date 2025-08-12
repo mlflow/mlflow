@@ -132,7 +132,7 @@ pytestmark = pytest.mark.notrackingurimock
 
 
 # Helper functions for span tests
-def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> mock.Mock:
+def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> trace_api.SpanContext:
     """Create a mock span context for testing."""
     context = mock.Mock()
     context.trace_id = trace_id_num
