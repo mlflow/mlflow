@@ -34,8 +34,8 @@ class GetTraceSpanResponse(BaseModel):
 async def get_trace_span(
     trace_id: str,
     span_id: str,
-    page_token: str | None = None,
     max_content_length: int = 100_000,
+    page_token: str | None = None,
 ) -> GetTraceSpanResponse:
     raise NotImplementedError("TODO: Implement span retrieval logic")
 
