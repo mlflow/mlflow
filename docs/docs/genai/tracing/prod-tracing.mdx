@@ -251,7 +251,7 @@ export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
 
 ### Dual Export Mode
 
-By default, when OTLP export is configured, MLflow sends traces only to the OpenTelemetry Collector. To send traces to both MLflow Tracking Server and OpenTelemetry Collector simultaneously, enable dual export mode:
+By default, when OTLP export is configured, MLflow sends traces only to the OpenTelemetry Collector. To send traces to both MLflow Tracking Server and OpenTelemetry Collector simultaneously, set `MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT=true`:
 
 ```python
 import mlflow
