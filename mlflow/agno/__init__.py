@@ -1,11 +1,7 @@
 import inspect
 import logging
 
-from mlflow.agno.autolog import (
-    patched_async_class_call,
-    patched_class_call,
-)
-from mlflow.agno.utils import discover_storage_backends, find_model_subclasses
+from mlflow.agno.autolog import patched_async_class_call, patched_class_call
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -24,6 +20,7 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         disable: If ``True``, disables Agno autologging.
         silent: If ``True``, suppresses all MLflow event logs and warnings.
     """
+    from mlflow.agno.utils import discover_storage_backends, find_model_subclasses
 
     class_map = {
         "agno.agent.Agent": ["run", "arun"],

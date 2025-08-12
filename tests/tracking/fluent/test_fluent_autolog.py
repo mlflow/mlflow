@@ -5,9 +5,11 @@ from io import StringIO
 from typing import Any, NamedTuple
 from unittest import mock
 
+import agno
 import anthropic
-import autogen
+import autogen_agentchat
 import boto3
+import crewai
 import dspy
 import google.genai
 import groq
@@ -19,12 +21,15 @@ import litellm
 import llama_index.core
 import mistralai
 import openai
+import pydantic_ai
 import pyspark
 import pyspark.ml
 import pytest
 import pytorch_lightning
+import semantic_kernel
 import setfit
 import sklearn
+import smolagents
 import statsmodels
 import tensorflow
 import transformers
@@ -45,20 +50,6 @@ from tests.autologging.fixtures import (
 )
 from tests.helper_functions import start_mock_openai_server
 
-library_to_mlflow_module_without_spark_datasource = {
-    tensorflow: mlflow.tensorflow,
-    keras: mlflow.keras,
-    sklearn: mlflow.sklearn,
-    xgboost: mlflow.xgboost,
-    lightgbm: mlflow.lightgbm,
-    statsmodels: mlflow.statsmodels,
-    pyspark.ml: mlflow.pyspark.ml,
-    pytorch_lightning: mlflow.pytorch,
-    lightning: mlflow.pytorch,
-    transformers: mlflow.transformers,
-    setfit: mlflow.transformers,
-}
-
 library_to_mlflow_module_genai = {
     openai: mlflow.openai,
     llama_index.core: mlflow.llama_index,
@@ -70,13 +61,26 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
-    autogen: mlflow.ag2,
-    # TODO: once Python 3.10 is introduced, enable smolagents
-    # smolagents: mlflow.smolagents,
+    autogen_agentchat: mlflow.autogen,
+    pydantic_ai: mlflow.pydantic_ai,
+    crewai: mlflow.crewai,
+    smolagents: mlflow.smolagents,
+    semantic_kernel: mlflow.semantic_kernel,
+    agno: mlflow.agno,
 }
 
 library_to_mlflow_module_traditional_ai = {
-    **library_to_mlflow_module_without_spark_datasource,
+    tensorflow: mlflow.tensorflow,
+    keras: mlflow.keras,
+    sklearn: mlflow.sklearn,
+    xgboost: mlflow.xgboost,
+    lightgbm: mlflow.lightgbm,
+    statsmodels: mlflow.statsmodels,
+    pyspark.ml: mlflow.pyspark.ml,
+    pytorch_lightning: mlflow.pytorch,
+    lightning: mlflow.pytorch,
+    transformers: mlflow.transformers,
+    setfit: mlflow.transformers,
     pyspark: mlflow.spark,
 }
 
@@ -113,12 +117,6 @@ def reset_global_states():
         except Exception:
             pass
 
-    # TODO: Remove these when we run ci with Python >= 3.10
-    mlflow.utils.import_hooks._post_import_hooks.pop("smolagents", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("pydantic_ai", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -484,16 +482,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai, smolagents, and semantic_kernel require Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {
-        "pytorch-lightning",
-        "paddle",
-        "crewai",
-        "smolagents",
-        "pydantic_ai",
-        "autogen",
-        "semantic_kernel",
-    }:
+    if flavor in {"pytorch-lightning", "paddle"}:
         return
 
     with reset_module_import():
