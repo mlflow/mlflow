@@ -742,7 +742,7 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          # 1.99.2 ~ 1.99.8 have unintended breaking changes:
+          # Versions 1.99.2 - 1.99.8 contain regressions:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
           # Required to test Databricks integration
@@ -760,7 +760,7 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          # 1.99.2 ~ 1.99.8 have unintended breaking changes:
+          # Versions 1.99.2 - 1.99.8 contain regressions:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
           # Required to run tests/openai/mock_openai.py
