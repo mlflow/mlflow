@@ -263,6 +263,40 @@ def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list
     return text_content, tool_uses
 
 
+def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, Any]:
+    """Find tool results following the current assistant response.
+
+    Returns a mapping from tool_use_id to tool result content.
+    """
+    tool_results = {}
+
+    # Look for tool results in subsequent entries
+    for i in range(start_idx + 1, len(transcript)):
+        entry = transcript[i]
+        if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_USER:
+            continue
+
+        msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+        content = msg.get(MESSAGE_FIELD_CONTENT, [])
+
+        if isinstance(content, list):
+            for part in content:
+                if (
+                    isinstance(part, dict)
+                    and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_RESULT
+                ):
+                    tool_use_id = part.get("tool_use_id")
+                    result_content = part.get("content", "")
+                    if tool_use_id:
+                        tool_results[tool_use_id] = result_content
+
+        # Stop looking once we hit the next assistant response
+        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+            break
+
+    return tool_results
+
+
 def _create_llm_and_tool_spans(
     client, trace, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
@@ -288,53 +322,63 @@ def _create_llm_and_tool_spans(
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
         usage = msg.get("usage", {})
 
-        llm_call_num += 1
-        llm_span = client.start_span(
-            name=f"llm_call_{llm_call_num}",
-            trace_id=trace.trace_id,
-            parent_id=trace.span_id,
-            span_type=SpanType.LLM,
-            start_time_ns=timestamp_ns,
-            inputs={"model": msg.get("model", "unknown")},
-            attributes={
-                "model": msg.get("model", "unknown"),
-                "input_tokens": usage.get("input_tokens", 0),
-                "output_tokens": usage.get("output_tokens", 0),
-            },
-        )
-
+        # First check if we have meaningful content to create a span for
         text_content, tool_uses = _extract_content_and_tools(content)
 
-        client.end_span(
-            trace_id=llm_span.trace_id,
-            span_id=llm_span.span_id,
-            outputs={"response": text_content},
-            end_time_ns=timestamp_ns + duration_ns,
-        )
-
-        # Create tool spans with proportional timing
-        tool_duration_ns = duration_ns // max(len(tool_uses), 1) if tool_uses else 0
-        for idx, tool_use in enumerate(tool_uses):
-            tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
-            tool_span = client.start_span(
-                name=f"tool_{tool_use.get('name', 'unknown')}",
+        # Only create LLM span if there's text content (no tools)
+        llm_span = None
+        if text_content and text_content.strip() and not tool_uses:
+            llm_call_num += 1
+            llm_span = client.start_span(
+                name=f"llm_call_{llm_call_num}",
                 trace_id=trace.trace_id,
                 parent_id=trace.span_id,
-                span_type=SpanType.TOOL,
-                start_time_ns=tool_start_ns,
-                inputs=tool_use.get("input", {}),
+                span_type=SpanType.LLM,
+                start_time_ns=timestamp_ns,
+                inputs={"model": msg.get("model", "unknown")},
                 attributes={
-                    "tool_name": tool_use.get("name", "unknown"),
-                    "tool_id": tool_use.get("id", ""),
+                    "model": msg.get("model", "unknown"),
+                    "input_tokens": usage.get("input_tokens", 0),
+                    "output_tokens": usage.get("output_tokens", 0),
                 },
             )
 
             client.end_span(
-                trace_id=tool_span.trace_id,
-                span_id=tool_span.span_id,
-                outputs={"result": "Tool execution completed"},
-                end_time_ns=tool_start_ns + tool_duration_ns,
+                trace_id=llm_span.trace_id,
+                span_id=llm_span.span_id,
+                outputs={"response": text_content},
+                end_time_ns=timestamp_ns + duration_ns,
             )
+
+        # Create tool spans with proportional timing and actual results
+        if tool_uses:
+            tool_results = _find_tool_results(transcript, i)
+            tool_duration_ns = duration_ns // len(tool_uses)
+
+            for idx, tool_use in enumerate(tool_uses):
+                tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
+                tool_use_id = tool_use.get("id", "")
+                tool_result = tool_results.get(tool_use_id, "No result found")
+
+                tool_span = client.start_span(
+                    name=f"tool_{tool_use.get('name', 'unknown')}",
+                    trace_id=trace.trace_id,
+                    parent_id=trace.span_id,
+                    span_type=SpanType.TOOL,
+                    start_time_ns=tool_start_ns,
+                    inputs=tool_use.get("input", {}),
+                    attributes={
+                        "tool_name": tool_use.get("name", "unknown"),
+                        "tool_id": tool_use_id,
+                    },
+                )
+
+                client.end_span(
+                    trace_id=tool_span.trace_id,
+                    span_id=tool_span.span_id,
+                    outputs={"result": tool_result},
+                    end_time_ns=tool_start_ns + tool_duration_ns,
+                )
 
 
 def find_final_assistant_response(
