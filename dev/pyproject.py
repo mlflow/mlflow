@@ -315,7 +315,6 @@ def build(package_type: PackageType) -> None:
                 "genai": gateways_requirements,
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
-                "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],

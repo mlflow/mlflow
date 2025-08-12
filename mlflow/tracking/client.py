@@ -812,6 +812,30 @@ class MlflowClient:
             trace_id=trace_id,
         )
 
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                # Link multiple traces to a run
+                client.link_traces_to_run(
+                    trace_ids=["trace_123", "trace_456", "trace_789"],
+                    run_id="run_abc",
+                )
+        """
+        return self._tracking_client.link_traces_to_run(trace_ids, run_id)
+
     # TODO: Use model_id in MLflow 3.0
     @experimental(version="3.0.0")
     @require_prompt_registry
