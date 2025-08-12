@@ -50,8 +50,8 @@ repository = "https://github.com/mlflow/mlflow"
 where = ["."]
 include = [
   "mlflow",
-  "mlflow.anthropic*",
   "mlflow.agno*",
+  "mlflow.anthropic*",
   "mlflow.autogen*",
   "mlflow.bedrock*",
   "mlflow.crewai*",

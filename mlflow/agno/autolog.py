@@ -3,6 +3,8 @@ import logging
 from typing import Any
 
 import agno
+from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 
 import mlflow
 from mlflow.entities import SpanType
@@ -79,13 +81,17 @@ def _get_tools_attribute(instance) -> dict[str, Any]:
     }
 
 
-def _set_span_attributes(span: LiveSpan, instance) -> None:
+def _set_span_inputs_attributes(span: LiveSpan, instance: Any, raw_inputs: dict[str, Any]) -> None:
     try:
         from agno.agent import Agent
         from agno.team import Team
 
         if isinstance(instance, (Agent, Team)):
             span.set_attributes(_get_agent_attributes(instance))
+            # Filter out None values from inputs because Agent/Team's
+            # run method has so many optional arguments.
+            span.set_inputs({k: v for k, v in raw_inputs.items() if v is not None})
+            return
     except Exception as exc:  # pragma: no cover
         _logger.debug("Unable to attach agent attributes: %s", exc)
 
@@ -96,8 +102,25 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
             span.set_inputs(instance.arguments)
             if tool_data := _get_tools_attribute(instance):
                 span.set_attributes(tool_data)
+            return
     except Exception as exc:  # pragma: no cover
-        _logger.debug("Unable to attach agent attributes: %s", exc)
+        _logger.debug("Unable to set function attrcalling inputs and attributes: %s", exc)
+
+    try:
+        from agno.models.message import Message
+
+        if (
+            (messages := raw_inputs.get("messages"))
+            and isinstance(messages, list)
+            and all(isinstance(m, Message) for m in messages)
+        ):
+            raw_inputs["messages"] = [m.to_dict() for m in messages]
+            span.set_inputs(raw_inputs)
+            return
+    except Exception as exc:  # pragma: no cover
+        _logger.debug("Unable to parse input message: %s", exc)
+
+    span.set_inputs(raw_inputs)
 
 
 def _get_span_type(instance) -> str:
@@ -142,10 +165,15 @@ async def patched_async_class_call(original, self, *args, **kwargs):
     span_type = _get_span_type(self)
 
     with mlflow.start_span(name=span_name, span_type=span_type) as span:
-        span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
-        _set_span_attributes(span, self)
+        raw_inputs = construct_full_inputs(original, self, *args, **kwargs)
+        _set_span_inputs_attributes(span, self, raw_inputs)
 
         result = await original(self, *args, **kwargs)
+
+        if isinstance(result, (RunResponse, TeamRunResponse)):
+            span.set_outputs(result.to_dict())
+        else:
+            span.set_outputs(result)
 
         span.set_outputs(result)
         if usage := _parse_usage(result):
@@ -162,12 +190,16 @@ def patched_class_call(original, self, *args, **kwargs):
     span_type = _get_span_type(self)
 
     with mlflow.start_span(name=span_name, span_type=span_type) as span:
-        span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
-        _set_span_attributes(span, self)
+        raw_inputs = construct_full_inputs(original, self, *args, **kwargs)
+        _set_span_inputs_attributes(span, self, raw_inputs)
 
         result = original(self, *args, **kwargs)
 
-        span.set_outputs(result)
+        if isinstance(result, (RunResponse, TeamRunResponse)):
+            span.set_outputs(result.to_dict())
+        else:
+            span.set_outputs(result)
+
         if usage := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         return result

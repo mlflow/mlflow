@@ -35,6 +35,14 @@ MLflow trace automatically captures the following information about Agentic call
 
 ### Basic Example
 
+Install the dependencies for the example:
+
+```bash
+pip install 'mlflow>=3.3' agno anthropic yfinance
+```
+
+Run a simple agent with `mlflow.agno.autolog()` enabled:
+
 ```python
 from agno.agent import Agent
 from agno.models.anthropic import Claude
@@ -194,4 +202,4 @@ Team.run:
 
 ### Disable auto-tracing
 
-Auto tracing for LiteLLM can be disabled globally by calling `mlflow.litellm.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+Auto tracing for LiteLLM can be disabled globally by calling `mlflow.agno.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
