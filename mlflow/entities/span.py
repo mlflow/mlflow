@@ -31,8 +31,8 @@ from mlflow.tracing.utils import (
     encode_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
+    _otel_proto_bytes_to_id,
     decode_otel_proto_anyvalue,
-    otel_proto_bytes_to_id,
     set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
@@ -354,11 +354,11 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        trace_id = otel_proto_bytes_to_id(otel_proto_span.trace_id)
-        span_id = otel_proto_bytes_to_id(otel_proto_span.span_id)
+        trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
+        span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
-            parent_id = otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
+            parent_id = _otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert OTel proto status code directly to OTel SDK status
         if otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_OK:

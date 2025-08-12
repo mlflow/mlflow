@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from opentelemetry import trace as trace_api
-from opentelemetry.proto.trace.v1.trace_pb2 import Status
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OtelStatus
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -108,13 +108,13 @@ class SpanStatus:
 
         :meta private:
         """
-        status = Status()
+        status = OtelStatus()
         if self.status_code == SpanStatusCode.OK:
-            status.code = Status.StatusCode.STATUS_CODE_OK
+            status.code = OtelStatus.StatusCode.STATUS_CODE_OK
         elif self.status_code == SpanStatusCode.ERROR:
-            status.code = Status.StatusCode.STATUS_CODE_ERROR
+            status.code = OtelStatus.StatusCode.STATUS_CODE_ERROR
         else:
-            status.code = Status.StatusCode.STATUS_CODE_UNSET
+            status.code = OtelStatus.StatusCode.STATUS_CODE_UNSET
 
         if self.description:
             status.message = self.description
@@ -129,9 +129,9 @@ class SpanStatus:
         :meta private:
         """
         # Map protobuf status codes to SpanStatusCode
-        if otel_proto_status.code == Status.STATUS_CODE_OK:
+        if otel_proto_status.code == OtelStatus.STATUS_CODE_OK:
             status_code = SpanStatusCode.OK
-        elif otel_proto_status.code == Status.STATUS_CODE_ERROR:
+        elif otel_proto_status.code == OtelStatus.STATUS_CODE_ERROR:
             status_code = SpanStatusCode.ERROR
         else:
             status_code = SpanStatusCode.UNSET

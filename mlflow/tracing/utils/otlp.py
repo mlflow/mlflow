@@ -64,7 +64,7 @@ def _get_otlp_protocol() -> str:
     )
 
 
-def otel_proto_bytes_to_id(id_bytes: bytes) -> int:
+def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
     """Convert OTel protobuf bytes to integer ID.
 
     :meta private:
