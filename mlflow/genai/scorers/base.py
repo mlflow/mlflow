@@ -446,10 +446,10 @@ class Scorer(BaseModel):
                 )
         """
         # Get the current tracking store
-        from mlflow.genai.scorers.registry import ScorerStoreRegistry
+        from mlflow.genai.scorers.registry import _get_scorer_store
 
         self._check_can_be_registered()
-        store = ScorerStoreRegistry.get_store()
+        store = _get_scorer_store()
         new_scorer, _ = store.register_scorer(experiment_id, name, self)
         return new_scorer
 
@@ -500,9 +500,10 @@ class Scorer(BaseModel):
                 )
         """
         from mlflow.utils.uri import is_databricks_uri
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.genai.scorers.registry import DatabricksStore
 
-        if not is_databricks_uri(mlflow.get_tracking_uri()):
+        if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException("Starting scorer is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()
@@ -570,9 +571,10 @@ class Scorer(BaseModel):
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
         from mlflow.utils.uri import is_databricks_uri
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.genai.scorers.registry import DatabricksStore
 
-        if not is_databricks_uri(mlflow.get_tracking_uri()):
+        if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException("Updating scorer is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()
@@ -627,7 +629,9 @@ class Scorer(BaseModel):
                 )
         """
         from mlflow.utils.uri import is_databricks_uri
-        if not is_databricks_uri(mlflow.get_tracking_uri()):
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException("Stopping scorer is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()

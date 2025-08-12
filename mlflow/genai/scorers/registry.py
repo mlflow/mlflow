@@ -321,10 +321,8 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def register_scorer(self, experiment_id: str, name: str, scorer: Scorer) -> tuple[Scorer, int]:
-        self._check_can_be_registered()
-
         # Create a new scorer instance
-        new_scorer = self._create_copy()
+        new_scorer = scorer._create_copy()
 
         # If name is provided, update the copy's name
         if name:
@@ -459,32 +457,8 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
                 print(f"Sample rate: {scorer.sample_rate}")
                 print(f"Filter: {scorer.filter_string}")
     """
-    # Get the current scorer store
-    from mlflow.tracking._tracking_service.utils import get_tracking_uri
-    from mlflow.utils.databricks_utils import is_databricks_uri
-
-    tracking_uri = get_tracking_uri()
-
-    current_store = _get_scorer_store(tracking_uri)
-
-    # Get current experiment ID if not provided
-    if experiment_id is None:
-        from mlflow.tracking.fluent import _get_experiment_id
-        experiment_id = _get_experiment_id()
-
-    # Get the scorer entities from the store
-    entity_scorers = current_store.list_scorers(experiment_id)
-
-    # Convert to mlflow.genai.scorers.Scorer objects
-    scorers = []
-    for entity_scorer in entity_scorers:
-        from mlflow.genai.scorers import Scorer
-        
-        # Pass SerializedScorer object directly to model_validate
-        scorer = Scorer.model_validate(entity_scorer.serialized_scorer)
-        scorers.append(scorer)
-    
-    return scorers
+    store = _get_scorer_store()
+    return store.list_scorers(experiment_id)
 
 
 @experimental(version="3.2.0")
@@ -517,26 +491,9 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
             # Update the scorer
             my_scorer = my_scorer.update(sample_rate=0.5)
     """
-    # Get the current scorer store
-    from mlflow.tracking._tracking_service.utils import get_tracking_uri
-    from mlflow.utils.databricks_utils import is_databricks_uri
 
-    tracking_uri = get_tracking_uri()
-
-    current_store = _get_scorer_store(tracking_uri)
-
-    # Get current experiment ID if not provided
-    if experiment_id is None:
-        from mlflow.tracking.fluent import _get_experiment_id
-        experiment_id = _get_experiment_id()
-
-    # Get the scorer version entity
-    scorer_version = current_store.get_scorer(experiment_id, name)
-    
-    # Convert to mlflow.genai.scorers.Scorer object
-    scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-    
-    return scorer
+    store = _get_scorer_store()
+    return store.get_scorer(experiment_id, name)
 
 
 @experimental(version="3.2.0")
@@ -568,18 +525,6 @@ def delete_scorer(
             # Delete a scorer from a specific experiment
             delete_scorer(name="my_safety_scorer", experiment_id="123")
     """
-    # Get the current scorer store
-    from mlflow.tracking._tracking_service.utils import get_tracking_uri
-    from mlflow.utils.databricks_utils import is_databricks_uri
 
-    tracking_uri = get_tracking_uri()
-
-    current_store = _get_scorer_store(tracking_uri)
-
-    # Get current experiment ID if not provided
-    if experiment_id is None:
-        from mlflow.tracking.fluent import _get_experiment_id
-        experiment_id = _get_experiment_id()
-
-    # Delete the scorer using the store
-    current_store.delete_scorer(experiment_id, name)
+    store = _get_scorer_store()
+    return store.delete_scorer(experiment_id, name)
