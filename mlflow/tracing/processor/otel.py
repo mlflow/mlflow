@@ -1,4 +1,4 @@
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 
@@ -25,6 +25,6 @@ class OtelSpanProcessor(BatchSpanProcessor):
         except AttributeError:
             pass
 
-    def on_end(self, span: ReadableSpan) -> None:
+    def on_end(self, span: OTelReadableSpan):
         # TODO: Emit additional metrics/events for telemetry purposes
         super().on_end(span)
