@@ -9,16 +9,10 @@ class ScorerVersion(_MlflowObject):
     """ScorerVersion object associated with an experiment."""
 
     def __init__(self, experiment_id, scorer_name, scorer_version, serialized_scorer, creation_time=None):
-        from mlflow.genai.scorers.base import SerializedScorer
-
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
-        # Convert string to SerializedScorer if needed
-        if isinstance(serialized_scorer, str):
-            self._serialized_scorer = SerializedScorer(**json.loads(serialized_scorer))
-        else:
-            self._serialized_scorer = serialized_scorer
+        self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time if creation_time is not None else get_current_time_millis()
 
     def __eq__(self, other):
@@ -44,7 +38,9 @@ class ScorerVersion(_MlflowObject):
     @property
     def serialized_scorer(self):
         """SerializedScorer object containing the serialized scorer data."""
-        return self._serialized_scorer
+        from mlflow.genai.scorers.base import SerializedScorer
+
+        return SerializedScorer(**json.loads(self._serialized_scorer))
 
     @property
     def creation_time(self):
@@ -59,7 +55,7 @@ class ScorerVersion(_MlflowObject):
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
-            creation_time=getattr(proto, 'creation_time', None),
+            creation_time=proto.creation_time,
         )
 
     def to_proto(self):
@@ -68,10 +64,8 @@ class ScorerVersion(_MlflowObject):
         proto.experiment_id = self.experiment_id
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
-        # Convert SerializedScorer to JSON string for protobuf
-        proto.serialized_scorer = json.dumps(asdict(self.serialized_scorer))
-        if self.creation_time is not None:
-            proto.creation_time = self.creation_time
+        proto.serialized_scorer = self._serialized_scorer
+        proto.creation_time = self.creation_time
         return proto
 
     def __repr__(self):
