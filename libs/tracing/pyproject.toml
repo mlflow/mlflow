@@ -51,6 +51,7 @@ where = ["."]
 include = [
   "mlflow",
   "mlflow.anthropic*",
+  "mlflow.agno*",
   "mlflow.autogen*",
   "mlflow.bedrock*",
   "mlflow.crewai*",

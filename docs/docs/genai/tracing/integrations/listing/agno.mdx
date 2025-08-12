@@ -51,11 +51,10 @@ agent.print_response("What is the stock price of Apple?", stream=False)
 
 ## Multi Agentic(Agents to Agents) Interaction
 
-MLflow now offers native support for tracing agent-to-agent workflows when using the Agno API’s non-streaming endpoints. Under the hood, every handoff between agents
-is automatically instrumented and recorded as part of the overall execution trace, ensuring end-to-end visibility into the entire multi-agent conversation. In addition
-to logging each inter-agent message exchange, MLflow captures and associates detailed metadata for every function invocation and tool call performed by each agent,
-including input parameters, return values, and execution duration. This comprehensive tracing not only simplifies debugging complex agent pipelines but also enables
-fine-grained performance analysis and reproducibility of multi-agent orchestrations.
+MLflow now makes it easier to track how multiple AI agents work together when using Agno API’s non-streaming endpoints. It automatically
+records every handoff between agents, the messages they exchange, and details about any functions or tools they use—like what went in, what
+came out, and how long it took. This gives you a complete picture of the process, making it simpler to troubleshoot issues, measure performance,
+and repeat results.
 
 ### Multi-agent Example
 
@@ -140,7 +139,6 @@ if __name__ == "__main__":
 ```
 
 ![Agno Tracing via autolog](/images/llms/Agno/agno-tracing.png)
-
 
 ## Token usage
 

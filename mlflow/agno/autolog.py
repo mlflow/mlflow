@@ -94,8 +94,12 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
 
         if isinstance(instance, FunctionCall):
             tool_data = _get_tools_attribute(instance)
-            span.set_inputs(tool_data)
-            span.set_attributes(tool_data)
+            inputs = tool_data.pop("attributes", None)
+            if inputs is not None:
+                span.set_inputs(inputs)
+
+            if tool_data:
+                span.set_attributes(tool_data)
     except Exception as exc:  # pragma: no cover
         _logger.debug("Unable to attach agent attributes: %s", exc)
 

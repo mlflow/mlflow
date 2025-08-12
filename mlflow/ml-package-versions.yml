@@ -857,7 +857,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git
   autologging:
     minimum: "1.7.0"
-    maximum: "1.7.0"
+    maximum: "1.7.9"
     python:
       ">= 1.7.0": "3.10"
     requirements:
