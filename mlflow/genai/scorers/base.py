@@ -443,58 +443,11 @@ class Scorer(BaseModel):
                 )
         """
         # Get the current tracking store
-        from mlflow.tracking._tracking_service.utils import _get_store
-        from mlflow.utils.databricks_utils import is_databricks_uri
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.exceptions import MlflowException
+        from mlflow.genai.scorers.registry import ScorerStoreRegistry
 
         self._check_can_be_registered()
-
-        # Create a new scorer instance
-        new_scorer = self._create_copy()
-
-        # If name is provided, update the copy's name
-        if name:
-            new_scorer.name = name
-            # Update cached dump to reflect the new name
-            if new_scorer._cached_dump is not None:
-                new_scorer._cached_dump["name"] = name
-
-        tracking_uri = get_tracking_uri()
-        
-        # Check if it's a Databricks store
-        if is_databricks_uri(tracking_uri):
-            # Use the original Databricks implementation with sampling config
-            from mlflow.genai.scorers.registry import add_registered_scorer
-
-            # Add the scorer to the server with sample_rate=0 (not actively sampling)
-            add_registered_scorer(
-                name=new_scorer.name,
-                scorer=new_scorer,
-                sample_rate=0.0,
-                filter_string=None,
-                experiment_id=experiment_id,
-            )
-
-            # Set the sampling config on the new instance
-            new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
-
-            return new_scorer
-
-        current_store = _get_store()
-        # Use the store's register_scorer method (no sampling config needed)
-        if experiment_id is None:
-            # Get current experiment ID if not provided
-            from mlflow.tracking.fluent import _get_experiment_id
-            experiment_id = _get_experiment_id()
-
-        # Serialize the scorer to JSON string
-        scorer_dict = new_scorer.model_dump()
-        serialized_scorer = json.dumps(scorer_dict)
-
-        # Register the scorer using the store's method
-        current_store.register_scorer(experiment_id, new_scorer.name, serialized_scorer)
-        
+        store = ScorerStoreRegistry.get_store()
+        new_scorer, _ = store.register_scorer(experiment_id, name, self)
         return new_scorer
 
     @experimental(version="3.2.0")
@@ -543,14 +496,18 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import update_registered_scorer
+        from mlflow.utils.uri import is_databricks_uri
+        from mlflow.genai.scorers.registry import DatabricksStore
+
+        if not is_databricks_uri(mlflow.get_tracking_uri()):
+            raise MlflowException("Starting scorer is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return update_registered_scorer(
+        return DatabricksStore.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -609,14 +566,18 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import update_registered_scorer
+        from mlflow.utils.uri import is_databricks_uri
+        from mlflow.genai.scorers.registry import DatabricksStore
+
+        if not is_databricks_uri(mlflow.get_tracking_uri()):
+            raise MlflowException("Updating scorer is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return update_registered_scorer(
+        return DatabricksStore.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -662,6 +623,10 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
+        from mlflow.utils.uri import is_databricks_uri
+        if not is_databricks_uri(mlflow.get_tracking_uri()):
+            raise MlflowException("Stopping scorer is only supported by Databricks tracking URI.")
+
         self._check_can_be_registered()
 
         scorer_name = name or self.name
