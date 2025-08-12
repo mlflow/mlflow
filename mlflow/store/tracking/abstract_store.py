@@ -927,6 +927,19 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    @abstractmethod
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """
         Register a scorer for an experiment.
@@ -999,3 +1012,4 @@ class AbstractStore:
             MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)
+

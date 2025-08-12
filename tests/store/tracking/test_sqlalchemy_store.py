@@ -4592,6 +4592,97 @@ def test_search_traces_pagination_tie_breaker(store):
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
+def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
+    """Test that search_traces returns traces linked to a run via entity associations."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_run_filter")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different relationships to the run
+    # Trace 1: Has run_id in metadata (direct association)
+    trace1_id = "tr-direct"
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+
+    # Trace 2: Linked via entity association
+    trace2_id = "tr-linked"
+    _create_trace(store, trace2_id, exp_id)
+    store.link_traces_to_run([trace2_id], run_id)
+
+    # Trace 3: Both metadata and entity association
+    trace3_id = "tr-both"
+    _create_trace(store, trace3_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+    store.link_traces_to_run([trace3_id], run_id)
+
+    # Trace 4: No association with the run
+    trace4_id = "tr-unrelated"
+    _create_trace(store, trace4_id, exp_id)
+
+    # Search for traces with run_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return traces 1, 2, and 3 but not 4
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test with another run to ensure isolation
+    run2 = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run2")
+    run2_id = run2.info.run_id
+
+    # Create a trace linked to run2
+    trace5_id = "tr-run2"
+    _create_trace(store, trace5_id, exp_id)
+    store.link_traces_to_run([trace5_id], run2_id)
+
+    # Search for traces with run2_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run2_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace5
+    assert trace_ids == {trace5_id}
+
+    # Original run_id search should still return the same traces
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+
+def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
+    """Test that search_traces with run_id filter works correctly with other filters."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_combined_filters")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different tags and run associations
+    trace1_id = "tr-tag1-linked"
+    _create_trace(store, trace1_id, exp_id, tags={"type": "training"})
+    store.link_traces_to_run([trace1_id], run_id)
+
+    trace2_id = "tr-tag2-linked"
+    _create_trace(store, trace2_id, exp_id, tags={"type": "inference"})
+    store.link_traces_to_run([trace2_id], run_id)
+
+    trace3_id = "tr-tag1-notlinked"
+    _create_trace(store, trace3_id, exp_id, tags={"type": "training"})
+
+    # Search with run_id and tag filter
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f'run_id = "{run_id}" AND tags.type = "training"'
+    )
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace1 (linked to run AND has training tag)
+    assert trace_ids == {trace1_id}
+
+    # Search with run_id only
+    traces, _ = store.search_traces([exp_id], filter_string=f'run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return both linked traces
+    assert trace_ids == {trace1_id, trace2_id}
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
@@ -6633,10 +6724,56 @@ def test_assessment_with_error(store_and_trace_info):
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
 
 
+def _create_trace_info(trace_id: str, experiment_id: str):
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+
+
+def test_link_traces_to_run(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    trace_ids = []
+    for i in range(5):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # search_traces should return traces linked to the run
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+    )
+    assert len(traces) == 5
+
+
+def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Test exceeding the limit (101 traces)
+    trace_ids = []
+    for i in range(101):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
+        store.link_traces_to_run(trace_ids, run.info.run_id)
+
+
 def test_scorer_operations(store: SqlAlchemyStore):
     """
     Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.
-    
+
     This test covers:
     1. Registering multiple scorers with different names
     2. Registering multiple versions of the same scorer
@@ -6659,13 +6796,14 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Step 2: Test list_scorers - should return latest version for each scorer name
     scorers = store.list_scorers(experiment_id)
-    
+
     # Should return 3 scorers (one for each unique name)
     assert len(scorers) == 3, f"Expected 3 scorers, got {len(scorers)}"
 
     scorer_names = [scorer.scorer_name for scorer in scorers]
     # Verify the order is sorted by scorer_name
-    assert scorer_names == ["accuracy_scorer", "relevance_scorer", "safety_scorer"], f"Expected sorted order, got {scorer_names}"
+    assert scorer_names == ["accuracy_scorer", "relevance_scorer",
+                            "safety_scorer"], f"Expected sorted order, got {scorer_names}"
 
     # Verify versions are the latest and check serialized_scorer content
     for scorer in scorers:
@@ -6696,98 +6834,98 @@ def test_scorer_operations(store: SqlAlchemyStore):
     accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
     assert accuracy_v1.serialized_scorer == "serialized_accuracy_scorer1"
     assert accuracy_v1.scorer_version == 1
-    
+
     # Get accuracy_scorer version 2
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
     assert accuracy_v2.serialized_scorer == "serialized_accuracy_scorer2"
     assert accuracy_v2.scorer_version == 2
-    
+
     # Get accuracy_scorer version 3 (latest)
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
     assert accuracy_v3.serialized_scorer == "serialized_accuracy_scorer3"
     assert accuracy_v3.scorer_version == 3
-    
+
     # Step 4: Test get_scorer without version (should return latest)
     accuracy_latest = store.get_scorer(experiment_id, "accuracy_scorer")
     assert accuracy_latest.serialized_scorer == "serialized_accuracy_scorer3"
     assert accuracy_latest.scorer_version == 3
-    
+
     safety_latest = store.get_scorer(experiment_id, "safety_scorer")
     assert safety_latest.serialized_scorer == "serialized_safety_scorer2"
     assert safety_latest.scorer_version == 2
-    
+
     relevance_latest = store.get_scorer(experiment_id, "relevance_scorer")
     assert relevance_latest.serialized_scorer == "relevance_scorer_scorer1"
     assert relevance_latest.scorer_version == 1
-    
+
     # Step 5: Test error cases for get_scorer
     # Try to get non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent' not found"):
         store.get_scorer(experiment_id, "non_existent")
-    
+
     # Try to get non-existent version
     with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' and version 999 not found"):
         store.get_scorer(experiment_id, "accuracy_scorer", version=999)
-    
+
     # Step 6: Test delete_scorer - delete specific version of accuracy_scorer
     # Delete version 1 of accuracy_scorer
     store.delete_scorer(experiment_id, "accuracy_scorer", version=1)
-    
+
     # Verify version 1 is deleted but other versions still exist
     with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' and version 1 not found"):
         store.get_scorer(experiment_id, "accuracy_scorer", version=1)
-    
+
     # Verify versions 2 and 3 still exist
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
     assert accuracy_v2.serialized_scorer == "serialized_accuracy_scorer2"
     assert accuracy_v2.scorer_version == 2
-    
+
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
     assert accuracy_v3.serialized_scorer == "serialized_accuracy_scorer3"
     assert accuracy_v3.scorer_version == 3
-    
+
     # Verify latest version still works
     accuracy_latest_after_partial_delete = store.get_scorer(experiment_id, "accuracy_scorer")
     assert accuracy_latest_after_partial_delete.serialized_scorer == "serialized_accuracy_scorer3"
     assert accuracy_latest_after_partial_delete.scorer_version == 3
-    
+
     # Step 7: Test delete_scorer - delete all versions of accuracy_scorer
     store.delete_scorer(experiment_id, "accuracy_scorer")
-    
+
     # Verify accuracy_scorer is completely deleted
     with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' not found"):
         store.get_scorer(experiment_id, "accuracy_scorer")
-    
+
     # Verify other scorers still exist
     safety_latest_after_delete = store.get_scorer(experiment_id, "safety_scorer")
     assert safety_latest_after_delete.serialized_scorer == "serialized_safety_scorer2"
     assert safety_latest_after_delete.scorer_version == 2
-    
+
     relevance_latest_after_delete = store.get_scorer(experiment_id, "relevance_scorer")
     assert relevance_latest_after_delete.serialized_scorer == "relevance_scorer_scorer1"
     assert relevance_latest_after_delete.scorer_version == 1
-    
+
     # Step 8: Test list_scorers after deletion
     scorers_after_delete = store.list_scorers(experiment_id)
     assert len(scorers_after_delete) == 2, f"Expected 2 scorers after deletion, got {len(scorers_after_delete)}"
-    
+
     scorer_names_after_delete = [scorer.scorer_name for scorer in scorers_after_delete]
     assert "accuracy_scorer" not in scorer_names_after_delete
     assert "safety_scorer" in scorer_names_after_delete
     assert "relevance_scorer" in scorer_names_after_delete
-    
+
     # Step 9: Test delete_scorer for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent' not found"):
         store.delete_scorer(experiment_id, "non_existent")
-    
+
     # Step 10: Test delete_scorer for non-existent version
     with pytest.raises(MlflowException, match="Scorer with name 'safety_scorer' and version 999 not found"):
         store.delete_scorer(experiment_id, "safety_scorer", version=999)
-    
+
     # Step 11: Test delete_scorer for remaining scorers
     store.delete_scorer(experiment_id, "safety_scorer")
     store.delete_scorer(experiment_id, "relevance_scorer")
-    
+
     # Verify all scorers are deleted
     final_scorers = store.list_scorers(experiment_id)
     assert len(final_scorers) == 0, f"Expected 0 scorers after all deletions, got {len(final_scorers)}"
@@ -6801,3 +6939,4 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Test list_scorer_versions for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
+

@@ -5,7 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
+from mlflow.genai.evaluation.utils import _convert_to_eval_set
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
@@ -17,6 +17,8 @@ from mlflow.genai.scorers.builtin_scorers import (
     get_all_scorers,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+
+from tests.genai.conftest import databricks_only
 
 
 @pytest.fixture
@@ -43,6 +45,7 @@ def test_validate_scorers_valid():
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
+@databricks_only
 def test_validate_scorers_legacy_metric():
     from databricks.agents.evals import metric
 
@@ -97,7 +100,7 @@ def test_validate_data(mock_logger, sample_rag_trace):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
@@ -123,7 +126,7 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
@@ -143,7 +146,7 @@ def test_global_guidelines_do_not_require_expectations(mock_logger):
             "outputs": ["output1", "output2"],
         }
     )
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[Guidelines(guidelines=["Be polite", "Be kind"])],
@@ -168,7 +171,7 @@ def test_validate_data_with_correctness(expectations, mock_logger):
         }
     )
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[Correctness()],
@@ -187,7 +190,7 @@ def test_validate_data_with_correctness(expectations, mock_logger):
 def test_validate_data_missing_columns(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
 
     valid_data_for_builtin_scorers(
         data=converted_date,
@@ -214,7 +217,7 @@ def test_validate_data_with_trace(mock_logger):
     trace = mlflow.get_trace(span.trace_id)
     data = [{"trace": trace}, {"trace": trace}]
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
@@ -229,7 +232,7 @@ def test_validate_data_with_trace(mock_logger):
 def test_validate_data_with_predict_fn(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
-    converted_date = _convert_to_legacy_eval_set(data)
+    converted_date = _convert_to_eval_set(data)
 
     valid_data_for_builtin_scorers(
         data=converted_date,
