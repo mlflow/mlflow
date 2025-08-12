@@ -357,12 +357,12 @@ def test_sampling_ratio(monkeypatch):
 
 def test_otlp_exclusive_vs_dual_export(monkeypatch):
     """Test OTLP exclusive mode vs dual export mode."""
-    from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_DUAL_EXPORT
+    from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
 
     # Test 1: OTLP exclusive mode (dual export = false, default)
-    monkeypatch.setenv(MLFLOW_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
     with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
         with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
             mock_get_exporter.return_value = mock.MagicMock()
@@ -380,7 +380,7 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
             assert isinstance(processors[0], OtelSpanProcessor)
 
     # Test 2: Dual export mode (both MLflow and OTLP)
-    monkeypatch.setenv(MLFLOW_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
         with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
             mock_get_exporter.return_value = mock.MagicMock()

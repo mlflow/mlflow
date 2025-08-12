@@ -647,8 +647,8 @@ MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO"
 #: MLflow Tracking Server and OpenTelemetry Collector. When false (default), OTel export
 #: replaces MLflow export.
 #: (default: ``False``)
-MLFLOW_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_OTLP_DUAL_EXPORT", False
+MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
 )
 
 #: When set to true, MLflow will log OTLP trace statistics.

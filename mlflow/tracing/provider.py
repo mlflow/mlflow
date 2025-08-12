@@ -22,8 +22,8 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -33,6 +33,7 @@ from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestin
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -268,11 +269,10 @@ def _setup_tracer_provider(disabled=False):
     """
     global _MLFLOW_TRACER_PROVIDER
 
-    if disabled:
+    processors = _get_span_processors(disabled=disabled)
+    if not processors:
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
-
-    from mlflow.tracing.utils.warning import suppress_warning
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
     # level so that it does not show up in the user's console. This warning may indicate
@@ -288,18 +288,9 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
-    sampler = _get_trace_sampler()
-
     # Setting an empty resource to avoid triggering resource aggregation, which causes
     # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
-
-    processors = _get_span_processors()
-
-    if not processors and is_in_databricks_model_serving_environment():
-        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-        return
-
+    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
@@ -325,13 +316,19 @@ def _get_trace_sampler() -> TraceIdRatioBased | None:
     return None
 
 
-def _get_span_processors() -> list[SpanProcessor]:
+def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     """
     Get the list of span processors based on configuration.
+
+    Args:
+        disabled: If True, returns an empty list of processors because tracing is disabled.
 
     Returns:
         List of span processors to be added to the TracerProvider.
     """
+    if disabled:
+        return []
+
     processors = []
 
     if should_use_otlp_exporter():
@@ -341,7 +338,7 @@ def _get_span_processors() -> list[SpanProcessor]:
         otel_processor = OtelSpanProcessor(exporter)
         processors.append(otel_processor)
 
-        if not MLFLOW_ENABLE_OTLP_DUAL_EXPORT.get():
+        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
     # TODO: Update this logic to pluggable registry where
