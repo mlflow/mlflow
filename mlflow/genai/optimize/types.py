@@ -20,14 +20,16 @@ class PromptOptimizationResult:
     Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
 
     Args:
-        prompt: A prompt version entity containing the optimized template.
+        prompt: The optimized prompt. When skip_registration=False (default), this is a
+            PromptVersion entity containing the registered optimized template.
+            When skip_registration=True, this is the raw optimized template (str or dict).
         initial_prompt: A prompt version entity containing the initial template.
         optimizer_name: The name of the optimizer.
         final_eval_score: The final evaluation score of the optimized prompt.
         initial_eval_score: The initial evaluation score of the optimized prompt.
     """
 
-    prompt: PromptVersion
+    prompt: str | dict[str, Any] | PromptVersion
     initial_prompt: PromptVersion
     optimizer_name: str
     final_eval_score: float | None
@@ -83,6 +85,9 @@ class OptimizerConfig:
             Default: True
         extract_instructions: Whether to extract instructions from the initial prompt.
             Default: True
+        skip_registration: Whether to skip registering the optimized prompt as a new version.
+            If True, the optimized prompt will be returned in the result without registration.
+            Default: False
     """
 
     num_instruction_candidates: int = 6
@@ -94,6 +99,7 @@ class OptimizerConfig:
     autolog: bool = False
     convert_to_single_text: bool = True
     extract_instructions: bool = True
+    skip_registration: bool = False
 
 
 @experimental(version="3.3.0")

@@ -51,15 +51,14 @@ def optimize_prompt(
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
-    The optimized prompt template is automatically registered as a new version of the
-    original prompt and included in the result.
+    By default, the optimized prompt template is automatically registered as a new version of the
+    original prompt. This can be disabled using the skip_registration parameter in optimizer_config.
     Currently, this API only supports DSPy's MIPROv2 optimizer.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
             The model name must be specified in the format `<provider>/<model>`.
         prompt: The URI or Prompt object of the MLflow prompt to optimize.
-            The optimized prompt is registered as a new version of the prompt.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
 
@@ -84,7 +83,8 @@ def optimize_prompt(
             returns a float value (greater is better).
         eval_data: Evaluation dataset with the same format as train_data. If not provided,
             train_data will be automatically split into training and evaluation sets.
-        optimizer_config: Configuration parameters for the optimizer.
+        optimizer_config: Configuration parameters for the optimizer. Use skip_registration=True
+            to disable automatic prompt registration and get the raw optimized template instead.
 
     Returns:
         PromptOptimizationResult: The optimization result including the optimized prompt.
@@ -147,19 +147,24 @@ def optimize_prompt(
             eval_data=eval_data,
         )
 
-        optimized_prompt = register_prompt(
-            name=prompt.name,
-            template=optimizer_output.optimized_prompt,
-            tags={
-                "overall_eval_score": str(optimizer_output.final_eval_score),
-            },
-        )
-
-        if optimizer_config.autolog:
-            _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
+        if optimizer_config.skip_registration:
+            # Skip registration and return the raw optimized template
+            result_prompt = optimizer_output.optimized_prompt
+        else:
+            # Register the optimized prompt as a new version
+            optimized_prompt = register_prompt(
+                name=prompt.name,
+                template=optimizer_output.optimized_prompt,
+                tags={
+                    "overall_eval_score": str(optimizer_output.final_eval_score),
+                },
+            )
+            result_prompt = optimized_prompt
+            if optimizer_config.autolog:
+                _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
 
     return PromptOptimizationResult(
-        prompt=optimized_prompt,
+        prompt=result_prompt,
         initial_prompt=prompt,
         optimizer_name=optimizer_output.optimizer_name,
         final_eval_score=optimizer_output.final_eval_score,

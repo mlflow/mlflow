@@ -187,3 +187,33 @@ def test_optimize_autolog(sample_prompt, sample_data):
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
     assert "train_data.json" in artifacts
     assert "eval_data.json" in artifacts
+
+
+def test_optimize_prompt_skip_registration(sample_prompt, sample_data):
+    with patch(
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=OptimizerOutput(
+            final_eval_score=1.0,
+            initial_eval_score=0.5,
+            optimizer_name="DSPy/MIPROv2",
+            optimized_prompt="Optimized: Translate {{input_text}} to {{language}} accurately.",
+        ),
+    ):
+        result = optimize_prompt(
+            target_llm_params=LLMParams(model_name="test/model"),
+            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
+            train_data=sample_data,
+            scorers=[sample_scorer],
+            optimizer_config=OptimizerConfig(skip_registration=True),
+        )
+
+    assert isinstance(result, PromptOptimizationResult)
+    assert isinstance(result.prompt, str)
+    assert result.prompt == "Optimized: Translate {{input_text}} to {{language}} accurately."
+    assert result.initial_prompt.name == sample_prompt.name
+    assert result.optimizer_name == "DSPy/MIPROv2"
+    assert result.final_eval_score == 1.0
+
+    client = MlflowClient()
+    with pytest.raises(MlflowException, match="not found"):
+        client.get_prompt_version(sample_prompt.name, sample_prompt.version + 1)
