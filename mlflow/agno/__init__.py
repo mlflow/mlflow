@@ -51,7 +51,8 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
     if models:
         class_map.update(
             {
-                cls.__module__ + "." + cls.__name__: ["invoke", "response", "aresponse", "ainvoke"]
+                # TODO: Support streaming
+                cls.__module__ + "." + cls.__name__: ["invoke", "ainvoke"]
                 for cls in models
             }
         )

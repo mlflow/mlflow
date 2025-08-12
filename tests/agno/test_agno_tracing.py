@@ -1,35 +1,31 @@
-import importlib
-from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from agno.agent import Agent
+from agno.exceptions import ModelProviderError
 from agno.models.anthropic import Claude
 from agno.tools.function import Function, FunctionCall
-from anthropic.resources import Messages
-from anthropic.types import Message as AnthropicMessage
-from anthropic.types import TextBlock, Usage
+from anthropic.types import Message, TextBlock, Usage
 
 import mlflow
 import mlflow.agno
 from mlflow.entities import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.constant import TokenUsageKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, purge_traces
 
 
-def _safe_resp(content, *, calls=None, metrics=None):
-    return SimpleNamespace(
-        content=content,
-        metrics=metrics or {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
-        tool_calls=calls or [],
-        tool_executions=[],
-        thinking="",
-        redacted_thinking="",
-        citations=SimpleNamespace(urls=[]),
-        audio=[],
-        image=[],
-        created_at=[],
+def _create_message(content):
+    return Message(
+        id="1",
+        model="claude-sonnet-4-20250514",
+        content=[TextBlock(text=content, type="text")],
+        role="assistant",
+        stop_reason="end_turn",
+        stop_sequence=None,
+        type="message",
+        usage=Usage(input_tokens=5, output_tokens=7, total_tokens=12),
     )
 
 
@@ -43,63 +39,119 @@ def simple_agent():
 
 
 def test_run_simple_autolog(simple_agent):
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("Paris")):
+    mlflow.agno.autolog()
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _create_message("Paris")
+    with patch.object(Claude, "get_client", return_value=mock_client):
         resp = simple_agent.run("Capital of France?")
     assert resp.content == "Paris"
 
-    spans = [s.span_type for s in get_traces()[0].data.spans]
-    assert spans == [SpanType.AGENT]
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
+    spans = traces[0].data.spans
+    assert len(spans) == 2
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].name == "Agent.run"
+    assert spans[0].inputs == {"message": "Capital of France?"}
+    assert spans[0].outputs["content"] == "Paris"
+    assert spans[1].span_type == SpanType.LLM
+    assert spans[1].name == "Claude.invoke"
+    # Agno add system message to the input messages, so validate the last message
+    assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
+    assert spans[1].outputs["content"][0]["text"] == "Paris"
+
+    purge_traces()
 
     mlflow.agno.autolog(disable=True)
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("Paris")):
+    with patch.object(Claude, "get_client", return_value=mock_client):
         simple_agent.run("Again?")
-    assert len(get_traces()) == 1
+    assert get_traces() == []
 
 
 def test_run_failure_tracing(simple_agent):
-    def _boom(self, messages, **kw):
-        raise RuntimeError("bang")
+    mlflow.agno.autolog()
 
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "response", new=_boom):
-        with pytest.raises(RuntimeError, match="bang"):
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = RuntimeError("bang")
+    with patch.object(Claude, "get_client", return_value=mock_client):
+        with pytest.raises(ModelProviderError, match="bang"):
             simple_agent.run("fail")
 
     trace = get_traces()[0]
     assert trace.info.status == "ERROR"
-    spans = [s.span_type for s in trace.data.spans]
-    assert spans == [SpanType.AGENT]
+    assert trace.info.token_usage is None
+    spans = trace.data.spans
+    assert spans[0].name == "Agent.run"
+    assert spans[1].name == "Claude.invoke"
+    assert spans[1].status.status_code == SpanStatusCode.ERROR
+    assert spans[1].status.description == "ModelProviderError: bang"
 
 
 @pytest.mark.asyncio
 async def test_arun_simple_autolog(simple_agent):
-    async def _resp(self, messages, **kw):
-        return _safe_resp("Paris")
+    mlflow.agno.autolog()
 
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "aresponse", _resp):
+    async def _mock_create(*args, **kwargs):
+        return _create_message("Paris")
+
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = _mock_create
+    with patch.object(Claude, "get_async_client", return_value=mock_client):
         resp = await simple_agent.arun("Capital of France?")
+
     assert resp.content == "Paris"
 
-    spans = [s.span_type for s in get_traces()[0].data.spans]
-    assert spans == [SpanType.AGENT]
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
+    spans = traces[0].data.spans
+    assert len(spans) == 2
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].name == "Agent.arun"
+    assert spans[0].inputs == {"message": "Capital of France?"}
+    assert spans[0].outputs["content"] == "Paris"
+    assert spans[1].span_type == SpanType.LLM
+    assert spans[1].name == "Claude.ainvoke"
+    # Agno add system message to the input messages, so validate the last message
+    assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
+    assert spans[1].outputs["content"][0]["text"] == "Paris"
 
 
 @pytest.mark.asyncio
-async def test_arun_failure_tracing(simple_agent):
-    async def _boom(self, messages, **kw):
-        raise RuntimeError("bang")
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+async def test_failure_tracing(simple_agent, is_async):
+    mlflow.agno.autolog()
 
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "aresponse", new=_boom):
-        with pytest.raises(RuntimeError, match="bang"):
-            await simple_agent.arun("fail")
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = RuntimeError("bang")
+    mock_method = "get_async_client" if is_async else "get_client"
+    with patch.object(Claude, mock_method, return_value=mock_client):
+        with pytest.raises(ModelProviderError, match="bang"):  # noqa: PT012
+            if is_async:
+                await simple_agent.arun("fail")
+            else:
+                simple_agent.run("fail")
 
     trace = get_traces()[0]
     assert trace.info.status == "ERROR"
-    spans = [s.span_type for s in trace.data.spans]
-    assert spans == [SpanType.AGENT]
+    assert trace.info.token_usage is None
+    spans = trace.data.spans
+    assert spans[0].name == "Agent.run" if not is_async else "Agent.arun"
+    assert spans[1].name == "Claude.invoke" if not is_async else "Claude.ainvoke"
+    assert spans[1].status.status_code == SpanStatusCode.ERROR
+    assert spans[1].status.description == "ModelProviderError: bang"
 
 
 def test_function_execute_tracing():
@@ -109,13 +161,17 @@ def test_function_execute_tracing():
     fc = FunctionCall(function=Function.from_callable(dummy, name="dummy"), arguments={"x": 1})
 
     mlflow.agno.autolog(log_traces=True)
-    fc.execute()
+    result = fc.execute()
+    assert result.result == 2
 
     spans = get_traces()[0].data.spans
     assert len(spans) == 1
     span = spans[0]
     assert span.span_type == SpanType.TOOL
     assert span.name == "dummy"
+    assert span.inputs == {"x": 1}
+    assert span.attributes["entrypoint"] is not None
+    assert span.outputs["result"] == 2
 
 
 @pytest.mark.asyncio
@@ -126,110 +182,17 @@ async def test_function_aexecute_tracing():
     fc = FunctionCall(function=Function.from_callable(dummy, name="dummy"), arguments={"x": 1})
 
     mlflow.agno.autolog(log_traces=True)
-    await fc.aexecute()
+    result = await fc.aexecute()
+    assert result.result == 2
 
     spans = get_traces()[0].data.spans
     assert len(spans) == 1
     span = spans[0]
     assert span.span_type == SpanType.TOOL
     assert span.name == "dummy"
-
-
-def test_agent_run_with_function_span(simple_agent):
-    def dummy_tool():
-        return "ok"
-
-    func = Function.from_callable(dummy_tool, name="dummy_tool")
-
-    def patched(self, messages, **kw):
-        FunctionCall(function=func).execute()
-        return _safe_resp("done")
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "response", patched):
-        simple_agent.run("hi")
-
-    spans = get_traces()[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.TOOL]
-    assert spans[1].name == "dummy_tool"
-
-
-@pytest.mark.asyncio
-async def test_agent_arun_with_function_span(simple_agent):
-    def dummy_tool():
-        return "ok"
-
-    func = Function.from_callable(dummy_tool, name="dummy_tool")
-
-    async def patched(self, messages, **kw):
-        await FunctionCall(function=func).aexecute()
-        return _safe_resp("done")
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "aresponse", patched):
-        await simple_agent.arun("hi")
-
-    spans = get_traces()[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.TOOL]
-    assert spans[1].name == "dummy_tool"
-
-
-def test_token_usage_recorded(simple_agent):
-    metrics = {"input_tokens": [5], "output_tokens": [7], "total_tokens": [12]}
-
-    agno_autolog_module = importlib.import_module("mlflow.agno.autolog")
-
-    expected = {"input_tokens": 5, "output_tokens": 7, "total_tokens": 12}
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(agno_autolog_module, "_parse_usage", lambda result: expected):
-        with patch.object(
-            Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=metrics)
-        ):
-            simple_agent.run("hi")
-
-    trace = get_traces()[0]
-    span = trace.data.spans[0]
-    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == expected
-    assert trace.info.token_usage == expected
-
-
-def test_token_usage_missing(simple_agent):
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(
-        Claude, "response", lambda self, messages, **kw: _safe_resp("ok", metrics=None)
-    ):
-        simple_agent.run("hi")
-
-    trace = get_traces()[0]
-    span = trace.data.spans[0]
-    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) is None
-    assert trace.info.token_usage is None
-
-
-def test_autolog_disable_prevents_tool_traces():
-    def dummy():
-        return "x"
-
-    fc = FunctionCall(function=Function.from_callable(dummy, name="dummy"))
-
-    mlflow.agno.autolog(log_traces=True)
-    fc.execute()
-    assert len(get_traces()) == 1
-
-    mlflow.agno.autolog(disable=True)
-    FunctionCall(function=Function.from_callable(dummy, name="dummy")).execute()
-    assert len(get_traces()) == 1
-
-
-def test_multiple_agent_runs(simple_agent):
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("A")):
-        simple_agent.run("hi")
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("B")):
-        simple_agent.run("hello")
-
-    traces = get_traces()
-    assert len(traces) == 2
+    assert span.inputs == {"x": 1}
+    assert span.attributes["entrypoint"] is not None
+    assert span.outputs["result"] == 2
 
 
 def test_function_execute_failure_tracing():
@@ -248,145 +211,30 @@ def test_function_execute_failure_tracing():
     assert trace.info.status == "ERROR"
     span = trace.data.spans[0]
     assert span.span_type == SpanType.TOOL
+    assert span.status.status_code == SpanStatusCode.ERROR
+    assert span.inputs == {"x": 1}
+    assert span.outputs is None
 
 
 @pytest.mark.asyncio
-async def test_function_aexecute_failure_tracing():
-    from agno.exceptions import AgentRunException
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+async def test_agno_and_anthropic_autolog_single_trace(simple_agent, is_async):
+    mlflow.agno.autolog()
+    mlflow.anthropic.autolog()
 
-    async def boom(x):
-        raise AgentRunException("bad")
-
-    fc = FunctionCall(function=Function.from_callable(boom, name="boom"), arguments={"x": 1})
-
-    mlflow.agno.autolog(log_traces=True)
-    with pytest.raises(AgentRunException, match="bad"):
-        await fc.aexecute()
-
-    trace = get_traces()[0]
-    assert trace.info.status == "ERROR"
-    span = trace.data.spans[0]
-    assert span.span_type == SpanType.TOOL
-
-
-def test_agent_run_with_multiple_function_spans(simple_agent):
-    def tool1():
-        return "a"
-
-    def tool2():
-        return "b"
-
-    func1 = Function.from_callable(tool1, name="tool1")
-    func2 = Function.from_callable(tool2, name="tool2")
-
-    def patched(self, messages, **kw):
-        FunctionCall(function=func1).execute()
-        FunctionCall(function=func2).execute()
-        return _safe_resp("done")
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "response", patched):
-        simple_agent.run("hi")
-
-    spans = get_traces()[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.TOOL, SpanType.TOOL]
-    assert [s.name for s in spans[1:]] == ["tool1", "tool2"]
-
-
-@pytest.mark.asyncio
-async def test_agent_arun_with_multiple_function_spans(simple_agent):
-    def tool1():
-        return "a"
-
-    def tool2():
-        return "b"
-
-    func1 = Function.from_callable(tool1, name="tool1")
-    func2 = Function.from_callable(tool2, name="tool2")
-
-    async def patched(self, messages, **kw):
-        await FunctionCall(function=func1).aexecute()
-        await FunctionCall(function=func2).aexecute()
-        return _safe_resp("done")
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Claude, "aresponse", patched):
-        await simple_agent.arun("hi")
-
-    spans = get_traces()[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.TOOL, SpanType.TOOL]
-    assert [s.name for s in spans[1:]] == ["tool1", "tool2"]
-
-
-def test_autolog_log_traces_false_produces_no_traces(simple_agent):
-    mlflow.agno.autolog(log_traces=False)
-    with patch.object(Claude, "response", lambda self, messages, **kw: _safe_resp("ok")):
-        simple_agent.run("hi")
-
-    assert get_traces() == []
-
-
-def test_agno_and_anthropic_autolog_single_trace(simple_agent, monkeypatch):
-    dummy = AnthropicMessage(
-        id="1",
-        content=[TextBlock(text="ok", type="text", citations=None)],
-        model="m",
-        role="assistant",
-        stop_reason="end_turn",
-        stop_sequence=None,
-        type="message",
-        usage=Usage(input_tokens=1, output_tokens=1),
-    )
-
-    def _create(self, *a, **k):
-        return dummy
-
-    _create.__name__ = "create"
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Messages, "create", _create):
-        mlflow.anthropic.autolog(log_traces=True)
-        simple_agent.run("hi")
+    client = "AsyncAPIClient" if is_async else "SyncAPIClient"
+    with patch(f"anthropic._base_client.{client}.post", return_value=_create_message("Paris")):
+        if is_async:
+            await simple_agent.arun("hi")
+        else:
+            simple_agent.run("hi")
 
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.LLM, SpanType.LLM , SpanType.CHAT_MODEL]
-    assert spans[1].name == "Claude.response"
-    assert spans[2].name == "Claude.invoke"
-    assert spans[3].name == "Messages.create"
-
-
-@pytest.mark.asyncio
-async def test_agno_and_anthropic_autolog_single_trace_async(simple_agent, monkeypatch):
-    dummy = AnthropicMessage(
-        id="1",
-        content=[TextBlock(text="ok", type="text", citations=None)],
-        model="m",
-        role="assistant",
-        stop_reason="end_turn",
-        stop_sequence=None,
-        type="message",
-        usage=Usage(input_tokens=1, output_tokens=1),
-    )
-
-    def _create(self, *a, **k):
-        return dummy
-
-    _create.__name__ = "create"
-
-    async def _aresponse(self, messages, **kwargs):
-        return self.response(messages, **kwargs)
-
-    mlflow.agno.autolog(log_traces=True)
-    with patch.object(Messages, "create", _create), patch.object(Claude, "aresponse", _aresponse):
-        mlflow.anthropic.autolog(log_traces=True)
-        await simple_agent.arun("hi")
-
-    traces = get_traces()
-    assert len(traces) == 1
-    spans = traces[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.LLM , SpanType.LLM ,SpanType.CHAT_MODEL]
-    assert spans[1].name == "Claude.response"
-    assert spans[2].name == "Claude.invoke"
-    assert spans[3].name == "Messages.create"
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].name == "Agent.arun" if is_async else "Agent.run"
+    assert spans[1].span_type == SpanType.LLM
+    assert spans[1].name == "Claude.ainvoke" if is_async else "Claude.invoke"
+    assert spans[2].span_type == SpanType.CHAT_MODEL
+    assert spans[2].name == "AsyncMessages.create" if is_async else "Messages.create"

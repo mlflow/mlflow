@@ -93,12 +93,8 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
         from agno.tools.function import FunctionCall
 
         if isinstance(instance, FunctionCall):
-            tool_data = _get_tools_attribute(instance)
-            inputs = tool_data.pop("attributes", None)
-            if inputs is not None:
-                span.set_inputs(inputs)
-
-            if tool_data:
+            span.set_inputs(instance.arguments)
+            if tool_data := _get_tools_attribute(instance):
                 span.set_attributes(tool_data)
     except Exception as exc:  # pragma: no cover
         _logger.debug("Unable to attach agent attributes: %s", exc)
@@ -149,15 +145,12 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
         _set_span_attributes(span, self)
 
-        try:
-            result = await original(self, *args, **kwargs)
-            span.set_outputs(result)
-            if usage := _parse_usage(result):
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-            return result
-        except Exception as e:
-            span.record_exception(e)
-            raise e
+        result = await original(self, *args, **kwargs)
+
+        span.set_outputs(result)
+        if usage := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        return result
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -172,12 +165,9 @@ def patched_class_call(original, self, *args, **kwargs):
         span.set_inputs(construct_full_inputs(original, self, *args, **kwargs))
         _set_span_attributes(span, self)
 
-        try:
-            result = original(self, *args, **kwargs)
-            span.set_outputs(result)
-            if usage := _parse_usage(result):
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-            return result
-        except Exception as e:
-            span.record_exception(e)
-            raise e
+        result = original(self, *args, **kwargs)
+
+        span.set_outputs(result)
+        if usage := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        return result
