@@ -2,7 +2,6 @@ import json
 
 import sqlalchemy as sa
 from sqlalchemy import (
-    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -16,7 +15,6 @@ from sqlalchemy import (
     String,
     Text,
     UnicodeText,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import backref, relationship
 
@@ -1362,167 +1360,6 @@ class SqlSpan(Base):
             "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
-    )
-
-
-class SqlEvaluationDataset(Base):
-    """
-    DB model for evaluation datasets.
-    """
-
-    __tablename__ = "evaluation_datasets"
-
-    dataset_id = Column(String(36), primary_key=True)
-    """
-    Dataset ID: `String` (limit 36 characters).
-    *Primary Key* for ``evaluation_datasets`` table.
-    """
-
-    name = Column(String(255), nullable=False)
-    """
-    Dataset name: `String` (limit 255 characters). *Non null* in table schema.
-    """
-
-    tags = Column(JSON, nullable=True)
-    """
-    Tags JSON: `JSON`. Stores metadata about the dataset.
-    """
-
-    schema = Column(Text, nullable=True)
-    """
-    Schema information: `Text`.
-    """
-
-    profile = Column(Text, nullable=True)
-    """
-    Profile information: `Text`.
-    """
-
-    digest = Column(String(64), nullable=True)
-    """
-    Dataset digest: `String` (limit 64 characters).
-    """
-
-    created_time = Column(BigInteger, default=get_current_time_millis)
-    """
-    Creation time: `BigInteger`.
-    """
-
-    last_update_time = Column(BigInteger, default=get_current_time_millis)
-    """
-    Last update time: `BigInteger`.
-    """
-
-    created_by = Column(String(255), nullable=True)
-    """
-    Creator user ID: `String` (limit 255 characters).
-    """
-
-    last_updated_by = Column(String(255), nullable=True)
-    """
-    Last updater user ID: `String` (limit 255 characters).
-    """
-
-    # Relationship to records
-    records = relationship(
-        "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
-    )
-
-    __table_args__ = (
-        PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
-        Index("index_evaluation_datasets_name", "name"),
-        Index("index_evaluation_datasets_created_time", "created_time"),
-    )
-
-
-class SqlEvaluationDatasetRecord(Base):
-    """
-    DB model for evaluation dataset records.
-    """
-
-    __tablename__ = "evaluation_dataset_records"
-
-    dataset_record_id = Column(String(36), primary_key=True)
-    """
-    Dataset record ID: `String` (limit 36 characters).
-    *Primary Key* for ``evaluation_dataset_records`` table.
-    """
-
-    dataset_id = Column(
-        String(36), ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"), nullable=False
-    )
-    """
-    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
-    """
-
-    inputs = Column(JSON, nullable=False)
-    """
-    Inputs JSON: `JSON`. *Non null* in table schema.
-    """
-
-    expectations = Column(JSON, nullable=True)
-    """
-    Expectations JSON: `JSON`.
-    """
-
-    tags = Column(JSON, nullable=True)
-    """
-    Tags JSON: `JSON`.
-    """
-
-    source = Column(JSON, nullable=True)
-    """
-    Source JSON: `JSON`.
-    """
-
-    source_id = Column(String(36), nullable=True)
-    """
-    Source ID for lookups: `String` (limit 36 characters).
-    """
-
-    source_type = Column(String(255), nullable=True)
-    """
-    Source type: `Text`.
-    """
-
-    created_time = Column(BigInteger, default=get_current_time_millis)
-    """
-    Creation time: `BigInteger`.
-    """
-
-    last_update_time = Column(BigInteger, default=get_current_time_millis)
-    """
-    Last update time: `BigInteger`.
-    """
-
-    created_by = Column(String(255), nullable=True)
-    """
-    Creator user ID: `String` (limit 255 characters).
-    """
-
-    last_updated_by = Column(String(255), nullable=True)
-    """
-    Last updater user ID: `String` (limit 255 characters).
-    """
-
-    input_hash = Column(String(64), nullable=False)
-    """
-    Hash of inputs for deduplication: `String` (limit 64 characters).
-    """
-
-    # Relationship to dataset
-    dataset = relationship("SqlEvaluationDataset", back_populates="records")
-
-    __table_args__ = (
-        PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
-        Index("index_evaluation_dataset_records_dataset_id", "dataset_id"),
-        UniqueConstraint("dataset_id", "input_hash", name="unique_dataset_input"),
-        ForeignKeyConstraint(
-            ["dataset_id"],
-            ["evaluation_datasets.dataset_id"],
-            name="fk_evaluation_dataset_records_dataset_id",
-            ondelete="CASCADE",
-        ),
     )
 
 
