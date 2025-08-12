@@ -62,7 +62,7 @@ def _get_span_type(instance) -> str:
             )
             # UserMemory was removed in 0.157.0:
             # https://github.com/crewAIInc/crewAI/pull/3225
-            if CREWAI_VERSION >= Version("0.157.0"):
+            if CREWAI_VERSION < Version("0.157.0"):
                 memory_classes = (*memory_classes, crewai.memory.UserMemory)
 
             if isinstance(instance, memory_classes):
