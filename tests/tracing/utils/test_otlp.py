@@ -158,22 +158,24 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     result = parent_function()
     assert result == "Parent: Hello World"
 
+    # Wait for traces to be exported to OTLP
     time.sleep(5)
 
     client = MlflowClient()
     traces = client.search_traces(experiment_ids=[experiment.experiment_id])
     assert len(traces) == 1
-    assert len(traces[0].data.spans) == 2
+    trace = traces[0]
+    assert len(trace.data.spans) == 2
 
     # Verify trace tags were set correctly
-    assert "env" in traces[0].info.tags
-    assert traces[0].info.tags["env"] == "production"
-    assert "version" in traces[0].info.tags
-    assert traces[0].info.tags["version"] == "1.0"
+    assert "env" in trace.info.tags
+    assert trace.info.tags["env"] == "production"
+    assert "version" in trace.info.tags
+    assert trace.info.tags["version"] == "1.0"
 
     # Verify same trace/span IDs in both backends
-    mlflow_span_ids = [span.span_id for span in traces[0].data.spans]
-    trace_id = traces[0].info.trace_id.replace("tr-", "")
+    mlflow_span_ids = [span.span_id for span in trace.data.spans]
+    trace_id = trace.info.trace_id.replace("tr-", "")
     _, output_file = otel_collector
     with open(output_file) as f:
         collector_logs = f.read()
