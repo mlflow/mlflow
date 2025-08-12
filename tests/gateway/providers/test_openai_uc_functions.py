@@ -19,7 +19,7 @@ from tests.gateway.tools import (
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-4o-mini",
@@ -212,6 +212,7 @@ async def test_uc_functions(monkeypatch):
 
 1 + 2 = 3""".lstrip(),
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                 }
@@ -407,6 +408,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
                                 },
                             },
                         ],
+                        "refusal": None,
                     },
                     "finish_reason": None,
                 }

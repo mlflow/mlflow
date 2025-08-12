@@ -48,7 +48,7 @@ def main():
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     with SparkSession.builder.getOrCreate() as spark:
         infer_spark_df = spark.createDataFrame(X.sample(n=10, random_state=42))

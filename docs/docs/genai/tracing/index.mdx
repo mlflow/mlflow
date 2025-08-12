@@ -1,0 +1,231 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
+import TracingIntegrations from "@site/src/components/TracingIntegrations";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { GitMerge, Heart, Zap, Puzzle, LifeBuoy, Users } from "lucide-react";
+
+# MLflow Tracing for LLM Observability
+
+MLflow Tracing enhances LLM observability in your applications by capturing the inputs, outputs, and metadata associated with each intermediate step of a request, enabling you to easily pinpoint the source of bugs and unexpected behaviors.
+
+<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="Tracing Gateway Video" />
+
+## Use Cases Throughout the ML Lifecycle
+
+MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine learning project. Here's how it helps you at each step of the workflow, click on the tabs below to learn more:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="debugging" label="Build & Debug" default>
+    <div class="flex-column">
+
+      <div class="flex-row">
+        <div class="flex-item">
+
+          #### Debug Issues in Your IDE or Notebook
+
+          Traces provide deep insights into what happens beneath the abstractions of GenAI libraries, helping you precisely identify where issues occur.
+
+          You can navigate traces seamlessly within your preferred IDE, notebook, or the MLflow UI, eliminating the hassle of switching between multiple tabs or searching through an overwhelming list of traces.
+
+          [Learn more →](/genai/tracing/observe-with-traces)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Debugging](/images/llms/tracing/genai-trace-debug.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="feedback" label="Human Feedback">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Track Annotation and Human Feedbacks
+
+        Human feedback is essential for building high-quality GenAI applications that meet user expectations. MLflow supports collecting, managing, and utilizing feedback from end-users and domain experts.
+
+        Feedbacks are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
+
+        [Learn more →](/genai/tracing/collect-user-feedback)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Feedback](/images/llms/tracing/genai-human-feedback.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="evaluation" label="Evaluation">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Evaluate and Enhance Quality
+
+        Systematically assessing and improving the quality of GenAI applications is a challenge. Combined with [MLflow GenAI Evaluation](/genai/eval-monitor), MLflow offers a seamless experience for evaluating your applications.
+
+        Tracing helps by allowing you to track quality assessment and inspect the evaluation results with visibility into the internals of the system.
+
+        [Learn more →](/genai/eval-monitor)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Evaluation](/images/llms/tracing/genai-trace-evaluation.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="production-monitoring" label="Production Monitoring">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Monitor Applications in Production
+
+        Understanding and optimizing GenAI application performance is crucial for efficient operations. MLflow Tracing captures key metrics like latency and token usage at each step, as well as various quality metrics, helping you identify bottlenecks, monitor efficiency, and find optimization opportunities.
+
+        [Learn more →](/genai/tracing/prod-tracing)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Monitoring](/images/llms/tracing/genai-monitoring.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="dataset" label="Dataset Collection">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Create a High-Quality Dataset from Real World Traffic
+
+        Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset is challenging.
+
+        Traces from production systems capture perfect data for building high-quality datasets with precise details for internal components like retrievers and tools.
+
+        [Learn more →](/genai/tracing/search-traces/#creating-evaluation-datasets)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Dataset](/images/llms/tracing/genai-trace-dataset.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  </Tabs>
+</TabsWrapper>
+
+## What Makes MLflow Tracing Unique?
+
+<FeatureHighlights features={[
+  {
+    icon: Heart,
+    title: "Open Source",
+    description: "MLflow is open source and 100% FREE. You don't need to pay additional SaaS costs to add observability to your GenAI stack. Your trace data is hosted on your own infrastructure."
+  },
+  {
+    icon: Zap,
+    title: "OpenTelemetry",
+    description: "MLflow Tracing is compatible with OpenTelemetry, making it free from vendor lock-in and easy to integrate with your existing observability stack."
+  },
+  {
+    icon: Puzzle,
+    title: "Framework Agnostic",
+    description: "MLflow Tracing integrates with 20+ GenAI libraries, including OpenAI, LangChain, LlamaIndex, DSPy, Pydantic AI, allowing you to switch between frameworks with ease."
+  },
+  {
+    icon: LifeBuoy,
+    title: "End-to-End Platform",
+    description: "MLflow Tracing empowers you throughout the end-to-end machine learning lifecycle, combined with its version tracking and evaluation capabilities."
+  },
+  {
+    icon: Users,
+    title: "Strong Community",
+    description: "MLflow boasts a vibrant Open Source community as a part of the Linux Foundation, with 20K+ GitHub Stars and 20MM+ monthly downloads."
+  }
+]} />
+
+## Getting Started
+
+<TilesGrid>
+  <TileCard
+    image="/images/logos/python-logo.png"
+    title="Quickstart (Python)"
+    description="Get started with MLflow in Python"
+    href="/genai/tracing/quickstart/python-openai"
+    linkText="Start building →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/javascript-typescript-logo.png"
+    title="Quickstart (JS/TS)"
+    description="Get started with MLflow in JavaScript or TypeScript"
+    href="/genai/tracing/quickstart/typescript-openai"
+    linkText="Start building →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={GitMerge}
+    iconSize={48}
+    title="Trace Your App"
+    description="Explore the practical guides for instrumenting your own applications or systems"
+    href="/genai/tracing/app-instrumentation"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## One-line Auto Tracing Integrations
+
+MLflow Tracing is integrated with various GenAI libraries and provides one-line automatic tracing experience for each library (and combinations of them!):
+
+```python
+import mlflow
+
+mlflow.openai.autolog()  # or replace 'openai' with other library names, e.g., "anthropic"
+```
+
+Click on the logos below to learn more about the individual integration:
+
+<TracingIntegrations cardGroupProps={{ cols: 6, noGap: true }} />
+<br />
+
+## Flexible and Customizable
+
+In addition to the one-line auto tracing experience, MLflow offers Python SDK for manually instrumenting your code and manipulating traces:
+
+- [Trace a function with `@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing#decorator)
+- [Trace any block of code using context manager](/genai/tracing/app-instrumentation/manual-tracing#context-manager)
+- [Combine multiple auto-tracing integrations](/genai/tracing/app-instrumentation/automatic/#multi-framework-example)
+- [Instrument multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing#multi-threading)
+- [Native async support](/genai/tracing/app-instrumentation/manual-tracing#async-support)
+- [Group and filter traces using sessions](/genai/tracing/track-users-sessions)
+- [Redact PII data from traces](/genai/tracing/observe-with-traces/masking)
+- [Disable tracing globally](/genai/tracing/app-instrumentation/automatic#disabling-tracing)
+- [Configure sampling ratio to control trace throughput](/genai/tracing/prod-tracing#sampling-traces)
+
+## Production Readiness
+
+MLflow Tracing is production ready and provides comprehensive monitoring capabilities for your GenAI applications in production environments. By enabling [async logging](/genai/tracing/prod-tracing/#asynchronous-trace-logging), trace logging is done in the background and does not impact the performance of your application.
+
+For production deployments, it is recommended to use the [Lightweight Tracing SDK](/genai/tracing/lightweight-sdk) (`mlflow-tracing`) that is optimized for reducing the total installation size and minimizing dependencies while maintaining full tracing capabilities. Compared to the full `mlflow` package, the `mlflow-tracing` package requires 95% smaller footprint.
+
+Read [Production Monitoring](/genai/tracing/prod-tracing) for complete guidance on using MLflow Tracing for monitoring models in production and various backend configuration options.

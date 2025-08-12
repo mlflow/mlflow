@@ -5,21 +5,27 @@ import pytest
 from opentelemetry import trace
 
 import mlflow
+import mlflow.tracking._tracking_service
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowTracingException
+from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
-from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
     is_tracing_enabled,
-    reset_tracer_setup,
     start_span_in_context,
     trace_disabled,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 
 @pytest.fixture
@@ -52,7 +58,7 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
     start_span_in_context("test1")
     assert mock_setup_tracer_provider.call_count == 1
 
-    reset_tracer_setup()
+    mlflow.tracing.reset()
     assert mock_setup_tracer_provider.call_count == 2
 
     start_span_in_context("test2")
@@ -74,26 +80,72 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
 
 
+def test_set_destination_mlflow_experiment(monkeypatch):
+    # Set destination with experiment_id
+    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+    # Set destination with experiment_id and tracking_uri
+    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="456"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+
+    # Experiment with Databricks tracking URI -> V3 exporter should be used
+    mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="456"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+
+def test_set_destination_databricks(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+
+def test_set_destination_databricks_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+
 def test_disable_enable_tracing():
     @mlflow.trace
     def test_fn():
         pass
 
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
+    purge_traces()
 
     mlflow.tracing.disable()
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert isinstance(_get_tracer(__name__), trace.NoOpTracer)
 
     mlflow.tracing.enable()
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
 
     # enable() / disable() should only raise MlflowTracingException
     with mock.patch(
@@ -124,7 +176,7 @@ def test_trace_disabled_decorator(enabled_initially):
         return 0
 
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert call_count == 1
 
     # Recover the initial state
@@ -141,7 +193,7 @@ def test_trace_disabled_decorator(enabled_initially):
         test_fn_raise()
     assert call_count == 2
 
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
     # @trace_disabled should not block the decorated function even
@@ -243,8 +295,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
-    client = mlflow.MlflowClient()
-
     def foo():
         return bar()
 
@@ -256,12 +306,50 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     with mock.patch(
         "mlflow.tracing.processor.inference_table.maybe_get_request_id", side_effect=request_ids
     ):
-        client.start_trace("root")
+        span = start_span_no_context("root")
         foo()
         if enable_mlflow_tracing:
-            client.end_trace(request_id="123")
+            span.end()
 
     if enable_mlflow_tracing:
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
+
+
+def test_sampling_ratio(monkeypatch):
+    @mlflow.trace
+    def test_function():
+        return "test"
+
+    # Test with 100% sampling (default)
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 10
+    purge_traces()
+
+    # Test with 0% sampling
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    for _ in range(10):
+        test_function()
+
+    traces = get_traces()
+    assert len(traces) == 0
+    purge_traces()
+
+    # With 50% sampling and 100 runs, we expect around 50 traces
+    # but due to randomness, we check for a reasonable range
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.5")
+    mlflow.tracing.reset()
+
+    for _ in range(100):
+        test_function()
+
+    traces = get_traces()
+    assert 30 <= len(traces) <= 70, (
+        f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
+    )

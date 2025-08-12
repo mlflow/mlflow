@@ -1,0 +1,73 @@
+---
+sidebar_position: 1
+---
+
+import Link from "@docusaurus/Link";
+import Platform from "@site/src/content/platform.mdx"
+
+# How to Run Tutorials
+
+This brief guide will walk you through some options that you have to run these tutorials and have a Tracking Server that is available to log the results to (as well
+as offering options for the MLflow UI).
+
+## 1. Download the Notebook
+
+You can download the tutorial notebook by clicking on the "Download the Notebook" button at the top of each tutorial page.
+
+## 2. Install MLflow
+
+Install MLflow from [PyPI](https://pypi.org/project/mlflow/) by running the following command:
+
+```bash
+pip install mlflow
+```
+
+:::tip
+💡 We recommend creating a new virtual environment with tool like [venv](https://docs.python.org/3/library/venv.html), [uv](https://docs.astral.sh/uv/pip/environments/), [Poetry](https://python-poetry.org/docs/managing-environments/), to isolate your ML experiment environment from other projects.
+:::
+
+## 3. Set Up MLflow Tracking Server (Optional)
+
+### Direct Access Mode (no tracking server)
+
+You can start a tutorial and log models, experiments without a tracking server set up. With this mode, your experiment data and artifacts are saved **directly under your current directory**.
+
+While this mode is the easiest way to get started, it is not recommended for general use:
+
+- The experiment data is only visible on the UI when you run `mlflow ui` command from the same directory.
+- The experiment data cannot be accessible from other team members.
+- You may lose your experiment data if you accidentally delete the directory.
+
+### Running with Tracking Server (recommended)
+
+**MLflow Tracking Server** is a centralized HTTP server that allows you to access your experiments artifacts regardless of where you run your code. To use the Tracking Server, you can either run it locally or use a managed service. Click on the following links to learn more about each option:
+
+<Platform />
+
+<br />
+
+:::tip
+💡 If you are not a Databricks user but want to try out its managed MLflow experience for free, we recommend using the
+
+<Link to="/ml/getting-started/databricks-trial" target="_blank">Databricks Free Trial </Link>. It offers a personal Databricks account with service credits that are valid for a limited time period, letting you get started with MLflow and other ML/AI tools in minutes.
+:::
+
+## 4. Connecting Notebook with Tracking Server
+
+:::note
+If you are on Databricks, you can skip this section because a notebook is already connected to the tracking server and an MLflow experiment.
+
+For other managed service (e.g., SageMaker, Nebius), please refer to the documentation provided by the service provider.
+:::
+
+Once the tracking server is up, connect your notebook to the server by calling `mlflow.set_tracking_uri("http://<your-mlflow-server>:<port>")`. For example, if you are running the tracking server locally on port 5000, you would call:
+
+```python
+mlflow.set_tracking_uri("http://localhost:5000")
+```
+
+This will ensure that all MLflow runs, experiments, traces, and artifacts are logged to the specified tracking server.
+
+## 5. Ready to Run!
+
+Now that you have set up your MLflow environment, you are ready to run the tutorials. Go back to the tutorial and enjoy the journey of learning MLflow!🚢

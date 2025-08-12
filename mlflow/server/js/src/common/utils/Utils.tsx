@@ -5,25 +5,19 @@
  * annotations are already looking good, please remove this comment.
  */
 
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
-import dateFormat from 'dateformat';
 import React from 'react';
-import notebookSvg from '../static/notebook.svg';
-import revisionSvg from '../static/revision.svg';
-import emptySvg from '../static/empty.svg';
-import laptopSvg from '../static/laptop.svg';
-import projectSvg from '../static/project.svg';
-import workflowsIconSvg from '../static/WorkflowsIcon.svg';
+import moment from 'moment';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, IntlShape } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { RunInfoEntity } from '../../experiment-tracking/types';
+import { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -136,13 +130,22 @@ class Utils {
   /**
    * Format timestamps from millisecond epoch time.
    */
-  static formatTimestamp(timestamp: any, format = 'yyyy-mm-dd HH:MM:ss') {
-    if (timestamp === undefined) {
-      return '(unknown)';
-    }
+  static formatTimestamp(timestamp: any, intl?: IntlShape) {
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, format);
+
+    // Need to update here when the original shared code is updated: https://github.com/databricks-eng/universe/blob/master/js/packages/web-shared/src/date-time/DateTimeFormats.ts#L37
+    if (intl) {
+      return intl.formatDate(d, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+    return moment(d).format('YYYY-MM-DD HH:mm:ss');
   }
 
   static timeSinceStr(date: any, referenceDate = new Date()) {
@@ -491,7 +494,7 @@ class Utils {
     runUuid: any,
     sourceName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
     // workspaces or when notebook fetcher failed to fetch the sourceName. Always provide a default
@@ -537,7 +540,7 @@ class Utils {
     jobRunId: any,
     jobName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // jobName may not be present when rendering feature table job consumers from remote
     // workspaces or when getJob API failed to fetch the jobName. Always provide a default
@@ -614,8 +617,8 @@ class Utils {
     return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runInfo: RunInfoEntity) {
-    return runInfo.runName || '';
+  static getRunName(runInfo?: RunInfoEntity) {
+    return runInfo?.runName || '';
   }
 
   static getRunNameFromTags(runTags: any) {

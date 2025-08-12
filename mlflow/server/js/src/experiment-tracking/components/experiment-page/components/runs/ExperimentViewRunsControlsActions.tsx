@@ -12,7 +12,6 @@ import { ExperimentViewRunModals } from './ExperimentViewRunModals';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { RunInfoEntity } from '../../../../types';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { shouldEnableTaggingMultipleRuns } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
 
 export type ExperimentViewRunsControlsActionsProps = {
@@ -26,8 +25,6 @@ const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
   ({ viewState, runsData, searchFacetsState, refreshRuns }: ExperimentViewRunsControlsActionsProps) => {
-    const usingTaggingMultipleRuns = shouldEnableTaggingMultipleRuns();
-
     const { runsSelected } = viewState;
     const { runInfos, tagsList } = runsData;
     const { lifecycleFilter } = searchFacetsState;
@@ -128,17 +125,14 @@ export const ExperimentViewRunsControlsActions = React.memo(
               />
             </Button>
           </CompareRunsButtonWrapper>
-          {usingTaggingMultipleRuns && (
-            <>
-              <div css={styles.buttonSeparator} />
-              <ExperimentViewRunsControlsActionsSelectTags
-                runsSelected={runsSelected}
-                runInfos={runInfos}
-                tagsList={tagsList}
-                refreshRuns={refreshRuns}
-              />
-            </>
-          )}
+
+          <div css={styles.buttonSeparator} />
+          <ExperimentViewRunsControlsActionsSelectTags
+            runsSelected={runsSelected}
+            runInfos={runInfos}
+            tagsList={tagsList}
+            refreshRuns={refreshRuns}
+          />
         </div>
         <ExperimentViewRunModals
           runsSelected={runsSelected}

@@ -16,7 +16,10 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.env_manager import CONDA, LOCAL, UV, VIRTUALENV
+
+from tests.tracing.helper import get_traces
 
 
 @pytest.mark.parametrize(
@@ -55,7 +58,11 @@ from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
         ),
     ],
 )
-def test_predict(input_data, expected_data, content_type):
+@pytest.mark.parametrize(
+    "env_manager",
+    [VIRTUALENV, UV],
+)
+def test_predict(input_data, expected_data, content_type, env_manager):
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             if isinstance(model_input, pd.DataFrame):
@@ -68,7 +75,7 @@ def test_predict(input_data, expected_data, content_type):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             extra_pip_requirements=["pytest"],
         )
@@ -77,12 +84,13 @@ def test_predict(input_data, expected_data, content_type):
         model_uri=model_info.model_uri,
         input_data=input_data,
         content_type=content_type,
+        env_manager=env_manager,
     )
 
 
 @pytest.mark.parametrize(
     "env_manager",
-    [VIRTUALENV, CONDA],
+    [VIRTUALENV, CONDA, UV],
 )
 def test_predict_with_pip_requirements_override(env_manager):
     if env_manager == CONDA:
@@ -103,7 +111,7 @@ def test_predict_with_pip_requirements_override(env_manager):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
         )
@@ -130,7 +138,31 @@ def test_predict_with_pip_requirements_override(env_manager):
     )
 
 
-@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA])
+@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA, UV])
+def test_predict_with_model_alias(env_manager):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+            registered_model_name="model_name",
+        )
+    client = mlflow.MlflowClient()
+    client.set_registered_model_alias("model_name", "test_alias", 1)
+
+    mlflow.models.predict(
+        model_uri="models:/model_name@test_alias",
+        input_data="abc",
+        env_manager=env_manager,
+        extra_envs={"TEST": "test"},
+    )
+
+
+@pytest.mark.parametrize("env_manager", [VIRTUALENV, CONDA, UV])
 def test_predict_with_extra_envs(env_manager):
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
@@ -139,7 +171,7 @@ def test_predict_with_extra_envs(env_manager):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 
@@ -160,14 +192,14 @@ def test_predict_with_extra_envs_errors():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 
     with pytest.raises(
         MlflowException,
         match=r"Extra environment variables are only "
-        r"supported when env_manager is set to 'virtualenv' or 'conda'",
+        r"supported when env_manager is set to 'virtualenv', 'conda' or 'uv'",
     ):
         mlflow.models.predict(
             model_uri=model_info.model_uri,
@@ -314,3 +346,55 @@ def test_serialize_input_data(input_data, content_type, expected):
 def test_serialize_input_data_invalid_format(input_data, content_type):
     with pytest.raises(MlflowException):  # noqa: PT011
         _serialize_input_data(input_data, content_type)
+
+
+def test_predict_use_current_experiment():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, context, model_input: list[str]):
+            return model_input
+
+    exp_id = mlflow.set_experiment("test_experiment").experiment_id
+    client = mlflow.MlflowClient()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+        )
+
+    assert len(client.search_traces(experiment_ids=[exp_id])) == 0
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data=["a", "b", "c"],
+        env_manager=VIRTUALENV,
+    )
+    traces = client.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 1
+    assert json.loads(traces[0].data.request)["model_input"] == ["a", "b", "c"]
+
+
+def test_predict_traces_link_to_active_model():
+    model = mlflow.set_active_model(name="test_model")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, context, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+        )
+
+    traces = get_traces()
+    assert len(traces) == 0
+
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data=["a", "b", "c"],
+        env_manager=VIRTUALENV,
+    )
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id

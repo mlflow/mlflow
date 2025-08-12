@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.input_tag import InputTag
@@ -9,7 +7,7 @@ from mlflow.protos.service_pb2 import DatasetInput as ProtoDatasetInput
 class DatasetInput(_MlflowObject):
     """DatasetInput object associated with an experiment."""
 
-    def __init__(self, dataset: Dataset, tags: Optional[list[InputTag]] = None) -> None:
+    def __init__(self, dataset: Dataset, tags: list[InputTag] | None = None) -> None:
         self._dataset = dataset
         self._tags = tags or []
 
@@ -43,3 +41,9 @@ class DatasetInput(_MlflowObject):
         for input_tag in proto.tags:
             dataset_input._add_tag(InputTag.from_proto(input_tag))
         return dataset_input
+
+    def to_dictionary(self):
+        return {
+            "dataset": self.dataset.to_dictionary(),
+            "tags": {tag.key: tag.value for tag in self.tags},
+        }

@@ -1,0 +1,163 @@
+---
+title: Breaking Changes in MLflow 3
+description: This document outlines all breaking changes introduced in MLflow 3 to help you migrate your existing code.
+---
+
+# Breaking Changes in MLflow 3
+
+MLflow 3 introduces several breaking changes as part of our commitment to improving the framework's consistency, performance, and maintainability. This guide will help you understand what's changing and how to update your code accordingly.
+
+## Core Framework Changes
+
+### MLflow Recipes Removal
+
+**What's changing:** MLflow Recipes (previously known as MLflow Pipelines) has been completely removed from MLflow ([#15250](https://github.com/mlflow/mlflow/pull/15250)).
+
+**Why:** MLflow Recipes was deprecated in previous versions as the team refocused on core MLflow functionality and more modern machine learning workflows.
+
+**How to migrate:** If you're using MLflow Recipes, you'll need to migrate to alternative workflow management solutions. Consider using standard MLflow tracking and model registry functionality directly in your workflows, and see if MLflow Projects will work better for your use cases.
+
+### AI Gateway Configuration Changes
+
+**What's changing:** The 'routes' and 'route_type' config keys in the gateway server configuration have been removed ([#15331](https://github.com/mlflow/mlflow/pull/15331)).
+
+**Why:** The AI Gateway configuration has been simplified and modernized to better support current deployment patterns.
+
+**How to migrate:** Update your AI Gateway configuration to use the new configuration format. Check the MLflow 3 documentation for the updated gateway configuration syntax.
+
+### MLflow Deployment Server Removal
+
+**What's changing:** The MLflow deployment server application and the `start-server` CLI command have been removed ([#15327](https://github.com/mlflow/mlflow/pull/15327)).
+
+**Why:** MLflow has evolved its deployment strategy to better support modern serving architectures.
+
+**How to migrate:** Use MLflow's built-in model serving capabilities with `mlflow models serve` or containerized deployment options. For more complex deployments, consider using integration with cloud providers or platforms like Kubernetes.
+
+## Model Flavor Changes
+
+### fastai Flavor Removal
+
+**What's changing:** The `fastai` model flavor has been completely removed ([#15255](https://github.com/mlflow/mlflow/pull/15255)).
+
+**Why:** The fastai library has evolved significantly since this flavor was first added, and usage of this specific flavor has declined over time.
+
+**How to migrate:** If you're using the fastai flavor, consider using the more general Python Function flavor (`mlflow.pyfunc`) to log your fastai models. Wrap your fastai model logic in a custom Python class that implements the `predict` method.
+
+### mleap Flavor Removal
+
+**What's changing:** The `mleap` flavor has been removed from MLflow ([#15259](https://github.com/mlflow/mlflow/pull/15259)).
+
+**Why:** Usage of this specialized flavor has decreased as more flexible alternatives became available.
+
+**How to migrate:** Use the ONNX flavor (`mlflow.onnx`), the MLflow pyfunc (`mlflow.pyfunc`) to handle serialization of JVM-based models that need to be deployed in a container or edge deployed.
+
+## API Changes
+
+### Tracking API Changes
+
+#### `run_uuid` Attribute Removal
+
+**What's changing:** The `run_uuid` attribute has been removed from the `RunInfo` object ([#15342](https://github.com/mlflow/mlflow/pull/15342)).
+
+**Why:** To simplify the API and reduce duplication, as `run_id` provides the same information.
+
+**How to migrate:** Replace all occurrences of `run_uuid` with `run_id` in your code.
+
+#### Git Tag Changes
+
+**What's changing:** The run tags `mlflow.gitBranchName` and `mlflow.gitRepoURL` have been removed ([#15366](https://github.com/mlflow/mlflow/pull/15366)).
+
+**Why:** MLflow is standardizing how git information is tracked.
+
+**How to migrate:** Use the remaining git-related tags for tracking source version information.
+
+#### TensorFlow Autologging Change
+
+**What's changing:** The `every_n_iter` parameter has been removed from TensorFlow autologging ([#15412](https://github.com/mlflow/mlflow/pull/15412)).
+
+**Why:** To simplify the API and standardize behavior across autologging implementations.
+
+**How to migrate:** If you relied on fine-tuning logging frequency, you may need to implement custom logging callbacks.
+
+### Model API Changes
+
+#### Parameter Removals
+
+**What's changing:** Several parameters have been removed from model logging and saving APIs:
+
+- `example_no_conversion` parameter from model logging APIs ([#15322](https://github.com/mlflow/mlflow/pull/15322))
+- `code_path` parameter from model logging and model saving APIs ([#15368](https://github.com/mlflow/mlflow/pull/15368))
+- `requirements_file` parameter from `pytorch` flavor model logging and saving APIs ([#15369](https://github.com/mlflow/mlflow/pull/15369))
+- `inference_config` parameter from `transformers` flavor model logging and saving APIs ([#15415](https://github.com/mlflow/mlflow/pull/15415))
+
+**Why:** These parameters were deprecated in earlier releases and have now been fully removed to simplify the API.
+
+**How to migrate:** Update your model logging and saving calls to remove these parameters. Use the recommended alternatives:
+
+- For `code_path`, use the code directory structure MLflow expects by default
+- For `requirements_file`, specify dependencies with the `pip_requirements` or `extra_pip_requirements` arguments when logging your torch models
+- For `inference_config` in transformers models, set your configuration before logging the model
+
+#### Other Model Changes
+
+**What's changing:** The `signature_dict` property has been removed from the `ModelInfo` object ([#15367](https://github.com/mlflow/mlflow/pull/15367)).
+
+**Why:** To standardize how model signatures are represented in MLflow.
+
+**How to migrate:** Use the `signature` property on `ModelInfo` objects instead, which provides the same information in a more consistent format.
+
+### Evaluation API Changes
+
+#### Baseline Model Comparison Removal
+
+**What's changing:** The `baseline_model` parameter and related parameters have been removed from the evaluation API ([#15362](https://github.com/mlflow/mlflow/pull/15362)).
+
+**Why:** This functionality has been replaced with the more flexible `mlflow.validate_evaluation_results` API.
+
+**How to migrate:** Instead of using the `baseline_model` parameter, first evaluate your models separately, then use the `mlflow.validate_evaluation_results` API to compare them.
+
+#### MetricThreshold Constructor Change
+
+**What's changing:** The `higher_is_better` parameter has been removed from the constructor of class `MetricThreshold` ([#15343](https://github.com/mlflow/mlflow/pull/15343)).
+
+**Why:** It was deprecated in MLflow 2.3.0 in favor of `greater_is_better`. This was done to make a less confusing argument name.
+
+**How to migrate:** Use the `greater_is_better` parameter instead of `higher_is_better` when creating `MetricThreshold` objects.
+
+#### Custom Metrics Parameter Removal
+
+**What's changing:** The `custom_metrics` parameter has been removed from the evaluation API ([#15361](https://github.com/mlflow/mlflow/pull/15361)).
+
+**Why:** A newer, more flexible approach for custom metrics has been implemented.
+
+**How to migrate:** Use the newer custom metrics approach documented in the MLflow evaluation API.
+
+### Environment Variable Changes
+
+**What's changing:** The environment variable `MLFLOW_GCS_DEFAULT_TIMEOUT` configuration has been removed ([#15365](https://github.com/mlflow/mlflow/pull/15365)).
+
+**Why:** To standardize how timeouts are configured across different storage backends.
+
+**How to migrate:** Update your code to handle GCS timeouts using the standard approach for your GCS client library.
+
+### `mlflow.evaluate` no longer logs an explainer as a model by default.
+
+**What's changing:** `mlflow.evaluate` no longer logs an explainer as a model by default.
+
+**How to migrate:** Set the `log_explainer` config to `True` in the `evaluator_config` parameter to log the explainer as a model.
+
+```python
+mlflow.evaluate(
+    ...,
+    evaluator_config={
+        "log_model_explainability": True,
+        "log_explainer": True,
+    },
+)
+```
+
+## Summary
+
+These breaking changes are part of MLflow's evolution to provide a more consistent, maintainable, and future-proof machine learning framework. While updating your code to accommodate these changes may require some effort, the resulting improvements in clarity, consistency, and performance should make the migration worthwhile.
+
+For detailed guidance on migrating specific code, please consult the [MLflow 3 documentation](https://mlflow.org/docs/latest) or join the [MLflow community forum](https://github.com/mlflow/mlflow/discussions) for assistance.

@@ -104,8 +104,13 @@ def doctor(mask_envs=False):
             )
         )
 
+    try:
+        requires = importlib_metadata.requires("mlflow")
+    except importlib_metadata.PackageNotFoundError:
+        requires = importlib_metadata.requires("mlflow-skinny")
+
     mlflow_dependencies = {}
-    for req in importlib_metadata.requires("mlflow"):
+    for req in requires:
         req = Requirement(req)
         try:
             dist = importlib_metadata.distribution(req.name)

@@ -24,12 +24,14 @@ import {
   ListIcon,
   Tooltip,
   ChartLineIcon,
+  TableIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
 import {
   shouldEnableExperimentPageAutoRefresh,
   shouldEnablePromptLab,
+  shouldUseRenamedUnifiedTracesTab,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -56,7 +58,6 @@ import {
   createExperimentPageSearchFacetsState,
 } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
-import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: ExperimentPageSearchFacetsState;
@@ -65,12 +66,13 @@ export type ExperimentViewRunsControlsFiltersProps = {
   updateViewState: UpdateExperimentViewStateFn;
   runsData: ExperimentRunsSelectorResult;
   onDownloadCsv: () => void;
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
   additionalControls?: React.ReactNode;
   refreshRuns: () => void;
   viewMaximized: boolean;
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
+  areRunsGrouped?: boolean;
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
@@ -87,9 +89,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     viewMaximized,
     autoRefreshEnabled = false,
     hideEmptyCharts = false,
+    areRunsGrouped = false,
   }: ExperimentViewRunsControlsFiltersProps) => {
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
-    const showCombinedRuns = useShouldShowCombinedRunsTab();
 
     const [pageViewMode, setViewModeInURL] = useExperimentPageViewMode();
     const updateUIState = useUpdateExperimentViewUIState();
@@ -166,7 +168,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             flexWrap: 'wrap' as const,
           }}
         >
-          {showCombinedRuns && pageViewMode !== 'ARTIFACT' && (
+          {(pageViewMode !== 'ARTIFACT' || shouldUseRenamedUnifiedTracesTab()) && (
             <SegmentedControlGroup
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_184"
               name="runs-view-mode"
@@ -182,28 +184,59 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 setViewModeInURL(newValue);
               }}
             >
-              <SegmentedControlButton value="TABLE">
-                <Tooltip
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Table view',
-                    description: 'Experiment page > control bar > table view toggle button tooltip',
-                  })}
-                >
-                  <ListIcon />
-                </Tooltip>
-              </SegmentedControlButton>
-              <SegmentedControlButton value="CHART">
-                <Tooltip
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Chart view',
-                    description: 'Experiment page > control bar > chart view toggle button tooltip',
-                  })}
-                >
-                  <ChartLineIcon />
-                </Tooltip>
-              </SegmentedControlButton>
+              <SegmentedControlButton
+                value="TABLE"
+                icon={
+                  <Tooltip
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Table view',
+                      description: 'Experiment page > control bar > table view toggle button tooltip',
+                    })}
+                  >
+                    <ListIcon />
+                  </Tooltip>
+                }
+              />
+              <SegmentedControlButton
+                value="CHART"
+                icon={
+                  <Tooltip
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Chart view',
+                      description: 'Experiment page > control bar > chart view toggle button tooltip',
+                    })}
+                  >
+                    <ChartLineIcon />
+                  </Tooltip>
+                }
+              />
+              {shouldUseRenamedUnifiedTracesTab() && (
+                <SegmentedControlButton
+                  value="ARTIFACT"
+                  disabled={areRunsGrouped}
+                  icon={
+                    <Tooltip
+                      componentId="mlflow.experiment_page.mode.artifact"
+                      content={
+                        areRunsGrouped
+                          ? intl.formatMessage({
+                              defaultMessage: 'Unavailable when runs are grouped',
+                              description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
+                            })
+                          : intl.formatMessage({
+                              defaultMessage: 'Artifact evaluation',
+                              description:
+                                'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+                            })
+                      }
+                    >
+                      <TableIcon />
+                    </Tooltip>
+                  }
+                />
+              )}
             </SegmentedControlGroup>
           )}
 
@@ -227,7 +260,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               onClear={() => {
                 setUrlSearchFacets({ startTime: 'ALL' });
               }}
-              data-test-id="start-time-select-dropdown"
+              data-testid="start-time-select-dropdown"
             />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
@@ -236,7 +269,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     key={startTimeKey}
                     checked={startTimeKey === startTime}
                     title={startTimeColumnLabels[startTimeKey]}
-                    data-test-id={`start-time-select-${startTimeKey}`}
+                    data-testid={`start-time-select-${startTimeKey}`}
                     value={startTimeKey}
                     onChange={() => {
                       setUrlSearchFacets({ startTime: startTimeKey });
@@ -313,7 +346,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DialogComboboxTrigger
                 allowClear
                 onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
-                data-test-id="datasets-select-dropdown"
+                data-testid="datasets-select-dropdown"
                 showTagAfterValueCount={1}
                 disabled={!hasDatasets}
               />
@@ -326,7 +359,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                           key={summary.name + summary.digest + summary.context}
                           checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
                           title={summary.name}
-                          data-test-id={`dataset-dropdown-${summary.name}`}
+                          data-testid={`dataset-dropdown-${summary.name}`}
                           value={summary.name}
                           onChange={() => updateDatasetsFilter(summary)}
                         >
@@ -448,7 +481,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DropdownMenu.Trigger asChild>
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_415"
-                  type={showCombinedRuns ? undefined : 'primary'}
                   icon={<PlusIcon />}
                 >
                   <FormattedMessage

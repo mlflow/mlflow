@@ -20,7 +20,7 @@ from tests.gateway.tools import MockAsyncResponse
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "mosaicml",
             "name": "mpt-7b-instruct",
@@ -75,7 +75,7 @@ async def test_completions():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "mosaicml",
             "name": "llama2-70b-chat",
@@ -184,6 +184,7 @@ async def test_chat(payload, expected_llm_input):
                         "role": "assistant",
                         "content": "This is a test",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -205,7 +206,7 @@ async def test_chat(payload, expected_llm_input):
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "mosaicml",
             "name": "instructor-large",
@@ -501,7 +502,7 @@ def test_invalid_role_submitted_raises(messages):
 def unsupported_mosaic_chat_model_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "mosaicml",
             "name": "unsupported",

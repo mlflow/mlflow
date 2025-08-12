@@ -1,7 +1,7 @@
 import logging
 import os
 import urllib.parse
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def get_endpoint_type(endpoint_uri: str) -> Optional[str]:
+def get_endpoint_type(endpoint_uri: str) -> str | None:
     """
     Get the type of the endpoint if it is MLflow deployment
     endpoint. For other endpoints e.g. OpenAI, or if the
@@ -47,18 +47,17 @@ def score_model_on_payload(
     endpoint_type=None,
 ):
     """Call the model identified by the given uri with the given string prompt."""
+    from mlflow.deployments import get_deploy_client
 
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix == "openai":
-        # TODO: Migrate OpenAI schema to use _call_llm_provider_api.
-        return _call_openai_api(suffix, payload, eval_parameters, extra_headers, proxy_url)
-    elif prefix == "gateway":
-        return _call_gateway_api(suffix, payload, eval_parameters)
-    elif prefix == "endpoints":
+    if prefix in ["gateway", "endpoints"]:
+        if isinstance(payload, str) and endpoint_type is None:
+            client = get_deploy_client()
+            endpoint_type = client.get_endpoint(suffix).endpoint_type
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
@@ -84,57 +83,12 @@ def _parse_model_uri(model_uri):
     path = parsed.path
     if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(
-            f"Malformed model uri '{model_uri}'", error_code=INVALID_PARAMETER_VALUE
+            f"Malformed model uri '{model_uri}'. The URI must be in the format of "
+            "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
     path = path.lstrip("/")
     return scheme, path
-
-
-def _call_openai_api(openai_uri, payload, eval_parameters, extra_headers, proxy_url):
-    if "OPENAI_API_KEY" not in os.environ:
-        raise MlflowException(
-            "OPENAI_API_KEY environment variable not set",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    from mlflow.openai import _get_api_config
-    from mlflow.utils.openai_utils import _OAITokenHolder
-
-    api_config = _get_api_config()
-    api_token = _OAITokenHolder(api_config.api_type)
-    api_token.refresh()
-
-    if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        from openai import AzureOpenAI
-
-        # TODO: support usecases that proxy API does not follow OpenAI path design
-        client = AzureOpenAI(
-            api_key=api_token.token,
-            azure_endpoint=proxy_url or api_config.api_base,
-            api_version=api_config.api_version,
-            azure_deployment=api_config.deployment_id,
-            max_retries=api_config.max_retries,
-            timeout=api_config.timeout,
-        )
-    else:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=api_token.token,
-            base_url=proxy_url or api_config.api_base,
-            max_retries=api_config.max_retries,
-            timeout=api_config.timeout,
-        )
-
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": payload}],
-        model=openai_uri,
-        extra_headers=extra_headers,
-        **eval_parameters,
-    )
-    # to_dict is not available before openai v1.17.0.
-    # TODO: Consider removing the conversion by using mock server in tests
-    return _parse_chat_response_format(response.model_dump())
 
 
 _PREDICT_ERROR_MSG = """\
@@ -157,7 +111,7 @@ def _call_llm_provider_api(
     input_data: str,
     eval_parameters: dict[str, Any],
     extra_headers: dict[str, str],
-    proxy_url: Optional[str] = None,
+    proxy_url: str | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -195,7 +149,7 @@ def _call_llm_provider_api(
 
     payload = {
         k: v
-        for k, v in chat_request.model_dump().items()
+        for k, v in chat_request.model_dump(exclude_none=True).items()
         if (v is not None) and (k in filtered_keys)
     }
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
@@ -220,7 +174,10 @@ def _call_llm_provider_api(
             "Failed to score the provided input as the judge LLM did not return "
             "any chat completion results in the response."
         )
-    return chat_response.choices[0].message.content
+    content = chat_response.choices[0].message.content
+
+    # NB: Evaluation only handles text content for now.
+    return content[0].text if isinstance(content, list) else content
 
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
@@ -230,7 +187,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     def _get_route_config(config):
         return RouteConfig(
             name=provider,
-            route_type="llm/v1/chat",
+            endpoint_type="llm/v1/chat",
             model={
                 "provider": provider,
                 "name": model,
@@ -240,7 +197,25 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
-    if provider == Provider.ANTHROPIC:
+    if provider == Provider.OPENAI:
+        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
+        from mlflow.openai.model import _get_api_config, _OAITokenHolder
+
+        api_config = _get_api_config()
+        api_token = _OAITokenHolder(api_config.api_type)
+        api_token.refresh()
+
+        config = OpenAIConfig(
+            openai_api_key=api_token.token,
+            openai_api_type=api_config.api_type or "openai",
+            openai_api_base=api_config.api_base,
+            openai_api_version=api_config.api_version,
+            openai_deployment_name=api_config.deployment_id,
+            openai_organization=api_config.organization,
+        )
+        return OpenAIProvider(_get_route_config(config))
+
+    elif provider == Provider.ANTHROPIC:
         from mlflow.gateway.providers.anthropic import AnthropicConfig, AnthropicProvider
 
         config = AnthropicConfig(anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -309,9 +284,9 @@ def _send_request(
 
 def call_deployments_api(
     deployment_uri: str,
-    input_data: Union[str, dict[str, Any]],
-    eval_parameters: Optional[dict[str, Any]] = None,
-    endpoint_type: Optional[str] = None,
+    input_data: str | dict[str, Any],
+    eval_parameters: dict[str, Any] | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the deployment endpoint with the given payload and parameters.
 
@@ -354,32 +329,6 @@ def call_deployments_api(
     return _parse_response(response, endpoint_type)
 
 
-def _call_gateway_api(gateway_uri, payload, eval_parameters):
-    from mlflow.gateway import get_route, query
-
-    route_info = get_route(gateway_uri).dict()
-    if route_info["endpoint_type"] == "llm/v1/completions":
-        completions_payload = {
-            "prompt": payload,
-            **eval_parameters,
-        }
-        response = query(gateway_uri, completions_payload)
-        return _parse_completions_response_format(response)
-    elif route_info["endpoint_type"] == "llm/v1/chat":
-        chat_payload = {
-            "messages": [{"role": "user", "content": payload}],
-            **eval_parameters,
-        }
-        response = query(gateway_uri, chat_payload)
-        return _parse_chat_response_format(response)
-    else:
-        raise MlflowException(
-            f"Unsupported gateway route type: {route_info['endpoint_type']}. Use a "
-            "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
 def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, Any]:
     """
     Construct the payload from the input string based on the endpoint type.
@@ -398,8 +347,8 @@ def _construct_payload_from_str(prompt: str, endpoint_type: str) -> dict[str, An
 
 
 def _parse_response(
-    response: dict[str, Any], endpoint_type: Optional[str]
-) -> Union[Optional[str], dict[str, Any]]:
+    response: dict[str, Any], endpoint_type: str | None
+) -> str | None | dict[str, Any]:
     if endpoint_type == "llm/v1/completions":
         return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":

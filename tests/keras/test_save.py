@@ -33,16 +33,15 @@ def test_keras_save_model_export():
     model_path = "model"
     input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3))])
     signature = ModelSignature(inputs=input_schema)
-    with mlflow.start_run() as run:
-        mlflow.keras.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(
             model,
-            model_path,
+            name=model_path,
             save_exported_model=True,
             signature=signature,
         )
 
-    model_url = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_model = mlflow.keras.load_model(model_url)
+    loaded_model = mlflow.keras.load_model(model_info.model_uri)
 
     # Test the loaded model produces the same output for the same input as the model.
     test_input = np.random.uniform(size=[2, 28, 28, 3]).astype(np.float32)
@@ -52,8 +51,7 @@ def test_keras_save_model_export():
     )
 
     # Test the loaded pyfunc model produces the same output for the same input as the model.
-    logged_model = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     predict_outputs = loaded_pyfunc_model.predict(test_input)
     assert isinstance(predict_outputs, np.ndarray)
     np.testing.assert_allclose(
@@ -71,12 +69,10 @@ def test_keras_save_model_non_export():
         metrics=[keras.metrics.SparseCategoricalAccuracy()],
     )
 
-    model_path = "model"
-    with mlflow.start_run() as run:
-        mlflow.keras.log_model(model, "model", save_exported_model=False)
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, name="model", save_exported_model=False)
 
-    model_url = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_model = mlflow.keras.load_model(model_url)
+    loaded_model = mlflow.keras.load_model(model_info.model_uri)
 
     # Test the loaded model produces the same output for the same input as the model.
     test_input = np.random.uniform(size=[2, 28, 28, 3])
@@ -89,8 +85,7 @@ def test_keras_save_model_non_export():
     assert loaded_model.optimizer.learning_rate == model.optimizer.learning_rate
 
     # Test the loaded pyfunc model produces the same output for the same input as the model.
-    logged_model = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     np.testing.assert_allclose(
         keras.ops.convert_to_numpy(model(test_input)),
         loaded_pyfunc_model.predict(test_input),
@@ -104,11 +99,10 @@ def test_save_model_with_signature():
     signature = get_model_signature(model)
     assert signature.outputs.input_types()[0] == np.dtype("float16")
     model_path = "model"
-    with mlflow.start_run() as run:
-        mlflow.keras.log_model(model, model_path, signature=signature)
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, name=model_path, signature=signature)
 
-    logged_model = f"runs:/{run.info.run_id}/{model_path}"
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(logged_model)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     assert signature == loaded_pyfunc_model.metadata.signature
 

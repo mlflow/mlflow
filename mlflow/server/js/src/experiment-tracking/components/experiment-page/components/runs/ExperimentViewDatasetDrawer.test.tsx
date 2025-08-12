@@ -4,7 +4,7 @@ import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
 import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 
 const httpDataset = {

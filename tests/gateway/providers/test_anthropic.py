@@ -35,7 +35,7 @@ def completions_response():
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "anthropic",
             "name": "claude-instant-1",
@@ -111,7 +111,7 @@ async def test_completions_with_default_max_tokens():
             json={
                 "model": "claude-instant-1",
                 "temperature": 0.0,
-                "max_tokens_to_sample": 200000,
+                "max_tokens_to_sample": 8192,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -176,7 +176,7 @@ async def test_completions_throws_with_stream_set_to_true():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "anthropic",
             "name": "claude-2.1",
@@ -270,8 +270,9 @@ async def test_chat():
                 {
                     "message": {
                         "role": "assistant",
-                        "content": "Response message",
+                        "content": [{"text": "Response message", "type": "text"}],
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,
@@ -378,7 +379,7 @@ async def test_chat_stream():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "anthropic",
             "name": "claude-1.3-100k",

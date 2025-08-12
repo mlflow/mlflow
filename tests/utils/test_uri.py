@@ -755,6 +755,7 @@ def test_negative_detection(uri):
         "path",
         "path/",
         "path/to/file",
+        "dog%step%100%timestamp%100",
     ],
 )
 def test_validate_path_is_safe_good(path):

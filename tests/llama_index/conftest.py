@@ -15,7 +15,6 @@ from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
-from pyspark.sql import SparkSession
 
 from mlflow.tracing.provider import trace_disabled
 
@@ -34,6 +33,8 @@ def model_path(tmp_path):
 
 @pytest.fixture(scope="module")
 def spark():
+    from pyspark.sql import SparkSession
+
     # NB: ensure that the driver and workers have the same python version
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
