@@ -38,8 +38,8 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
     def on_end(self, span: OTelReadableSpan):
         if self._duration_histogram:
-            # Calculate duration in seconds
-            duration_s = (span.end_time - span.start_time) / 1e9
+            # Calculate duration in milliseconds
+            duration_ms = (span.end_time - span.start_time) / 1e6
 
             # Determine if this is a root span
             is_root = span.parent is None
@@ -58,7 +58,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
             # Record the histogram metric with labels
             self._duration_histogram.record(
-                duration_s,
+                duration_ms,
                 attributes={
                     "root": str(is_root),
                     "span_type": span_type,
@@ -109,8 +109,8 @@ class OtelSpanProcessor(BatchSpanProcessor):
             meter = metrics.get_meter("mlflow.tracing")
             return meter.create_histogram(
                 name="mlflow.trace.span.duration",
-                description="Duration of spans in seconds",
-                unit="s",
+                description="Duration of spans in milliseconds",
+                unit="ms",
             )
         except (ImportError, Exception):
             # Silently fail if metrics setup doesn't work
