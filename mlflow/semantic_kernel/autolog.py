@@ -37,6 +37,17 @@ def _enable_experimental_genai_tracing():
     MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
     MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
 
+    try:
+        # This only exists in Semantic Kernel 1.35.1 or later.
+        from semantic_kernel.utils.telemetry.agent_diagnostics.decorators import (
+            MODEL_DIAGNOSTICS_SETTINGS as AGENT_DIAGNOSTICS_SETTINGS,
+        )
+
+        AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
+        AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
+    except ImportError:
+        pass
+
     _logger.info("Semantic Kernel Otel diagnostics is turned on for enabling tracing.")
 
 
