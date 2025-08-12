@@ -896,3 +896,28 @@ class TrackingServiceClient:
         return self.store.search_logged_models(
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided or run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        if len(trace_ids) > 100:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot link more than 100 traces to a run in a single request. "
+                f"Provided {len(trace_ids)} traces."
+            )
+
+        return self.store.link_traces_to_run(trace_ids, run_id)
