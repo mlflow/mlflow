@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
@@ -306,7 +306,7 @@ def _setup_tracer_provider(disabled=False):
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
 
-def _get_trace_sampler():
+def _get_trace_sampler() -> TraceIdRatioBased | None:
     """
     Get the sampler configuration based on environment variable.
 
@@ -326,7 +326,7 @@ def _get_trace_sampler():
     return None
 
 
-def _get_span_processors():
+def _get_span_processors() -> list[SpanProcessor]:
     """
     Get the list of span processors based on configuration.
 
@@ -345,6 +345,10 @@ def _get_span_processors():
         if not MLFLOW_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
+    # TODO: Update this logic to pluggable registry where
+    #  1. Partners can implement span processor/exporter and destination class.
+    #  2. They can register their implementation to the registry via entry points.
+    #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
