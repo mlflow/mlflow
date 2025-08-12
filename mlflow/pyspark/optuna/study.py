@@ -141,7 +141,7 @@ class MlflowSparkStudy(Study):
         storage = MlflowStorage(experiment_id=experiment_id)
         mlflow_study = MlflowSparkStudy(study_name, storage)
         mlflow_study.optimize(objective, n_trials=4)
-        
+
         # Later, create another instance with same name to resume
         resumed_study = MlflowSparkStudy(study_name, storage)
         print(f"Resumed with {len(resumed_study.trials)} existing trials")
@@ -182,7 +182,9 @@ class MlflowSparkStudy(Study):
             )
             self._study_id = self._storage.get_study_id_from_name(self.study_name)
             self._is_resumed = True
-            _logger.info(f"Resuming existing study '{self.study_name}' with {len(self._study.trials)} trials")
+            _logger.info(
+                f"Resuming existing study '{self.study_name}' with {len(self._study.trials)} trials"
+            )
         else:
             # Create new study
             self._study = optuna.create_study(
@@ -191,22 +193,22 @@ class MlflowSparkStudy(Study):
             self._study_id = self._storage.get_study_id_from_name(self.study_name)
             self._is_resumed = False
             _logger.info(f"Created new study '{self.study_name}'")
-            
+
         self._directions = self._storage.get_study_directions(self._study_id)
 
     @property
     def is_resumed_study(self) -> bool:
         """Check if this study was resumed from existing data.
-        
+
         Returns:
             True if the study was resumed from existing data, False if it's a new study
         """
         return self._is_resumed
 
-    @property  
+    @property
     def completed_trials_count(self) -> int:
         """Number of completed trials in the study.
-        
+
         Returns:
             Count of trials that have completed successfully
         """
@@ -214,13 +216,13 @@ class MlflowSparkStudy(Study):
 
     def get_resume_info(self) -> dict:
         """Get information about the resumed study.
-        
+
         Returns:
             Dictionary containing resume information including trial counts and best results
         """
         if not self._is_resumed:
             return {"is_resumed": False}
-        
+
         return {
             "is_resumed": True,
             "study_name": self.study_name,
@@ -247,7 +249,7 @@ class MlflowSparkStudy(Study):
             _logger.info("Resuming study with no previous trials")
         else:
             _logger.info("Starting optimization for new study")
-            
+
         experiment_id = self._storage._experiment_id
         study_name = self.study_name
         mlflow_tracking_env = self._mlflow_tracking_env
