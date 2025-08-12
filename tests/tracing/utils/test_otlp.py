@@ -5,7 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
@@ -131,40 +131,45 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """
     Test that dual export mode sends traces to both MLflow and OTLP collector.
     """
-    # Enable dual export mode
-    monkeypatch.setenv(MLFLOW_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
 
-    mlflow.set_experiment("dual_export_test")
+    experiment = mlflow.set_experiment("dual_export_test")
     mlflow.tracing.reset()
 
-    # Verify both processors are configured
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 2
     assert isinstance(processors[0], OtelSpanProcessor)
     assert isinstance(processors[1], MlflowV3SpanProcessor)
 
-    # Create a simple trace
-    @mlflow.trace()
-    def simple_function():
-        return "test"
+    @mlflow.trace(name="parent_span")
+    def parent_function():
+        result = child_function("Hello", "World")
+        return f"Parent: {result}"
 
-    result = simple_function()
-    assert result == "test"
+    @mlflow.trace(name="child_span")
+    def child_function(arg1, arg2):
+        return f"{arg1} {arg2}"
 
-    # Give time for traces to be exported
-    time.sleep(1)
+    result = parent_function()
+    assert result == "Parent: Hello World"
 
-    # Check OTLP collector received spans
+    time.sleep(5)
+
+    client = MlflowClient()
+    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    mlflow_span_ids = [span.span_id for span in traces[0].data.spans]
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 2
+
+    trace_id = traces[0].info.trace_id.replace("tr-", "")
     _, output_file = otel_collector
     with open(output_file) as f:
         collector_logs = f.read()
-    assert "Span #0" in collector_logs, "No spans found in OTLP collector"
-
-    # Check MLflow backend received traces
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name("dual_export_test")
-    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
-    assert len(traces) > 0, "No traces found in MLflow backend - dual export is broken!"
+    assert trace_id in collector_logs
+    assert "Span #0" in collector_logs
+    assert "Span #1" in collector_logs
+    for span_id in mlflow_span_ids:
+        assert span_id in collector_logs

@@ -22,8 +22,8 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -341,7 +341,7 @@ def _get_span_processors() -> list[SpanProcessor]:
         otel_processor = OtelSpanProcessor(exporter)
         processors.append(otel_processor)
 
-        if not MLFLOW_ENABLE_OTLP_DUAL_EXPORT.get():
+        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
     # TODO: Update this logic to pluggable registry where
