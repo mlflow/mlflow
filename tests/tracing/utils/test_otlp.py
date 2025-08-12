@@ -5,7 +5,11 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+from mlflow.tracing.processor.otel import OtelSpanProcessor
+from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
 # OTLP exporters are not installed in some CI jobs
@@ -120,3 +124,61 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
+    """
+    Test that dual export mode sends traces to both MLflow and OTLP collector.
+    """
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    experiment = mlflow.set_experiment("dual_export_test")
+    mlflow.tracing.reset()
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 2
+    assert isinstance(processors[0], OtelSpanProcessor)
+    assert isinstance(processors[1], MlflowV3SpanProcessor)
+
+    @mlflow.trace(name="parent_span")
+    def parent_function():
+        result = child_function("Hello", "World")
+        return f"Parent: {result}"
+
+    @mlflow.trace(name="child_span")
+    def child_function(arg1, arg2):
+        # Test that update_current_trace works in dual export mode
+        mlflow.update_current_trace({"env": "production", "version": "1.0"})
+        return f"{arg1} {arg2}"
+
+    result = parent_function()
+    assert result == "Parent: Hello World"
+
+    time.sleep(5)
+
+    client = MlflowClient()
+    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 2
+
+    # Verify trace tags were set correctly
+    assert "env" in traces[0].info.tags
+    assert traces[0].info.tags["env"] == "production"
+    assert "version" in traces[0].info.tags
+    assert traces[0].info.tags["version"] == "1.0"
+
+    # Verify same trace/span IDs in both backends
+    mlflow_span_ids = [span.span_id for span in traces[0].data.spans]
+    trace_id = traces[0].info.trace_id.replace("tr-", "")
+    _, output_file = otel_collector
+    with open(output_file) as f:
+        collector_logs = f.read()
+    assert trace_id in collector_logs
+    assert "Span #0" in collector_logs
+    assert "Span #1" in collector_logs
+    for span_id in mlflow_span_ids:
+        assert span_id in collector_logs

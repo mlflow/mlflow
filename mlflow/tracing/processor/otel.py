@@ -1,14 +1,20 @@
 import json
+import os
 
-from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.trace import StatusCode
 
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
+from mlflow.environment_variables import (
+    MLFLOW_LOG_OTLP_TRACE_STATISTICS,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+)
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
 
@@ -35,22 +41,67 @@ class OtelSpanProcessor(BatchSpanProcessor):
             self.span_exporter = span_exporter
         except AttributeError:
             pass
-        self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def on_start(self, span: OTelSpan, parent_context: Context | None = None):
-        """
-        Handle the start of a span. This method is called when an OpenTelemetry span is started.
+        # Only register traces with trace manager when NOT in dual export mode
+        # In dual export mode, MLflow span processors handle trace registration
+        self._should_register_traces = not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
+        if self._should_register_traces:
+            self._trace_manager = InMemoryTraceManager.get_instance()
 
-        Args:
-            span: An OpenTelemetry Span object that is started.
-            parent_context: The context of the span. Note that this is only passed when the context
-                object is explicitly specified to OpenTelemetry start_span call. If the parent
-                span is obtained from the global context, it won't be passed here so we should not
-                rely on it.
-        """
-        trace_id = generate_trace_id_v3(span)
-        trace_info = TraceInfo(
-            trace_id=trace_id,
+        # Initialize metrics if enabled
+        self._duration_histogram = None
+        if MLFLOW_LOG_OTLP_TRACE_STATISTICS.get():
+            self._duration_histogram = self._setup_metrics()
+
+    def on_start(self, span: OTelReadableSpan, parent_context=None):
+        if self._should_register_traces and not span.parent:
+            trace_info = self._create_trace_info(span)
+            span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_info.trace_id))
+            self._trace_manager.register_trace(trace_info.trace_id, trace_info)
+
+        super().on_start(span, parent_context)
+
+    def on_end(self, span: OTelReadableSpan):
+        # Handle metrics logging if enabled
+        if self._duration_histogram:
+            # Calculate duration in milliseconds
+            duration_ms = (span.end_time - span.start_time) / 1e6
+
+            # Determine if this is a root span
+            is_root = span.parent is None
+
+            # Get span type from attributes if available
+            span_type = (
+                span.attributes.get("mlflow.spanType", "unknown") if span.attributes else "unknown"
+            )
+
+            # Get span status
+            status = "UNSET"
+            if span.status and span.status.status_code == StatusCode.OK:
+                status = "OK"
+            elif span.status and span.status.status_code == StatusCode.ERROR:
+                status = "ERROR"
+
+            # Record the histogram metric with labels
+            self._duration_histogram.record(
+                duration_ms,
+                attributes={
+                    "root": str(is_root),
+                    "span_type": span_type,
+                    "span_status": status,
+                },
+            )
+
+        # Handle trace registration cleanup
+        if self._should_register_traces and not span.parent:
+            self._trace_manager.pop_trace(span.context.trace_id)
+
+        super().on_end(span)
+
+    def _create_trace_info(self, span: OTelReadableSpan) -> TraceInfo:
+        """Create a TraceInfo object from an OpenTelemetry span."""
+        return TraceInfo(
+            trace_id=generate_trace_id_v3(span),
             trace_location=TraceLocation.from_experiment_id(None),
             request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
@@ -58,15 +109,57 @@ class OtelSpanProcessor(BatchSpanProcessor):
             trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
             tags={},
         )
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 
-        self._trace_manager.register_trace(span.context.trace_id, trace_info)
+    def _setup_metrics(self):
+        """Set up OpenTelemetry metrics and return histogram, or None if setup fails."""
+        try:
+            from opentelemetry import metrics
+            from opentelemetry.sdk.metrics import MeterProvider
+            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
-        super().on_start(span, parent_context)
+            # Get OTLP endpoint and protocol
+            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
+                "OTEL_EXPORTER_OTLP_ENDPOINT"
+            )
+            protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+                "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+            )
 
-    def on_end(self, span: OTelReadableSpan):
-        # Pops the trace entry from the in-memory trace manager to avoid memory leak
-        if span._parent is None:
-            self._trace_manager.pop_trace(span.context.trace_id)
+            if not endpoint:
+                return None
 
-        super().on_end(span)
+            # Get appropriate metric exporter based on protocol
+            # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
+            if protocol == "grpc":
+                from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            elif protocol == "http/protobuf":
+                from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            else:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported OTLP metrics protocol '{protocol}'. "
+                    "Supported protocols are 'grpc' and 'http/protobuf'."
+                )
+
+            metric_exporter = OTLPMetricExporter(endpoint=endpoint)
+
+            # Set up metrics provider
+            reader = PeriodicExportingMetricReader(metric_exporter)
+            provider = MeterProvider(metric_readers=[reader])
+            metrics.set_meter_provider(provider)
+
+            # Create and return histogram
+            meter = metrics.get_meter("mlflow.tracing")
+            return meter.create_histogram(
+                name="mlflow.trace.span.duration",
+                description="Duration of spans in milliseconds",
+                unit="ms",
+            )
+        except (ImportError, Exception):
+            # Silently fail if metrics setup doesn't work
+            return None
