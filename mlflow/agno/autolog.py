@@ -2,10 +2,6 @@ import importlib.metadata as _meta
 import logging
 from typing import Any
 
-import agno
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
-
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
@@ -18,11 +14,17 @@ _logger = logging.getLogger(__name__)
 
 # AGNO SDK doesn't provide version parameter from 1.7.1 onwards. Hence we capture the
 # latest version manually
-if not hasattr(agno, "__version__"):
-    try:
-        agno.__version__ = _meta.version("agno")
-    except _meta.PackageNotFoundError:
-        agno.__version__ = "1.7.7"
+
+try:
+    import agno
+
+    if not hasattr(agno, "__version__"):
+        try:
+            agno.__version__ = _meta.version("agno")
+        except _meta.PackageNotFoundError:
+            agno.__version__ = "1.7.7"
+except ImportError:
+    pass
 
 
 def _compute_span_name(instance, original) -> str:
@@ -156,6 +158,19 @@ def _parse_usage(result) -> dict[str, int] | None:
     }
 
 
+def _set_span_outputs(span: LiveSpan, result: Any) -> None:
+    from agno.run.response import RunResponse
+    from agno.run.team import TeamRunResponse
+
+    if isinstance(result, (RunResponse, TeamRunResponse)):
+        span.set_outputs(result.to_dict())
+    else:
+        span.set_outputs(result)
+
+    if usage := _parse_usage(result):
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
+
 async def patched_async_class_call(original, self, *args, **kwargs):
     cfg = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
     if not cfg.log_traces:
@@ -170,14 +185,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
 
         result = await original(self, *args, **kwargs)
 
-        if isinstance(result, (RunResponse, TeamRunResponse)):
-            span.set_outputs(result.to_dict())
-        else:
-            span.set_outputs(result)
-
-        span.set_outputs(result)
-        if usage := _parse_usage(result):
-            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        _set_span_outputs(span, result)
         return result
 
 
@@ -195,11 +203,5 @@ def patched_class_call(original, self, *args, **kwargs):
 
         result = original(self, *args, **kwargs)
 
-        if isinstance(result, (RunResponse, TeamRunResponse)):
-            span.set_outputs(result.to_dict())
-        else:
-            span.set_outputs(result)
-
-        if usage := _parse_usage(result):
-            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        _set_span_outputs(span, result)
         return result

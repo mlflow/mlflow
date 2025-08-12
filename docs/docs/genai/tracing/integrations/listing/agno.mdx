@@ -5,13 +5,14 @@ sidebar_label: Agno
 
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
 # Tracing Agno
 
-![Agno Tracing via autolog](/images/llms/agno/agno-tracing-basic.png)
+<ImageBox src="/images/llms/agno/agno-tracing-basic.png" alt="Agno Tracing via autolog" />
 
 [Agno](https://github.com/agno-agi/agno) is a flexible agent framework for orchestrating LLMs, reasoning steps, tools, and memory into a unified pipeline.
 
@@ -69,15 +70,6 @@ and repeat results.
 ```python
 import mlflow
 
-import mlflow.agno
-
-mlflow.set_experiment("Multi-Agent Testing")
-
-mlflow.agno.autolog()
-mlflow.anthropic.autolog()
-mlflow.openai.autolog()
-
-
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat
@@ -85,6 +77,10 @@ from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.reasoning import ReasoningTools
 from agno.tools.yfinance import YFinanceTools
+
+# Enable auto tracing for Agno
+mlflow.agno.autolog()
+
 
 web_agent = Agent(
     name="Web Search Agent",
@@ -135,18 +131,17 @@ reasoning_finance_team = Team(
     success_criteria="The team has provided a complete financial analysis with data, visualizations, risk assessment, and actionable investment recommendations supported by quantitative analysis and market research.",
 )
 
-if __name__ == "__main__":
-    reasoning_finance_team.print_response(
-        """Compare the tech sector giants (AAPL, GOOGL, MSFT) performance:
-        1. Get financial data for all three companies
-        2. Analyze recent news affecting the tech sector
-        3. Calculate comparative metrics and correlations
-        4. Recommend portfolio allocation weights""",
-        show_full_reasoning=True,
-    )
+reasoning_finance_team.print_response(
+    """Compare the tech sector giants (AAPL, GOOGL, MSFT) performance:
+    1. Get financial data for all three companies
+    2. Analyze recent news affecting the tech sector
+    3. Calculate comparative metrics and correlations
+    4. Recommend portfolio allocation weights""",
+    show_full_reasoning=True,
+)
 ```
 
-![Agno Tracing via autolog](/images/llms/Agno/agno-tracing.png)
+<ImageBox src="/images/llms/agno/agno-tracing.png" alt="Agno Tracing via autolog" />
 
 ## Token usage
 
@@ -154,35 +149,25 @@ MLflow >= 3.3.0 supports token usage tracking for Agno. The token usage for each
 available in the `token_usage` field of the trace info object.
 
 ```python
-if __name__ == "__main__":
-    reasoning_finance_team.print_response(
-        """Compare the tech sector giants (AAPL, GOOGL, MSFT) performance:
-        1. Get financial data for all three companies
-        2. Analyze recent news affecting the tech sector
-        3. Calculate comparative metrics and correlations
-        4. Recommend portfolio allocation weights""",
-        show_full_reasoning=True,
-    )
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
 
-    # Get the trace object just created
-    last_trace_id = mlflow.get_last_active_trace_id()
-    trace = mlflow.get_trace(trace_id=last_trace_id)
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
 
-    # Print the token usage
-    total_usage = trace.info.token_usage
-    print("== Total token usage: ==")
-    print(f"  Input tokens: {total_usage['input_tokens']}")
-    print(f"  Output tokens: {total_usage['output_tokens']}")
-    print(f"  Total tokens: {total_usage['total_tokens']}")
-
-    # Print the token usage for each LLM call
-    print("\n== Detailed usage for each LLM call: ==")
-    for span in trace.data.spans:
-        if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-            print(f"{span.name}:")
-            print(f"  Input tokens: {usage['input_tokens']}")
-            print(f"  Output tokens: {usage['output_tokens']}")
-            print(f"  Total tokens: {usage['total_tokens']}")
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
 ```
 
 ```bash
