@@ -37,11 +37,10 @@ def _enable_experimental_genai_tracing():
         MODEL_DIAGNOSTICS_SETTINGS,
     )
 
-    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
-    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
-
     AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
     AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
+    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
+    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
 
     _logger.info("Semantic Kernel Otel diagnostics is turned on for enabling tracing.")
 
