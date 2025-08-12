@@ -30,7 +30,6 @@ def _enable_experimental_genai_tracing():
     # We directly update the singleton setting object instead of using env vars,
     # because the object might be already initialized by the time we call this function.
     # https://learn.microsoft.com/en-us/semantic-kernel/concepts/enterprise-readiness/observability/telemetry-with-console
-
     from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
         MODEL_DIAGNOSTICS_SETTINGS,
     )
