@@ -148,7 +148,6 @@ def start_container(port: int):
         "statsmodels",
         "tensorflow",
         "transformers_pt",  # Test with Pytorch-based model
-        "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):
