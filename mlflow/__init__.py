@@ -62,6 +62,7 @@ from mlflow.utils.logging_utils import _configure_mlflow_loggers
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 ag2 = LazyLoader("mlflow.ag2", globals(), "mlflow.ag2")
+agno = LazyLoader("mlflow.agno", globals(), "mlflow.agno")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
@@ -115,6 +116,7 @@ if TYPE_CHECKING:
     # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
     from mlflow import (  # noqa: F401
         ag2,
+        agno,
         anthropic,
         autogen,
         bedrock,
