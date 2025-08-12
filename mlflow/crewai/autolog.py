@@ -54,15 +54,21 @@ def _get_span_type(instance) -> str:
 
         # Knowledge and Memory are not available before 0.83.0
         if Version(crewai.__version__) >= Version("0.83.0"):
-            if isinstance(
-                instance,
-                (
-                    crewai.memory.ShortTermMemory,
-                    crewai.memory.LongTermMemory,
-                    crewai.memory.UserMemory,
-                    crewai.memory.EntityMemory,
-                ),
-            ):
+            memory_classes = (
+                crewai.memory.ShortTermMemory,
+                crewai.memory.LongTermMemory,
+                crewai.memory.EntityMemory,
+            )
+            try:
+                # `UserMemory` was removed in 0.157.0:
+                # https://github.com/crewAIInc/crewAI/pull/3225
+                from crewai.memory import UserMemory
+
+                memory_classes = (*memory_classes, UserMemory)
+            except ImportError:
+                pass
+
+            if isinstance(instance, memory_classes):
                 return SpanType.MEMORY
 
             if isinstance(instance, crewai.Knowledge):
