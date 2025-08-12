@@ -258,6 +258,54 @@ def _get_trace_exporter():
         return processor.span_exporter
 
 
+def _setup_tracer_provider(disabled=False):
+    """
+    Instantiate a tracer provider and set it as the global tracer provider.
+
+    Note that this function ALWAYS updates the global tracer provider, regardless of the current
+    state. It is the caller's responsibility to ensure that the tracer provider is initialized
+    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
+    """
+    global _MLFLOW_TRACER_PROVIDER
+
+    if disabled:
+        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
+        return
+
+    from mlflow.tracing.utils.warning import suppress_warning
+
+    # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
+    # level so that it does not show up in the user's console. This warning may indicate
+    # some incorrect context handling, but in many cases just false positive that does not
+    # cause any issue in the generated trace.
+    # Note that we need to apply it permanently rather than just the scope of prediction call,
+    # because the exception can happen for streaming case, where the error log might be
+    # generated when the iterator is consumed and we don't know when it will happen.
+    suppress_warning("opentelemetry.context", "Failed to detach context")
+
+    # These Otel warnings are occasionally raised in a valid case, e.g. we timeout a trace
+    # but some spans are still active. We suppress them because they are not actionable.
+    suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
+    suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
+
+    sampler = _get_trace_sampler()
+
+    # Setting an empty resource to avoid triggering resource aggregation, which causes
+    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
+
+    processors = _get_span_processors()
+
+    if not processors and is_in_databricks_model_serving_environment():
+        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
+        return
+
+    for processor in processors:
+        tracer_provider.add_span_processor(processor)
+
+    _MLFLOW_TRACER_PROVIDER = tracer_provider
+
+
 def _get_trace_sampler():
     """
     Get the sampler configuration based on environment variable.
@@ -265,6 +313,7 @@ def _get_trace_sampler():
     Returns:
         TraceIdRatioBased sampler or None for default sampling.
     """
+    # Databricks and SQL backends support V3 traces
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
         if not (0.0 <= sampling_ratio <= 1.0):
@@ -315,54 +364,6 @@ def _get_span_processors():
         processors.append(processor)
 
     return processors
-
-
-def _setup_tracer_provider(disabled=False):
-    """
-    Instantiate a tracer provider and set it as the global tracer provider.
-
-    Note that this function ALWAYS updates the global tracer provider, regardless of the current
-    state. It is the caller's responsibility to ensure that the tracer provider is initialized
-    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
-    """
-    global _MLFLOW_TRACER_PROVIDER
-
-    if disabled:
-        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-        return
-
-    from mlflow.tracing.utils.warning import suppress_warning
-
-    # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
-    # level so that it does not show up in the user's console. This warning may indicate
-    # some incorrect context handling, but in many cases just false positive that does not
-    # cause any issue in the generated trace.
-    # Note that we need to apply it permanently rather than just the scope of prediction call,
-    # because the exception can happen for streaming case, where the error log might be
-    # generated when the iterator is consumed and we don't know when it will happen.
-    suppress_warning("opentelemetry.context", "Failed to detach context")
-
-    # These Otel warnings are occasionally raised in a valid case, e.g. we timeout a trace
-    # but some spans are still active. We suppress them because they are not actionable.
-    suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
-    suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
-
-    sampler = _get_trace_sampler()
-
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
-
-    processors = _get_span_processors()
-
-    if not processors and is_in_databricks_model_serving_environment():
-        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-        return
-
-    for processor in processors:
-        tracer_provider.add_span_processor(processor)
-
-    _MLFLOW_TRACER_PROVIDER = tracer_provider
 
 
 def _get_mlflow_span_processor(tracking_uri: str):
