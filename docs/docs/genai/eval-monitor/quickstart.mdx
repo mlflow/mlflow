@@ -132,7 +132,7 @@ Here we use three scorers:
 - <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>: Evaluates if the answer meets the given guidelines.
 - `is_concise`: A custom scorer defined using the <APILink fn="mlflow.genai.scorers.scorer">scorer</APILink> decorator to judge if the answer is concise (less than 5 words).
 
-The first two scorers use LLMs to evaluate the response, so-called **LLM-as-a-Judge**. This is powerful technique to assess the quality of the response, because it provides a human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation.
+The first two scorers use LLMs to evaluate the response, so-called **LLM-as-a-Judge**. This is a powerful technique to assess the quality of the response, because it provides a human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation.
 
 The Scorer interface allows you to define various types of quality metrics for your application in a simple way. From a simple natural language guideline to a code function with the full control of the evaluation logic.
 

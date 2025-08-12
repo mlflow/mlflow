@@ -14,7 +14,7 @@ MLflow's evaluation and monitoring capabilities help you systematically measure,
 
 <ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" />
 
-The tenets of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
 
 <TabsWrapper>
   <Tabs>
@@ -27,7 +27,7 @@ The tenets of MLflow's evaluation capabilities is **Evaluation-Driven Developmen
 
         Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
 
-        Being the industry most-trusted experiment tracking platform, MLflow provides a strong foundation tracking your evaluation results and effectively collaborate with your team.
+        Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
 
         [Learn more →](/genai/eval-monitor)
 
@@ -71,7 +71,7 @@ The tenets of MLflow's evaluation capabilities is **Evaluation-Driven Developmen
 
         Quality assessment is a critical part of building high-quality GenAI applications, however, it is often time-consuming and requires human expertise. LLMs are powerful tools to automate quality assessment.
 
-        MLflow offers various built-in LLM-as-a-Judge scorers to help automating the process, as well as a flexible toolset to build you own LLM judges with ease.
+        MLflow offers various built-in LLM-as-a-Judge scorers to help automate the process, as well as a flexible toolset to build your own LLM judges with ease.
 
         [Learn more →](/genai/eval-monitor)
 
@@ -157,7 +157,7 @@ Each evaluation is defined by three components:
     <tr>
       <td><strong>Predict Function</strong><br/><small>Generates outputs for the dataset</small></td>
       <td>
-        <pre><code>def predict_fn(question: str) -> str:<br/>    response = client.chat.completions.create(<br/>        model="gpt-4.1-mini",<br/>        messages=\[\{"role": "user", "content": question\}\]<br/>    )<br/>    return response.choices[0].message.content</code></pre>
+        <pre><code>def predict_fn(question: str) -> str:<br/>    response = client.chat.completions.create(<br/>        model="gpt-4o-mini",<br/>        messages=\[\{"role": "user", "content": question\}\]<br/>    )<br/>    return response.choices[0].message.content</code></pre>
       </td>
     </tr>
   </tbody>
@@ -191,7 +191,7 @@ dataset = [
 # 2. Define a prediction function to generate responses
 def predict_fn(question: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-4.1-mini", messages=[{"role": "user", "content": question}]
+        model="gpt-4o-mini", messages=[{"role": "user", "content": question}]
     )
     return response.choices[0].message.content
 
@@ -228,7 +228,7 @@ If you are using cloud-based MLflow, open the experiment page in the platform.
     icon={Rocket}
     iconSize={48}
     title="Quickstart"
-    description="Learn the MLflow's evaluation workflow in action."
+    description="Learn MLflow's evaluation workflow in action."
     href="/genai/eval-monitor/quickstart"
     linkText="Start evaluating →"
     containerHeight={64}
@@ -237,7 +237,7 @@ If you are using cloud-based MLflow, open the experiment page in the platform.
     icon={MessageSquare}
     iconSize={48}
     title="Collect User Feedback"
-    description="Understand how to collect user feedbacks for your applications."
+    description="Understand how to collect user feedback for your applications."
     href="/genai/tracing/collect-user-feedback"
     linkText="Learn about feedback tracking →"
     containerHeight={64}
