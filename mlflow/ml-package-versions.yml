@@ -226,7 +226,12 @@ semantic_kernel:
     minimum: "1.34.0"
     maximum: "1.35.0"
     requirements:
-      ">= 1.34.0": ["pydantic>=2.0,<2.12", "openai"]
+      ">= 1.34.0": [
+          "pydantic>=2.0,<2.12",
+          # 1.99.2 ~ 1.99.8 have unintended breaking changes:
+          # https://github.com/openai/openai-python/issues/2525
+          "openai>=1.99.9",
+        ]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
@@ -478,7 +483,7 @@ transformers:
           "boto3<1.36",
         ]
       # peft >= 0.14 relies on classes from newer versions of transformers
-      "< 4.43": ["peft<0.14.0"]
+      "< 4.44": ["peft<0.14.0"]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
@@ -742,7 +747,9 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          "openai",
+          # Versions 1.99.2 - 1.99.8 contain regressions:
+          # https://github.com/openai/openai-python/issues/2525
+          "openai>=1.99.9",
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
@@ -758,7 +765,9 @@ llama_index:
     maximum: "0.13.0"
     requirements:
       ">= 0.0.0": [
-          "openai",
+          # Versions 1.99.2 - 1.99.8 contain regressions:
+          # https://github.com/openai/openai-python/issues/2525
+          "openai>=1.99.9",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
@@ -882,9 +891,12 @@ smolagents:
       pip install "git+https://github.com/huggingface/smolagents"
   autologging:
     minimum: "1.14.0"
-    maximum: "1.20.0"
+    maximum: "1.21.0"
     requirements:
-      ">= 0.0.0": ["duckduckgo-search"]
+      "< 1.21.0": ["duckduckgo-search"]
+      # `duckduckgo_search` has been renamed to `ddgs`:
+      # https://github.com/huggingface/smolagents/pull/1593
+      ">= 1.21.0": ["ddgs"]
     run: pytest tests/smolagents
     test_tracing_sdk: true
 

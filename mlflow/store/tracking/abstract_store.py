@@ -14,6 +14,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -449,6 +450,38 @@ class AbstractStore:
         Args:
             trace_id: The ID of the trace.
             assessment_id: The ID of the assessment to be deleted.
+        """
+        raise NotImplementedError
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
+
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
