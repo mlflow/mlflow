@@ -5,7 +5,7 @@ from mlflow.agno.autolog import (
     patched_async_class_call,
     patched_class_call,
 )
-from mlflow.agno.utils import discover_storage_backends
+from mlflow.agno.utils import discover_storage_backends, find_model_subclasses
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -43,6 +43,16 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
                     "upgrade_schema",
                 ]
                 for cls in storages
+            }
+        )
+
+    models = find_model_subclasses()
+
+    if models:
+        class_map.update(
+            {
+                cls.__module__ + "." + cls.__name__: ["invoke", "response", "aresponse", "ainvoke"]
+                for cls in models
             }
         )
 

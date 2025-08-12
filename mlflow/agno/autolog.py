@@ -107,6 +107,7 @@ def _set_span_attributes(span: LiveSpan, instance) -> None:
 def _get_span_type(instance) -> str:
     try:
         from agno.agent import Agent
+        from agno.models.base import Model
         from agno.storage.base import Storage
         from agno.team import Team
         from agno.tools.function import FunctionCall
@@ -119,7 +120,8 @@ def _get_span_type(instance) -> str:
         return SpanType.TOOL
     if isinstance(instance, Storage):
         return SpanType.MEMORY
-
+    if isinstance(instance, Model):
+        return SpanType.LLM
     return SpanType.UNKNOWN
 
 

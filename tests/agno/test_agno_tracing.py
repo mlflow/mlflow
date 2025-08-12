@@ -351,8 +351,10 @@ def test_agno_and_anthropic_autolog_single_trace(simple_agent, monkeypatch):
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.CHAT_MODEL]
-    assert spans[1].name == "Messages.create"
+    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.LLM, SpanType.LLM , SpanType.CHAT_MODEL]
+    assert spans[1].name == "Claude.response"
+    assert spans[2].name == "Claude.invoke"
+    assert spans[3].name == "Messages.create"
 
 
 @pytest.mark.asyncio
@@ -384,5 +386,7 @@ async def test_agno_and_anthropic_autolog_single_trace_async(simple_agent, monke
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
-    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.CHAT_MODEL]
-    assert spans[1].name == "Messages.create"
+    assert [s.span_type for s in spans] == [SpanType.AGENT, SpanType.LLM , SpanType.LLM ,SpanType.CHAT_MODEL]
+    assert spans[1].name == "Claude.response"
+    assert spans[2].name == "Claude.invoke"
+    assert spans[3].name == "Messages.create"
