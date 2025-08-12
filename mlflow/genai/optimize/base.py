@@ -148,10 +148,8 @@ def optimize_prompt(
         )
 
         if optimizer_config.skip_registration:
-            # Skip registration and return the raw optimized template
             result_prompt = optimizer_output.optimized_prompt
         else:
-            # Register the optimized prompt as a new version
             optimized_prompt = register_prompt(
                 name=prompt.name,
                 template=optimizer_output.optimized_prompt,
