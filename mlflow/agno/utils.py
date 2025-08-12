@@ -29,7 +29,7 @@ def discover_storage_backends():
 
 
 def find_model_subclasses():
-    # 1. Import all storage modules
+    # 1. Import all Model modules
     import agno.models as pkg
 
     for _, modname, _ in pkgutil.iter_modules(pkg.__path__):
