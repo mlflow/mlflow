@@ -5,7 +5,11 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+from mlflow.tracing.processor.otel import OtelSpanProcessor
+from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
 # OTLP exporters are not installed in some CI jobs
@@ -120,3 +124,44 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
+    """
+    Test that dual export mode sends traces to both MLflow and OTLP collector.
+    """
+    # Enable dual export mode
+    monkeypatch.setenv(MLFLOW_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    mlflow.set_experiment("dual_export_test")
+    mlflow.tracing.reset()
+
+    # Verify both processors are configured
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 2
+    assert isinstance(processors[0], OtelSpanProcessor)
+    assert isinstance(processors[1], MlflowV3SpanProcessor)
+
+    # Create a simple trace
+    @mlflow.trace()
+    def simple_function():
+        return "test"
+
+    result = simple_function()
+    assert result == "test"
+
+    # Check OTLP collector received spans
+    _, output_file = otel_collector
+    with open(output_file) as f:
+        collector_logs = f.read()
+    assert "Span #0" in collector_logs, "No spans found in OTLP collector"
+
+    # Check MLflow backend received traces
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("dual_export_test")
+    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    assert len(traces) > 0, "No traces found in MLflow backend - dual export is broken!"
