@@ -313,7 +313,6 @@ def _get_trace_sampler() -> TraceIdRatioBased | None:
     Returns:
         TraceIdRatioBased sampler or None for default sampling.
     """
-    # Databricks and SQL backends support V3 traces
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
         if not (0.0 <= sampling_ratio <= 1.0):
@@ -374,6 +373,7 @@ def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
+    # Databricks and SQL backends support V3 traces
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
