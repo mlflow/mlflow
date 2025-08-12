@@ -117,13 +117,6 @@ const config: Config = {
           ],
         },
         {
-          type: 'doc',
-          position: 'left',
-          label: 'Community',
-          docId: 'usage-tracking',
-          docsPluginId: 'community',
-        },
-        {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
