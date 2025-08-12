@@ -861,7 +861,7 @@ agno:
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
-      pip install git+https://github.com/agno-agi/agno.git
+      pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
     maximum: "1.7.9"
