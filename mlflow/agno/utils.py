@@ -45,4 +45,7 @@ def find_model_subclasses():
             yield sub
             yield from all_subclasses(sub)
 
-    return list(all_subclasses(Model))
+    models = list(all_subclasses(Model))
+    # Sort so that more specific classes are patched before their bases
+    models.sort(key=lambda c: len(c.__mro__), reverse=True)
+    return models
