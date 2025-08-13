@@ -4,11 +4,12 @@ ARG DEPENDENCIES
 
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
-    curl apt-transport-https debconf-utils \
+    curl apt-transport-https debconf-utils gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # adding custom MS repository
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+# https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver17&tabs=ubuntu2004#install-sql-server
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
 RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 
 # install SQL Server drivers and tools
