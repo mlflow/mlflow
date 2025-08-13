@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Generator
 
+import psutil
 import pytest
 from cryptography.fernet import Fernet
 
@@ -37,11 +38,22 @@ def server(tmp_path: Path) -> Generator[str, None, None]:
         cwd=tmp_path,
         env=os.environ.copy()
         | {MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name: Fernet.generate_key().decode("utf-8")},
-    ) as process:
+    ) as prc:
         try:
             yield f"http://localhost:{port}"
         finally:
-            process.terminate()
+            # Kill the gunicorn processes spawned by mlflow server
+            try:
+                proc = psutil.Process(prc.pid)
+            except psutil.NoSuchProcess:
+                # Handle case where the process did not start correctly
+                pass
+            else:
+                for child in proc.children(recursive=True):
+                    child.terminate()
+
+            # Kill the mlflow server process
+            prc.terminate()
 
 
 @pytest.fixture
