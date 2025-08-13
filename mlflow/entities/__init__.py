@@ -52,6 +52,12 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookStatus,
+    WebhookTestResult,
+)
 
 __all__ = [
     "Experiment",
@@ -103,4 +109,8 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    "Webhook",
+    "WebhookEvent",
+    "WebhookStatus",
+    "WebhookTestResult",
 ]
