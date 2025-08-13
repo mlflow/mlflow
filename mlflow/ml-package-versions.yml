@@ -31,7 +31,7 @@ pytorch:
 
   models:
     minimum: "2.1.0"
-    maximum: "2.7.1"
+    maximum: "2.8.0"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -41,7 +41,7 @@ pytorch:
 
   autologging:
     minimum: "2.1.0"
-    maximum: "2.7.1"
+    maximum: "2.8.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -224,7 +224,7 @@ semantic_kernel:
 
   autologging:
     minimum: "1.34.0"
-    maximum: "1.35.0"
+    maximum: "1.35.2"
     requirements:
       ">= 1.34.0": [
           "pydantic>=2.0,<2.12",
@@ -242,7 +242,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.6.1"
+    minimum: "3.7.0"
     maximum: "3.8.7"
     requirements:
       "< 3.8": ["numpy<2"]
@@ -454,7 +454,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    maximum: "4.54.1"
+    maximum: "4.55.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -493,10 +493,10 @@ transformers:
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
       pip uninstall -y accelerate
-      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
+      pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
-    maximum: "4.54.1"
+    maximum: "4.55.0"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -535,7 +535,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.98.0"
+    maximum: "1.99.6"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -554,7 +554,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.98.0"
+    maximum: "1.99.6"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -702,7 +702,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.6.3"
+    maximum: "0.6.4"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -719,7 +719,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.6.3"
+    maximum: "0.6.4"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -744,7 +744,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.13.0"
+    maximum: "0.13.1"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -762,7 +762,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.13.0"
+    maximum: "0.13.1"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -799,7 +799,7 @@ autogen:
     module_name: "autogen_agentchat"
   autologging:
     minimum: "0.4.9"
-    maximum: "0.7.1"
+    maximum: "0.7.2"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -818,7 +818,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.28.0"
+    maximum: "1.29.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -833,7 +833,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.60.0"
+    maximum: "0.62.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -850,10 +850,26 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.152.0"
+    maximum: "0.157.0"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
+    test_tracing_sdk: true
+
+agno:
+  package_info:
+    pip_release: "agno"
+    module_name: "agno"
+    install_dev: |
+      pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
+  autologging:
+    minimum: "1.7.0"
+    maximum: "1.7.9"
+    python:
+      ">= 1.7.0": "3.10"
+    requirements:
+      ">= 0.0.0": ["anthropic", "yfinance"]
+    run: pytest tests/agno
     test_tracing_sdk: true
 
 pydantic_ai:
@@ -877,7 +893,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.1.9"
-    maximum: "0.4.11"
+    maximum: "0.6.2"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -925,7 +941,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.3.1"
-    maximum: "5.0.0"
+    maximum: "5.1.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -1004,7 +1020,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.30.0"
+    maximum: "0.31.0"
     requirements:
     run: pytest tests/groq
     test_tracing_sdk: true
@@ -1016,6 +1032,6 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.40.1"
+    maximum: "1.40.6"
     run: pytest tests/bedrock
     test_tracing_sdk: true

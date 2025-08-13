@@ -12,6 +12,7 @@ mlflow.MlflowException.serialize_as_json
 mlflow.active_run
 mlflow.add_trace
 mlflow.ag2.autolog
+mlflow.agno.autolog
 mlflow.anthropic.autolog
 mlflow.artifacts.download_artifacts
 mlflow.artifacts.list_artifacts
