@@ -128,6 +128,10 @@ Utilizing type hints introduces the following benefits:
     - **Data validation**: MLflow validates the input data based on the type hints defined in the model. No matter if the model is a PythonModel instance or a loaded PyFunc model, the input data is consistently validated.
     - **Type hint inference**: MLflow infers the input and output schema of the model based on the type hints defined in the model, and sets that inferred structure as the logged model signature.
 
+:::important
+Using type hints can also improve performance by skipping the conversion of data to a pandas DataFrame and instead validating the data directly against the type hints.
+:::
+
 ### Supported type hints
 
 **Type hints used within the PythonModel's input signature must be of type `list[...]`** because PythonModel's predict function expects batch input data.
