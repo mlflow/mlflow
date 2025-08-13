@@ -10,20 +10,27 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
 from unittest import mock
 
 import pytest
 import sqlalchemy
+from opentelemetry import trace as trace_api
+from opentelemetry.sdk.resources import Resource as _OTelResource
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from packaging.version import Version
+from sqlalchemy.exc import IntegrityError
 
 import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     Metric,
     Param,
     RunStatus,
@@ -33,10 +40,12 @@ from mlflow.entities import (
     _DatasetSummary,
     trace_location,
 )
+from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -77,6 +86,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSpan,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -88,6 +98,7 @@ from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
 )
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -118,6 +129,98 @@ DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+# Helper functions for span tests
+def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> trace_api.SpanContext:
+    """Create a mock span context for testing."""
+    context = mock.Mock()
+    context.trace_id = trace_id_num
+    context.span_id = span_id_num
+    context.is_remote = False
+    context.trace_flags = trace_api.TraceFlags(1)
+    context.trace_state = trace_api.TraceState()
+    return context
+
+
+def create_test_span(
+    trace_id,
+    name="test_span",
+    span_id=111,
+    parent_id=None,
+    status=trace_api.StatusCode.UNSET,
+    status_desc=None,
+    start_ns=1000000000,
+    end_ns=2000000000,
+    span_type="LLM",
+    trace_num=12345,
+) -> Span:
+    """
+    Create an MLflow span for testing with minimal boilerplate.
+
+    Args:
+        trace_id: The trace ID string
+        name: Span name
+        span_id: Span ID number (default: 111)
+        parent_id: Parent span ID number, or None for root span
+        status: StatusCode enum value (default: UNSET)
+        status_desc: Status description string
+        start_ns: Start time in nanoseconds
+        end_ns: End time in nanoseconds
+        span_type: Span type (default: "LLM")
+        trace_num: Trace ID number for context (default: 12345)
+
+    Returns:
+        MLflow Span object ready for use in tests
+    """
+    context = create_mock_span_context(trace_num, span_id)
+    parent_context = create_mock_span_context(trace_num, parent_id) if parent_id else None
+
+    otel_span = OTelReadableSpan(
+        name=name,
+        context=context,
+        parent=parent_context,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
+        },
+        start_time=start_ns,
+        end_time=end_ns,
+        status=trace_api.Status(status, status_desc),
+        resource=_OTelResource.get_empty(),
+    )
+    return create_mlflow_span(otel_span, trace_id, span_type)
+
+
+# Keep the old function for backward compatibility but delegate to new one
+def create_test_otel_span(
+    trace_id,
+    name="test_span",
+    parent=None,
+    status_code=trace_api.StatusCode.UNSET,
+    status_description=None,
+    start_time=1000000000,
+    end_time=2000000000,
+    span_type="LLM",
+    trace_id_num=12345,
+    span_id_num=111,
+) -> OTelReadableSpan:
+    """Create an OTelReadableSpan for testing with common defaults."""
+    context = create_mock_span_context(trace_id_num, span_id_num)
+
+    return OTelReadableSpan(
+        name=name,
+        context=context,
+        parent=parent,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
+        },
+        start_time=start_time,
+        end_time=end_time,
+        status=trace_api.Status(status_code, status_description),
+        resource=_OTelResource.get_empty(),
+    )
 
 
 def db_types_and_drivers():
@@ -194,6 +297,26 @@ def store(tmp_path: Path):
     _cleanup_database(store)
 
 
+@pytest.fixture
+def store_and_trace_info(store):
+    exp_id = store.create_experiment("test")
+    timestamp_ms = get_current_time_millis()
+    return store, store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+
 def _get_store(tmp_path: Path):
     db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
     artifact_uri = tmp_path / "artifacts"
@@ -244,7 +367,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list[str]]:
+def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -1309,6 +1432,18 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     store.delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="must be in the 'active' state"):
         store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
+
+
+def test_delete_experiment_tag(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "setExperimentTagExp")
+    tag = entities.ExperimentTag("tag0", "value0")
+    store.set_experiment_tag(exp_id, tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["tag0"] == "value0"
+    # test that deleting a tag works
+    store.delete_experiment_tag(exp_id, tag.key)
+    experiment = store.get_experiment(exp_id)
+    assert "tag0" not in experiment.tags
 
 
 def test_set_tag(store: SqlAlchemyStore, monkeypatch):
@@ -4549,6 +4684,97 @@ def test_search_traces_pagination_tie_breaker(store):
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
+def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
+    """Test that search_traces returns traces linked to a run via entity associations."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_run_filter")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different relationships to the run
+    # Trace 1: Has run_id in metadata (direct association)
+    trace1_id = "tr-direct"
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+
+    # Trace 2: Linked via entity association
+    trace2_id = "tr-linked"
+    _create_trace(store, trace2_id, exp_id)
+    store.link_traces_to_run([trace2_id], run_id)
+
+    # Trace 3: Both metadata and entity association
+    trace3_id = "tr-both"
+    _create_trace(store, trace3_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+    store.link_traces_to_run([trace3_id], run_id)
+
+    # Trace 4: No association with the run
+    trace4_id = "tr-unrelated"
+    _create_trace(store, trace4_id, exp_id)
+
+    # Search for traces with run_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return traces 1, 2, and 3 but not 4
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test with another run to ensure isolation
+    run2 = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run2")
+    run2_id = run2.info.run_id
+
+    # Create a trace linked to run2
+    trace5_id = "tr-run2"
+    _create_trace(store, trace5_id, exp_id)
+    store.link_traces_to_run([trace5_id], run2_id)
+
+    # Search for traces with run2_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run2_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace5
+    assert trace_ids == {trace5_id}
+
+    # Original run_id search should still return the same traces
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+
+def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
+    """Test that search_traces with run_id filter works correctly with other filters."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_combined_filters")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different tags and run associations
+    trace1_id = "tr-tag1-linked"
+    _create_trace(store, trace1_id, exp_id, tags={"type": "training"})
+    store.link_traces_to_run([trace1_id], run_id)
+
+    trace2_id = "tr-tag2-linked"
+    _create_trace(store, trace2_id, exp_id, tags={"type": "inference"})
+    store.link_traces_to_run([trace2_id], run_id)
+
+    trace3_id = "tr-tag1-notlinked"
+    _create_trace(store, trace3_id, exp_id, tags={"type": "training"})
+
+    # Search with run_id and tag filter
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f'run_id = "{run_id}" AND tags.type = "training"'
+    )
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace1 (linked to run AND has training tag)
+    assert trace_ids == {trace1_id}
+
+    # Search with run_id only
+    traces, _ = store.search_traces([exp_id], filter_string=f'run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return both linked traces
+    assert trace_ids == {trace1_id, trace2_id}
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
@@ -4726,6 +4952,517 @@ def test_delete_traces_raises_error(store):
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
+    """Test the log_spans and log_spans_async methods."""
+
+    # Create an experiment and trace first
+    experiment_id = store.create_experiment("test_span_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-span-test-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info = store.start_trace(trace_info)
+
+    # Create a mock OpenTelemetry span
+
+    # Create mock context
+    mock_context = mock.Mock()
+    mock_context.trace_id = 12345
+    mock_context.span_id = 222 if not is_async else 333
+    mock_context.is_remote = False
+    mock_context.trace_flags = trace_api.TraceFlags(1)
+    mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+
+    parent_mock_context = mock.Mock()
+    parent_mock_context.trace_id = 12345
+    parent_mock_context.span_id = 111
+    parent_mock_context.is_remote = False
+    parent_mock_context.trace_flags = trace_api.TraceFlags(1)
+    parent_mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=mock_context,
+        parent=parent_mock_context if not is_async else None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
+            "mlflow.spanInputs": json.dumps({"input": "test_input"}, cls=TraceJSONEncoder),
+            "mlflow.spanOutputs": json.dumps({"output": "test_output"}, cls=TraceJSONEncoder),
+            "mlflow.spanType": json.dumps("LLM" if not is_async else "CHAIN", cls=TraceJSONEncoder),
+            "custom_attr": json.dumps("custom_value", cls=TraceJSONEncoder),
+        },
+        start_time=1000000000 if not is_async else 3000000000,
+        end_time=2000000000 if not is_async else 4000000000,
+        resource=_OTelResource.get_empty(),
+    )
+
+    # Create MLflow span from OpenTelemetry span
+    span = create_mlflow_span(readable_span, trace_info.trace_id, "LLM")
+    assert isinstance(span, Span)
+
+    # Test logging the span using sync or async method
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
+
+    # Verify the returned spans are the same
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+    assert logged_spans[0].trace_id == trace_info.trace_id
+    assert logged_spans[0].span_id == span.span_id
+
+    # Verify the span was saved to the database
+    with store.ManagedSessionMaker() as session:
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
+            .first()
+        )
+
+        assert saved_span is not None
+        assert saved_span.experiment_id == int(experiment_id)
+        assert saved_span.parent_span_id == span.parent_id
+        assert saved_span.status == "UNSET"  # Default OpenTelemetry status
+        assert saved_span.status == span.status.status_code
+        assert saved_span.start_time_unix_nano == span.start_time_ns
+        assert saved_span.end_time_unix_nano == span.end_time_ns
+        # Check the computed duration
+        assert saved_span.duration_ns == (span.end_time_ns - span.start_time_ns)
+
+        # Verify the content is properly serialized
+        content_dict = json.loads(saved_span.content)
+        assert content_dict["name"] == "test_span"
+        # Inputs and outputs are stored in attributes as strings
+        assert content_dict["attributes"]["mlflow.spanInputs"] == json.dumps(
+            {"input": "test_input"}, cls=TraceJSONEncoder
+        )
+        assert content_dict["attributes"]["mlflow.spanOutputs"] == json.dumps(
+            {"output": "test_output"}, cls=TraceJSONEncoder
+        )
+        expected_type = "LLM" if not is_async else "CHAIN"
+        assert content_dict["attributes"]["mlflow.spanType"] == json.dumps(
+            expected_type, cls=TraceJSONEncoder
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
+    """Test that logging spans from different traces raises an error."""
+    # Create two different traces
+    experiment_id = store.create_experiment("test_multi_trace_experiment")
+    trace_info1 = TraceInfo(
+        trace_id="tr-span-test-789",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info2 = TraceInfo(
+        trace_id="tr-span-test-999",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=5678,
+        execution_duration=200,
+        state=TraceState.OK,
+    )
+    trace_info1 = store.start_trace(trace_info1)
+    trace_info2 = store.start_trace(trace_info2)
+
+    # Create spans for different traces
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace1",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info1.trace_id, cls=TraceJSONEncoder)
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info1.trace_id,
+    )
+
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace2",
+            context=trace_api.SpanContext(
+                trace_id=67890,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info2.trace_id, cls=TraceJSONEncoder)
+            },
+            start_time=3000000000,
+            end_time=4000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info2.trace_id,
+    )
+
+    # Try to log spans from different traces - should raise MlflowException
+    if is_async:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            await store.log_spans_async(experiment_id, [span1, span2])
+    else:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            store.log_spans(experiment_id, [span1, span2])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans creates a trace if it doesn't exist."""
+    # Create an experiment but no trace
+    experiment_id = store.create_experiment("test_auto_trace_experiment")
+
+    # Create a span without a pre-existing trace
+    trace_id = "tr-auto-created-trace"
+    readable_span = OTelReadableSpan(
+        name="auto_trace_span",
+        context=trace_api.SpanContext(
+            trace_id=98765,
+            span_id=555,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+            "mlflow.experimentId": json.dumps(experiment_id, cls=TraceJSONEncoder),
+        },
+        start_time=5000000000,
+        end_time=6000000000,
+        resource=_OTelResource.get_empty(),
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Log the span - should create the trace automatically
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
+
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+
+    # Verify the trace was created
+    with store.ManagedSessionMaker() as session:
+        created_trace = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
+        )
+
+        assert created_trace is not None
+        assert created_trace.experiment_id == int(experiment_id)
+        assert created_trace.timestamp_ms == 5000000000 // 1_000_000
+        assert created_trace.execution_time_ms == 1000000000 // 1_000_000
+        # When root span status is UNSET (unexpected), we assume trace status is OK
+        assert created_trace.status == "OK"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
+    """Test logging an empty list of spans."""
+    experiment_id = store.create_experiment("test_empty_experiment")
+
+    if is_async:
+        result = await store.log_spans_async(experiment_id, [])
+    else:
+        result = store.log_spans(experiment_id, [])
+    assert result == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
+    """Test that concurrent trace creation is handled correctly."""
+    # Create an experiment
+    experiment_id = store.create_experiment("test_concurrent_trace")
+    trace_id = "tr-concurrent-test"
+
+    # Create a span
+    readable_span = OTelReadableSpan(
+        name="concurrent_span",
+        context=trace_api.SpanContext(
+            trace_id=12345,
+            span_id=999,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        resource=_OTelResource.get_empty(),
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        },
+        start_time=1000000000,
+        end_time=2000000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        events=[],
+        links=[],
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Simulate a race condition where flush() raises IntegrityError
+    # This tests that the code properly handles concurrent trace creation
+    original_flush = None
+    call_count = 0
+
+    def mock_flush(self):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First call to flush (for trace creation) raises IntegrityError
+            raise IntegrityError("UNIQUE constraint failed", None, None)
+        else:
+            # Subsequent calls work normally
+            return original_flush()
+
+    with store.ManagedSessionMaker() as session:
+        original_flush = session.flush
+        with mock.patch.object(session, "flush", mock_flush):
+            # This should handle the IntegrityError and still succeed
+            if is_async:
+                result = await store.log_spans_async(experiment_id, [span])
+            else:
+                result = store.log_spans(experiment_id, [span])
+
+    # Verify the span was logged successfully despite the race condition
+    assert len(result) == 1
+    assert result[0] == span
+
+    # Verify the trace and span exist in the database
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.experiment_id == int(experiment_id)
+
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
+            .one()
+        )
+        assert saved_span is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans updates trace time range when new spans extend it."""
+    experiment_id = _create_experiments(store, "test_log_spans_updates_trace")
+    trace_id = "tr-time-update-test-123"
+
+    # Create first span from 1s to 2s
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="early_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=2_000_000_000,  # 2 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log first span - creates trace with 1s start, 1s duration
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
+
+    # Verify initial trace times
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 1_000  # 1 second
+        assert trace.execution_time_ms == 1_000  # 1 second duration
+
+    # Create second span that starts earlier (0.5s) and ends later (3s)
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="extended_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=500_000_000,  # 0.5 seconds
+            end_time=3_000_000_000,  # 3 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log second span - should update trace to 0.5s start, 2.5s duration
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
+
+    # Verify trace times were updated
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # 0.5 seconds (earlier start)
+        assert trace.execution_time_ms == 2_500  # 2.5 seconds duration (0.5s to 3s)
+
+    # Create third span that only extends the end time (2.5s to 4s)
+    span3 = create_mlflow_span(
+        OTelReadableSpan(
+            name="later_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_500_000_000,  # 2.5 seconds
+            end_time=4_000_000_000,  # 4 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log third span - should only update end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
+
+    # Verify trace times were updated again
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Still 0.5 seconds (no earlier start)
+        assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans with spans that have no end time results in None execution_time."""
+    experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
+    trace_id = "tr-no-end-time-test-123"
+
+    # Create span without end time (in-progress span)
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=None,  # No end time - span still in progress
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
+
+    # Verify trace has timestamp but no execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 1_000  # 1 second
+        assert trace.execution_time_ms is None  # No execution time since span not ended
+
+    # Add a second span that also has no end time
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="another_in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=500_000_000,  # 0.5 seconds - earlier start
+            end_time=None,  # No end time
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log second span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
+
+    # Verify trace timestamp updated but execution_time still None
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Updated to earlier time
+        assert trace.execution_time_ms is None  # Still no execution time
+
+    # Now add a span with an end time
+    span3 = create_mlflow_span(
+        OTelReadableSpan(
+            name="completed_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_000_000_000,  # 2 seconds
+            end_time=3_000_000_000,  # 3 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
+
+    # Verify trace now has execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Still earliest start
+        assert trace.execution_time_ms == 2_500  # 3s - 0.5s = 2.5s
 
 
 def test_log_outputs(store: SqlAlchemyStore):
@@ -5620,3 +6357,799 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     actual_metrics = sorted(model.metrics, key=lambda m: m.key)
     expected_metrics = sorted([metric, another_metric, *metrics], key=lambda m: m.key)
     assert actual_metrics == expected_metrics
+
+
+def test_create_and_get_assessment(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="The response is correct and well-formatted",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.trace_id == trace_info.request_id
+    assert created_feedback.create_time_ms is not None
+    assert created_feedback.name == "correctness"
+    assert created_feedback.value is True
+    assert created_feedback.rationale == "The response is correct and well-formatted"
+    assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa", "difficulty": "easy"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.trace_id == trace_info.request_id
+    assert created_expectation.value == "The capital of France is Paris."
+    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.name == "correctness"
+    assert retrieved_feedback.value is True
+    assert retrieved_feedback.rationale == "The response is correct and well-formatted"
+    assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert retrieved_feedback.span_id == "span-123"
+    assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.value == "The capital of France is Paris."
+    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.span_id == "span-456"
+    assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid
+
+
+def test_get_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
+        store.get_assessment("fake_trace", "fake_assessment")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, "fake_assessment")
+
+
+def test_update_assessment_feedback(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="Original rationale",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        name="correctness_updated",
+        feedback=FeedbackValue(value=False),
+        rationale="Updated rationale",
+        metadata={"project": "test-project", "version": "2.0", "new_field": "added"},
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "correctness_updated"
+    assert updated_feedback.value is False
+    assert updated_feedback.rationale == "Updated rationale"
+    assert updated_feedback.metadata == {
+        "project": "test-project",
+        "version": "2.0",
+        "new_field": "added",
+    }
+    assert updated_feedback.span_id == "span-123"
+    assert updated_feedback.source.source_id == "evaluator@company.com"
+    assert updated_feedback.valid is True
+
+    retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert retrieved.value is False
+    assert retrieved.name == "correctness_updated"
+    assert retrieved.rationale == "Updated rationale"
+
+
+def test_update_assessment_expectation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(original_expectation)
+    original_id = created_expectation.assessment_id
+
+    updated_expectation = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        expectation=ExpectationValue(value="The capital and largest city of France is Paris."),
+        metadata={"context": "geography-qa", "updated": "true"},
+    )
+
+    assert updated_expectation.assessment_id == original_id
+    assert updated_expectation.name == "expected_response"
+    assert updated_expectation.value == "The capital and largest city of France is Paris."
+    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.span_id == "span-456"
+    assert updated_expectation.source.source_id == "annotator@company.com"
+
+
+def test_update_assessment_partial_fields(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value=5,
+        rationale="Original rationale",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"scorer": "automated"},
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        rationale="Updated rationale only",
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "quality"
+    assert updated_feedback.value == 5
+    assert updated_feedback.rationale == "Updated rationale only"
+    assert updated_feedback.metadata == {"scorer": "automated"}
+
+
+def test_update_assessment_type_validation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    created_feedback = store.create_assessment(feedback)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_feedback.assessment_id,
+            expectation=ExpectationValue(value="This should fail"),
+        )
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="test_expectation",
+        value="original_expected",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    created_expectation = store.create_assessment(expectation)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_expectation.assessment_id,
+            feedback=FeedbackValue(value="This should fail"),
+        )
+
+
+def test_update_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
+        store.update_assessment(
+            trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id="fake_assessment",
+            rationale="This should fail",
+        )
+
+
+def test_update_assessment_metadata_merging(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"keep": "this", "override": "old_value", "remove_me": "will_stay"},
+    )
+
+    created = store.create_assessment(original)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        metadata={"override": "new_value", "new_key": "new_value"},
+    )
+
+    expected_metadata = {
+        "keep": "this",
+        "override": "new_value",
+        "remove_me": "will_stay",
+        "new_key": "new_value",
+    }
+    assert updated.metadata == expected_metadata
+
+
+def test_update_assessment_timestamps(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created = store.create_assessment(original)
+    original_create_time = created.create_time_ms
+    original_update_time = created.last_update_time_ms
+
+    time.sleep(0.001)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        name="updated_name",
+    )
+
+    assert updated.create_time_ms == original_create_time
+    assert updated.last_update_time_ms > original_update_time
+
+
+def test_create_assessment_with_overrides(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="poor",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+    )
+
+    created_original = store.create_assessment(original_feedback)
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides=created_original.assessment_id,
+    )
+
+    created_override = store.create_assessment(override_feedback)
+
+    assert created_override.overrides == created_original.assessment_id
+    assert created_override.value == "excellent"
+    assert created_override.valid is True
+
+    retrieved_original = store.get_assessment(trace_info.request_id, created_original.assessment_id)
+    assert retrieved_original.valid is False
+    assert retrieved_original.value == "poor"
+
+
+def test_create_assessment_override_nonexistent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides="nonexistent-assessment-id",
+    )
+
+    with pytest.raises(
+        MlflowException, match=r"Assessment with ID 'nonexistent-assessment-id' not found"
+    ):
+        store.create_assessment(override_feedback)
+
+
+def test_delete_assessment_idempotent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="test_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved.assessment_id == created_feedback.assessment_id
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_feedback.assessment_id}' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+    store.delete_assessment(trace_info.request_id, "fake_assessment_id")
+
+
+def test_delete_assessment_override_behavior(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="original",
+            value="original_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+
+    override = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="override",
+            value="override_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            overrides=original.assessment_id,
+        ),
+    )
+
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_info.request_id, override.assessment_id).valid is True
+
+    store.delete_assessment(trace_info.request_id, override.assessment_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_assessment(trace_info.request_id, override.assessment_id)
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
+
+
+def test_assessment_with_run_id(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    run = store.create_run(
+        experiment_id=trace_info.experiment_id,
+        user_id="test_user",
+        start_time=get_current_time_millis(),
+        tags=[],
+        run_name="test_run",
+    )
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="run_feedback",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    feedback.run_id = run.info.run_id
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.run_id == run.info.run_id
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.run_id == run.info.run_id
+
+
+def test_assessment_with_error(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    try:
+        raise ValueError("Test error message")
+    except ValueError as test_error:
+        feedback = Feedback(
+            trace_id=trace_info.request_id,
+            name="error_feedback",
+            value=None,
+            error=test_error,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.error.error_message == "Test error message"
+    assert created_feedback.error.error_code == "ValueError"
+    assert created_feedback.error.stack_trace is not None
+    assert "ValueError: Test error message" in created_feedback.error.stack_trace
+    assert "test_assessment_with_error" in created_feedback.error.stack_trace
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.error.error_message == "Test error message"
+    assert retrieved_feedback.error.error_code == "ValueError"
+    assert retrieved_feedback.error.stack_trace is not None
+    assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
+    assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
+    """Test that trace status defaults to IN_PROGRESS when no root span is present."""
+    experiment_id = store.create_experiment("test_default_in_progress")
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Create a child span (has parent, not a root span)
+    child_context = mock.Mock()
+    child_context.trace_id = 56789
+    child_context.span_id = 777
+    child_context.is_remote = False
+    child_context.trace_flags = trace_api.TraceFlags(1)
+    child_context.trace_state = trace_api.TraceState()
+
+    parent_context = mock.Mock()
+    parent_context.trace_id = 56789
+    parent_context.span_id = 888  # Parent span not included in log
+    parent_context.is_remote = False
+    parent_context.trace_flags = trace_api.TraceFlags(1)
+    parent_context.trace_state = trace_api.TraceState()
+
+    child_otel_span = OTelReadableSpan(
+        name="child_span_only",
+        context=child_context,
+        parent=parent_context,  # Has parent, not a root span
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            "mlflow.spanType": json.dumps("LLM", cls=TraceJSONEncoder),
+        },
+        start_time=2000000000,
+        end_time=3000000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        resource=_OTelResource.get_empty(),
+    )
+    child_span = create_mlflow_span(child_otel_span, trace_id, "LLM")
+
+    # Log only the child span (no root span)
+    if is_async:
+        await store.log_spans_async(experiment_id, [child_span])
+    else:
+        store.log_spans(experiment_id, [child_span])
+
+    # Check trace was created with IN_PROGRESS status (default when no root span)
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == "IN_PROGRESS"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.parametrize(
+    ("span_status_code", "expected_trace_status"),
+    [
+        (trace_api.StatusCode.OK, "OK"),
+        (trace_api.StatusCode.ERROR, "ERROR"),
+    ],
+)
+async def test_log_spans_sets_trace_status_from_root_span(
+    store: SqlAlchemyStore,
+    is_async: bool,
+    span_status_code: trace_api.StatusCode,
+    expected_trace_status: str,
+):
+    """Test that trace status is correctly set from root span status."""
+    experiment_id = store.create_experiment("test_trace_status_from_root")
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Create root span with specified status
+    description = (
+        f"Root span {span_status_code.name}"
+        if span_status_code == trace_api.StatusCode.ERROR
+        else None
+    )
+    root_otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name=f"root_span_{span_status_code.name}",
+        status_code=span_status_code,
+        status_description=description,
+        trace_id_num=12345 + span_status_code.value,
+        span_id_num=111 + span_status_code.value,
+    )
+    root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
+
+    # Log the span
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span])
+    else:
+        store.log_spans(experiment_id, [root_span])
+
+    # Verify trace has expected status from root span
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == expected_trace_status
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_unset_root_span_status_defaults_to_ok(
+    store: SqlAlchemyStore, is_async: bool
+):
+    """Test that UNSET root span status (unexpected) defaults to OK trace status."""
+    experiment_id = store.create_experiment("test_unset_root_span")
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Create root span with UNSET status (this is unexpected in practice)
+    root_unset_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="root_span_unset",
+        status_code=trace_api.StatusCode.UNSET,  # Unexpected in practice
+        start_time=3000000000,
+        end_time=4000000000,
+        trace_id_num=23456,
+        span_id_num=333,
+    )
+    root_span = create_mlflow_span(root_unset_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span])
+    else:
+        store.log_spans(experiment_id, [root_span])
+
+    # Verify trace defaults to OK status when root span has UNSET status
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == "OK"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_in_progress_trace_status_from_root_span(
+    store: SqlAlchemyStore, is_async: bool
+):
+    """Test that IN_PROGRESS trace status is updated from root span on subsequent logs."""
+    experiment_id = store.create_experiment("test_trace_status_update")
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # First, log a non-root span which will create trace with default IN_PROGRESS status
+    parent_context = create_mock_span_context(45678, 555)  # Will be root span later
+
+    child_otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="child_span",
+        parent=parent_context,  # Has parent, not a root span
+        status_code=trace_api.StatusCode.OK,
+        start_time=1100000000,
+        end_time=1900000000,
+        trace_id_num=45678,
+        span_id_num=666,
+    )
+    child_span = create_mlflow_span(child_otel_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [child_span])
+    else:
+        store.log_spans(experiment_id, [child_span])
+
+    # Verify trace was created with IN_PROGRESS status (default when no root span)
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == "IN_PROGRESS"
+
+    # Now log root span with ERROR status
+    root_otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="root_span",
+        parent=None,  # Root span
+        status_code=trace_api.StatusCode.ERROR,
+        status_description="Root span error",
+        trace_id_num=45678,
+        span_id_num=555,
+    )
+    root_span = create_mlflow_span(root_otel_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [root_span])
+    else:
+        store.log_spans(experiment_id, [root_span])
+
+    # Check trace status was updated to ERROR from root span
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == "ERROR"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
+    store: SqlAlchemyStore, is_async: bool
+):
+    """Test that trace status is updated from root span on subsequent logs."""
+    experiment_id = store.create_experiment("test_unspecified_update")
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # First, create a trace with OK status by logging a root span with OK status
+    initial_span = create_test_span(
+        trace_id=trace_id,
+        name="initial_unset_span",
+        span_id=999,
+        status=trace_api.StatusCode.OK,
+        trace_num=67890,
+    )
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [initial_span])
+    else:
+        store.log_spans(experiment_id, [initial_span])
+
+    # Verify trace was created with OK status
+    trace = store.get_trace_info(trace_id)
+    assert trace.state.value == "OK"
+
+    # Now log a new root span with OK status (earlier start time makes it the new root)
+    new_root_span = create_test_span(
+        trace_id=trace_id,
+        name="new_root_span",
+        span_id=1000,
+        status=trace_api.StatusCode.OK,
+        start_ns=500000000,  # Earlier than initial span
+        end_ns=2500000000,
+        trace_num=67890,
+    )
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [new_root_span])
+    else:
+        store.log_spans(experiment_id, [new_root_span])
+
+    # Check trace status was updated to OK from root span
+    traces, _ = store.search_traces([experiment_id])
+    trace = next(t for t in traces if t.request_id == trace_id)
+    assert trace.state.value == "OK"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_does_not_update_finalized_trace_status(
+    store: SqlAlchemyStore, is_async: bool
+):
+    """Test that finalized trace statuses (OK, ERROR) are not updated by root span."""
+    experiment_id = store.create_experiment("test_no_update_finalized")
+
+    # Test that OK status is not updated
+    # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
+    trace_id_ok = f"tr-{uuid.uuid4().hex}"
+
+    # Create initial root span with OK status
+    ok_span = create_test_span(
+        trace_id=trace_id_ok,
+        name="ok_root_span",
+        span_id=1111,
+        status=trace_api.StatusCode.OK,
+        trace_num=78901,
+    )
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [ok_span])
+    else:
+        store.log_spans(experiment_id, [ok_span])
+
+    # Verify trace has OK status
+    traces, _ = store.search_traces([experiment_id])
+    trace_ok = next(t for t in traces if t.request_id == trace_id_ok)
+    assert trace_ok.state.value == "OK"
+
+    # Now log a new root span with ERROR status
+    error_span = create_test_span(
+        trace_id=trace_id_ok,
+        name="error_root_span",
+        span_id=2222,
+        status=trace_api.StatusCode.ERROR,
+        status_desc="New error",
+        start_ns=500000000,
+        end_ns=2500000000,
+        trace_num=78901,
+    )
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [error_span])
+    else:
+        store.log_spans(experiment_id, [error_span])
+
+    # Verify trace status is still OK (not updated to ERROR)
+    traces, _ = store.search_traces([experiment_id])
+    trace_ok = next(t for t in traces if t.request_id == trace_id_ok)
+    assert trace_ok.state.value == "OK"
+
+
+def _create_trace_info(trace_id: str, experiment_id: str):
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+
+
+def test_link_traces_to_run(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    trace_ids = []
+    for i in range(5):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # search_traces should return traces linked to the run
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+    )
+    assert len(traces) == 5
+
+
+def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Test exceeding the limit (101 traces)
+    trace_ids = []
+    for i in range(101):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
+        store.link_traces_to_run(trace_ids, run.info.run_id)

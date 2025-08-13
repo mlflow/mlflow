@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -30,7 +29,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/logged_models/(?P<model_id>[^/]+)(?P<relative_path>/.*)?$"
     )
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         super().__init__(artifact_uri, tracking_uri)
         m = self._URI_REGEX.search(artifact_uri)
         if not m:
@@ -52,7 +51,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def is_logged_model_uri(artifact_uri: str) -> bool:
         return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
 
-    def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
         try:
             self.databricks_sdk_repo.log_artifact(local_file, artifact_path)
         except Exception as e:
@@ -62,7 +61,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             )
             self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
-    def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
         try:
             self.databricks_sdk_repo.log_artifacts(local_dir, artifact_path)
         except Exception as e:
@@ -72,7 +71,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             )
             self.databricks_artifact_repo.log_artifacts(local_dir, artifact_path)
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         try:
             return self.databricks_sdk_repo.list_artifacts(path)
         except Exception as e:

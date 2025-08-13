@@ -87,18 +87,6 @@ const config: Config = {
         fontSize: 16,
       },
     },
-    ...(process.env.PR_PREVIEW
-      ? {
-          announcementBar: {
-            id: 'pr_preview',
-            content:
-              '<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>',
-            backgroundColor: '#0194e2',
-            textColor: '#ffffff',
-            isCloseable: true,
-          },
-        }
-      : {}),
     navbar: {
       logo: {
         alt: 'MLflow Logo',
@@ -132,6 +120,17 @@ const config: Config = {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
+        },
+        {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
+        },
+        {
+          type: 'custom-versionSelector',
+          position: 'right',
         },
         {
           href: 'https://github.com/mlflow/mlflow',
@@ -240,6 +239,16 @@ const config: Config = {
         },
       },
     ],
+    // Community docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'community',
+        path: 'docs/community',
+        routeBasePath: 'community',
+        sidebarPath: './communitySidebar.ts',
+      },
+    ],
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -279,7 +288,7 @@ const config: Config = {
             from: ['/tracing/faq'],
           },
           {
-            to: '/genai/tracing/data-model',
+            to: '/genai/tracing/concepts/trace',
             from: ['/tracing/tracing-schema', '/llms/tracing/tracing-schema'],
           },
           {
@@ -291,7 +300,7 @@ const config: Config = {
             from: ['/tracing/api/search', '/llms/tracing/search-traces'],
           },
           {
-            to: '/genai/tracing/app-instrumentation/manual-tracing/low-level-api',
+            to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/client'],
           },
           {
@@ -399,6 +408,11 @@ const config: Config = {
             from: ['/tracing/tutorials'],
           },
 
+          // Tracing Redirects
+          {
+            to: '/genai/tracing/concepts/trace',
+            from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
+          },
           // LLM Flavors Redirects
           {
             to: '/genai',
@@ -513,11 +527,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',
@@ -529,28 +543,59 @@ const config: Config = {
 
           // Prompt Management Redirects
           {
-            to: '/genai/prompt-version-mgmt/prompt-engineering',
-            from: ['/llms/prompt-engineering'],
+            to: '/genai/prompt-registry/prompt-engineering',
+            from: ['/llms/prompt-engineering', '/genai/prompt-version-mgmt/prompt-engineering'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry',
-            from: ['/prompts'],
+            to: '/genai/prompt-registry',
+            from: ['/prompts', '/genai/prompt-version-mgmt/prompt-registry'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases',
-            from: ['/prompts/cm'],
+            to: '/genai/prompt-registry/manage-prompt-lifecycles-with-aliases',
+            from: ['/prompts/cm', '/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts',
-            from: ['/prompts/evaluate'],
+            to: '/genai/prompt-registry/evaluate-prompts',
+            from: ['/prompts/evaluate', '/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts'],
           },
           {
-            to: '/genai/prompt-version-mgmt/prompt-registry/log-with-model',
-            from: ['/prompts/run-and-model'],
+            to: '/genai/prompt-registry/log-with-model',
+            from: ['/prompts/run-and-model', '/genai/prompt-version-mgmt/prompt-registry/log-with-model'],
           },
           {
-            to: '/genai/prompt-version-mgmt/optimize-prompts',
-            from: ['/genai/prompt-version-mgmt/prompt-registry/optimize-prompts'],
+            to: '/genai/prompt-registry/optimize-prompts',
+            from: [
+              '/genai/prompt-version-mgmt/optimize-prompts',
+              '/genai/prompt-version-mgmt/prompt-registry/optimize-prompts',
+            ],
+          },
+          {
+            to: '/genai/prompt-registry/create-and-edit-prompts',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts'],
+          },
+          {
+            to: '/genai/prompt-registry/use-prompts-in-apps',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-apps'],
+          },
+          {
+            to: '/genai/prompt-registry/structured-output',
+            from: ['/genai/prompt-version-mgmt/prompt-registry/structured-output'],
+          },
+          {
+            to: '/genai/version-tracking',
+            from: ['/genai/prompt-version-mgmt/version-tracking'],
+          },
+          {
+            to: '/genai/version-tracking/quickstart',
+            from: ['/genai/prompt-version-mgmt/version-tracking/quickstart'],
+          },
+          {
+            to: '/genai/version-tracking/track-application-versions-with-mlflow',
+            from: ['/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow'],
+          },
+          {
+            to: '/genai/version-tracking/compare-app-versions',
+            from: ['/genai/prompt-version-mgmt/version-tracking/compare-app-versions'],
           },
 
           // Governance and Deployments Redirects

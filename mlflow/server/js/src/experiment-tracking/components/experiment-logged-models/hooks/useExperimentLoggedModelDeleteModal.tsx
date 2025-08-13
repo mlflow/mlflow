@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { loggedModelsDataRequest } from '../../../hooks/logged-models/request.utils';
 import { LoggedModelProto } from '../../../types';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const useExperimentLoggedModelDeleteModal = ({
   loggedModel,
@@ -22,7 +23,7 @@ export const useExperimentLoggedModelDeleteModal = ({
     }
   >({
     mutationFn: async ({ loggedModelId }) => {
-      await loggedModelsDataRequest(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`, 'DELETE');
+      await loggedModelsDataRequest(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'DELETE');
     },
   });
 

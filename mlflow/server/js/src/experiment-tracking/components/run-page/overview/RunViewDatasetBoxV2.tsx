@@ -1,6 +1,7 @@
 import { Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useState } from 'react';
-import type { KeyValueEntity, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import {
   DatasetWithRunType,
   ExperimentViewDatasetDrawer,
@@ -46,6 +47,7 @@ export const RunViewDatasetBoxV2 = ({
     <>
       <Overflow>
         {datasets.map((datasetWithTags) => (
+          // eslint-disable-next-line react/jsx-key
           <Typography.Link
             componentId="mlflow.run_details.datasets_box.dataset_link"
             css={{

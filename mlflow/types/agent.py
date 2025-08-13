@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ConfigDict
 
@@ -40,13 +40,13 @@ class ChatAgentMessage(BaseModel):
     """
 
     role: str
-    content: Optional[str] = None
-    name: Optional[str] = None
-    id: Optional[str] = None
-    tool_calls: Optional[list[ToolCall]] = None
-    tool_call_id: Optional[str] = None
+    content: str | None = None
+    name: str | None = None
+    id: str | None = None
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
     # TODO make this a pydantic class with subtypes once we have more details on usage
-    attachments: Optional[dict[str, str]] = None
+    attachments: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def check_content_and_tool_calls(cls, values):
@@ -60,7 +60,7 @@ class ChatAgentMessage(BaseModel):
             content = values.get("content")
             tool_calls = values.get("tool_calls")
 
-        if not content and not tool_calls:
+        if content is None and tool_calls is None:
             raise ValueError("Either 'content' or 'tool_calls' must be provided.")
         return values
 
@@ -92,8 +92,8 @@ class ChatContext(BaseModel):
         user_id (str): The ID of the user. **Optional** defaults to ``None``
     """
 
-    conversation_id: Optional[str] = None
-    user_id: Optional[str] = None
+    conversation_id: str | None = None
+    user_id: str | None = None
 
 
 class ChatAgentRequest(BaseModel):
@@ -112,9 +112,9 @@ class ChatAgentRequest(BaseModel):
     """
 
     messages: list[ChatAgentMessage]
-    context: Optional[ChatContext] = None
-    custom_inputs: Optional[dict[str, Any]] = None
-    stream: Optional[bool] = False
+    context: ChatContext | None = None
+    custom_inputs: dict[str, Any] | None = None
+    stream: bool | None = False
 
 
 class ChatAgentResponse(BaseModel):
@@ -139,10 +139,10 @@ class ChatAgentResponse(BaseModel):
             validate_assignment = True
 
     messages: list[ChatAgentMessage]
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
     # TODO: add finish_reason_metadata once we have a plan for usage
-    custom_outputs: Optional[dict[str, Any]] = None
-    usage: Optional[ChatUsage] = None
+    custom_outputs: dict[str, Any] | None = None
+    usage: ChatUsage | None = None
 
     @model_validator(mode="after")
     def check_message_ids(cls, values):
@@ -193,10 +193,10 @@ class ChatAgentChunk(BaseModel):
             validate_assignment = True
 
     delta: ChatAgentMessage
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
     # TODO: add finish_reason_metadata once we have a plan for usage
-    custom_outputs: Optional[dict[str, Any]] = None
-    usage: Optional[ChatUsage] = None
+    custom_outputs: dict[str, Any] | None = None
+    usage: ChatUsage | None = None
 
     @model_validator(mode="after")
     def check_message_id(cls, values):

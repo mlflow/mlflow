@@ -40,7 +40,10 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.utils.databricks_utils import get_databricks_env_vars, is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
@@ -133,10 +136,8 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif env_manager == _EnvManager.VIRTUALENV:
-            tracking.MlflowClient().set_tag(
-                active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
-            )
+        elif env_manager in {_EnvManager.VIRTUALENV, _EnvManager.UV}:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, env_manager)
             command_separator = " && "
             if project.env_type == env_type.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
@@ -260,7 +261,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):  # noqa: D417
+def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.

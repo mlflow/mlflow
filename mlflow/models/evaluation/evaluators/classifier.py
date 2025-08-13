@@ -1,8 +1,7 @@
 import logging
 import math
-from collections import namedtuple
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,7 +22,10 @@ from mlflow.models.utils import plot_lines
 _logger = logging.getLogger(__name__)
 
 
-_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
+class _Curve(NamedTuple):
+    plot_fn: Callable[..., Any]
+    plot_fn_args: dict[str, Any]
+    auc: float
 
 
 class ClassifierEvaluator(BuiltInEvaluator):
@@ -44,7 +46,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         # Get classification config
         self.y_true = self.dataset.labels_data
         self.label_list = self.evaluator_config.get("label_list")
@@ -569,9 +571,6 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
-
-
-_Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
 def _gen_classifier_curve(

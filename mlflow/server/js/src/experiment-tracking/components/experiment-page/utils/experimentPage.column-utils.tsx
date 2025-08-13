@@ -452,35 +452,41 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Metrics',
         groupId: COLUMN_TYPES.METRICS,
-        children: metricKeys.map((metricKey) => {
-          const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
-          const customMetricColumnDef = customMetricBehaviorDefs[metricKey];
-          const displayName = customMetricColumnDef?.displayName ?? metricKey;
-          const fieldName = createMetricFieldName(metricKey);
-          const tooltip = getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey);
-          return {
-            headerName: displayName,
-            colId: canonicalSortKey,
-            headerTooltip: tooltip,
-            field: fieldName,
-            tooltipValueGetter: (params) => {
-              return params.data?.[fieldName];
-            },
-            initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
-            initialHide: true,
-            sortable: true,
-            headerComponentParams: {
-              canonicalSortKey,
-            },
-            valueFormatter: customMetricColumnDef?.valueFormatter,
-            cellRendererSelector: ({ data: { groupParentInfo } }) =>
-              groupParentInfo ? { component: 'AggregateMetricValueCell' } : undefined,
-            cellClassRules: {
-              'is-previewable-cell': () => true,
-              'is-ordered-by': cellClassIsOrderedBy,
-            },
-          };
-        }),
+        children: metricKeys
+          .filter((metricKey) => {
+            // Only create columns for metrics that are selected or if we're comparing runs
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
+            return isComparingRuns || selectedColumns.includes(canonicalSortKey);
+          })
+          .map((metricKey) => {
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
+            const customMetricColumnDef = customMetricBehaviorDefs[metricKey];
+            const displayName = customMetricColumnDef?.displayName ?? metricKey;
+            const fieldName = createMetricFieldName(metricKey);
+            const tooltip = getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey);
+            return {
+              headerName: displayName,
+              colId: canonicalSortKey,
+              headerTooltip: tooltip,
+              field: fieldName,
+              tooltipValueGetter: (params) => {
+                return params.data?.[fieldName];
+              },
+              initialWidth: customMetricColumnDef?.initialColumnWidth ?? 100,
+              initialHide: true,
+              sortable: true,
+              headerComponentParams: {
+                canonicalSortKey,
+              },
+              valueFormatter: customMetricColumnDef?.valueFormatter,
+              cellRendererSelector: ({ data: { groupParentInfo } }) =>
+                groupParentInfo ? { component: 'AggregateMetricValueCell' } : undefined,
+              cellClassRules: {
+                'is-previewable-cell': () => true,
+                'is-ordered-by': cellClassIsOrderedBy,
+              },
+            };
+          }),
       });
     }
 
@@ -489,26 +495,32 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Parameters',
         groupId: COLUMN_TYPES.PARAMS,
-        children: paramKeys.map((paramKey) => {
-          const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
-          return {
-            colId: canonicalSortKey,
-            headerName: paramKey,
-            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.PARAMS, paramKey),
-            field: createParamFieldName(paramKey),
-            tooltipField: createParamFieldName(paramKey),
-            initialHide: true,
-            initialWidth: 100,
-            sortable: true,
-            headerComponentParams: {
-              canonicalSortKey,
-            },
-            cellClassRules: {
-              'is-previewable-cell': () => true,
-              'is-ordered-by': cellClassIsOrderedBy,
-            },
-          };
-        }),
+        children: paramKeys
+          .filter((paramKey) => {
+            // Only create columns for parameters that are selected or if we're comparing runs
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
+            return isComparingRuns || selectedColumns.includes(canonicalSortKey);
+          })
+          .map((paramKey) => {
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
+            return {
+              colId: canonicalSortKey,
+              headerName: paramKey,
+              headerTooltip: getQualifiedEntityName(COLUMN_TYPES.PARAMS, paramKey),
+              field: createParamFieldName(paramKey),
+              tooltipField: createParamFieldName(paramKey),
+              initialHide: true,
+              initialWidth: 100,
+              sortable: true,
+              headerComponentParams: {
+                canonicalSortKey,
+              },
+              cellClassRules: {
+                'is-previewable-cell': () => true,
+                'is-ordered-by': cellClassIsOrderedBy,
+              },
+            };
+          }),
       });
     }
 
@@ -517,18 +529,24 @@ export const useRunsColumnDefinitions = ({
       columns.push({
         headerName: 'Tags',
         colId: COLUMN_TYPES.TAGS,
-        children: tagKeys.map((tagKey) => {
-          const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey);
-          return {
-            colId: canonicalSortKey,
-            headerName: tagKey,
-            initialHide: true,
-            initialWidth: 100,
-            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.TAGS, tagKey),
-            field: createTagFieldName(tagKey),
-            tooltipField: createTagFieldName(tagKey),
-          };
-        }),
+        children: tagKeys
+          .filter((tagKey) => {
+            // Only create columns for tags that are selected or if we're comparing runs
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey);
+            return isComparingRuns || selectedColumns.includes(canonicalSortKey);
+          })
+          .map((tagKey) => {
+            const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey);
+            return {
+              colId: canonicalSortKey,
+              headerName: tagKey,
+              initialHide: true,
+              initialWidth: 100,
+              headerTooltip: getQualifiedEntityName(COLUMN_TYPES.TAGS, tagKey),
+              field: createTagFieldName(tagKey),
+              tooltipField: createTagFieldName(tagKey),
+            };
+          }),
       });
     }
 
@@ -543,6 +561,7 @@ export const useRunsColumnDefinitions = ({
     onDatasetSelected,
     expandRows,
     usingCompactViewport,
+    selectedColumns,
   ]);
 
   const canonicalSortKeys = useMemo(

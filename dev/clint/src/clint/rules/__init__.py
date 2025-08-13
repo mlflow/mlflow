@@ -7,6 +7,7 @@ from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
+from clint.rules.get_artifact_uri import GetArtifactUri
 from clint.rules.implicit_optional import ImplicitOptional
 from clint.rules.incorrect_type_annotation import IncorrectTypeAnnotation
 from clint.rules.invalid_abstract_method import InvalidAbstractMethod
@@ -34,13 +35,18 @@ from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 from clint.rules.use_sys_executable import UseSysExecutable
 
+ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
+
+
 __all__ = [
+    "ALL_RULES",
     "Rule",
     "DoNotDisable",
     "DocstringParamOrder",
     "EmptyNotebookCell",
     "ExampleSyntaxError",
     "ExtraneousDocstringParam",
+    "GetArtifactUri",
     "ForbiddenSetActiveModelUsage",
     "ForbiddenTopLevelImport",
     "ForbiddenTraceUIInNotebook",

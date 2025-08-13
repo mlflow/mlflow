@@ -119,6 +119,7 @@ def http_request(
             host_creds.token,
             host_creds.databricks_auth_profile,
             retry_timeout_seconds=retry_timeout_seconds,
+            timeout=timeout,
         )
 
         def make_sdk_call():
@@ -259,6 +260,7 @@ def get_workspace_client(
     token,
     databricks_auth_profile,
     retry_timeout_seconds=None,
+    timeout=None,
 ):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
@@ -267,6 +269,8 @@ def get_workspace_client(
         kwargs = {"host": host, "token": token}
     else:
         kwargs = {"profile": databricks_auth_profile}
+    if timeout is not None:
+        kwargs["http_timeout_seconds"] = timeout
     config = Config(
         **kwargs,
         retry_timeout_seconds=retry_timeout_seconds
@@ -408,7 +412,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
     Raises:
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
-    from databricks.sdk.errors import DatabricksError
+    from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
 
     start_time = time.time()
     attempt = 0
@@ -418,8 +422,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             return call_func()
         except DatabricksError as e:
             # Get HTTP status code from the error
-            status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
-
+            status_code = next(
+                (code for code, cls in STATUS_CODE_MAPPING.items() if isinstance(e, cls)), 500
+            )
             # Check if this is a retryable error
             if status_code not in retry_codes:
                 raise

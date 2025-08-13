@@ -11,7 +11,8 @@ import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromp
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
-import type { KeyValueEntity, RunInfoEntity } from '../../types';
+import type { RunInfoEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../types';
@@ -30,13 +31,6 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
-}));
-
-jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
-    '@mlflow/mlflow/src/common/utils/FeatureUtils',
-  ),
-  shouldEnableGraphQLRunDetailsPage: () => false,
 }));
 
 const testPromptName = 'test-prompt';
@@ -207,7 +201,7 @@ describe('RunViewOverview integration', () => {
     await userEvent.type(screen.getByTestId('text-area'), 'hello');
     await userEvent.click(screen.getByTestId('editable-note-save-button'));
 
-    expect(setTagApi).toBeCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
+    expect(setTagApi).toHaveBeenCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
   });
 
   test.each([
@@ -359,7 +353,7 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
-      expect(getRunApi).toBeCalledWith(testParentRunUuid);
+      expect(getRunApi).toHaveBeenCalledWith(testParentRunUuid);
     });
   });
 
@@ -383,7 +377,7 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
-      expect(usePromptVersionsForRunQuery).toBeCalledWith({ runUuid: testRunUuid });
+      expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
     });
   });
 

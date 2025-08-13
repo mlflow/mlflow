@@ -32,7 +32,7 @@ that can be used to define your own customized model. By subclassing it, the mod
 Methods of PythonModel:
 
     - **predict**
-        A valid PythonModel must implement the predict method, which defines the model’s prediction logic. This method is called by MLflow when
+        A valid PythonModel must implement the predict method, which defines the model's prediction logic. This method is called by MLflow when
         the model is loaded as a PyFunc model using `mlflow.pyfunc.load_model` and the `predict` function is invoked.
     - **predict_stream**
         The predict_stream method should be implemented if the model is intended for use in streaming environments. MLflow invokes this method
@@ -102,6 +102,8 @@ mlflow.models.predict(
     model_uri=model_info.model_uri,
     input_data=["a", "b", "c"],
     env_manager="uv",
+    # ONLY SET THIS if your model dependencies include pre-release packages (e.g. mlflow==3.2.0rc0)
+    extra_envs={"UV_PRERELEASE": "allow"},
 )
 ```
 

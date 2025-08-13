@@ -8,6 +8,9 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
+:root {
+  --color-brand-red: #eb1700;
+}
 
 /* --------------------------------
  * 0. Override tailwinds reset of li and ul elements styling
@@ -490,6 +493,18 @@ html[data-theme='dark'] .menu__link--active {
   background-color: transparent;
 }
 
+/* External link icon in sidebar - make existing icon smaller */
+.menu__link--external svg,
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-left: 0.2em;
+}
+
 /* --------------------------------
  * 5. Content Navigation
  * -------------------------------- */
@@ -680,41 +695,6 @@ html[data-theme='dark'] .menu__link--active {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-}
-
-/* Feature Highlights */
-.feature-highlights {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-
-.highlight-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  text-align: left;
-}
-
-.highlight-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-  margin-top: 0.25rem;
-}
-
-.highlight-content h4 {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-  color: var(--ifm-color-emphasis-hover);
-  margin-top: 0;
-}
-
-.highlight-content p {
-  color: var(--ifm-border-color);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin-bottom: 0;
 }
 
 /* Responsive Design */

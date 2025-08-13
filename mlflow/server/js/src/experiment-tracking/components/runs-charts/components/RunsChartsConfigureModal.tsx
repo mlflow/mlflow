@@ -39,7 +39,6 @@ import { RunsChartsConfigureContourChart } from './config/RunsChartsConfigureCon
 import { RunsChartsConfigureScatterChart } from './config/RunsChartsConfigureScatterChart';
 import { RunsChartsTooltipBody } from './RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
-import { shouldEnableDifferenceViewCharts } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
@@ -184,7 +183,7 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
-    if (shouldEnableDifferenceViewCharts() && type === RunsChartType.DIFFERENCE) {
+    if (type === RunsChartType.DIFFERENCE) {
       return (
         <RunsChartsConfigureDifferenceChart
           metricKeyList={metricKeyList}
@@ -366,7 +365,7 @@ export const RunsChartsConfigureModal = ({
                     </div>
                   </SimpleSelectOption>
                 )}
-                {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+                {isChartTypeSupported(RunsChartType.DIFFERENCE) && (
                   <SimpleSelectOption value={RunsChartType.DIFFERENCE}>
                     <div css={styles.chartTypeOption(theme)}>
                       <ChartDifferenceIcon />

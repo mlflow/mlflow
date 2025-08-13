@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict
@@ -46,10 +46,10 @@ class TraceInfo(_MlflowObject):
     trace_location: TraceLocation
     request_time: int
     state: TraceState
-    request_preview: Optional[str] = None
-    response_preview: Optional[str] = None
-    client_request_id: Optional[str] = None
-    execution_duration: Optional[int] = None
+    request_preview: str | None = None
+    response_preview: str | None = None
+    client_request_id: str | None = None
+    execution_duration: int | None = None
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
@@ -154,7 +154,7 @@ class TraceInfo(_MlflowObject):
         return self.trace_id
 
     @property
-    def experiment_id(self) -> Optional[str]:
+    def experiment_id(self) -> str | None:
         """
         An MLflow experiment ID associated with the trace, if the trace is stored
         in MLflow tracking server. Otherwise, None.
@@ -165,7 +165,7 @@ class TraceInfo(_MlflowObject):
         )
 
     @experiment_id.setter
-    def experiment_id(self, value: Optional[str]) -> None:
+    def experiment_id(self, value: str | None) -> None:
         self.trace_location.mlflow_experiment.experiment_id = value
 
     @property
@@ -182,11 +182,11 @@ class TraceInfo(_MlflowObject):
         self.request_time = value
 
     @property
-    def execution_time_ms(self) -> Optional[int]:
+    def execution_time_ms(self) -> int | None:
         return self.execution_duration
 
     @execution_time_ms.setter
-    def execution_time_ms(self, value: Optional[int]) -> None:
+    def execution_time_ms(self, value: int | None) -> None:
         self.execution_duration = value
 
     @property
@@ -199,7 +199,7 @@ class TraceInfo(_MlflowObject):
         self.state = value.to_state()
 
     @property
-    def token_usage(self) -> Optional[dict[str, int]]:
+    def token_usage(self) -> dict[str, int] | None:
         """
         Returns the aggregated token usage for the trace.
 

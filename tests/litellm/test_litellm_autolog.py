@@ -1,30 +1,12 @@
 import asyncio
-import time
-from typing import Optional
-from unittest import mock
 
 import litellm
 import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 from tests.tracing.helper import get_traces
-
-
-# fixture to run test twice, one for in databricks and one for not in databricks
-@pytest.fixture(params=[True, False])
-def is_in_databricks(request):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=request.param
-    ):
-        yield request.param
-
-
-def _wait_if_not_in_databricks():
-    if not is_in_databricks_runtime():
-        time.sleep(1)
 
 
 @pytest.fixture(autouse=True)
@@ -34,19 +16,14 @@ def cleanup_callbacks():
     litellm.failure_callbacks = []
 
 
-def test_litellm_tracing_success(is_in_databricks):
+def test_litellm_tracing_success():
     mlflow.litellm.autolog()
 
     response = litellm.completion(
         model="gpt-4o-mini",
         messages=[{"role": "system", "content": "Hello"}],
     )
-
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
-
-    # Success logging is asynchronous by default, but in Databricks, we patch it to be synchronous
-    # to ensure that the trace is rendered correctly in notebook.
-    _wait_if_not_in_databricks()
 
     traces = get_traces()
     assert len(traces) == 1
@@ -63,10 +40,14 @@ def test_litellm_tracing_success(is_in_databricks):
     assert spans[0].attributes["call_type"] == "completion"
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0
-    assert spans[0].attributes["usage"] is not None
+    assert spans[0].attributes["usage"] == {
+        "completion_tokens": 12,
+        "prompt_tokens": 9,
+        "total_tokens": 21,
+    }
 
 
-def test_litellm_tracing_failure(is_in_databricks):
+def test_litellm_tracing_failure():
     mlflow.litellm.autolog()
 
     with pytest.raises(litellm.exceptions.BadRequestError, match="LLM Provider"):
@@ -90,7 +71,7 @@ def test_litellm_tracing_failure(is_in_databricks):
     assert spans[0].events[0].name == "exception"
 
 
-def test_litellm_tracing_streaming(is_in_databricks):
+def test_litellm_tracing_streaming():
     mlflow.litellm.autolog()
 
     response = litellm.completion(
@@ -101,8 +82,6 @@ def test_litellm_tracing_streaming(is_in_databricks):
 
     chunks = [c.choices[0].delta.content for c in response]
     assert chunks == ["Hello", " world", None]
-
-    _wait_if_not_in_databricks()
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
@@ -118,10 +97,15 @@ def test_litellm_tracing_streaming(is_in_databricks):
     }
     assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
     assert spans[0].attributes["model"] == "gpt-4o-mini"
+    assert spans[0].attributes["usage"] == {
+        "prompt_tokens": 8,
+        "completion_tokens": 2,
+        "total_tokens": 10,
+    }
 
 
 @pytest.mark.asyncio
-async def test_litellm_tracing_async(is_in_databricks):
+async def test_litellm_tracing_async():
     mlflow.litellm.autolog()
 
     response = await litellm.acompletion(
@@ -151,7 +135,7 @@ async def test_litellm_tracing_async(is_in_databricks):
 
 
 @pytest.mark.asyncio
-async def test_litellm_tracing_async_streaming(is_in_databricks):
+async def test_litellm_tracing_async_streaming():
     mlflow.litellm.autolog()
 
     response = await litellm.acompletion(
@@ -159,7 +143,7 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
         messages=[{"role": "system", "content": "Hello"}],
         stream=True,
     )
-    chunks: list[Optional[str]] = []
+    chunks: list[str | None] = []
     async for c in response:
         chunks.append(c.choices[0].delta.content)
         # Adding a sleep here to ensure that `content` in the span outputs is
@@ -186,22 +170,34 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
 
 
-def test_litellm_tracing_disable(is_in_databricks):
+def test_litellm_tracing_with_parent_span():
+    mlflow.litellm.autolog()
+
+    with mlflow.start_span(name="parent"):
+        litellm.completion(model="gpt-4o-mini", messages=[{"role": "system", "content": "Hello"}])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+
+    spans = trace.data.spans
+    assert len(spans) == 2
+    assert spans[0].name == "parent"
+    assert spans[1].name == "litellm-completion"
+
+
+def test_litellm_tracing_disable():
     mlflow.litellm.autolog()
 
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
-    _wait_if_not_in_databricks()
     assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is not None
     assert len(get_traces()) == 1
 
     mlflow.litellm.autolog(disable=True)
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
-    _wait_if_not_in_databricks()
     # no additional trace should be created
     assert len(get_traces()) == 1
 
     mlflow.litellm.autolog(log_traces=False)
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
-    _wait_if_not_in_databricks()
     # no additional trace should be created
     assert len(get_traces()) == 1

@@ -9,7 +9,7 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '3.1.2.dev0';
+export const Version = '3.2.1.dev0';
 
 const DOCS_VERSION = 'latest';
 
@@ -30,7 +30,6 @@ export const RegisteringModelDocUrl = DOCS_ROOT + '/model-registry.html#adding-a
 
 export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-experiments.html`;
 export const ExperimentRunSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;

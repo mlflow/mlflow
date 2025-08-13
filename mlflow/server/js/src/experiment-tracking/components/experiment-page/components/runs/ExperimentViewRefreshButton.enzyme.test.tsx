@@ -27,13 +27,13 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // No calls expected
-    expect(searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toHaveBeenCalledTimes(0);
 
     // Wait another half
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // One call expected
-    expect(searchRunsPayload).toBeCalledTimes(1);
+    expect(searchRunsPayload).toHaveBeenCalledTimes(1);
   });
 
   // TODO: Remove/migrate to RTL once we fully migrate to the new view state model
@@ -44,7 +44,7 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // No calls expected
-    expect(searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toHaveBeenCalledTimes(0);
 
     // In the meanwhile, update run infos in the "store"
     wrapper.setProps({ runInfos: {} } as any);
@@ -53,7 +53,7 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL / 2);
 
     // Still no calls expected
-    expect(searchRunsPayload).toBeCalledTimes(0);
+    expect(searchRunsPayload).toHaveBeenCalledTimes(0);
   });
 
   // TODO: Remove/migrate to RTL once we fully migrate to the new view state model
@@ -69,8 +69,8 @@ describe('ExperimentViewRefreshButton', () => {
     jest.advanceTimersByTime(POLL_INTERVAL);
 
     // One call expected
-    expect(searchRunsPayload).toBeCalledTimes(1);
-    expect(searchRunsPayload).toBeCalledWith(
+    expect(searchRunsPayload).toHaveBeenCalledTimes(1);
+    expect(searchRunsPayload).toHaveBeenCalledWith(
       expect.objectContaining({
         experimentIds: [1, 2, 3],
         filter: 'attributes.start_time > 1000',
@@ -84,9 +84,9 @@ describe('ExperimentViewRefreshButton', () => {
   test('refreshes the runs when clicked', () => {
     const refreshRuns = jest.fn();
     const wrapper = mountWithIntl(<ExperimentViewRefreshButtonImpl runInfos={{}} refreshRuns={refreshRuns} />);
-    expect(refreshRuns).not.toBeCalled();
+    expect(refreshRuns).not.toHaveBeenCalled();
     wrapper.find('button').simulate('click');
-    expect(refreshRuns).toBeCalled();
+    expect(refreshRuns).toHaveBeenCalled();
   });
 
   describe('using new view state model', () => {
@@ -103,7 +103,7 @@ describe('ExperimentViewRefreshButton', () => {
       });
 
       // No calls expected
-      expect(searchRunsPayload).toBeCalledTimes(0);
+      expect(searchRunsPayload).toHaveBeenCalledTimes(0);
 
       await act(async () => {
         // Wait another half
@@ -111,14 +111,14 @@ describe('ExperimentViewRefreshButton', () => {
       });
 
       // One call expected
-      expect(searchRunsPayload).toBeCalledTimes(1);
+      expect(searchRunsPayload).toHaveBeenCalledTimes(1);
     });
 
     test('it should call provided refresh function when clicked', () => {
       const refreshRuns = jest.fn();
       renderWithIntl(<ExperimentViewRefreshButtonImpl runInfos={{}} refreshRuns={refreshRuns} />);
       screen.getByRole('button').click();
-      expect(refreshRuns).toBeCalled();
+      expect(refreshRuns).toHaveBeenCalled();
     });
   });
 });

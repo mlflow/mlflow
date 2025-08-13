@@ -94,7 +94,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
     return (
       <div
         css={{
-          backgroundColor: theme.colors.backgroundSecondary,
+          backgroundColor: theme.colors.backgroundPrimary,
           paddingLeft: theme.spacing.md,
           paddingRight: theme.spacing.md,
           paddingBottom: theme.spacing.md,
@@ -215,7 +215,7 @@ export const ExperimentLoggedModelListCharts = memo(
       return (
         <div
           css={{
-            backgroundColor: theme.colors.backgroundSecondary,
+            backgroundColor: theme.colors.backgroundPrimary,
             paddingTop: theme.spacing.lg,
             borderTop: `1px solid ${theme.colors.border}`,
             borderLeft: `1px solid ${theme.colors.border}`,

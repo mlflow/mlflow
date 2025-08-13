@@ -25,7 +25,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -33,7 +32,6 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="2.14.0")
 def autolog(
     disable=False,
     exclusive=False,
@@ -175,7 +173,7 @@ def _autolog(
         pass
 
 
-def _get_span_type(task: type) -> str:
+def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -213,7 +211,7 @@ def _get_span_type(task: type) -> str:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, SpanType.UNKNOWN)
+    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -287,13 +285,16 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
+    span_type = _get_span_type_and_message_format(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
+    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_span_no_context(
         name=instance.__class__.__name__,
-        span_type=_get_span_type(instance.__class__),
+        span_type=span_type,
         inputs=inputs,
         attributes=attributes,
     )
@@ -319,7 +320,8 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             output = []
             for i, chunk in enumerate(stream):
-                output.append(_process_chunk(span, i, chunk))
+                _add_span_event(span, i, chunk)
+                output.append(chunk)
                 yield chunk
             _process_last_chunk(span, chunk, inputs, output)
 
@@ -329,7 +331,8 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
             output = []
             async for chunk in stream:
-                output.append(_process_chunk(span, len(output), chunk))
+                _add_span_event(span, len(output), chunk)
+                output.append(chunk)
                 yield chunk
             _process_last_chunk(span, chunk, inputs, output)
 
@@ -346,9 +349,10 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
     if _is_responses_final_event(chunk):
         output = chunk.response
     else:
-        output = "".join(output)
-        # For ChatCompletion, the usage info is stored in the last chunk and only when
-        # `stream_options={"include_usage": True}` is specified by the user.
+        # Reconstruct a completion object from streaming chunks
+        output = _reconstruct_completion_from_stream(output)
+
+        # Set usage information on span if available
         if usage := getattr(chunk, "usage", None):
             usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
@@ -358,6 +362,63 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
     _end_span_on_success(span, inputs, output)
+
+
+def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
+    """
+    Reconstruct a completion object from streaming chunks.
+
+    This preserves the structure and metadata that would be present in a non-streaming
+    completion response, including ID, model, timestamps, usage, etc.
+    """
+    if not chunks:
+        return None
+
+    if chunks[0].object == "text_completion":
+        # Handling for the deprecated Completions API. Keep the legacy behavior for now.
+        def _extract_content(chunk: Any) -> str:
+            if not chunk.choices:
+                return ""
+            return chunk.choices[0].text or ""
+
+        return "".join(map(_extract_content, chunks))
+
+    if chunks[0].object != "chat.completion.chunk":
+        return chunks  # Ignore non-chat chunks
+
+    from openai.types.chat import ChatCompletion
+    from openai.types.chat.chat_completion import Choice
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
+
+    # Build the base message
+    def _extract_content(chunk: Any) -> str:
+        if not chunk.choices:
+            return ""
+        return chunk.choices[0].delta.content or ""
+
+    message = ChatCompletionMessage(
+        role="assistant", content="".join(map(_extract_content, chunks))
+    )
+
+    # Extract metadata from the last chunk
+    last_chunk = chunks[-1]
+    finish_reason = "stop"
+    if choices := getattr(last_chunk, "choices", None):
+        if chunk_choice := choices[0]:
+            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
+
+    choice = Choice(index=0, message=message, finish_reason=finish_reason)
+
+    # Build the completion dict
+    return ChatCompletion(
+        id=last_chunk.id,
+        choices=[choice],
+        created=last_chunk.created,
+        model=last_chunk.model,
+        object="chat.completion",
+        system_fingerprint=last_chunk.system_fingerprint,
+        usage=last_chunk.usage,
+    )
 
 
 def _is_responses_final_event(chunk: Any) -> bool:
@@ -377,20 +438,7 @@ def _end_span_on_exception(span: LiveSpan, e: Exception):
         _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
 
 
-def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
-    """Parse the chunk and log it as a span event in the trace."""
-    from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
-    from openai.types.completion import Completion
-
-    # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
-    if isinstance(chunk, Completion) and chunk.choices:
-        parsed = chunk.choices[0].text or ""
-    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
-        choice = chunk.choices[0]
-        parsed = (choice.delta and choice.delta.content) or ""
-    else:
-        parsed = ""
-
+def _add_span_event(span: LiveSpan, index: int, chunk: Any):
     span.add_event(
         SpanEvent(
             name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=index),
@@ -398,7 +446,6 @@ def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
             attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
         )
     )
-    return parsed
 
 
 def patched_agent_get_chat_completion(original, self, *args, **kwargs):

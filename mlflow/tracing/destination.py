@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -28,12 +27,9 @@ class MlflowExperiment(TraceDestination):
     Attributes:
         experiment_id: The ID of the experiment to log traces to. If not specified,
             the current active experiment will be used.
-        tracking_uri: The tracking URI of the MLflow server to log traces to.
-            If not specified, the current tracking URI will be used.
     """
 
-    experiment_id: Optional[str] = None
-    tracking_uri: Optional[str] = None
+    experiment_id: str | None = None
 
     @property
     def type(self) -> str:
@@ -58,8 +54,8 @@ class Databricks(TraceDestination):
         experiment_name: The name of the experiment to log traces to.
     """
 
-    experiment_id: Optional[str] = None
-    experiment_name: Optional[str] = None
+    experiment_id: str | None = None
+    experiment_name: str | None = None
 
     def __post_init__(self):
         if self.experiment_id is not None:

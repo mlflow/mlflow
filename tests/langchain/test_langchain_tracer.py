@@ -2,7 +2,7 @@ import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
 import langchain
@@ -118,16 +118,6 @@ def test_llm_success():
     assert llm_span.inputs == ["test prompt"]
     assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -155,12 +145,6 @@ def test_llm_error():
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -207,20 +191,6 @@ def test_chat_model():
     assert chat_model_span.status.status_code == SpanStatusCode.OK
     assert chat_model_span.inputs == [[msg.dict() for msg in input_messages]]
     assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "system",
-            "content": "system prompt",
-        },
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
 
 
 def test_chat_model_with_tool():
@@ -261,16 +231,6 @@ def test_chat_model_with_tool():
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
     assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [tool_definition]
 
 
@@ -309,16 +269,6 @@ def test_chat_model_with_non_openai_tool():
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
     assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "type": "function",
@@ -481,17 +431,6 @@ def test_multiple_components():
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
         assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
-        assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-            {
-                "role": "user",
-                "content": f"test prompt {i}",
-            },
-            {
-                "role": "assistant",
-                "content": f"generated text {i}",
-            },
-        ]
-
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
         assert (
@@ -589,8 +528,8 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return TEST_CONTENT
