@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 3.3.0 (2025-08-13)
+
+MLflow 3.3.0 includes several major features and improvements
+
+Features:
+
+- [Webhooks] Webhooks support for model registry (#16583, @harupy)
+- [Tracking] Agno tracing Integration (#16995, @joelrobin18)
+- [Evaluation] Merge GenAI Eval branch (#17161, @B-Step62)
+- [Tracing] Add memory span type (#17034, @B-Step62)
+- [UI] MLflow UI Sync (#17092, @daniellok-db)
+- [Tracking] Make fastapi + uvicorn the default MLflow server backend, with flask compatibility middleware (#17038, @dbczumar)
+- [Prompts] Refactor optimize_prompt to support custom optimizer (#17052, @TomeHirata)
+- [] Allow users to pass the encoding tokenizer (#16253, @joelrobin18)
+
+Bug fixes:
+
+- [Tracking] Fix Databricks secret scope check to reduce error rates (#17166, @harupy)
+- [Tracing] remove api_key before log to fix security thread (#17082, @diy2learn)
+- [Tracking] Fix Databricks SDK error code to HTTP status mapping (#17095, @harupy)
+- [Tracing] Fix LiteLLM tracing issue (#16982, @B-Step62)
+
+Documentation updates:
+
+- [Evaluation] [OSS GenAI Eval #11] GenAI Eval minimum doc (#17159, @B-Step62)
+- [Docs] Document the usage of custom optimizers with optimize_prompt (#17084, @TomeHirata)
+- [Docs / Evaluation] Fix documentation for built in scorers using expectation (#17075, @smoorjani)
+
+Small bug fixes and documentation updates:
+
+#17212, #17206, #17211, #17207, #17205, #17118, #17177, #17182, #17170, #17153, #17168, #17123, #17136, #17119, #17125, #17088, #17101, #17056, #17077, #17057, #17036, #17018, #17024, #17019, #16883, #16972, #16961, #16968, #16962, #16958, @harupy; #17209, #17202, #17184, #17179, #17174, #17141, #17155, #17145, #17130, #17113, #17110, #17098, #17104, #17100, #17060, #17044, #17032, #17008, #17001, #16994, #16991, #16984, #16976, @copilot-swe-agent; #17069, @hayescode; #17199, #17081, #16928, #16931, @TomeHirata; #17148, #17193, #17157, #17067, #17033, #17087, #16973, #16875, #16956, #16959, @B-Step62; #17198, @WeichenXu123; #17195, #17192, #17131, #17128, #17124, #17120, #17102, #17093, #16941, @daniellok-db; #17070, #17074, #17073, @dbczumar; #17169, #17062, #16943, @serena-ruan
+
 ## 3.2.0 (2025-08-05)
 
 MLflow 3.2.0 includes several major features and improvements
