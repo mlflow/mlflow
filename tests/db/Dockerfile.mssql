@@ -4,7 +4,7 @@ ARG DEPENDENCIES
 
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
-    curl apt-transport-https debconf-utils \
+    curl apt-transport-https debconf-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # adding custom MS repository
