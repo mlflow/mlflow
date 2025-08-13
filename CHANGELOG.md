@@ -4,14 +4,17 @@
 
 MLflow 3.3.0 includes several major features and improvements
 
-Features:
+### Major New Features:
 
-- [Webhooks] Add webhook support for model registry events to enable automated notifications (#16583, @harupy)
-- [Tracking] Add Agno tracing integration for AI agent workflow observability (#16995, @joelrobin18)
-- [Evaluation] Introduce GenAI evaluation capabilities for LLM applications in OSS MLflow (#17161, #17159, @B-Step62)
+- 🪝 **Model Registry Webhooks**: MLflow now supports [webhooks](https://mlflow.org/docs/latest/ml/webhooks/) for model registry events, enabling automated notifications and integrations with external systems. (#16583, @harupy)
+- 🧭 **Agno Tracing Integration**: Added [Agno tracing integration](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/agno/) for enhanced observability of AI agent workflows. (#16995, @joelrobin18)
+- 🧪 **GenAI Evaluation**: MLflow OSS introduces GenAI evaluation capabilities for LLM applications, allowing users to assess and monitor model quality natively. (#17161, #17159, @B-Step62)
+- 🖥️ **MLflow UI Sync**: The MLflow UI now features improved synchronization for a more seamless user experience. (#17092, @daniellok-db)
+- ⚡️ **FastAPI + Uvicorn Server**: MLflow Tracking Server now defaults to FastAPI + Uvicorn for improved performance, while maintaining Flask compatibility. (#17038, @dbczumar)
+
+New Features
+
 - [Tracing] Add `memory` span type for agentic workflows (#17034, @B-Step62)
-- [UI] MLflow UI Sync (#17092, @daniellok-db)
-- [Tracking] Switch default server to FastAPI + Uvicorn for improved performance with Flask compatibility (#17038, @dbczumar)
 - [Prompts] Enable custom prompt optimizers in `optimize_prompt` including DSPy support (#17052, @TomeHirata)
 - [Metrics] Allow custom tokenizer encoding in `token_count` function (#16253, @joelrobin18)
 
