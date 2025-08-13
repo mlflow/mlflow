@@ -47,8 +47,9 @@ def _validate_uri_scheme(parsed_uri):
 class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 
-    def __init__(self, artifact_uri):
-        super().__init__(self.resolve_uri(artifact_uri, get_tracking_uri()))
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+        effective_tracking_uri = tracking_uri or get_tracking_uri()
+        super().__init__(self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri)
 
     @classmethod
     def resolve_uri(cls, artifact_uri, tracking_uri):

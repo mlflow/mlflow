@@ -51,7 +51,6 @@ def run_info():
     lifecycle_stage = LifecycleStage.ACTIVE
     artifact_uri = random_str(random_int(10, 40))
     ri = RunInfo(
-        run_uuid=run_id,
         run_id=run_id,
         run_name=run_name,
         experiment_id=experiment_id,

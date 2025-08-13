@@ -7,9 +7,9 @@ from langchain.prompts import PromptTemplate
 
 import mlflow
 
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable to run this example."
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable to run this example."
+)
 
 
 def build_and_evaluate_model_with_prompt(prompt_template):
@@ -20,7 +20,7 @@ def build_and_evaluate_model_with_prompt(prompt_template):
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(input_variables=["article"], template=prompt_template)
     chain = LLMChain(llm=llm, prompt=prompt)
-    logged_model = mlflow.langchain.log_model(chain, artifact_path="model")
+    logged_model = mlflow.langchain.log_model(chain, name="model")
 
     # Evaluate the model on a small sample dataset
     sample_data = pd.read_csv("summarization_example_data.csv")

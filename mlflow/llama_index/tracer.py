@@ -2,11 +2,10 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator
 
 import llama_index.core
 import pydantic
-from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.base.llms.base import BaseLLM
@@ -37,14 +36,17 @@ import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
-IS_PYDANTIC_V1 = Version(pydantic.__version__).major < 2
-LLAMA_INDEX_VERSION = Version(llama_index.core.__version__)
+
+def _get_llama_index_version() -> Version:
+    return Version(llama_index.core.__version__)
 
 
 def set_llama_index_tracer():
@@ -55,7 +57,6 @@ def set_llama_index_tracer():
     from llama_index.core.instrumentation import get_dispatcher
 
     dsp = get_dispatcher()
-
     span_handler = None
     for handler in dsp.span_handlers:
         if isinstance(handler, MlflowSpanHandler):
@@ -88,7 +89,7 @@ def remove_llama_index_tracer():
 class _LlamaSpan(BaseSpan, extra="allow"):
     _mlflow_span: LiveSpan = pydantic.PrivateAttr()
 
-    def __init__(self, id_: str, parent_id: Optional[str], mlflow_span: LiveSpan):
+    def __init__(self, id_: str, parent_id: str | None, mlflow_span: LiveSpan):
         super().__init__(id_=id_, parent_id=parent_id)
         self._mlflow_span = mlflow_span
 
@@ -119,11 +120,7 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
         outputs = span.outputs
 
     try:
-        if span.parent_id is None:
-            # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
-        else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+        span.end(status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -149,8 +146,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self,
         id_: str,
         bound_args: inspect.BoundArguments,
-        instance: Optional[Any] = None,
-        parent_span_id: Optional[str] = None,
+        instance: Any | None = None,
+        parent_span_id: str | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         with self.lock:
@@ -162,26 +159,26 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent_span:
-                # NB: Initiate the new client every time to handle tracking URI updates.
-                span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
-                    parent_id=parent_span.span_id,
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
-            else:
-                span = MlflowClient().start_trace(
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
+            span = start_span_no_context(
+                name=id_.partition("-")[0],
+                parent_span=parent_span,
+                span_type=span_type,
+                inputs=input_args,
+                attributes=attributes,
+            )
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
+
+            # NB: The tool definition is passed to LLM via kwargs, but it is not set
+            # to the LLM/Chat start event. Therefore, we need to handle it here.
+            tools = input_args.get("kwargs", {}).get("tools")
+            if tools and span_type in [SpanType.LLM, SpanType.CHAT_MODEL]:
+                try:
+                    set_span_chat_tools(span, tools)
+                except Exception as e:
+                    _logger.debug(f"Failed to set tools for {span}: {e}")
+
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
             _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
@@ -189,7 +186,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def prepare_to_exit_span(
         self,
         id_: str,
-        result: Optional[Any] = None,
+        result: Any | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         try:
@@ -224,14 +221,14 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self._stream_resolver.resolve(span, event)
         self._pending_spans.pop(event.span_id, None)
 
-    def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
+    def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
         with self.lock:
             llama_span = self.open_spans.get(id_)
         span = llama_span._mlflow_span
         token = self._span_id_to_token.pop(span.span_id, None)
 
-        if LLAMA_INDEX_VERSION >= Version("0.10.59"):
+        if _get_llama_index_version() >= Version("0.10.59"):
             # LlamaIndex determines if a workflow is terminated or not by propagating an special
             # exception WorkflowDone. We should treat this exception as a successful termination.
             from llama_index.core.workflow.errors import WorkflowDone
@@ -248,11 +245,21 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         Map LlamaIndex instance type to MLflow span type. Some span type cannot be determined
         by instance type alone, rather need event info e.g. ChatModel, ReRanker
         """
+        base_agent_types = ()
+        if _get_llama_index_version() < Version("0.13.0"):
+            from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
+
+            base_agent_types = (BaseAgent, BaseAgentWorker)
+        else:
+            from llama_index.core.agent.workflow import BaseWorkflowAgent
+
+            base_agent_types = (BaseWorkflowAgent,)
+
         if isinstance(instance, (BaseLLM, MultiModalLLM)):
             return SpanType.LLM
         elif isinstance(instance, BaseRetriever):
             return SpanType.RETRIEVER
-        elif isinstance(instance, (BaseAgent, BaseAgentWorker)):
+        elif isinstance(instance, base_agent_types):
             return SpanType.AGENT
         elif isinstance(instance, BaseEmbedding):
             return SpanType.EMBEDDING
@@ -284,7 +291,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return self._get_llm_attributes(instance)
 
     def _get_llm_attributes(self, instance) -> dict[str, Any]:
-        attr = {}
+        attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
             if params_str := metadata.json(exclude_unset=True):
@@ -385,6 +392,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -395,6 +404,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -418,13 +429,11 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         """
         self._span_handler.resolve_pending_stream_span(span, event)
 
-    def _extract_token_usage(
-        self, response: Union[ChatResponse, CompletionResponse]
-    ) -> dict[str, int]:
+    def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = raw.dict() if IS_PYDANTIC_V1 else raw.model_dump()
+                raw = model_dump_compat(raw)
 
             if usage := raw.get("usage"):
                 return usage
@@ -438,8 +447,29 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                     usage[k] = v
         return usage
 
+    def _parse_usage(self, span: LiveSpan):
+        try:
+            usage = span.get_attribute("usage")
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage["prompt_tokens"],
+                TokenUsageKey.OUTPUT_TOKENS: usage["completion_tokens"],
+                TokenUsageKey.TOTAL_TOKENS: usage.get(
+                    "total_tokens", usage["prompt_tokens"] + usage["completion_tokens"]
+                ),
+            }
+        except Exception as e:
+            _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
 
-_StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
+
+_StreamEndEvent = LLMChatEndEvent | LLMCompletionEndEvent | ExceptionEvent
+
+
+def _get_task_step_output_type():
+    if _get_llama_index_version() < Version("0.13.0"):
+        from llama_index.core.base.agent.types import TaskStepOutput
+
+        return TaskStepOutput
+    return ()
 
 
 class StreamResolver:
@@ -458,7 +488,10 @@ class StreamResolver:
             inspect.isgenerator(result)  # noqa: SIM101
             or isinstance(result, (StreamingResponse, AsyncStreamingResponse))
             or isinstance(result, StreamingAgentChatResponse)
-            or (isinstance(result, TaskStepOutput) and self.is_streaming_result(result.output))
+            or (
+                isinstance(result, _get_task_step_output_type())
+                and self.is_streaming_result(result.output)
+            )
         )
 
     def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
@@ -478,7 +511,7 @@ class StreamResolver:
             stream = result.response_gen
         elif isinstance(result, StreamingAgentChatResponse):
             stream = result.chat_stream
-        elif isinstance(result, TaskStepOutput):
+        elif isinstance(result, _get_task_step_output_type()):
             stream = result.output.chat_stream
         else:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")

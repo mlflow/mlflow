@@ -2,18 +2,24 @@
   "extends": [],
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
     "types": [
       "jest",
       "node",
       "@testing-library/jest-dom"
     ],
-    "allowJs": true,
     "noPropertyAccessFromIndexSignature": true,
     "jsxImportSource": "@emotion/react",
     "paths": {
       "@mlflow/mlflow/*": [
         "./*"
+      ],
+      "@databricks/i18n": [
+        "./src/i18n/i18n"
+      ],
+      "@databricks/web-shared/query-client": [
+        "./src/common/utils/reactQueryHooks"
       ],
       "@databricks/web-shared/*": [
         "./src/shared/web-shared/*"
@@ -38,7 +44,6 @@
     "declaration": false,
     "sourceMap": false,
     "declarationMap": false,
-    "jsx": "preserve",
     "isolatedModules": true
   },
   "references": [],

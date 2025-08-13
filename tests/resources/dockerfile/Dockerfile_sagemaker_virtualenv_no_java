@@ -1,0 +1,49 @@
+# Build an image that can serve mlflow models.
+FROM ubuntu:20.04
+
+RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
+
+# Setup pyenv
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+RUN git clone \
+    --depth 1 \
+    --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
+    https://github.com/pyenv/pyenv.git /root/.pyenv
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+RUN apt install -y software-properties-common \
+    && apt update \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt update \
+    && apt install -y python3.10 python3.10-distutils \
+    && ln -s -f $(which python3.10) /usr/bin/python \
+    && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
+    && python /tmp/get-pip.py
+RUN pip install virtualenv
+
+
+
+
+WORKDIR /opt/mlflow
+
+# Install MLflow from local source
+COPY mlflow-project /opt/mlflow
+RUN pip install /opt/mlflow
+
+# Install minimal serving dependencies
+RUN python -c "from mlflow.models.container import _install_pyfunc_deps;_install_pyfunc_deps(None, False)"
+
+ENV MLFLOW_DISABLE_ENV_CREATION=False
+ENV ENABLE_MLSERVER=False
+
+# granting read/write access and conditional execution authority to all child directories
+# and files to allow for deployment to AWS Sagemaker Serverless Endpoints
+# (see https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html)
+RUN chmod o+rwX /opt/mlflow/
+
+# clean up apt cache to reduce image size
+RUN rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; C._init(sys.argv[1], 'virtualenv')"]

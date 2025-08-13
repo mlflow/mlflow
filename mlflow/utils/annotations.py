@@ -3,9 +3,7 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, Union
-
-C = TypeVar("C", bound=Callable[..., Any])
+from typing import Callable, ParamSpec, TypeVar, overload
 
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
@@ -28,33 +26,59 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     return re.match(r"^\s*", docstring_str.rsplit("\n", 1)[-1]).group()
 
 
-def experimental(api_or_type: Union[C, str]) -> C:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+@overload
+def experimental(
+    f: Callable[P, R],
+    version: str | None = None,
+) -> Callable[P, R]: ...
+
+
+@overload
+def experimental(
+    f: None = None,
+    version: str | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+
+def experimental(
+    f: Callable[P, R] | None = None,
+    version: str | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
     Args:
-        api_or_type: An API to mark, or an API typestring for which to generate a decorator.
+        f: The function to be decorated.
+        version: The version in which the API was introduced as experimental.
+            The version is used to determine whether the API should be considered
+            as stable or not when releasing a new version of MLflow.
 
     Returns:
-        Decorated API (if a ``api_or_type`` is an API) or a function that decorates
-        the specified API type (if ``api_or_type`` is a typestring).
+        A decorator that adds a note to the docstring of the decorated API,
     """
-    if isinstance(api_or_type, str):
-
-        def f(api: C) -> C:
-            return _experimental(api=api, api_type=api_or_type)
-
-        return f
-    elif inspect.isclass(api_or_type):
-        return _experimental(api=api_or_type, api_type="class")
-    elif inspect.isfunction(api_or_type):
-        return _experimental(api=api_or_type, api_type="function")
-    elif isinstance(api_or_type, (property, types.MethodType)):
-        return _experimental(api=api_or_type, api_type="property")
+    if f:
+        return _experimental(f)
     else:
-        return _experimental(api=api_or_type, api_type=str(type(api_or_type)))
+
+        def decorator(f: Callable[P, R]) -> Callable[P, R]:
+            return _experimental(f)
+
+        return decorator
 
 
-def _experimental(api: C, api_type: str) -> C:
+def _experimental(api: Callable[P, R]) -> Callable[P, R]:
+    if inspect.isclass(api):
+        api_type = "class"
+    elif inspect.isfunction(api):
+        api_type = "function"
+    elif isinstance(api, (property, types.MethodType)):
+        api_type = "property"
+    else:
+        api_type = str(type(api))
+
     indent = _get_min_indent_of_docstring(api.__doc__) if api.__doc__ else ""
     notice = (
         indent + f".. Note:: Experimental: This {api_type} may change or "
@@ -111,9 +135,7 @@ def is_marked_deprecated(func):
     return getattr(func, _DEPRECATED_MARK_ATTR_NAME, False)
 
 
-def deprecated(
-    alternative: Optional[str] = None, since: Optional[str] = None, impact: Optional[str] = None
-):
+def deprecated(alternative: str | None = None, since: str | None = None, impact: str | None = None):
     """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
 
@@ -190,5 +212,17 @@ def keyword_only(func):
     indent = _get_min_indent_of_docstring(wrapper.__doc__) if wrapper.__doc__ else ""
     notice = indent + ".. note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
+
+    return wrapper
+
+
+def filter_user_warnings_once(func):
+    """A decorator that filter user warnings to only show once in the wrapped method."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("once", category=UserWarning)
+            return func(*args, **kwargs)
 
     return wrapper

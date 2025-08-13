@@ -133,7 +133,7 @@ dependencies:
 
 def test_get_model_dependencies_with_model_version_uri():
     with mlflow.start_run():
-        mlflow.sklearn.log_model(LinearRegression(), "model", registered_model_name="linear")
+        mlflow.sklearn.log_model(LinearRegression(), name="model", registered_model_name="linear")
 
     deps = get_model_dependencies("models:/linear/1", format="pip")
     assert f"scikit-learn=={sklearn.__version__}" in Path(deps).read_text()

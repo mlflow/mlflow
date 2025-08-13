@@ -14,9 +14,8 @@ import logging
 import os
 import posixpath
 import shutil
-import warnings
 from functools import partial
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -63,17 +62,12 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-if TYPE_CHECKING:
-    from torch import Tensor
-    from torch.nn import Module
-
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
-_REQUIREMENTS_FILE_KEY = "requirements_file"
 _TORCH_CPU_DEVICE_NAME = "cpu"
 _TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
@@ -120,7 +114,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model", signature=signature)
+            mlflow.pytorch.log_model(model, name="model", signature=signature)
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -142,7 +136,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -150,11 +144,16 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    requirements_file=None,
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -181,8 +180,7 @@ def log_model(
                 - The package(s) listed in the model's Conda environment, specified by the
                   ``conda_env`` parameter.
                 - One or more of the files specified by the ``code_paths`` parameter.
-
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
@@ -197,22 +195,6 @@ def log_model(
             being created and is in ``READY`` status. By default, the function waits for five
             minutes.  Specify 0 or None to skip waiting.
 
-        requirements_file:
-
-            .. warning::
-
-                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
-
-            A string containing the path to requirements file. Remote URIs are resolved to absolute
-            filesystem paths. For example, consider the following ``requirements_file`` string:
-
-            .. code-block:: python
-
-                requirements_file = "s3://my-bucket/path/to/my_file"
-
-            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-            no requirements file is added to the model.
-
         extra_files: A list containing the paths to corresponding extra files, if ``None``, no
             extra files are added to the model. Remote URIs are resolved to absolute filesystem
             paths. For example, consider the following ``extra_files`` list:
@@ -226,6 +208,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -269,11 +257,11 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
+            mlflow.pytorch.log_model(scripted_pytorch_model, name="scripted_model")
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -299,6 +287,7 @@ def log_model(
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
         conda_env=conda_env,
@@ -308,11 +297,15 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        requirements_file=requirements_file,
         extra_files=extra_files,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -327,7 +320,6 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    requirements_file=None,
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
@@ -359,21 +351,6 @@ def save_model(
             model at loading time.
         signature: {{ signature }}
         input_example: {{ input_example }}
-        requirements_file:
-
-            .. warning::
-
-                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
-
-            A string containing the path to requirements file. Remote URIs are resolved to absolute
-            filesystem paths. For example, consider the following ``requirements_file`` string:
-
-            .. code-block:: python
-
-                requirements_file = "s3://my-bucket/path/to/my_file"
-
-            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-            no requirements file is added to the model.
 
         extra_files: A list containing the paths to corresponding extra files. Remote URIs
             are resolved to absolute filesystem paths.
@@ -502,24 +479,6 @@ def save_model(
                 posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
-    if requirements_file:
-        warnings.warn(
-            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        if not isinstance(requirements_file, str):
-            raise TypeError("Path to requirements file should be a string")
-
-        with TempDir() as tmp_requirements_dir:
-            _download_artifact_from_uri(
-                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
-            )
-            rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
-            shutil.move(tmp_requirements_dir.path(rel_path), path)
-
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
@@ -569,9 +528,8 @@ def save_model(
     if pip_constraints:
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
-    if not requirements_file:
-        # Save `requirements.txt`
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -666,7 +624,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
         # Inference after loading the logged model
         model_uri = f"runs:/{run.info.run_id}/model"
@@ -699,7 +657,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):  # noqa: D417
+def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -721,6 +679,15 @@ def _load_pyfunc(path, model_config=None):  # noqa: D417
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
+    # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
+    # `False` to `True`. this can cause pickle deserialization errors when loading
+    # models, unless the model classes have been explicitly marked as safe using
+    # `torch.serialization.add_safe_globals()`
+    if Version(torch.__version__) >= Version("2.6.0"):
+        return _PyTorchWrapper(
+            _load_model(path, device=device, weights_only=weights_only), device=device
+        )
+
     return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
 
@@ -732,9 +699,12 @@ class _PyTorchWrapper:
     predict(data: dict[str, np.ndarray]) -> model's output as dict
     """
 
-    def __init__(self, pytorch_model: "Module", device: str):
+    def __init__(self, pytorch_model, device: str):
         self.pytorch_model = pytorch_model
         self.device = device
+        import torch
+
+        self.torch = torch
 
     def get_raw_model(self):
         """
@@ -744,21 +714,20 @@ class _PyTorchWrapper:
 
     def predict(
         self,
-        data: Union[np.ndarray, list["Tensor"], pd.DataFrame],
-        params: Optional[dict[str, Any]] = None,
-    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
+        data: np.ndarray | list[Any] | pd.DataFrame | dict[str, Any],
+        params: dict[str, Any] | None = None,
+    ) -> np.ndarray | pd.DataFrame | dict[str, np.ndarray]:
         """
         Overrides the predict method to handle dict and list of dict inputs.
 
         Args:
             data: Input data, which can be pandas DataFrame, numpy ndarray,
-                dict of numpy arrays, or list of dicts of numpy arrays.
+                  dict of numpy arrays, or list of dicts of numpy arrays.
             params: Additional parameters for inference (currently not used).
 
         Returns:
             Model predictions as numpy arrays or pandas DataFrames.
         """
-        import torch
 
         if params and "device" in params:
             raise ValueError(
@@ -770,15 +739,22 @@ class _PyTorchWrapper:
 
         input_tensor = self._preprocess_input(data)
 
-        # Perform inference
+        import torch
+
+        device = self.device
         with torch.no_grad():
-            preds = self.pytorch_model(input_tensor)
+            preds = self.pytorch_model(input_tensor, **(params or {}))
+            # if the predictions happened on a remote device, copy them back to
+            # the host CPU for processing
+            if device != _TORCH_CPU_DEVICE_NAME:
+                if isinstance(preds, torch.Tensor):
+                    preds = preds.to(_TORCH_CPU_DEVICE_NAME)
+                elif isinstance(preds, dict):
+                    preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
 
         return self._postprocess_output(preds, data)
 
-    def _preprocess_input(
-        self, data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]
-    ) -> Union["Tensor", dict[str, "Tensor"]]:
+    def _preprocess_input(self, data: np.ndarray | list[Any] | pd.DataFrame | dict[str, Any]):
         """
         Preprocesses input data to convert it into torch.Tensors suitable for the model.
 
@@ -788,46 +764,51 @@ class _PyTorchWrapper:
         Returns:
             Torch tensor or dictionary of torch tensors suitable for model input.
         """
-        import torch
-
         device = self.device
 
-        if isinstance(data, np.ndarray):
-            # Convert ndarray to tensor
-            return torch.from_numpy(data).to(device)
-
         if isinstance(data, pd.DataFrame):
-            tensor = torch.from_numpy(data.values).to(device)
-            # check if dtype is float and convert to float32.
-            # since it is the most common dtype for torch models.
-            # For other dtypes we can not support this conversion
-            # as the pandas dataframes only support lists of floats
-            if torch.is_floating_point(tensor):
-                tensor = tensor.float()
-            return tensor
-
-        if isinstance(data, dict) and all(isinstance(v, np.ndarray) for v in data.values()):
-            # Convert each value in the dict to tensor
-            return {k: torch.from_numpy(v).to(device) for k, v in data.items()}
+            # Convert DataFrame to tensor
+            return self.torch.from_numpy(data.values.astype(np.float32)).to(device)
+        elif isinstance(data, np.ndarray):
+            # Convert ndarray to tensor
+            return self.torch.from_numpy(data.astype(np.float32)).to(device)
         elif isinstance(data, dict):
-            raise TypeError(
-                "Input data must be a dict of numpy arrays. Remember to define the input signature "
-                "in order to cast your input data to the correct format."
-            )
+            # Convert each value in the dict to tensor
+            return {
+                k: self.torch.as_tensor(v, dtype=self.torch.float32, device=device)
+                for k, v in data.items()
+            }
+        elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
+            # Aggregate data for each key
+            aggregated = {}
+            for item in data:
+                for key, value in item.items():
+                    if key not in aggregated:
+                        aggregated[key] = []
+                    aggregated[key].append(value.astype(np.float32))
 
-        raise TypeError("Input data must be a pd.DataFrame, np.ndarray, dict[str, np.ndarray]")
+            # Concatenate and convert to tensors
+            return {
+                k: self.torch.from_numpy(np.concatenate(v, axis=0)).to(device)
+                for k, v in aggregated.items()
+            }
+        else:
+            # Check if it's a plain list (not list of dicts) to provide backward-compatible error
+            if isinstance(data, list):
+                raise TypeError("The PyTorch flavor does not support List types")
+            # For scalars and other unsupported types, use backward-compatible message
+            elif isinstance(data, (int, float, complex, str, bool)) or np.isscalar(data):
+                raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+            else:
+                raise TypeError(
+                    "Input data must be a pandas DataFrame, numpy ndarray, dict, or list of dicts."
+                )
 
     def _postprocess_output(
-        self,
-        preds: Union["Tensor", dict[str, "Tensor"]],
-        data: Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]],
-    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray]]:
+        self, preds, data: np.ndarray | list[Any] | pd.DataFrame | dict[str, Any]
+    ):
         """
         Converts model outputs to numpy arrays or pandas DataFrames as appropriate.
-
-        If the input data is a pandas DataFrame, the output will be a pandas DataFrame.
-        When the output is a dictionary, the output can be either a dictionary of numpy arrays
-        or a pandas DataFrame depending on the input data type. Note that, for a pandas DataFrame
 
         Args:
             preds: Model predictions.
@@ -838,30 +819,20 @@ class _PyTorchWrapper:
         """
         import torch
 
-        # check types and convert to numpy arrays or dict of numpy arrays
         if isinstance(preds, torch.Tensor):
-            if self.device != _TORCH_CPU_DEVICE_NAME:
-                preds = preds.to(_TORCH_CPU_DEVICE_NAME)
-            preds = preds.detach().numpy()
-
-        elif isinstance(preds, dict) and all(isinstance(v, torch.Tensor) for v in preds.values()):
-            if self.device != _TORCH_CPU_DEVICE_NAME:
-                preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
-            preds = {k: v.detach().numpy() for k, v in preds.items()}
-
+            preds = preds.cpu().detach().numpy()
+            if isinstance(data, pd.DataFrame):
+                return pd.DataFrame(preds, index=data.index)
+            else:
+                return preds
+        elif isinstance(preds, dict):
+            preds = {k: v.cpu().detach().numpy() for k, v in preds.items()}
+            if isinstance(data, pd.DataFrame):
+                return {k: pd.DataFrame(v, index=data.index) for k, v in preds.items()}
+            else:
+                return preds
         else:
-            raise TypeError("Model output must be a torch.Tensor or a dict[str,torch.Tensor]")
-
-        # return either a pandas DataFrame, a named pandas Dataframe,
-        # a dict of numpy arrays, or a numpy array
-        if isinstance(data, pd.DataFrame):
-            # in the end, this ends up being passed through json,
-            # so the datatype of float is not preserved. This
-            # allows me to convert all to a list of floats
-            # I think we may need to revisit this if we end up supporting binary data
-            return pd.DataFrame(preds.tolist(), index=data.index)
-
-        return preds
+            raise TypeError("Model output must be a torch.Tensor or a dict of torch.Tensors.")
 
 
 def log_state_dict(state_dict, artifact_path, **kwargs):
@@ -1045,7 +1016,7 @@ def autolog(
             the model is considered the "best" model according to the quantity
             monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -1270,7 +1241,7 @@ __all__ = [
 try:
     from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
 
-    __all__.append("MLflowModelCheckpointCallback")
+    __all__.append("MlflowModelCheckpointCallback")
 except ImportError:
     # Swallow exception if pytorch-lightning is not installed.
     pass

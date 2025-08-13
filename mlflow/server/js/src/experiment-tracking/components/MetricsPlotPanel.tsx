@@ -619,7 +619,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   handleLineSmoothChange = (lineSmoothness: any) => this.updateUrlState({ lineSmoothness });
 
-  handleKeyDownOnPopover = ({ key }: any) => {
+  handleKeyDownOnPopover = ({ key }: { key: string }) => {
     if (key === 'Escape') {
       this.setState({ popoverVisible: false });
     }
@@ -667,7 +667,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
-      <div className="metrics-plot-container">
+      <div className="mlflow-metrics-plot-container">
         <MetricsPlotControls
           // @ts-expect-error TS(2322): Type '{ numRuns: number; numCompletedRuns: number;... Remove this comment to see the full error message
           numRuns={this.props.runUuids.length}
@@ -681,7 +681,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
-          initialLineSmoothness={lineSmoothness}
+          lineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
           handleDownloadCsv={this.handleDownloadCsv}

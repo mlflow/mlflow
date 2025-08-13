@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     with mlflow.start_run() as run:
         logged_model = mlflow.langchain.log_model(
             db.as_retriever(),
-            artifact_path="retriever",
+            name="retriever",
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )

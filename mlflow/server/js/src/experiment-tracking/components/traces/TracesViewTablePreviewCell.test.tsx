@@ -2,7 +2,7 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
 import { Table, TableCell, TableRow } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../sdk/MlflowService';
 
 const shortValue = '{"test":"short"}';
@@ -17,6 +17,7 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
       const table = useReactTable({
         columns: [
           {
+            // @ts-expect-error [FEINF-4084] Type 'ColumnDefTemplate<CellContext<ModelTraceInfoWithRunName, unknown>>' is not assignable to type 'ColumnDefTemplate...
             cell: TracesViewTableResponsePreviewCell,
             id: 'test',
           },
@@ -46,11 +47,6 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
     render(<Component />);
   };
 
-  test('it should not display expander for short values', () => {
-    renderTable(shortValue);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
-  });
-
   test('it should expand short values and request more data', async () => {
     jest
       .spyOn(MlflowService, 'getExperimentTraceData')
@@ -63,13 +59,13 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
 
     await userEvent.click(screen.getByRole('button'));
 
-    expect(MlflowService.getExperimentTraceData).toBeCalledWith('test_request_id');
+    expect(MlflowService.getExperimentTraceData).toHaveBeenCalledWith('test_request_id');
 
-    expect(screen.getByText(formattedLongValue, { collapseWhitespace: false })).toBeInTheDocument();
+    expect(document.body.textContent).toContain(formattedLongValue);
 
     await userEvent.click(screen.getByRole('button'));
 
-    expect(screen.queryByText(formattedLongValue, { collapseWhitespace: false })).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain(formattedLongValue);
   });
 
   test('it should unescape non-ascii characters', async () => {

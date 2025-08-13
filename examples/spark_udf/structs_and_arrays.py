@@ -56,7 +56,7 @@ def main():
 
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                artifact_path="model",
+                name="model",
                 python_model=MyModel(),
                 signature=mlflow.models.infer_signature(df),
             )

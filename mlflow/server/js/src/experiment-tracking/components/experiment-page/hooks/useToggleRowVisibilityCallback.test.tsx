@@ -10,9 +10,11 @@ import {
 } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableToggleIndividualRunsInGroups: jest.fn(),
-  shouldUseRunRowsVisibilityMap: jest.fn().mockImplementation(() => false),
+  shouldUseRunRowsVisibilityMap: jest.fn(() => false),
 }));
 
 describe('useToggleRowVisibilityCallback', () => {

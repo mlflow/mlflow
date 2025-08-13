@@ -19,7 +19,11 @@ import {
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
-import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
+import {
+  ActivityTypes,
+  PendingModelVersionActivity,
+  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
+} from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
@@ -86,7 +90,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   loadData = (isInitialLoading: any) => {
     const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
-    return Promise.all([promises]);
+    return Promise.all(promises);
   };
 
   pollData = () => {
@@ -119,7 +123,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }: any) => {
-        if (value && !value[getProtoField('model_version')].run_link) {
+        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
@@ -143,7 +148,11 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity: any, archiveExistingVersions: any) => {
+  // prettier-ignore
+  handleStageTransitionDropdownSelect = (
+    activity: PendingModelVersionActivity,
+    archiveExistingVersions?: boolean,
+  ) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {

@@ -1,7 +1,7 @@
 import difflib
 import re
-from collections import namedtuple
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from sqlalchemy import create_engine
@@ -34,7 +34,9 @@ def dump_schema(db_uri):
     return "\n".join(lines)
 
 
-_CreateTable = namedtuple("_CreateTable", ["table", "columns"])
+class _CreateTable(NamedTuple):
+    table: str
+    columns: str
 
 
 _CREATE_TABLE_REGEX = re.compile(

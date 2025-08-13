@@ -86,7 +86,7 @@ if __name__ == "__main__":
             # please refer to the doc for more information:
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
             mlflow.sklearn.log_model(
-                lr, "model", registered_model_name="ElasticnetWineModel", signature=signature
+                lr, name="model", registered_model_name="ElasticnetWineModel", signature=signature
             )
         else:
-            mlflow.sklearn.log_model(lr, "model", signature=signature)
+            mlflow.sklearn.log_model(lr, name="model", signature=signature)

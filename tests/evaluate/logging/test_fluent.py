@@ -2,9 +2,9 @@ import pytest
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.evaluation_tag import EvaluationTag
 from mlflow.evaluation import Assessment, Evaluation, log_evaluations
+from mlflow.evaluation.assessment import AssessmentSource, AssessmentSourceType
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 
 from tests.evaluate.logging.utils import get_evaluation
 
@@ -58,7 +58,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey1": "sourcevalue1"},
                     },
                 },
                 {
@@ -67,7 +66,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey2": "sourcevalue2"},
                     },
                 },
             ],
@@ -88,7 +86,6 @@ def test_log_evaluations_with_all_params():
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
                         source_id="user-1",
-                        metadata={"sourcekey3": "sourcevalue3"},
                     ),
                 )
             ],

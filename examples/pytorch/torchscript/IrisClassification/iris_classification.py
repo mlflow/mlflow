@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     with mlflow.start_run() as run:
         mlflow.pytorch.log_model(
-            scripted_model, "model", signature=signature
+            scripted_model, name="model", signature=signature
         )  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")
         loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model

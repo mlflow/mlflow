@@ -1,10 +1,3 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import { ErrorWrapper } from './ErrorWrapper';
 
 describe('ErrorWrapper', () => {
@@ -27,8 +20,7 @@ describe('ErrorWrapper', () => {
   });
 
   it('renderHttpError works weird stuff', () => {
-    // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-    const error = new ErrorWrapper('{}', '500').renderHttpError();
+    const error = new ErrorWrapper('{}', 500).renderHttpError();
     expect(error).toEqual('Request Failed');
   });
 
