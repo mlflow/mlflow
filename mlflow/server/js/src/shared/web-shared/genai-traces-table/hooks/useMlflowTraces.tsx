@@ -40,10 +40,10 @@ import {
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
 } from '../utils/FeatureUtils';
-import { fetchFn, makeRequest } from '../utils/FetchUtils';
+import { makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
-import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 interface SearchMlflowTracesRequest {
   locations?: SearchMlflowLocations[];
