@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -58,6 +58,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -333,9 +334,9 @@ class RestStore(AbstractStore):
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         req_body = message_to_json(
             DeleteTraces(
@@ -396,12 +397,12 @@ class RestStore(AbstractStore):
     def search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
     ):
         if sql_warehouse_id is None:
             # Create trace_locations from experiment_ids for the V3 API
@@ -459,10 +460,10 @@ class RestStore(AbstractStore):
         model_id: str,
         sql_warehouse_id: str,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ):
         request = SearchUnifiedTraces(
             model_id=model_id,
@@ -537,11 +538,11 @@ class RestStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        name: str | None = None,
+        expectation: Expectation | None = None,
+        feedback: Feedback | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Assessment:
         """
         Update an existing assessment entity in the backend store.
@@ -784,11 +785,11 @@ class RestStore(AbstractStore):
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[list[LoggedModelTag]] = None,
-        params: Optional[list[LoggedModelParameter]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
     ) -> LoggedModel:
         """
         Create a new logged model.
@@ -883,11 +884,11 @@ class RestStore(AbstractStore):
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
@@ -1000,8 +1001,8 @@ class RestStore(AbstractStore):
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -1148,8 +1149,8 @@ class RestStore(AbstractStore):
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, str]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, str] | None = None,
+        experiment_id: list[str] | None = None,
     ) -> "EvaluationDataset":
         """
         Create an evaluation dataset.
@@ -1157,7 +1158,7 @@ class RestStore(AbstractStore):
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
+            experiment_id: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created EvaluationDataset.
@@ -1170,7 +1171,7 @@ class RestStore(AbstractStore):
         #     CreateEvaluationDataset.Request(
         #         name=name,
         #         tags=json.dumps(tags) if tags else None,
-        #         experiment_ids=experiment_ids
+        #         experiment_id=experiment_id
         #     )
         # )
         # endpoint = "/mlflow/evaluation-datasets"
@@ -1221,11 +1222,11 @@ class RestStore(AbstractStore):
 
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -1245,7 +1246,7 @@ class RestStore(AbstractStore):
         # from mlflow.store.entities.paged_list import PagedList
         # req_body = message_to_json(
         #     SearchEvaluationDatasets.Request(
-        #         experiment_ids=experiment_ids,
+        #         experiment_id=experiment_id,
         #         filter_string=filter_string,
         #         max_results=max_results,
         #         order_by=order_by,
@@ -1338,3 +1339,22 @@ class RestStore(AbstractStore):
         raise NotImplementedError(
             "REST endpoint for get_evaluation_dataset_experiment_ids not implemented"
         )
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        req_body = message_to_json(
+            LinkTracesToRun(
+                trace_ids=trace_ids,
+                run_id=run_id,
+            )
+        )
+        self._call_endpoint(LinkTracesToRun, req_body)

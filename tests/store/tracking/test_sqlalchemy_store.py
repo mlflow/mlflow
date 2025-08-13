@@ -10,12 +10,15 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
 from unittest import mock
 
 import pytest
 import sqlalchemy
+from opentelemetry import trace as trace_api
+from opentelemetry.sdk.resources import Resource as _OTelResource
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from packaging.version import Version
+from sqlalchemy.exc import IntegrityError
 
 import mlflow
 import mlflow.db
@@ -42,6 +45,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -85,6 +89,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSpan,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -96,6 +101,7 @@ from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
 )
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -275,7 +281,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list[str]]:
+def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -4603,6 +4609,97 @@ def test_search_traces_pagination_tie_breaker(store):
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
+def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
+    """Test that search_traces returns traces linked to a run via entity associations."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_run_filter")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different relationships to the run
+    # Trace 1: Has run_id in metadata (direct association)
+    trace1_id = "tr-direct"
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+
+    # Trace 2: Linked via entity association
+    trace2_id = "tr-linked"
+    _create_trace(store, trace2_id, exp_id)
+    store.link_traces_to_run([trace2_id], run_id)
+
+    # Trace 3: Both metadata and entity association
+    trace3_id = "tr-both"
+    _create_trace(store, trace3_id, exp_id, trace_metadata={"mlflow.sourceRun": run_id})
+    store.link_traces_to_run([trace3_id], run_id)
+
+    # Trace 4: No association with the run
+    trace4_id = "tr-unrelated"
+    _create_trace(store, trace4_id, exp_id)
+
+    # Search for traces with run_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return traces 1, 2, and 3 but not 4
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test with another run to ensure isolation
+    run2 = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run2")
+    run2_id = run2.info.run_id
+
+    # Create a trace linked to run2
+    trace5_id = "tr-run2"
+    _create_trace(store, trace5_id, exp_id)
+    store.link_traces_to_run([trace5_id], run2_id)
+
+    # Search for traces with run2_id filter
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run2_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace5
+    assert trace_ids == {trace5_id}
+
+    # Original run_id search should still return the same traces
+    traces, _ = store.search_traces([exp_id], filter_string=f'attributes.run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+
+def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
+    """Test that search_traces with run_id filter works correctly with other filters."""
+    # Create experiment and run
+    exp_id = store.create_experiment("test_combined_filters")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    # Create traces with different tags and run associations
+    trace1_id = "tr-tag1-linked"
+    _create_trace(store, trace1_id, exp_id, tags={"type": "training"})
+    store.link_traces_to_run([trace1_id], run_id)
+
+    trace2_id = "tr-tag2-linked"
+    _create_trace(store, trace2_id, exp_id, tags={"type": "inference"})
+    store.link_traces_to_run([trace2_id], run_id)
+
+    trace3_id = "tr-tag1-notlinked"
+    _create_trace(store, trace3_id, exp_id, tags={"type": "training"})
+
+    # Search with run_id and tag filter
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f'run_id = "{run_id}" AND tags.type = "training"'
+    )
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should only return trace1 (linked to run AND has training tag)
+    assert trace_ids == {trace1_id}
+
+    # Search with run_id only
+    traces, _ = store.search_traces([exp_id], filter_string=f'run_id = "{run_id}"')
+    trace_ids = {t.trace_id for t in traces}
+
+    # Should return both linked traces
+    assert trace_ids == {trace1_id, trace2_id}
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
@@ -4780,6 +4877,517 @@ def test_delete_traces_raises_error(store):
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
+    """Test the log_spans and log_spans_async methods."""
+
+    # Create an experiment and trace first
+    experiment_id = store.create_experiment("test_span_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-span-test-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info = store.start_trace(trace_info)
+
+    # Create a mock OpenTelemetry span
+
+    # Create mock context
+    mock_context = mock.Mock()
+    mock_context.trace_id = 12345
+    mock_context.span_id = 222 if not is_async else 333
+    mock_context.is_remote = False
+    mock_context.trace_flags = trace_api.TraceFlags(1)
+    mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+
+    parent_mock_context = mock.Mock()
+    parent_mock_context.trace_id = 12345
+    parent_mock_context.span_id = 111
+    parent_mock_context.is_remote = False
+    parent_mock_context.trace_flags = trace_api.TraceFlags(1)
+    parent_mock_context.trace_state = trace_api.TraceState()  # Empty TraceState
+
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=mock_context,
+        parent=parent_mock_context if not is_async else None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_info.trace_id),
+            "mlflow.spanInputs": json.dumps({"input": "test_input"}, cls=TraceJSONEncoder),
+            "mlflow.spanOutputs": json.dumps({"output": "test_output"}, cls=TraceJSONEncoder),
+            "mlflow.spanType": json.dumps("LLM" if not is_async else "CHAIN", cls=TraceJSONEncoder),
+            "custom_attr": json.dumps("custom_value", cls=TraceJSONEncoder),
+        },
+        start_time=1000000000 if not is_async else 3000000000,
+        end_time=2000000000 if not is_async else 4000000000,
+        resource=_OTelResource.get_empty(),
+    )
+
+    # Create MLflow span from OpenTelemetry span
+    span = create_mlflow_span(readable_span, trace_info.trace_id, "LLM")
+    assert isinstance(span, Span)
+
+    # Test logging the span using sync or async method
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
+
+    # Verify the returned spans are the same
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+    assert logged_spans[0].trace_id == trace_info.trace_id
+    assert logged_spans[0].span_id == span.span_id
+
+    # Verify the span was saved to the database
+    with store.ManagedSessionMaker() as session:
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
+            .first()
+        )
+
+        assert saved_span is not None
+        assert saved_span.experiment_id == int(experiment_id)
+        assert saved_span.parent_span_id == span.parent_id
+        assert saved_span.status == "UNSET"  # Default OpenTelemetry status
+        assert saved_span.status == span.status.status_code
+        assert saved_span.start_time_unix_nano == span.start_time_ns
+        assert saved_span.end_time_unix_nano == span.end_time_ns
+        # Check the computed duration
+        assert saved_span.duration_ns == (span.end_time_ns - span.start_time_ns)
+
+        # Verify the content is properly serialized
+        content_dict = json.loads(saved_span.content)
+        assert content_dict["name"] == "test_span"
+        # Inputs and outputs are stored in attributes as strings
+        assert content_dict["attributes"]["mlflow.spanInputs"] == json.dumps(
+            {"input": "test_input"}, cls=TraceJSONEncoder
+        )
+        assert content_dict["attributes"]["mlflow.spanOutputs"] == json.dumps(
+            {"output": "test_output"}, cls=TraceJSONEncoder
+        )
+        expected_type = "LLM" if not is_async else "CHAIN"
+        assert content_dict["attributes"]["mlflow.spanType"] == json.dumps(
+            expected_type, cls=TraceJSONEncoder
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
+    """Test that logging spans from different traces raises an error."""
+    # Create two different traces
+    experiment_id = store.create_experiment("test_multi_trace_experiment")
+    trace_info1 = TraceInfo(
+        trace_id="tr-span-test-789",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+    )
+    trace_info2 = TraceInfo(
+        trace_id="tr-span-test-999",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=5678,
+        execution_duration=200,
+        state=TraceState.OK,
+    )
+    trace_info1 = store.start_trace(trace_info1)
+    trace_info2 = store.start_trace(trace_info2)
+
+    # Create spans for different traces
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace1",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info1.trace_id, cls=TraceJSONEncoder)
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info1.trace_id,
+    )
+
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_trace2",
+            context=trace_api.SpanContext(
+                trace_id=67890,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_info2.trace_id, cls=TraceJSONEncoder)
+            },
+            start_time=3000000000,
+            end_time=4000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_info2.trace_id,
+    )
+
+    # Try to log spans from different traces - should raise MlflowException
+    if is_async:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            await store.log_spans_async(experiment_id, [span1, span2])
+    else:
+        with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
+            store.log_spans(experiment_id, [span1, span2])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans creates a trace if it doesn't exist."""
+    # Create an experiment but no trace
+    experiment_id = store.create_experiment("test_auto_trace_experiment")
+
+    # Create a span without a pre-existing trace
+    trace_id = "tr-auto-created-trace"
+    readable_span = OTelReadableSpan(
+        name="auto_trace_span",
+        context=trace_api.SpanContext(
+            trace_id=98765,
+            span_id=555,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+            "mlflow.experimentId": json.dumps(experiment_id, cls=TraceJSONEncoder),
+        },
+        start_time=5000000000,
+        end_time=6000000000,
+        resource=_OTelResource.get_empty(),
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Log the span - should create the trace automatically
+    if is_async:
+        logged_spans = await store.log_spans_async(experiment_id, [span])
+    else:
+        logged_spans = store.log_spans(experiment_id, [span])
+
+    assert len(logged_spans) == 1
+    assert logged_spans[0] == span
+
+    # Verify the trace was created
+    with store.ManagedSessionMaker() as session:
+        created_trace = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
+        )
+
+        assert created_trace is not None
+        assert created_trace.experiment_id == int(experiment_id)
+        assert created_trace.timestamp_ms == 5000000000 // 1_000_000
+        assert created_trace.execution_time_ms == 1000000000 // 1_000_000
+        # Trace status defaults to OK now
+        assert created_trace.status == "OK"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
+    """Test logging an empty list of spans."""
+    experiment_id = store.create_experiment("test_empty_experiment")
+
+    if is_async:
+        result = await store.log_spans_async(experiment_id, [])
+    else:
+        result = store.log_spans(experiment_id, [])
+    assert result == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
+    """Test that concurrent trace creation is handled correctly."""
+    # Create an experiment
+    experiment_id = store.create_experiment("test_concurrent_trace")
+    trace_id = "tr-concurrent-test"
+
+    # Create a span
+    readable_span = OTelReadableSpan(
+        name="concurrent_span",
+        context=trace_api.SpanContext(
+            trace_id=12345,
+            span_id=999,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        resource=_OTelResource.get_empty(),
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        },
+        start_time=1000000000,
+        end_time=2000000000,
+        status=trace_api.Status(trace_api.StatusCode.OK),
+        events=[],
+        links=[],
+    )
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    # Simulate a race condition where flush() raises IntegrityError
+    # This tests that the code properly handles concurrent trace creation
+    original_flush = None
+    call_count = 0
+
+    def mock_flush(self):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First call to flush (for trace creation) raises IntegrityError
+            raise IntegrityError("UNIQUE constraint failed", None, None)
+        else:
+            # Subsequent calls work normally
+            return original_flush()
+
+    with store.ManagedSessionMaker() as session:
+        original_flush = session.flush
+        with mock.patch.object(session, "flush", mock_flush):
+            # This should handle the IntegrityError and still succeed
+            if is_async:
+                result = await store.log_spans_async(experiment_id, [span])
+            else:
+                result = store.log_spans(experiment_id, [span])
+
+    # Verify the span was logged successfully despite the race condition
+    assert len(result) == 1
+    assert result[0] == span
+
+    # Verify the trace and span exist in the database
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.experiment_id == int(experiment_id)
+
+        saved_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
+            .one()
+        )
+        assert saved_span is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans updates trace time range when new spans extend it."""
+    experiment_id = _create_experiments(store, "test_log_spans_updates_trace")
+    trace_id = "tr-time-update-test-123"
+
+    # Create first span from 1s to 2s
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="early_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=2_000_000_000,  # 2 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log first span - creates trace with 1s start, 1s duration
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
+
+    # Verify initial trace times
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 1_000  # 1 second
+        assert trace.execution_time_ms == 1_000  # 1 second duration
+
+    # Create second span that starts earlier (0.5s) and ends later (3s)
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="extended_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=500_000_000,  # 0.5 seconds
+            end_time=3_000_000_000,  # 3 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log second span - should update trace to 0.5s start, 2.5s duration
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
+
+    # Verify trace times were updated
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # 0.5 seconds (earlier start)
+        assert trace.execution_time_ms == 2_500  # 2.5 seconds duration (0.5s to 3s)
+
+    # Create third span that only extends the end time (2.5s to 4s)
+    span3 = create_mlflow_span(
+        OTelReadableSpan(
+            name="later_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_500_000_000,  # 2.5 seconds
+            end_time=4_000_000_000,  # 4 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log third span - should only update end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
+
+    # Verify trace times were updated again
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Still 0.5 seconds (no earlier start)
+        assert trace.execution_time_ms == 3_500  # 3.5 seconds duration (0.5s to 4s)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
+    """Test that log_spans with spans that have no end time results in None execution_time."""
+    experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
+    trace_id = "tr-no-end-time-test-123"
+
+    # Create span without end time (in-progress span)
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=None,  # No end time - span still in progress
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span1])
+    else:
+        store.log_spans(experiment_id, [span1])
+
+    # Verify trace has timestamp but no execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 1_000  # 1 second
+        assert trace.execution_time_ms is None  # No execution time since span not ended
+
+    # Add a second span that also has no end time
+    span2 = create_mlflow_span(
+        OTelReadableSpan(
+            name="another_in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=500_000_000,  # 0.5 seconds - earlier start
+            end_time=None,  # No end time
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log second span with no end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span2])
+    else:
+        store.log_spans(experiment_id, [span2])
+
+    # Verify trace timestamp updated but execution_time still None
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Updated to earlier time
+        assert trace.execution_time_ms is None  # Still no execution time
+
+    # Now add a span with an end time
+    span3 = create_mlflow_span(
+        OTelReadableSpan(
+            name="completed_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=2_000_000_000,  # 2 seconds
+            end_time=3_000_000_000,  # 3 seconds
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with end time
+    if is_async:
+        await store.log_spans_async(experiment_id, [span3])
+    else:
+        store.log_spans(experiment_id, [span3])
+
+    # Verify trace now has execution_time
+    with store.ManagedSessionMaker() as session:
+        trace = session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+        assert trace.timestamp_ms == 500  # Still earliest start
+        assert trace.execution_time_ms == 2_500  # 3s - 0.5s = 2.5s
 
 
 def test_log_outputs(store: SqlAlchemyStore):
@@ -6133,10 +6741,10 @@ def test_assessment_with_error(store_and_trace_info):
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
 
 
-def test_evaluation_dataset_crud_operations(store):
+def test_dataset_crud_operations(store):
     with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
-        created_dataset = store.create_evaluation_dataset(
+        created_dataset = store.create_dataset(
             name="test_eval_dataset",
             tags={
                 "purpose": "testing",
@@ -6161,7 +6769,7 @@ def test_evaluation_dataset_crud_operations(store):
         assert created_dataset.profile is None  # Profile is computed when data is added
         assert created_dataset.created_by == "test_user"  # Extracted from mlflow.user tag
 
-        retrieved_dataset = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+        retrieved_dataset = store.get_dataset(dataset_id=created_dataset.dataset_id)
         assert retrieved_dataset.dataset_id == created_dataset.dataset_id
         assert retrieved_dataset.name == created_dataset.name
         assert retrieved_dataset.tags == created_dataset.tags
@@ -6172,17 +6780,17 @@ def test_evaluation_dataset_crud_operations(store):
         with pytest.raises(
             MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
         ):
-            store.get_evaluation_dataset(dataset_id="d-nonexistent")
+            store.get_dataset(dataset_id="d-nonexistent")
 
-        store.delete_evaluation_dataset(created_dataset.dataset_id)
+        store.delete_dataset(created_dataset.dataset_id)
         with pytest.raises(MlflowException, match="not found"):
-            store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+            store.get_dataset(dataset_id=created_dataset.dataset_id)
 
         # Verify idempotentcy
-        store.delete_evaluation_dataset("d-nonexistent")
+        store.delete_dataset("d-nonexistent")
 
 
-def test_evaluation_dataset_search_comprehensive(store):
+def test_dataset_search_comprehensive(store):
     test_prefix = "test_search_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp_{i}" for i in range(1, 4)])
 
@@ -6192,58 +6800,58 @@ def test_evaluation_dataset_search_comprehensive(store):
         tags = {"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"}
 
         if i < 3:
-            created = store.create_evaluation_dataset(
-                name=name,
+            created = store.create_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
                 experiment_ids=[exp_ids[0]],
                 tags=tags,
             )
         elif i < 6:
-            created = store.create_evaluation_dataset(
-                name=name,
+            created = store.create_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
                 experiment_ids=[exp_ids[1], exp_ids[2]],
                 tags=tags,
             )
         elif i < 8:
-            created = store.create_evaluation_dataset(
-                name=name,
+            created = store.create_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
                 experiment_ids=[exp_ids[2]],
                 tags=tags,
             )
         else:
-            created = store.create_evaluation_dataset(
-                name=name,
+            created = store.create_dataset(
+                name=f"{test_prefix}dataset_{i:02d}",
                 experiment_ids=[],
                 tags=tags,
             )
         datasets.append(created)
         time.sleep(0.001)
 
-    results = store.search_evaluation_datasets(experiment_ids=[exp_ids[0]])
+    results = store.search_datasets(experiment_ids=[exp_ids[0]])
     assert len([d for d in results if d.name.startswith(test_prefix)]) == 3
 
-    results = store.search_evaluation_datasets(experiment_ids=[exp_ids[1], exp_ids[2]])
+    results = store.search_datasets(experiment_ids=[exp_ids[1], exp_ids[2]])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 5
 
-    results = store.search_evaluation_datasets(order_by=["name"])
+    results = store.search_datasets(order_by=["name"])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     names = [d.name for d in test_results]
     assert names == sorted(names)
 
-    results = store.search_evaluation_datasets(order_by=["name DESC"])
+    results = store.search_datasets(order_by=["name DESC"])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     names = [d.name for d in test_results]
     assert names == sorted(names, reverse=True)
 
-    page1 = store.search_evaluation_datasets(max_results=3)
+    page1 = store.search_datasets(max_results=3)
     assert len(page1) == 3
     assert page1.token is not None
 
-    page2 = store.search_evaluation_datasets(max_results=3, page_token=page1.token)
+    page2 = store.search_datasets(max_results=3, page_token=page1.token)
     assert len(page2) == 3
     assert all(d1.dataset_id != d2.dataset_id for d1 in page1 for d2 in page2)
 
-    results = store.search_evaluation_datasets(experiment_ids=None)
+    results = store.search_datasets(experiment_ids=None)
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 10
 
@@ -6537,8 +7145,8 @@ def test_evaluation_dataset_filtering_ordering_pagination(store):
         assert test_limited[i].dataset_id == test_all_production[i].dataset_id
 
 
-def test_evaluation_dataset_upsert_comprehensive(store):
-    created_dataset = store.create_evaluation_dataset(name="upsert_comprehensive")
+def test_dataset_upsert_comprehensive(store):
+    created_dataset = store.create_dataset(name="upsert_comprehensive")
 
     records_batch1 = [
         {
@@ -6566,7 +7174,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         },
     ]
 
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch1)
+    result = store.upsert_dataset_records(created_dataset.dataset_id, records_batch1)
     assert result["inserted"] == 2
     assert result["updated"] == 1
 
@@ -6600,7 +7208,7 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         },
     ]
 
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch2)
+    result = store.upsert_dataset_records(created_dataset.dataset_id, records_batch2)
     assert result["inserted"] == 1
     assert result["updated"] == 1
 
@@ -6630,40 +7238,38 @@ def test_evaluation_dataset_upsert_comprehensive(store):
         {"inputs": {"question": "No tags"}, "expectations": {"answer": "No tags"}, "tags": {}},
     ]
 
-    result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records_batch3)
+    result = store.upsert_dataset_records(created_dataset.dataset_id, records_batch3)
     assert result["inserted"] == 3
     assert result["updated"] == 0
 
-    result = store.upsert_evaluation_dataset_records(
+    result = store.upsert_dataset_records(
         created_dataset.dataset_id,
         [{"inputs": {}, "expectations": {"result": "empty inputs allowed"}}],
     )
     assert result["inserted"] == 1
     assert result["updated"] == 0
 
-    empty_result = store.upsert_evaluation_dataset_records(created_dataset.dataset_id, [])
+    empty_result = store.upsert_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
     assert empty_result["updated"] == 0
 
 
-def test_evaluation_dataset_associations_and_lazy_loading(store):
+def test_dataset_associations_and_lazy_loading(store):
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
-    created_dataset = store.create_evaluation_dataset(
+    created_dataset = store.create_dataset(
         name="multi_exp_dataset",
         experiment_ids=experiment_ids,
     )
 
-    retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+    retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
     with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
-    results = store.search_evaluation_datasets(experiment_ids=[experiment_ids[1]])
+    results = store.search_datasets(experiment_ids=[experiment_ids[1]])
     assert any(d.dataset_id == created_dataset.dataset_id for d in results)
 
-    results = store.search_evaluation_datasets(
-        experiment_ids=[experiment_ids[0], experiment_ids[2]]
-    )
+    results = store.search_datasets(experiment_ids=[experiment_ids[0], experiment_ids[2]])
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
@@ -6671,10 +7277,10 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
-    store.upsert_evaluation_dataset_records(created_dataset.dataset_id, records)
+    store.upsert_dataset_records(created_dataset.dataset_id, records)
 
     with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
-        retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
+        retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 
         df = retrieved.to_df()
@@ -6692,72 +7298,70 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
         ]
 
 
-def test_evaluation_dataset_get_experiment_ids(store):
+def test_dataset_get_experiment_ids(store):
     experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
-    created_dataset = store.create_evaluation_dataset(
+    created_dataset = store.create_dataset(
         name="test_get_experiment_ids",
         experiment_ids=experiment_ids,
     )
 
-    fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
+    fetched_experiment_ids = store.get_dataset_experiment_ids(created_dataset.dataset_id)
     assert set(fetched_experiment_ids) == set(experiment_ids)
 
-    created_dataset2 = store.create_evaluation_dataset(
+    created_dataset2 = store.create_dataset(
         name="test_no_experiments",
         experiment_ids=[],
     )
-    fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(
-        created_dataset2.dataset_id
-    )
+    fetched_experiment_ids2 = store.get_dataset_experiment_ids(created_dataset2.dataset_id)
     assert fetched_experiment_ids2 == []
 
-    result = store.get_evaluation_dataset_experiment_ids("d-nonexistent")
+    result = store.get_dataset_experiment_ids("d-nonexistent")
     assert result == []
 
-    result = store.get_evaluation_dataset_experiment_ids("")
+    result = store.get_dataset_experiment_ids("")
     assert result == []
 
 
-def test_evaluation_dataset_tags_with_sql_backend(store):
+def test_dataset_tags_with_sql_backend(store):
     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
 
-    created = store.create_evaluation_dataset(
+    created = store.create_dataset(
         name="tagged_dataset",
         tags=tags,
     )
     assert created.tags == tags
 
-    retrieved = store.get_evaluation_dataset(created.dataset_id)
+    retrieved = store.get_dataset(created.dataset_id)
     assert retrieved.tags == tags
     assert retrieved.tags["environment"] == "production"
     assert retrieved.tags["version"] == "2.0"
     assert retrieved.tags["team"] == "ml-ops"
 
-    created_none = store.create_evaluation_dataset(
+    created_none = store.create_dataset(
         name="no_tags_dataset",
         tags=None,
     )
-    retrieved_none = store.get_evaluation_dataset(created_none.dataset_id)
+    retrieved_none = store.get_dataset(created_none.dataset_id)
     assert retrieved_none.tags == {}
 
-    created_empty = store.create_evaluation_dataset(
+    created_empty = store.create_dataset(
         name="empty_tags_dataset",
         tags={},
         experiment_ids=None,
     )
-    retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
+    retrieved_empty = store.get_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
 
 
-def test_evaluation_dataset_update_tags(store):
+def test_dataset_update_tags(store):
     initial_tags = {"environment": "development", "version": "1.0", "deprecated": "true"}
-    created = store.create_evaluation_dataset(
+    created = store.create_dataset(
         name="test_update_tags",
         tags=initial_tags,
         experiment_ids=None,
     )
 
-    retrieved = store.get_evaluation_dataset(created.dataset_id)
+    retrieved = store.get_dataset(created.dataset_id)
     assert retrieved.tags == initial_tags
 
     update_tags = {
@@ -6765,9 +7369,9 @@ def test_evaluation_dataset_update_tags(store):
         "team": "ml-ops",
         "deprecated": None,
     }
-    store.set_evaluation_dataset_tags(created.dataset_id, update_tags)
+    store.set_dataset_tags(created.dataset_id, update_tags)
 
-    updated = store.get_evaluation_dataset(created.dataset_id)
+    updated = store.get_dataset(created.dataset_id)
     expected_tags = {
         "environment": "production",  # Updated
         "version": "1.0",  # Preserved
@@ -6778,26 +7382,26 @@ def test_evaluation_dataset_update_tags(store):
     assert updated.last_update_time == created.last_update_time
     assert updated.last_updated_by == created.last_updated_by
 
-    created_no_tags = store.create_evaluation_dataset(
+    created_no_tags = store.create_dataset(
         name="test_no_initial_tags",
         tags=None,
         experiment_ids=None,
     )
 
-    store.set_evaluation_dataset_tags(
+    store.set_dataset_tags(
         created_no_tags.dataset_id, {"new_tag": "value", "mlflow.user": "test_user2"}
     )
 
-    updated_no_tags = store.get_evaluation_dataset(created_no_tags.dataset_id)
+    updated_no_tags = store.get_dataset(created_no_tags.dataset_id)
     assert updated_no_tags.tags == {"new_tag": "value", "mlflow.user": "test_user2"}
     assert updated_no_tags.last_update_time == created_no_tags.last_update_time
     assert updated_no_tags.last_updated_by == created_no_tags.last_updated_by
 
 
-def test_evaluation_dataset_digest_updates_with_changes(store):
+def test_dataset_digest_updates_with_changes(store):
     experiment_id = store.create_experiment("test_exp")
 
-    dataset = store.create_evaluation_dataset(
+    dataset = store.create_dataset(
         name="test_dataset",
         tags={"env": "test"},
         experiment_ids=[experiment_id],
@@ -6815,9 +7419,9 @@ def test_evaluation_dataset_digest_updates_with_changes(store):
         }
     ]
 
-    store.upsert_evaluation_dataset_records(dataset.dataset_id, records)
+    store.upsert_dataset_records(dataset.dataset_id, records)
 
-    updated_dataset = store.get_evaluation_dataset(dataset.dataset_id)
+    updated_dataset = store.get_dataset(dataset.dataset_id)
 
     assert updated_dataset.digest != initial_digest
 
@@ -6831,20 +7435,20 @@ def test_evaluation_dataset_digest_updates_with_changes(store):
         }
     ]
 
-    store.upsert_evaluation_dataset_records(dataset.dataset_id, more_records)
+    store.upsert_dataset_records(dataset.dataset_id, more_records)
 
-    final_dataset = store.get_evaluation_dataset(dataset.dataset_id)
+    final_dataset = store.get_dataset(dataset.dataset_id)
 
     assert final_dataset.digest != prev_digest
     assert final_dataset.digest != initial_digest
 
-    store.set_evaluation_dataset_tags(dataset.dataset_id, {"new_tag": "value"})
-    dataset_after_tags = store.get_evaluation_dataset(dataset.dataset_id)
+    store.set_dataset_tags(dataset.dataset_id, {"new_tag": "value"})
+    dataset_after_tags = store.get_dataset(dataset.dataset_id)
 
     assert dataset_after_tags.digest == final_dataset.digest
 
 
-def test_sql_evaluation_dataset_record_merge():
+def test_sql_dataset_record_merge():
     with mock.patch("mlflow.store.tracking.dbmodels.models.get_current_time_millis") as mock_time:
         mock_time.return_value = 2000
 
@@ -6931,3 +7535,49 @@ def test_sql_evaluation_dataset_record_merge():
 
         assert record6.expectations == {"accuracy": 0.8}  # Unchanged
         assert record6.tags == {"env": "test", "version": "1.0"}
+
+
+def _create_trace_info(trace_id: str, experiment_id: str):
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+
+
+def test_link_traces_to_run(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    trace_ids = []
+    for i in range(5):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    store.link_traces_to_run(trace_ids, run.info.run_id)
+
+    # search_traces should return traces linked to the run
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+    )
+    assert len(traces) == 5
+
+
+def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+
+    # Test exceeding the limit (101 traces)
+    trace_ids = []
+    for i in range(101):
+        trace_info = _create_trace_info(f"trace-{i}", exp_id)
+        store.start_trace(trace_info)
+        trace_ids.append(trace_info.trace_id)
+
+    with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
+        store.link_traces_to_run(trace_ids, run.info.run_id)

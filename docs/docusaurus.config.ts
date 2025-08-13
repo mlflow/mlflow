@@ -122,6 +122,17 @@ const config: Config = {
           label: 'API Reference',
         },
         {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
+        },
+        {
+          type: 'custom-versionSelector',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',
@@ -226,6 +237,16 @@ const config: Config = {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
+      },
+    ],
+    // Community docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'community',
+        path: 'docs/community',
+        routeBasePath: 'community',
+        sidebarPath: './communitySidebar.ts',
       },
     ],
     [
@@ -506,11 +527,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',

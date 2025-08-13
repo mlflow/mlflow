@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -23,11 +23,11 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        features: Union[np.ndarray, dict[str, np.ndarray]],
+        features: np.ndarray | dict[str, np.ndarray],
         source: DatasetSource,
-        targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        targets: np.ndarray | dict[str, np.ndarray] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         """
         Args:
@@ -75,21 +75,21 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def features(self) -> Union[np.ndarray, dict[str, np.ndarray]]:
+    def features(self) -> np.ndarray | dict[str, np.ndarray]:
         """
         The features of the dataset.
         """
         return self._features
 
     @property
-    def targets(self) -> Optional[Union[np.ndarray, dict[str, np.ndarray]]]:
+    def targets(self) -> np.ndarray | dict[str, np.ndarray] | None:
         """
         The targets of the dataset. May be ``None`` if no targets are available.
         """
         return self._targets
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         A profile of the dataset. May be ``None`` if a profile cannot be computed.
         """
@@ -117,7 +117,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return profile
 
     @cached_property
-    def schema(self) -> Optional[TensorDatasetSchema]:
+    def schema(self) -> TensorDatasetSchema | None:
         """
         MLflow TensorSpec schema representing the dataset features and targets (optional).
         """
@@ -154,11 +154,11 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_numpy(
-    features: Union[np.ndarray, dict[str, np.ndarray]],
-    source: Union[str, DatasetSource] = None,
-    targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
+    features: np.ndarray | dict[str, np.ndarray],
+    source: str | DatasetSource = None,
+    targets: np.ndarray | dict[str, np.ndarray] = None,
+    name: str | None = None,
+    digest: str | None = None,
 ) -> NumpyDataset:
     """
     Constructs a :py:class:`NumpyDataset <mlflow.data.numpy_dataset.NumpyDataset>` object from

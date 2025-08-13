@@ -5,7 +5,10 @@ from mlflow.genai import (
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
+    delete_dataset_tag,
     get_dataset,
+    search_datasets,
+    set_dataset_tags,
 )
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.labeling import (
@@ -28,12 +31,6 @@ from mlflow.genai.prompts import (
 )
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
-    add_scheduled_scorer,
-    delete_scheduled_scorer,
-    get_scheduled_scorer,
-    list_scheduled_scorers,
-    set_scheduled_scorers,
-    update_scheduled_scorer,
 )
 from mlflow.genai.scorers import Scorer, scorer
 
@@ -46,7 +43,10 @@ __all__ = [
     "scorers",
     "create_dataset",
     "delete_dataset",
+    "delete_dataset_tag",
     "get_dataset",
+    "search_datasets",
+    "set_dataset_tags",
     "load_prompt",
     "register_prompt",
     "search_prompts",
@@ -54,12 +54,6 @@ __all__ = [
     "set_prompt_alias",
     "optimize_prompt",
     "ScorerScheduleConfig",
-    "add_scheduled_scorer",
-    "update_scheduled_scorer",
-    "delete_scheduled_scorer",
-    "get_scheduled_scorer",
-    "list_scheduled_scorers",
-    "set_scheduled_scorers",
     "Agent",
     "LabelingSession",
     "ReviewApp",

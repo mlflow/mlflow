@@ -3,7 +3,6 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -62,8 +61,8 @@ def add_spark_flavor_to_model(model_path):
 @dataclass
 class Param:
     expected_dockerfile: str
-    env_manager: Optional[str] = None
-    mlflow_home: Optional[str] = None
+    env_manager: str | None = None
+    mlflow_home: str | None = None
     install_mlflow: bool = False
     enable_mlserver: bool = False
     # If True, image is built with --model-uri param

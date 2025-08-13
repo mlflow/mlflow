@@ -5,7 +5,6 @@ import urllib.parse
 from datetime import datetime
 from functools import lru_cache
 from mimetypes import guess_type
-from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -153,7 +152,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         access_key_id=None,
         secret_access_key=None,
         session_token=None,
-        tracking_uri: Optional[str] = None,
+        tracking_uri: str | None = None,
     ) -> None:
         """
         Initialize an S3 artifact repository.

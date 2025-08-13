@@ -105,7 +105,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
           flex: 1,
           overflow: 'hidden',
           display: 'flex',
-          minWidth: minWidth,
+          minWidth,
         }}
       >
         <div

@@ -624,6 +624,11 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
 
+#: Maximum number of workers to use for running model prediction and scoring during
+# for each row in the dataset passed to the `mlflow.genai.evaluate` function.
+#: (default: ``10``)
+MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
 #: inference or the process of capturing imported modules encounters any errors.
@@ -643,12 +648,6 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 #: (default: ``1.0``)
 MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
 
-#: Whether to writing trace to the MLflow backend from a model running in a Databricks
-#: model serving endpoint. If true, the trace will be written to both the MLflow backend
-#: and the Inference Table.
-_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", False
-)
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
@@ -873,6 +872,14 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
 
 #: Whether to allow setting thread local tracing destination.
 #: (default: ``False``)
