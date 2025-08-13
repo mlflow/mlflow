@@ -143,6 +143,9 @@ jobs:
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 120
       - name: Run tests
         run: |
           set +e
