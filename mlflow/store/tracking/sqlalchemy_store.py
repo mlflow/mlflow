@@ -3225,6 +3225,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             existing_schema_json: JSON string of existing schema or None
             record_dicts: List of record dictionaries being upserted
+
         Returns:
             Updated schema dictionary or None if no records and no existing schema
         """
@@ -3257,6 +3258,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             session: Database session
             dataset_id: ID of the dataset
+
         Returns:
             Profile dictionary with current statistics
         """
@@ -3274,6 +3276,7 @@ class SqlAlchemyStore(AbstractStore):
     def _infer_field_type(self, value):
         """
         Infer the type of a field value.
+
         Returns a string representation of the type.
         """
         if value is None:
@@ -3354,6 +3357,7 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
+            updated_by = None  # Track who last updated the dataset
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3368,12 +3372,14 @@ class SqlAlchemyStore(AbstractStore):
                     .one_or_none()
                 )
 
+                tags = record_dict.get("tags")
+                if tags and MLFLOW_USER in tags:
+                    updated_by = tags[MLFLOW_USER]
+
                 if existing_record:
                     existing_record.merge(record_dict)
                     updated_count += 1
                 else:
-                    tags = record_dict.get("tags")
-
                     created_by = None
                     if tags and MLFLOW_USER in tags:
                         created_by = tags[MLFLOW_USER]
@@ -3418,13 +3424,6 @@ class SqlAlchemyStore(AbstractStore):
             updated_schema = self._update_dataset_schema(existing_schema, records)
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
-
-            updated_by = None
-            for record_dict in records:
-                record_tags = record_dict.get("tags", {})
-                if record_tags and "mlflow.user" in record_tags:
-                    updated_by = record_tags["mlflow.user"]
-                    break
 
             new_digest = self._compute_dataset_digest(dataset_name, current_time)
 

@@ -2733,10 +2733,7 @@ class FileStore(AbstractStore):
         self,
         name: str,
         tags: dict[str, Any] | None = None,
-        experiment_id: list[str] | None = None,
-        schema: str | None = None,
-        profile: str | None = None,
-        created_by: str | None = None,
+        experiment_ids: list[str] | None = None,
     ):
         pass
 

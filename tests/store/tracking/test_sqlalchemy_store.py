@@ -6746,7 +6746,11 @@ def test_dataset_crud_operations(store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_dataset(
             name="test_eval_dataset",
-            tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
+            tags={
+                "purpose": "testing",
+                "environment": "test",
+                mlflow_tags.MLFLOW_USER: "test_user",
+            },
             experiment_ids=experiment_ids,
         )
 
@@ -6756,7 +6760,7 @@ def test_dataset_crud_operations(store):
         assert created_dataset.tags == {
             "purpose": "testing",
             "environment": "test",
-            "mlflow.user": "test_user",
+            mlflow_tags.MLFLOW_USER: "test_user",
         }
         assert created_dataset.created_time > 0
         assert created_dataset.last_update_time > 0
@@ -6792,29 +6796,32 @@ def test_dataset_search_comprehensive(store):
 
     datasets = []
     for i in range(10):
+        name = f"{test_prefix}dataset_{i:02d}"
+        tags = {"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"}
+
         if i < 3:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[0]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         elif i < 6:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[1], exp_ids[2]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         elif i < 8:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[2]],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         else:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[],
-                tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
+                tags=tags,
             )
         datasets.append(created)
         time.sleep(0.001)
@@ -6847,6 +6854,289 @@ def test_dataset_search_comprehensive(store):
     results = store.search_datasets(experiment_ids=None)
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 10
+
+    results = store.search_datasets(filter_string=f"name LIKE '%{test_prefix}dataset_0%'")
+    assert len(results) == 10
+    assert all("dataset_0" in d.name for d in results)
+
+    results = store.search_datasets(filter_string=f"name = '{test_prefix}dataset_05'")
+    assert len(results) == 1
+    assert results[0].name == f"{test_prefix}dataset_05"
+
+    results = store.search_datasets(filter_string="tags.priority = 'high'")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 5
+    assert all(d.tags.get("priority") == "high" for d in test_results)
+
+    results = store.search_datasets(filter_string="tags.priority != 'high'")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 5
+    assert all(d.tags.get("priority") == "low" for d in test_results)
+
+    results = store.search_datasets(
+        filter_string=f"name LIKE '%{test_prefix}%' AND tags.priority = 'low'"
+    )
+    assert len(results) == 5
+    assert all(d.tags.get("priority") == "low" and test_prefix in d.name for d in results)
+
+    mid_dataset = datasets[5]
+    results = store.search_datasets(filter_string=f"created_time > {mid_dataset.created_time}")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 4
+    assert all(d.created_time > mid_dataset.created_time for d in test_results)
+
+    results = store.search_datasets(
+        experiment_ids=[exp_ids[0]], filter_string="tags.priority = 'high'"
+    )
+    assert len(results) == 2
+    assert all(d.tags.get("priority") == "high" for d in results)
+
+    results = store.search_datasets(filter_string="tags.priority = 'low'", order_by=["name ASC"])
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    names = [d.name for d in test_results]
+    assert names == sorted(names)
+
+    created_user = store.create_dataset(
+        name=f"{test_prefix}_user_dataset",
+        tags={"test": "user", mlflow_tags.MLFLOW_USER: "test_user_1"},
+        experiment_ids=[exp_ids[0]],
+    )
+
+    results = store.search_datasets(filter_string="created_by = 'test_user_1'")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 1
+    assert test_results[0].created_by == "test_user_1"
+
+    records_with_user = [
+        {
+            "inputs": {"test": "data"},
+            "expectations": {"result": "expected"},
+            "tags": {mlflow_tags.MLFLOW_USER: "test_user_2"},
+        }
+    ]
+    store.upsert_dataset_records(created_user.dataset_id, records_with_user)
+
+    results = store.search_datasets(filter_string="last_updated_by = 'test_user_2'")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 1
+    assert test_results[0].last_updated_by == "test_user_2"
+
+    with pytest.raises(MlflowException, match="Invalid attribute key"):
+        store.search_datasets(filter_string="invalid_field = 'value'")
+
+
+def test_dataset_schema_and_profile_computation(store):
+    """Test that schema and profile are computed when records are added."""
+    test_prefix = "test_schema_profile_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    assert dataset.schema is None
+    assert dataset.profile is None
+
+    records = [
+        {
+            "inputs": {
+                "question": "What is MLflow?",
+                "temperature": 0.7,
+                "max_tokens": 100,
+                "use_cache": True,
+                "tags": ["ml", "tools"],
+            },
+            "expectations": {
+                "accuracy": 0.95,
+                "contains_key_info": True,
+                "response": "MLflow is an open source platform",
+            },
+            "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace1"}},
+        },
+        {
+            "inputs": {
+                "question": "What is Python?",
+                "temperature": 0.5,
+                "max_tokens": 150,
+                "metadata": {"user": "test", "session": 123},
+            },
+            "expectations": {"accuracy": 0.9},
+            "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace2"}},
+        },
+        {
+            "inputs": {"question": "What is Docker?", "temperature": 0.8},
+            "source": {"source_type": "HUMAN", "source_data": {"user": "human"}},
+        },
+    ]
+
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    updated_dataset = store.get_dataset(dataset.dataset_id)
+
+    assert updated_dataset.schema is not None
+    schema = json.loads(updated_dataset.schema)
+    assert "inputs" in schema
+    assert "expectations" in schema
+    assert schema["inputs"]["question"] == "string"
+    assert schema["inputs"]["temperature"] == "float"
+    assert schema["inputs"]["max_tokens"] == "integer"
+    assert schema["inputs"]["use_cache"] == "boolean"
+    assert schema["inputs"]["tags"] == "array"
+    assert schema["inputs"]["metadata"] == "object"
+    assert schema["expectations"]["accuracy"] == "float"
+    assert schema["expectations"]["contains_key_info"] == "boolean"
+    assert schema["expectations"]["response"] == "string"
+
+    assert updated_dataset.profile is not None
+    profile = json.loads(updated_dataset.profile)
+    assert profile["num_records"] == 3
+
+
+def test_dataset_schema_and_profile_incremental_updates(store):
+    test_prefix = "test_incremental_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    initial_records = [
+        {
+            "inputs": {"question": "What is MLflow?", "temperature": 0.7},
+            "expectations": {"accuracy": 0.95},
+            "source": {"source_type": "TRACE", "source_data": {"trace_id": "trace1"}},
+        }
+    ]
+
+    store.upsert_dataset_records(dataset.dataset_id, initial_records)
+
+    dataset1 = store.get_dataset(dataset.dataset_id)
+    schema1 = json.loads(dataset1.schema)
+    profile1 = json.loads(dataset1.profile)
+
+    assert schema1["inputs"] == {"question": "string", "temperature": "float"}
+    assert schema1["expectations"] == {"accuracy": "float"}
+    assert profile1["num_records"] == 1
+
+    additional_records = [
+        {
+            "inputs": {
+                "question": "What is Python?",
+                "temperature": 0.5,
+                "max_tokens": 100,
+                "use_cache": True,
+            },
+            "expectations": {"accuracy": 0.9, "relevance": 0.85},
+            "source": {"source_type": "HUMAN", "source_data": {"user": "test_user"}},
+        }
+    ]
+
+    store.upsert_dataset_records(dataset.dataset_id, additional_records)
+
+    dataset2 = store.get_dataset(dataset.dataset_id)
+    schema2 = json.loads(dataset2.schema)
+    profile2 = json.loads(dataset2.profile)
+
+    assert schema2["inputs"]["question"] == "string"
+    assert schema2["inputs"]["temperature"] == "float"
+    assert schema2["inputs"]["max_tokens"] == "integer"
+    assert schema2["inputs"]["use_cache"] == "boolean"
+    assert schema2["expectations"]["accuracy"] == "float"
+    assert schema2["expectations"]["relevance"] == "float"
+
+    assert profile2["num_records"] == 2
+
+
+def test_dataset_user_detection(store):
+    test_prefix = "test_user_detection_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset1 = store.create_dataset(
+        name=f"{test_prefix}dataset1",
+        tags={mlflow_tags.MLFLOW_USER: "john_doe", "other": "tag"},
+        experiment_ids=exp_ids,
+    )
+    assert dataset1.created_by == "john_doe"
+    assert dataset1.tags[mlflow_tags.MLFLOW_USER] == "john_doe"
+
+    dataset2 = store.create_dataset(
+        name=f"{test_prefix}dataset2", tags={"other": "tag"}, experiment_ids=exp_ids
+    )
+    assert dataset2.created_by is None
+    assert mlflow_tags.MLFLOW_USER not in dataset2.tags
+
+    results = store.search_datasets(filter_string="created_by = 'john_doe'")
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 1
+    assert test_results[0].dataset_id == dataset1.dataset_id
+
+
+def test_dataset_filtering_ordering_pagination(store):
+    test_prefix = "test_filter_order_page_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp_{i}" for i in range(3)])
+
+    datasets = []
+    for i in range(10):
+        time.sleep(0.01)
+        tags = {
+            "priority": "high" if i < 3 else ("medium" if i < 7 else "low"),
+            "model": f"model_{i % 3}",
+            "environment": "production" if i % 2 == 0 else "staging",
+        }
+        created = store.create_dataset(
+            name=f"{test_prefix}_dataset_{i:02d}",
+            tags=tags,
+            experiment_ids=[exp_ids[i % len(exp_ids)]],
+        )
+        datasets.append(created)
+
+    results = store.search_datasets(
+        filter_string="tags.priority = 'high'", order_by=["name ASC"], max_results=2
+    )
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert len(test_results) == 2
+    assert all(d.tags.get("priority") == "high" for d in test_results)
+    assert test_results[0].name < test_results[1].name
+
+    results_all = store.search_datasets(
+        filter_string="tags.priority = 'high'", order_by=["name ASC"]
+    )
+    test_results_all = [d for d in results_all if d.name.startswith(test_prefix)]
+    assert len(test_results_all) == 3
+
+    mid_time = datasets[5].created_time
+    results = store.search_datasets(
+        filter_string=f"tags.environment = 'production' AND created_time > {mid_time}",
+        order_by=["created_time DESC"],
+        max_results=3,
+    )
+    test_results = [d for d in results if d.name.startswith(test_prefix)]
+    assert all(d.tags.get("environment") == "production" for d in test_results)
+    assert all(d.created_time > mid_time for d in test_results)
+
+    for i in range(1, len(test_results)):
+        assert test_results[i - 1].created_time >= test_results[i].created_time
+
+    results = store.search_datasets(
+        experiment_ids=[exp_ids[0]],
+        filter_string="tags.model = 'model_0' AND tags.priority != 'low'",
+        order_by=["last_update_time DESC"],
+        max_results=5,
+    )
+    for d in results:
+        assert d.tags.get("model") == "model_0"
+        assert d.tags.get("priority") != "low"
+
+    all_production = store.search_datasets(
+        filter_string="tags.environment = 'production'", order_by=["name ASC"]
+    )
+    test_all_production = [d for d in all_production if d.name.startswith(test_prefix)]
+
+    limited_results = store.search_datasets(
+        filter_string="tags.environment = 'production'", order_by=["name ASC"], max_results=3
+    )
+    test_limited = [d for d in limited_results if d.name.startswith(test_prefix)]
+
+    assert len(test_limited) == 3
+    assert len(test_all_production) == 5
+    for i in range(3):
+        assert test_limited[i].dataset_id == test_all_production[i].dataset_id
 
 
 def test_dataset_upsert_comprehensive(store):
