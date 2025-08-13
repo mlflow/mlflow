@@ -1,7 +1,6 @@
 """MLflow CLI commands for Claude Code integration."""
 
 from pathlib import Path
-from typing import Optional
 
 import click
 
@@ -25,9 +24,9 @@ def commands():
 @click.option("--status", is_flag=True, help="Show current tracing status")
 def trace(
     directory: str,
-    tracking_uri: Optional[str],
-    experiment_id: Optional[str],
-    experiment_name: Optional[str],
+    tracking_uri: str | None,
+    experiment_id: str | None,
+    experiment_name: str | None,
     disable: bool,
     status: bool,
 ) -> None:
@@ -115,9 +114,9 @@ def _show_status(target_dir: Path, settings_file: Path) -> None:
 
 def _show_setup_status(
     target_dir: Path,
-    tracking_uri: Optional[str],
-    experiment_id: Optional[str],
-    experiment_name: Optional[str],
+    tracking_uri: str | None,
+    experiment_id: str | None,
+    experiment_name: str | None,
 ) -> None:
     """Show setup completion status."""
     current_dir = Path.cwd().resolve()

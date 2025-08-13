@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
@@ -110,9 +110,9 @@ def get_env_var(var_name: str, default: str = "") -> str:
 
 def setup_environment_config(
     settings_path: Path,
-    tracking_uri: Optional[str] = None,
-    experiment_id: Optional[str] = None,
-    experiment_name: Optional[str] = None,
+    tracking_uri: str | None = None,
+    experiment_id: str | None = None,
+    experiment_name: str | None = None,
 ) -> None:
     """Set up MLflow environment variables in Claude settings.
 

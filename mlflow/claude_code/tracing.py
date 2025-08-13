@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import dateutil.parser
 
@@ -152,7 +152,7 @@ def output_hook_response(continue_execution: bool = True, **kwargs) -> None:
 # ============================================================================
 
 
-def parse_timestamp_to_ns(timestamp: Union[str, int, float, None]) -> Optional[int]:
+def parse_timestamp_to_ns(timestamp: str | int | float | None) -> int | None:
     """Convert various timestamp formats to nanoseconds since Unix epoch.
 
     Args:
@@ -181,7 +181,7 @@ def parse_timestamp_to_ns(timestamp: Union[str, int, float, None]) -> Optional[i
     return None
 
 
-def extract_text_content(content: Union[str, list[dict[str, Any]], Any]) -> str:
+def extract_text_content(content: str | list[dict[str, Any]] | Any) -> str:
     """Extract text content from Claude message content (handles both string and list formats).
 
     Args:
@@ -201,7 +201,7 @@ def extract_text_content(content: Union[str, list[dict[str, Any]], Any]) -> str:
     return str(content)
 
 
-def find_last_user_message_index(transcript: list[dict[str, Any]]) -> Optional[int]:
+def find_last_user_message_index(transcript: list[dict[str, Any]]) -> int | None:
     """Find the index of the last actual user message (ignoring tool results and empty messages).
 
     Args:
@@ -238,7 +238,7 @@ def find_last_user_message_index(transcript: list[dict[str, Any]]) -> Optional[i
 # ============================================================================
 
 
-def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> Optional[int]:
+def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> int | None:
     """Get the timestamp of the next entry for duration calculation."""
     for i in range(current_idx + 1, len(transcript)):
         timestamp = transcript[i].get(MESSAGE_FIELD_TIMESTAMP)
@@ -381,9 +381,7 @@ def _create_llm_and_tool_spans(
                 )
 
 
-def find_final_assistant_response(
-    transcript: list[dict[str, Any]], start_idx: int
-) -> Optional[str]:
+def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
     """Find the final text response from the assistant for trace preview.
 
     Args:
@@ -418,7 +416,7 @@ def find_final_assistant_response(
 # ============================================================================
 
 
-def process_transcript(transcript_path: str, session_id: Optional[str] = None) -> Optional[Any]:
+def process_transcript(transcript_path: str, session_id: str | None = None) -> Any | None:
     """Process a Claude conversation transcript and create an MLflow trace with spans.
 
     Args:
