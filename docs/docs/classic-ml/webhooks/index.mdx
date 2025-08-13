@@ -468,7 +468,6 @@ if __name__ == "__main__":
 
    ```python
    from mlflow import MlflowClient
-   from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
    client = MlflowClient("http://localhost:5000")
 
@@ -476,7 +475,7 @@ if __name__ == "__main__":
    webhook = client.create_webhook(
        name="fastapi-receiver",
        url="https://your-domain.com/webhook",
-       events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+       events=["model_version.created"],
        secret="your-secret-key",
    )
    ```
