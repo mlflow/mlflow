@@ -2288,3 +2288,33 @@ def test_webhook_secret_encryption(store):
         (raw_secret,) = conn.execute(text("SELECT secret FROM webhooks")).fetchone()
         assert raw_secret is not None
         assert raw_secret != "my_secret"  # Should be encrypted
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store):
+    name = "test_model_with_model_id"
+    _rm_maker(store, name)
+
+    mock_run_id = "mock-run-id-123"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+
+    with mock.patch(
+        "mlflow.store.model_registry.sqlalchemy_store.MlflowClient"
+    ) as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+
+        mv = store.create_model_version(
+            name=name,
+            source="path/to/source",
+            run_id=None,
+            model_id="test-model-id-456",
+        )
+
+        mock_client.get_logged_model.assert_called_once_with("test-model-id-456")
+
+        assert mv.run_id == mock_run_id
+
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id
