@@ -447,6 +447,9 @@ def test_label_schema_frozen_dataclass():
 
 def test_label_schema_from_databricks_label_schema():
     """Test creation from Databricks label schema."""
+    # Create a mock databricks input object
+    mock_databricks_input = MagicMock()
+
     # Mock Databricks schema
     mock_databricks_schema = MagicMock()
     mock_databricks_schema.name = "test_schema"
@@ -454,22 +457,27 @@ def test_label_schema_from_databricks_label_schema():
     mock_databricks_schema.title = "Test Schema"
     mock_databricks_schema.instruction = "Test instruction"
     mock_databricks_schema.enable_comment = True
+    mock_databricks_schema.input = mock_databricks_input
 
     expected_input = InputText(max_length=100)
-    # Mock the convert method instead of the input object
-    with patch.object(
-        LabelSchema, "_convert_databricks_input", return_value=expected_input
-    ) as mock_convert:
-        result = LabelSchema._from_databricks_label_schema(mock_databricks_schema)
 
-        assert isinstance(result, LabelSchema)
-        assert result.name == "test_schema"
-        assert result.type == LabelSchemaType.FEEDBACK
-        assert result.title == "Test Schema"
-        assert result.instruction == "Test instruction"
-        assert result.enable_comment is True
-        assert result.input == expected_input
-        mock_convert.assert_called_once_with(mock_databricks_schema.input)
+    with patch("databricks.agents.review_app.label_schemas") as mock_label_schemas:
+        mock_label_schemas.InputText = type(mock_databricks_input)
+
+        # Mock the _from_databricks_input method
+        with patch.object(
+            InputText, "_from_databricks_input", return_value=expected_input
+        ) as mock_from_db:
+            result = LabelSchema._from_databricks_label_schema(mock_databricks_schema)
+
+            assert isinstance(result, LabelSchema)
+            assert result.name == "test_schema"
+            assert result.type == LabelSchemaType.FEEDBACK
+            assert result.title == "Test Schema"
+            assert result.instruction == "Test instruction"
+            assert result.enable_comment is True
+            assert result.input == expected_input
+            mock_from_db.assert_called_once_with(mock_databricks_input)
 
 
 def test_convert_databricks_input():
