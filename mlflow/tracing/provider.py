@@ -22,14 +22,18 @@ from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import (
+    Databricks,
+    MlflowExperiment,
+    TraceDestination,
+    UserTraceDestinationRegistry,
+)
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -39,7 +43,6 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.thread_utils import ThreadLocalVariable
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -53,32 +56,10 @@ _MLFLOW_TRACER_PROVIDER = None
 _MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
-# This destination, when set, will take precedence over other configurations.
-_MLFLOW_TRACE_USER_DESTINATION = None
+_MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
+
 
 _logger = logging.getLogger(__name__)
-
-
-def _init_trace_user_destination():
-    global _MLFLOW_TRACE_USER_DESTINATION
-    if MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION.get():
-        _MLFLOW_TRACE_USER_DESTINATION = ThreadLocalVariable(lambda: None)
-    else:
-
-        class _TraceUserDestination:
-            def __init__(self):
-                self.value = None
-
-            def get(self):
-                return self.value
-
-            def set(self, value):
-                self.value = value
-
-        _MLFLOW_TRACE_USER_DESTINATION = _TraceUserDestination()
-
-
-_init_trace_user_destination()
 
 
 def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
@@ -206,31 +187,30 @@ def detach_span_from_context(token: contextvars.Token):
 
 
 @experimental(version="2.21.0")
-def set_destination(destination: TraceDestination):
+def set_destination(destination: TraceDestination, *, context_local: bool = False):
     """
     Set a custom span destination to which MLflow will export the traces.
 
     A destination specified by this function will take precedence over
     other configurations, such as tracking URI, OTLP environment variables.
 
-    By default, the specified destination is applied globally. To set different destinations
-    per thread in multi-threaded application, set the environment variable
-    'MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION' to 'true',
-
-    To reset the destination, call the :py:func:`mlflow.tracing.reset()` function.
-
     Args:
         destination: A ``TraceDestination`` object that specifies the destination of the trace data.
+        context_local: If False (default), the destination is set globally. If True, the destination
+            is isolated per async task or thread, providing isolation in concurrent applications.
 
     Example:
 
         .. code-block:: python
 
             import mlflow
-            from mlflow.tracing.destination import MlflowExperiment
+            from mlflow.tracing.destination import Databricks
 
-            # Setting the destination to an MLflow experiment with ID "123"
-            mlflow.tracing.set_destination(MlflowExperiment(experiment_id="123"))
+            # Setting the destination globally
+            mlflow.tracing.set_destination(Databricks(experiment_id="123"))
+
+            # Setting the destination with async task isolation
+            mlflow.tracing.set_destination(Databricks(experiment_id="456"), context_local=True)
 
             # Reset the destination (to an active experiment as default)
             mlflow.tracing.reset()
@@ -250,10 +230,7 @@ def set_destination(destination: TraceDestination):
             "because the tracing destination is set to Databricks."
         )
 
-    # The destination needs to be persisted because the tracer setup can be re-initialized
-    # e.g. when the tracing is disabled and re-enabled, or tracking URI is changed, etc.
-    _MLFLOW_TRACE_USER_DESTINATION.set(destination)
-
+    _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _setup_tracer_provider()
 
 
@@ -549,7 +526,7 @@ def reset():
     _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
 
     # Reset the custom destination set by the user
-    _MLFLOW_TRACE_USER_DESTINATION.set(None)
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
 
     # Reset the tracing configuration to defaults
     reset_config()
