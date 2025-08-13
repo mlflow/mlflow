@@ -62,6 +62,7 @@ basic_proto_files = to_paths(
     "internal.proto",
     "scalapb/scalapb.proto",
     "assessments.proto",
+    "webhooks.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -114,6 +115,10 @@ python_gencode_replacements = [
     (
         "import assessments_pb2 as assessments__pb2",
         "from . import assessments_pb2 as assessments__pb2",
+    ),
+    (
+        "import webhooks_pb2 as webhooks__pb2",
+        "from . import webhooks_pb2 as webhooks__pb2",
     ),
 ]
 
