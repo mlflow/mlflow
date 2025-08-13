@@ -198,6 +198,7 @@ def test_validate_model_alias_name_reserved(alias_name):
         _validate_model_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+
 @pytest.mark.parametrize(
     "run_id",
     [

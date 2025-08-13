@@ -45,6 +45,7 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_model_version,
@@ -1227,6 +1228,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
+        _validate_model_alias_name_reserved(alias)
         _validate_model_version(version)
         with self.ManagedSessionMaker() as session:
             # check if model version exists
@@ -1268,8 +1270,12 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_alias_name(alias)
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
-            latest_version = next(v for v in self.get_latest_versions(name) if v is not None)
-            return self.get_model_version(name, latest_version.version)
+            if versions := self.get_latest_versions(name):
+                return versions[0]
+            else:
+                raise MlflowException(
+                    f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST
+                )
 
         with self.ManagedSessionMaker() as session:
             existing_alias = self._get_registered_model_alias(session, name, alias)
