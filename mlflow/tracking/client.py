@@ -6006,6 +6006,7 @@ class MlflowClient:
         """
         return self._get_registry_client().get_webhook(webhook_id)
 
+    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
