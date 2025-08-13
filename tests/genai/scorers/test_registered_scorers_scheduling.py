@@ -96,6 +96,19 @@ def test_scorer_start(mock_update, _):
     assert call_args["filter_string"] == "trace.status = 'OK'"
 
 
+def test_scorer_start_with_zero_sample_rate_raises_error():
+    """Test that starting a scorer with sample_rate=0 raises an error."""
+    my_scorer = length_check
+
+    # Attempting to start with sample_rate=0 should raise an exception
+    with pytest.raises(MlflowException, match="sample rate must be greater than 0"):
+        my_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0))
+
+    # Also test with negative sample rate
+    with pytest.raises(MlflowException, match="sample rate must be greater than 0"):
+        my_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=-0.1))
+
+
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_scorer_start_not_registered(_):
     """Test starting a scorer that isn't registered."""
