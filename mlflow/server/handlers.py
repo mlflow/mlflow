@@ -2419,8 +2419,8 @@ def _create_webhook():
         name=request_message.name,
         url=request_message.url,
         events=[WebhookEvent.from_proto(e) for e in request_message.events],
-        description=request_message.description,
-        secret=request_message.secret,
+        description=request_message.description or None,
+        secret=request_message.secret or None,
         status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
     )
     response_message = CreateWebhook.Response(webhook=webhook.to_proto())
