@@ -1814,3 +1814,37 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store):
+    """Test that create_model_version uses model_id to get run_id when run_id is not provided."""
+    name = "test_model_with_model_id"
+    store.create_registered_model(name)
+    
+    # Mock MlflowClient to return a LoggedModel with a specific source_run_id
+    mock_run_id = "mock-run-id-123"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+    
+    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+        
+        # Create model version with model_id but no run_id
+        mv = store.create_model_version(
+            name=name,
+            source="/absolute/path/to/source",  # Use absolute path to avoid any URI parsing issues
+            run_id=None,  # No run_id provided
+            model_id="test-model-id-456"  # model_id provided
+        )
+
+        # Verify both calls were with the same model_id
+        mock_client.get_logged_model.assert_any_call("test-model-id-456")
+        
+        # Verify that the model version was created with the run_id from the logged model
+        assert mv.run_id == mock_run_id
+        
+        # Verify the model version was created successfully
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id
