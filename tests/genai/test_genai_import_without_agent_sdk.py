@@ -1,5 +1,6 @@
-import pytest
 from unittest import mock
+
+import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.scorers import (

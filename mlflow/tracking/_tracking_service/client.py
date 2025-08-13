@@ -905,17 +905,17 @@ class TrackingServiceClient:
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
 
-    def create_evaluation_dataset(
+    def create_dataset(
         self,
         name: str,
         experiment_id: str | list[str] | None = None,
         tags: dict[str, Any] | None = None,
     ) -> "EvaluationDataset":
         """
-        Create a new evaluation dataset.
+        Create a new dataset.
 
         Args:
-            name: Name of the evaluation dataset.
+            name: Name of the dataset.
             experiment_id: Single experiment ID (str), list of experiment IDs, or None.
             tags: Dictionary of tags to apply to the dataset.
 
@@ -935,28 +935,28 @@ class TrackingServiceClient:
             experiment_id=experiment_ids,
         )
 
-    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
-        Get an evaluation dataset by ID.
+        Get a dataset by ID.
 
         Args:
-            dataset_id: ID of the evaluation dataset to retrieve.
+            dataset_id: ID of the dataset to retrieve.
 
         Returns:
             The EvaluationDataset object.
         """
         return self.store.get_evaluation_dataset(dataset_id)
 
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    def delete_dataset(self, dataset_id: str) -> None:
         """
-        Delete an evaluation dataset.
+        Delete a dataset.
 
         Args:
-            dataset_id: ID of the evaluation dataset to delete.
+            dataset_id: ID of the dataset to delete.
         """
         self.store.delete_evaluation_dataset(dataset_id)
 
-    def search_evaluation_datasets(
+    def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
@@ -965,7 +965,7 @@ class TrackingServiceClient:
         page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
-        Search for evaluation datasets.
+        Search for datasets.
 
         Args:
             experiment_ids: List of experiment IDs to filter by.
@@ -985,9 +985,9 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
-        Set tags for an evaluation dataset.
+        Set tags for a dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -1001,9 +1001,9 @@ class TrackingServiceClient:
         """
         self.store.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
-        Delete a tag from an evaluation dataset.
+        Delete a tag from a dataset.
 
         Args:
             dataset_id: The ID of the dataset.

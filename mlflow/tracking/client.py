@@ -5,6 +5,7 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import contextlib
+import functools
 import json
 import logging
 import os
@@ -153,6 +154,36 @@ def _validate_model_id_specified(model_id: str) -> None:
             f"`model_id` must be a non-empty string, but got {model_id!r}",
             INVALID_PARAMETER_VALUE,
         )
+
+
+def _disable_in_databricks(use_uc_message=False):
+    """Decorator to disable dataset operations when tracking URI is Databricks.
+
+    Args:
+        use_uc_message: If True, suggests Unity Catalog instead of fluent API.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if is_databricks_uri(str(self.tracking_uri)):
+                if use_uc_message:
+                    message = (
+                        f"Dataset operation '{func.__name__}' is not supported when tracking "
+                        "URI is 'databricks'. Use Unity Catalog functionality instead."
+                    )
+                else:
+                    message = (
+                        f"Dataset operation '{func.__name__}' is not supported when tracking "
+                        "URI is 'databricks'. Use the fluent API instead (e.g., "
+                        "mlflow.genai.datasets.create_dataset)."
+                    )
+                raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class MlflowClient:
@@ -5955,15 +5986,16 @@ class MlflowClient:
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
 
-    @experimental(version="3.3.0")
-    def create_evaluation_dataset(
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def create_dataset(
         self,
         name: str,
         experiment_id: str | list[str] | None = None,
         tags: dict[str, Any] | None = None,
     ) -> EvaluationDataset:
         """
-        Create a new evaluation dataset.
+        Create a new dataset.
 
         Args:
             name: The name of the dataset.
@@ -5981,22 +6013,23 @@ class MlflowClient:
             client = MlflowClient()
 
             # Create a dataset associated with experiments
-            dataset = client.create_evaluation_dataset(
+            dataset = client.create_dataset(
                 name="qa_evaluation_v1",
                 experiment_id=["0", "1"],
                 tags={"environment": "production", "version": "1.0"},
             )
         """
-        return self._tracking_client.create_evaluation_dataset(
+        return self._tracking_client.create_dataset(
             name=name,
             experiment_id=experiment_id,
             tags=tags,
         )
 
-    @experimental(version="3.3.0")
-    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
-        Get an evaluation dataset by ID.
+        Get a dataset by ID.
 
         Args:
             dataset_id: The ID of the dataset to retrieve.
@@ -6011,17 +6044,18 @@ class MlflowClient:
             client = MlflowClient()
 
             # Get a dataset by ID (assuming it exists)
-            dataset = client.get_evaluation_dataset("dataset_123")
+            dataset = client.get_dataset("dataset_123")
 
             # Access records (lazy loaded)
             df = dataset.to_df()
         """
-        return self._tracking_client.get_evaluation_dataset(dataset_id)
+        return self._tracking_client.get_dataset(dataset_id)
 
-    @experimental(version="3.3.0")
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def delete_dataset(self, dataset_id: str) -> None:
         """
-        Delete an evaluation dataset and all its records.
+        Delete a dataset and all its records.
 
         Args:
             dataset_id: The ID of the dataset to delete.
@@ -6033,51 +6067,12 @@ class MlflowClient:
             client = MlflowClient()
 
             # Delete a dataset
-            client.delete_evaluation_dataset("dataset_123")
+            client.delete_dataset("dataset_123")
         """
-        self._tracking_client.delete_evaluation_dataset(dataset_id)
+        self._tracking_client.delete_dataset(dataset_id)
 
-    # Unified API names - these are the preferred methods
-    def create_dataset(
-        self,
-        name: str,
-        experiment_id: str | list[str] | None = None,
-        tags: dict[str, Any] | None = None,
-    ) -> EvaluationDataset:
-        """
-        Create a new dataset (unified name for create_evaluation_dataset).
-
-        Args:
-            name: The name of the dataset.
-            experiment_id: Optional experiment ID (str) or list of experiment IDs.
-            tags: Optional dictionary of tags to apply to the dataset.
-
-        Returns:
-            The created EvaluationDataset object.
-        """
-        return self.create_evaluation_dataset(name=name, experiment_id=experiment_id, tags=tags)
-
-    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
-        """
-        Get a dataset by ID (unified name for get_evaluation_dataset).
-
-        Args:
-            dataset_id: The ID of the dataset to retrieve.
-
-        Returns:
-            The EvaluationDataset object.
-        """
-        return self.get_evaluation_dataset(dataset_id)
-
-    def delete_dataset(self, dataset_id: str) -> None:
-        """
-        Delete a dataset (unified name for delete_evaluation_dataset).
-
-        Args:
-            dataset_id: The ID of the dataset to delete.
-        """
-        self.delete_evaluation_dataset(dataset_id)
-
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
@@ -6087,57 +6082,7 @@ class MlflowClient:
         page_token: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
-        Search for datasets (unified name for search_evaluation_datasets).
-
-        Args:
-            experiment_ids: List of experiment IDs to filter by.
-            filter_string: A filter string to apply to the search.
-            max_results: Maximum number of results to return.
-            order_by: List of columns to order by.
-            page_token: Token for pagination.
-
-        Returns:
-            PagedList of EvaluationDataset objects.
-        """
-        return self.search_evaluation_datasets(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
-
-    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
-        """
-        Set tags for a dataset (unified name for set_evaluation_dataset_tags).
-
-        Args:
-            dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update.
-        """
-        self.set_evaluation_dataset_tags(dataset_id, tags)
-
-    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
-        """
-        Delete a tag from a dataset (unified name for delete_evaluation_dataset_tag).
-
-        Args:
-            dataset_id: The ID of the dataset.
-            key: The tag key to delete.
-        """
-        self.delete_evaluation_dataset_tag(dataset_id, key)
-
-    @experimental(version="3.3.0")
-    def search_evaluation_datasets(
-        self,
-        experiment_ids: list[str] | None = None,
-        filter_string: str | None = None,
-        max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
-        order_by: list[str] | None = None,
-        page_token: str | None = None,
-    ) -> PagedList[EvaluationDataset]:
-        """
-        Search for evaluation datasets.
+        Search for datasets.
 
         Args:
             experiment_ids: List of experiment IDs to filter by.
@@ -6156,17 +6101,17 @@ class MlflowClient:
             client = MlflowClient()
 
             # Search for datasets in specific experiments
-            datasets = client.search_evaluation_datasets(
+            datasets = client.search_datasets(
                 experiment_ids=["exp1", "exp2"], filter_string="name LIKE 'qa_%'", max_results=10
             )
 
             # Get next page if available
             if datasets.token:
-                next_page = client.search_evaluation_datasets(
+                next_page = client.search_datasets(
                     experiment_ids=["exp1", "exp2"], page_token=datasets.token
                 )
         """
-        return self._tracking_client.search_evaluation_datasets(
+        return self._tracking_client.search_datasets(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -6174,10 +6119,11 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="3.3.0")
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
-        Set tags for an evaluation dataset.
+        Set tags for a dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -6193,7 +6139,7 @@ class MlflowClient:
             client = MlflowClient()
 
             # Set tags for a dataset
-            client.set_evaluation_dataset_tags(
+            client.set_dataset_tags(
                 dataset_id="dataset123",
                 tags={
                     "environment": "production",
@@ -6202,12 +6148,13 @@ class MlflowClient:
                 },
             )
         """
-        self._tracking_client.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
+        self._tracking_client.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    @experimental(version="3.3.0")
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
-        Delete a tag from an evaluation dataset.
+        Delete a tag from a dataset.
 
         Args:
             dataset_id: The ID of the dataset.
@@ -6220,6 +6167,6 @@ class MlflowClient:
             client = MlflowClient()
 
             # Delete a tag
-            client.delete_evaluation_dataset_tag(dataset_id="dataset123", key="deprecated")
+            client.delete_dataset_tag(dataset_id="dataset123", key="deprecated")
         """
-        self._tracking_client.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)
+        self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)

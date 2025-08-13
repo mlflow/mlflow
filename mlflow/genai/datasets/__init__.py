@@ -232,7 +232,7 @@ def get_dataset(
         return client.get_dataset(dataset_id)
 
 
-@experimental(version="3.3.0")
+@experimental(version="3.4.0")
 def search_datasets(
     experiment_ids: str | list[str] | None = None,
     filter_string: str | None = None,
@@ -277,7 +277,7 @@ def search_datasets(
     )
 
 
-@experimental(version="3.3.0")
+@experimental(version="3.4.0")
 def set_dataset_tags(
     dataset_id: str,
     tags: dict[str, Any],
@@ -320,7 +320,7 @@ def set_dataset_tags(
     client.set_dataset_tags(dataset_id, tags)
 
 
-@experimental(version="3.3.0")
+@experimental(version="3.4.0")
 def delete_dataset_tag(
     dataset_id: str,
     key: str,
