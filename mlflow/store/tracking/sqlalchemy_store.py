@@ -8,7 +8,7 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, TypedDict
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -2875,12 +2875,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_entity_associations(
         self,
-        entity_ids: Union[str, list[str]],
+        entity_ids: str | list[str],
         entity_type: EntityAssociationType,
         target_type: EntityAssociationType,
         search_direction: str,  # "forward" or "reverse"
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Common implementation for searching entity associations.
@@ -2940,11 +2940,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_entities_by_source(
         self,
-        source_ids: Union[str, list[str]],
+        source_ids: str | list[str],
         source_type: EntityAssociationType,
         destination_type: EntityAssociationType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Get destination IDs associated with source entity/entities.
@@ -2966,11 +2966,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_entities_by_destination(
         self,
-        destination_ids: Union[str, list[str]],
+        destination_ids: str | list[str],
         destination_type: EntityAssociationType,
         source_type: EntityAssociationType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Get source IDs associated with destination entity/entities.
@@ -3014,8 +3014,8 @@ class SqlAlchemyStore(AbstractStore):
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, str]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, str] | None = None,
+        experiment_id: list[str] | None = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset in the database.
@@ -3023,7 +3023,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset
+            experiment_id: List of experiment IDs to associate with the dataset
 
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
@@ -3063,8 +3063,8 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     session.add(tag)
 
-            if experiment_ids:
-                for exp_id in experiment_ids:
+            if experiment_id:
+                for exp_id in experiment_id:
                     association = SqlEntityAssociation(
                         source_type=EntityAssociationType.EVALUATION_DATASET,
                         source_id=dataset_id,
@@ -3081,7 +3081,7 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             created_dataset = sql_dataset_with_tags.to_mlflow_entity()
-            created_dataset.experiment_ids = experiment_ids or []
+            created_dataset.experiment_ids = experiment_id or []
             created_dataset._tracking_store = self
 
             return created_dataset
@@ -3149,11 +3149,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
         Search for evaluation datasets.

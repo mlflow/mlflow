@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     ExperimentTag,
@@ -908,20 +908,21 @@ class TrackingServiceClient:
     def create_evaluation_dataset(
         self,
         name: str,
-        experiment_ids: Optional[list[str]] = None,
-        tags: Optional[dict[str, Any]] = None,
+        experiment_id: str | list[str] | None = None,
+        tags: dict[str, Any] | None = None,
     ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
 
         Args:
             name: Name of the evaluation dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
+            experiment_id: Single experiment ID (str), list of experiment IDs, or None.
             tags: Dictionary of tags to apply to the dataset.
 
         Returns:
             The created EvaluationDataset object.
         """
+        experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
         context_tags = context_registry.resolve_tags()
         merged_tags = tags.copy() if tags else {}
 
@@ -931,7 +932,7 @@ class TrackingServiceClient:
         return self.store.create_evaluation_dataset(
             name=name,
             tags=merged_tags if merged_tags else None,
-            experiment_ids=experiment_ids,
+            experiment_id=experiment_ids,
         )
 
     def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
@@ -957,11 +958,11 @@ class TrackingServiceClient:
 
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.

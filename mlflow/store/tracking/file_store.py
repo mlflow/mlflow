@@ -2732,11 +2732,11 @@ class FileStore(AbstractStore):
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, Any]] = None,
-        experiment_ids: Optional[list[str]] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
+        tags: dict[str, Any] | None = None,
+        experiment_id: list[str] | None = None,
+        schema: str | None = None,
+        profile: str | None = None,
+        created_by: str | None = None,
     ):
         pass
 

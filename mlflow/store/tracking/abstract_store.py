@@ -1,10 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Optional
-=======
-from typing import Any
->>>>>>> genai-dataset
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
     Assessment,
@@ -938,8 +934,8 @@ class AbstractStore:
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, str]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, str] | None = None,
+        experiment_id: list[str] | None = None,
     ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
@@ -947,7 +943,7 @@ class AbstractStore:
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
+            experiment_id: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created evaluation dataset with populated metadata.
@@ -980,11 +976,11 @@ class AbstractStore:
     @requires_sql_backend
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -1063,6 +1059,7 @@ class AbstractStore:
             List of experiment IDs associated with the dataset.
         """
         raise NotImplementedError(self.__class__.__name__)
+
     @abstractmethod
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """

@@ -5959,15 +5959,16 @@ class MlflowClient:
     def create_evaluation_dataset(
         self,
         name: str,
-        experiment_ids: Optional[list[str]] = None,
-        tags: Optional[dict[str, Any]] = None,
+        experiment_id: str | list[str] | None = None,
+        tags: dict[str, Any] | None = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset.
 
         Args:
             name: The name of the dataset.
-            experiment_ids: Optional list of experiment IDs to associate with the dataset.
+            experiment_id: Optional experiment ID (str) or list of experiment IDs to
+                associate with the dataset.
             tags: Optional dictionary of tags to apply to the dataset.
 
         Returns:
@@ -5982,13 +5983,13 @@ class MlflowClient:
             # Create a dataset associated with experiments
             dataset = client.create_evaluation_dataset(
                 name="qa_evaluation_v1",
-                experiment_ids=["0", "1"],
+                experiment_id=["0", "1"],
                 tags={"environment": "production", "version": "1.0"},
             )
         """
         return self._tracking_client.create_evaluation_dataset(
             name=name,
-            experiment_ids=experiment_ids,
+            experiment_id=experiment_id,
             tags=tags,
         )
 
@@ -6036,14 +6037,104 @@ class MlflowClient:
         """
         self._tracking_client.delete_evaluation_dataset(dataset_id)
 
+    # Unified API names - these are the preferred methods
+    def create_dataset(
+        self,
+        name: str,
+        experiment_id: str | list[str] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> EvaluationDataset:
+        """
+        Create a new dataset (unified name for create_evaluation_dataset).
+
+        Args:
+            name: The name of the dataset.
+            experiment_id: Optional experiment ID (str) or list of experiment IDs.
+            tags: Optional dictionary of tags to apply to the dataset.
+
+        Returns:
+            The created EvaluationDataset object.
+        """
+        return self.create_evaluation_dataset(name=name, experiment_id=experiment_id, tags=tags)
+
+    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
+        """
+        Get a dataset by ID (unified name for get_evaluation_dataset).
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object.
+        """
+        return self.get_evaluation_dataset(dataset_id)
+
+    def delete_dataset(self, dataset_id: str) -> None:
+        """
+        Delete a dataset (unified name for delete_evaluation_dataset).
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+        self.delete_evaluation_dataset(dataset_id)
+
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[EvaluationDataset]:
+        """
+        Search for datasets (unified name for search_evaluation_datasets).
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: A filter string to apply to the search.
+            max_results: Maximum number of results to return.
+            order_by: List of columns to order by.
+            page_token: Token for pagination.
+
+        Returns:
+            PagedList of EvaluationDataset objects.
+        """
+        return self.search_evaluation_datasets(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags for a dataset (unified name for set_evaluation_dataset_tags).
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+        """
+        self.set_evaluation_dataset_tags(dataset_id, tags)
+
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from a dataset (unified name for delete_evaluation_dataset_tag).
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        self.delete_evaluation_dataset_tag(dataset_id, key)
+
     @experimental(version="3.3.0")
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
         Search for evaluation datasets.

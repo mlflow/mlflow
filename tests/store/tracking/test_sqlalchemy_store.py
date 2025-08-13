@@ -6747,7 +6747,7 @@ def test_evaluation_dataset_crud_operations(store):
         created_dataset = store.create_evaluation_dataset(
             name="test_eval_dataset",
             tags={"purpose": "testing", "environment": "test", "mlflow.user": "test_user"},
-            experiment_ids=experiment_ids,
+            experiment_id=experiment_ids,
         )
 
         assert created_dataset.dataset_id is not None
@@ -6795,25 +6795,25 @@ def test_evaluation_dataset_search_comprehensive(store):
         if i < 3:
             created = store.create_evaluation_dataset(
                 name=f"{test_prefix}dataset_{i:02d}",
-                experiment_ids=[exp_ids[0]],
+                experiment_id=[exp_ids[0]],
                 tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
             )
         elif i < 6:
             created = store.create_evaluation_dataset(
                 name=f"{test_prefix}dataset_{i:02d}",
-                experiment_ids=[exp_ids[1], exp_ids[2]],
+                experiment_id=[exp_ids[1], exp_ids[2]],
                 tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
             )
         elif i < 8:
             created = store.create_evaluation_dataset(
                 name=f"{test_prefix}dataset_{i:02d}",
-                experiment_ids=[exp_ids[2]],
+                experiment_id=[exp_ids[2]],
                 tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
             )
         else:
             created = store.create_evaluation_dataset(
                 name=f"{test_prefix}dataset_{i:02d}",
-                experiment_ids=[],
+                experiment_id=[],
                 tags={"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"},
             )
         datasets.append(created)
@@ -6962,7 +6962,7 @@ def test_evaluation_dataset_associations_and_lazy_loading(store):
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
     created_dataset = store.create_evaluation_dataset(
         name="multi_exp_dataset",
-        experiment_ids=experiment_ids,
+        experiment_id=experiment_ids,
     )
 
     retrieved = store.get_evaluation_dataset(dataset_id=created_dataset.dataset_id)
@@ -7008,7 +7008,7 @@ def test_evaluation_dataset_get_experiment_ids(store):
     experiment_ids = _create_experiments(store, ["exp_1", "exp_2", "exp_3"])
     created_dataset = store.create_evaluation_dataset(
         name="test_get_experiment_ids",
-        experiment_ids=experiment_ids,
+        experiment_id=experiment_ids,
     )
 
     fetched_experiment_ids = store.get_evaluation_dataset_experiment_ids(created_dataset.dataset_id)
@@ -7016,7 +7016,7 @@ def test_evaluation_dataset_get_experiment_ids(store):
 
     created_dataset2 = store.create_evaluation_dataset(
         name="test_no_experiments",
-        experiment_ids=[],
+        experiment_id=[],
     )
     fetched_experiment_ids2 = store.get_evaluation_dataset_experiment_ids(
         created_dataset2.dataset_id
@@ -7055,7 +7055,7 @@ def test_evaluation_dataset_tags_with_sql_backend(store):
     created_empty = store.create_evaluation_dataset(
         name="empty_tags_dataset",
         tags={},
-        experiment_ids=None,
+        experiment_id=None,
     )
     retrieved_empty = store.get_evaluation_dataset(created_empty.dataset_id)
     assert retrieved_empty.tags == {}
@@ -7066,7 +7066,7 @@ def test_evaluation_dataset_update_tags(store):
     created = store.create_evaluation_dataset(
         name="test_update_tags",
         tags=initial_tags,
-        experiment_ids=None,
+        experiment_id=None,
     )
 
     retrieved = store.get_evaluation_dataset(created.dataset_id)
@@ -7093,7 +7093,7 @@ def test_evaluation_dataset_update_tags(store):
     created_no_tags = store.create_evaluation_dataset(
         name="test_no_initial_tags",
         tags=None,
-        experiment_ids=None,
+        experiment_id=None,
     )
 
     store.set_evaluation_dataset_tags(
@@ -7112,7 +7112,7 @@ def test_evaluation_dataset_digest_updates_with_changes(store):
     dataset = store.create_evaluation_dataset(
         name="test_dataset",
         tags={"env": "test"},
-        experiment_ids=[experiment_id],
+        experiment_id=[experiment_id],
     )
 
     initial_digest = dataset.digest

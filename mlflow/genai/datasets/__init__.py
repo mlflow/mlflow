@@ -7,14 +7,13 @@ The API docs can be found here:
 """
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
 
 _logger = logging.getLogger(__name__)
@@ -25,138 +24,158 @@ _ERROR_MSG = (
 )
 
 
-@experimental(version="3.3.0")
-def create_evaluation_dataset(
-    name: str,
-    experiment_ids: Optional[Union[str, list[str]]] = None,
-    tags: Optional[dict[str, Any]] = None,
-) -> EvaluationDataset:
+def _resolve_dataset_name(
+    name: str | None = None,
+    uc_table_name: str | None = None,
+) -> str | None:
     """
-    Create an empty evaluation dataset. Use merge_records() to add data.
+    Helper to resolve dataset name from either 'name' or deprecated 'uc_table_name' parameter.
 
     Args:
-        name: Dataset name. In Databricks, this is the UC table name.
-        experiment_ids: Single experiment ID (str) or list of experiment IDs.
-        tags: Dictionary of tags to apply to the dataset. Not available in Databricks.
+        name: The dataset name parameter
+        uc_table_name: The deprecated UC table name parameter
 
-    OSS Usage::
+    Returns:
+        The resolved dataset name
 
-        dataset = create_evaluation_dataset(
-            name="my_dataset",
-            experiment_ids=["exp1", "exp2"],  # or "exp1" for single
-            tags={"environment": "production", "version": "1.0"},
-        )
-        dataset.merge_records(records_df)
-
-    Databricks Usage::
-
-        dataset = create_evaluation_dataset(
-            name="catalog.schema.table",
-            experiment_ids="exp1",  # or ["exp1", "exp2"]
-        )
-        dataset.merge_records(records_df)
+    Raises:
+        ValueError: If both parameters are specified
     """
-    if isinstance(experiment_ids, str):
-        experiment_ids_list = [experiment_ids]
-    else:
-        experiment_ids_list = experiment_ids or []
+    if uc_table_name is not None:
+        _logger.warning(
+            "Parameter 'uc_table_name' is deprecated and will be removed in a future version. "
+            "Please use 'name' parameter instead."
+        )
+        if name is None:
+            return uc_table_name
+        else:
+            raise ValueError("Cannot specify both 'name' and 'uc_table_name' parameters.")
+    return name
+
+
+def _validate_databricks_params(
+    name: str | None,
+    dataset_id: str | None = None,
+) -> None:
+    """
+    Validate parameters for Databricks environment.
+
+    Args:
+        name: The dataset name parameter (required)
+        dataset_id: The dataset ID parameter (should not be provided)
+
+    Raises:
+        ValueError: If name is missing or dataset_id is provided
+    """
+    if name is None:
+        raise ValueError("Parameter 'name' is required (or use deprecated 'uc_table_name').")
+    if dataset_id is not None:
+        raise ValueError(
+            "Parameter 'dataset_id' is only supported outside of Databricks environments. "
+            "Use 'name' parameter instead."
+        )
+
+
+def _validate_non_databricks_params(
+    name: str | None,
+    dataset_id: str | None = None,
+) -> None:
+    """
+    Validate parameters for non-Databricks environment.
+
+    Args:
+        name: The dataset name parameter (should not be provided)
+        dataset_id: The dataset ID parameter (required)
+
+    Raises:
+        ValueError: If dataset_id is missing or name is provided
+    """
+    if name is not None:
+        raise ValueError(
+            "Parameter 'name' is only supported in Databricks environments. "
+            "Use 'dataset_id' parameter instead."
+        )
+    if dataset_id is None:
+        raise ValueError(
+            "Parameter 'dataset_id' is required. "
+            "Use search_evaluation_datasets() to find the dataset ID by name if needed."
+        )
+
+
+def create_dataset(
+    name: str | None = None,
+    experiment_id: str | list[str] | None = None,
+    tags: dict[str, Any] | None = None,
+    *,
+    uc_table_name: str | None = None,
+) -> "EvaluationDataset":
+    """
+    Create a dataset with the given name and associate it with the given experiment.
+
+    Args:
+        name: The name of the dataset. In Databricks, this is the UC table name.
+        experiment_id: The ID of the experiment(s) to associate the dataset with. If not provided,
+            the current experiment is inferred from the environment.
+        tags: Dictionary of tags to apply to the dataset. Not supported in Databricks.
+        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
+
+    Returns:
+        An EvaluationDataset object representing the created dataset.
+    """
+    name = _resolve_dataset_name(name, uc_table_name)
+
+    if name is None:
+        raise ValueError("Parameter 'name' is required.")
+
+    experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
 
     if is_databricks_default_tracking_uri(get_tracking_uri()):
+        if tags is not None:
+            raise NotImplementedError(
+                "Tags are not supported in Databricks environments. "
+                "Tags are managed through Unity Catalog."
+            )
         try:
             from databricks.agents.datasets import create_dataset as db_create
-
-            if tags is not None:
-                _logger.warning("Tags are not supported in Databricks environment.")
 
             return EvaluationDataset(db_create(name, experiment_ids))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
+        from mlflow.tracking.client import MlflowClient
+
         client = MlflowClient()
-        return client.create_evaluation_dataset(
+        return client.create_dataset(
             name=name,
-            experiment_ids=experiment_ids_list,
+            experiment_id=experiment_ids,
             tags=tags,
         )
 
 
-@experimental(version="3.3.0")
-def get_evaluation_dataset(
-    *, dataset_id: Optional[str] = None, name: Optional[str] = None
-) -> EvaluationDataset:
-    """
-    Get an evaluation dataset by ID (OSS) or name (Databricks).
-
-    Args:
-        dataset_id: Dataset ID (required for OSS)
-        name: Dataset name/UC table name (required for Databricks)
-
-    OSS Usage::
-
-        dataset = get_evaluation_dataset(dataset_id="dataset_abc123")
-
-    Databricks Usage::
-
-        dataset = get_evaluation_dataset(name="catalog.schema.table")
-    """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
-        if name is None:
-            raise ValueError(
-                "Parameter 'name' is required in Databricks environment. "
-                "Use: get_evaluation_dataset(name='catalog.schema.table')"
-            )
-        if dataset_id is not None:
-            _logger.warning(
-                "Parameter 'dataset_id' is ignored in Databricks environment. Use 'name' instead."
-            )
-        try:
-            from databricks.agents.datasets import get_dataset as db_get
-
-            return EvaluationDataset(db_get(name))
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-    else:
-        if dataset_id is None:
-            raise ValueError(
-                "Parameter 'dataset_id' is required. "
-                "Use: get_evaluation_dataset(dataset_id='<dataset_id>')"
-            )
-        if name is not None:
-            _logger.warning("Parameter 'name' is ignored. Use 'dataset_id' instead.")
-
-        client = MlflowClient()
-        return client.get_evaluation_dataset(dataset_id)
-
-
-@experimental(version="3.3.0")
-def delete_evaluation_dataset(
-    *, dataset_id: Optional[str] = None, name: Optional[str] = None
+def delete_dataset(
+    name: str | None = None,
+    dataset_id: str | None = None,
+    *,
+    uc_table_name: str | None = None,
 ) -> None:
     """
-    Delete an evaluation dataset by ID (OSS) or name (Databricks).
+    Delete a dataset.
 
     Args:
-        dataset_id: Dataset ID (required for OSS)
-        name: Dataset name/UC table name (required for Databricks)
+        name: The name of the dataset (Databricks only). In Databricks, this is the UC table name.
+        dataset_id: The ID of the dataset.
+        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
 
-    OSS Usage::
-
-        delete_evaluation_dataset(dataset_id="dataset_abc123")
-
-    Databricks Usage::
-
-        delete_evaluation_dataset(name="catalog.schema.table")
+    Note:
+        - In Databricks environments: Use 'name' (or deprecated 'uc_table_name') to specify
+            the dataset.
+        - Outside of Databricks: Use 'dataset_id' to specify the dataset
     """
+    # Handle deprecated parameter
+    name = _resolve_dataset_name(name, uc_table_name)
+
     if is_databricks_default_tracking_uri(get_tracking_uri()):
-        if name is None:
-            raise ValueError(
-                "Parameter 'name' is required in Databricks environment. "
-                "Use: delete_evaluation_dataset(name='catalog.schema.table')"
-            )
-        if dataset_id is not None:
-            _logger.warning(
-                "Parameter 'dataset_id' is ignored in Databricks environment. Use 'name' instead."
-            )
+        _validate_databricks_params(name, dataset_id)
         try:
             from databricks.agents.datasets import delete_dataset as db_delete
 
@@ -164,28 +183,65 @@ def delete_evaluation_dataset(
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
-        if dataset_id is None:
-            raise ValueError(
-                "Parameter 'dataset_id' is required. "
-                "Use: delete_evaluation_dataset(dataset_id='<dataset_id>')"
-            )
-        if name is not None:
-            _logger.warning("Parameter 'name' is ignored. Use 'dataset_id' instead.")
+        _validate_non_databricks_params(name, dataset_id)
+
+        from mlflow.tracking.client import MlflowClient
 
         client = MlflowClient()
-        client.delete_evaluation_dataset(dataset_id)
+        client.delete_dataset(dataset_id)
+
+
+def get_dataset(
+    name: str | None = None,
+    dataset_id: str | None = None,
+    *,
+    uc_table_name: str | None = None,
+) -> "EvaluationDataset":
+    """
+    Get the dataset with the given name or ID.
+
+    Args:
+        name: The name of the dataset (Databricks only). In Databricks, this is the UC table name.
+        dataset_id: The ID of the dataset.
+        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
+
+    Returns:
+        An EvaluationDataset object representing the retrieved dataset.
+
+    Note:
+        - In Databricks environments: Use 'name' (or deprecated 'uc_table_name') to specify
+            the dataset.
+        - Outside of Databricks: Use 'dataset_id' to specify the dataset
+    """
+    name = _resolve_dataset_name(name, uc_table_name)
+
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
+        _validate_databricks_params(name, dataset_id)
+        try:
+            from databricks.agents.datasets import get_dataset as db_get
+
+            return EvaluationDataset(db_get(name))
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+    else:
+        _validate_non_databricks_params(name, dataset_id)
+
+        from mlflow.tracking.client import MlflowClient
+
+        client = MlflowClient()
+        return client.get_dataset(dataset_id)
 
 
 @experimental(version="3.3.0")
-def search_evaluation_datasets(
-    experiment_ids: Optional[Union[str, list[str]]] = None,
-    filter_string: Optional[str] = None,
+def search_datasets(
+    experiment_ids: str | list[str] | None = None,
+    filter_string: str | None = None,
     max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
-    order_by: Optional[list[str]] = None,
-    page_token: Optional[str] = None,
+    order_by: list[str] | None = None,
+    page_token: str | None = None,
 ) -> PagedList[EvaluationDataset]:
     """
-    Search for evaluation datasets (OSS only).
+    Search for datasets (non-Databricks only).
 
     Args:
         experiment_ids: Single experiment ID (str) or list of experiment IDs
@@ -202,15 +258,17 @@ def search_evaluation_datasets(
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
-            "Evaluation Dataset search is not available in Databricks. "
+            "Dataset search is not available in Databricks. "
             "Use Unity Catalog search capabilities instead."
         )
 
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
 
+    from mlflow.tracking.client import MlflowClient
+
     client = MlflowClient()
-    return client.search_evaluation_datasets(
+    return client.search_datasets(
         experiment_ids=experiment_ids,
         filter_string=filter_string,
         max_results=max_results,
@@ -219,62 +277,13 @@ def search_evaluation_datasets(
     )
 
 
-@deprecated("Use mlflow.genai.datasets.create_evaluation_dataset instead", since="3.3.0")
-def create_dataset(
-    uc_table_name: str, experiment_id: str | list[str] | None = None
-) -> "EvaluationDataset":
-    """
-    Create a dataset with the given name and associate it with the given experiment.
-
-    Args:
-        uc_table_name: The UC table name of the dataset.
-        experiment_id: The ID of the experiment to associate the dataset with. If not provided,
-            the current experiment is inferred from the environment.
-    """
-    try:
-        from databricks.agents.datasets import create_dataset
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
-    return EvaluationDataset(create_dataset(uc_table_name, experiment_id))
-
-
-@deprecated("Use mlflow.genai.datasets.delete_evaluation_dataset instead", since="3.3.0")
-def delete_dataset(uc_table_name: str) -> None:
-    """
-    Delete the dataset with the given name.
-
-    Args:
-        uc_table_name: The UC table name of the dataset.
-    """
-    try:
-        from databricks.agents.datasets import delete_dataset
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-    return delete_dataset(uc_table_name)
-
-
-@deprecated("Use mlflow.genai.datasets.get_evaluation_dataset instead", since="3.3.0")
-def get_dataset(uc_table_name: str) -> "EvaluationDataset":
-    """
-    Get the dataset with the given name.
-
-    Args:
-        uc_table_name: The UC table name of the dataset.
-    """
-    try:
-        from databricks.agents.datasets import get_dataset
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
-    return EvaluationDataset(get_dataset(uc_table_name))
-
-
 @experimental(version="3.3.0")
-def set_evaluation_dataset_tags(
+def set_dataset_tags(
     dataset_id: str,
     tags: dict[str, Any],
 ) -> None:
     """
-    Set tags for an evaluation dataset.
+    Set tags for a dataset.
 
     This implements a batch tag operation - existing tags are merged with new tags.
     To remove a tag, use delete_evaluation_dataset_tag() instead.
@@ -285,7 +294,7 @@ def set_evaluation_dataset_tags(
 
     Usage::
 
-        set_evaluation_dataset_tags(
+        set_dataset_tags(
             dataset_id="dataset_abc123",
             tags={
                 "environment": "production",
@@ -298,24 +307,26 @@ def set_evaluation_dataset_tags(
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
-            "Evaluation Dataset tag operations are not available in Databricks yet. "
+            "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
         )
 
     if tags is None:
         raise ValueError("'tags' must be provided")
 
+    from mlflow.tracking.client import MlflowClient
+
     client = MlflowClient()
-    client.set_evaluation_dataset_tags(dataset_id, tags)
+    client.set_dataset_tags(dataset_id, tags)
 
 
 @experimental(version="3.3.0")
-def delete_evaluation_dataset_tag(
+def delete_dataset_tag(
     dataset_id: str,
     key: str,
 ) -> None:
     """
-    Delete a tag from an evaluation dataset.
+    Delete a tag from a dataset.
 
     Args:
         dataset_id: The ID of the dataset.
@@ -323,31 +334,29 @@ def delete_evaluation_dataset_tag(
 
     Usage::
 
-        delete_evaluation_dataset_tag(dataset_id="dataset_abc123", key="deprecated")
+        delete_dataset_tag(dataset_id="dataset_abc123", key="deprecated")
 
     Note:
         This API is not available in Databricks environments yet.
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
-            "Evaluation Dataset tag operations are not available in Databricks yet. "
+            "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
         )
 
+    from mlflow.tracking.client import MlflowClient
+
     client = MlflowClient()
-    client.delete_evaluation_dataset_tag(dataset_id, key)
+    client.delete_dataset_tag(dataset_id, key)
 
 
 __all__ = [
-    "create_evaluation_dataset",
-    "get_evaluation_dataset",
-    "delete_evaluation_dataset",
-    "search_evaluation_datasets",
-    "set_evaluation_dataset_tags",
-    "delete_evaluation_dataset_tag",
     "EvaluationDataset",
-    # Deprecated APIs
     "create_dataset",
     "delete_dataset",
+    "delete_dataset_tag",
     "get_dataset",
+    "search_datasets",
+    "set_dataset_tags",
 ]

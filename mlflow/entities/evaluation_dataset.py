@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
 from mlflow.data.evaluation_dataset_source import EvaluationDatasetSource
@@ -36,11 +36,11 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         digest: str,
         created_time: int,
         last_update_time: int,
-        tags: Optional[dict[str, Any]] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
-        last_updated_by: Optional[str] = None,
+        tags: dict[str, Any] | None = None,
+        schema: str | None = None,
+        profile: str | None = None,
+        created_by: str | None = None,
+        last_updated_by: str | None = None,
     ):
         """Initialize the EvaluationDataset."""
         self.dataset_id = dataset_id
@@ -70,14 +70,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def schema(self) -> Optional[str]:
+    def schema(self) -> str | None:
         """
         Dataset schema information.
         """
         return self._schema
 
     @property
-    def profile(self) -> Optional[str]:
+    def profile(self) -> str | None:
         """
         Dataset profile information.
         """
@@ -123,7 +123,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._records is not None
 
     def merge_records(
-        self, records: Union[list[dict[str, Any]], "pd.DataFrame", list["Trace"]]
+        self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
         """
         Merge new records with existing ones.

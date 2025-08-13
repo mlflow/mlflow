@@ -1,13 +1,9 @@
 import json
 import logging
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
-=======
-from typing import Any
->>>>>>> genai-dataset
 
 from mlflow.entities import (
     DatasetInput,
@@ -1153,8 +1149,8 @@ class RestStore(AbstractStore):
     def create_evaluation_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, str]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, str] | None = None,
+        experiment_id: list[str] | None = None,
     ) -> "EvaluationDataset":
         """
         Create an evaluation dataset.
@@ -1162,7 +1158,7 @@ class RestStore(AbstractStore):
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
+            experiment_id: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created EvaluationDataset.
@@ -1175,7 +1171,7 @@ class RestStore(AbstractStore):
         #     CreateEvaluationDataset.Request(
         #         name=name,
         #         tags=json.dumps(tags) if tags else None,
-        #         experiment_ids=experiment_ids
+        #         experiment_id=experiment_id
         #     )
         # )
         # endpoint = "/mlflow/evaluation-datasets"
@@ -1226,11 +1222,11 @@ class RestStore(AbstractStore):
 
     def search_evaluation_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -1250,7 +1246,7 @@ class RestStore(AbstractStore):
         # from mlflow.store.entities.paged_list import PagedList
         # req_body = message_to_json(
         #     SearchEvaluationDatasets.Request(
-        #         experiment_ids=experiment_ids,
+        #         experiment_id=experiment_id,
         #         filter_string=filter_string,
         #         max_results=max_results,
         #         order_by=order_by,
@@ -1343,6 +1339,7 @@ class RestStore(AbstractStore):
         raise NotImplementedError(
             "REST endpoint for get_evaluation_dataset_experiment_ids not implemented"
         )
+
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating entity associations.
