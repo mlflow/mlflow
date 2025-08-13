@@ -5954,6 +5954,7 @@ class MlflowClient:
         return registry_client.delete_prompt(name)
 
     # Webhook APIs
+    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -5992,6 +5993,7 @@ class MlflowClient:
             status=status,
         )
 
+    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
