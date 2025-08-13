@@ -40,9 +40,10 @@ import {
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
 } from '../utils/FeatureUtils';
-import { fetchFn } from '../utils/FetchUtils';
+import { makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 interface SearchMlflowTracesRequest {
   locations?: SearchMlflowLocations[];
@@ -398,23 +399,18 @@ const useSearchMlflowTracesInner = ({
         if (pageToken) {
           payload.page_token = pageToken;
         }
-        const queryResponse = await fetchFn('/ajax-api/3.0/mlflow/traces/search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          signal,
-        });
-        if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
-        const json = (await queryResponse.json()) as { traces: TraceInfoV3[]; next_page_token?: string };
-        const traces = json.traces;
+        const response: { traces: TraceInfoV3[]; next_page_token?: string } = await makeRequest(
+          getAjaxUrl('ajax-api/3.0/mlflow/traces/search'),
+          'POST',
+          payload,
+        );
+        const traces = response.traces;
         if (!isNil(traces)) {
           allTraces = allTraces.concat(traces);
         }
 
         // If there's no next page, break out of the loop.
-        pageToken = json.next_page_token;
+        pageToken = response.next_page_token;
         if (!pageToken) break;
       }
       return allTraces;
