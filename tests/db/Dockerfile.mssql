@@ -16,5 +16,5 @@ RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 
 RUN pip install pyodbc pytest pytest-cov pytest-asyncio
-RUN echo "${DEPENDENCIES}" > /tmp/requriements.txt && pip install -r /tmp/requriements.txt
+RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && pip install -r /tmp/requirements.txt
 RUN pip list
