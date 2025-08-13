@@ -15,7 +15,6 @@ from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerConfig, OptimizerOutput
 from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -45,15 +44,17 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         Parse model name from URI format to DSPy format.
 
         Accepts two formats:
-        - URI format: 'openai:/gpt-4' -> converted to 'openai/gpt-4'
-        - DSPy format: 'openai/gpt-4' -> returned unchanged
+        - URI format: 'openai:/gpt-4o' -> converted to 'openai/gpt-4o'
+        - DSPy format: 'openai/gpt-4o' -> returned unchanged
 
         Raises MlflowException for invalid formats.
         """
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
         if not model_name:
             raise MlflowException.invalid_parameter_value(
                 "Model name cannot be empty. Please provide a model name in the format "
-                "'<provider>/<model>' or '<provider>:/<model>'."
+                "'<provider>:/<model>' or '<provider>/<model>'."
             )
 
         try:

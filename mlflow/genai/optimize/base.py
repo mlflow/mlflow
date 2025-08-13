@@ -58,8 +58,8 @@ def optimize_prompt(
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
             The model name can be specified in either format:
-            - `<provider>/<model>` (e.g., "openai/gpt-4o")
             - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
+            - `<provider>/<model>` (e.g., "openai/gpt-4o")
         prompt: The URI or Prompt object of the MLflow prompt to optimize.
             The optimized prompt is registered as a new version of the prompt.
         train_data: Training dataset used for optimization.
