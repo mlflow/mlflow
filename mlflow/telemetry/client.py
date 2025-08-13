@@ -22,7 +22,6 @@ from mlflow.telemetry.events import ImportMlflowEvent
 from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
-from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 class TelemetryClient:
@@ -321,14 +320,13 @@ class TelemetryClient:
         Backend store might be changed after mlflow is imported, we should use this
         method to update the backend store info at sending telemetry step.
         """
-        if not IS_TRACING_SDK_ONLY:
-            try:
-                # import here to avoid circular import
-                from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
+        try:
+            # import here to avoid circular import
+            from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-                self.info["tracking_uri_scheme"] = _get_tracking_scheme()
-            except Exception:
-                pass
+            self.info["tracking_uri_scheme"] = _get_tracking_scheme()
+        except Exception:
+            pass
 
     def _clean_up(self):
         """Join all threads"""
