@@ -1,8 +1,9 @@
 import platform
 import subprocess
-import sys
 import tempfile
 import textwrap
+import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Literal
 
@@ -61,6 +62,7 @@ basic_proto_files = to_paths(
     "internal.proto",
     "scalapb/scalapb.proto",
     "assessments.proto",
+    "webhooks.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -114,6 +116,10 @@ python_gencode_replacements = [
         "import assessments_pb2 as assessments__pb2",
         "from . import assessments_pb2 as assessments__pb2",
     ),
+    (
+        "import webhooks_pb2 as webhooks__pb2",
+        "from . import webhooks_pb2 as webhooks__pb2",
+    ),
 ]
 
 
@@ -155,14 +161,9 @@ def build_protoc_from_source(version: Literal["3.19.4", "26.0"]) -> tuple[Path, 
         build_dir.mkdir(parents=True, exist_ok=True)
 
         # Download the source code
-        subprocess.check_call(
-            [
-                "curl",
-                "-L",
-                f"https://github.com/protocolbuffers/protobuf/archive/refs/tags/v{version}.tar.gz",
-                "-o",
-                CACHE_DIR / f"protobuf-{version}.tar.gz",
-            ]
+        download_file(
+            f"https://github.com/protocolbuffers/protobuf/archive/refs/tags/v{version}.tar.gz",
+            CACHE_DIR / f"protobuf-{version}.tar.gz",
         )
 
         # Extract the source code
@@ -187,28 +188,7 @@ def build_protoc_from_source(version: Literal["3.19.4", "26.0"]) -> tuple[Path, 
 
 
 def download_file(url: str, output_path: Path) -> None:
-    """
-    Download a file using wget on Linux and curl on macOS.
-    """
-    if SYSTEM == "Darwin":
-        subprocess.check_call(
-            [
-                "curl",
-                "-L",
-                url,
-                "-o",
-                output_path,
-            ]
-        )
-    else:
-        subprocess.check_call(
-            [
-                "wget",
-                url,
-                "-O",
-                output_path,
-            ]
-        )
+    urllib.request.urlretrieve(url, output_path)
 
 
 def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
@@ -234,22 +214,18 @@ def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Pat
 
     downloaded_protoc_bin = CACHE_DIR / f"protoc-{version}" / "bin" / "protoc"
     downloaded_protoc_include_path = CACHE_DIR / f"protoc-{version}" / "include"
-
     if not (downloaded_protoc_bin.is_file() and downloaded_protoc_include_path.is_dir()):
-        download_file(
-            f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
-            CACHE_DIR / protoc_zip_filename,
-        )
-        subprocess.check_call(
-            [
-                "unzip",
-                "-o",
-                "-d",
-                CACHE_DIR / f"protoc-{version}",
-                CACHE_DIR / protoc_zip_filename,
-            ]
-        )
-        (CACHE_DIR / protoc_zip_filename).unlink()
+        with tempfile.TemporaryDirectory() as t:
+            zip_path = Path(t) / protoc_zip_filename
+            download_file(
+                f"https://github.com/protocolbuffers/protobuf/releases/download/v{version}/{protoc_zip_filename}",
+                zip_path,
+            )
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(CACHE_DIR / f"protoc-{version}")
+
+        # Make protoc executable
+        downloaded_protoc_bin.chmod(0o755)
     return downloaded_protoc_bin, downloaded_protoc_include_path
 
 
@@ -307,9 +283,6 @@ def main() -> None:
         protoc3194_include,
         Path("mlflow/java/client/src/main/java"),
     )
-
-    # Graphql code generation.
-    subprocess.check_call([sys.executable, "./dev/proto_to_graphql/code_generator.py"])
 
 
 if __name__ == "__main__":

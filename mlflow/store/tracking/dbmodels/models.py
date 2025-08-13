@@ -1361,3 +1361,59 @@ class SqlSpan(Base):
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
     )
+
+
+class SqlEntityAssociation(Base):
+    """
+    DB model for entity associations.
+    """
+
+    __tablename__ = "entity_associations"
+
+    association_id = Column(String(36), nullable=False)
+    """
+    Association ID: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(36), nullable=False)
+    """
+    Source entity type: `String` (limit 36 characters).
+    """
+
+    source_id = Column(String(36), nullable=False)
+    """
+    Source entity ID: `String` (limit 36 characters).
+    """
+
+    destination_type = Column(String(36), nullable=False)
+    """
+    Destination entity type: `String` (limit 36 characters).
+    """
+
+    destination_id = Column(String(36), nullable=False)
+    """
+    Destination entity ID: `String` (limit 36 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_type",
+            "source_id",
+            "destination_type",
+            "destination_id",
+            name="entity_associations_pk",
+        ),
+        Index("index_entity_associations_association_id", "association_id"),
+        Index(
+            "index_entity_associations_reverse_lookup",
+            "destination_type",
+            "destination_id",
+            "source_type",
+            "source_id",
+        ),
+    )

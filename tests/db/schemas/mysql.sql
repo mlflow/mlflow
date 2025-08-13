@@ -5,6 +5,17 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE entity_associations (
+	association_id VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	created_time BIGINT,
+	PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -42,6 +53,20 @@ CREATE TABLE registered_models (
 	last_updated_time BIGINT,
 	description VARCHAR(5000),
 	PRIMARY KEY (name)
+)
+
+
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	description VARCHAR(1000),
+	url VARCHAR(500) NOT NULL,
+	status VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL,
+	secret VARCHAR(1000),
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	PRIMARY KEY (webhook_id)
 )
 
 
@@ -157,6 +182,15 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) NOT NULL,
+	entity VARCHAR(50) NOT NULL,
+	action VARCHAR(50) NOT NULL,
+	PRIMARY KEY (webhook_id, entity, action),
+	CONSTRAINT webhook_events_ibfk_1 FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 

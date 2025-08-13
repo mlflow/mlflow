@@ -34,6 +34,7 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -42,8 +43,10 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -65,6 +68,7 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlDataset,
+    SqlEntityAssociation,
     SqlExperiment,
     SqlExperimentTag,
     SqlInput,
@@ -83,6 +87,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2272,11 +2277,32 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters = _get_filter_clauses_for_search_traces(
-                filter_string, session, self._get_dialect()
+            attribute_filters, non_attribute_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
+
+            # Apply non-attribute filters
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            # If run_id filter is present, we need to handle it specially to include linked traces
+            if run_id_filter:
+                from sqlalchemy import exists, or_
+
+                # Create a subquery to check if a trace is linked to the run via entity associations
+                linked_trace_exists = exists().where(
+                    (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
+                    & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
+                    & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
+                    & (SqlEntityAssociation.destination_id == run_id_filter)
+                )
+
+                # Create a subquery to check if trace has run_id in metadata
+                metadata_exists = exists().where(
+                    (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
+                    & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
+                    & (SqlTraceMetadata.value == run_id_filter)
+                )
 
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -2286,6 +2312,22 @@ class SqlAlchemyStore(AbstractStore):
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
             experiment_ids = [int(e) for e in experiment_ids]
+
+            # Build the filter conditions
+            filter_conditions = [
+                SqlTraceInfo.experiment_id.in_(experiment_ids),
+                *attribute_filters,
+            ]
+
+            # If run_id filter is present, add OR condition for linked traces
+            if run_id_filter:
+                filter_conditions.append(
+                    or_(
+                        linked_trace_exists,  # Trace is linked via entity associations
+                        metadata_exists,  # Trace has run_id in metadata
+                    )
+                )
+
             stmt = (
                 # NB: We don't need to distinct the results of joins because of the fact that
                 #   the right tables of the joins are unique on the join key, trace_id.
@@ -2294,10 +2336,7 @@ class SqlAlchemyStore(AbstractStore):
                 #   trace_id is unique in those tables.
                 #   Be careful when changing the query building logic, as it may break this
                 #   uniqueness property and require deduplication, which can be expensive.
-                stmt.filter(
-                    SqlTraceInfo.experiment_id.in_(experiment_ids),
-                    *attribute_filters,
-                )
+                stmt.filter(*filter_conditions)
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
@@ -2644,6 +2683,41 @@ class SqlAlchemyStore(AbstractStore):
                 )
         return sql_assessment
 
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        MAX_TRACES_PER_REQUEST = 100
+
+        if not trace_ids:
+            return
+
+        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+            raise MlflowException(
+                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"a single request. Provided {len(trace_ids)} traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            session.add_all(
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_type=EntityAssociationType.TRACE,
+                    source_id=trace_id,
+                    destination_type=EntityAssociationType.RUN,
+                    destination_id=run_id,
+                )
+                for trace_id in trace_ids
+            )
+
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -2677,6 +2751,10 @@ class SqlAlchemyStore(AbstractStore):
         end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
         max_end_ms = (max(end_times) // 1_000_000) if end_times else None
 
+        # Determine trace status from root span if available
+        root_span_status = self._get_trace_status_from_root_span(spans)
+        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
+
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
             sql_trace_info = (
@@ -2693,9 +2771,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_ms,
                     execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
-                    # TODO: Set trace status based on root span status (span with no parent).
-                    # For now, we default to "OK" for all new traces.
-                    status="OK",
+                    status=trace_status,
                     client_request_id=None,
                 )
                 session.add(sql_trace_info)
@@ -2738,6 +2814,15 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     - timestamp_update_expr
                 )
+
+            # If trace status is IN_PROGRESS or unspecified, check for root span to update it
+            if sql_trace_info.status in (
+                TraceState.IN_PROGRESS.value,
+                TraceState.STATE_UNSPECIFIED.value,
+            ):
+                if root_span_status:
+                    update_dict[SqlTraceInfo.status] = root_span_status
+
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
@@ -2781,6 +2866,25 @@ class SqlAlchemyStore(AbstractStore):
         """
         # TODO: Implement proper async support
         return self.log_spans(experiment_id, spans)
+
+    def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
+        """
+        Infer trace status from root span if present.
+
+        Returns the mapped trace status string or None if no root span found.
+        """
+        for span in spans:
+            if span.parent_id is None:  # Found root span (no parent)
+                # Map span status to trace status
+                span_status = span.status.status_code
+                if span_status == SpanStatusCode.ERROR:
+                    return TraceState.ERROR.value
+                else:
+                    # Beyond ERROR, the only other valid span statuses are OK and UNSET.
+                    # For both OK and UNSET span statuses, return OK trace status.
+                    # UNSET is unexpected in production but we handle it gracefully.
+                    return TraceState.OK.value
+        return None
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
@@ -3164,9 +3268,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
+    Also extracts run_id filter if present for special handling.
     """
     attribute_filters = []
     non_attribute_filters = []
+    run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
     for sql_statement in parsed_filters:
@@ -3182,6 +3288,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
             attribute_filters.append(attr_filter)
         else:
+            # Check if this is a run_id filter (stored as SOURCE_RUN in metadata)
+            if (
+                SearchTraceUtils.is_request_metadata(key_type, comparator)
+                and key_name == TraceMetadataKey.SOURCE_RUN
+                and comparator == "="
+            ):
+                run_id_filter = value
+                # Don't add run_id filter to non_attribute_filters since we handle it specially
+                continue
+
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
@@ -3202,4 +3318,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, non_attribute_filters, run_id_filter
