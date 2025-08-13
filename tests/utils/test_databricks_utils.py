@@ -775,9 +775,8 @@ def test_databricks_runtime_version_parse_invalid(invalid_version):
 
 
 def test_get_databricks_creds_config_ignore_error():
-    with pytest.raises(MlflowException, match="Reading databricks credential configuration failed"):
+    with pytest.raises(MlflowException, match="Reading Databricks credential configuration failed"):
         _get_databricks_creds_config("databricks")
 
     config = _get_databricks_creds_config("databricks", use_databricks_sdk=True)
     assert isinstance(config, DatabricksConfig)
-
