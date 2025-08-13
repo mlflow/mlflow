@@ -6002,7 +6002,6 @@ class MlflowClient:
                 associate with the dataset.
             tags: Optional dictionary of tags to apply to the dataset.
 
-
         Returns:
             The created EvaluationDataset object.
 
