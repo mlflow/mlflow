@@ -16,7 +16,13 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookEventStr,
+    WebhookStatus,
+    WebhookTestResult,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -888,7 +894,7 @@ class ModelRegistryClient:
 
     @experimental(version="3.3.0")
     def test_webhook(
-        self, webhook_id: str, event: WebhookEvent | str | None = None
+        self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test payload.
