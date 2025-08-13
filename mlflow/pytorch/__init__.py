@@ -15,7 +15,7 @@ import os
 import posixpath
 import shutil
 from functools import partial
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -701,6 +701,7 @@ class _PyTorchWrapper:
         self.pytorch_model = pytorch_model
         self.device = device
         import torch
+
         self.torch = torch
 
     def get_raw_model(self):
@@ -709,7 +710,7 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data: Any, params: Optional[dict[str, Any]] = None) -> Any:
+    def predict(self, data: Any, params: dict[str, Any] | None = None) -> Any:
         """
         Overrides the predict method to handle dict and list of dict inputs.
 
@@ -730,11 +731,10 @@ class _PyTorchWrapper:
                 "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
             )
 
-        # Preprocess the input data
         input_tensor = self._preprocess_input(data)
 
-        # Perform inference
         import torch
+
         device = self.device
         with torch.no_grad():
             preds = self.pytorch_model(input_tensor, **(params or {}))
@@ -746,10 +746,7 @@ class _PyTorchWrapper:
                 elif isinstance(preds, dict):
                     preds = {k: v.to(_TORCH_CPU_DEVICE_NAME) for k, v in preds.items()}
 
-        # Post-process the output
-        predicted = self._postprocess_output(preds, data)
-
-        return predicted
+        return self._postprocess_output(preds, data)
 
     def _preprocess_input(self, data: Any):
         """
@@ -765,19 +762,16 @@ class _PyTorchWrapper:
 
         if isinstance(data, pd.DataFrame):
             # Convert DataFrame to tensor
-            input_tensor = self.torch.from_numpy(data.values.astype(np.float32)).to(device)
-            return input_tensor
+            return self.torch.from_numpy(data.values.astype(np.float32)).to(device)
         elif isinstance(data, np.ndarray):
             # Convert ndarray to tensor
-            input_tensor = self.torch.from_numpy(data.astype(np.float32)).to(device)
-            return input_tensor
+            return self.torch.from_numpy(data.astype(np.float32)).to(device)
         elif isinstance(data, dict):
             # Convert each value in the dict to tensor
-            input_tensor = {
+            return {
                 k: self.torch.as_tensor(v, dtype=self.torch.float32, device=device)
                 for k, v in data.items()
             }
-            return input_tensor
         elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
             # Aggregate data for each key
             aggregated = {}
@@ -788,15 +782,21 @@ class _PyTorchWrapper:
                     aggregated[key].append(value.astype(np.float32))
 
             # Concatenate and convert to tensors
-            input_tensor = {
+            return {
                 k: self.torch.from_numpy(np.concatenate(v, axis=0)).to(device)
                 for k, v in aggregated.items()
             }
-            return input_tensor
         else:
-            raise TypeError(
-                "Input data must be a pandas DataFrame, numpy ndarray, dict, or list of dicts."
-            )
+            # Check if it's a plain list (not list of dicts) to provide backward-compatible error
+            if isinstance(data, list):
+                raise TypeError("The PyTorch flavor does not support List input types")
+            # For scalars and other unsupported types, use backward-compatible message
+            elif isinstance(data, (int, float, complex, str, bool)) or np.isscalar(data):
+                raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+            else:
+                raise TypeError(
+                    "Input data must be a pandas DataFrame, numpy ndarray, dict, or list of dicts."
+                )
 
     def _postprocess_output(self, preds: Any, data: Any) -> Any:
         """
@@ -810,9 +810,9 @@ class _PyTorchWrapper:
             Predictions in the same format as the input data.
         """
         import torch
-        
+
         if isinstance(preds, torch.Tensor):
-            preds = preds.cpu().numpy()
+            preds = preds.cpu().detach().numpy()
             if isinstance(data, pd.DataFrame):
                 return pd.DataFrame(preds, index=data.index)
             else:
@@ -824,9 +824,7 @@ class _PyTorchWrapper:
             else:
                 return preds
         else:
-            raise TypeError(
-                "Model output must be a torch.Tensor or a dict of torch.Tensors."
-            )
+            raise TypeError("Model output must be a torch.Tensor or a dict of torch.Tensors.")
 
 
 def log_state_dict(state_dict, artifact_path, **kwargs):
