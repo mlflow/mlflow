@@ -607,6 +607,53 @@ def test_trace_skip_resolving_unrelated_tags_to_traces():
     assert "unrelated tags" not in trace.info.tags
 
 
+def test_trace_with_experiment_id():
+    exp_1 = mlflow.create_experiment("exp_1")
+    exp_2 = mlflow.set_experiment("exp_2").experiment_id  # active experiment
+
+    @mlflow.trace(experiment_id=exp_1)
+    def predict_1():
+        with mlflow.start_span(name="child_span"):
+            return
+
+    @mlflow.trace()
+    def predict_2():
+        pass
+
+    predict_1()
+    traces = get_traces(experiment_id=exp_1)
+    assert len(traces) == 1
+    assert traces[0].info.experiment_id == exp_1
+    assert len(traces[0].data.spans) == 2
+    assert get_traces(experiment_id=exp_2) == []
+
+    predict_2()
+    traces = get_traces(experiment_id=exp_2)
+    assert len(traces) == 1
+    assert traces[0].info.experiment_id == exp_2
+
+
+def test_trace_with_experiment_id_issue_warning_when_not_root_span():
+    exp_1 = mlflow.create_experiment("exp_1")
+
+    @mlflow.trace(experiment_id=exp_1)
+    def predict_1():
+        return predict_2()
+
+    @mlflow.trace(experiment_id=exp_1)
+    def predict_2():
+        return
+
+    with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
+        predict_1()
+
+    assert mock_logger.warning.call_count == 1
+    assert mock_logger.warning.call_args[0][0] == (
+        "The `experiment_id` parameter can only be used for root spans, but the span "
+        "`predict_2` is not a root span. The specified value `1` will be ignored."
+    )
+
+
 def test_start_span_context_manager(async_logging_enabled):
     datetime_now = datetime.now()
 

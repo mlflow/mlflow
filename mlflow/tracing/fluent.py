@@ -63,6 +63,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    experiment_id: str | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -157,6 +158,9 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
         output_reducer: A function that reduces the outputs of the generator function into a
             single value to be set as the span output.
+        experiment_id: The ID of the experiment to log the trace to. If not provided,
+            the experiment ID will be determined by the default resolution order. This
+            parameter should only be used for root span and non-root span will raise an exception.
     """
 
     def decorator(fn):
@@ -175,13 +179,14 @@ def trace(
                 span_type,
                 attributes,
                 output_reducer,
+                experiment_id,
             )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes, experiment_id)
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -199,6 +204,7 @@ def _wrap_function(
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
+    experiment_id: str | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -207,7 +213,12 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name,
+                span_type=span_type,
+                attributes=attributes,
+                experiment_id=experiment_id,
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
@@ -255,6 +266,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    experiment_id: str | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -291,6 +303,7 @@ def _wrap_generator(
                 span_type=span_type,
                 attributes=attributes,
                 inputs=inputs,
+                experiment_id=experiment_id,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -397,6 +410,7 @@ def start_span(
     name: str = "span",
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
+    experiment_id: str | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -448,12 +462,15 @@ def start_span(
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+        experiment_id: The ID of the experiment to log the trace to. If not provided,
+            the experiment ID will be determined by the default resolution order. This
+            parameter should only be used for root span and non-root span will raise an exception.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
     """
     try:
-        otel_span = provider.start_span_in_context(name)
+        otel_span = provider.start_span_in_context(name, experiment_id=experiment_id)
 
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
