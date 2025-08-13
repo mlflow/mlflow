@@ -88,6 +88,8 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
 
     Args:
         name: The name of the span.
+        experiment_id: The ID of the experiment to log the span to. If not specified, the span will
+            be logged to the active experiment or explicitly set trace destination.
 
     Returns:
         The newly created OpenTelemetry span.

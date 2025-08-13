@@ -607,6 +607,8 @@ def test_trace_skip_resolving_unrelated_tags_to_traces():
     assert "unrelated tags" not in trace.info.tags
 
 
+# Tracing SDK doesn't have `create_experiment` support
+@skip_when_testing_trace_sdk
 def test_trace_with_experiment_id():
     exp_1 = mlflow.create_experiment("exp_1")
     exp_2 = mlflow.set_experiment("exp_2").experiment_id  # active experiment
@@ -633,6 +635,8 @@ def test_trace_with_experiment_id():
     assert traces[0].info.experiment_id == exp_2
 
 
+# Tracing SDK doesn't have `create_experiment` support
+@skip_when_testing_trace_sdk
 def test_trace_with_experiment_id_issue_warning_when_not_root_span():
     exp_1 = mlflow.create_experiment("exp_1")
 
