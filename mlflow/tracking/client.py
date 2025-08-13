@@ -6001,7 +6001,10 @@ class MlflowClient:
             experiment_id: Optional experiment ID (str) or list of experiment IDs to
                 associate with the dataset.
             tags: Optional dictionary of tags to apply to the dataset.
+<<<<<<< HEAD
                   To set the dataset creator, include {"mlflow.user": "username"} in tags.
+=======
+>>>>>>> genai-dataset
 
         Returns:
             The created EvaluationDataset object.

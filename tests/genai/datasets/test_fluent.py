@@ -384,7 +384,7 @@ def test_databricks_import_error():
                     create_dataset(name="test", experiment_id="exp1")
 
 
-def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
+def test_create_dataset_with_user_tag(tracking_uri, experiments):
     dataset = create_dataset(
         name="test_user_attribution",
         experiment_id=experiments[0],
@@ -406,8 +406,8 @@ def test_create_evaluation_dataset_with_user_tag(tracking_uri, experiments):
     assert dataset2.created_by == dataset2.tags[MLFLOW_USER]
 
 
-def test_create_and_get_evaluation_dataset(tracking_uri, experiments):
-    dataset = create_evaluation_dataset(
+def test_create_and_get_dataset(tracking_uri, experiments):
+    dataset = create_dataset(
         name="qa_evaluation_v1",
         experiment_id=[experiments[0], experiments[1]],
         tags={"source": "manual_curation", "environment": "test"},
@@ -544,9 +544,17 @@ def test_search_datasets(tracking_uri, experiments):
     human_results = search_datasets(filter_string="name LIKE 'search_test_%'")
     assert len(human_results) == 5
 
+<<<<<<< HEAD
     limited_results = search_datasets(max_results=2)
     assert len(limited_results) == 2
 
+=======
+    # Test that pagination happens automatically internally
+    limited_results = search_datasets(max_results=2)
+    assert len(limited_results) == 2
+
+    # Test getting more results with higher max_results
+>>>>>>> genai-dataset
     more_results = search_datasets(max_results=4)
     assert len(more_results) == 4
 
@@ -567,9 +575,17 @@ def test_delete_dataset(tracking_uri, experiments):
 
     delete_dataset(dataset_id=dataset_id)
 
+<<<<<<< HEAD
     with pytest.raises(MlflowException, match="Could not find|not found"):
         get_dataset(dataset_id=dataset_id)
 
+=======
+    # Verify dataset cannot be retrieved
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        get_dataset(dataset_id=dataset_id)
+
+    # Verify dataset doesn't appear in search results
+>>>>>>> genai-dataset
     search_results = search_datasets(experiment_ids=[experiments[0], experiments[1]])
     found_ids = [d.dataset_id for d in search_results]
     assert dataset_id not in found_ids
@@ -863,7 +879,11 @@ def test_trace_deduplication_with_assessments(client, experiment):
 
     record = df.iloc[0]
     assert record["inputs"]["question"] == "What is AI?"
+<<<<<<< HEAD
     assert record["expectations"]["quality"] == 0.9
+=======
+    assert record["expectations"]["quality"] == 0.9  # Expectations from last trace
+>>>>>>> genai-dataset
     assert record["source_id"] in trace_ids
 
 
@@ -1146,6 +1166,7 @@ def test_set_dataset_tags_databricks(mock_databricks_environment):
 
 def test_delete_dataset_tag_databricks(mock_databricks_environment):
     with pytest.raises(NotImplementedError, match="tag operations are not available"):
+<<<<<<< HEAD
         delete_evaluation_dataset_tag(dataset_id="test", key="key")
 
 
@@ -1276,6 +1297,8 @@ def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
 
     consistent_profile = json.loads(consistent_dataset.profile)
     assert consistent_profile["num_records"] == 4
+=======
+>>>>>>> genai-dataset
         delete_dataset_tag(dataset_id="test", key="key")
 
 

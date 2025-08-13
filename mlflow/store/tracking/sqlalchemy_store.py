@@ -3384,7 +3384,7 @@ class SqlAlchemyStore(AbstractStore):
                     created_by = None
                     if tags and MLFLOW_USER in tags:
                         created_by = tags[MLFLOW_USER]
-                        last_updated_by = created_by  # Track the user for updating dataset
+                        last_updated_by = created_by
 
                     source = None
                     if source_data := record_dict.get("source"):

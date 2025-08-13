@@ -6855,60 +6855,60 @@ def test_dataset_search_comprehensive(store):
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 10
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string=f"name LIKE '%{test_prefix}dataset_0%'"
     )
     assert len(results) == 10
     assert all("dataset_0" in d.name for d in results)
 
-    results = store.search_evaluation_datasets(filter_string=f"name = '{test_prefix}dataset_05'")
+    results = store.search_datasets(filter_string=f"name = '{test_prefix}dataset_05'")
     assert len(results) == 1
     assert results[0].name == f"{test_prefix}dataset_05"
 
-    results = store.search_evaluation_datasets(filter_string="tags.priority = 'high'")
+    results = store.search_datasets(filter_string="tags.priority = 'high'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 5
     assert all(d.tags.get("priority") == "high" for d in test_results)
 
-    results = store.search_evaluation_datasets(filter_string="tags.priority != 'high'")
+    results = store.search_datasets(filter_string="tags.priority != 'high'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 5
     assert all(d.tags.get("priority") == "low" for d in test_results)
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string=f"name LIKE '%{test_prefix}%' AND tags.priority = 'low'"
     )
     assert len(results) == 5
     assert all(d.tags.get("priority") == "low" and test_prefix in d.name for d in results)
 
     mid_dataset = datasets[5]
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string=f"created_time > {mid_dataset.created_time}"
     )
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 4
     assert all(d.created_time > mid_dataset.created_time for d in test_results)
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         experiment_ids=[exp_ids[0]], filter_string="tags.priority = 'high'"
     )
     assert len(results) == 2
     assert all(d.tags.get("priority") == "high" for d in results)
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string="tags.priority = 'low'", order_by=["name ASC"]
     )
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     names = [d.name for d in test_results]
     assert names == sorted(names)
 
-    created_user = store.create_evaluation_dataset(
+    created_user = store.create_dataset(
         name=f"{test_prefix}_user_dataset",
         tags={"test": "user", mlflow_tags.MLFLOW_USER: "test_user_1"},
         experiment_ids=[exp_ids[0]],
     )
 
-    results = store.search_evaluation_datasets(filter_string="created_by = 'test_user_1'")
+    results = store.search_datasets(filter_string="created_by = 'test_user_1'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 1
     assert test_results[0].created_by == "test_user_1"
@@ -6920,23 +6920,23 @@ def test_dataset_search_comprehensive(store):
             "tags": {mlflow_tags.MLFLOW_USER: "test_user_2"},
         }
     ]
-    store.upsert_evaluation_dataset_records(created_user.dataset_id, records_with_user)
+    store.upsert_dataset_records(created_user.dataset_id, records_with_user)
 
-    results = store.search_evaluation_datasets(filter_string="last_updated_by = 'test_user_2'")
+    results = store.search_datasets(filter_string="last_updated_by = 'test_user_2'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 1
     assert test_results[0].last_updated_by == "test_user_2"
 
     with pytest.raises(MlflowException, match="Invalid attribute key"):
-        store.search_evaluation_datasets(filter_string="invalid_field = 'value'")
+        store.search_datasets(filter_string="invalid_field = 'value'")
 
 
-def test_evaluation_dataset_schema_and_profile_computation(store):
+def test_dataset_schema_and_profile_computation(store):
     """Test that schema and profile are computed when records are added."""
     test_prefix = "test_schema_profile_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
-    dataset = store.create_evaluation_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
 
     assert dataset.schema is None
     assert dataset.profile is None
@@ -6973,9 +6973,9 @@ def test_evaluation_dataset_schema_and_profile_computation(store):
         },
     ]
 
-    store.upsert_evaluation_dataset_records(dataset.dataset_id, records)
+    store.upsert_dataset_records(dataset.dataset_id, records)
 
-    updated_dataset = store.get_evaluation_dataset(dataset.dataset_id)
+    updated_dataset = store.get_dataset(dataset.dataset_id)
 
     assert updated_dataset.schema is not None
     schema = json.loads(updated_dataset.schema)
@@ -6996,11 +6996,11 @@ def test_evaluation_dataset_schema_and_profile_computation(store):
     assert profile["num_records"] == 3
 
 
-def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
+def test_dataset_schema_and_profile_incremental_updates(store):
     test_prefix = "test_incremental_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
-    dataset = store.create_evaluation_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
 
     initial_records = [
         {
@@ -7010,9 +7010,9 @@ def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
         }
     ]
 
-    store.upsert_evaluation_dataset_records(dataset.dataset_id, initial_records)
+    store.upsert_dataset_records(dataset.dataset_id, initial_records)
 
-    dataset1 = store.get_evaluation_dataset(dataset.dataset_id)
+    dataset1 = store.get_dataset(dataset.dataset_id)
     schema1 = json.loads(dataset1.schema)
     profile1 = json.loads(dataset1.profile)
 
@@ -7033,9 +7033,9 @@ def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
         }
     ]
 
-    store.upsert_evaluation_dataset_records(dataset.dataset_id, additional_records)
+    store.upsert_dataset_records(dataset.dataset_id, additional_records)
 
-    dataset2 = store.get_evaluation_dataset(dataset.dataset_id)
+    dataset2 = store.get_dataset(dataset.dataset_id)
     schema2 = json.loads(dataset2.schema)
     profile2 = json.loads(dataset2.profile)
 
@@ -7049,11 +7049,11 @@ def test_evaluation_dataset_schema_and_profile_incremental_updates(store):
     assert profile2["num_records"] == 2
 
 
-def test_evaluation_dataset_user_detection(store):
+def test_dataset_user_detection(store):
     test_prefix = "test_user_detection_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
-    dataset1 = store.create_evaluation_dataset(
+    dataset1 = store.create_dataset(
         name=f"{test_prefix}dataset1",
         tags={mlflow_tags.MLFLOW_USER: "john_doe", "other": "tag"},
         experiment_ids=exp_ids,
@@ -7061,19 +7061,19 @@ def test_evaluation_dataset_user_detection(store):
     assert dataset1.created_by == "john_doe"
     assert dataset1.tags[mlflow_tags.MLFLOW_USER] == "john_doe"
 
-    dataset2 = store.create_evaluation_dataset(
+    dataset2 = store.create_dataset(
         name=f"{test_prefix}dataset2", tags={"other": "tag"}, experiment_ids=exp_ids
     )
     assert dataset2.created_by is None
     assert mlflow_tags.MLFLOW_USER not in dataset2.tags
 
-    results = store.search_evaluation_datasets(filter_string="created_by = 'john_doe'")
+    results = store.search_datasets(filter_string="created_by = 'john_doe'")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 1
     assert test_results[0].dataset_id == dataset1.dataset_id
 
 
-def test_evaluation_dataset_filtering_ordering_pagination(store):
+def test_dataset_filtering_ordering_pagination(store):
     test_prefix = "test_filter_order_page_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp_{i}" for i in range(3)])
 
@@ -7085,14 +7085,14 @@ def test_evaluation_dataset_filtering_ordering_pagination(store):
             "model": f"model_{i % 3}",
             "environment": "production" if i % 2 == 0 else "staging",
         }
-        created = store.create_evaluation_dataset(
+        created = store.create_dataset(
             name=f"{test_prefix}_dataset_{i:02d}",
             tags=tags,
             experiment_ids=[exp_ids[i % len(exp_ids)]],
         )
         datasets.append(created)
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string="tags.priority = 'high'", order_by=["name ASC"], max_results=2
     )
     test_results = [d for d in results if d.name.startswith(test_prefix)]
@@ -7100,14 +7100,14 @@ def test_evaluation_dataset_filtering_ordering_pagination(store):
     assert all(d.tags.get("priority") == "high" for d in test_results)
     assert test_results[0].name < test_results[1].name
 
-    results_all = store.search_evaluation_datasets(
+    results_all = store.search_datasets(
         filter_string="tags.priority = 'high'", order_by=["name ASC"]
     )
     test_results_all = [d for d in results_all if d.name.startswith(test_prefix)]
     assert len(test_results_all) == 3
 
     mid_time = datasets[5].created_time
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         filter_string=f"tags.environment = 'production' AND created_time > {mid_time}",
         order_by=["created_time DESC"],
         max_results=3,
@@ -7119,7 +7119,7 @@ def test_evaluation_dataset_filtering_ordering_pagination(store):
     for i in range(1, len(test_results)):
         assert test_results[i - 1].created_time >= test_results[i].created_time
 
-    results = store.search_evaluation_datasets(
+    results = store.search_datasets(
         experiment_ids=[exp_ids[0]],
         filter_string="tags.model = 'model_0' AND tags.priority != 'low'",
         order_by=["last_update_time DESC"],
@@ -7129,12 +7129,12 @@ def test_evaluation_dataset_filtering_ordering_pagination(store):
         assert d.tags.get("model") == "model_0"
         assert d.tags.get("priority") != "low"
 
-    all_production = store.search_evaluation_datasets(
+    all_production = store.search_datasets(
         filter_string="tags.environment = 'production'", order_by=["name ASC"]
     )
     test_all_production = [d for d in all_production if d.name.startswith(test_prefix)]
 
-    limited_results = store.search_evaluation_datasets(
+    limited_results = store.search_datasets(
         filter_string="tags.environment = 'production'", order_by=["name ASC"], max_results=3
     )
     test_limited = [d for d in limited_results if d.name.startswith(test_prefix)]
@@ -7367,7 +7367,7 @@ def test_dataset_update_tags(store):
     update_tags = {
         "environment": "production",
         "team": "ml-ops",
-        "deprecated": None,
+        "deprecated": None,  # This will be ignored, not delete the tag
     }
     store.set_dataset_tags(created.dataset_id, update_tags)
 
@@ -7375,7 +7375,7 @@ def test_dataset_update_tags(store):
     expected_tags = {
         "environment": "production",  # Updated
         "version": "1.0",  # Preserved
-        "deprecated": "true",  # Preserved (None is ignored)
+        "deprecated": "true",  # Preserved (None didn't delete it)
         "team": "ml-ops",  # Added
     }
     assert updated.tags == expected_tags
