@@ -41,7 +41,6 @@ yarn-error.log
 *-ipynb.mdx
 docs/src/api_modules.json
 docs/static/api_reference
-docs/yarn.lock
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
