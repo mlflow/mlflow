@@ -69,7 +69,7 @@ def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
-def set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
+def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
     Args:
@@ -92,19 +92,19 @@ def set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, (list, tuple)):
         # Handle arrays
         for item in value:
-            set_otel_proto_anyvalue(pb_any_value.array_value.values.add(), item)
+            _set_otel_proto_anyvalue(pb_any_value.array_value.values.add(), item)
     elif isinstance(value, dict):
         # Handle key-value lists
         for k, v in value.items():
             kv = pb_any_value.kvlist_value.values.add()
             kv.key = str(k)
-            set_otel_proto_anyvalue(kv.value, v)
+            _set_otel_proto_anyvalue(kv.value, v)
     else:
         # For unknown types, convert to string
         pb_any_value.string_value = str(value)
 
 
-def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
+def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
     """Decode an OTel protobuf AnyValue.
 
     Args:
@@ -119,10 +119,10 @@ def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
 
     # Handle complex types that need recursion
     if value_type == "array_value":
-        return [decode_otel_proto_anyvalue(v) for v in pb_any_value.array_value.values]
+        return [_decode_otel_proto_anyvalue(v) for v in pb_any_value.array_value.values]
     elif value_type == "kvlist_value":
         return {
-            kv.key: decode_otel_proto_anyvalue(kv.value) for kv in pb_any_value.kvlist_value.values
+            kv.key: _decode_otel_proto_anyvalue(kv.value) for kv in pb_any_value.kvlist_value.values
         }
     else:
         # For simple types, just get the attribute directly

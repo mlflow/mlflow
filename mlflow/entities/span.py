@@ -31,9 +31,9 @@ from mlflow.tracing.utils import (
     encode_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
+    _decode_otel_proto_anyvalue,
     _otel_proto_bytes_to_id,
-    decode_otel_proto_anyvalue,
-    set_otel_proto_anyvalue,
+    _set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
 
@@ -375,7 +375,7 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: decode_otel_proto_anyvalue(attr.value)
+                attr.key: _decode_otel_proto_anyvalue(attr.value)
                 for attr in otel_proto_span.attributes
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
@@ -384,7 +384,7 @@ class Span:
                     name=event.name,
                     timestamp=event.time_unix_nano,
                     attributes={
-                        attr.key: decode_otel_proto_anyvalue(attr.value)
+                        attr.key: _decode_otel_proto_anyvalue(attr.value)
                         for attr in event.attributes
                     },
                 )
@@ -420,7 +420,7 @@ class Span:
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
-            set_otel_proto_anyvalue(attr.value, value)
+            _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
             otel_event = event._to_otel_proto()
