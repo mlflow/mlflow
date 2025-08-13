@@ -398,8 +398,9 @@ class WebhookTestResult:
     def __repr__(self) -> str:
         return (
             f"WebhookTestResult("
-            f"success={self.success}, "
-            f"response_status={self.response_status}, "
-            f"error_message='{self.error_message}'"
+            f"success={self.success!r}, "
+            f"response_status={self.response_status!r}, "
+            f"response_body={self.response_body!r}, "
+            f"error_message={self.error_message!r}"
             f")"
         )
