@@ -32,7 +32,6 @@ def upgrade():
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
-        sa.UniqueConstraint("experiment_id", "scorer_name", name="uk_scorers_experiment_name"),
     )
 
     # Create the scorer_versions table (scorer_id, scorer_version, serialized_scorer, creation_time)
