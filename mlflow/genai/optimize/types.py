@@ -41,8 +41,9 @@ class LLMParams:
     Parameters for configuring a LLM Model.
 
     Args:
-        model_name: Name of the model in the format `<provider>/<model name>`.
-            For example, "openai/gpt-4" or "anthropic/claude-4".
+        model_name: Name of the model in the format `<provider>/<model name>` or
+            `<provider>:/<model name>`. For example, "openai/gpt-4", "anthropic/claude-4",
+            or "openai:/gpt-4".
         base_uri: Optional base URI for the API endpoint. If not provided,
             the default endpoint for the provider will be used.
         temperature: Optional sampling temperature for the model's outputs.
