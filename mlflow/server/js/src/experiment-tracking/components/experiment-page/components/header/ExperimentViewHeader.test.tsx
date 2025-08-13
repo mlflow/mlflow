@@ -1,12 +1,17 @@
 import { ExperimentViewHeader } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import userEvent from '@testing-library/user-event-14';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import configureStore from 'redux-mock-store';
+import promiseMiddleware from 'redux-promise-middleware';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 // mock breadcrumbs
 jest.mock('@databricks/design-system', () => ({
-  ...jest.requireActual('@databricks/design-system'),
+  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
   Breadcrumb: () => <div />,
 }));
 
@@ -27,14 +32,29 @@ describe('ExperimentViewHeader', () => {
   };
 
   const createComponentMock = (showAddDescriptionButton: boolean) => {
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
-      <DesignSystemProvider>
-        <ExperimentViewHeader
-          experiment={experiment}
-          showAddDescriptionButton={showAddDescriptionButton}
-          setEditing={setEditing}
-        />
-      </DesignSystemProvider>,
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <DesignSystemProvider>
+            <Provider
+              store={mockStore({
+                entities: {
+                  experimentsById: {},
+                },
+              })}
+            >
+              <ExperimentViewHeader
+                experiment={experiment}
+                showAddDescriptionButton={showAddDescriptionButton}
+                setEditing={setEditing}
+              />
+            </Provider>
+          </DesignSystemProvider>
+        </BrowserRouter>
+      </QueryClientProvider>,
     );
   };
 

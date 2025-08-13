@@ -56,17 +56,16 @@ model = SentenceTransformer(model_name_or_path="all-MiniLM-L6-v2")
 artifact_path = "embeddings_model"
 
 with mlflow.start_run():
-    mlflow.sentence_transformers.log_model(
+    model_info = mlflow.sentence_transformers.log_model(
         model,
-        artifact_path=artifact_path,
+        name=artifact_path,
     )
-    model_uri = mlflow.get_artifact_uri(artifact_path)
 ```
 
 ## Generate the cli command for starting a local MLflow Model Serving endpoint for this embeddings model
 
 ```python
-print(f"mlflow models serve -m {model_uri} -h 127.0.0.1 -p 9020 --no-conda")
+print(f"mlflow models serve -m {model_info.model_uri} -h 127.0.0.1 -p 9020 --no-conda")
 ```
 
 Copy the output from the print statement to the clipboard.
@@ -86,14 +85,14 @@ After assigning a valid port and ensuring that the model server starts correctly
 
 ```commandline
 2023/08/08 17:36:44 INFO mlflow.models.flavor_backend_registry: Selected backend for flavor 'python_function'
-2023/08/08 17:36:44 INFO mlflow.pyfunc.backend: === Running command 'exec gunicorn --timeout=60 -b 127.0.0.1:9020 -w 1 ${GUNICORN_CMD_ARGS} -- mlflow.pyfunc.scoring_server.wsgi:app'
-[2023-08-08 17:36:45 -0400] [54917] [INFO] Starting gunicorn 20.1.0
-[2023-08-08 17:36:45 -0400] [54917] [INFO] Listening at: http://127.0.0.1:9020 (54917)
-[2023-08-08 17:36:45 -0400] [54917] [INFO] Using worker: sync
-[2023-08-08 17:36:45 -0400] [54919] [INFO] Booting worker with pid: 54919
+2023/08/08 17:36:44 INFO mlflow.pyfunc.backend: === Running command 'exec uvicorn --host 127.0.0.1 --port 9020 --workers 1 mlflow.pyfunc.scoring_server.app:app'
+INFO:     Started server process [6992]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9020
 ```
 
-The flask app is ready to receive traffic.
+The scoring server is ready to receive traffic.
 
 Update the MLflow AI Gateway configuration file (config.yaml) with the new endpoint:
 
@@ -132,17 +131,16 @@ model = AutoModelForMaskedLM.from_pretrained(lm_architecture)
 components = {"model": model, "tokenizer": tokenizer}
 
 with mlflow.start_run():
-    mlflow.transformers.log_model(
+    model_info = mlflow.transformers.log_model(
         transformers_model=components,
-        artifact_path=artifact_path,
+        name=artifact_path,
     )
-    model_uri = mlflow.get_artifact_uri(artifact_path)
 ```
 
 ## Generate the cli command for starting a local MLflow Model Serving endpoint for this fill mask model
 
 ```python
-print(f"mlflow models serve -m {model_uri} -h 127.0.0.1 -p 9010 --no-conda")
+print(f"mlflow models serve -m {model_info.model_uri} -h 127.0.0.1 -p 9010 --no-conda")
 ```
 
 ## Starting the model server for the fill mask model
@@ -160,11 +158,11 @@ Ensure that the MLflow serving endpoint starts and is ready for traffic.
 
 ```commandline
 2023/08/08 17:39:14 INFO mlflow.models.flavor_backend_registry: Selected backend for flavor 'python_function'
-2023/08/08 17:39:14 INFO mlflow.pyfunc.backend: === Running command 'exec gunicorn --timeout=60 -b 127.0.0.1:9010 -w 1 ${GUNICORN_CMD_ARGS} -- mlflow.pyfunc.scoring_server.wsgi:app'
-[2023-08-08 17:39:15 -0400] [55722] [INFO] Starting gunicorn 20.1.0
-[2023-08-08 17:39:15 -0400] [55722] [INFO] Listening at: http://127.0.0.1:9010 (55722)
-[2023-08-08 17:39:15 -0400] [55722] [INFO] Using worker: sync
-[2023-08-08 17:39:15 -0400] [55722] [INFO] Booting worker with pid: 55724
+2023/08/08 17:39:14 INFO mlflow.pyfunc.backend: === Running command 'exec uvicorn --host 127.0.0.1 --port 9010 --workers 1 mlflow.pyfunc.scoring_server.app:app'
+INFO:     Started server process [6992]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9010
 ```
 
 Add the entry to the MLflow AI Gateway configuration file. The final file should match [the config file](config.yaml)
@@ -303,7 +301,7 @@ input_example = pd.DataFrame(
 
 with mlflow.start_run():
     mlflow.pyfunc.log_model(
-        "mpt-7b-instruct",
+        name="mpt-7b-instruct",
         python_model=MPT(),
         artifacts={"snapshot": snapshot_location},
         pip_requirements=[

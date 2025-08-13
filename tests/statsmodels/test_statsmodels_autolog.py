@@ -126,12 +126,19 @@ def test_statsmodels_autolog_emit_warning_when_model_is_large():
         )
 
 
-def test_statsmodels_autolog_logs_basic_metrics():
-    mlflow.statsmodels.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_statsmodels_autolog_logs_basic_metrics(log_models):
+    mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
     run = get_latest_run()
     metrics = run.data.metrics
     assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_allowlist)
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert metrics == {m.key: m.value for m in logged_model.metrics}
+    else:
+        assert logged_model is None
 
 
 def test_statsmodels_autolog_failed_metrics_warning():
@@ -181,10 +188,7 @@ def test_statsmodels_autolog_works_after_exception():
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
-    run = get_latest_run()
-    client = MlflowClient()
-    artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
-    assert ("model" in artifact_paths) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 def test_statsmodels_autolog_loads_model_from_artifact():

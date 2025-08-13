@@ -137,7 +137,7 @@ export const fetchEndpointRaw = ({
     ...options,
     ...(timeoutMs && { signal: abortController.signal }),
   };
-
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   return fetch(url, fetchOptions);
 };
 
@@ -344,7 +344,9 @@ export const getBigIntJson = (props: any) => {
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
   return fetchEndpoint({
     ...props,
-    ...(String(queryParams).length > 0 && { relativeUrl: `${relativeUrl}?${queryParams}` }),
+    ...(String(queryParams).length > 0 && {
+      relativeUrl: `${relativeUrl}?${queryParams}`,
+    }),
     method: HTTPMethods.GET,
     success: jsonBigIntResponseParser,
   });

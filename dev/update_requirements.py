@@ -3,11 +3,13 @@ This script updates the `max_major_version` attribute of each package in a YAML 
 specification (e.g. requirements/core-requirements.yaml) to the maximum available version on PyPI.
 """
 
-import argparse
+import os
 
 import requests
 from packaging.version import InvalidVersion, Version
 from ruamel.yaml import YAML
+
+PACKAGE_NAMES = ["tracing", "skinny", "core", "gateway"]
 
 
 def get_latest_major_version(package_name: str) -> int:
@@ -34,42 +36,31 @@ def get_latest_major_version(package_name: str) -> int:
     return max(versions).major
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Update the `max_major_version` attribute of each package in a YAML dependencies"
-            " specification."
-        )
-    )
-    parser.add_argument(
-        "--requirements-yaml-location",
-        required=True,
-        help="Local file path of the requirements.yaml specification.",
-    )
-    return parser.parse_args()
-
-
 def main():
-    args = parse_args()
     yaml = YAML()
     yaml.preserve_quotes = True
 
-    with open(args.requirements_yaml_location) as f:
-        requirements_src = f.read()
-        requirements = yaml.load(requirements_src)
+    for package_name in PACKAGE_NAMES:
+        req_file_path = os.path.join("requirements", package_name + "-requirements.yaml")
+        with open(req_file_path) as f:
+            requirements_src = f.read()
+            requirements = yaml.load(requirements_src)
 
-    for key, req_info in requirements.items():
-        pip_release = req_info["pip_release"]
-        max_major_version = req_info["max_major_version"]
-        if req_info.get("freeze", False):
-            continue
-        latest_major_version = get_latest_major_version(pip_release)
-        if latest_major_version > max_major_version:
-            requirements[key]["max_major_version"] = latest_major_version
-            print(f"Updated {key}.max_major_version to {latest_major_version}")
+        changes_made = False
+        for key, req_info in requirements.items():
+            pip_release = req_info["pip_release"]
+            max_major_version = req_info["max_major_version"]
+            if req_info.get("freeze", False):
+                continue
+            latest_major_version = get_latest_major_version(pip_release)
+            if latest_major_version > max_major_version:
+                requirements[key]["max_major_version"] = latest_major_version
+                print(f"Updated {key}.max_major_version to {latest_major_version}")
+                changes_made = True
 
-    with open(args.requirements_yaml_location, "w") as f:
-        yaml.dump(requirements, f)
+        if changes_made:
+            with open(req_file_path, "w") as f:
+                yaml.dump(requirements, f)
 
 
 if __name__ == "__main__":

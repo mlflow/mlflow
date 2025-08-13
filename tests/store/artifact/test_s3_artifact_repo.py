@@ -74,7 +74,7 @@ def test_file_artifact_is_logged_with_content_metadata(
     s3_client = s3_artifact_repo._get_s3_client()
     response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
     assert response.get("ContentType") == "text/plain"
-    assert response.get("ContentEncoding") is None
+    assert response.get("ContentEncoding") == "aws-chunked"
 
 
 def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
@@ -184,15 +184,15 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")
     assert response_a.get("ContentType") == "text/plain"
-    assert response_a.get("ContentEncoding") is None
+    assert response_a.get("ContentEncoding") == "aws-chunked"
 
     response_b = s3_client.head_object(Bucket=bucket, Key="some/path/b.tar.gz")
     assert response_b.get("ContentType") == "application/x-tar"
-    assert response_b.get("ContentEncoding") == "gzip"
+    assert response_b.get("ContentEncoding") == "gzip,aws-chunked"
 
     response_c = s3_client.head_object(Bucket=bucket, Key="some/path/nested/c.csv")
     assert response_c.get("ContentType") == "text/csv"
-    assert response_c.get("ContentEncoding") is None
+    assert response_c.get("ContentEncoding") == "aws-chunked"
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
@@ -335,21 +335,16 @@ def test_get_s3_file_upload_extra_args_invalid_json():
 def test_delete_artifacts(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
-    subdir_path = str(subdir)
-    nested_path = os.path.join(subdir_path, "nested")
-    os.makedirs(nested_path)
-    path_a = os.path.join(subdir_path, "a.txt")
-    path_b = os.path.join(subdir_path, "b.tar.gz")
-    path_c = os.path.join(nested_path, "c.csv")
+    nested_path = subdir / "nested"
+    nested_path.mkdir()
+    path_a = subdir / "a.txt"
 
-    with open(path_a, "w") as f:
-        f.write("A")
-    with tarfile.open(path_b, "w:gz") as f:
-        f.add(path_a)
-    with open(path_c, "w") as f:
-        f.write("col1,col2\n1,3\n2,4\n")
+    path_a.write_text("A")
+    with tarfile.open(str(subdir / "b.tar.gz"), "w:gz") as f:
+        f.add(str(path_a))
+    (nested_path / "c.csv").write_text("col1,col2\n1,3\n2,4\n")
 
-    s3_artifact_repo.log_artifacts(subdir_path)
+    s3_artifact_repo.log_artifacts(str(subdir))
 
     # confirm that artifacts are present
     artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
@@ -358,8 +353,60 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     assert "nested" in artifact_file_names
 
     s3_artifact_repo.delete_artifacts()
-    tmpdir_objects = s3_artifact_repo.list_artifacts()
-    assert not tmpdir_objects
+    assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_delete_artifacts_single_object(s3_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir))
+
+    # confirm that artifact is present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
+    assert "a.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts(artifact_path="a.txt")
+    assert s3_artifact_repo.list_artifacts() == []
+
+
+@pytest.mark.parametrize("artifact_path", ["subdir", "subdir/"])
+def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir), artifact_path.rstrip("/"))
+
+    # confirm that artifact is present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts(artifact_path)]
+    assert "subdir/a.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
+    assert s3_artifact_repo.list_artifacts(artifact_path) == []
+    assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    # The maximum number of objects that can be listed in a single call is 1000
+    # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+    for i in range(1100):
+        (subdir / f"{i}.txt").write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir))
+
+    # confirm that artifacts are present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts()]
+    for i in range(1100):
+        assert f"{i}.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts()
+    assert s3_artifact_repo.list_artifacts() == []
 
 
 def test_create_multipart_upload(s3_artifact_root):

@@ -5,29 +5,24 @@ Revises: 89d4b8295536
 Create Date: 2019-10-14 12:20:12.874424
 
 """
-import time
 
 import logging
+import time
 
 from alembic import op
-import sqlalchemy as sa
-from alembic import op
-from sqlalchemy import orm, func, distinct, and_
 from sqlalchemy import (
-    Column,
-    String,
-    ForeignKey,
-    Float,
-    Integer,
     BigInteger,
+    Column,
+    ForeignKey,
+    Integer,
     PrimaryKeyConstraint,
-    Boolean,
+    String,
+    orm,
 )
 
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlModelVersion
-
+from mlflow.store.model_registry.dbmodels.models import SqlModelVersion, SqlRegisteredModel
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)

@@ -17,8 +17,6 @@ from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.git_utils import get_git_commit, get_git_repo_url
 from mlflow.utils.mlflow_tags import (
-    LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    LEGACY_MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
@@ -286,12 +284,10 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     repo_url = get_git_repo_url(work_dir)
     if repo_url is not None:
         tags[MLFLOW_GIT_REPO_URL] = repo_url
-        tags[LEGACY_MLFLOW_GIT_REPO_URL] = repo_url
 
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tags[MLFLOW_GIT_BRANCH] = version
-        tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = version
     active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
 
     project = _project_spec.load_project(work_dir)

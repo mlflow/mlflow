@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import catboost as cb
@@ -39,7 +39,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("catboost") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: Any
 
 
 def get_iris():
@@ -57,19 +60,25 @@ def read_yaml(path):
 MODEL_PARAMS = {"allow_writing_files": False, "iterations": 10}
 
 
+def iter_models():
+    X, y = get_iris()
+    model = cb.CatBoost(MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+    model = cb.CatBoostClassifier(**MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+    model = cb.CatBoostRegressor(**MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+
 @pytest.fixture(
     scope="module",
-    params=[
-        cb.CatBoost(MODEL_PARAMS),
-        cb.CatBoostClassifier(**MODEL_PARAMS),
-        cb.CatBoostRegressor(**MODEL_PARAMS),
-    ],
+    params=iter_models(),
     ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"],
 )
 def cb_model(request):
-    model = request.param
-    X, y = get_iris()
-    return ModelWithData(model=model.fit(X, y), inference_dataframe=X)
+    return request.param
 
 
 @pytest.fixture
@@ -129,7 +138,7 @@ def test_log_catboost_ranker():
     model.fit(X, y, group_id=dummy_group_id)
 
     with mlflow.start_run():
-        model_info = mlflow.catboost.log_model(model, "model")
+        model_info = mlflow.catboost.log_model(model, name="model")
         loaded_model = mlflow.catboost.load_model(model_info.model_uri)
         assert isinstance(loaded_model, cb.CatBoostRanker)
         np.testing.assert_array_almost_equal(model.predict(X), loaded_model.predict(X))
@@ -160,10 +169,9 @@ def test_model_save_load(cb_model, model_path):
 def test_log_model_logs_model_type(cb_model):
     with mlflow.start_run():
         artifact_path = "model"
-        mlflow.catboost.log_model(cb_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(cb_model.model, name=artifact_path)
 
-    flavor_conf = Model.load(model_uri).flavors["catboost"]
+    flavor_conf = Model.load(model_info.model_uri).flavors["catboost"]
     assert "model_type" in flavor_conf
     assert flavor_conf["model_type"] == cb_model.model.__class__.__name__
 
@@ -179,18 +187,19 @@ save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 def test_log_model_logs_save_format(reg_model, save_format):
     with mlflow.start_run():
         artifact_path = "model"
-        mlflow.catboost.log_model(reg_model.model, artifact_path, format=save_format)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name=artifact_path, format=save_format
+        )
 
-    flavor_conf = Model.load(model_uri).flavors["catboost"]
+    flavor_conf = Model.load(model_info.model_uri).flavors["catboost"]
     assert "save_format" in flavor_conf
     assert flavor_conf["save_format"] == save_format
 
     if save_format in SUPPORTS_DESERIALIZATION:
-        mlflow.catboost.load_model(model_uri)
+        mlflow.catboost.load_model(model_info.model_uri)
     else:
         with pytest.raises(cb.CatBoostError, match="deserialization not supported or missing"):
-            mlflow.catboost.load_model(model_uri)
+            mlflow.catboost.load_model(model_info.model_uri)
 
 
 @pytest.mark.parametrize("signature", [None, get_reg_model_signature()])
@@ -235,17 +244,15 @@ def test_log_model(cb_model, tmp_path):
         conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
-        model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
+        model_info = mlflow.catboost.log_model(model, name=artifact_path, conda_env=conda_env)
 
-        loaded_model = mlflow.catboost.load_model(model_uri)
+        loaded_model = mlflow.catboost.load_model(model_info.model_uri)
         np.testing.assert_array_almost_equal(
             model.predict(inference_dataframe),
             loaded_model.predict(inference_dataframe),
         )
 
-        local_path = _download_artifact_from_uri(model_uri)
+        local_path = _download_artifact_from_uri(model_info.model_uri)
         model_config = Model.load(os.path.join(local_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
@@ -257,21 +264,20 @@ def test_log_model_calls_register_model(cb_model, tmp_path):
     artifact_path = "model"
     registered_model_name = "registered_model"
     with (
-        mlflow.start_run() as run,
+        mlflow.start_run(),
         mock.patch("mlflow.tracking._model_registry.fluent._register_model"),
     ):
         conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
-        mlflow.catboost.log_model(
+        model_info = mlflow.catboost.log_model(
             cb_model.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=conda_env_path,
             registered_model_name=registered_model_name,
         )
-        model_uri = f"runs:/{run.info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name=registered_model_name,
         )
 
@@ -281,7 +287,7 @@ def test_log_model_no_registered_model_name(cb_model, tmp_path):
         artifact_path = "model"
         conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
-        mlflow.catboost.log_model(cb_model.model, artifact_path, conda_env=conda_env_path)
+        mlflow.catboost.log_model(cb_model.model, name=artifact_path, conda_env=conda_env_path)
         register_model_mock.assert_not_called()
 
 
@@ -319,10 +325,11 @@ def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_model, custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=custom_env)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name=artifact_path, conda_env=custom_env
+        )
 
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
@@ -331,12 +338,10 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_mo
 
 
 def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, custom_env):
-    artifact_path = "model"
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=custom_env)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(reg_model.model, name="model", conda_env=custom_env)
 
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     saved_pip_req_path = os.path.join(local_path, "requirements.txt")
     _compare_conda_env_requirements(custom_env, saved_pip_req_path)
 
@@ -347,27 +352,27 @@ def test_log_model_with_pip_requirements(reg_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", pip_requirements=str(req_file)
         )
+        _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            reg_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            reg_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -382,27 +387,29 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, "model", extra_pip_requirements=str(req_file))
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", extra_pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            reg_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            reg_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+        model_info = mlflow.catboost.log_model(
+            reg_model.model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
@@ -418,12 +425,10 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     reg_model,
 ):
-    artifact_path = "model"
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(reg_model.model, name="model")
 
-    _assert_pip_requirements(model_uri, mlflow.catboost.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.catboost.get_default_pip_requirements())
 
 
 def test_pyfunc_serve_and_score(reg_model):
@@ -431,7 +436,7 @@ def test_pyfunc_serve_and_score(reg_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.catboost.log_model(
-            model, artifact_path, input_example=inference_dataframe
+            model, name=artifact_path, input_example=inference_dataframe
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -453,7 +458,7 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, "model", input_example=inference_dataframe.head(3)
+            model, name="model", input_example=inference_dataframe.head(3)
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -475,10 +480,11 @@ def test_log_model_with_code_paths(cb_model):
         mlflow.start_run(),
         mock.patch("mlflow.catboost._add_code_from_conf_to_system_path") as add_mock,
     ):
-        mlflow.catboost.log_model(cb_model.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.catboost.FLAVOR_NAME)
-        mlflow.catboost.load_model(model_uri=model_uri)
+        model_info = mlflow.catboost.log_model(
+            cb_model.model, name=artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.catboost.FLAVOR_NAME)
+        mlflow.catboost.load_model(model_uri=model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -500,15 +506,12 @@ def test_model_save_load_with_metadata(cb_model, model_path):
 
 
 def test_model_log_with_metadata(cb_model):
-    artifact_path = "model"
-
     with mlflow.start_run():
-        mlflow.catboost.log_model(
-            cb_model.model, artifact_path, metadata={"metadata_key": "metadata_value"}
+        model_info = mlflow.catboost.log_model(
+            cb_model.model, name="model", metadata={"metadata_key": "metadata_value"}
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
@@ -517,17 +520,18 @@ def test_model_log_with_signature_inference(cb_model):
     example = cb_model.inference_dataframe.head(3)
 
     with mlflow.start_run():
-        mlflow.catboost.log_model(cb_model.model, artifact_path, input_example=example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.catboost.log_model(
+            cb_model.model, name=artifact_path, input_example=example
+        )
 
-    model_info = Model.load(model_uri)
-    assert model_info.signature.inputs == Schema(
+    loaded_model_info = Model.load(model_info.model_uri)
+    assert loaded_model_info.signature.inputs == Schema(
         [
             ColSpec(name="sepal length (cm)", type=DataType.double),
             ColSpec(name="sepal width (cm)", type=DataType.double),
         ]
     )
-    assert model_info.signature.outputs in [
+    assert loaded_model_info.signature.outputs in [
         # when the model output is a 1D numpy array, it is cast into a `ColSpec`
         Schema([ColSpec(type=DataType.double)]),
         # when the model output is a higher dimensional numpy array, it remains a `TensorSpec`

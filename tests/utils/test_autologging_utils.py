@@ -1,7 +1,12 @@
+import warnings
 from threading import Thread
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    ORIGINAL_SHOWWARNING,
+    _WarningsController,
+)
 from mlflow.utils.autologging_utils.metrics_queue import (
     _metrics_queue,
     _metrics_queue_lock,
@@ -38,3 +43,27 @@ def test_flush_metrics_queue_is_thread_safe():
     flush_thread2.start()
     flush_thread2.join()
     assert len(_metrics_queue) == 0
+
+
+def test_double_patch_does_not_overwrite(monkeypatch):
+    monkeypatch.setattr(warnings, "showwarning", ORIGINAL_SHOWWARNING)
+
+    controller = _WarningsController()
+
+    assert warnings.showwarning == ORIGINAL_SHOWWARNING
+    assert not controller._did_patch_showwarning
+
+    controller.set_non_mlflow_warnings_disablement_state_for_current_thread(True)
+
+    assert controller._did_patch_showwarning
+    assert warnings.showwarning == controller._patched_showwarning
+
+    patched_func = warnings.showwarning
+
+    controller._modify_patch_state_if_necessary()
+
+    assert warnings.showwarning == patched_func
+
+    controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
+
+    assert warnings.showwarning == ORIGINAL_SHOWWARNING

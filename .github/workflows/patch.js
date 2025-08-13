@@ -49,12 +49,31 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
+  // Check if a version label already exists
+  const existingLabels = await github.rest.issues.listLabelsOnIssue({
+    owner,
+    repo,
+    issue_number: context.payload.pull_request.number,
+  });
+
+  const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
+  const existingVersionLabel = existingLabels.data.find((label) =>
+    versionLabelPattern.test(label.name)
+  );
+
+  if (existingVersionLabel) {
+    core.info(
+      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`
+    );
+    return;
+  }
+
   const releases = await github.rest.repos.listReleases({
     owner,
     repo,
-    per_page: 1,
   });
-  const version = releases.data[0].tag_name.replace("v", "");
+  const latest = releases.data.find(({ tag_name }) => tag_name.startsWith("v"));
+  const version = latest.tag_name.replace("v", "");
   const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
   const label = `v${major}.${minor}.${nextMicro}`;

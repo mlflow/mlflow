@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
@@ -6,19 +6,17 @@ from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
 
-@experimental
 def answer_similarity(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -101,15 +99,14 @@ def answer_similarity(
     )
 
 
-@experimental
 def answer_correctness(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -193,15 +190,14 @@ def answer_correctness(
     )
 
 
-@experimental
 def faithfulness(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = _get_latest_metric_version(),
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -271,8 +267,8 @@ def faithfulness(
         examples=examples,
         version=metric_version,
         model=model,
-        grading_context_columns=parameters or faithfulness_class_module.grading_context_columns,
-        parameters=faithfulness_class_module.parameters,
+        grading_context_columns=faithfulness_class_module.grading_context_columns,
+        parameters=parameters or faithfulness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
         metric_metadata=metric_metadata,
@@ -282,15 +278,14 @@ def faithfulness(
     )
 
 
-@experimental
 def answer_relevance(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = _get_latest_metric_version(),
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -366,13 +361,13 @@ def answer_relevance(
 
 
 def relevance(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """

@@ -18,7 +18,7 @@ print("Logging model as code using Pyfunc log model API")
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=model_path,
-        artifact_path="ai-model",
+        name="ai-model",
         input_example=input_example,
     )
 

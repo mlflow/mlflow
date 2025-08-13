@@ -1,6 +1,6 @@
 import functools
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -58,7 +58,7 @@ class GatewayAPI(FastAPI):
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
         self.dynamic_routes.clear()
-        for route in config.routes:
+        for route in config.endpoints:
             # TODO: Remove deployments server URLs after deprecation window elapses
             self.add_api_route(
                 path=(
@@ -75,7 +75,7 @@ class GatewayAPI(FastAPI):
             )
             self.dynamic_routes[route.name] = route
 
-    def get_dynamic_route(self, route_name: str) -> Optional[Route]:
+    def get_dynamic_route(self, route_name: str) -> Route | None:
         return r.to_route() if (r := self.dynamic_routes.get(route_name)) else None
 
 
@@ -101,7 +101,7 @@ def _create_chat_endpoint(config: RouteConfig):
     @_translate_http_exception
     async def _chat(
         request: Request, payload: chat.RequestPayload
-    ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
+    ) -> chat.ResponsePayload | chat.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
@@ -116,7 +116,7 @@ def _create_completions_endpoint(config: RouteConfig):
     @_translate_http_exception
     async def _completions(
         request: Request, payload: completions.RequestPayload
-    ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
+    ) -> completions.ResponsePayload | completions.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
@@ -147,7 +147,7 @@ def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
-    if factory := provider_to_factory.get(config.route_type):
+    if factory := provider_to_factory.get(config.endpoint_type):
         handler = factory(config)
         if limit := config.limit:
             limit_value = f"{limit.calls}/{limit.renewal_period}"
@@ -158,7 +158,7 @@ def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
 
     raise HTTPException(
         status_code=404,
-        detail=f"Unexpected route type {config.route_type!r} for route {config.name!r}.",
+        detail=f"Unexpected route type {config.endpoint_type!r} for route {config.name!r}.",
     )
 
 
@@ -168,7 +168,7 @@ class HealthResponse(BaseModel):
 
 class ListEndpointsResponse(BaseModel):
     endpoints: list[Endpoint]
-    next_page_token: Optional[str] = None
+    next_page_token: str | None = None
 
     class Config:
         schema_extra = {
@@ -207,12 +207,12 @@ class ListEndpointsResponse(BaseModel):
 
 class SearchRoutesResponse(BaseModel):
     routes: list[Route]
-    next_page_token: Optional[str] = None
+    next_page_token: str | None = None
 
     class Config:
         schema_extra = {
             "example": {
-                "routes": [
+                "endpoints": [
                     {
                         "name": "openai-chat",
                         "route_type": "llm/v1/chat",
@@ -313,7 +313,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     # TODO: Remove deployments server URLs after deprecation window elapses
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
-    async def list_endpoints(page_token: Optional[str] = None) -> ListEndpointsResponse:
+    async def list_endpoints(page_token: str | None = None) -> ListEndpointsResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
@@ -328,7 +328,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         return result
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE, include_in_schema=False)
-    async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
+    async def search_routes(page_token: str | None = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
@@ -352,7 +352,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
-    def _look_up_route(name: str) -> Optional[Route]:
+    def _look_up_route(name: str) -> Route | None:
         if r := app.dynamic_routes.get(name):
             return r
 
@@ -366,7 +366,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_CHAT:
+        if route.endpoint_type != RouteType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a chat endpoint.",
@@ -384,7 +384,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_COMPLETIONS:
+        if route.endpoint_type != RouteType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a completions endpoint.",
@@ -402,7 +402,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
+        if route.endpoint_type != RouteType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",
@@ -415,7 +415,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     return app
 
 
-def create_app_from_path(config_path: Union[str, Path]) -> GatewayAPI:
+def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     """
     Load the path and generate the GatewayAPI app instance.
     """

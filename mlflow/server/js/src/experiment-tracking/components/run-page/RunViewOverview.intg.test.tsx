@@ -5,13 +5,24 @@ import { RunViewOverview } from './RunViewOverview';
 import { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { getRunApi, setTagApi } from '../../actions';
+import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
-import type { KeyValueEntity, RunInfoEntity } from '../../types';
+import type { RunInfoEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { LoggedModelProto } from '../../types';
+import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
+
+jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
+  useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
+}));
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),
@@ -20,6 +31,23 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+const testPromptName = 'test-prompt';
+const testPromptVersion = 1;
+const testPromptName2 = 'test-prompt-2';
+
+jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
+  usePromptVersionsForRunQuery: jest.fn(() => ({
+    data: {
+      model_versions: [
+        {
+          name: testPromptName,
+          version: testPromptVersion,
+        },
+      ],
+    },
+  })),
 }));
 
 jest.setTimeout(30000); // Larget timeout for integration testing
@@ -70,15 +98,24 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 
 describe('RunViewOverview integration', () => {
   const onRunDataUpdated = jest.fn();
-  // entities?: DeepPartial<ReduxState['entities']>
+
+  beforeEach(() => {
+    jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
+      usingUnifiedDetailsLayout: false,
+    });
+  });
   const renderComponent = ({
     tags = {},
     runInfo,
     reduxStoreEntities = {},
+    loggedModelsV3,
+    registeredModelVersionSummaries = [],
   }: {
     tags?: Record<string, KeyValueEntity>;
     reduxStoreEntities?: DeepPartial<ReduxState['entities']>;
     runInfo?: Partial<RunInfoEntity>;
+    registeredModelVersionSummaries?: RunPageModelVersionSummary[];
+    loggedModelsV3?: LoggedModelProto[] | undefined;
   } = {}) => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
@@ -92,33 +129,39 @@ describe('RunViewOverview integration', () => {
       ),
     };
 
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
       <DesignSystemProvider>
-        <MockedReduxStoreProvider state={state}>
-          <TestApolloProvider>
-            <MemoryRouter>
-              <RunViewOverview
-                onRunDataUpdated={onRunDataUpdated}
-                runUuid={testRunUuid}
-                latestMetrics={testEntitiesState.latestMetricsByRunUuid?.[testRunUuid] || {}}
-                params={testEntitiesState.paramsByRunUuid?.[testRunUuid] || {}}
-                runInfo={{ ...testRunInfo, ...runInfo }}
-                tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
-              />
-            </MemoryRouter>
-          </TestApolloProvider>
-        </MockedReduxStoreProvider>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider state={state}>
+            <TestApolloProvider>
+              <MemoryRouter>
+                <RunViewOverview
+                  onRunDataUpdated={onRunDataUpdated}
+                  runUuid={testRunUuid}
+                  latestMetrics={testEntitiesState.latestMetricsByRunUuid?.[testRunUuid] || {}}
+                  params={testEntitiesState.paramsByRunUuid?.[testRunUuid] || {}}
+                  runInfo={{ ...testRunInfo, ...runInfo }}
+                  tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
+                  registeredModelVersionSummaries={registeredModelVersionSummaries}
+                  loggedModelsV3={loggedModelsV3}
+                />
+              </MemoryRouter>
+            </TestApolloProvider>
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
       </DesignSystemProvider>,
     );
   };
-  test('Render component in the simplest form and assert minimal set of values', () => {
+  test('Render component in the simplest form and assert minimal set of values', async () => {
     renderComponent();
 
     // Empty description
     expect(screen.getByText('No description')).toBeInTheDocument();
 
     // Start time
-    expect(screen.getByRole('row', { name: /Created at\s+2023-01-01 13:00:00/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Created at\s+01\/01\/2023, 01:00:00 PM/ })).toBeInTheDocument();
 
     // Status
     expect(screen.getByRole('row', { name: /Status\s+Finished/ })).toBeInTheDocument();
@@ -132,8 +175,10 @@ describe('RunViewOverview integration', () => {
     // Datasets
     expect(screen.getByRole('row', { name: /Datasets used\s+—/ })).toBeInTheDocument();
 
-    // Logged models
-    expect(screen.getByRole('row', { name: /Logged models\s+—/ })).toBeInTheDocument();
+    await waitFor(() => {
+      // Logged models
+      expect(screen.getByRole('row', { name: /Logged models\s+—/ })).toBeInTheDocument();
+    });
 
     // Registered models
     expect(screen.getByRole('row', { name: /Registered models\s+—/ })).toBeInTheDocument();
@@ -156,7 +201,7 @@ describe('RunViewOverview integration', () => {
     await userEvent.type(screen.getByTestId('text-area'), 'hello');
     await userEvent.click(screen.getByTestId('editable-note-save-button'));
 
-    expect(setTagApi).toBeCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
+    expect(setTagApi).toHaveBeenCalledWith('test-run-uuid', NOTE_CONTENT_TAG, 'hello');
   });
 
   test.each([
@@ -206,6 +251,10 @@ describe('RunViewOverview integration', () => {
       },
     });
 
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: /sklearn/ })).toBeInTheDocument();
+    });
+
     const modelsCell = screen.getByRole('cell', { name: /sklearn/ });
 
     expect(modelsCell).toBeInTheDocument();
@@ -218,6 +267,49 @@ describe('RunViewOverview integration', () => {
     await userEvent.click(within(modelsCell).getByRole('button', { name: '+1' }));
 
     expect(screen.getByText('xgboost')).toBeInTheDocument();
+  });
+
+  test('Render cell with registered models and display dropdown menu', async () => {
+    renderComponent({
+      runInfo: {
+        artifactUri: 'file:/mlflow/tracking/12345/artifacts',
+      },
+      registeredModelVersionSummaries: [
+        {
+          displayedName: 'test-registered-model',
+          version: '1',
+          link: '/models/test-registered-model/versions/1',
+          source: 'file:/mlflow/tracking/12345/artifacts',
+          status: 'READY',
+        },
+        {
+          displayedName: 'another-test-registered-model',
+          version: '2',
+          link: '/models/another-test-registered-model/versions/2',
+          source: 'file:/mlflow/tracking/12345/artifacts',
+          status: 'READY',
+        },
+      ],
+      tags: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: /test-registered-model/ })).toBeInTheDocument();
+    });
+
+    const modelsCell = screen.getByRole('cell', { name: /test-registered-model/ });
+
+    expect(modelsCell).toBeInTheDocument();
+    expect(within(modelsCell).getByRole('link')).toHaveAttribute(
+      'href',
+      expect.stringMatching(/test-registered-model\/versions\/1$/),
+    );
+
+    expect(within(modelsCell).getByRole('button', { name: '+1' })).toBeInTheDocument();
+
+    await userEvent.click(within(modelsCell).getByRole('button', { name: '+1' }));
+
+    expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
   test('Render child run and check for the existing parent run link', () => {
@@ -261,7 +353,31 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
-      expect(getRunApi).toBeCalledWith(testParentRunUuid);
+      expect(getRunApi).toHaveBeenCalledWith(testParentRunUuid);
+    });
+  });
+
+  test('Run overview contains prompts from run tags', async () => {
+    renderComponent({
+      tags: {
+        [LINKED_PROMPTS_TAG_KEY]: {
+          key: LINKED_PROMPTS_TAG_KEY,
+          value: JSON.stringify([{ name: testPromptName2, version: testPromptVersion.toString() }]),
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName2} (v${testPromptVersion})`)).toBeInTheDocument();
+    });
+  });
+
+  test('Run overview contains prompts from prompt version tags', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
+      expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
     });
   });
 

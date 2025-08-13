@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import numpy as np
 
@@ -13,18 +13,23 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class MetricDefinition:
     """
-    A namedtuple representing a metric function and its properties.
+    A dataclass representing a metric definition used in model evaluation.
 
-    function : the metric function
-    name : the name of the metric function
-    index : the index of the function in the ``extra_metrics`` argument of mlflow.evaluate
+    Attributes:
+        function: The metric function to be called for evaluation.
+        name: The name of the metric.
+        index: The index of the metric in the ``extra_metrics`` argument of ``mlflow.evaluate``.
+        version: (Optional) The metric version. For example v1.
+        genai_metric_args: (Optional) A dictionary containing arguments specified by users when
+            calling make_genai_metric or make_genai_metric_from_prompt.
+            Those args are persisted so that we can deserialize the same metric object later.
     """
 
     function: Callable[..., Any]
     name: str
     index: int
-    version: Optional[str] = None
-    genai_metric_args: Optional[dict[str, Any]] = None
+    version: str | None = None
+    genai_metric_args: dict[str, Any] | None = None
 
     @classmethod
     def from_index_and_metric(cls, index: int, metric: EvaluationMetric):
@@ -36,7 +41,7 @@ class MetricDefinition:
             genai_metric_args=metric.genai_metric_args,
         )
 
-    def evaluate(self, eval_fn_args) -> Optional[MetricValue]:
+    def evaluate(self, eval_fn_args) -> MetricValue | None:
         """
         This function calls the metric function and performs validations on the returned
         result to ensure that they are in the expected format. It will warn and will not log metrics

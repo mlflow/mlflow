@@ -94,10 +94,7 @@ class CohereAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=resp.get("index", 0),
                     finish_reason=resp.get("finish_reason"),
-                    delta=completions.StreamDelta(
-                        role=None,
-                        content=resp.get("text"),
-                    ),
+                    text=resp.get("text"),
                 )
             ],
             usage=completions.CompletionsUsage(
@@ -194,7 +191,7 @@ class CohereAdapter(ProviderAdapter):
         payload = cls._scale_temperature(payload)
 
         messages = payload.pop("messages")
-        last_message = messages.pop()  # pydantic enforces min_items=1
+        last_message = messages.pop()  # pydantic enforces min_length=1
         if last_message["role"] != "user":
             raise AIGatewayException(
                 status_code=422,

@@ -603,8 +603,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             return getattr(obj_, name_)
 
     no_original_stored_err = (
-        "Original attribute %s was not stored when patching, set "
-        "store_hit=True will address this."
+        "Original attribute %s was not stored when patching, set store_hit=True will address this."
     )
 
     if inspect.isclass(obj):

@@ -5,9 +5,9 @@ import pandas as pd
 
 import mlflow
 
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable to run this example."
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable to run this example."
+)
 
 
 def build_and_evaluate_model_with_prompt(system_prompt):
@@ -19,7 +19,7 @@ def build_and_evaluate_model_with_prompt(system_prompt):
     logged_model = mlflow.openai.log_model(
         model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "{question}"},

@@ -1,0 +1,360 @@
+import { Card, CardGroup, TitleCard } from "@site/src/components/Card";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import NebiusLogo from '@site/static/images/logos/nebius-logo.png';
+
+# Lightweight Tracing SDK Optimized for Production Usage
+
+MLflow offers a lightweight tracing SDK package called `mlflow-tracing` that includes only the essential functionality for tracing and monitoring of your GenAI applications. This package is designed for production environments where minimizing dependencies and deployment size is critical.
+
+## Why Use the Lightweight SDK?
+
+<CardGroup cols={2}>
+    <TitleCard
+        title="🏎️ Faster Deployment"
+        description="The package size and dependencies are significantly smaller than the full MLflow package, allowing for faster deployment times in dynamic environments such as Docker containers, serverless functions, and cloud-based applications."
+    />
+    <TitleCard
+        title="🔧 Simplified Dependency Management"
+        description="A smaller set of dependencies means less work keeping up with dependency updates, security patches, and potential breaking changes from upstream libraries. It also reduces the chances of dependency collisions and incompatibilities."
+    />
+    <TitleCard
+        title="📦 Enhanced Portability"
+        description="With fewer dependencies, MLflow Tracing can be seamlessly deployed across different environments and platforms, without worrying about compatibility issues."
+    />
+    <TitleCard
+        title="🔒 Reduced Security Risk"
+        description="Each dependency potentially introduces security vulnerabilities. By reducing the number of dependencies, MLflow Tracing minimizes the attack surface and reduces the risk of security breaches."
+    />
+</CardGroup>
+
+## Installation
+
+Install the lightweight SDK using pip:
+
+```bash
+pip install mlflow-tracing
+```
+
+:::warning
+Do not install the full `mlflow` package together with the lightweight `mlflow-tracing` SDK, as this may cause version conflicts and namespace resolution issues.
+:::
+
+## Quickstart
+
+Here's a simple example using the lightweight SDK with OpenAI for logging traces to an experiment on a remote MLflow server:
+
+```python
+import mlflow
+import openai
+
+# Set the tracking URI to your MLflow server
+mlflow.set_tracking_uri("http://your-mlflow-server:5000")
+mlflow.set_experiment("genai-production-monitoring")
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+# Use OpenAI as usual - traces will be automatically logged
+client = openai.OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini", messages=[{"role": "user", "content": "What is MLflow?"}]
+)
+
+print(response.choices[0].message.content)
+```
+
+## Choose Your Backend
+
+The lightweight SDK works with various observability platforms. Choose your preferred option and follow the instructions to set up your tracing backend.
+
+<Tabs>
+  <TabItem value="self-hosting" label="Self-Hosted MLflow" default>
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+          MLflow is a **fully open-source project**, allowing you to self-host your own MLflow server in your own infrastructure. This is a great option if you want to have full control over your data and are restricted in using cloud-based services.
+
+          In self-hosting mode, you will be responsible for running the tracking server instance and scaling it to your needs. We **strongly recommend** using a SQL-based tracking server on top of a performant database to minimize operational overhead and ensure high availability.
+
+          **Setup Steps:**
+          1. Install MLflow server: `pip install mlflow[extras]`
+          2. Configure backend store (PostgreSQL/MySQL recommended)
+          3. Configure artifact store (S3, Azure Blob, GCS, etc.)
+          4. Start server: `mlflow server --backend-store-uri postgresql://... --default-artifact-root s3://...`
+
+          Refer to the [tracking server setup guide](/ml/tracking#tracking-setup) for detailed guidance.
+
+        </div>
+        <div class="flex-item padding-md">
+          ![OSS Tracing](/images/llms/tracing/tracing-top.gif)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="databricks" label="Databricks">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+          [Databricks Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) is a go-to solution for monitoring your GenAI application with MLflow Tracing. It provides access to a robust, fully functional monitoring dashboard for operational excellence and quality analysis.
+
+          Lakehouse Monitoring for GenAI can be used regardless of whether your application is hosted on Databricks or not.
+
+          [Sign up for free](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=OSS_DOCS) and [get started in a minute](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) to run your GenAI application with complete observability.
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Monitoring](https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.gif)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="opentelemetry" label="OpenTelemetry">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+          MLflow Tracing is **built on the OpenTelemetry tracing spec**, an industry-standard framework for observability, making it a vendor-neutral solution for monitoring your GenAI applications.
+
+          If you are using OpenTelemetry as part of your observability tech stack, you can use MLflow Tracing without any additional service onboarding. Simply configure the OTLP endpoint and MLflow will export traces to your existing observability platform.
+
+          **Setup Example:**
+          ```bash
+          export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://your-collector:4317/v1/traces"
+          export OTEL_SERVICE_NAME="genai-app"
+          ```
+
+          Refer to the [OpenTelemetry Integration](/genai/tracing/prod-tracing#opentelemetry-integration) documentation for detailed setup instructions.
+        </div>
+        <div class="flex-item padding-md">
+          ![OpenTelemetry Backend Examples](/images/llms/tracing/otel-backend-examples.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="sagemaker" label="Amazon SageMaker">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+          [MLflow on Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/) is a fully managed service offered as part of the SageMaker platform by AWS, including tracing and other MLflow features such as model registry.
+
+          MLflow Tracing offers a one-line solution for [tracing Amazon Bedrock](/genai/tracing/integrations/listing/bedrock), making it the best suitable solution for monitoring GenAI application powered by AWS and Amazon Bedrock.
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Managed MLflow on SageMaker](https://d1.awsstatic.com/deploy-mlflow-models.3eb857c5790a44b461845a630e3a231229838443.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+  <TabItem value="nebius" label="Nebius">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+          [Nebius](https://nebius.com/services/managed-mlflow), a cutting-edge cloud platform for GenAI explorers, offers a fully managed MLflow server. Combining the powerful GPU infrastructure of Nebius for training and hosting LLMs/foundation models with the observability capabilities of MLflow Tracing, Nebius serves as a comprehensive platform for AI/ML developers.
+
+          **Key Features:**
+          - Fully managed MLflow service
+          - High-performance GPU infrastructure
+          - Integrated LLM training and serving
+          - Enterprise-grade observability
+
+          Refer to the [Nebius documentation](https://nebius.com/services/managed-mlflow) for more details about the managed MLflow service.
+
+        </div>
+        <div class="flex-item padding-md">
+          <img src={NebiusLogo} alt="Nebius Logo" width="80%" />
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+
+</Tabs>
+
+## Supported Features
+
+The lightweight SDK includes all essential tracing functionalities for monitoring your GenAI applications. Click the cards below to learn more about each supported feature.
+
+<CardGroup cols={1}>
+    <TitleCard
+        title="⚡️ Automatic Tracing for 15+ AI Libraries"
+        description="MLflow Tracing SDK supports one-line integration with all of the most popular LLM/GenAI libraries including OpenAI, Anthropic, LangChain, LlamaIndex, Hugging Face, DSPy, and any LLM provider that conforms to OpenAI API format. This automatic tracing capability allows you to monitor your GenAI application with minimal effort and easily switch between different libraries."
+        link="/genai/tracing/integrations/"
+    />
+    <TitleCard
+        title="⚙️ Manual Instrumentation"
+        description="MLflow Tracing SDK provides a simple and intuitive API for manually instrumenting your GenAI application. Manual instrumentation and automatic tracing can be used together, allowing you to trace advanced applications containing custom code and have fine-grained control over the tracing behavior."
+        link="/genai/tracing/app-instrumentation/manual-tracing"
+    />
+    <TitleCard
+        title="🏷️ Tagging and Filtering Traces"
+        description="By annotating traces with custom tags, you can add more context to your traces to group them and simplify the process of searching for them later. This is useful when you want to trace an application that runs across multiple request sessions or track specific user interactions."
+        link="/genai/tracing/track-users-sessions"
+    />
+    <TitleCard
+        title="🔍 Advanced Search and Querying"
+        description="Search and filter traces using powerful SQL-like syntax based on execution time, status, tags, metadata, and other attributes. Perfect for debugging issues, analyzing performance patterns, and monitoring production applications."
+        link="/genai/tracing/search-traces"
+    />
+    <TitleCard
+        title="📊 Production Monitoring"
+        description="Configure asynchronous logging, handle high-volume tracing, and integrate with enterprise observability platforms. Includes comprehensive production deployment patterns and best practices for scaling your tracing infrastructure."
+        link="/genai/tracing/prod-tracing"
+    />
+</CardGroup>
+
+## Production Configuration Example
+
+Here's a complete example of setting up the lightweight SDK for production use:
+
+```python
+import mlflow
+import os
+from your_app import process_user_request
+
+# Configure MLflow for production
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-server:5000"))
+mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "production-genai-app"))
+
+# Enable automatic tracing for your LLM library
+mlflow.openai.autolog()  # or mlflow.langchain.autolog(), etc.
+
+
+@mlflow.trace
+def handle_user_request(user_id: str, session_id: str, message: str):
+    """Production endpoint with comprehensive tracing."""
+
+    # Add production context to trace
+    mlflow.update_current_trace(
+        tags={
+            "user_id": user_id,
+            "session_id": session_id,
+            "environment": "production",
+            "service_version": os.getenv("SERVICE_VERSION", "1.0.0"),
+        }
+    )
+
+    try:
+        # Your application logic here
+        response = process_user_request(message)
+
+        # Log success metrics
+        mlflow.update_current_trace(
+            tags={"response_length": len(response), "processing_successful": True}
+        )
+
+        return response
+
+    except Exception as e:
+        # Log error information
+        mlflow.update_current_trace(
+            tags={
+                "error": True,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
+        )
+        raise
+```
+
+## Features Not Included
+
+The following MLflow features are not available in the lightweight package:
+
+- **MLflow Tracking Server and UI** - Use the full MLflow package to run the server
+- **Run Management APIs** - `mlflow.start_run()`, `mlflow.log_metric()`, etc.
+- **Model Logging and Evaluation** - Model serialization and evaluation frameworks
+- **Model Registry** - Model versioning and lifecycle management
+- **MLflow Projects** - Reproducible ML project format
+- **MLflow Recipes** - Predefined ML workflows
+- **Other MLflow Components** - Features unrelated to tracing
+
+For these features, use the full MLflow package: `pip install mlflow`
+
+## Migration from Full MLflow
+
+If you're currently using the full MLflow package and want to switch to the lightweight SDK for production:
+
+### 1. Update Dependencies
+
+```bash
+# Remove full MLflow
+pip uninstall mlflow
+
+# Install lightweight SDK
+pip install mlflow-tracing
+```
+
+### 2. Update Import Statements
+
+Most tracing functionality remains the same:
+
+```python
+# These imports work the same way
+import mlflow
+import mlflow.openai
+from mlflow.tracing import trace
+
+# These features are NOT available in mlflow-tracing:
+# import mlflow.sklearn  # ❌ Model logging
+# mlflow.start_run()     # ❌ Run management
+# mlflow.log_metric()    # ❌ Metric logging
+```
+
+### 3. Update Configuration
+
+Focus on tracing-specific configuration:
+
+```python
+# Configure tracking URI (same as before)
+mlflow.set_tracking_uri("http://your-server:5000")
+mlflow.set_experiment("your-experiment")
+
+
+# Tracing works the same way
+@mlflow.trace
+def your_function():
+    # Your code here
+    pass
+```
+
+## Package Size Comparison
+
+| Package          | Size    | Dependencies | Use Case                                        |
+| ---------------- | ------- | ------------ | ----------------------------------------------- |
+| `mlflow`         | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
+| `mlflow-tracing` | ~5MB    | 5-8 packages | Production tracing, monitoring, observability   |
+
+The lightweight SDK is **95% smaller** than the full MLflow package, making it ideal for:
+
+- Container deployments
+- Serverless functions
+- Edge computing
+- Production microservices
+- CI/CD pipelines
+
+## Summary
+
+The MLflow Tracing SDK provides a production-optimized solution for monitoring GenAI applications with:
+
+- **Minimal footprint** for fast deployments
+- **Full tracing capabilities** for comprehensive monitoring
+- **Flexible backend options** from self-hosted to enterprise platforms
+- **Easy migration path** from full MLflow package
+- **Production-ready features** including async logging and error handling
+
+Whether you're running a small prototype or a large-scale production system, the lightweight SDK provides the observability you need without the overhead you don't.

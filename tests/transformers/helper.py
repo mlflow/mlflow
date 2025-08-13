@@ -39,16 +39,6 @@ def load_small_qa_pipeline():
 
 @prefetch
 @flaky()
-def load_small_qa_tf_pipeline():
-    # Same architecture as above but loaded as a Tensorflow based model
-    architecture = "csarron/mobilebert-uncased-squad-v2"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.TFAutoModelForQuestionAnswering.from_pretrained(architecture)
-    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
-
-
-@prefetch
-@flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
     feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
@@ -222,6 +212,10 @@ def load_whisper_pipeline():
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
     if Version(transformers.__version__) > Version("4.30.2"):
         model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
+    if Version(transformers.__version__) > Version("4.49.0"):
+        # forced_decoder_ids is not allowed
+        # ref: https://github.com/huggingface/transformers/blob/6a2627918d84f25422b931507a8fb9146106ca20/src/transformers/generation/utils.py#L1083
+        model.generation_config.forced_decoder_ids = None
     return transformers.pipeline(
         task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
     )

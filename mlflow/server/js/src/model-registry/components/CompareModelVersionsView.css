@@ -1,0 +1,32 @@
+.sticky-header {
+  position: sticky;
+  left: 0;
+}
+
+.compare-model-table {
+  display: block;
+  overflow: auto;
+  width: 100%;
+}
+
+.compare-table-row {
+  display: inline-flex;
+}
+
+.compare-table .head-value {
+  overflow: hidden;
+  overflow-wrap: break-word;
+  z-index: 10;
+}
+
+.compare-table .diff-row .data-value {
+  background-color: rgba(249, 237, 190, 0.5) ;
+  color: #555;
+}
+
+.compare-table .diff-row:hover,
+.compare-table .diff-row .head-value,
+.compare-table .diff-row .head-value > span {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
