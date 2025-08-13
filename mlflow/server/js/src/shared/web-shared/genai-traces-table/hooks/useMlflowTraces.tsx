@@ -399,18 +399,18 @@ const useSearchMlflowTracesInner = ({
         if (pageToken) {
           payload.page_token = pageToken;
         }
-        const json: { traces: TraceInfoV3[]; next_page_token?: string } = await makeRequest(
+        const response: { traces: TraceInfoV3[]; next_page_token?: string } = await makeRequest(
           getAjaxUrl('ajax-api/3.0/mlflow/traces/search'),
           'POST',
           payload,
         );
-        const traces = json.traces;
+        const traces = response.traces;
         if (!isNil(traces)) {
           allTraces = allTraces.concat(traces);
         }
 
         // If there's no next page, break out of the loop.
-        pageToken = json.next_page_token;
+        pageToken = response.next_page_token;
         if (!pageToken) break;
       }
       return allTraces;
