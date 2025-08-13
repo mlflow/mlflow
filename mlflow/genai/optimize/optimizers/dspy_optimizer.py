@@ -12,7 +12,7 @@ from packaging.version import Version
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import BasePromptOptimizer
-from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig, OptimizerOutput
+from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerConfig, OptimizerOutput
 from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
 from mlflow.utils.annotations import experimental
@@ -45,7 +45,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: OBJECTIVE_FN | None = None,
+        objective: ObjectiveFn | None = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> OptimizerOutput:
         import dspy
@@ -170,7 +170,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         input_fields: dict[str, type],
         output_fields: dict[str, type],
         scorers: list[Scorer],
-        objective: OBJECTIVE_FN | None = None,
+        objective: ObjectiveFn | None = None,
     ) -> Callable[["dspy.Example"], float]:
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
             scores = {}

@@ -12,6 +12,7 @@ type Query {
 
   """Simple echoing field"""
   test(inputString: String): Test
+  mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
 }
 
 type MlflowGetExperimentResponse {
@@ -293,6 +294,27 @@ type Test {
   output: String
 }
 
+type MlflowSearchRunsResponse {
+  runs: [MlflowRunExtension!]
+  nextPageToken: String
+  apiError: ApiError
+}
+
+input MlflowSearchRunsInput {
+  experimentIds: [String]
+  filter: String
+  runViewType: MlflowViewType = null
+  maxResults: Int
+  orderBy: [String]
+  pageToken: String
+}
+
+enum MlflowViewType {
+  ACTIVE_ONLY
+  DELETED_ONLY
+  ALL
+}
+
 type Mutation {
   mlflowSearchDatasets(input: MlflowSearchDatasetsInput): MlflowSearchDatasetsResponse
   mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
@@ -315,27 +337,6 @@ type MlflowDatasetSummary {
 
 input MlflowSearchDatasetsInput {
   experimentIds: [String]
-}
-
-type MlflowSearchRunsResponse {
-  runs: [MlflowRunExtension!]
-  nextPageToken: String
-  apiError: ApiError
-}
-
-input MlflowSearchRunsInput {
-  experimentIds: [String]
-  filter: String
-  runViewType: MlflowViewType = null
-  maxResults: Int
-  orderBy: [String]
-  pageToken: String
-}
-
-enum MlflowViewType {
-  ACTIVE_ONLY
-  DELETED_ONLY
-  ALL
 }
 
 type TestMutation {

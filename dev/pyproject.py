@@ -75,6 +75,7 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 TRACING_INCLUDE_FILES = [
     "mlflow",
     # Flavors that we support auto tracing
+    "mlflow.agno*",
     "mlflow.anthropic*",
     "mlflow.autogen*",
     "mlflow.bedrock*",
@@ -315,7 +316,6 @@ def build(package_type: PackageType) -> None:
                 "genai": gateways_requirements,
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
-                "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
