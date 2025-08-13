@@ -214,7 +214,7 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def get_resume_info(self) -> dict:
+    def get_resume_info(self) -> dict[str, any]:
         """Get information about the resumed study.
 
         Returns:
