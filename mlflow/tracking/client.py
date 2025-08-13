@@ -6076,7 +6076,7 @@ class MlflowClient:
         self._get_registry_client().delete_webhook(webhook_id)
 
     def test_webhook(
-        self, webhook_id: str, event: WebhookEvent | str | None = None
+        self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:
         """
         Test a webhook by sending a test payload.
