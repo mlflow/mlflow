@@ -18,7 +18,7 @@ _RESPONSE_API_BUILT_IN_TOOLS = {
     "local_shell",
     "mcp",
     "code_interpreter",
-    "image_generation"
+    "image_generation",
 }
 
 
