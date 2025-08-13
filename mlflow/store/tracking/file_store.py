@@ -2732,8 +2732,8 @@ class FileStore(AbstractStore):
     def create_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, Any]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, Any] | None = None,
+        experiment_ids: list[str] | None = None,
     ):
         pass
 

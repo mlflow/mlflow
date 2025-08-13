@@ -3357,7 +3357,7 @@ class SqlAlchemyStore(AbstractStore):
             inserted_count = 0
             updated_count = 0
             current_time = get_current_time_millis()
-            last_updated_by = None
+            updated_by = None  # Track who last updated the dataset
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -3372,19 +3372,17 @@ class SqlAlchemyStore(AbstractStore):
                     .one_or_none()
                 )
 
+                tags = record_dict.get("tags")
+                if tags and MLFLOW_USER in tags:
+                    updated_by = tags[MLFLOW_USER]
+
                 if existing_record:
                     existing_record.merge(record_dict)
                     updated_count += 1
-                    tags = record_dict.get("tags")
-                    if tags and MLFLOW_USER in tags:
-                        last_updated_by = tags[MLFLOW_USER]
                 else:
-                    tags = record_dict.get("tags")
-
                     created_by = None
                     if tags and MLFLOW_USER in tags:
                         created_by = tags[MLFLOW_USER]
-                        last_updated_by = created_by
 
                     source = None
                     if source_data := record_dict.get("source"):
@@ -3427,18 +3425,11 @@ class SqlAlchemyStore(AbstractStore):
 
             updated_profile = self._compute_dataset_profile(session, dataset_id)
 
-            updated_by = None
-            for record_dict in records:
-                record_tags = record_dict.get("tags", {})
-                if record_tags and "mlflow.user" in record_tags:
-                    updated_by = record_tags["mlflow.user"]
-                    break
-
             new_digest = self._compute_dataset_digest(dataset_name, current_time)
 
             update_fields = {
                 "last_update_time": current_time,
-                "last_updated_by": last_updated_by,
+                "last_updated_by": updated_by,
                 "digest": new_digest,
             }
 

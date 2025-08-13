@@ -5994,33 +5994,33 @@ class MlflowClient:
         tags: dict[str, Any] | None = None,
     ) -> EvaluationDataset:
         """
-        Create a new dataset.
+                Create a new dataset.
 
-        Args:
-            name: The name of the dataset.
-            experiment_id: Optional experiment ID (str) or list of experiment IDs to
-                associate with the dataset.
-            tags: Optional dictionary of tags to apply to the dataset.
-<<<<<<< HEAD
-                  To set the dataset creator, include {"mlflow.user": "username"} in tags.
-=======
->>>>>>> genai-dataset
+                Args:
+                    name: The name of the dataset.
+                    experiment_id: Optional experiment ID (str) or list of experiment IDs to
+                        associate with the dataset.
+                    tags: Optional dictionary of tags to apply to the dataset.
+        <<<<<<< HEAD
+                          To set the dataset creator, include {"mlflow.user": "username"} in tags.
+        =======
+        >>>>>>> genai-dataset
 
-        Returns:
-            The created EvaluationDataset object.
+                Returns:
+                    The created EvaluationDataset object.
 
-        .. code-block:: python
+                .. code-block:: python
 
-            from mlflow import MlflowClient
+                    from mlflow import MlflowClient
 
-            client = MlflowClient()
+                    client = MlflowClient()
 
-            # Create a dataset associated with experiments
-            dataset = client.create_dataset(
-                name="qa_evaluation_v1",
-                experiment_id=["0", "1"],
-                tags={"environment": "production", "version": "1.0"},
-            )
+                    # Create a dataset associated with experiments
+                    dataset = client.create_dataset(
+                        name="qa_evaluation_v1",
+                        experiment_id=["0", "1"],
+                        tags={"environment": "production", "version": "1.0"},
+                    )
         """
         return self._tracking_client.create_dataset(
             name=name,

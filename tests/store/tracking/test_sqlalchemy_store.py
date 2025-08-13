@@ -6801,25 +6801,25 @@ def test_dataset_search_comprehensive(store):
 
         if i < 3:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[0]],
                 tags=tags,
             )
         elif i < 6:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[1], exp_ids[2]],
                 tags=tags,
             )
         elif i < 8:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[exp_ids[2]],
                 tags=tags,
             )
         else:
             created = store.create_dataset(
-                name=f"{test_prefix}dataset_{i:02d}",
+                name=name,
                 experiment_ids=[],
                 tags=tags,
             )
@@ -6855,9 +6855,7 @@ def test_dataset_search_comprehensive(store):
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 10
 
-    results = store.search_datasets(
-        filter_string=f"name LIKE '%{test_prefix}dataset_0%'"
-    )
+    results = store.search_datasets(filter_string=f"name LIKE '%{test_prefix}dataset_0%'")
     assert len(results) == 10
     assert all("dataset_0" in d.name for d in results)
 
@@ -6882,9 +6880,7 @@ def test_dataset_search_comprehensive(store):
     assert all(d.tags.get("priority") == "low" and test_prefix in d.name for d in results)
 
     mid_dataset = datasets[5]
-    results = store.search_datasets(
-        filter_string=f"created_time > {mid_dataset.created_time}"
-    )
+    results = store.search_datasets(filter_string=f"created_time > {mid_dataset.created_time}")
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     assert len(test_results) == 4
     assert all(d.created_time > mid_dataset.created_time for d in test_results)
@@ -6895,9 +6891,7 @@ def test_dataset_search_comprehensive(store):
     assert len(results) == 2
     assert all(d.tags.get("priority") == "high" for d in results)
 
-    results = store.search_datasets(
-        filter_string="tags.priority = 'low'", order_by=["name ASC"]
-    )
+    results = store.search_datasets(filter_string="tags.priority = 'low'", order_by=["name ASC"])
     test_results = [d for d in results if d.name.startswith(test_prefix)]
     names = [d.name for d in test_results]
     assert names == sorted(names)

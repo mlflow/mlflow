@@ -19,6 +19,8 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
+from mlflow.genai.evaluation import evaluate
+from mlflow.genai.scorers import scorer
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import MlflowClient
@@ -544,17 +546,9 @@ def test_search_datasets(tracking_uri, experiments):
     human_results = search_datasets(filter_string="name LIKE 'search_test_%'")
     assert len(human_results) == 5
 
-<<<<<<< HEAD
     limited_results = search_datasets(max_results=2)
     assert len(limited_results) == 2
 
-=======
-    # Test that pagination happens automatically internally
-    limited_results = search_datasets(max_results=2)
-    assert len(limited_results) == 2
-
-    # Test getting more results with higher max_results
->>>>>>> genai-dataset
     more_results = search_datasets(max_results=4)
     assert len(more_results) == 4
 
@@ -575,17 +569,9 @@ def test_delete_dataset(tracking_uri, experiments):
 
     delete_dataset(dataset_id=dataset_id)
 
-<<<<<<< HEAD
     with pytest.raises(MlflowException, match="Could not find|not found"):
         get_dataset(dataset_id=dataset_id)
 
-=======
-    # Verify dataset cannot be retrieved
-    with pytest.raises(MlflowException, match="Could not find|not found"):
-        get_dataset(dataset_id=dataset_id)
-
-    # Verify dataset doesn't appear in search results
->>>>>>> genai-dataset
     search_results = search_datasets(experiment_ids=[experiments[0], experiments[1]])
     found_ids = [d.dataset_id for d in search_results]
     assert dataset_id not in found_ids
@@ -879,11 +865,7 @@ def test_trace_deduplication_with_assessments(client, experiment):
 
     record = df.iloc[0]
     assert record["inputs"]["question"] == "What is AI?"
-<<<<<<< HEAD
     assert record["expectations"]["quality"] == 0.9
-=======
-    assert record["expectations"]["quality"] == 0.9  # Expectations from last trace
->>>>>>> genai-dataset
     assert record["source_id"] in trace_ids
 
 
@@ -1166,14 +1148,13 @@ def test_set_dataset_tags_databricks(mock_databricks_environment):
 
 def test_delete_dataset_tag_databricks(mock_databricks_environment):
     with pytest.raises(NotImplementedError, match="tag operations are not available"):
-<<<<<<< HEAD
-        delete_evaluation_dataset_tag(dataset_id="test", key="key")
+        delete_dataset_tag(dataset_id="test", key="key")
 
 
 def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
     dataset = create_dataset(
         name="schema_evolution_test",
-        experiment_ids=[experiments[0]],
+        experiment_id=[experiments[0]],
         tags={"test": "schema_evolution", "mlflow.user": "test_user"},
     )
 
@@ -1297,9 +1278,7 @@ def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
 
     consistent_profile = json.loads(consistent_dataset.profile)
     assert consistent_profile["num_records"] == 4
-=======
->>>>>>> genai-dataset
-        delete_dataset_tag(dataset_id="test", key="key")
+    delete_dataset_tag(dataset_id="test", key="key")
 
 
 def test_deprecated_parameter_substitution(experiment):
@@ -1347,5 +1326,119 @@ def test_deprecated_parameter_substitution(experiment):
         assert len(w) == 1
         assert issubclass(w[0].category, DeprecationWarning)
         assert "uc_table_name" in str(w[0].message)
+
+    delete_dataset(dataset_id=dataset.dataset_id)
+
+
+def test_dataset_with_genai_evaluate_integration(tracking_uri, experiments):
+    for i in range(5):
+        with mlflow.start_run(experiment_id=experiments[0]):
+            trace_tags = {
+                "environment": "test",
+                "model_version": "v1.0",
+                "test_iteration": str(i),
+                "quality": "high" if i % 2 == 0 else "medium",
+            }
+
+            with mlflow.start_span(name=f"qa_trace_{i}", attributes=trace_tags) as span:
+                inputs = {
+                    "question": f"Question {i}: What is MLflow?",
+                    "context": "MLflow is an open source platform for ML lifecycle management",
+                }
+                outputs = {"answer": f"Answer {i}: MLflow is a platform for managing ML workflows"}
+
+                span.set_inputs(inputs)
+                span.set_outputs(outputs)
+
+                mlflow.log_expectation(
+                    trace_id=span.trace_id,
+                    name="correctness",
+                    value=i % 2 == 0,
+                    span_id=span.span_id,
+                )
+                mlflow.log_expectation(
+                    trace_id=span.trace_id,
+                    name="relevance_score",
+                    value=0.7 + (i * 0.05),
+                    span_id=span.span_id,
+                )
+
+    traces_list = mlflow.search_traces(experiment_ids=[experiments[0]], return_type="list")
+
+    assert len(traces_list) == 5
+
+    dataset = create_dataset(
+        name="evaluate_integration_test",
+        experiment_id=experiments[0],
+        tags={"test": "integration", "mlflow.user": "test_user"},
+    )
+
+    dataset.merge_records(traces_list)
+
+    assert len(dataset.records) == 5
+
+    @scorer
+    def simple_length_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
+        """Score based on answer length."""
+        if outputs is None:
+            return 0.0
+        answer = outputs.get("answer", "") if isinstance(outputs, dict) else str(outputs)
+        return min(len(answer) / 100, 1.0)
+
+    @scorer
+    def expectation_based_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
+        """Score that compares with expectations."""
+        if expectations and isinstance(expectations, dict) and "relevance_score" in expectations:
+            return expectations["relevance_score"]
+        return 0.5
+
+    result = evaluate(
+        data=dataset,
+        scorers=[simple_length_scorer, expectation_based_scorer],
+    )
+
+    assert result is not None
+    assert result.run_id is not None
+
+    metrics = result.metrics
+    assert "simple_length_scorer/mean" in metrics or "simple_length_scorer/v1/mean" in metrics
+    assert (
+        "expectation_based_scorer/mean" in metrics or "expectation_based_scorer/v1/mean" in metrics
+    )
+
+    if hasattr(result, "tables"):
+        tables = result.tables
+        if tables and "eval_results_table" in tables:
+            eval_df = tables["eval_results_table"]
+            assert len(eval_df) == 5
+
+            assert (
+                "simple_length_scorer/score" in eval_df.columns
+                or "simple_length_scorer/v1/score" in eval_df.columns
+            )
+            assert (
+                "expectation_based_scorer/score" in eval_df.columns
+                or "expectation_based_scorer/v1/score" in eval_df.columns
+            )
+
+            if "expectation_based_scorer/score" in eval_df.columns:
+                score_col = "expectation_based_scorer/score"
+            else:
+                score_col = "expectation_based_scorer/v1/score"
+
+            for idx, row in eval_df.iterrows():
+                expected_relevance = 0.7 + (idx * 0.05)
+                actual_score = row[score_col]
+                error_msg = f"Row {idx}: expected {expected_relevance}, got {actual_score}"
+                assert abs(actual_score - expected_relevance) < 0.01, error_msg
+
+    run = mlflow.get_run(result.run_id)
+    assert run.inputs is not None
+    assert run.inputs.dataset_inputs is not None
+    assert len(run.inputs.dataset_inputs) > 0
+
+    dataset_input = run.inputs.dataset_inputs[0]
+    assert dataset_input.dataset.name == dataset.name
+    assert dataset_input.dataset.digest == dataset.digest
 
     delete_dataset(dataset_id=dataset.dataset_id)
