@@ -929,10 +929,10 @@ class TrackingServiceClient:
         if MLFLOW_USER not in merged_tags and MLFLOW_USER in context_tags:
             merged_tags[MLFLOW_USER] = context_tags[MLFLOW_USER]
 
-        return self.store.create_evaluation_dataset(
+        return self.store.create_dataset(
             name=name,
             tags=merged_tags if merged_tags else None,
-            experiment_id=experiment_ids,
+            experiment_ids=experiment_ids,
         )
 
     def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
@@ -945,7 +945,7 @@ class TrackingServiceClient:
         Returns:
             The EvaluationDataset object.
         """
-        return self.store.get_evaluation_dataset(dataset_id)
+        return self.store.get_dataset(dataset_id)
 
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -954,7 +954,7 @@ class TrackingServiceClient:
         Args:
             dataset_id: ID of the dataset to delete.
         """
-        self.store.delete_evaluation_dataset(dataset_id)
+        self.store.delete_dataset(dataset_id)
 
     def search_datasets(
         self,
@@ -977,7 +977,7 @@ class TrackingServiceClient:
         Returns:
             A PagedList of EvaluationDataset objects.
         """
-        return self.store.search_evaluation_datasets(
+        return self.store.search_datasets(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -999,7 +999,7 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found or invalid parameters.
         """
-        self.store.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
+        self.store.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -1012,7 +1012,7 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found.
         """
-        self.store.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)
+        self.store.delete_dataset_tag(dataset_id=dataset_id, key=key)
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """

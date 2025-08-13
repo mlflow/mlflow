@@ -200,6 +200,83 @@ def deprecated(alternative: str | None = None, since: str | None = None, impact:
     return deprecated_decorator
 
 
+def deprecated_parameter(old_param: str, new_param: str, version: str | None = None):
+    """
+    Decorator to handle deprecated parameter renaming with automatic warning and forwarding.
+
+    This decorator:
+    1. Accepts the deprecated parameter in the function signature
+    2. Emits a deprecation warning when the old parameter is used
+    3. Maps the old parameter value to the new parameter name
+    4. Hides the deprecated parameter from documentation
+    5. Keeps the function body untouched
+
+    Args:
+        old_param: The deprecated parameter name
+        new_param: The new parameter name to use instead
+        version: Optional version when the deprecation will be removed
+
+    Example:
+        @deprecated_parameter("request_id", "trace_id", version="4.0.0")
+        def search_traces(trace_id: str | None = None):
+            # Function body uses trace_id directly
+            return trace_id
+
+        # Users can still call with old parameter:
+        search_traces(request_id="123")  # Issues warning, forwards to trace_id
+        search_traces(trace_id="123")    # No warning
+    """
+
+    def decorator(func):
+        sig = inspect.signature(func)
+        params = dict(sig.parameters)
+
+        if new_param not in params:
+            raise ValueError(
+                f"New parameter '{new_param}' not found in function '{func.__name__}' signature"
+            )
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if old_param in kwargs:
+                old_value = kwargs.pop(old_param)
+
+                version_msg = f" and will be removed in version {version}" if version else ""
+                warnings.warn(
+                    f"Parameter '{old_param}' is deprecated{version_msg}. "
+                    f"Please use '{new_param}' instead.",
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+
+                if new_param in kwargs:
+                    raise ValueError(
+                        f"Cannot specify both '{old_param}' (deprecated) and '{new_param}'. "
+                        f"Use '{new_param}' only."
+                    )
+
+                kwargs[new_param] = old_value
+
+            return func(*args, **kwargs)
+
+        # Update the wrapper's signature to include the deprecated parameter as keyword-only
+        # but keep it out of documentation
+        wrapper.__signature__ = sig
+
+        # Update docstring to note the deprecation (if docstring exists)
+        if func.__doc__:
+            indent = _get_min_indent_of_docstring(func.__doc__)
+            deprecation_note = (
+                f"{indent}.. Note:: Parameter ``{old_param}`` is deprecated. "
+                f"Use ``{new_param}`` instead."
+            )
+            wrapper.__doc__ = f"{deprecation_note}\n{func.__doc__}"
+
+        return wrapper
+
+    return decorator
+
+
 def keyword_only(func):
     """A decorator that forces keyword arguments in the wrapped method."""
 

@@ -103,7 +103,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     def _load_experiment_ids(self):
         """Load experiment IDs from the backend."""
         tracking_store = _get_store()
-        self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(self.dataset_id)
+        self._experiment_ids = tracking_store.get_dataset_experiment_ids(self.dataset_id)
 
     @property
     def records(self) -> list[DatasetRecord]:
@@ -184,7 +184,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         tracking_store = _get_store()
 
         try:
-            tracking_store.get_evaluation_dataset(self.dataset_id)
+            tracking_store.get_dataset(self.dataset_id)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Cannot add records to dataset {self.dataset_id}: Dataset not found. "
@@ -202,9 +202,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 if MLFLOW_USER not in record["tags"]:
                     record["tags"][MLFLOW_USER] = user_tag
 
-        tracking_store.upsert_evaluation_dataset_records(
-            dataset_id=self.dataset_id, records=record_dicts
-        )
+        tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
 
         return self

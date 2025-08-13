@@ -93,7 +93,6 @@ from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
-from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -103,7 +102,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -166,20 +165,20 @@ def _disable_in_databricks(use_uc_message=False):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if is_databricks_uri(str(self.tracking_uri)):
-                if use_uc_message:
-                    message = (
-                        f"Dataset operation '{func.__name__}' is not supported when tracking "
-                        "URI is 'databricks'. Use Unity Catalog functionality instead."
-                    )
-                else:
-                    message = (
-                        f"Dataset operation '{func.__name__}' is not supported when tracking "
-                        "URI is 'databricks'. Use the fluent API instead (e.g., "
-                        "mlflow.genai.datasets.create_dataset)."
-                    )
-                raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
-            return func(self, *args, **kwargs)
+            if not is_databricks_uri(str(self.tracking_uri)):
+                return func(self, *args, **kwargs)
+
+            # Early return with appropriate error message
+            message_suffix = (
+                "Use Unity Catalog functionality instead."
+                if use_uc_message
+                else "Use the fluent API instead (e.g., mlflow.genai.datasets.create_dataset)."
+            )
+            message = (
+                f"Dataset operation '{func.__name__}' is not supported when tracking "
+                f"URI is 'databricks'. {message_suffix}"
+            )
+            raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
         return wrapper
 
@@ -1089,7 +1088,7 @@ class MlflowClient:
             trace_ids=trace_ids,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def get_trace(self, trace_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
@@ -1265,7 +1264,7 @@ class MlflowClient:
             start_time_ns=start_time_ns,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def end_trace(
         self,
         trace_id: str,
@@ -1337,7 +1336,7 @@ class MlflowClient:
         """
         return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def start_span(
         self,
         name: str,
@@ -1491,7 +1490,7 @@ class MlflowClient:
             start_time_ns=start_time_ns,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def end_span(
         self,
         trace_id: str,
@@ -1528,7 +1527,7 @@ class MlflowClient:
                 end_time_ns=end_time_ns,
             )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1557,7 +1556,7 @@ class MlflowClient:
         """
         self._tracing_client.set_trace_tag(trace_id, key, value)
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def delete_trace_tag(self, trace_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.

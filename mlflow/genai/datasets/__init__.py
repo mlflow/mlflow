@@ -10,10 +10,9 @@ import logging
 from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated_parameter, experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
 
 _logger = logging.getLogger(__name__)
@@ -22,35 +21,6 @@ _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
     "Please install it with `pip install databricks-agents`."
 )
-
-
-def _resolve_dataset_name(
-    name: str | None = None,
-    uc_table_name: str | None = None,
-) -> str | None:
-    """
-    Helper to resolve dataset name from either 'name' or deprecated 'uc_table_name' parameter.
-
-    Args:
-        name: The dataset name parameter
-        uc_table_name: The deprecated UC table name parameter
-
-    Returns:
-        The resolved dataset name
-
-    Raises:
-        ValueError: If both parameters are specified
-    """
-    if uc_table_name is not None:
-        _logger.warning(
-            "Parameter 'uc_table_name' is deprecated and will be removed in a future version. "
-            "Please use 'name' parameter instead."
-        )
-        if name is None:
-            return uc_table_name
-        else:
-            raise ValueError("Cannot specify both 'name' and 'uc_table_name' parameters.")
-    return name
 
 
 def _validate_databricks_params(
@@ -68,7 +38,7 @@ def _validate_databricks_params(
         ValueError: If name is missing or dataset_id is provided
     """
     if name is None:
-        raise ValueError("Parameter 'name' is required (or use deprecated 'uc_table_name').")
+        raise ValueError("Parameter 'name' is required.")
     if dataset_id is not None:
         raise ValueError(
             "Parameter 'dataset_id' is only supported outside of Databricks environments. "
@@ -102,12 +72,11 @@ def _validate_non_databricks_params(
         )
 
 
+@deprecated_parameter("uc_table_name", "name")
 def create_dataset(
     name: str | None = None,
     experiment_id: str | list[str] | None = None,
     tags: dict[str, Any] | None = None,
-    *,
-    uc_table_name: str | None = None,
 ) -> "EvaluationDataset":
     """
     Create a dataset with the given name and associate it with the given experiment.
@@ -117,13 +86,10 @@ def create_dataset(
         experiment_id: The ID of the experiment(s) to associate the dataset with. If not provided,
             the current experiment is inferred from the environment.
         tags: Dictionary of tags to apply to the dataset. Not supported in Databricks.
-        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
 
     Returns:
         An EvaluationDataset object representing the created dataset.
     """
-    name = _resolve_dataset_name(name, uc_table_name)
-
     if name is None:
         raise ValueError("Parameter 'name' is required.")
 
@@ -144,19 +110,17 @@ def create_dataset(
     else:
         from mlflow.tracking.client import MlflowClient
 
-        client = MlflowClient()
-        return client.create_dataset(
+        return MlflowClient().create_dataset(
             name=name,
             experiment_id=experiment_ids,
             tags=tags,
         )
 
 
+@deprecated_parameter("uc_table_name", "name")
 def delete_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
-    *,
-    uc_table_name: str | None = None,
 ) -> None:
     """
     Delete a dataset.
@@ -164,15 +128,11 @@ def delete_dataset(
     Args:
         name: The name of the dataset (Databricks only). In Databricks, this is the UC table name.
         dataset_id: The ID of the dataset.
-        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
 
     Note:
-        - In Databricks environments: Use 'name' (or deprecated 'uc_table_name') to specify
-            the dataset.
+        - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use 'dataset_id' to specify the dataset
     """
-    # Handle deprecated parameter
-    name = _resolve_dataset_name(name, uc_table_name)
 
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
@@ -187,15 +147,13 @@ def delete_dataset(
 
         from mlflow.tracking.client import MlflowClient
 
-        client = MlflowClient()
-        client.delete_dataset(dataset_id)
+        MlflowClient().delete_dataset(dataset_id)
 
 
+@deprecated_parameter("uc_table_name", "name")
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
-    *,
-    uc_table_name: str | None = None,
 ) -> "EvaluationDataset":
     """
     Get the dataset with the given name or ID.
@@ -203,17 +161,14 @@ def get_dataset(
     Args:
         name: The name of the dataset (Databricks only). In Databricks, this is the UC table name.
         dataset_id: The ID of the dataset.
-        uc_table_name: (Deprecated) Use 'name' parameter instead. The UC table name of the dataset.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
 
     Note:
-        - In Databricks environments: Use 'name' (or deprecated 'uc_table_name') to specify
-            the dataset.
+        - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use 'dataset_id' to specify the dataset
     """
-    name = _resolve_dataset_name(name, uc_table_name)
 
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
@@ -228,33 +183,76 @@ def get_dataset(
 
         from mlflow.tracking.client import MlflowClient
 
-        client = MlflowClient()
-        return client.get_dataset(dataset_id)
+        return MlflowClient().get_dataset(dataset_id)
 
 
 @experimental(version="3.4.0")
 def search_datasets(
     experiment_ids: str | list[str] | None = None,
     filter_string: str | None = None,
-    max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+    max_results: int | None = None,
     order_by: list[str] | None = None,
-    page_token: str | None = None,
-) -> PagedList[EvaluationDataset]:
+) -> list[EvaluationDataset]:
     """
     Search for datasets (non-Databricks only).
 
     Args:
-        experiment_ids: Single experiment ID (str) or list of experiment IDs
-        filter_string: Filter string for dataset names
-        max_results: Maximum number of results
-        order_by: Ordering criteria
-        page_token: Token for next page of results
+        experiment_ids: Single experiment ID (str) or list of experiment IDs to filter by.
+            If None, searches across all experiments.
+        filter_string: SQL-like filter string for dataset attributes. Supports filtering by:
+            - name: Dataset name
+            - created_by: User who created the dataset
+            - last_updated_by: User who last updated the dataset
+            - tags.<key>: Tag values
+        max_results: Maximum number of results. If not specified, returns all datasets.
+        order_by: List of columns to order by. Each entry can include an optional
+            "DESC" or "ASC" suffix (default is "ASC"). Supported columns:
+            - name
+            - created_time
+            - last_update_time
 
     Returns:
-        PagedList of EvaluationDataset objects
+        List of EvaluationDataset objects matching the search criteria
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.datasets import search_datasets
+
+            # Search all datasets
+            all_datasets = search_datasets()
+
+            # Search datasets in specific experiments
+            exp_datasets = search_datasets(experiment_ids=["exp1", "exp2"])
+
+            # Search by name pattern
+            qa_datasets = search_datasets(filter_string="name LIKE 'qa_%'")
+
+            # Search by creator
+            user_datasets = search_datasets(filter_string="created_by = 'alice@company.com'")
+
+            # Search by tags
+            prod_datasets = search_datasets(filter_string="tags.environment = 'production'")
+
+            # Complex filter with AND condition
+            recent_prod = search_datasets(
+                filter_string="tags.environment = 'production' AND tags.version >= '2.0'"
+            )
+
+            # Order by creation time (newest first)
+            recent_datasets = search_datasets(order_by=["created_time DESC"])
+
+            # Combine multiple search criteria
+            filtered_datasets = search_datasets(
+                experiment_ids="exp123",
+                filter_string="name LIKE 'eval_%' AND tags.status = 'validated'",
+                order_by=["last_update_time DESC", "name ASC"],
+                max_results=10,
+            )
 
     Note:
-        This API is not available in Databricks environments.
+        This API is not available in Databricks environments. Use Unity Catalog
+        search capabilities in Databricks instead.
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
@@ -266,14 +264,21 @@ def search_datasets(
         experiment_ids = [experiment_ids]
 
     from mlflow.tracking.client import MlflowClient
+    from mlflow.utils import get_results_from_paginated_fn
 
-    client = MlflowClient()
-    return client.search_datasets(
-        experiment_ids=experiment_ids,
-        filter_string=filter_string,
-        max_results=max_results,
-        order_by=order_by,
-        page_token=page_token,
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_datasets(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=number_to_get,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        max_results,
     )
 
 
@@ -316,8 +321,7 @@ def set_dataset_tags(
 
     from mlflow.tracking.client import MlflowClient
 
-    client = MlflowClient()
-    client.set_dataset_tags(dataset_id, tags)
+    MlflowClient().set_dataset_tags(dataset_id, tags)
 
 
 @experimental(version="3.4.0")
@@ -347,8 +351,7 @@ def delete_dataset_tag(
 
     from mlflow.tracking.client import MlflowClient
 
-    client = MlflowClient()
-    client.delete_dataset_tag(dataset_id, key)
+    MlflowClient().delete_dataset_tag(dataset_id, key)
 
 
 __all__ = [

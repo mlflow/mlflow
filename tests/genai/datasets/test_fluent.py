@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 from unittest import mock
 
 import pandas as pd
@@ -245,24 +246,26 @@ def test_search_datasets_with_mock(mock_client):
             last_update_time=123456789,
         ),
     ]
-    mock_client.search_datasets.return_value = PagedList(datasets, "next_token")
+    # Mock the paginated response - first page returns 2 datasets with no continuation token
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     result = search_datasets(
         experiment_ids=["exp1", "exp2"],
         filter_string="name LIKE 'test%'",
         max_results=100,
         order_by=["created_time DESC"],
-        page_token="token123",
     )
 
     assert len(result) == 2
-    assert result.token == "next_token"
+    assert isinstance(result, list)
+    # The pagination wrapper will request up to SEARCH_EVALUATION_DATASETS_MAX_RESULTS (50) per page
+    # even though we requested max_results=100
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1", "exp2"],
         filter_string="name LIKE 'test%'",
-        max_results=100,
+        max_results=50,  # This is the page size (SEARCH_EVALUATION_DATASETS_MAX_RESULTS)
         order_by=["created_time DESC"],
-        page_token="token123",
+        page_token=None,
     )
 
 
@@ -278,15 +281,92 @@ def test_search_datasets_single_experiment_id(mock_client):
     ]
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
+    # When no max_results is specified, it defaults to None which means get all
     search_datasets(experiment_ids="exp1")
 
+    # The pagination wrapper will use SEARCH_EVALUATION_DATASETS_MAX_RESULTS as the page size
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1"],
         filter_string=None,
-        max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,  # Page size
         order_by=None,
         page_token=None,
     )
+
+
+def test_search_datasets_pagination_handling(mock_client):
+    """Test that search_datasets handles pagination automatically."""
+    # Create datasets for multiple pages
+    page1_datasets = [
+        EntityEvaluationDataset(
+            dataset_id=f"id{i}",
+            name=f"dataset{i}",
+            digest=f"digest{i}",
+            created_time=123456789,
+            last_update_time=123456789,
+        )
+        for i in range(3)
+    ]
+
+    page2_datasets = [
+        EntityEvaluationDataset(
+            dataset_id=f"id{i}",
+            name=f"dataset{i}",
+            digest=f"digest{i}",
+            created_time=123456789,
+            last_update_time=123456789,
+        )
+        for i in range(3, 5)
+    ]
+
+    # Mock paginated responses
+    mock_client.search_datasets.side_effect = [
+        PagedList(page1_datasets, "token1"),  # First page with token
+        PagedList(page2_datasets, None),  # Second page without token (last page)
+    ]
+
+    # Call search_datasets without page_token
+    result = search_datasets(experiment_ids=["exp1"], max_results=10)
+
+    # Verify all datasets are returned
+    assert len(result) == 5
+    assert isinstance(result, list)
+
+    # Verify pagination was handled automatically
+    assert mock_client.search_datasets.call_count == 2
+
+    # Check first call - should request with page_token=None
+    first_call = mock_client.search_datasets.call_args_list[0]
+    assert first_call[1]["page_token"] is None
+
+    # Check second call - should request with page_token="token1"
+    second_call = mock_client.search_datasets.call_args_list[1]
+    assert second_call[1]["page_token"] == "token1"
+
+
+def test_search_datasets_single_page(mock_client):
+    """Test that search_datasets handles single page results correctly."""
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        )
+    ]
+
+    # Mock single page response with no token
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(max_results=10)
+
+    # Verify single page is handled correctly
+    assert len(result) == 1
+    assert isinstance(result, list)
+
+    # Should only be called once
+    assert mock_client.search_datasets.call_count == 1
 
 
 def test_search_datasets_databricks(mock_databricks_environment):
@@ -440,12 +520,13 @@ def test_search_datasets(tracking_uri, experiments):
     human_results = search_datasets(filter_string="name LIKE 'search_test_%'")
     assert len(human_results) == 5
 
-    page1 = search_datasets(max_results=2)
-    assert len(page1) == 2
-    assert page1.token is not None
+    # Test that pagination happens automatically internally
+    limited_results = search_datasets(max_results=2)
+    assert len(limited_results) == 2
 
-    page2 = search_datasets(max_results=2, page_token=page1.token)
-    assert len(page2) == 2
+    # Test getting more results with higher max_results
+    more_results = search_datasets(max_results=4)
+    assert len(more_results) == 4
 
 
 def test_delete_dataset(tracking_uri, experiments):
@@ -1046,3 +1127,52 @@ def test_set_dataset_tags_databricks(mock_databricks_environment):
 def test_delete_dataset_tag_databricks(mock_databricks_environment):
     with pytest.raises(NotImplementedError, match="tag operations are not available"):
         delete_dataset_tag(dataset_id="test", key="key")
+
+
+def test_deprecated_parameter_substitution(experiment):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        dataset = create_dataset(
+            uc_table_name="test_dataset_deprecated",
+            experiment_id=experiment,
+            tags={"test": "deprecated_parameter"},
+        )
+
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "uc_table_name" in str(w[0].message)
+        assert "deprecated" in str(w[0].message).lower()
+        assert "name" in str(w[0].message)
+
+        assert dataset.name == "test_dataset_deprecated"
+        assert dataset.tags["test"] == "deprecated_parameter"
+
+    with pytest.raises(ValueError, match="Cannot specify both.*uc_table_name.*and.*name"):
+        create_dataset(
+            uc_table_name="old_name",
+            name="new_name",
+            experiment_id=experiment,
+        )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        with pytest.raises(ValueError, match="name.*only supported in Databricks"):
+            get_dataset(uc_table_name="test_dataset_deprecated")
+
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "uc_table_name" in str(w[0].message)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        with pytest.raises(ValueError, match="name.*only supported in Databricks"):
+            delete_dataset(uc_table_name="test_dataset_deprecated")
+
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "uc_table_name" in str(w[0].message)
+
+    delete_dataset(dataset_id=dataset.dataset_id)
