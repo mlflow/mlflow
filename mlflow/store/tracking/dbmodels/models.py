@@ -1,4 +1,6 @@
 import json
+import uuid
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -56,7 +58,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
-from mlflow.utils.mlflow_tags import _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
 
 SourceTypes = [
@@ -1361,7 +1363,6 @@ class SqlEvaluationDataset(Base):
         Returns:
             :py:class:`mlflow.entities.EvaluationDataset`.
         """
-
         records = None
         # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
         # or not as calling .records on the EvaluationDataset object will trigger
@@ -1466,6 +1467,7 @@ class SqlEvaluationDatasetRecord(Base):
     """
 
     __tablename__ = "evaluation_dataset_records"
+    RECORD_ID_PREFIX = "dr-"
 
     dataset_record_id = Column(String(36), primary_key=True)
     """
@@ -1549,6 +1551,22 @@ class SqlEvaluationDatasetRecord(Base):
         ),
     )
 
+    def __init__(self, **kwargs):
+        """Initialize a new dataset record with auto-generated ID if not provided."""
+        if "dataset_record_id" not in kwargs:
+            kwargs["dataset_record_id"] = self.generate_record_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_record_id() -> str:
+        """
+        Generate a unique ID for dataset records.
+
+        Returns:
+            A unique record ID with the format "dr-<uuid_hex>".
+        """
+        return f"{SqlEvaluationDatasetRecord.RECORD_ID_PREFIX}{uuid.uuid4().hex}"
+
     def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.
@@ -1591,26 +1609,57 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             SqlEvaluationDatasetRecord instance
         """
-        # With MutableJSON, we store dicts directly, not JSON strings
         source_dict = None
         if record.source:
             source_dict = record.source.to_dict()
 
-        return cls(
-            dataset_record_id=record.dataset_record_id,
-            dataset_id=record.dataset_id,
-            inputs=record.inputs,
-            expectations=record.expectations,
-            tags=record.tags,
-            source=source_dict,
-            source_id=record.source_id,
-            source_type=record.source.source_type if record.source else None,
-            created_time=record.created_time or get_current_time_millis(),
-            last_update_time=record.last_update_time or get_current_time_millis(),
-            created_by=record.created_by,
-            last_updated_by=record.last_updated_by,
-            input_hash=input_hash,
-        )
+        kwargs = {
+            "dataset_id": record.dataset_id,
+            "inputs": record.inputs,
+            "expectations": record.expectations,
+            "tags": record.tags,
+            "source": source_dict,
+            "source_id": record.source_id,
+            "source_type": record.source.source_type if record.source else None,
+            "created_time": record.created_time or get_current_time_millis(),
+            "last_update_time": record.last_update_time or get_current_time_millis(),
+            "created_by": record.created_by,
+            "last_updated_by": record.last_updated_by,
+            "input_hash": input_hash,
+        }
+
+        if record.dataset_record_id:
+            kwargs["dataset_record_id"] = record.dataset_record_id
+
+        return cls(**kwargs)
+
+    def merge(self, new_record_dict: dict[str, Any]) -> None:
+        """
+        Merge new record data into this existing record.
+
+        Updates expectations and tags by merging new values with existing ones.
+        Preserves created_time and created_by from the original record.
+
+        Args:
+            new_record_dict: Dictionary containing new record data with optional
+                           'expectations' and 'tags' fields to merge.
+        """
+        if new_expectations := new_record_dict.get("expectations"):
+            if self.expectations is None:
+                self.expectations = {}
+            self.expectations.update(new_expectations)
+
+        if new_tags := new_record_dict.get("tags"):
+            if self.tags is None:
+                self.tags = {}
+            self.tags.update(new_tags)
+
+        self.last_update_time = get_current_time_millis()
+
+        # Update last_updated_by if mlflow.user tag is present
+        # Otherwise keep the existing last_updated_by (don't change it to None)
+        if new_tags and MLFLOW_USER in new_tags:
+            self.last_updated_by = new_tags[MLFLOW_USER]
 
 
 class SqlSpan(Base):
@@ -1708,6 +1757,7 @@ class SqlEntityAssociation(Base):
     """
 
     __tablename__ = "entity_associations"
+    ASSOCIATION_ID_PREFIX = "a-"
 
     association_id = Column(String(36), nullable=False)
     """
@@ -1756,3 +1806,19 @@ class SqlEntityAssociation(Base):
             "source_id",
         ),
     )
+
+    def __init__(self, **kwargs):
+        """Initialize a new entity association with auto-generated ID if not provided."""
+        if "association_id" not in kwargs:
+            kwargs["association_id"] = self.generate_association_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_association_id() -> str:
+        """
+        Generate a unique ID for entity associations.
+
+        Returns:
+            A unique association ID with the format "a-<uuid_hex>".
+        """
+        return f"{SqlEntityAssociation.ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"

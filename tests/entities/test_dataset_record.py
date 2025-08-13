@@ -41,11 +41,22 @@ def test_dataset_record_creation():
 
 
 def test_dataset_record_empty_inputs_validation():
-    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
+    # Empty dict is allowed (for traces without inputs)
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    assert record.inputs == {}
+
+    # None is not allowed
+    with pytest.raises(ValueError, match="inputs must be provided"):
         DatasetRecord(
             dataset_record_id="rec123",
             dataset_id="dataset123",
-            inputs={},
+            inputs=None,
             created_time=123456789,
             last_update_time=123456789,
         )
@@ -392,17 +403,17 @@ def test_dataset_record_from_dict_with_missing_keys():
             }
         )
 
-    # Test that empty inputs raises ValueError
-    with pytest.raises(ValueError, match="inputs must be provided and cannot be empty"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec789",
-                "dataset_id": "dataset123",
-                "inputs": {},
-                "created_time": 123,
-                "last_update_time": 123,
-            }
-        )
+    # Test that empty inputs dict is allowed
+    record_empty_inputs = DatasetRecord.from_dict(
+        {
+            "dataset_record_id": "rec789",
+            "dataset_id": "dataset123",
+            "inputs": {},
+            "created_time": 123,
+            "last_update_time": 123,
+        }
+    )
+    assert record_empty_inputs.inputs == {}
 
     # Test that missing inputs raises ValueError
     with pytest.raises(ValueError, match="inputs is required"):

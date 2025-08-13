@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
 from mlflow.data.evaluation_dataset_source import EvaluationDatasetSource
@@ -11,6 +11,9 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
+from mlflow.tracking.context import registry as context_registry
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -33,11 +36,11 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         digest: str,
         created_time: int,
         last_update_time: int,
-        tags: Optional[dict[str, Any]] = None,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
-        created_by: Optional[str] = None,
-        last_updated_by: Optional[str] = None,
+        tags: dict[str, Any] | None = None,
+        schema: str | None = None,
+        profile: str | None = None,
+        created_by: str | None = None,
+        last_updated_by: str | None = None,
     ):
         """Initialize the EvaluationDataset."""
         self.dataset_id = dataset_id
@@ -67,14 +70,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def schema(self) -> Optional[str]:
+    def schema(self) -> str | None:
         """
         Dataset schema information.
         """
         return self._schema
 
     @property
-    def profile(self) -> Optional[str]:
+    def profile(self) -> str | None:
         """
         Dataset profile information.
         """
@@ -99,10 +102,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
     def _load_experiment_ids(self):
         """Load experiment IDs from the backend."""
-        from mlflow.tracking._tracking_service.utils import _get_store
-
         tracking_store = _get_store()
-        self._experiment_ids = tracking_store.get_evaluation_dataset_experiment_ids(self.dataset_id)
+        self._experiment_ids = tracking_store.get_dataset_experiment_ids(self.dataset_id)
 
     @property
     def records(self) -> list[DatasetRecord]:
@@ -113,8 +114,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         when accessed for the first time.
         """
         if self._records is None:
-            from mlflow.tracking._tracking_service.utils import _get_store
-
             tracking_store = _get_store()
             self._records = tracking_store._load_dataset_records(self.dataset_id)
         return self._records or []
@@ -124,7 +123,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._records is not None
 
     def merge_records(
-        self, records: Union[list[dict[str, Any]], "pd.DataFrame", list["Trace"]]
+        self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
         """
         Merge new records with existing ones.
@@ -182,12 +181,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "Each record must have an 'inputs' field"
                 )
 
-        from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
-
         tracking_store = _get_store()
 
         try:
-            tracking_store.get_evaluation_dataset(self.dataset_id)
+            tracking_store.get_dataset(self.dataset_id)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Cannot add records to dataset {self.dataset_id}: Dataset not found. "
@@ -195,9 +192,17 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 f"(currently set to: {get_tracking_uri()})."
             ) from e
 
-        tracking_store.upsert_evaluation_dataset_records(
-            dataset_id=self.dataset_id, records=record_dicts, updated_by=self.last_updated_by
-        )
+        context_tags = context_registry.resolve_tags()
+        user_tag = context_tags.get(MLFLOW_USER)
+
+        if user_tag:
+            for record in record_dicts:
+                if "tags" not in record:
+                    record["tags"] = {}
+                if MLFLOW_USER not in record["tags"]:
+                    record["tags"][MLFLOW_USER] = user_tag
+
+        tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
 
         return self

@@ -1,6 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
     Assessment,
@@ -13,6 +13,9 @@ from mlflow.entities import (
     LoggedModelTag,
     ViewType,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
@@ -20,7 +23,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils import mlflow_tags
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -924,6 +927,136 @@ class AbstractStore:
 
         Args:
             model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def create_evaluation_dataset(
+        self,
+        name: str,
+        tags: dict[str, str] | None = None,
+        experiment_id: list[str] | None = None,
+    ) -> "EvaluationDataset":
+        """
+        Create a new evaluation dataset.
+
+        Args:
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
+            experiment_id: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The created evaluation dataset with populated metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The evaluation dataset object.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+        """
+        Delete an evaluation dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def search_evaluation_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["EvaluationDataset"]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: Filter string for dataset names.
+            max_results: Maximum number of results to return.
+            order_by: Ordering criteria.
+            page_token: Token for retrieving the next page of results.
+
+        Returns:
+            A PagedList of evaluation datasets.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def upsert_evaluation_dataset_records(
+        self,
+        dataset_id: str,
+        records: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        """
+        Upsert records into an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            records: List of record dictionaries to upsert.
+
+        Returns:
+            Dictionary with 'inserted' and 'updated' counts.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
         """
         raise NotImplementedError(self.__class__.__name__)
 

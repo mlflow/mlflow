@@ -5,7 +5,10 @@ from mlflow.genai import (
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
+    delete_dataset_tag,
     get_dataset,
+    search_datasets,
+    set_dataset_tags,
 )
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.labeling import (
@@ -40,7 +43,10 @@ __all__ = [
     "scorers",
     "create_dataset",
     "delete_dataset",
+    "delete_dataset_tag",
     "get_dataset",
+    "search_datasets",
+    "set_dataset_tags",
     "load_prompt",
     "register_prompt",
     "search_prompts",

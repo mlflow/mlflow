@@ -8,7 +8,7 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, TypedDict
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -184,19 +184,8 @@ class SqlAlchemyStore(AbstractStore):
     TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     EVALUATION_DATASET_ID_PREFIX = "d-"
-    EVALUATION_DATASET_RECORD_ID_PREFIX = "dr-"
-    ENTITY_ASSOCIATION_ID_PREFIX = "a-"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
-
-    def _generate_association_id(self) -> str:
-        """
-        Generate a unique ID for entity associations.
-
-        Returns:
-            A unique association ID with the appropriate prefix.
-        """
-        return f"{self.ENTITY_ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -2886,12 +2875,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_entity_associations(
         self,
-        entity_ids: Union[str, list[str]],
+        entity_ids: str | list[str],
         entity_type: EntityAssociationType,
         target_type: EntityAssociationType,
         search_direction: str,  # "forward" or "reverse"
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Common implementation for searching entity associations.
@@ -2951,11 +2940,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_entities_by_source(
         self,
-        source_ids: Union[str, list[str]],
+        source_ids: str | list[str],
         source_type: EntityAssociationType,
         destination_type: EntityAssociationType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Get destination IDs associated with source entity/entities.
@@ -2977,11 +2966,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_entities_by_destination(
         self,
-        destination_ids: Union[str, list[str]],
+        destination_ids: str | list[str],
         destination_type: EntityAssociationType,
         source_type: EntityAssociationType,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> PagedList[str]:
         """
         Get source IDs associated with destination entity/entities.
@@ -3005,11 +2994,28 @@ class SqlAlchemyStore(AbstractStore):
     # Evaluation Dataset Methods
     #######################################################################################
 
-    def create_evaluation_dataset(
+    def _compute_dataset_digest(self, name: str, last_update_time: int) -> str:
+        """
+        Compute digest for an evaluation dataset.
+
+        The digest includes the dataset name and last_update_time to ensure
+        that any state change results in a different digest.
+
+        Args:
+            name: Dataset name
+            last_update_time: Last update timestamp in milliseconds
+
+        Returns:
+            8-character digest string
+        """
+        digest_input = f"{name}:{last_update_time}".encode()
+        return hashlib.sha256(digest_input).hexdigest()[:8]
+
+    def create_dataset(
         self,
         name: str,
-        tags: Optional[dict[str, str]] = None,
-        experiment_ids: Optional[list[str]] = None,
+        tags: dict[str, str] | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> EvaluationDataset:
         """
         Create a new evaluation dataset in the database.
@@ -3018,15 +3024,15 @@ class SqlAlchemyStore(AbstractStore):
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
             experiment_ids: List of experiment IDs to associate with the dataset
+
         Returns:
             The created EvaluationDataset object with backend-generated metadata.
         """
         with self.ManagedSessionMaker() as session:
             dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
 
-            digest = hashlib.sha256(name.encode()).hexdigest()[:8]
-
             current_time = get_current_time_millis()
+            digest = self._compute_dataset_digest(name, current_time)
 
             user_id = None
             if tags and MLFLOW_USER in tags:
@@ -3060,7 +3066,6 @@ class SqlAlchemyStore(AbstractStore):
             if experiment_ids:
                 for exp_id in experiment_ids:
                     association = SqlEntityAssociation(
-                        association_id=self._generate_association_id(),
                         source_type=EntityAssociationType.EVALUATION_DATASET,
                         source_id=dataset_id,
                         destination_type=EntityAssociationType.EXPERIMENT,
@@ -3081,7 +3086,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return created_dataset
 
-    def get_evaluation_dataset(self, dataset_id: str) -> EvaluationDataset:
+    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
         Get an evaluation dataset by ID.
 
@@ -3106,7 +3111,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_dataset.to_mlflow_entity()
 
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    def delete_dataset(self, dataset_id: str) -> None:
         """
         Delete an evaluation dataset and all its records.
 
@@ -3142,13 +3147,13 @@ class SqlAlchemyStore(AbstractStore):
 
             session.delete(sql_dataset)
 
-    def search_evaluation_datasets(
+    def search_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
         Search for evaluation datasets.
@@ -3170,10 +3175,8 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             if filter_string:
                 parsed_filters = SearchEvaluationDatasetsUtils.parse_search_filter(filter_string)
-                attribute_filters, non_attribute_filters = (
-                    _get_search_evaluation_datasets_filter_clauses(
-                        parsed_filters, self._get_dialect()
-                    )
+                attribute_filters, non_attribute_filters = _get_search_datasets_filter_clauses(
+                    parsed_filters, self._get_dialect()
                 )
             else:
                 attribute_filters = []
@@ -3194,7 +3197,7 @@ class SqlAlchemyStore(AbstractStore):
 
             stmt = stmt.filter(*attribute_filters)
 
-            order_by_clauses = _get_search_evaluation_datasets_order_by_clauses(order_by)
+            order_by_clauses = _get_search_datasets_order_by_clauses(order_by)
             stmt = stmt.order_by(*order_by_clauses)
 
             stmt = stmt.offset(offset).limit(max_results + 1)
@@ -3310,7 +3313,30 @@ class SqlAlchemyStore(AbstractStore):
 
             return [record.to_mlflow_entity() for record in sql_records]
 
-    def upsert_evaluation_dataset_records(
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        This operation is idempotent - if the tag doesn't exist, it's a no-op.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetTag)
+                .filter_by(dataset_id=dataset_id, key=key)
+                .delete()
+            )
+
+            if deleted_count == 0:
+                _logger.debug(
+                    f"Tag '{key}' not found for evaluation dataset {dataset_id}. "
+                    "It may have already been deleted or never existed."
+                )
+
+    def upsert_dataset_records(
         self, dataset_id: str, records: list[dict[str, Any]]
     ) -> dict[str, int]:
         """
@@ -3343,31 +3369,14 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
                 if existing_record:
-                    record_id = existing_record.dataset_record_id
-                    created_time = existing_record.created_time
-                    created_by = existing_record.created_by
-
-                    merged_expectations = existing_record.expectations or {}
-                    if new_expectations := record_dict.get("expectations"):
-                        merged_expectations.update(new_expectations)
-
-                    merged_tags = existing_record.tags or {}
-                    if new_tags := record_dict.get("tags"):
-                        merged_tags.update(new_tags)
-
-                    source = None
-                    if existing_record.source:
-                        source = DatasetRecordSource.from_dict(existing_record.source)
-
+                    existing_record.merge(record_dict)
                     updated_count += 1
                 else:
-                    record_id = f"{self.EVALUATION_DATASET_RECORD_ID_PREFIX}{uuid.uuid4().hex}"
-                    created_time = current_time
+                    tags = record_dict.get("tags")
+
                     created_by = None
-                    merged_tags = record_dict.get("tags")
-                    if merged_tags and MLFLOW_USER in merged_tags:
-                        created_by = merged_tags[MLFLOW_USER]
-                    merged_expectations = record_dict.get("expectations")
+                    if tags and MLFLOW_USER in tags:
+                        created_by = tags[MLFLOW_USER]
 
                     source = None
                     if source_data := record_dict.get("source"):
@@ -3376,29 +3385,35 @@ class SqlAlchemyStore(AbstractStore):
                         else:
                             source = source_data
 
+                    record = DatasetRecord(
+                        dataset_record_id=None,
+                        dataset_id=dataset_id,
+                        inputs=record_dict.get("inputs", {}),
+                        created_time=current_time,
+                        last_update_time=current_time,
+                        expectations=record_dict.get("expectations"),
+                        tags=tags,
+                        source=source,
+                        created_by=created_by,
+                        last_updated_by=created_by,
+                    )
+
+                    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
+                    session.add(sql_record)
                     inserted_count += 1
 
-                record = DatasetRecord(
-                    dataset_record_id=record_id,
-                    dataset_id=dataset_id,
-                    inputs=record_dict.get("inputs", {}),
-                    created_time=created_time,
-                    last_update_time=current_time,
-                    expectations=merged_expectations,
-                    tags=merged_tags,
-                    source=source,
-                    created_by=created_by,
-                    last_updated_by=created_by,
-                )
-
-                sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
-                session.merge(sql_record)
-
-            existing_schema = (
-                session.query(SqlEvaluationDataset.schema)
+            dataset_info = (
+                session.query(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .scalar()
+                .first()
             )
+
+            if dataset_info:
+                existing_schema = dataset_info[0]
+                dataset_name = dataset_info[1]
+            else:
+                existing_schema = None
+                dataset_name = None
 
             updated_schema = self._update_dataset_schema(existing_schema, records)
 
@@ -3411,9 +3426,12 @@ class SqlAlchemyStore(AbstractStore):
                     updated_by = record_tags["mlflow.user"]
                     break
 
+            new_digest = self._compute_dataset_digest(dataset_name, current_time)
+
             update_fields = {
                 "last_update_time": current_time,
                 "last_updated_by": updated_by,
+                "digest": new_digest,
             }
 
             if updated_schema:
@@ -3428,7 +3446,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return {"inserted": inserted_count, "updated": updated_count}
 
-    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
         This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
@@ -3447,37 +3465,34 @@ class SqlAlchemyStore(AbstractStore):
 
         return experiment_ids.to_list()
 
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Update tags for an evaluation dataset.
         This implements an upsert operation - existing tags are merged with new tags.
-        To remove a tag, set its value to None.
 
         Args:
             dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            tags: Dictionary of tags to update.
 
         Raises:
-            MlflowException: If dataset not found or invalid parameters.
+            MlflowException: If the dataset doesn't exist.
         """
         with self.ManagedSessionMaker() as session:
-            session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).update(
-                {
-                    SqlEvaluationDataset.last_update_time: get_current_time_millis(),
-                    **(
-                        {SqlEvaluationDataset.last_updated_by: tags[MLFLOW_USER]}
-                        if tags and MLFLOW_USER in tags
-                        else {}
-                    ),
-                }
-            )
+            # NB: Checking that the dataset exists within this API avoids
+            # very confusing error messages regarding foreign key constraint
+            # violations that are different for various RDBMS backends and
+            # a generic error message regarding existence of a dependent key.
+            # Use .first() instead of .exists() for MSSQL compatibility
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+
+            if not dataset:
+                raise MlflowException(
+                    f"Could not find evaluation dataset with ID {dataset_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
 
             for key, value in tags.items():
-                if value is None:
-                    session.query(SqlEvaluationDatasetTag).filter_by(
-                        dataset_id=dataset_id, key=key
-                    ).delete()
-                else:
+                if value is not None:
                     existing_tag = (
                         session.query(SqlEvaluationDatasetTag)
                         .filter_by(dataset_id=dataset_id, key=key)
@@ -3928,7 +3943,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     return attribute_filters, non_attribute_filters, run_id_filter
 
 
-def _get_search_evaluation_datasets_filter_clauses(parsed_filters, dialect):
+def _get_search_datasets_filter_clauses(parsed_filters, dialect):
     """
     Creates evaluation dataset attribute filters and non-attribute filters for tags.
     """
@@ -3977,7 +3992,7 @@ def _get_search_evaluation_datasets_filter_clauses(parsed_filters, dialect):
     return attribute_filters, non_attribute_filters
 
 
-def _get_search_evaluation_datasets_order_by_clauses(order_by):
+def _get_search_datasets_order_by_clauses(order_by):
     """
     Creates order by clauses for searching evaluation datasets.
     """
