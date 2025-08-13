@@ -1315,7 +1315,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
