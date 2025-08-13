@@ -4,6 +4,7 @@ import tempfile
 import traceback
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 
 import optuna
 import pandas as pd
@@ -214,7 +215,7 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def get_resume_info(self) -> dict[str, any]:
+    def get_resume_info(self) -> dict[str, Any]:
         """Get information about the resumed study.
 
         Returns:
