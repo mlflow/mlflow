@@ -227,33 +227,24 @@ def delete_prompt_alias(name: str, alias: str) -> None:
     with suppress_genai_migration_warning():
         return registry_api.delete_prompt_alias(name=name, alias=alias)
 
+
 @experimental(version="3.0.0")
 @require_prompt_registry
 def get_prompt_tags(name: str) -> Prompt:
     """Get a prompt's metadata from the MLflow Prompt Registry.
-    
-    Args:
-        name: The name of the prompt.
-    """
-    with suppress_genai_migration_warning():
-        return get_prompt(name).tags
 
-@experimental(version="3.0.0")
-@require_prompt_registry
-def get_prompt(name: str) -> Prompt:
-    """Get a prompt's metadata from the MLflow Prompt Registry.
-    
     Args:
         name: The name of the prompt.
     """
     with suppress_genai_migration_warning():
-        return registry_api.get_prompt(name=name)
+        return registry_api.get_prompt(name=name).tags
+
 
 @experimental(version="3.0.0")
 @require_prompt_registry
 def set_prompt_tag(name: str, key: str, value: str) -> None:
     """Set a tag on a prompt in the MLflow Prompt Registry.
-    
+
     Args:
         name: The name of the prompt.
         key: The key of the tag
@@ -267,10 +258,52 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
 @require_prompt_registry
 def delete_prompt_tag(name: str, key: str) -> None:
     """Delete a tag from a prompt in the MLflow Prompt Registry.
-    
+
     Args:
         name: The name of the prompt.
         key: The key of the tag
     """
     with suppress_genai_migration_warning():
         return registry_api.delete_prompt_tag(name=name, key=key)
+
+
+@experimental(version="3.0.0")
+@require_prompt_registry
+def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) -> None:
+    """Set a tag on a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    with suppress_genai_migration_warning():
+        return registry_api.set_prompt_version_tag(name=name, version=version, key=key, value=value)
+
+
+@experimental(version="3.0.0")
+@require_prompt_registry
+def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
+    """Delete a tag from a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+    """
+    with suppress_genai_migration_warning():
+        return registry_api.delete_prompt_version_tag(name=name, version=version, key=key)
+
+
+@experimental(version="3.0.0")
+@require_prompt_registry
+def get_prompt_version_tags(name: str, version: str | int) -> str:
+    """Get a tag from a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+    """
+    with suppress_genai_migration_warning():
+        return registry_api.get_prompt_version_tags(name=name, version=version)
