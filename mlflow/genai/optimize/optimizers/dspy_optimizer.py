@@ -51,10 +51,9 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         Raises MlflowException for invalid formats.
         """
         if not model_name:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Model name cannot be empty. Please provide a model name in the format "
-                "'<provider>/<model>' or '<provider>:/<model>'.",
-                error_code=MlflowException.INVALID_PARAMETER_VALUE,
+                "'<provider>/<model>' or '<provider>:/<model>'."
             )
 
         try:
@@ -66,12 +65,11 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
                 if len(parts) == 2 and parts[0] and parts[1]:
                     return model_name
 
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Invalid model name format: '{model_name}'. "
                 "Model name must be in one of the following formats:\n"
                 "  - '<provider>/<model>' (e.g., 'openai/gpt-4')\n"
-                "  - '<provider>:/<model>' (e.g., 'openai:/gpt-4')",
-                error_code=MlflowException.INVALID_PARAMETER_VALUE,
+                "  - '<provider>:/<model>' (e.g., 'openai:/gpt-4')"
             )
 
     def optimize(

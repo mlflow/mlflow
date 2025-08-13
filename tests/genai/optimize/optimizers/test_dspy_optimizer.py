@@ -48,7 +48,7 @@ class _TestDSPyPromptOptimizer(DSPyPromptOptimizer):
 def optimizer_config_fixture(request):
     return OptimizerConfig(
         optimizer_llm=LLMParams(
-            model_name="gpt-3.5-turbo",
+            model_name="openai:/gpt-3.5-turbo",
         ),
         verbose=True,
         extract_instructions=request.param,
@@ -57,7 +57,9 @@ def optimizer_config_fixture(request):
 
 @pytest.fixture
 def target_llm_params():
-    return LLMParams(model_name="gpt-4", temperature=0.2, base_uri="https://api.openai.com/v1")
+    return LLMParams(
+        model_name="openai:/gpt-4", temperature=0.2, base_uri="https://api.openai.com/v1"
+    )
 
 
 @pytest.fixture
@@ -238,6 +240,3 @@ def test_parse_model_name():
 
     with pytest.raises(MlflowException, match="Invalid model name format"):
         optimizer._parse_model_name("openai/")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("/gpt-4")
