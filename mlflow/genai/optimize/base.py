@@ -11,8 +11,8 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.optimize.optimizers import BasePromptOptimizer, _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.types import (
-    OBJECTIVE_FN,
     LLMParams,
+    ObjectiveFn,
     OptimizerConfig,
     PromptOptimizationResult,
 )
@@ -30,7 +30,8 @@ from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas as pd
-    from genai.evaluation.utils import EvaluationDatasetTypes
+
+    from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 
@@ -44,7 +45,7 @@ def optimize_prompt(
     prompt: str | PromptVersion,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
-    objective: OBJECTIVE_FN | None = None,
+    objective: ObjectiveFn | None = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
     optimizer_config: OptimizerConfig | None = None,
 ) -> PromptOptimizationResult:

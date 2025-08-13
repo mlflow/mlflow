@@ -111,7 +111,7 @@ async def test_completions_with_default_max_tokens():
             json={
                 "model": "claude-instant-1",
                 "temperature": 0.0,
-                "max_tokens_to_sample": 200000,
+                "max_tokens_to_sample": 8192,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
