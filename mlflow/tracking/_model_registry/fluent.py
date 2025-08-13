@@ -36,7 +36,7 @@ from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -740,10 +740,11 @@ def load_prompt(
     # Note that we do this synchronously because it's unlikely that run linking occurs
     # in a latency sensitive environment, since runs aren't typically used in real-time /
     # production scenarios
-    if run := active_run():
-        client.link_prompt_version_to_run(
-            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
-        )
+    # NB: We shouldn't use `active_run()` here because it only returns the active run
+    # from the current thread. It doesn't work in multi-threaded scenarios such as
+    # MLflow GenAI evaluation.
+    if run := _get_latest_active_run():
+        client.link_prompt_version_to_run(run.info.run_id, prompt)
 
     if link_to_model:
         model_id = model_id or get_active_model_id()

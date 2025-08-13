@@ -75,6 +75,7 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 TRACING_INCLUDE_FILES = [
     "mlflow",
     # Flavors that we support auto tracing
+    "mlflow.agno*",
     "mlflow.anthropic*",
     "mlflow.autogen*",
     "mlflow.bedrock*",

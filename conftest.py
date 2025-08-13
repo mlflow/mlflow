@@ -171,6 +171,7 @@ def pytest_ignore_collect(collection_path, config):
         model_flavors = [
             # Tests of flavor modules.
             "tests/ag2",
+            "tests/agno",
             "tests/anthropic",
             "tests/autogen",
             "tests/azureml",

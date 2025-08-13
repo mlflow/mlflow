@@ -3183,6 +3183,7 @@ def autolog(
 
     GENAI_LIBRARY_TO_AUTOLOG_MODULE = {
         "autogen": "mlflow.ag2",
+        "agno": "mlflow.agno",
         "anthropic": "mlflow.anthropic",
         "autogen_agentchat": "mlflow.autogen",
         "openai": "mlflow.openai",
