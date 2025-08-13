@@ -1,0 +1,66 @@
+# Tutorials and Examples
+
+Welcome to our Tutorials and Examples hub! Here you'll find a curated set of resources to help you get started and deepen your knowledge of MLflow. Whether you're fine-tuning hyperparameters, orchestrating complex workflows, or integrating MLflow into your training code, these examples will guide you step by step.
+
+---
+
+## 🎯 Core Workflows & API
+
+If you're focused on finding optimal configurations for your models, check out our [Hyperparameter Tuning](https://github.com/mlflow/mlflow/tree/master/examples/hyperparam) example. It walks you through setting up grid or random search runs, logging metrics, and comparing results—all within MLflow's tracking interface.
+
+When your project requires coordinating multiple steps—say, data preprocessing, model training, and post-processing—you'll appreciate the [Orchestrating Multistep Workflows](https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow) guide. It demonstrates how to chain Python scripts or notebook tasks so that each stage logs artifacts and metrics in a unified experiment 🚀.
+
+For those who prefer crafting HTTP requests directly, our [Using the MLflow REST API Directly](https://github.com/mlflow/mlflow/tree/master/examples/rest_api) example shows you how to submit runs, retrieve metrics, and register models via simple `curl` and Python snippets 🔍. It's ideal when you want language-agnostic control over your tracking server.
+
+Meanwhile, if you're building custom functionality on top of MLflow's core, dive into [Write & Use MLflow Plugins](/ml/plugins#developing-custom-plugins) to learn how to extend MLflow with new flavors, UI tabs, or artifact stores. You'll see how to package your plugin, register it, and test it locally before pushing to production.
+
+---
+
+## 📦 Reproducibility & Supply Chain Security
+
+Reproducibility is at the heart of trustworthy ML. If you need to encapsulate your entire training environment, the [Packaging Training Code in a Docker Environment](https://github.com/mlflow/mlflow/tree/master/examples/docker) tutorial shows you how to create a Docker image that includes your data loader, training script, dependencies, and MLflow tracking calls. You'll see how to build, push, and run the image while capturing every artifact.
+
+When protecting your Python packages from tampering, the [Python Package Anti-Tampering](https://github.com/mlflow/mlflow/tree/master/examples/supply_chain_security) example walks you through signing wheels, verifying checksums, and integrating these steps into your CI/CD pipeline. This ensures that what you log as code is exactly what you execute later, avoiding "works on my machine" surprises.
+
+---
+
+## 🛠️ Instrumenting ML Training Code
+
+MLflow seamlessly integrates with a wide variety of training frameworks so you can log parameters, metrics, and artifacts with minimal boilerplate. Below is a narrative of framework-specific examples—click the ones relevant to your stack:
+
+- **Classic ML & Boosting**: If you use H2O, see our [H2O integration](https://github.com/mlflow/mlflow/tree/master/examples/h2o); for tree-based models, there's a complete [XGBoost example](https://github.com/mlflow/mlflow/tree/master/examples/xgboost) that logs `DMatrix` parameters and feature importance plots.
+- **Deep Learning**: For neural nets, check out [Keras](https://github.com/mlflow/mlflow/tree/master/examples/keras), [PyTorch](https://github.com/mlflow/mlflow/tree/master/examples/pytorch), and [TensorFlow](https://github.com/mlflow/mlflow/tree/master/examples/tensorflow) examples—each one shows you how to instrument training loops, save model checkpoints, and visualize learning curves in the MLflow UI.
+- **Time Series Forecasting**: Dive into [Prophet](https://github.com/mlflow/mlflow/tree/master/examples/prophet) or [Pmdarima](https://github.com/mlflow/mlflow/tree/master/examples/pmdarima) to learn how to log seasonal component plots and forecast accuracy metrics. You'll see how MLflow captures model snapshots for each tuning run.
+- **Statistical Models & R Users**: If you're in R, explore [Glmnet (R)](https://github.com/mlflow/mlflow/tree/master/examples/r_wine) where you'll fit elastic net models on the Wine dataset and log coefficients, cross-validation metrics, and model objects. For Python statistics, check out [Statsmodels](https://github.com/mlflow/mlflow/tree/master/examples/statsmodels) to see how to log OLS summaries and diagnostic plots.
+- **NLP & Transformers**: Our [SpaCy](https://github.com/mlflow/mlflow/tree/master/examples/spacy) example walks you through training a text-classification pipeline, logging token embeddings and evaluation metrics. For large language models, the [Transformers](https://github.com/mlflow/mlflow/tree/master/examples/transformers) integration shows you how to log Hugging Face model weights, sample generations, and evaluation scores—all within MLflow's tracking UI.
+- **Explainability & Interpretability**: Want to understand your model's predictions? The [SHAP](https://github.com/mlflow/mlflow/tree/master/examples/shap) tutorial demonstrates how to compute SHAP values during training and visualize feature attributions in the MLflow UI.
+- **Advanced AI Workflows**: For orchestration of LLM-based pipelines, explore [LangChain](https://github.com/mlflow/mlflow/tree/master/examples/langchain) and [OpenAI](https://github.com/mlflow/mlflow/tree/master/examples/openai) examples. You'll instrument prompts, log completions, and track conversation histories alongside downstream evaluation metrics.
+- **Other Frameworks & Tools**:
+  - [LightGBM](https://github.com/mlflow/mlflow/tree/master/examples/lightgbm) for fast gradient boosting.
+  - [Diviner](https://github.com/mlflow/mlflow/tree/master/examples/diviner) for time series anomaly detection.
+  - [SynapseML](https://github.com/mlflow/mlflow/tree/master/examples/synapseml) to see how MLflow integrates with Azure Synapse pipelines.
+  - **scikit-learn Examples**:
+    - [Diabetes example](https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes) that fits an Elastic Net model and tracks metrics.
+    - [Elastic Net example](https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine) showcasing model packaging and hyperparameter logging.
+    - [Logistic Regression example](https://github.com/mlflow/mlflow/tree/master/examples/sklearn_logistic_regression) illustrating classification metrics and model registries.
+  - **RAPIDS**: If you leverage GPU-accelerated libraries, check out the [Random Forest Classifier](https://github.com/mlflow/mlflow/tree/master/examples/rapids) example, which logs GPU-based training metrics and model artifacts.
+
+---
+
+### 🔗 Getting Started
+
+1. **Choose Your Workflow**:
+   If hyperparameter search is your priority, start with the [Hyperparameter Tuning](https://github.com/mlflow/mlflow/tree/master/examples/hyperparam) example. For orchestrating multi-step pipelines, follow the [Orchestrating Multistep Workflows](https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow) guide. If you need a language-agnostic approach, explore the [Using the MLflow REST API Directly](https://github.com/mlflow/mlflow/tree/master/examples/rest_api) tutorial.
+
+2. **Ensure Reproducibility & Security**:
+   Package your training code inside Docker by following [Packaging Training Code in a Docker Environment](https://github.com/mlflow/mlflow/tree/master/examples/docker). Protect your Python dependencies with our [Python Package Anti-Tampering](https://github.com/mlflow/mlflow/tree/master/examples/supply_chain_security) example.
+
+3. **Instrument Your Code**:
+   Browse the framework-specific examples above to identify which integration aligns with your stack. Click the relevant link (e.g., [Keras](https://github.com/mlflow/mlflow/tree/master/examples/keras) for TensorFlow-based models, [XGBoost](https://github.com/mlflow/mlflow/tree/master/examples/xgboost) for tree-based learners, or [LangChain](https://github.com/mlflow/mlflow/tree/master/examples/langchain) for LLM workflows).
+
+4. **Extend & Customize**:
+   To write and test custom plugins, consult [Write & Use MLflow Plugins](/ml/plugins#developing-custom-plugins).
+
+---
+
+Start exploring these examples today to accelerate your MLflow journey—happy experimenting! 🚀

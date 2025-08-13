@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 
@@ -33,8 +33,8 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         features,
         source: DatasetSource,
         targets=None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         """
         Args:
@@ -77,7 +77,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
-    def _compute_tensorflow_dataset_digest(  # noqa: D417
+    def _compute_tensorflow_dataset_digest(
         self,
         dataset,
         targets=None,
@@ -144,7 +144,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return self._compute_tensorflow_dataset_digest(self._features, self._targets)
         return self._compute_tensor_digest(self._features, self._targets)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -182,7 +182,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         A profile of the dataset. May be None if no profile is available.
         """
@@ -204,7 +204,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return profile
 
     @cached_property
-    def schema(self) -> Optional[TensorDatasetSchema]:
+    def schema(self) -> TensorDatasetSchema | None:
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
@@ -247,7 +247,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             )
 
     @staticmethod
-    def _get_schema_from_tf_dataset_dict_numpy_data(numpy_data: Dict[Any, Any]) -> Schema:
+    def _get_schema_from_tf_dataset_dict_numpy_data(numpy_data: dict[Any, Any]) -> Schema:
         if not all(isinstance(data_element, np.ndarray) for data_element in numpy_data.values()):
             raise MlflowException(
                 "Failed to infer schema for tf.data.Dataset. Schemas can only be inferred"
@@ -259,7 +259,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return _infer_schema(numpy_data)
 
     @staticmethod
-    def _get_schema_from_tf_dataset_tuple_numpy_data(numpy_data: Tuple[Any]) -> Schema:
+    def _get_schema_from_tf_dataset_tuple_numpy_data(numpy_data: tuple[Any]) -> Schema:
         if not all(isinstance(data_element, np.ndarray) for data_element in numpy_data):
             raise MlflowException(
                 "Failed to infer schema for tf.data.Dataset. Schemas can only be inferred"
@@ -301,15 +301,17 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets.numpy() if self._targets is not None else None,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 
 def from_tensorflow(
     features,
-    source: Optional[Union[str, DatasetSource]] = None,
+    source: str | DatasetSource | None = None,
     targets=None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
+    name: str | None = None,
+    digest: str | None = None,
 ) -> TensorFlowDataset:
     """Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
 

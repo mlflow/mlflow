@@ -1,0 +1,25 @@
+name: cherry-picks-warn
+
+on:
+  pull_request_target:
+    types:
+      - opened
+    branches:
+      - branch-[0-9]+.[0-9]+
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to post a comment on the PR
+    steps:
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '### 🚨 Important Reminder:\nAre you cherry-picking commits to a release branch? If so, please ensure you use the `Rebase and merge` option when merging this pull request. Do not use the `Squash and merge` option, as it makes reverting individual commits impossible. If the `Rebase and merge` option is disabled (it usually is), follow [Configuring commit rebasing for pull requests](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/configuring-commit-rebasing-for-pull-requests) to temporarily enable it, and disable it once the PR is merged.'
+            });

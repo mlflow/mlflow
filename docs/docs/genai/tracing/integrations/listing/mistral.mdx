@@ -1,0 +1,108 @@
+---
+sidebar_position: 10.5
+sidebar_label: Mistral
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing Mistral
+
+![Mistral tracing via autolog](/images/llms/mistral/mistral-tracing.png)
+
+MLflow Tracing ensures observability for your interactions with Mistral AI models.
+When Mistral auto-tracing is enabled by calling the <APILink fn="mlflow.mistral.autolog" /> function,
+usage of the Mistral SDK will automatically record generated traces during interactive development.
+
+Note that only synchronous calls to the Text Generation API are supported,
+and that asynchronous API and streaming methods are not traced.
+
+### Example Usage
+
+```python
+import os
+
+from mistralai import Mistral
+
+import mlflow
+
+# Turn on auto tracing for Mistral AI by calling mlflow.mistral.autolog()
+mlflow.mistral.autolog()
+
+# Configure your API key.
+client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+
+# Use the chat complete method to create new chat.
+chat_response = client.chat.complete(
+    model="mistral-small-latest",
+    messages=[
+        {
+            "role": "user",
+            "content": "Who is the best French painter? Answer in one short sentence.",
+        },
+    ],
+)
+print(chat_response.choices[0].message)
+```
+
+## Token usage
+
+MLflow >= 3.2.0 supports token usage tracking for Mistral. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.mistral.autolog()
+
+# Configure your API key.
+client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+
+# Use the chat complete method to create new chat.
+chat_response = client.chat.complete(
+    model="mistral-small-latest",
+    messages=[
+        {
+            "role": "user",
+            "content": "Who is the best French painter? Answer in one short sentence.",
+        },
+    ],
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 16
+  Output tokens: 25
+  Total tokens: 41
+
+== Detailed usage for each LLM call: ==
+Chat.complete:
+  Input tokens: 16
+  Output tokens: 25
+  Total tokens: 41
+```
+
+## Disable auto-tracing
+
+Auto tracing for Mistral can be disabled globally by calling `mlflow.mistral.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

@@ -22,9 +22,22 @@ def test_creation_and_hydration(run_inputs):
     run_inputs, datasets = run_inputs
     _check(run_inputs, datasets)
     as_dict = {
-        "dataset_inputs": datasets,
+        "dataset_inputs": [
+            {
+                "dataset": {
+                    "digest": "digest1",
+                    "name": "name1",
+                    "profile": None,
+                    "schema": None,
+                    "source": "source",
+                    "source_type": "my_source_type",
+                },
+                "tags": {"key": "value"},
+            }
+        ],
+        "model_inputs": [],
     }
-    assert dict(run_inputs) == as_dict
+    assert run_inputs.to_dictionary() == as_dict
     proto = run_inputs.to_proto()
     run_inputs2 = RunInputs.from_proto(proto)
     _check(run_inputs2, datasets)

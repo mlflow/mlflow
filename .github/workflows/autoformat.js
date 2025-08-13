@@ -13,19 +13,11 @@ const createCommitStatus = async (context, github, sha, state) => {
   });
 };
 
-const isNewCommand = (comment) => {
+const shouldAutoformat = (comment) => {
   return comment.body.trim() === "/autoformat";
 };
 
-const isOldCommand = (comment) => {
-  return /^@mlflow-automation\s+autoformat$/.test(comment.body.trim());
-};
-
-const shouldAutoformat = (comment) => {
-  return isNewCommand(comment) || isOldCommand(comment);
-};
-
-const getPullInformation = async (context, github) => {
+const getPullInfo = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
@@ -56,19 +48,10 @@ const createReaction = async (context, github) => {
     comment_id,
     content: "rocket",
   });
-
-  if (isOldCommand(context.payload.comment)) {
-    await github.rest.issues.createComment({
-      repo: context.repo.repo,
-      owner: context.repo.owner,
-      issue_number: context.issue.number,
-      body: "The command `@mlflow-automation autoformat` has been deprecated and will be removed soon. Please use `/autoformat` instead.",
-    });
-  }
 };
 
 const createStatus = async (context, github, core) => {
-  const { head_sha, head_ref, repository } = await getPullInformation(context, github);
+  const { head_sha, head_ref, repository } = await getPullInfo(context, github);
   if (repository === "mlflow/mlflow" && head_ref === "master") {
     core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
   }
@@ -81,15 +64,98 @@ const updateStatus = async (context, github, sha, needs) => {
   await createCommitStatus(context, github, sha, state);
 };
 
-const isMlflowMaintainer = (commentAuthorAssociation) => {
-  return ["OWNER", "MEMBER", "COLLABORATOR"].includes(commentAuthorAssociation);
+const fetchWorkflowRuns = async ({ context, github, head_sha }) => {
+  const { owner, repo } = context.repo;
+  const SLEEP_DURATION_MS = 5000;
+  const MAX_RETRIES = 5;
+  let prevRuns = [];
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    console.log(`Attempt ${i + 1} to fetch workflow runs`);
+    const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+      owner,
+      repo,
+      head_sha,
+      status: "action_required",
+      actor: "mlflow-app[bot]",
+    });
+
+    // If the number of runs has not changed since the last attempt,
+    // we can assume that all the workflow runs have been created.
+    if (runs.length > 0 && runs.length === prevRuns.length) {
+      return runs;
+    }
+
+    prevRuns = runs;
+    await new Promise((resolve) => setTimeout(resolve, SLEEP_DURATION_MS));
+  }
+  return prevRuns;
+};
+
+const approveWorkflowRuns = async (context, github, head_sha) => {
+  const { owner, repo } = context.repo;
+  const workflowRuns = await fetchWorkflowRuns({ context, github, head_sha });
+  const approvePromises = workflowRuns.map((run) =>
+    github.rest.actions.approveWorkflowRun({
+      owner,
+      repo,
+      run_id: run.id,
+    })
+  );
+  const results = await Promise.allSettled(approvePromises);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error(`Failed to approve run: ${result.reason}`);
+    }
+  }
+};
+
+const checkMaintainerAccess = async (context, github) => {
+  const { owner, repo } = context.repo;
+  const pull_number = context.issue.number;
+  const { runId } = context;
+  const pr = await github.rest.pulls.get({ owner, repo, pull_number });
+
+  // Skip maintainer access check for copilot bot PRs
+  // Copilot bot creates PRs that are owned by the repository and don't need the same permission model
+  if (
+    pr.data.user?.type?.toLowerCase() === "bot" &&
+    pr.data.user?.login?.toLowerCase() === "copilot"
+  ) {
+    console.log(`Skipping maintainer access check for copilot bot PR #${pull_number}`);
+    return;
+  }
+
+  const isForkPR = pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+  if (isForkPR && !pr.data.maintainer_can_modify) {
+    const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull_number,
+      body: `❌ **Autoformat failed**: The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.
+
+Please:
+1. Check the "Allow edits and access to secrets by maintainers" checkbox on this pull request
+2. Comment \`/autoformat\` again
+
+This permission is required for the autoformat bot to push changes to your branch.
+
+**Details:** [View workflow run](${workflowRunUrl})`,
+    });
+
+    throw new Error(
+      'The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.'
+    );
+  }
 };
 
 module.exports = {
-  isMlflowMaintainer,
   shouldAutoformat,
-  getPullInformation,
+  getPullInfo,
   createReaction,
   createStatus,
   updateStatus,
+  approveWorkflowRuns,
+  checkMaintainerAccess,
 };

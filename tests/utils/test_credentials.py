@@ -106,10 +106,13 @@ mlflow_tracking_password = password_file
 
 def test_mlflow_login(tmp_path, monkeypatch):
     # Mock `input()` and `getpass()` to return host, username and password in order.
-    with patch(
-        "builtins.input",
-        side_effect=["https://community.cloud.databricks.com/", "dummyusername"],
-    ), patch("getpass.getpass", side_effect=["dummypassword"]):
+    with (
+        patch(
+            "builtins.input",
+            side_effect=["https://community.cloud.databricks.com/", "dummyusername"],
+        ),
+        patch("getpass.getpass", side_effect=["dummypassword"]),
+    ):
         file_name = f"{tmp_path}/.databrickscfg"
         profile = "TEST"
         monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)

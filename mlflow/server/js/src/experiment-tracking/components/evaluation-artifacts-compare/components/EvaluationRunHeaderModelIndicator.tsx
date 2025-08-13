@@ -50,6 +50,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
         <>
           <Typography.Hint>
             <FormattedMessage
+              // eslint-disable-next-line formatjs/enforce-placeholders -- TODO(FEINF-2480)
               defaultMessage="Temperature: {temperature}"
               description="Experiment page > artifact compare view > run column header prompt metadata > temperature parameter"
               values={parameters}
@@ -57,6 +58,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
           </Typography.Hint>
           <Typography.Hint>
             <FormattedMessage
+              // eslint-disable-next-line formatjs/enforce-placeholders -- TODO(FEINF-2480)
               defaultMessage="Max. tokens: {max_tokens}"
               description="Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
               values={parameters}
@@ -72,7 +74,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
             </Typography.Hint>
           ) : null}
           <div css={{ fontSize: 0 }}>
-            <Popover.Root>
+            <Popover.Root componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadermodelindicator.tsx_107">
               <Popover.Trigger asChild>
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadermodelindicator.tsx_115"

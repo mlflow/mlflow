@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
@@ -18,6 +18,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
+from mlflow.utils.string_utils import _backtick_quote
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -36,10 +37,10 @@ class DeltaDatasetSource(DatasetSource):
 
     def __init__(
         self,
-        path: Optional[str] = None,
-        delta_table_name: Optional[str] = None,
-        delta_table_version: Optional[int] = None,
-        delta_table_id: Optional[str] = None,
+        path: str | None = None,
+        delta_table_name: str | None = None,
+        delta_table_version: int | None = None,
+        delta_table_id: str | None = None,
     ):
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
@@ -78,22 +79,25 @@ class DeltaDatasetSource(DatasetSource):
         if self._path:
             return spark_read_op.load(self._path)
         else:
-            return spark_read_op.table(self._delta_table_name)
+            backticked_delta_table_name = ".".join(
+                map(_backtick_quote, self._delta_table_name.split("."))
+            )
+            return spark_read_op.table(backticked_delta_table_name)
 
     @property
-    def path(self) -> Optional[str]:
+    def path(self) -> str | None:
         return self._path
 
     @property
-    def delta_table_name(self) -> Optional[str]:
+    def delta_table_name(self) -> str | None:
         return self._delta_table_name
 
     @property
-    def delta_table_id(self) -> Optional[str]:
+    def delta_table_id(self) -> str | None:
         return self._delta_table_id
 
     @property
-    def delta_table_version(self) -> Optional[int]:
+    def delta_table_version(self) -> int | None:
         return self._delta_table_version
 
     @staticmethod
@@ -137,7 +141,7 @@ class DeltaDatasetSource(DatasetSource):
         except Exception:
             return None
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         info = {}
         if self._path:
             info["path"] = self._path
@@ -154,7 +158,7 @@ class DeltaDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "DeltaDatasetSource":
         return cls(
             path=source_dict.get("path"),
             delta_table_name=source_dict.get("delta_table_name"),

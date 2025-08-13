@@ -110,7 +110,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-v1",
@@ -129,7 +129,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-v2",
@@ -148,7 +148,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-instant-v1",
@@ -167,7 +167,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AMAZON,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "amazon.titan-tg1-large",
@@ -217,7 +217,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "ai21.j2-ultra",
@@ -234,7 +234,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "ai21.j2-mid",
@@ -254,7 +254,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.COHERE,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "cohere.command",
@@ -382,9 +382,12 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
-    ) as mock_request:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
+        ) as mock_request,
+    ):
         if not expected:
             pytest.skip("no expected value")
 
@@ -398,3 +401,19 @@ async def test_bedrock_request_response(
 
         mock_request.assert_called_once()
         mock_request.assert_called_once_with(model_request)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("us.anthropic.claude-3-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("apac.anthropic.claude-3-haiku", AmazonBedrockModelProvider.ANTHROPIC),
+        ("anthropic.claude-3-5-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("ai21.jamba-1-5-large-v1:0", AmazonBedrockModelProvider.AI21),
+        ("cohere.embed-multilingual-v3", AmazonBedrockModelProvider.COHERE),
+        ("us.amazon.nova-premier-v1:0", AmazonBedrockModelProvider.AMAZON),
+    ],
+)
+def test_amazon_bedrock_model_provider(model_name, expected):
+    provider = AmazonBedrockModelProvider.of_str(model_name)
+    assert provider == expected

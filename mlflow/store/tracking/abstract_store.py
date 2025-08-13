@@ -1,16 +1,25 @@
+import json
 from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Any
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
-    TraceInfo,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace import Span
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -196,7 +205,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def create_run(self, experiment_id, user_id, start_time, tags, run_name):  # noqa: D417
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -204,6 +213,9 @@ class AbstractStore:
         Args:
             experiment_id: String id of the experiment for this run.
             user_id: ID of the user launching this run.
+            start_time: Start time of the run.
+            tags: A dictionary of string keys and string values.
+            run_name: Name of the run.
 
         Returns:
             The created Run object
@@ -229,68 +241,30 @@ class AbstractStore:
 
         """
 
-    # TODO: rename this to create_trace_info
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
-    ) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Start an initial TraceInfo object in the backend store.
+        Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
-        """
-        raise NotImplementedError
-
-    # TODO: rename this to update_trace_info
-    # can we pass in execution_time_ms instead of timestamp_ms directly?
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
-    ) -> TraceInfo:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id : Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
+            The returned TraceInfo object from the backend.
         """
         raise NotImplementedError
 
     def delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
 
-        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
-        - `max_traces` can't be specified if `request_ids` is specified.
+        - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `trace_ids` is specified.
 
         Args:
             experiment_id: ID of the associated experiment.
@@ -299,59 +273,72 @@ class AbstractStore:
             max_traces: The maximum number of traces to delete. If max_traces is specified, and
                 it is less than the number of traces that would be deleted based on the
                 max_timestamp_millis, the oldest traces will be deleted first.
-            request_ids: A set of request IDs to delete.
+            trace_ids: A set of trace IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
-        # request_ids can't be an empty list of string
-        if max_timestamp_millis is None and not request_ids:
+        # trace_ids can't be an empty list of string
+        if max_timestamp_millis is None and not trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+                "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and request_ids:
+        if max_timestamp_millis and trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+                "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
-        if request_ids and max_traces is not None:
+        if trace_ids and max_traces is not None:
             raise MlflowException.invalid_parameter_value(
-                "`max_traces` can't be specified if `request_ids` is specified.",
+                "`max_traces` can't be specified if `trace_ids` is specified.",
             )
         if max_traces is not None and max_traces <= 0:
             raise MlflowException.invalid_parameter_value(
                 f"`max_traces` must be a positive integer, received {max_traces}.",
             )
-        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
+        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, trace_ids)
 
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         raise NotImplementedError
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the `trace_id`.
 
         Args:
-            request_id: String id of the trace to fetch.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         raise NotImplementedError
 
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support `get_online_trace_details`."
+        )
+
     def search_traces(
         self,
-        experiment_ids: List[str],
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str],
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -362,6 +349,9 @@ class AbstractStore:
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -373,24 +363,125 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
-        Set a tag on the trace with the given request_id.
+        Set a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
             value: The string value of the tag.
         """
         raise NotImplementedError
 
-    def delete_trace_tag(self, request_id: str, key: str):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
-        Delete a tag on the trace with the given request_id.
+        Delete a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
+        """
+        raise NotImplementedError
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieve an assessment from a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The assessment identifier that denotes a unique assessment entry
+                for a given trace.
+
+        Returns:
+            The Assessment object for the given trace and assessment ids.
+        """
+        raise NotImplementedError
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Logs an Assessment for a given trace or a span within a trace.
+
+        Args:
+            assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
+                contains the key value mappings of assessment criteria comprised of either
+                expectations or user/system/scorer-provided feedback (label data) on the quality
+                of the trace response or for a span within a trace.
+
+        Returns:
+            The Assessment object for the logging operation.
+        """
+        raise NotImplementedError
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: str | None = None,
+        expectation: str | None = None,
+        feedback: str | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Assessment:
+        """
+        Updates the given Assessment's mutable values to overwrite updated values
+        for the given trace and Assessment data.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment upon which overrides will be applied to
+                mutable attributes.
+            name: An Optional override to the name of the assessment.
+            expectation: An Optional override of the expectation for the assessment.
+            feedback: An Optional override to the feedback for a given assessment.
+            rationale: An Optional string defining the reasoning behind the override of
+                the assessment.
+            metadata: An Optional mapping of additional customizable metadata for the assessment.
+
+        Returns:
+            The Assessment object representing the updated state of an assessment for a given trace.
+        """
+        raise NotImplementedError
+
+    def delete_assessment(self, trace_id: str, assessment_id):
+        """
+        Delete an assessment for a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to be deleted.
+        """
+        raise NotImplementedError
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
+
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -441,6 +532,15 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment.
             tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
+        """
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String id for the experiment.
+            key: String name of the tag to be deleted.
         """
 
     def set_tag(self, run_id, tag):
@@ -647,25 +747,12 @@ class AbstractStore:
             self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
-    def record_logged_model(self, run_id, mlflow_model):
-        """
-        Record logged model information with tracking store. The list of logged model infos is
-        maintained in a mlflow.models tag in JSON format.
-
-        Note: The actual models are logged as artifacts via artifact repository.
-
-        Args:
-            run_id: String id for the run.
-            mlflow_model: Model object to be recorded.
-
-        The default implementation is a no-op.
-
-        Returns:
-            None.
-        """
-
-    @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -673,7 +760,182 @@ class AbstractStore:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
+                as inputs to the run.
 
         Returns:
             None.
+        """
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        raise NotImplementedError(self.__class__.__name__)
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+
+        raise NotImplementedError(self.__class__.__name__)
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_model_versions_tags(self, name: str, version: str, model_id: str) -> None:
+        mvs = [{"name": name, "version": version}]
+        model = self.get_logged_model(model_id)
+        if existing_mvs := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+            existing_mvs = json.loads(existing_mvs)
+            if mvs[0] not in existing_mvs:
+                mvs = existing_mvs + mvs
+
+        self.set_logged_model_tags(
+            model_id,
+            [
+                LoggedModelTag(
+                    key=mlflow_tags.MLFLOW_MODEL_VERSIONS,
+                    value=json.dumps(mvs),
+                )
+            ],
+        )
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
         """

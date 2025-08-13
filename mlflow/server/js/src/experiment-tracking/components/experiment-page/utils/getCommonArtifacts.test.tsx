@@ -59,4 +59,18 @@ describe('getCommonArtifacts', () => {
     const result = getCommonArtifacts(artifactsKeyedByRun);
     expect(result).toEqual([]);
   });
+
+  it('filters out directories', () => {
+    const artifactsKeyedByRun = {
+      run1: {
+        files: [{ path: 'artifact1', is_dir: true }],
+      } as ArtifactListFilesResponse,
+      run2: {
+        files: [{ path: 'artifact1', is_dir: true }],
+      } as ArtifactListFilesResponse,
+    };
+
+    const result = getCommonArtifacts(artifactsKeyedByRun);
+    expect(result).toEqual([]);
+  });
 });

@@ -3,7 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,7 @@ from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
 from mlflow.types.schema import (
+    AnyType,
     Array,
     ColSpec,
     Object,
@@ -29,6 +30,7 @@ from mlflow.types.schema import (
     convert_dataclass_to_schema,
 )
 from mlflow.types.utils import (
+    MULTIPLE_TYPES_ERROR_MSG,
     _get_tensor_shape,
     _infer_colspec_type,
     _infer_param_schema,
@@ -348,7 +350,7 @@ def test_schema_inference_on_dictionary_of_strings(data, schema):
 
 def test_schema_inference_on_list_with_errors():
     data = [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]
-    with pytest.raises(MlflowException, match=r"Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(data)
 
 
@@ -359,10 +361,10 @@ def test_schema_inference_validating_dictionary_keys():
 
 
 def test_schema_inference_on_lists_with_errors():
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(["a", 1])
 
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
+    with pytest.raises(MlflowException, match=re.escape(MULTIPLE_TYPES_ERROR_MSG)):
         _infer_schema(["a", ["b", "c"]])
 
 
@@ -478,7 +480,7 @@ def test_all_numpy_dtypes():
         enforced_array = _enforce_tensor_spec(nparray, spec)
         assert isinstance(enforced_array, np.ndarray)
 
-    bool_ = ["bool", "bool_", "bool8"]
+    bool_ = ["bool", "bool_"]
     object_ = ["object"]
     signed_int = [
         "byte",
@@ -505,18 +507,15 @@ def test_all_numpy_dtypes():
         "uint64",
         "ulonglong",
     ]
-    floating = ["half", "float16", "single", "float32", "double", "float_", "float64"]
+    floating = ["half", "float16", "single", "float32", "double", "float64"]
     complex_ = [
         "csingle",
-        "singlecomplex",
         "complex64",
         "cdouble",
-        "cfloat",
-        "complex_",
         "complex128",
     ]
-    bytes_ = ["bytes_", "string_"]
-    str_ = ["str_", "unicode_"]
+    bytes_ = ["bytes_"]
+    str_ = ["str_"]
     platform_dependent = [
         # Complex
         "clongdouble",
@@ -762,33 +761,39 @@ def test_enforce_tensor_spec_variable_signature():
 
 
 def test_datatype_type_check():
-    assert DataType.is_string("string")
+    assert DataType.check_type(DataType.string, "string")
 
-    assert DataType.is_integer(1)
-    assert DataType.is_integer(np.int32(1))
-    assert not DataType.is_integer(np.int64(1))
+    integer_type = DataType.integer
+    assert DataType.check_type(integer_type, 1)
+    assert DataType.check_type(integer_type, np.int32(1))
+    assert not DataType.check_type(integer_type, np.int64(1))
     # Note that isinstance(True, int) returns True
-    assert not DataType.is_integer(True)
+    assert not DataType.check_type(integer_type, True)
 
-    assert DataType.is_long(1)
-    assert DataType.is_long(np.int64(1))
-    assert not DataType.is_long(np.int32(1))
+    long_type = DataType.long
+    assert DataType.check_type(long_type, 1)
+    assert DataType.check_type(long_type, np.int64(1))
+    assert not DataType.check_type(long_type, np.int32(1))
 
-    assert DataType.is_boolean(True)
-    assert DataType.is_boolean(np.bool_(True))
-    assert not DataType.is_boolean(1)
+    bool_type = DataType.boolean
+    assert DataType.check_type(bool_type, True)
+    assert DataType.check_type(bool_type, np.bool_(True))
+    assert not DataType.check_type(bool_type, 1)
 
-    assert DataType.is_double(1.0)
-    assert DataType.is_double(np.float64(1.0))
-    assert not DataType.is_double(np.float32(1.0))
+    double_type = DataType.double
+    assert DataType.check_type(double_type, 1.0)
+    assert DataType.check_type(double_type, np.float64(1.0))
+    assert not DataType.check_type(double_type, np.float32(1.0))
 
-    assert DataType.is_float(1.0)
-    assert DataType.is_float(np.float32(1.0))
-    assert not DataType.is_float(np.float64(1.0))
+    float_type = DataType.float
+    assert DataType.check_type(float_type, 1.0)
+    assert DataType.check_type(float_type, np.float32(1.0))
+    assert not DataType.check_type(float_type, np.float64(1.0))
 
-    assert DataType.is_datetime(datetime.date(2023, 6, 26))
-    assert DataType.is_datetime(np.datetime64("2023-06-26 00:00:00"))
-    assert not DataType.is_datetime("2023-06-26 00:00:00")
+    datetime_type = DataType.datetime
+    assert DataType.check_type(datetime_type, datetime.date(2023, 6, 26))
+    assert DataType.check_type(datetime_type, np.datetime64("2023-06-26 00:00:00"))
+    assert not DataType.check_type(datetime_type, "2023-06-26 00:00:00")
 
 
 def test_param_schema_find_duplicates():
@@ -1030,14 +1035,13 @@ def test_infer_param_schema():
     with pytest.raises(MlflowException, match=r"Binary type is not supported for parameters"):
         _infer_param_schema({"a": b"str_a"})
 
-    # Raise error for invalid parameters types - tuple, 2D array, dictionary
+    # Raise error for invalid parameters types - tuple, 2D array
     test_parameters = {
         "a": "str_a",
         "b": (1, 2, 3),
         "c": True,
         "d": [[1, 2], [3, 4]],
         "e": [[[1, 2], [3], []]],
-        "f": {"a": 1, "b": 2},
     }
     with pytest.raises(MlflowException, match=r".*") as e:
         _infer_param_schema(test_parameters)
@@ -1060,12 +1064,52 @@ def test_infer_param_schema():
             "to be 1D array or scalar, got 3D array'))"
         )
     )
-    assert e.match(
-        re.escape(
-            "('f', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
-            "to be 1D array or scalar, got dict'))"
-        )
+
+
+def test_param_schema_for_dicts():
+    data = {
+        "config": {
+            "thread_id": "1",
+            "batch_size": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        }
+    }
+    schema = _infer_param_schema(data)
+    object_schema = Object(
+        [
+            Property("thread_id", DataType.string),
+            Property("batch_size", DataType.long),
+            Property(
+                "messages",
+                Array(
+                    Object(
+                        [
+                            Property("role", DataType.string),
+                            Property("content", DataType.string),
+                        ]
+                    )
+                ),
+            ),
+        ]
     )
+    assert schema == ParamSchema(
+        [
+            ParamSpec(
+                "config",
+                object_schema,
+                data["config"],
+            )
+        ]
+    )
+    assert schema.to_dict() == [
+        {
+            "name": "config",
+            "default": data["config"],
+            "shape": None,
+        }
+        | object_schema.to_dict()
+    ]
+    assert ParamSchema.from_json(json.dumps(schema.to_dict())) == schema
 
 
 def test_infer_param_schema_with_errors():
@@ -1097,7 +1141,7 @@ def test_object_construction_with_errors():
         Property("p2", DataType.binary),
         Property("p2", DataType.boolean),
     ]
-    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: `p2`"):
         Object(properties)
 
 
@@ -1666,21 +1710,17 @@ def test_schema_inference_with_empty_lists():
     data = [["a", "b", "c"], ["a", "b", "c", "d"], None]
     assert _infer_schema(data) == Schema([ColSpec(Array(DataType.string))])
 
-    # Nested list contains only an empty list is not allowed.
-    data = [[]]
-    with pytest.raises(
-        MlflowException,
-        match=r"A column of nested array type must include at least one non-empty array.",
-    ):
-        _infer_schema(data)
-
-    # This case is also considered as empty list, because None and np.nan are skipped.
     data = [[None, np.nan]]
+    assert _infer_schema(data) == Schema([ColSpec(Array(AnyType()))])
+
+    assert _infer_schema([[]]) == Schema([ColSpec(AnyType())])
+
+    # Empty numpy array is not allowed.
     with pytest.raises(
         MlflowException,
-        match=r"A column of nested array type must include at least one non-empty array.",
+        match=r"Numpy array must include at least one non-empty item",
     ):
-        _infer_schema(data)
+        _infer_schema([np.array([])])
 
     # If at least one of sublists is not empty, we can assume other empty lists have the same type.
     data = [
@@ -1715,10 +1755,10 @@ def test_schema_inference_with_empty_lists():
     expected_schema = Schema([ColSpec(Array(Array(Array(DataType.string))), name="data")])
     assert inferred_schema == expected_schema
 
-    # Property value cannot be an empty list
     data = [{"data": {"key": []}}]
-    with pytest.raises(MlflowException, match=r"Dictionary value must not be an empty list."):
-        _infer_schema(data)
+    assert _infer_schema(data) == Schema(
+        [ColSpec(Object([Property("key", AnyType(), required=False)]), name="data")]
+    )
 
 
 def test_repr_of_objects():
@@ -1792,7 +1832,8 @@ def test_convert_dataclass_to_schema_for_rag():
 def test_convert_dataclass_to_schema_complex():
     @dataclass
     class Settings:
-        baz: Optional[bool] = True
+        baz: Optional[bool] = True  # noqa: UP045
+        qux: bool | None = None
 
     @dataclass
     class Config:
@@ -1802,7 +1843,7 @@ def test_convert_dataclass_to_schema_complex():
     @dataclass
     class MainTask:
         foo: str = "1"
-        process_configs: List[Config] = field(default_factory=lambda: [Config()])
+        process_configs: list[Config] = field(default_factory=lambda: [Config()])
 
     schema = convert_dataclass_to_schema(MainTask)
     schema_dict = schema.to_dict()
@@ -1816,7 +1857,10 @@ def test_convert_dataclass_to_schema_complex():
                     "bar": {"type": "long", "required": True},
                     "config_settings": {
                         "type": "object",
-                        "properties": {"baz": {"type": "boolean", "required": False}},
+                        "properties": {
+                            "baz": {"type": "boolean", "required": False},
+                            "qux": {"type": "boolean", "required": False},
+                        },
                         "required": True,
                     },
                 },
@@ -1831,7 +1875,7 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
     class InvalidDataclassWithUnion:
-        foo: Union[str, int] = "1"
+        foo: str | int = "1"
 
     with pytest.raises(
         MlflowException,
@@ -1842,12 +1886,182 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Dict
     @dataclass
     class InvalidDataclassWithDict:
-        foo: Dict[str, int] = field(default_factory=dict)
+        foo: dict[str, int] = field(default_factory=dict)
 
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            r"Unsupported field type typing.Dict[str, int] in dataclass InvalidDataclass"
-        ),
+        match=re.escape(r"Unsupported field type dict[str, int] in dataclass InvalidDataclass"),
     ):
         convert_dataclass_to_schema(InvalidDataclassWithDict)
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_schema"),
+    [
+        # Pure empty list is inferred as string type for backwards compatibility
+        ([], Schema([ColSpec(type=DataType.string)])),
+        # None type is inferred as AnyType
+        (None, Schema([ColSpec(AnyType())])),
+        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)])),
+        # Empty list in dictionary is inferred as AnyType
+        ({"a": []}, Schema([ColSpec(type=AnyType(), name="a")])),
+        (
+            [{"a": []}],
+            Schema([ColSpec(type=AnyType(), name="a")]),
+        ),
+        (
+            [{"a": []}, {"a": None}],
+            Schema([ColSpec(type=AnyType(), name="a", required=False)]),
+        ),
+        ({"a": [None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
+        ({"a": [[], None]}, Schema([ColSpec(type=Array(AnyType()), name="a", required=False)])),
+        (
+            {"a": [None, "string"]},
+            Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+        ),
+        (
+            {"a": {"x": None}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            {"a": {"x": pd.NA}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}).astype("boolean"),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
+            [
+                {
+                    "id": None,
+                    "object": "chat.completion",
+                    "created": 1731491873,
+                    "model": None,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "MLflow",
+                            },
+                            "finish_reason": None,
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                        "total_tokens": None,
+                    },
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(type=AnyType(), name="id", required=False),
+                    ColSpec(type=DataType.string, name="object"),
+                    ColSpec(type=DataType.long, name="created"),
+                    ColSpec(type=AnyType(), name="model", required=False),
+                    ColSpec(
+                        type=Array(
+                            Object(
+                                properties=[
+                                    Property("index", dtype=DataType.long),
+                                    Property(
+                                        "message",
+                                        dtype=Object(
+                                            [
+                                                Property("role", DataType.string),
+                                                Property("content", DataType.string),
+                                            ]
+                                        ),
+                                    ),
+                                    Property("finish_reason", dtype=AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="choices",
+                    ),
+                    ColSpec(
+                        type=Object(
+                            [
+                                Property("prompt_tokens", AnyType(), required=False),
+                                Property("completion_tokens", AnyType(), required=False),
+                                Property("total_tokens", AnyType(), required=False),
+                            ]
+                        ),
+                        name="usage",
+                    ),
+                ]
+            ),
+        ),
+        (
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "system",
+                            "name": None,
+                            "id": None,
+                        },
+                        {
+                            "content": "What would you like to ask?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "ai",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                            "tool_calls": [],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": None,
+                        },
+                        {
+                            "content": "Who owns MLflow?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "human",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                properties=[
+                                    Property("content", DataType.string),
+                                    Property("additional_kwargs", AnyType(), required=False),
+                                    Property("response_metadata", AnyType(), required=False),
+                                    Property("type", DataType.string),
+                                    Property("name", AnyType(), required=False),
+                                    Property("id", AnyType(), required=False),
+                                    Property("example", DataType.boolean, required=False),
+                                    Property("tool_calls", AnyType(), required=False),
+                                    Property("invalid_tool_calls", AnyType(), required=False),
+                                    Property("usage_metadata", AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(DataType.string, name="text"),
+                ]
+            ),
+        ),
+    ],
+)
+def test_infer_schema_with_anytype(data, expected_schema):
+    inferred_schema = _infer_schema(data)
+    assert inferred_schema == expected_schema

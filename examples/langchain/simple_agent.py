@@ -23,7 +23,7 @@ agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION
 
 # Log the agent in an MLflow run
 with mlflow.start_run():
-    logged_model = mlflow.langchain.log_model(agent, "langchain_model")
+    logged_model = mlflow.langchain.log_model(agent, name="langchain_model")
 
 # Load the logged agent model for prediction
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)

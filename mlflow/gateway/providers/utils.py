@@ -1,7 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict
-
-import aiohttp
+from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
@@ -10,7 +8,9 @@ from mlflow.utils.uri import append_to_uri_path
 
 
 @asynccontextmanager
-async def _aiohttp_post(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
+async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
+    import aiohttp
+
     async with aiohttp.ClientSession(headers=headers) as session:
         url = append_to_uri_path(base_url, path)
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
@@ -18,7 +18,7 @@ async def _aiohttp_post(headers: Dict[str, str], base_url: str, path: str, paylo
             yield response
 
 
-async def send_request(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
+async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
 
@@ -34,6 +34,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
     from fastapi import HTTPException
 
     async with _aiohttp_post(headers, base_url, path, payload) as response:
@@ -57,7 +58,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
 
 
 async def send_stream_request(
-    headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]
+    headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]
 ) -> AsyncGenerator[bytes, None]:
     """
     Send an HTTP request to a specific URL path with given headers and payload.
@@ -79,7 +80,7 @@ async def send_stream_request(
             yield line
 
 
-def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
+def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
     """Rename payload keys based on the specified mapping. If a key is not present in the
     mapping, the key and its value will remain unchanged.
 

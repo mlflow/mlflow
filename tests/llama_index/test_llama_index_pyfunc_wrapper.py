@@ -303,7 +303,13 @@ async def test_wrap_workflow():
 )
 @pytest.mark.asyncio
 async def test_wrap_workflow_raise_exception():
-    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+    from llama_index.core.workflow import (
+        StartEvent,
+        StopEvent,
+        Workflow,
+        WorkflowRuntimeError,
+        step,
+    )
 
     class MyWorkflow(Workflow):
         @step
@@ -313,5 +319,11 @@ async def test_wrap_workflow_raise_exception():
     w = MyWorkflow(timeout=10, verbose=False)
     wrapper = create_pyfunc_wrapper(w)
 
-    with pytest.raises(ValueError, match="Expected error"):
+    with pytest.raises(
+        (
+            ValueError,  # llama_index < 0.12.1
+            WorkflowRuntimeError,  # llama_index >= 0.12.1
+        ),
+        match="Expected error",
+    ):
         wrapper.predict({"name": "Alice"})

@@ -1,0 +1,133 @@
+---
+sidebar_position: 4
+sidebar_label: LlamaIndex
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing LlamaIndex🦙
+
+![LlamaIndex Tracing via autolog](/images/llms/tracing/llamaindex-tracing.gif)
+
+[LlamaIndex](https://www.llamaindex.ai/) is an open-source framework for building agentic generative AI applications that allow large language models to work with your data in any format.
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for LlamaIndex. You can enable tracing
+for LlamaIndex by calling the <APILink fn="mlflow.llama_index.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of LlamaIndex engines and workflows.
+
+```python
+import mlflow
+
+mlflow.llama_index.autolog()
+```
+
+:::tip
+
+MLflow LlamaIndex integration is not only about tracing. MLflow offers full tracking experience for LlamaIndex, including model tracking, index management, and evaluation. Please checkout the **[MLflow LlamaIndex Flavor](/genai/flavors/llama-index)** to learn more!
+
+:::
+
+### Example Usage
+
+First, let's download a test data to create a toy index:
+
+```
+!mkdir -p data
+!curl -L https://raw.githubusercontent.com/run-llama/llama_index/main/docs/docs/examples/data/paul_graham/paul_graham_essay.txt -o ./data/paul_graham_essay.txt
+```
+
+Load them into a simple in-memory vector index:
+
+```
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+```
+
+Now you can enable LlamaIndex auto tracing and start querying the index:
+
+```python
+import mlflow
+
+# Enabling tracing for LlamaIndex
+mlflow.llama_index.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("LlamaIndex")
+
+# Query the index
+query_engine = index.as_query_engine()
+response = query_engine.query("What was the first program the author wrote?")
+```
+
+## Token usage
+
+MLflow >= 3.2.0 supports token usage tracking for LlamaIndex. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+from llama_index.llms.openai import OpenAI
+
+mlflow.llama_index.autolog()
+
+# Use the chat complete method to create new chat.
+llm = OpenAI(model="gpt-3.5-turbo")
+Settings.llm = llm
+response = llm.chat(
+    [ChatMessage(role="user", content="What is the capital of France?")]
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 14
+  Output tokens: 7
+  Total tokens: 21
+
+== Detailed usage for each LLM call: ==
+OpenAI.chat:
+  Input tokens: 14
+  Output tokens: 7
+  Total tokens: 21
+```
+
+### LlamaIndex workflow
+
+The `Workflow` is LlamaIndex's next-generation GenAI orchestration framework. It is designed as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc. MLflow supports tracking, evaluating, and tracing the Workflow objects, which makes them more observable and maintainable.
+
+Automatic tracing for LlamaIndex workflow works off-the-shelf by calling the same `mlflow.llama_index.autolog()`.
+
+To learn more about MLflow's integration with LlamaIndex Workflow, continue to the following tutorials:
+
+- [Building Advanced RAG with MLflow and LlamaIndex Workflow](https://mlflow.org/blog/mlflow-llama-index-workflow)
+
+### Disable auto-tracing
+
+Auto tracing for LlamaIndex can be disabled globally by calling `mlflow.llama_index.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

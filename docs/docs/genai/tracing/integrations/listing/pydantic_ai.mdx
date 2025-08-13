@@ -1,0 +1,306 @@
+---
+sidebar_position: 7
+sidebar_label: PydanticAI
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing PydanticAI
+
+![PydanticAI Tracing via autolog](/images/llms/pydantic-ai/pydanticai-tracing.png)
+
+[​PydanticAI](https://ai.pydantic.dev/) is a Python framework designed to simplify the development of production-grade generative AI applications. It brings type safety, ergonomic API design, and a developer-friendly experience to GenAI app development.​
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for [​PydanticAI](https://ai.pydantic.dev/), an open source framework for building multi-agent applications. By enabling auto tracing for ​PydanticAI by calling the <APILink fn="mlflow.pydantic_ai.autolog" /> function, , MLflow will capture nested traces for ​PydanticAI workflow execution and logged them to the active MLflow Experiment.
+
+```python
+import mlflow
+
+mlflow.pydantic_ai.autolog()
+```
+
+MLflow trace automatically captures the following information about ​PydanticAI agents:
+
+- Agent calls with prompts, kwargs & output responses
+- LLM requests logging model name, prompt, parameters & response
+- Tool runs capturing tool name, arguments & usage metrics
+- MCP server calls & listings for tool-invocation tracing
+- Span metadata: latency, errors & run-ID linkage
+
+:::note
+
+Currently, MLflow's PydanticAI integration supports tracing for both synchronous and asynchronous executions, but does not yet support streaming operations.
+
+:::
+
+### Example Usage
+
+First, enable auto-tracing for PydanticAI, and optionally create an MLflow experiment to write traces to. This helps organizing your traces better.
+
+```python
+import mlflow
+
+# Turn on auto tracing by calling mlflow.pydantic_ai.autolog()
+mlflow.pydantic_ai.autolog()
+
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("PydanticAI")
+```
+
+Next, let's define a multi-agent workflow using PydanticAI. The example below sets up a weather agent where users can ask for the weather in multiple locations, and the agent will use the get_lat_lng tool to get the latitude and longitude of the locations, then use the get_weather tool to get the weather for those locations.
+
+```python
+import os
+from dataclasses import dataclass
+from typing import Any
+
+from httpx import AsyncClient
+
+from pydantic_ai import Agent, ModelRetry, RunContext
+
+
+@dataclass
+class Deps:
+    client: AsyncClient
+    weather_api_key: str | None
+    geo_api_key: str | None
+
+
+weather_agent = Agent(
+    # Switch to your favorite LLM
+    "google-gla:gemini-2.0-flash",
+    # 'Be concise, reply with one sentence.' is enough for some models (like openai) to use
+    # the below tools appropriately, but others like anthropic and gemini require a bit more direction.
+    system_prompt=(
+        "Be concise, reply with one sentence."
+        "Use the `get_lat_lng` tool to get the latitude and longitude of the locations, "
+        "then use the `get_weather` tool to get the weather."
+    ),
+    deps_type=Deps,
+    retries=2,
+    instrument=True,
+)
+
+
+@weather_agent.tool
+async def get_lat_lng(
+    ctx: RunContext[Deps], location_description: str
+) -> dict[str, float]:
+    """Get the latitude and longitude of a location.
+
+    Args:
+        ctx: The context.
+        location_description: A description of a location.
+    """
+    if ctx.deps.geo_api_key is None:
+        return {"lat": 51.1, "lng": -0.1}
+
+    params = {
+        "q": location_description,
+        "api_key": ctx.deps.geo_api_key,
+    }
+    r = await ctx.deps.client.get("https://geocode.maps.co/search", params=params)
+    r.raise_for_status()
+    data = r.json()
+
+    if data:
+        return {"lat": data[0]["lat"], "lng": data[0]["lon"]}
+    else:
+        raise ModelRetry("Could not find the location")
+
+
+@weather_agent.tool
+async def get_weather(ctx: RunContext[Deps], lat: float, lng: float) -> dict[str, Any]:
+    """Get the weather at a location.
+
+    Args:
+        ctx: The context.
+        lat: Latitude of the location.
+        lng: Longitude of the location.
+    """
+
+    if ctx.deps.weather_api_key is None:
+        return {"temperature": "21 °C", "description": "Sunny"}
+
+    params = {
+        "apikey": ctx.deps.weather_api_key,
+        "location": f"{lat},{lng}",
+        "units": "metric",
+    }
+    r = await ctx.deps.client.get(
+        "https://api.tomorrow.io/v4/weather/realtime", params=params
+    )
+    r.raise_for_status()
+    data = r.json()
+
+    values = data["data"]["values"]
+    # https://docs.tomorrow.io/reference/data-layers-weather-codes
+    code_lookup = {
+        1000: "Clear, Sunny",
+        1100: "Mostly Clear",
+        1101: "Partly Cloudy",
+        1102: "Mostly Cloudy",
+        1001: "Cloudy",
+        2000: "Fog",
+        2100: "Light Fog",
+        4000: "Drizzle",
+        4001: "Rain",
+        4200: "Light Rain",
+        4201: "Heavy Rain",
+        5000: "Snow",
+        5001: "Flurries",
+        5100: "Light Snow",
+        5101: "Heavy Snow",
+        6000: "Freezing Drizzle",
+        6001: "Freezing Rain",
+        6200: "Light Freezing Rain",
+        6201: "Heavy Freezing Rain",
+        7000: "Ice Pellets",
+        7101: "Heavy Ice Pellets",
+        7102: "Light Ice Pellets",
+        8000: "Thunderstorm",
+    }
+    return {
+        "temperature": f'{values["temperatureApparent"]:0.0f}°C',
+        "description": code_lookup.get(values["weatherCode"], "Unknown"),
+    }
+
+
+async def main():
+    async with AsyncClient() as client:
+        weather_api_key = os.getenv("WEATHER_API_KEY")
+        geo_api_key = os.getenv("GEO_API_KEY")
+        deps = Deps(
+            client=client, weather_api_key=weather_api_key, geo_api_key=geo_api_key
+        )
+        result = await weather_agent.run(
+            "What is the weather like in London and in Wiltshire?", deps=deps
+        )
+        print("Response:", result.output)
+
+
+# If you are running this on a notebook
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
+```
+
+## Advanced Example: Utilising MCP Server
+
+MLflow Tracing automatically captures tool-related interactions from the MCP server in PydanticAI, including call_tool and list_tools operations. These actions are recorded as individual spans in the trace UI.
+
+![PydanticAI MCP Server tracing via autolog](/images/llms/pydantic-ai/pydanticai-mcp-tracing.png)
+
+The example below demonstrates how to run an MCP server using PydanticAI with MLflow tracing enabled. All tool invocation and listing operations are automatically captured as trace spans in the UI, along with relevant metadata.
+
+```python
+import mlflow
+import asyncio
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("MCP Server")
+mlflow.pydantic_ai.autolog()
+
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStdio
+
+server = MCPServerStdio(
+    "deno",
+    args=[
+        "run",
+        "-N",
+        "-R=node_modules",
+        "-W=node_modules",
+        "--node-modules-dir=auto",
+        "jsr:@pydantic/mcp-run-python",
+        "stdio",
+    ],
+)
+
+agent = Agent("openai:gpt-4o", mcp_servers=[server], instrument=True)
+
+
+async def main():
+    async with agent.run_mcp_servers():
+        result = await agent.run("How many days between 2000-01-01 and 2025-03-18?")
+    print(result.output)
+    # > There are 9,208 days between January 1, 2000, and March 18, 2025.
+
+
+# If you are running this on a notebook
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
+```
+
+## Token usage
+
+MLflow >= 3.1.0 supports token usage tracking for PydanticAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.pydantic_ai.autolog()
+
+# Run the example given in previous
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
+
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 432
+  Output tokens: 53
+  Total tokens: 485
+
+== Detailed usage for each LLM call: ==
+InstrumentedModel.request_1:
+  Input tokens: 108
+  Output tokens: 19
+  Total tokens: 127
+InstrumentedModel.request_2:
+  Input tokens: 145
+  Output tokens: 14
+  Total tokens: 159
+InstrumentedModel.request_3:
+  Input tokens: 179
+  Output tokens: 20
+  Total tokens: 199
+```
+
+### Disable auto-tracing
+
+Auto tracing for PydanticAI can be disabled globally by calling `mlflow.pydantic_ai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

@@ -362,9 +362,9 @@ def min_absolute_change_threshold_test_spec(request):
         - metrics: A dictionary mapping scalar metric names to scalar metric values.
         - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        - validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictionary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        - expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictionary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(min_absolute_change=0.1, greater_is_better=True)
@@ -834,9 +834,9 @@ def multi_thresholds_test_spec(request):
         - metrics: A dictionary mapping scalar metric names to scalar metric values.
         - baseline_model_metrics: A dictionary mapping scalar metric names
             to scalar metric values of baseline_model.
-        - validation_thresholds: A dictonary mapping scalar metric names
+        - validation_thresholds: A dictionary mapping scalar metric names
             to MetricThreshold(threshold=0.2, greater_is_better=True).
-        - expected_validation_results: A dictonary mapping scalar metric names
+        - expected_validation_results: A dictionary mapping scalar metric names
             to _MetricValidationResult.
     """
     acc_threshold = MetricThreshold(
@@ -919,8 +919,8 @@ def test_validation_thresholds_no_mock():
             return len(model_input) * [1]
 
     with mlflow.start_run():
-        base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
-        candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
+        base = mlflow.pyfunc.log_model(name="base", python_model=BaseModel())
+        candidate = mlflow.pyfunc.log_model(name="candidate", python_model=CandidateModel())
 
         candidate_result = evaluate(
             candidate.model_uri,
@@ -963,59 +963,3 @@ def test_validation_thresholds_no_mock():
                 ),
             },
         )
-
-
-def test_legacy_validation_within_evaluate():
-    # Test legacy validation within mlflow.evaluate(). This is deprecated
-    # in favor of the new mlflow.mlflow.validate_evaluation_results API but we
-    # keep backward compatibility until it is entirely removed.
-    targets = [0, 1, 1, 1]
-    data = [[random.random()] for _ in targets]
-
-    class BaseModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
-            return len(model_input) * [0]
-
-    class CandidateModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
-            return len(model_input) * [1]
-
-    with mlflow.start_run():
-        base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
-        candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
-
-    with mlflow.start_run():
-        evaluate(
-            candidate.model_uri,
-            data=data,
-            model_type="classifier",
-            targets=targets,
-            validation_thresholds={
-                "recall_score": MetricThreshold(
-                    threshold=0.9,
-                    min_absolute_change=0.1,
-                    greater_is_better=True,
-                ),
-            },
-            baseline_model=base.model_uri,
-        )
-
-    with pytest.raises(
-        ModelValidationFailedException,
-        match="recall_score value threshold check failed",
-    ):
-        with mlflow.start_run():
-            evaluate(
-                base.model_uri,
-                data=data,
-                model_type="classifier",
-                targets=targets,
-                validation_thresholds={
-                    "recall_score": MetricThreshold(
-                        threshold=0.9,
-                        min_absolute_change=0.1,
-                        greater_is_better=True,
-                    ),
-                },
-                baseline_model=candidate.model_uri,
-            )

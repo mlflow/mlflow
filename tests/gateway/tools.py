@@ -6,9 +6,8 @@ import subprocess
 import sys
 import threading
 import time
-from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, NamedTuple
 from unittest import mock
 
 import aiohttp
@@ -19,14 +18,14 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 import mlflow
-from mlflow.deployments.server import app
+from mlflow.gateway import app
 from mlflow.gateway.utils import kill_child_processes
 
 from tests.helper_functions import _get_mlflow_home, _start_scoring_proc, get_safe_port
 
 
 class Gateway:
-    def __init__(self, config_path: Union[str, Path], *args, **kwargs):
+    def __init__(self, config_path: str | Path, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "localhost"
         self.url = f"http://{self.host}:{self.port}"
@@ -96,7 +95,7 @@ def save_yaml(path, conf):
 
 
 class MockAsyncResponse:
-    def __init__(self, data: Dict[str, Any], status: int = 200):
+    def __init__(self, data: dict[str, Any], status: int = 200):
         # Extract status and headers from data, if present
         self.status = status
         self.headers = data.pop("headers", {"Content-Type": "application/json"})
@@ -108,7 +107,7 @@ class MockAsyncResponse:
         if 400 <= self.status < 600:
             raise aiohttp.ClientResponseError(None, None, status=self.status)
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> dict[str, Any]:
         return self._content
 
     async def text(self) -> str:
@@ -122,9 +121,7 @@ class MockAsyncResponse:
 
 
 class MockAsyncStreamingResponse:
-    def __init__(
-        self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200
-    ):
+    def __init__(self, data: list[bytes], headers: dict[str, str] | None = None, status: int = 200):
         self.status = status
         self.headers = headers
         self._content = data
@@ -159,7 +156,7 @@ class MockHttpClient(mock.Mock):
         return
 
 
-def mock_http_client(mock_response: Union[MockAsyncResponse, MockAsyncStreamingResponse]):
+def mock_http_client(mock_response: MockAsyncResponse | MockAsyncStreamingResponse):
     mock_http_client = MockHttpClient()
     mock_http_client.post = mock.Mock(return_value=mock_response)
     return mock_http_client
@@ -172,7 +169,7 @@ class UvicornGateway:
     # NB: this implementation should only be used for integration testing. Unit tests that
     # require validation of the AI Gateway server should use the `Gateway` implementation in
     # this module which executes the uvicorn server through gunicorn as a process manager.
-    def __init__(self, config_path: Union[str, Path], *args, **kwargs):
+    def __init__(self, config_path: str | Path, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "127.0.0.1"
         self.url = f"http://{self.host}:{self.port}"
@@ -236,7 +233,9 @@ class UvicornGateway:
         self.thread.join()
 
 
-ServerInfo = namedtuple("ServerInfo", ["pid", "url"])
+class ServerInfo(NamedTuple):
+    pid: int
+    url: str
 
 
 def log_sentence_transformers_model():
@@ -244,11 +243,11 @@ def log_sentence_transformers_model():
     artifact_path = "gen_model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
         )
-        return mlflow.get_artifact_uri(artifact_path)
+        return model_info.model_uri
 
 
 def log_completions_transformers_model():
@@ -269,12 +268,12 @@ def log_completions_transformers_model():
     artifact_path = "mask_model"
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             pipe,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
         )
-        return mlflow.get_artifact_uri(artifact_path)
+        return model_info.model_uri
 
 
 def start_mlflow_server(port, model_uri):

@@ -1,4 +1,4 @@
-# Test integration with the `langchain-databricks` package.
+# Test integration with the `databricks-langchain` package.
 from typing import Generator
 from unittest import mock
 
@@ -44,11 +44,11 @@ def model_path(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks(model_path):
-    from langchain_databricks import ChatDatabricks
+    from databricks_langchain import ChatDatabricks
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")
@@ -56,19 +56,9 @@ def test_save_and_load_chat_databricks(model_path):
 
     mlflow.langchain.save_model(chain, path=model_path)
 
-    # TODO: Uncomment after the PR https://github.com/mlflow/mlflow/pull/13045 is
-    #   released. This test won't pass within the PR because of the weird mlflow-skinny
-    #   issue. The langchain-databricks package includes databricks-vectorsearch as a
-    #   dependency, which installs mlflow-skinny instead of mlflow. The installed skinny
-    #   interferes system path when MLflow runs capture_module.py in subprocess during
-    #   dependency capturing. Since skinny is installed from public released version and
-    #   does not include local changes, dependency inference fails and thus this
-    #   assertion does not pass. Ideally we should remove the skinny dependency from
-    #   databricks-vectorsearch library, but this assertion problem itself will be
-    #   resolved once the PR above is released.
-    # with model_path.joinpath("requirements.txt").open() as f:
-    #     reqs = {req.split("==")[0] for req in f.read().split("\n")}
-    # assert "langchain-databricks" in reqs
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert "databricks-langchain" in reqs
 
     loaded_model = mlflow.langchain.load_model(model_path)
     assert loaded_model == chain
@@ -79,8 +69,8 @@ def test_save_and_load_chat_databricks(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks

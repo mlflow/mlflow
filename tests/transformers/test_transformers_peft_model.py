@@ -30,10 +30,10 @@ def test_get_peft_base_model(peft_pipeline):
 
 
 def test_get_peft_base_model_prompt_learning(small_qa_pipeline):
-    from peft import PeftModel, PromptTuningConfig
+    from peft import PeftModel, PromptTuningConfig, TaskType
 
     peft_config = PromptTuningConfig(
-        task_type="question-answering",
+        task_type=TaskType.QUESTION_ANS,
         num_virtual_tokens=10,
         peft_type="PROMPT_TUNING",
     )
@@ -100,7 +100,7 @@ def test_log_peft_pipeline(peft_pipeline):
     from peft import PeftModel
 
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(peft_pipeline, "model", input_example="hi")
+        model_info = mlflow.transformers.log_model(peft_pipeline, name="model", input_example="hi")
 
     loaded_pipeline = mlflow.transformers.load_model(model_info.model_uri)
     assert isinstance(loaded_pipeline.model, PeftModel)

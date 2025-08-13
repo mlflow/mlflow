@@ -7,13 +7,12 @@ import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List
 from unittest import mock
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -52,22 +51,24 @@ from mlflow.models.evaluation.artifacts import (
 )
 from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
-    _compute_df_mode_or_mean,
     _CustomArtifact,
     _evaluate_custom_artifacts,
-    _evaluate_metric,
     _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
-    _gen_classifier_curve,
     _get_aggregate_metrics_values,
+)
+from mlflow.models.evaluation.evaluators.classifier import (
+    _extract_predict_fn_and_prodict_proba_fn,
+    _gen_classifier_curve,
     _get_binary_classifier_metrics,
     _get_binary_sum_up_label_pred_prob,
     _get_multiclass_classifier_metrics,
-    _get_regressor_metrics,
     _infer_model_type_by_labels,
-    _Metric,
 )
+from mlflow.models.evaluation.evaluators.regressor import _get_regressor_metrics
+from mlflow.models.evaluation.evaluators.shap import _compute_df_mode_or_mean
+from mlflow.models.evaluation.utils.metric import MetricDefinition
 
 from tests.evaluate.test_evaluation import (
     binary_logistic_regressor_model_uri,  # noqa: F401
@@ -87,6 +88,23 @@ from tests.evaluate.test_evaluation import (
 )
 
 
+@pytest.fixture(autouse=True)
+def suppress_dummy_evaluator():
+    """
+    Dummy evaluator is registered by the test plugin and used in
+    test_evaluation.py, but we don't want it to be used in this test.
+
+    This fixture suppress dummy evaluator for the duration of each test.
+    """
+    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+
+    dummy_evaluator = _model_evaluation_registry._registry.pop("dummy_evaluator")
+
+    yield
+
+    _model_evaluation_registry._registry["dummy_evaluator"] = dummy_evaluator
+
+
 def assert_dict_equal(d1, d2, rtol):
     for k in d1:
         assert k in d2
@@ -99,14 +117,21 @@ def assert_metrics_equal(actual, expected):
 
 
 @pytest.mark.parametrize("use_sample_weights", [False, True])
+@pytest.mark.parametrize("evaluators", ["default", ["regressor", "shap"], None])
 def test_regressor_evaluation(
     linear_regressor_model_uri,
     diabetes_dataset,
     use_sample_weights,
+    evaluators,
 ):
     sample_weights = (
         np.random.rand(len(diabetes_dataset.labels_data)) if use_sample_weights else None
     )
+
+    evaluator_config = {"sample_weights": sample_weights} if use_sample_weights else {}
+
+    if isinstance(evaluators, list):
+        evaluator_config = dict.fromkeys(evaluators, evaluator_config)
 
     with mlflow.start_run() as run:
         result = evaluate(
@@ -114,10 +139,8 @@ def test_regressor_evaluation(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            evaluators="default",
-            evaluator_config={
-                "sample_weights": sample_weights,
-            },
+            evaluators=evaluators,
+            evaluator_config=evaluator_config,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -133,7 +156,7 @@ def test_regressor_evaluation(
     )
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
+        {**diabetes_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     for metric_key, expected_metric_val in expected_metrics.items():
@@ -143,10 +166,6 @@ def test_regressor_evaluation(
             rtol=1e-3,
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
-
-    assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
-    ]
 
     assert set(artifacts) == {
         "shap_beeswarm_plot.png",
@@ -205,12 +224,15 @@ def test_regressor_evaluation_with_int_targets(
 
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
+@pytest.mark.parametrize("evaluators", ["default", ["classifier", "shap"], None])
 def test_multi_classifier_evaluation(
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
     use_sample_weights,
+    evaluators,
 ):
     sample_weights = np.random.rand(len(iris_dataset.labels_data)) if use_sample_weights else None
+    evaluator_config = {"sample_weights": sample_weights} if use_sample_weights else {}
 
     with mlflow.start_run() as run:
         result = evaluate(
@@ -219,17 +241,14 @@ def test_multi_classifier_evaluation(
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
             evaluators="default",
-            evaluator_config={
-                "sample_weights": sample_weights,
-            },
+            evaluator_config=evaluator_config,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -246,7 +265,7 @@ def test_multi_classifier_evaluation(
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**iris_dataset._metadata, "model": model.metadata.model_uuid}
+        {**iris_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -255,9 +274,9 @@ def test_multi_classifier_evaluation(
         "roc_curve_plot.png",
         "precision_recall_curve_plot.png",
         "shap_feature_importance_plot.png",
-        "explainer",
         "confusion_matrix.png",
         "shap_summary_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "per_class_metrics",
@@ -267,6 +286,7 @@ def test_multi_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
@@ -287,8 +307,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -322,8 +341,7 @@ def test_bin_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -343,7 +361,7 @@ def test_bin_classifier_evaluation(
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
+        {**breast_cancer_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -354,6 +372,7 @@ def test_bin_classifier_evaluation(
         "confusion_matrix.png",
         "shap_summary_plot.png",
         "roc_curve_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "roc_curve_plot",
@@ -363,6 +382,7 @@ def test_bin_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
@@ -384,7 +404,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -434,7 +454,7 @@ def test_spark_regressor_model_evaluation(
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_spark_dataset._metadata, "model": model.metadata.model_uuid}
+        {**diabetes_spark_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == set()
@@ -503,8 +523,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn(model, raw_model)
+    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -522,7 +541,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
+        {**breast_cancer_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -586,7 +605,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn(model, raw_model)
+    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -610,17 +629,23 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             model_type="classifier",
             targets=target_col,
             evaluators="default",
-            evaluator_config={"explainability_algorithm": "kernel"},
+            evaluator_config={
+                "explainability_algorithm": "kernel",
+                "log_explainer": True,
+            },
         )
-    run_data = get_run_data(run.info.run_id)
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
     assert {
-        "shap_beeswarm_plot.png",
+        # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
+        # "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
-        "explainer",
     }.issubset(run_data.artifacts)
 
-    explainer = mlflow.shap.load_explainer(f"runs:/{run.info.run_id}/explainer")
+    # TODO: add `and name='explainer'` once sqlAlchemyStore search_logged_models supports it
+    model = mlflow.last_logged_model()
+    explainer = mlflow.shap.load_explainer(model.model_uri)
     assert isinstance(explainer, _PatchedKernelExplainer)
 
 
@@ -683,7 +708,7 @@ def test_extract_raw_model_and_predict_fn(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     model_loader_module, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
@@ -1184,7 +1209,7 @@ def test_evaluate_metric_backwards_compatible():
         return builtin_metrics["mean_absolute_error"] * 1.5
 
     eval_fn_args = [eval_df, builtin_metrics]
-    res_metric = _evaluate_metric(_Metric(old_fn, "old_fn", 0), eval_fn_args)
+    res_metric = MetricDefinition(old_fn, "old_fn", 0).evaluate(eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1194,7 +1219,7 @@ def test_evaluate_metric_backwards_compatible():
     def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_metric(_Metric(new_fn, "new_fn", 0), new_eval_fn_args)
+    res_metric = MetricDefinition(new_fn, "new_fn", 0).evaluate(new_eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1210,8 +1235,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def dummy_fn(*_):
         pass
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(_Metric(dummy_fn, "dummy_fn", 0, None), eval_fn_args)
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        MetricDefinition(dummy_fn, "dummy_fn", 0, None).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
             " because it returned None."
@@ -1220,10 +1245,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return ["stuff"], 3
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(
-            _Metric(incorrect_return_type, incorrect_return_type.__name__, 0), eval_fn_args
-        )
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{incorrect_return_type.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it did not return a MetricValue."
@@ -1232,8 +1256,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(_Metric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args)
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        MetricDefinition(non_list_scores, non_list_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with scores as a list."
@@ -1242,8 +1266,8 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=[{"val": "string"}])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(_Metric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args)
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        MetricDefinition(non_numeric_scores, non_numeric_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
             " parameter because it must return MetricValue with numeric or string scores."
@@ -1252,11 +1276,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(
-            _Metric(non_list_justifications, non_list_justifications.__name__, 0),
-            eval_fn_args,
-        )
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        metric = MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_justifications.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with justifications "
@@ -1266,10 +1288,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(
-            _Metric(non_str_justifications, non_str_justifications.__name__, 0), eval_fn_args
-        )
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        metric = MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_str_justifications.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with string "
@@ -1279,10 +1300,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(
-            _Metric(non_dict_aggregates, non_dict_aggregates.__name__, 0), eval_fn_args
-        )
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        metric = MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_dict_aggregates.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with aggregate_results "
@@ -1292,10 +1312,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(
-            _Metric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0), eval_fn_args
-        )
+    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+        metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
+        metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{wrong_type_aggregates.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with aggregate_results "
@@ -1328,7 +1347,7 @@ def test_evaluate_custom_metric_lambda(fn):
     metrics = _get_aggregate_metrics_values(builtin_metrics)
     eval_fn_args = [eval_df, metrics]
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_metric(_Metric(fn, "<lambda>", 0), eval_fn_args)
+        MetricDefinition(fn, "<lambda>", 0).evaluate(eval_fn_args)
         mock_warning.assert_not_called()
 
 
@@ -1351,7 +1370,7 @@ def test_evaluate_custom_metric_success():
         )
 
     eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
-    res_metric = _evaluate_metric(_Metric(example_count_times_1_point_5, "", 0), eval_fn_args)
+    res_metric = MetricDefinition(example_count_times_1_point_5, "", 0).evaluate(eval_fn_args)
     assert (
         res_metric.aggregate_results["example_count_times_1_point_5"]
         == builtin_metrics["example_count"] * 1.5
@@ -1455,8 +1474,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn(model, raw_model)
+    predict_fn = _extract_predict_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -1506,10 +1524,10 @@ def test_custom_metric_logs_artifacts_from_paths(
 
         # images
         for ext in img_formats:
-            fig = plt.figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            plt.plot([1, 2, 3])
+            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+            ax = fig.subplots()
+            ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_path, f"test.{ext}"), format=ext)
-            plt.clf()
             example_artifacts[f"test_{ext}_artifact"] = path_join(tmp_path, f"test.{ext}")
 
         # json
@@ -1551,10 +1569,10 @@ def test_custom_metric_logs_artifacts_from_paths(
             assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
             assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
-            fig = plt.figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            plt.plot([1, 2, 3])
+            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+            ax = fig.subplots()
+            ax.plot([1, 2, 3])
             fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
-            plt.clf()
 
             saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
             result_img = result.artifacts[f"test_{img_ext}_artifact"].content
@@ -1609,8 +1627,9 @@ class _ExampleToBePickledObject:
 def test_custom_metric_logs_artifacts_from_objects(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    fig = plt.figure()
-    plt.plot([1, 2, 3])
+    fig = Figure()
+    ax = fig.subplots()
+    ax.plot([1, 2, 3])
     buf = io.BytesIO()
     fig.savefig(buf)
     buf.seek(0)
@@ -1705,7 +1724,7 @@ def test_autologging_is_disabled_during_evaluate(model):
         X, y = load_iris(as_frame=True, return_X_y=True)
         with mlflow.start_run() as run:
             model.fit(X, y)
-            model_info = mlflow.sklearn.log_model(model, "model")
+            model_info = mlflow.sklearn.log_model(model, name="model")
             result = evaluate(
                 model_info.model_uri,
                 X.assign(target=y),
@@ -1742,7 +1761,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
     model_pipeline.fit(X, y)
 
     with mlflow.start_run() as run:
-        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, "model").model_uri
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, name="model").model_uri
 
         evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
         evaluation_data["labels"] = load_iris().target
@@ -1764,7 +1783,8 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) >= {
-            "shap_beeswarm_plot.png",
+            # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
+            # "shap_beeswarm_plot.png",
             "shap_feature_importance_plot.png",
             "shap_summary_plot.png",
         }
@@ -1776,7 +1796,7 @@ def test_evaluation_metric_name_configs(prefix):
     with mlflow.start_run() as run:
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1853,7 +1873,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1878,7 +1898,7 @@ def test_evaluation_multiclass_classification_with_average(average):
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1901,7 +1921,7 @@ def test_custom_metrics():
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
         model = LogisticRegression().fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1927,7 +1947,7 @@ def test_custom_artifacts():
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
         model = LogisticRegression().fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -2017,7 +2037,7 @@ def test_missing_args_raises_exception():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
 
@@ -2051,47 +2071,10 @@ def test_missing_args_raises_exception():
             )
 
 
-def test_custom_metrics_deprecated(
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-):
-    def dummy_fn(eval_df, metrics):
-        pass
-
-    with pytest.raises(
-        MlflowException,
-        match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
-        "your code to only use the 'extra_metrics' parameter instead.",
-    ):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-                extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-    message = "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update your "
-    "code to use the 'extra_metrics' parameter instead."
-    with pytest.warns(FutureWarning, match=message):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame(
             {
@@ -2162,7 +2145,7 @@ def question_classifier(inputs):
 def test_evaluate_question_answering_with_numerical_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=question_classifier,
             input_example=pd.DataFrame({"question": ["a", "b"]}),
         )
@@ -2188,7 +2171,7 @@ def test_evaluate_question_answering_with_numerical_targets():
 def test_evaluate_question_answering_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"question": ["words random", "This is a sentence."]})
         results = mlflow.evaluate(
@@ -2281,7 +2264,7 @@ def get_question_answering_metrics_keys(with_targets=False):
 def test_evaluate_text_summarization_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2308,7 +2291,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=another_language_model,
             input_example=pd.DataFrame({"text": ["a", "b"]}),
         )
@@ -2334,7 +2317,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 def test_evaluate_text_summarization_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2361,7 +2344,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
 
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
@@ -2398,7 +2381,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
 def test_evaluate_text_and_text_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
         results = mlflow.evaluate(
@@ -2446,7 +2429,7 @@ def per_row_metric(predictions, targets=None, metrics=None):
 def test_evaluate_text_custom_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "target": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2480,7 +2463,7 @@ def test_evaluate_text_custom_metrics():
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefix):
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2594,7 +2577,7 @@ def test_extracting_output_and_other_columns():
     assert prediction_col7 == "text"
 
 
-def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
+def language_model_with_context(inputs: list[str]) -> list[dict[str, str]]:
     return [
         {
             "context": f"context_{input}",
@@ -2633,7 +2616,7 @@ def test_constructing_eval_df_for_custom_metrics():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=language_model_with_context,
             input_example=["a", "b"],
         )
@@ -2715,7 +2698,7 @@ def test_evaluate_no_model_and_predictions_specified_with_unsupported_data_type(
 def test_evaluate_no_model_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -2731,7 +2714,7 @@ def test_evaluate_no_model_type():
 def test_evaluate_no_model_type_with_builtin_metric():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         results = mlflow.evaluate(
@@ -2756,7 +2739,7 @@ def test_evaluate_no_model_type_with_builtin_metric():
 def test_evaluate_no_model_type_with_custom_metric():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
@@ -2800,7 +2783,7 @@ def multi_output_model(inputs):
 def test_default_metrics_as_extra_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=multi_output_model, input_example=["a"]
+            name="model", python_model=multi_output_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -3173,7 +3156,7 @@ def test_custom_metric_bad_names():
 def test_multi_output_model_error_handling():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=multi_output_model, input_example=["a"]
+            name="model", python_model=multi_output_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -3203,7 +3186,7 @@ def test_multi_output_model_error_handling():
 def test_invalid_extra_metrics():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -3223,7 +3206,7 @@ def test_invalid_extra_metrics():
 def test_evaluate_with_latency():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
         results = mlflow.evaluate(
@@ -3257,7 +3240,7 @@ def test_evaluate_with_latency_and_pd_series():
             return pd.Series(inputs)
 
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=pd_series_model, input_example=["a", "b"]
+            name="model", python_model=pd_series_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["input text", "random text"]})
         results = mlflow.evaluate(
@@ -3285,7 +3268,7 @@ def test_evaluate_with_latency_and_pd_series():
 
 def test_evaluate_with_latency_static_dataset():
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=language_model, input_example=["a", "b"])
+        mlflow.pyfunc.log_model(name="model", python_model=language_model, input_example=["a", "b"])
         data = pd.DataFrame(
             {
                 "text": ["foo", "bar"],
@@ -3337,7 +3320,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -3398,7 +3381,7 @@ def test_evaluate_with_correctness():
 def test_evaluate_custom_metrics_string_values():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         results = mlflow.evaluate(
@@ -3764,7 +3747,7 @@ def test_evaluate_with_numpy_array():
 
     with mlflow.start_run():
         logged_model = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         results = mlflow.evaluate(
             logged_model.model_uri,
@@ -3902,10 +3885,52 @@ def test_precanned_metrics_work():
         }
 
 
+def test_precanned_bleu_metrics_work():
+    metric = mlflow.metrics.bleu()
+    with mlflow.start_run():
+        eval_df = pd.DataFrame(
+            {
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            }
+        )
+
+        results = mlflow.evaluate(
+            data=eval_df,
+            evaluators="default",
+            predictions="prediction",
+            extra_metrics=[metric],
+            evaluator_config={
+                "col_mapping": {
+                    "targets": "ground_truth",
+                }
+            },
+        )
+
+        assert results.metrics == {
+            "bleu/v1/mean": 1.0,
+            "bleu/v1/variance": 0.0,
+            "bleu/v1/p90": 1.0,
+        }
+
+
 def test_evaluate_custom_metric_with_string_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
@@ -3946,7 +3971,7 @@ def test_evaluate_custom_metric_with_string_type():
 def test_do_not_log_built_in_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -3977,7 +4002,7 @@ def test_do_not_log_built_in_metrics_as_artifacts():
 def test_log_genai_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -4054,23 +4079,24 @@ def test_log_genai_custom_metrics_as_artifacts():
 def test_all_genai_custom_metrics_are_from_user_prompt():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
                 "inputs": ["words random", "This is a sentence."],
                 "ground_truth": ["words random", "This is a sentence."],
+                "custom_column": ["test", "test"],
             }
         )
         custom_metric = make_genai_metric_from_prompt(
             name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
+            judge_prompt="This is a custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.0},
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
-            judge_prompt="This is another custom judge prompt.",
+            judge_prompt="This is another custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.7},
         )
@@ -4109,16 +4135,17 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     xgb_model = xgboost.XGBClassifier()
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         xgb_model.fit(X_train, y_train)
 
+        logged_models = mlflow.search_logged_models(
+            filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+        )
+        model_uri = logged_models[0].model_uri
         eval_data = X_test
         eval_data["label"] = y_test
 
-        model_uri = mlflow.get_artifact_uri("model")
-        with mock.patch(
-            "mlflow.models.evaluation.default_evaluator._logger.warning"
-        ) as mock_warning:
+        with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
             mlflow.evaluate(
                 model_uri,
                 eval_data,
@@ -4128,7 +4155,7 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
             )
             assert not any(
                 "Shap evaluation failed." in call_arg[0]
-                for call_arg in mock_warning.call_args
+                for call_arg in mock_warning.call_args or []
                 if isinstance(call_arg, tuple)
             )
 
@@ -4214,3 +4241,361 @@ def test_evaluate_errors_invalid_pos_label():
             predictions="prediction",
             evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
         )
+
+
+@pytest.mark.parametrize(
+    ("model_output", "predictions"),
+    [
+        (pd.DataFrame({"output": [0, 1, 2]}), None),
+        (pd.DataFrame({"output_1": [0, 1, 2], "output_2": [4, 5, 6]}), "output_1"),
+        (pd.Series([0, 1, 2]), None),
+    ],
+)
+def test_regressor_returning_pandas_object(model_output, predictions):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_output
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+        result = mlflow.evaluate(
+            model_info.model_uri,
+            data=pd.DataFrame(
+                {
+                    "input": [0, 1, 2],
+                    "output": [0, 1, 2],
+                }
+            ),
+            targets="output",
+            model_type="regressor",
+            predictions=predictions,
+            evaluators=["regressor"],
+        )
+        assert result.metrics == {
+            "example_count": 3,
+            "max_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_absolute_percentage_error": 0.0,
+            "mean_on_target": 1.0,
+            "mean_squared_error": 0.0,
+            "r2_score": 1.0,
+            "root_mean_squared_error": 0.0,
+            "sum_on_target": 3,
+        }
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_metrics",
+        "expected_artifacts",
+        "description",
+    ),
+    [
+        # Binary classification with single class data + explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {"label_list": [0, 1]},
+            {
+                "accuracy_score": 1.0,
+                "true_negatives": 4,
+                "false_positives": 0,
+                "false_negatives": 0,
+                "true_positives": 0,
+            },
+            {"confusion_matrix": True},
+            "single_class_with_explicit_labels",
+        ),
+        # Normal binary classification
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {},
+            {
+                "accuracy_score": 0.5,
+                "true_negatives": 1,
+                "false_positives": 1,
+                "false_negatives": 1,
+                "true_positives": 1,
+            },
+            {"confusion_matrix": True},
+            "binary_classification",
+        ),
+        # Multiclass with string labels
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "bird", "cat", "dog", "bird"],
+                    "prediction": ["cat", "dog", "cat", "dog", "bird", "bird"],
+                }
+            ),
+            {},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True, "confusion_matrix": True},
+            "multiclass_string_labels",
+        ),
+        # Multiclass with missing class in data
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "cat", "dog"],
+                    "prediction": ["cat", "dog", "dog", "cat"],
+                }
+            ),
+            {"label_list": ["cat", "dog", "bird"]},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True},
+            "multiclass_missing_class",
+        ),
+        # Multiclass with numeric labels
+        (
+            pd.DataFrame(
+                {
+                    "target": [0, 1, 2, 0, 1],
+                    "prediction": [0, 1, 1, 2, 1],
+                }
+            ),
+            {"label_list": [0, 1, 2]},
+            {"accuracy_score": 0.6},
+            {"per_class_metrics": True},
+            "multiclass_numeric_labels",
+        ),
+        # Auto-inferred binary with string labels
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            {"accuracy_score": 0.5},
+            {"confusion_matrix": True},
+            "binary_auto_inferred_strings",
+        ),
+    ],
+)
+def test_classifier_evaluation_scenarios(
+    data, evaluator_config, expected_metrics, expected_artifacts, description
+):
+    """Test various classifier evaluation scenarios with different data types and configurations."""
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    # Verify evaluation completed successfully
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check specific expected metrics
+    for metric_name, expected_value in expected_metrics.items():
+        if isinstance(expected_value, float):
+            assert abs(result.metrics[metric_name] - expected_value) < 1e-6, (
+                f"Metric {metric_name} mismatch"
+            )
+        else:
+            assert result.metrics[metric_name] == expected_value, f"Metric {metric_name} mismatch"
+
+    # Check expected artifacts
+    for artifact_name, should_exist in expected_artifacts.items():
+        if should_exist:
+            assert artifact_name in result.artifacts, f"Missing artifact: {artifact_name}"
+
+    # Special validations for per-class metrics
+    if "per_class_metrics" in expected_artifacts:
+        per_class_df = result.artifacts["per_class_metrics"].content
+        # Verify structure
+        assert "positive_class" in per_class_df.columns
+        required_columns = {
+            "true_negatives",
+            "false_positives",
+            "false_negatives",
+            "true_positives",
+        }
+        assert required_columns.issubset(set(per_class_df.columns))
+
+        # Verify consistency: each row should sum to total number of samples
+        for _, row in per_class_df.iterrows():
+            total = sum(row[col] for col in required_columns)
+            assert total == len(data), (
+                f"Confusion matrix sum mismatch for class {row['positive_class']}"
+            )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_error",
+        "error_message_pattern",
+        "description",
+    ),
+    [
+        # Single class without explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_class_no_labels",
+        ),
+        # Invalid pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 2},
+            MlflowException,
+            "'pos_label' 2 must exist in 'label_list'",
+            "invalid_pos_label",
+        ),
+        # Single element label_list
+        (
+            pd.DataFrame({"target": [1, 1, 1, 1], "prediction": [1, 1, 1, 1]}),
+            {"label_list": [1]},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_element_label_list",
+        ),
+        # Empty label_list
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": []},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 0 unique labels were found\\."
+            ),
+            "empty_label_list",
+        ),
+    ],
+)
+def test_classifier_evaluation_error_conditions(
+    data, evaluator_config, expected_error, error_message_pattern, description
+):
+    """Test error conditions in classifier evaluation."""
+    with pytest.raises(expected_error, match=error_message_pattern):
+        mlflow.evaluate(
+            data=data,
+            targets="target",
+            predictions="prediction",
+            model_type="classifier",
+            evaluator_config=evaluator_config,
+        )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_binary_metrics",
+        "expected_classes",
+        "description",
+    ),
+    [
+        # Binary with explicit labels and pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 1},
+            True,  # Should have binary metrics
+            2,  # Two classes
+            "binary_explicit_pos_label",
+        ),
+        # Multiclass (3 classes)
+        (
+            pd.DataFrame({"target": [0, 1, 2, 0, 1], "prediction": [0, 1, 1, 2, 1]}),
+            {"label_list": [0, 1, 2]},
+            False,  # Should NOT have binary metrics
+            3,  # Three classes
+            "multiclass_three_classes",
+        ),
+        # Auto-inferred binary
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            True,  # Should have binary metrics (auto-inferred)
+            2,  # Two classes
+            "binary_auto_inferred",
+        ),
+    ],
+)
+def test_label_validation_and_classification_type(
+    data, evaluator_config, expected_binary_metrics, expected_classes, description
+):
+    """Test label validation and binary vs multiclass classification detection."""
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check if binary metrics are present based on classification type
+    binary_metric_names = {
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+    }
+    has_binary_metrics = all(metric in result.metrics for metric in binary_metric_names)
+
+    assert has_binary_metrics == expected_binary_metrics, (
+        f"Binary metrics presence mismatch for {description}"
+    )
+
+    # For multiclass, check per-class metrics
+    if not expected_binary_metrics:
+        assert "per_class_metrics" in result.artifacts
+        per_class_df = result.artifacts["per_class_metrics"].content
+        assert len(per_class_df) == expected_classes
+
+
+def test_multiclass_per_class_metrics_with_missing_class_failure():
+    """
+    Critical test demonstrating why labels=[0,1] is essential in per-class metrics.
+
+    This test validates that the hardcoded labels=[0,1] in per-class metrics calculation
+    prevents crashes when classes are missing from evaluation data.
+    """
+    # Create multiclass data where class 'C' is completely missing from evaluation
+    data = pd.DataFrame(
+        {
+            "target": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B present
+            "prediction": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B predicted
+        }
+    )
+
+    # Model was trained on A, B, C but evaluation data missing C
+    label_list = ["A", "B", "C"]  # C missing from actual data!
+
+    # This should work with proper labels=[0,1] hardcoding
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config={"label_list": label_list},
+    )
+
+    # Verify the evaluation completed successfully
+    assert result is not None
+    assert "per_class_metrics" in result.artifacts
+
+    # Check that per-class metrics were computed for all classes
+    per_class_df = result.artifacts["per_class_metrics"].content
+    assert len(per_class_df) == 3  # Should have metrics for A, B, C
+    assert set(per_class_df["positive_class"]) == {"A", "B", "C"}
+
+    # Verify class C has proper zero metrics (since it's missing from data)
+    class_c_metrics = per_class_df[per_class_df["positive_class"] == "C"].iloc[0]
+    assert class_c_metrics["true_negatives"] == 8  # All samples are negative for C
+    assert class_c_metrics["false_positives"] == 0  # No false positives
+    assert class_c_metrics["false_negatives"] == 0  # No false negatives
+    assert class_c_metrics["true_positives"] == 0  # No true positives

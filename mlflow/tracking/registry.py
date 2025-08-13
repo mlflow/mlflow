@@ -1,5 +1,5 @@
 import warnings
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -39,7 +39,6 @@ class StoreRegistry:
 
     __metaclass__ = ABCMeta
 
-    @abstractmethod
     def __init__(self, group_name):
         self._registry = {}
         self.group_name = group_name

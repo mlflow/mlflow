@@ -7,26 +7,37 @@ import {
   UseGetRunQueryDataApiError,
   UseGetRunQueryResponseDataMetrics,
   UseGetRunQueryResponseDatasetInputs,
+  type UseGetRunQueryResponseInputs,
+  type UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './useGetRunQuery';
 import {
-  KeyValueEntity,
   RunDatasetWithTags,
   type ExperimentEntity,
   type MetricEntitiesByName,
   type MetricEntity,
   type RunInfoEntity,
 } from '../../../types';
-import { shouldEnableGraphQLRunDetailsPage } from '../../../../common/utils/FeatureUtils';
+import { KeyValueEntity } from '../../../../common/types';
+import {
+  shouldEnableGraphQLModelVersionsForRunDetails,
+  shouldEnableGraphQLRunDetailsPage,
+} from '../../../../common/utils/FeatureUtils';
 import { ThunkDispatch } from '../../../../redux-types';
 import { useDispatch } from 'react-redux';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
-import { ApolloError } from '@apollo/client';
+import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { pickBy } from 'lodash';
+import {
+  type RunPageModelVersionSummary,
+  useUnifiedRegisteredModelVersionsSummariesForRun,
+} from './useUnifiedRegisteredModelVersionsSummariesForRun';
 
 // Internal util: transforms an array of objects into a keyed object by the `key` field
 const transformToKeyedObject = <Output, Input = any>(inputArray: Input[]) =>
+  // TODO: fix this type error
+  // @ts-expect-error: Conversion of type 'Dictionary<Input>' to type 'Record<string, Output>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
   keyBy(inputArray, 'key') as Record<string, Output>;
 
 // Internal util: transforms an array of metric values into an array of MetricEntity objects
@@ -42,7 +53,7 @@ const transformMetricValues = (inputArray: UseGetRunQueryResponseDataMetrics): M
     }));
 
 // Internal util: transforms an array of dataset inputs into an array of RunDatasetWithTags objects
-const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
+export const transformDatasets = (inputArray?: UseGetRunQueryResponseDatasetInputs): RunDatasetWithTags[] | undefined =>
   inputArray?.map((datasetInput) => ({
     dataset: {
       digest: datasetInput.dataset?.digest ?? '',
@@ -72,10 +83,14 @@ interface UseRunDetailsPageDataResult {
   runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
   datasets?: RunDatasetWithTags[];
+  runInputs?: UseGetRunQueryResponseInputs;
+  runOutputs?: UseGetRunQueryResponseOutputs;
 
   // Only present in legacy implementation
   runFetchError?: Error | ErrorWrapper | undefined;
   experimentFetchError?: Error | ErrorWrapper | undefined;
+
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
 
   // Only present in graphQL implementation
   apiError?: UseGetRunQueryDataApiError;
@@ -99,12 +114,18 @@ export const useRunDetailsPageData = ({
   // We can safely disable the eslint rule since feature flag evaluation is stable
   /* eslint-disable react-hooks/rules-of-hooks */
   if (usingGraphQL) {
-    const detailsPageGraphqlResponse = useGetRunQuery({
-      runUuid,
-    });
+    const graphQLQuery = () =>
+      useGetRunQuery({
+        runUuid,
+      });
 
-    // Model versions are not fully supported by GraphQL yet, so we need to fetch them separately
+    const detailsPageGraphqlResponse = graphQLQuery();
+
+    // If model versions are colocated in the GraphQL response, we don't need to make an additional API call
     useEffect(() => {
+      if (shouldEnableGraphQLModelVersionsForRunDetails()) {
+        return;
+      }
       dispatch(searchModelVersionsApi({ run_id: runUuid }));
     }, [dispatch, runUuid]);
 
@@ -129,6 +150,11 @@ export const useRunDetailsPageData = ({
       };
     }, [detailsPageGraphqlResponse.data]);
 
+    const registeredModelVersionSummaries = useUnifiedRegisteredModelVersionsSummariesForRun({
+      runUuid,
+      queryResult: detailsPageGraphqlResponse,
+    });
+
     return {
       runInfo: detailsPageGraphqlResponse.data?.info ?? undefined,
       experiment: detailsPageGraphqlResponse.data?.experiment ?? undefined,
@@ -136,6 +162,9 @@ export const useRunDetailsPageData = ({
       error: detailsPageGraphqlResponse.apolloError,
       apiError: detailsPageGraphqlResponse.apiError,
       refetchRun: detailsPageGraphqlResponse.refetchRun,
+      runInputs: detailsPageGraphqlResponse.data?.inputs,
+      runOutputs: detailsPageGraphqlResponse.data?.outputs,
+      registeredModelVersionSummaries,
       datasets,
       latestMetrics,
       tags,
@@ -146,6 +175,10 @@ export const useRunDetailsPageData = ({
   // If GraphQL flag is disabled, use the legacy implementation to fetch the run data.
   const detailsPageResponse = useRunDetailsPageDataLegacy(runUuid, experimentId);
   const error = detailsPageResponse.errors.runFetchError || detailsPageResponse.errors.experimentFetchError;
+
+  const registeredModelVersionSummaries = useUnifiedRegisteredModelVersionsSummariesForRun({
+    runUuid,
+  });
 
   return {
     runInfo: detailsPageResponse.data?.runInfo,
@@ -159,5 +192,6 @@ export const useRunDetailsPageData = ({
     runFetchError: detailsPageResponse.errors.runFetchError,
     experimentFetchError: detailsPageResponse.errors.experimentFetchError,
     refetchRun: detailsPageResponse.refetchRun,
+    registeredModelVersionSummaries,
   };
 };

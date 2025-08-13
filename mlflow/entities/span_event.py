@@ -1,14 +1,15 @@
 import json
-import sys
 import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict
 
+from google.protobuf.json_format import ParseDict
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 
 
 @dataclass
@@ -19,7 +20,7 @@ class SpanEvent(_MlflowObject):
 
     Args:
         name: Name of the event.
-        timestamp:  The exact time the event occurred, measured in microseconds.
+        timestamp:  The exact time the event occurred, measured in nanoseconds.
             If not provided, the current time will be used.
         attributes: A collection of key-value pairs representing detailed
             attributes of the event, such as the exception stack trace.
@@ -31,7 +32,7 @@ class SpanEvent(_MlflowObject):
     # Use current time if not provided. We need to use default factory otherwise
     # the default value will be fixed to the build time of the class.
     timestamp: int = field(default_factory=lambda: int(time.time() * 1e6))
-    attributes: Dict[str, AttributeValue] = field(default_factory=dict)
+    attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod
     def from_exception(cls, exception: Exception):
@@ -52,11 +53,8 @@ class SpanEvent(_MlflowObject):
         """Get the stacktrace of the parent error."""
         msg = repr(error)
         try:
-            if sys.version_info < (3, 10):
-                tb = traceback.format_exception(error.__class__, error, error.__traceback__)
-            else:
-                tb = traceback.format_exception(error)
-            return (msg + "\n\n".join(tb)).strip()
+            tb = traceback.format_exception(error)
+            return "".join(tb).strip()
         except Exception:
             return msg
 
@@ -68,6 +66,14 @@ class SpanEvent(_MlflowObject):
             if self.attributes
             else None,
         }
+
+    def to_proto(self):
+        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
+        return ProtoSpan.Event(
+            name=self.name,
+            time_unix_nano=self.timestamp,
+            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
+        )
 
 
 class CustomEncoder(json.JSONEncoder):

@@ -9,8 +9,8 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
 import _ from 'lodash';
-import { FormattedMessage } from 'react-intl';
-import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
@@ -27,7 +27,7 @@ import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
@@ -46,7 +46,7 @@ function CompareTable(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className="compare-table table"
+      className="mlflow-compare-table table"
       css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
@@ -97,6 +97,7 @@ type CompareModelVersionsViewImplProps = {
   outputsListByName: Array[];
   // @ts-expect-error TS(2314): Generic type 'Array<T>' requires 1 type argument(s... Remove this comment to see the full error message
   outputsListByIndex: Array[];
+  intl: IntlShape;
 };
 
 type CompareModelVersionsViewImplState = any;
@@ -118,11 +119,11 @@ export class CompareModelVersionsViewImpl extends Component<
   };
 
   icons = {
-    plusIcon: <i className="far fa-plus-square-o" />,
-    minusIcon: <i className="far fa-minus-square-o" />,
-    downIcon: <i className="fas fa-caret-down" />,
-    rightIcon: <i className="fas fa-caret-right" />,
-    chartIcon: <i className="fas fa-line-chart padding-left-text" />,
+    plusIcon: <i className="fa fa-plus-square-o" />,
+    minusIcon: <i className="fa fa-minus-square-o" />,
+    downIcon: <i className="fa fa-caret-down" />,
+    rightIcon: <i className="fa fa-caret-right" />,
+    chartIcon: <i className="fa fa-line-chart padding-left-text" />,
   };
 
   onToggleClick = (active: any) => {
@@ -152,26 +153,28 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     const breadcrumbs = [
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 
     return (
       <div
         className="CompareModelVersionsView"
-        // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ '.mlflow-compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
         css={{
           ...styles.compareModelVersionsView,
           ...styles.wrapper(runInfos.length),
         }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div className="responsive-table-container">
+        <div className="mlflow-responsive-table-container">
           <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
@@ -252,7 +255,7 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <Tabs>
+        <LegacyTabs>
           <TabPane
             tab={
               <FormattedMessage
@@ -297,7 +300,7 @@ export class CompareModelVersionsViewImpl extends Component<
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
-        </Tabs>
+        </LegacyTabs>
       </div>
     );
   }
@@ -375,7 +378,8 @@ export class CompareModelVersionsViewImpl extends Component<
           </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
-            const startTime = run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime) : '(unknown)';
+            const startTime =
+              run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime, this.props.intl) : '(unknown)';
             return (
               <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
@@ -735,7 +739,7 @@ const DEFAULT_COLUMN_WIDTH = 200;
 
 const styles = {
   wrapper: (numRuns: any) => ({
-    '.compare-table': {
+    '.mlflow-compare-table': {
       // 1 extra unit for header column
       minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
     },
@@ -813,4 +817,4 @@ const styles = {
   },
 };
 
-export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);
+export const CompareModelVersionsView = connect(mapStateToProps)(injectIntl(CompareModelVersionsViewImpl));

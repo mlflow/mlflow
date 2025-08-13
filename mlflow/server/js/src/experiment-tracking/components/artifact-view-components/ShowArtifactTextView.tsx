@@ -2,11 +2,13 @@ import React, { Component } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { coy as style, atomDark as darkStyle } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { getLanguage } from '../../../common/utils/FileUtils';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -15,7 +17,7 @@ type Props = DesignSystemHocProps & {
   path: string;
   size?: number;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
 type State = {
   loading?: boolean;
@@ -31,7 +33,7 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 
   static defaultProps = {
-    getArtifact: getArtifactContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   state = {
@@ -78,7 +80,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
       return (
-        <div className="ShowArtifactPage">
+        <div className="mlflow-ShowArtifactPage">
           <div className="text-area-border-box">
             <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
               {renderedContent ?? ''}
@@ -92,9 +94,10 @@ class ShowArtifactTextView extends Component<Props, State> {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     this.setState({ loading: true });
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags } = this.props;
+
     this.props
-      .getArtifact?.(artifactLocation)
+      .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags }, getArtifactContent)
       .then((text: string) => {
         this.setState({ text: text, loading: false });
       })

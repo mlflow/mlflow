@@ -93,28 +93,16 @@ const modelVersionsByModel = (state = {}, action: any) => {
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
       const modelVersions = action.payload[getProtoField('model_versions')];
-      if (!modelVersions) {
-        return state;
-      }
-      // Merge all modelVersions into the store
-      const newModelVersions = modelVersions.reduce(
-        (newState: any, modelVersion: any) => {
+      const nameToModelVersionMap: Record<string, Record<string, any>> = {};
+      if (modelVersions) {
+        modelVersions.forEach((modelVersion: any) => {
           const { name, version } = modelVersion;
-          return {
-            ...newState,
-            [name]: {
-              ...newState[name],
-              [version]: modelVersion,
-            },
-          };
-        },
-        { ...state },
-      );
-
-      if (_.isEqual(state, newModelVersions)) {
-        return state;
+          (nameToModelVersionMap[name] ||= {})[version] = modelVersion;
+        });
       }
-      return newModelVersions;
+      return {
+        ...nameToModelVersionMap,
+      };
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;
@@ -170,6 +158,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['inputs'] = JSON.parse(artifact.signature.inputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(error);
         }
       }
@@ -178,6 +167,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['outputs'] = JSON.parse(artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(error);
         }
       }

@@ -33,8 +33,9 @@ def train_model(**fit_kwargs):
     return model
 
 
-def test_autolog_logs_expected_data():
-    mlflow.paddle.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_logs_expected_data(log_models):
+    mlflow.paddle.autolog(log_models=log_models)
 
     with mlflow.start_run() as run:
         train_model()
@@ -57,9 +58,18 @@ def test_autolog_logs_expected_data():
     artifacts = client.list_artifacts(run.info.run_id)
     assert any(x.path == "model_summary.txt" for x in artifacts)
 
+    # Testing metrics are logged to the model
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert data.metrics == {m.key: m.value for m in logged_model.metrics}
+    else:
+        assert logged_model is None
 
-def test_autolog_early_stopping_callback():
-    mlflow.paddle.autolog()
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_early_stopping_callback(log_models):
+    mlflow.paddle.autolog(log_models=log_models)
 
     early_stopping = paddle.callbacks.EarlyStopping("loss", mode="min", patience=1, min_delta=0)
     with mlflow.start_run() as run:
@@ -81,6 +91,13 @@ def test_autolog_early_stopping_callback():
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert data.metrics == {m.key: m.value for m in logged_model.metrics}
+    else:
+        assert logged_model is None
+
 
 @pytest.mark.parametrize("log_models", [True, False])
 def test_autolog_log_models_configuration(log_models):
@@ -89,8 +106,8 @@ def test_autolog_log_models_configuration(log_models):
     with mlflow.start_run() as run:
         train_model()
 
-    artifacts = MlflowClient().list_artifacts(run.info.run_id)
-    assert any(x.path == "model" for x in artifacts) == log_models
+    MlflowClient().list_artifacts(run.info.run_id)
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 def test_autolog_registering_model():

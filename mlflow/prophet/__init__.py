@@ -15,7 +15,7 @@ Prophet (native) format
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -208,7 +208,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pr_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -218,17 +218,22 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
 ):
     """
     Logs a Prophet model as an MLflow artifact for the current run.
 
     Args:
         pr_model: Prophet model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: An instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -259,6 +264,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -266,6 +277,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.prophet,
         registered_model_name=registered_model_name,
         pr_model=pr_model,
@@ -277,6 +289,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -348,7 +365,7 @@ class _ProphetModelWrapper:
         """
         return self.pr_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.

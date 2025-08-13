@@ -1,0 +1,64 @@
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# MLflow Tracing UI
+
+## Traces within MLflow Experiments
+
+After logging your traces, you can view them in the [MLflow UI](/genai/tracing/observe-with-traces/ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.
+
+![MLflow Tracking UI](/images/llms/tracing/trace-experiment-ui.png)
+
+This table includes high-level information about the traces, such as the trace ID, the inputs / outputs of the root span, and more. From this page, you can also perform a few actions to manage your traces:
+
+<Tabs>
+  <TabItem value="search" label="Search" default>
+    Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
+
+    ![Searching traces](/images/llms/tracing/trace-session-id.gif)
+
+  </TabItem>
+  <TabItem value="delete" label="Delete">
+    The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button.
+
+    ![Deleting traces](/images/llms/tracing/trace-delete.gif)
+
+  </TabItem>
+  <TabItem value="edit-tags" label="Edit Tags">
+    You can also edit key-value tags on your traces via the UI.
+
+    ![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+
+  </TabItem>
+</Tabs>
+
+## Browsing span data
+
+In order to browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
+
+![Trace Browser](/images/llms/tracing/tracing-top.gif)
+
+## Jupyter Notebook integration
+
+:::note
+The MLflow Tracing Jupyter integration is available in **MLflow 2.20 and above**
+:::
+
+You can also view the trace UI directly within Jupyter notebooks, allowing
+you to debug your applications without having to tab out of your development environment.
+
+![Jupyter Trace UI](/images/llms/tracing/jupyter-trace-ui.png)
+
+This feature requires using an [MLflow Tracking Server](/ml/tracking/server), as
+this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
+Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+
+By default, the trace UI will automatically be displayed for the following events:
+
+1. When the cell code generates a trace (e.g. via [automatic tracing](/genai/tracing/app-instrumentation/automatic), or by running a manually traced function)
+2. When <APILink fn="mlflow.search_traces" /> is called
+3. When a <APILink fn="mlflow.entities.Trace" /> object is displayed (e.g. via IPython's `display` function, or when it is the last value returned in a cell)
+
+To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell
+containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.

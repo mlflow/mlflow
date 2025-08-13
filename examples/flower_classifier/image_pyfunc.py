@@ -7,7 +7,7 @@ import base64
 import importlib.metadata
 import os
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any
 
 import keras
 import numpy as np
@@ -62,7 +62,7 @@ class KerasImageClassifierPyfunc:
     def predict(
         self,
         input,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Generate predictions for the data.
@@ -116,12 +116,13 @@ class KerasImageClassifierPyfunc:
                 return self._model.predict(x)
 
 
-def log_model(keras_model, signature, artifact_path, image_dims, domain):  # noqa: D417
+def log_model(keras_model, signature, artifact_path, image_dims, domain):
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
     Args:
         keras_model: Keras model to be saved.
+        signature: Model signature.
         artifact_path: Run-relative artifact path this model is to be saved to.
         image_dims: Image dimensions the Keras model expects.
         domain: Labels for the classes this model can predict.
@@ -149,7 +150,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):  # noq
             )
 
         mlflow.pyfunc.log_model(
-            artifact_path=artifact_path,
+            name=artifact_path,
             signature=signature,
             loader_module=__name__,
             code_paths=[__file__],

@@ -1,0 +1,503 @@
+import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
+
+# MLflow Authentication
+
+:::note Experimental Feature
+This feature is still experimental and may be enhanced in a future release without warning.
+:::
+
+MLflow Authentication provides secure access control for experiments and registered models through HTTP basic authentication. Once enabled, users must authenticate before accessing any resources on the Tracking Server.
+
+## Quick Start
+
+### Installation & Setup
+
+Install MLflow with authentication dependencies:
+
+```bash
+pip install mlflow[auth]
+```
+
+Set your server secret key and start the authenticated server:
+
+```bash
+export MLFLOW_FLASK_SERVER_SECRET_KEY="my-secret-key"
+mlflow server --app-name basic-auth
+```
+
+:::warning Important
+The secret key must be consistent across multiple servers to prevent validation errors.
+:::
+
+### Default Admin Access
+
+MLflow creates a default admin user on first startup:
+
+| Username | Password       |
+| -------- | -------------- |
+| `admin`  | `password1234` |
+
+:::tip Security Recommendation
+Update the default admin password immediately after first login using the `/api/2.0/mlflow/users/update-password` endpoint.
+:::
+
+## Core Concepts
+
+### Permission Levels
+
+MLflow uses a hierarchical permission system with four levels:
+
+| Permission         | Read | Update | Delete | Manage |
+| ------------------ | ---- | ------ | ------ | ------ |
+| **READ**           | ✅   | ❌     | ❌     | ❌     |
+| **EDIT**           | ✅   | ✅     | ❌     | ❌     |
+| **MANAGE**         | ✅   | ✅     | ✅     | ✅     |
+| **NO_PERMISSIONS** | ❌   | ❌     | ❌     | ❌     |
+
+The default permission for all users is **READ**, configurable in the auth configuration file.
+
+### Resource Types
+
+Permissions are granted on two main resource types:
+
+- **Experiments** - Controls access to experiment data and runs
+- **Registered Models** - Controls access to model registry operations
+
+## Authentication Methods
+
+### Interactive Login (Recommended)
+
+Use `mlflow.login()` for a guided authentication setup:
+
+```python
+import mlflow
+
+# Interactive login with prompts
+mlflow.login()
+
+# Login to Databricks (currently the only supported backend)
+mlflow.login(backend="databricks", interactive=True)
+
+# Non-interactive mode (requires existing credentials)
+mlflow.login(backend="databricks", interactive=False)
+
+# After login, start using MLflow normally
+with mlflow.start_run():
+    mlflow.log_metric("accuracy", 0.95)
+```
+
+:::tip Interactive Experience
+`mlflow.login()` will prompt you for credentials if none are found and automatically save them for future use. For Databricks, it saves to `~/.databrickscfg`.
+:::
+
+### Environment Variables
+
+Set authentication credentials in your environment:
+
+```bash
+export MLFLOW_TRACKING_USERNAME=your_username
+export MLFLOW_TRACKING_PASSWORD=your_password
+```
+
+or
+
+```python
+import os
+
+os.environ["MLFLOW_TRACKING_USERNAME"] = "your_username"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "your_password"
+```
+
+and use those to authenticate with the tracking server:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://your-mlflow-server.com")
+with mlflow.start_run():
+    # Your authenticated MLflow operations
+    mlflow.log_metric("accuracy", 0.95)
+```
+
+### Credentials File
+
+Store credentials in `~/.mlflow/credentials` (protected by filesystem permissions):
+
+```ini
+[mlflow]
+mlflow_tracking_username = your_username
+mlflow_tracking_password = your_password
+```
+
+:::note Credential Priority
+Environment variables take precedence over credentials file. This allows for easy overrides in different environments.
+:::
+
+### Advanced Authentication Options
+
+MLflow supports additional authentication methods and security configurations:
+
+#### Token-based Authentication
+
+```python
+import os
+
+os.environ["MLFLOW_TRACKING_TOKEN"] = "your_api_token"
+```
+
+#### AWS SigV4 Authentication
+
+```python
+import os
+
+os.environ["MLFLOW_TRACKING_AWS_SIGV4"] = "true"
+```
+
+#### Custom Authentication Headers
+
+```python
+import os
+
+os.environ["MLFLOW_TRACKING_AUTH"] = "custom_auth_header_value"
+```
+
+#### TLS/SSL Configuration
+
+```python
+import os
+
+# Disable TLS verification (not recommended for production)
+os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
+
+# Custom client certificate
+os.environ["MLFLOW_TRACKING_CLIENT_CERT_PATH"] = "/path/to/client.crt"
+
+# Custom server certificate
+os.environ["MLFLOW_TRACKING_SERVER_CERT_PATH"] = "/path/to/server.crt"
+```
+
+:::warning Security Note
+Only disable TLS verification in development environments. Always use proper certificates in production.
+:::
+
+## User Management
+
+### Creating Users
+
+#### Using the Web Interface
+
+Navigate to `<tracking_uri>/signup` to access the user creation form.
+
+#### Using the Python Client
+
+```python
+from mlflow.server import get_app_client
+
+# Authenticate as admin
+auth_client = get_app_client("basic-auth", tracking_uri="https://your-server.com")
+user = auth_client.create_user(username="newuser", password="secure_password")
+
+print(f"Created user: {user.username} (ID: {user.id})")
+```
+
+#### Using REST API
+
+```python
+import requests
+
+response = requests.post(
+    "https://your-server.com/api/2.0/mlflow/users/create",
+    json={"username": "newuser", "password": "secure_password"},
+    auth=("admin", "password1234"),
+)
+```
+
+### Managing Admin Status
+
+Only existing admins can promote users to admin status:
+
+```python
+# Promote user to admin
+auth_client.update_user_admin(username="newuser", is_admin=True)
+
+# Remove admin privileges
+auth_client.update_user_admin(username="newuser", is_admin=False)
+```
+
+## Permission Management
+
+### Experiment Permissions
+
+Grant users specific permissions on experiments:
+
+```python
+from mlflow import MlflowClient
+
+# Create experiment and grant permissions
+client = MlflowClient(tracking_uri="https://your-server.com")
+experiment_id = client.create_experiment("my_experiment")
+
+# Grant MANAGE permission to user
+auth_client.create_experiment_permission(
+    experiment_id=experiment_id, username="data_scientist", permission="MANAGE"
+)
+
+# Update existing permission
+auth_client.update_experiment_permission(
+    experiment_id=experiment_id, username="data_scientist", permission="EDIT"
+)
+
+# Check current permission
+permission = auth_client.get_experiment_permission(
+    experiment_id=experiment_id, username="data_scientist"
+)
+print(f"User permission: {permission.permission}")
+```
+
+### Registered Model Permissions
+
+Control access to model registry operations:
+
+```python
+# Create model with automatic MANAGE permission for creator
+model = client.create_registered_model("my_model")
+
+# Grant READ permission to another user
+auth_client.create_registered_model_permission(
+    name="my_model", username="ml_engineer", permission="READ"
+)
+
+# Update to EDIT permission
+auth_client.update_registered_model_permission(
+    name="my_model", username="ml_engineer", permission="EDIT"
+)
+```
+
+## API Reference
+
+### Core Endpoints
+
+#### User Management
+
+| Endpoint                                | Method | Description         | Required Permission |
+| --------------------------------------- | ------ | ------------------- | ------------------- |
+| `/api/2.0/mlflow/users/create`          | POST   | Create new user     | Admin only          |
+| `/api/2.0/mlflow/users/get`             | GET    | Get user info       | Self only           |
+| `/api/2.0/mlflow/users/update-password` | PATCH  | Update password     | Self only           |
+| `/api/2.0/mlflow/users/update-admin`    | PATCH  | Update admin status | Admin only          |
+| `/api/2.0/mlflow/users/delete`          | DELETE | Delete user         | Admin only          |
+
+#### Experiment Permissions
+
+| Endpoint                                         | Method | Required Permission |
+| ------------------------------------------------ | ------ | ------------------- |
+| `/api/2.0/mlflow/experiments/permissions/create` | POST   | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/get`    | GET    | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/update` | PATCH  | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/delete` | DELETE | can_manage          |
+
+#### Model Registry Permissions
+
+| Endpoint                                               | Method | Required Permission |
+| ------------------------------------------------------ | ------ | ------------------- |
+| `/api/2.0/mlflow/registered-models/permissions/create` | POST   | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/get`    | GET    | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/update` | PATCH  | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/delete` | DELETE | can_manage          |
+
+### Enhanced Behavior
+
+When authentication is enabled, certain APIs automatically filter results based on user permissions:
+
+- **Search Experiments** - Returns only experiments the user can read
+- **Search Runs** - Returns only runs from readable experiments
+- **Search Registered Models** - Returns only models the user can read
+- **Create Operations** - Automatically grants MANAGE permission to creators
+
+## Configuration
+
+### Database Configuration
+
+MLflow uses SQLite by default, but supports centralized databases for multi-node deployments:
+
+```ini
+# /path/to/auth_config.ini
+[mlflow]
+database_uri = postgresql://username:password@hostname:port/database
+default_permission = READ
+admin_username = admin
+admin_password = password1234
+authorization_function = mlflow.server.auth:authenticate_request_basic_auth
+```
+
+Start the server with custom configuration:
+
+```bash
+MLFLOW_AUTH_CONFIG_PATH=/path/to/auth_config.ini mlflow server --app-name basic-auth
+```
+
+### Database Migration
+
+Run database migrations when needed:
+
+```bash
+python -m mlflow.server.auth db upgrade --url <database_url>
+```
+
+## Advanced Topics
+
+### Custom Authentication
+
+MLflow supports custom authentication methods through pluggable functions:
+
+```python
+# custom_auth.py
+from werkzeug.datastructures import Authorization
+from flask import Response
+
+
+def custom_authenticate() -> Union[Authorization, Response]:
+    # Your custom authentication logic
+    # Return Authorization object if authenticated
+    # Return Response object (401) if not authenticated
+    pass
+```
+
+Update configuration to use your custom function:
+
+```ini
+[mlflow]
+authorization_function = custom_auth:custom_authenticate
+```
+
+### Plugin Development
+
+Create installable authentication plugins:
+
+```python
+# my_auth_plugin/__init__.py
+from flask import Flask
+from mlflow.server import app
+
+
+def create_app(my_app: Flask = app):
+    # Extend MLflow app with custom auth logic
+    my_app.add_url_rule(...)
+    return my_app
+
+
+class MyAuthClient:
+    # Custom client for managing permissions
+    pass
+```
+
+Register your plugin:
+
+```python
+# setup.py
+setup(
+    entry_points={
+        "mlflow.app": ["my-auth=my_auth_plugin:create_app"],
+        "mlflow.app.client": ["my-auth=my_auth_plugin:MyAuthClient"],
+    }
+)
+```
+
+## Security Best Practices
+
+### Password Security
+
+- Use strong passwords (minimum 12 characters)
+- Rotate credentials regularly
+- Store credentials securely using environment variables or secure credential files
+
+### Network Security
+
+- Use HTTPS in production environments
+- Configure proper firewall rules
+- Consider using reverse proxy with additional security headers
+
+### Database Security
+
+- Use encrypted connections to your database
+- Regularly backup authentication data
+- Implement proper database access controls
+
+### Monitoring
+
+- Monitor authentication logs for suspicious activity
+- Set up alerts for failed authentication attempts
+- Regularly audit user permissions
+
+## Troubleshooting
+
+### Common Issues
+
+**Secret Key Errors**
+
+```
+Solution: Ensure MLFLOW_FLASK_SERVER_SECRET_KEY is set and consistent across all servers
+```
+
+**Permission Denied (403)**
+
+```
+Solution: Check user permissions using get_experiment_permission or get_registered_model_permission
+```
+
+**Authentication Failed (401)**
+
+```
+Solution: Verify username/password and ensure user exists in the system
+```
+
+**Database Connection Issues**
+
+```
+Solution: Verify database_uri in configuration and ensure database is accessible
+```
+
+### Debugging Tips
+
+1. **Enable Debug Logging**
+
+   ```bash
+   export MLFLOW_LOGGING_LEVEL=DEBUG
+   ```
+
+2. **Check User Permissions**
+
+   ```python
+   # Verify current user permissions
+   user = auth_client.get_user("username")
+   print(f"Is admin: {user.is_admin}")
+
+   permission = auth_client.get_experiment_permission("exp_id", "username")
+   print(f"Experiment permission: {permission.permission}")
+   ```
+
+3. **Database Inspection**
+   ```bash
+   # Check database tables
+   sqlite3 basic_auth.db ".tables"
+   sqlite3 basic_auth.db "SELECT * FROM users;"
+   ```
+
+## Migration Guide
+
+### Enabling Authentication on Existing Server
+
+1. **Backup your data** before enabling authentication
+2. **Install auth dependencies**: `pip install mlflow[auth]`
+3. **Set secret key**: `export MLFLOW_FLASK_SERVER_SECRET_KEY="your-key"`
+4. **Restart server**: `mlflow server --app-name basic-auth`
+5. **Update admin password** immediately after first login
+
+### Disabling Authentication
+
+To disable authentication, simply restart the server without the `--app-name basic-auth` flag. User data and permissions will be preserved for future re-enabling.
+
+---
+
+**Need Help?** Check the <APILink fn="mlflow.server.auth" hash="">MLflow Authentication API Reference</APILink> for detailed function documentation.

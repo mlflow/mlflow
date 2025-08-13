@@ -253,4 +253,28 @@ service UcModelRegistryService {
       rpc_doc_title:"(Unity Catalog) Delete ModelVersion Tag",
     };
   }
+
+  rpc EmitModelVersionLineage (EmitModelVersionLineageRequest) returns (EmitModelVersionLineageResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/model-versions/emit-lineage"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Emit ModelVersion Lineage",
+    };
+  }
+
+  rpc IsDatabricksSdkModelsArtifactRepositoryEnabled (IsDatabricksSdkModelsArtifactRepositoryEnabledRequest) returns (IsDatabricksSdkModelsArtifactRepositoryEnabledResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/registered-models:is-databricks-sdk-models-artifact-repository-enabled"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Use DatabricksSdkModelsArtifactRepository in mlflow client for model registry",
+    };
+  }
 }

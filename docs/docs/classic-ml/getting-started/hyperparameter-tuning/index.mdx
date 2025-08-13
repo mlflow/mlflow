@@ -1,0 +1,590 @@
+# Hyperparameter Tuning & Deployment Quickstart
+
+Master the complete MLOps workflow with MLflow's hyperparameter optimization capabilities. In this hands-on quickstart, you'll learn how to systematically find the best model parameters, track experiments, and deploy production-ready models.
+
+## What You'll Learn
+
+By the end of this tutorial, you'll know how to:
+
+- 🔍 **Run intelligent hyperparameter optimization** with Hyperopt and MLflow tracking
+- 📊 **Compare experiment results** using MLflow's powerful visualization tools
+- 🏆 **Identify and register your best model** for production use
+- 🚀 **Deploy models to REST APIs** for real-time inference
+- 📦 **Build production containers** ready for cloud deployment
+
+<div className="center-div" style={{ width: 800, maxWidth: "100%" }}>
+  ![Diagram showing Data Science and MLOps workflow with MLflow](/images/quickstart/quickstart_tracking_overview.png)
+</div>
+
+## Prerequisites & Setup
+
+### Quick Setup
+
+For this quickstart, we'll use a local MLflow tracking server. Start it with:
+
+```bash
+mlflow ui --port 5000
+```
+
+Keep this running in a separate terminal. Your MLflow UI will be available at [http://localhost:5000](http://localhost:5000).
+
+### Install Dependencies
+
+```bash
+pip install mlflow[extras] hyperopt tensorflow scikit-learn pandas numpy
+```
+
+### Set Environment Variable
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+```
+
+:::tip Team Collaboration and Managed Setup
+For production environments or team collaboration, consider using [MLflow Tracking Server configurations](/ml/getting-started/running-notebooks/). For a fully-managed solution, get started with Databricks Free Trial by visiting the [Databricks Trial Signup Page](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=OSS_DOCS) and follow the instructions outlined there. It takes about 5 minutes to set up, after which you'll have access to a nearly fully-functional Databricks Workspace for logging your tutorial experiments, traces, models, and artifacts.
+:::
+
+## The Challenge: Wine Quality Prediction
+
+We'll optimize a neural network that predicts wine quality from chemical properties. Our goal is to minimize **Root Mean Square Error (RMSE)** by finding the optimal combination of:
+
+- **Learning Rate**: How aggressively the model learns
+- **Momentum**: How much the optimizer considers previous updates
+
+## Step 1: Prepare Your Data
+
+First, let's load and explore our dataset:
+
+```python
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import tensorflow as tf
+from tensorflow import keras
+import mlflow
+from mlflow.models import infer_signature
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+
+# Load the wine quality dataset
+data = pd.read_csv(
+    "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv",
+    sep=";",
+)
+
+# Create train/validation/test splits
+train, test = train_test_split(data, test_size=0.25, random_state=42)
+train_x = train.drop(["quality"], axis=1).values
+train_y = train[["quality"]].values.ravel()
+test_x = test.drop(["quality"], axis=1).values
+test_y = test[["quality"]].values.ravel()
+
+# Further split training data for validation
+train_x, valid_x, train_y, valid_y = train_test_split(
+    train_x, train_y, test_size=0.2, random_state=42
+)
+
+# Create model signature for deployment
+signature = infer_signature(train_x, train_y)
+```
+
+## Step 2: Define Your Model Architecture
+
+Create a reusable function to build and train models:
+
+```python
+def create_and_train_model(learning_rate, momentum, epochs=10):
+    """
+    Create and train a neural network with specified hyperparameters.
+
+    Returns:
+        dict: Training results including model and metrics
+    """
+    # Normalize input features for better training stability
+    mean = np.mean(train_x, axis=0)
+    var = np.var(train_x, axis=0)
+
+    # Define model architecture
+    model = keras.Sequential(
+        [
+            keras.Input([train_x.shape[1]]),
+            keras.layers.Normalization(mean=mean, variance=var),
+            keras.layers.Dense(64, activation="relu"),
+            keras.layers.Dropout(0.2),  # Add regularization
+            keras.layers.Dense(32, activation="relu"),
+            keras.layers.Dense(1),
+        ]
+    )
+
+    # Compile with specified hyperparameters
+    model.compile(
+        optimizer=keras.optimizers.SGD(learning_rate=learning_rate, momentum=momentum),
+        loss="mean_squared_error",
+        metrics=[keras.metrics.RootMeanSquaredError()],
+    )
+
+    # Train with early stopping for efficiency
+    early_stopping = keras.callbacks.EarlyStopping(
+        patience=3, restore_best_weights=True
+    )
+
+    # Train the model
+    history = model.fit(
+        train_x,
+        train_y,
+        validation_data=(valid_x, valid_y),
+        epochs=epochs,
+        batch_size=64,
+        callbacks=[early_stopping],
+        verbose=0,  # Reduce output for cleaner logs
+    )
+
+    # Evaluate on validation set
+    val_loss, val_rmse = model.evaluate(valid_x, valid_y, verbose=0)
+
+    return {
+        "model": model,
+        "val_rmse": val_rmse,
+        "val_loss": val_loss,
+        "history": history,
+        "epochs_trained": len(history.history["loss"]),
+    }
+```
+
+## Step 3: Set Up Hyperparameter Optimization
+
+Now let's create the optimization framework:
+
+```python
+def objective(params):
+    """
+    Objective function for hyperparameter optimization.
+    This function will be called by Hyperopt for each trial.
+    """
+    with mlflow.start_run(nested=True):
+        # Log hyperparameters being tested
+        mlflow.log_params(
+            {
+                "learning_rate": params["learning_rate"],
+                "momentum": params["momentum"],
+                "optimizer": "SGD",
+                "architecture": "64-32-1",
+            }
+        )
+
+        # Train model with current hyperparameters
+        result = create_and_train_model(
+            learning_rate=params["learning_rate"],
+            momentum=params["momentum"],
+            epochs=15,
+        )
+
+        # Log training results
+        mlflow.log_metrics(
+            {
+                "val_rmse": result["val_rmse"],
+                "val_loss": result["val_loss"],
+                "epochs_trained": result["epochs_trained"],
+            }
+        )
+
+        # Log the trained model
+        mlflow.tensorflow.log_model(result["model"], name="model", signature=signature)
+
+        # Log training curves as artifacts
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(12, 4))
+
+        plt.subplot(1, 2, 1)
+        plt.plot(result["history"].history["loss"], label="Training Loss")
+        plt.plot(result["history"].history["val_loss"], label="Validation Loss")
+        plt.title("Model Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(
+            result["history"].history["root_mean_squared_error"], label="Training RMSE"
+        )
+        plt.plot(
+            result["history"].history["val_root_mean_squared_error"],
+            label="Validation RMSE",
+        )
+        plt.title("Model RMSE")
+        plt.xlabel("Epoch")
+        plt.ylabel("RMSE")
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig("training_curves.png")
+        mlflow.log_artifact("training_curves.png")
+        plt.close()
+
+        # Return loss for Hyperopt (it minimizes)
+        return {"loss": result["val_rmse"], "status": STATUS_OK}
+
+
+# Define search space for hyperparameters
+search_space = {
+    "learning_rate": hp.loguniform("learning_rate", np.log(1e-5), np.log(1e-1)),
+    "momentum": hp.uniform("momentum", 0.0, 0.9),
+}
+
+print("Search space defined:")
+print("- Learning rate: 1e-5 to 1e-1 (log-uniform)")
+print("- Momentum: 0.0 to 0.9 (uniform)")
+```
+
+## Step 4: Run the Hyperparameter Optimization
+
+Execute the optimization experiment:
+
+```python
+# Create or set experiment
+experiment_name = "wine-quality-optimization"
+mlflow.set_experiment(experiment_name)
+
+print(f"Starting hyperparameter optimization experiment: {experiment_name}")
+print("This will run 15 trials to find optimal hyperparameters...")
+
+with mlflow.start_run(run_name="hyperparameter-sweep"):
+    # Log experiment metadata
+    mlflow.log_params(
+        {
+            "optimization_method": "Tree-structured Parzen Estimator (TPE)",
+            "max_evaluations": 15,
+            "objective_metric": "validation_rmse",
+            "dataset": "wine-quality",
+            "model_type": "neural_network",
+        }
+    )
+
+    # Run optimization
+    trials = Trials()
+    best_params = fmin(
+        fn=objective,
+        space=search_space,
+        algo=tpe.suggest,
+        max_evals=15,
+        trials=trials,
+        verbose=True,
+    )
+
+    # Find and log best results
+    best_trial = min(trials.results, key=lambda x: x["loss"])
+    best_rmse = best_trial["loss"]
+
+    # Log optimization results
+    mlflow.log_params(
+        {
+            "best_learning_rate": best_params["learning_rate"],
+            "best_momentum": best_params["momentum"],
+        }
+    )
+    mlflow.log_metrics(
+        {
+            "best_val_rmse": best_rmse,
+            "total_trials": len(trials.trials),
+            "optimization_completed": 1,
+        }
+    )
+```
+
+## Step 5: Analyze Results in MLflow UI
+
+Open [http://localhost:5000](http://localhost:5000) in your browser to explore your results:
+
+### Table View Analysis
+
+1. **Navigate to your experiment**: Click on "wine-quality-optimization"
+2. **Add key columns**: Click "Columns" and add:
+   - `Metrics | val_rmse`
+   - `Parameters | learning_rate`
+   - `Parameters | momentum`
+3. **Sort by performance**: Click the `val_rmse` column header to sort by best performance
+
+### Visual Analysis
+
+1. **Switch to Chart view**: Click the "Chart" tab
+2. **Create parallel coordinates plot**:
+   - Select "Parallel coordinates"
+   - Add `learning_rate` and `momentum` as coordinates
+   - Set `val_rmse` as the metric
+3. **Interpret the visualization**:
+   - Blue lines = better performing runs
+   - Red lines = worse performing runs
+   - Look for patterns in successful parameter combinations
+
+### Key Insights to Look For
+
+- **Learning rate patterns**: Too high causes instability, too low causes slow convergence
+- **Momentum effects**: Moderate momentum (0.3-0.7) often works best
+- **Training curves**: Check artifacts to see if models converged properly
+
+## Step 6: Register Your Best Model
+
+Time to promote your best model to production:
+
+1. **Find the best run**: In the Table view, click on the run with the lowest `val_rmse`
+2. **Navigate to model artifacts**: Scroll to the "Artifacts" section
+3. **Register the model**:
+   - Click "Register Model" next to the model folder
+   - Enter model name: `wine-quality-predictor`
+   - Add description: "Optimized neural network for wine quality prediction"
+   - Click "Register"
+
+4. **Manage model lifecycle**:
+   - Go to "Models" tab in MLflow UI
+   - Click on your registered model
+   - Transition to "Staging" stage for testing
+   - Add tags and descriptions as needed
+
+## Step 7: Deploy Your Model Locally
+
+Test your model with a REST API deployment:
+
+```bash
+# Serve the model (choose the version number you registered)
+mlflow models serve -m "models:/wine-quality-predictor/1" --port 5002
+```
+
+:::note Port Configuration
+We use port 5002 to avoid conflicts with the MLflow UI running on port 5000. In production, you'd typically use port 80 or 443.
+:::
+
+### Test Your Deployment
+
+```bash
+# Test with a sample wine
+curl -X POST http://localhost:5002/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataframe_split": {
+      "columns": [
+        "fixed acidity", "volatile acidity", "citric acid", "residual sugar",
+        "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density",
+        "pH", "sulphates", "alcohol"
+      ],
+      "data": [[7.0, 0.27, 0.36, 20.7, 0.045, 45, 170, 1.001, 3.0, 0.45, 8.8]]
+    }
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "predictions": [5.31]
+}
+```
+
+This predicts a wine quality score of approximately 5.31 on the 3-8 scale.
+
+### Test with Python
+
+```python
+import requests
+import json
+
+# Prepare test data
+test_wine = {
+    "dataframe_split": {
+        "columns": [
+            "fixed acidity",
+            "volatile acidity",
+            "citric acid",
+            "residual sugar",
+            "chlorides",
+            "free sulfur dioxide",
+            "total sulfur dioxide",
+            "density",
+            "pH",
+            "sulphates",
+            "alcohol",
+        ],
+        "data": [[7.0, 0.27, 0.36, 20.7, 0.045, 45, 170, 1.001, 3.0, 0.45, 8.8]],
+    }
+}
+
+# Make prediction request
+response = requests.post(
+    "http://localhost:5002/invocations",
+    headers={"Content-Type": "application/json"},
+    data=json.dumps(test_wine),
+)
+
+prediction = response.json()
+print(f"Predicted wine quality: {prediction['predictions'][0]:.2f}")
+```
+
+## Step 8: Build Production Container
+
+Create a Docker container for cloud deployment:
+
+```bash
+# Build Docker image
+mlflow models build-docker \
+  --model-uri "models:/wine-quality-predictor/1" \
+  --name "wine-quality-api"
+```
+
+:::info Build Time
+The Docker build process typically takes 3-5 minutes as it installs all dependencies and configures the runtime environment.
+:::
+
+### Test Your Container
+
+```bash
+# Run the container
+docker run -p 5003:8080 wine-quality-api
+
+# Test in another terminal
+curl -X POST http://localhost:5003/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataframe_split": {
+      "columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"],
+      "data": [[7.0, 0.27, 0.36, 20.7, 0.045, 45, 170, 1.001, 3.0, 0.45, 8.8]]
+    }
+  }'
+```
+
+## Step 9: Deploy to Cloud (Optional)
+
+Your Docker container is now ready for cloud deployment:
+
+### Popular Cloud Options
+
+**AWS**: Deploy to ECS, EKS, or SageMaker
+
+```bash
+# Example: Push to ECR and deploy to ECS
+aws ecr create-repository --repository-name wine-quality-api
+docker tag wine-quality-api:latest <your-account>.dkr.ecr.us-east-1.amazonaws.com/wine-quality-api:latest
+docker push <your-account>.dkr.ecr.us-east-1.amazonaws.com/wine-quality-api:latest
+```
+
+**Azure**: Deploy to Container Instances or AKS
+
+```bash
+# Example: Deploy to Azure Container Instances
+az container create \
+  --resource-group myResourceGroup \
+  --name wine-quality-api \
+  --image wine-quality-api:latest \
+  --ports 8080
+```
+
+**Google Cloud**: Deploy to Cloud Run or GKE
+
+```bash
+# Example: Deploy to Cloud Run
+gcloud run deploy wine-quality-api \
+  --image gcr.io/your-project/wine-quality-api \
+  --platform managed \
+  --port 8080
+```
+
+**Databricks**: Deploy with Mosaic AI Model Serving
+
+```python
+# First, register your model in Unity Catalog
+import mlflow
+
+mlflow.set_registry_uri("databricks-uc")
+
+with mlflow.start_run():
+    # Log your model to Unity Catalog
+    mlflow.tensorflow.log_model(
+        model,
+        name="wine-quality-model",
+        registered_model_name="main.default.wine_quality_predictor",
+    )
+
+# Then create a serving endpoint using the Databricks UI:
+# 1. Navigate to "Serving" in the Databricks workspace
+# 2. Click "Create serving endpoint"
+# 3. Select your registered model from Unity Catalog
+# 4. Configure compute and traffic settings
+# 5. Deploy and test your endpoint
+```
+
+Or use the Databricks deployment client programmatically:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+# Create deployment client
+client = get_deploy_client("databricks")
+
+# Create serving endpoint
+endpoint = client.create_endpoint(
+    config={
+        "name": "wine-quality-endpoint",
+        "config": {
+            "served_entities": [
+                {
+                    "entity_name": "main.default.wine_quality_predictor",
+                    "entity_version": "1",
+                    "workload_size": "Small",
+                    "scale_to_zero_enabled": True,
+                }
+            ]
+        },
+    }
+)
+
+# Query the endpoint
+response = client.predict(
+    endpoint="wine-quality-endpoint",
+    inputs={
+        "dataframe_split": {
+            "columns": [
+                "fixed acidity",
+                "volatile acidity",
+                "citric acid",
+                "residual sugar",
+                "chlorides",
+                "free sulfur dioxide",
+                "total sulfur dioxide",
+                "density",
+                "pH",
+                "sulphates",
+                "alcohol",
+            ],
+            "data": [[7.0, 0.27, 0.36, 20.7, 0.045, 45, 170, 1.001, 3.0, 0.45, 8.8]],
+        }
+    },
+)
+```
+
+## What You've Accomplished
+
+🎉 **Congratulations!** You've completed a full MLOps workflow:
+
+- ✅ **Optimized hyperparameters** using systematic search instead of guesswork
+- ✅ **Tracked 15+ experiments** with complete reproducibility
+- ✅ **Visualized results** to understand parameter relationships
+- ✅ **Registered your best model** with proper versioning
+- ✅ **Deployed to REST API** for real-time predictions
+- ✅ **Containerized for production** deployment
+
+## Next Steps
+
+### Enhance Your MLOps Skills
+
+- **Advanced Optimization**: Try [Optuna](https://optuna.org/) or [Ray Tune](https://docs.ray.io/en/latest/tune/index.html) for more sophisticated hyperparameter optimization. Both work seamlessly with MLflow.
+- **Model Monitoring**: Implement drift detection and performance monitoring in production
+- **A/B Testing**: Compare model versions in production using MLflow's model registry
+- **CI/CD Integration**: Automate model training and deployment with GitHub Actions or similar
+
+### Scale Your Infrastructure with a [Tracking Server](/ml/getting-started/tracking-server-overview)
+
+- **MLflow on Kubernetes**: Deploy MLflow tracking server on K8s for team collaboration
+- **Database Backend**: Use PostgreSQL or MySQL instead of file-based storage
+- **Artifact Storage**: Configure S3, Azure Blob, or GCS for model artifacts
+- **Authentication**: Add user management and access controls with built-in [Authentication](/ml/auth)
+
+The foundation you've built here scales to any machine learning problem. The key principles—systematic experimentation, comprehensive tracking, and automated deployment—remain constant across domains and complexity levels.

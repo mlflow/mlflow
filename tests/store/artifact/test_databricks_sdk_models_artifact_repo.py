@@ -1,8 +1,10 @@
 import io
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors.platform import NotFound
 from databricks.sdk.service.files import DirectoryEntry, DownloadResponse
 
 from mlflow.entities.file_info import FileInfo
@@ -38,6 +40,12 @@ def mock_databricks_workspace_client():
 def test_list_artifacts_empty(mock_databricks_workspace_client):
     repo = DatabricksSDKModelsArtifactRepository(TEST_MODEL_NAME, TEST_MODEL_VERSION)
     mock_databricks_workspace_client.files.list_directory_contents.return_value = iter([])
+    assert repo.list_artifacts() == []
+
+
+def test_list_artifacts_listfile(mock_databricks_workspace_client):
+    repo = DatabricksSDKModelsArtifactRepository(TEST_MODEL_NAME, TEST_MODEL_VERSION)
+    mock_databricks_workspace_client.files.get_directory_metadata.side_effect = NotFound
     assert repo.list_artifacts() == []
 
 
@@ -173,19 +181,58 @@ def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc(tmp_path, monkeyp
             "DATABRICKS_TOKEN": "my-token",
         }
     )
-    uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
-    repo = uc_repo._get_artifact_repo()
-    assert isinstance(repo, DatabricksSDKModelsArtifactRepository)
+    with mock.patch(
+        "mlflow.utils._unity_catalog_utils.call_endpoint",
+        side_effect=[
+            Exception("lineage emission fails"),
+        ],
+    ):
+        uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
+        repo = uc_repo._get_artifact_repo()
+        assert isinstance(repo, DatabricksSDKModelsArtifactRepository)
 
-    store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
-    assert isinstance(
-        store._get_artifact_repo(
-            ModelVersion(
-                name="name",
-                version="version",
-                creation_timestamp=1,
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        assert isinstance(
+            store._get_artifact_repo(
+                ModelVersion(
+                    name="name",
+                    version="version",
+                    creation_timestamp=1,
+                ),
+                TEST_MODEL_NAME,
             ),
-            TEST_MODEL_NAME,
-        ),
-        DatabricksSDKModelsArtifactRepository,
+            DatabricksSDKModelsArtifactRepository,
+        )
+
+
+def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc_seg(tmp_path, monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "DATABRICKS_HOST": "my-host",
+            "DATABRICKS_TOKEN": "my-token",
+        }
     )
+    with mock.patch(
+        "mlflow.utils._unity_catalog_utils.call_endpoint",
+        side_effect=[
+            SimpleNamespace(is_databricks_sdk_models_artifact_repository_enabled=True),
+            Exception("lineage emission fails"),
+            SimpleNamespace(is_databricks_sdk_models_artifact_repository_enabled=True),
+        ],
+    ):
+        uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
+        repo = uc_repo._get_artifact_repo()
+        assert isinstance(repo, DatabricksSDKModelsArtifactRepository)
+
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        assert isinstance(
+            store._get_artifact_repo(
+                ModelVersion(
+                    name="name",
+                    version="version",
+                    creation_timestamp=1,
+                ),
+                TEST_MODEL_NAME,
+            ),
+            DatabricksSDKModelsArtifactRepository,
+        )

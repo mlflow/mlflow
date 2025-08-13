@@ -1,14 +1,18 @@
+import hashlib
 import json
 import logging
 import os
 import shutil
+from pathlib import Path
 from unittest import mock
 
 import pytest
 from click.testing import CliRunner
 
 from mlflow import MlflowClient, cli
-from mlflow.utils import insecure_hash, process
+from mlflow.utils import process
+from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root, _get_virtualenv_name
 
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import (
@@ -16,6 +20,7 @@ from tests.projects.utils import (
     SSH_PROJECT_URI,
     TEST_DOCKER_PROJECT_DIR,
     TEST_PROJECT_DIR,
+    TEST_VIRTUALENV_PROJECT_DIR,
     docker_example_base_image,  # noqa: F401
 )
 
@@ -90,7 +95,7 @@ def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-{}".format(
-        insecure_hash.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
     )
     try:
         process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
@@ -103,6 +108,26 @@ def test_run_local_conda_env():
     invoke_cli_runner(
         cli.run,
         [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", f"conda_env_name={expected_env_name}"],
+    )
+
+
+@skip_if_skinny
+def test_run_uv_python_env():
+    python_env_path = os.path.join(TEST_VIRTUALENV_PROJECT_DIR, "python_env.yaml")
+    python_env_contents = _PythonEnv.from_yaml(python_env_path)
+
+    work_dir_path = Path(TEST_VIRTUALENV_PROJECT_DIR)
+    virtualenv_root = Path(_get_mlflow_virtualenv_root())
+    env_name = _get_virtualenv_name(python_env_contents, work_dir_path)
+    env_dir = virtualenv_root / env_name
+
+    if env_dir.exists():
+        shutil.rmtree(env_dir)
+
+    invoke_cli_runner(
+        cli.run,
+        [TEST_VIRTUALENV_PROJECT_DIR, "-e", "test", "--env-manager", "uv"],
+        env={"UV_PRERELEASE": "allow"},
     )
 
 

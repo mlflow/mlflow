@@ -33,7 +33,6 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
         diviner_data,
         grouped_prophet,
     )
-    from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
     from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
@@ -61,10 +60,7 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     )
     from tests.statsmodels.model_fixtures import ols_model
     from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-    from tests.transformers.helper import (
-        load_small_qa_tf_pipeline,
-        load_text_classification_pipeline,
-    )
+    from tests.transformers.helper import load_text_classification_pipeline
 
 
 pytestmark = pytest.mark.skipif(
@@ -109,14 +105,15 @@ def start_container(port: int):
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
                     break
-            except requests.exceptions.ConnectionError:
-                time.sleep(5)
+            except requests.exceptions.ConnectionError as e:
+                sys.stdout.write(f"An exception occurred when calling the server: {e}\n")
 
             container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
+            time.sleep(5)
 
         else:
             raise TimeoutError("Failed to start server.")
@@ -133,13 +130,11 @@ def start_container(port: int):
     [
         "catboost",
         "diviner",
-        "fastai",
         "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
         "langchain",
         "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
         "paddle",
@@ -153,7 +148,6 @@ def start_container(port: int):
         "statsmodels",
         "tensorflow",
         "transformers_pt",  # Test with Pytorch-based model
-        "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):
@@ -206,17 +200,6 @@ def diviner_model(model_path, grouped_prophet):
         diviner_model=grouped_prophet,
         path=model_path,
         input_example={"horizon": 10, "frequency": "D"},
-    )
-    return model_path
-
-
-@pytest.fixture
-def fastai_model(model_path, fastai_model_raw):
-    save_model_with_latest_mlflow_version(
-        flavor="fastai",
-        fastai_learner=fastai_model_raw.model,
-        path=model_path,
-        input_example=fastai_model_raw.inference_dataframe[:1],
     )
     return model_path
 
@@ -436,17 +419,5 @@ def transformers_pt_model(model_path):
         transformers_model=pipeline,
         path=model_path,
         input_example="hi",
-    )
-    return model_path
-
-
-@pytest.fixture
-def transformers_tf_model(model_path):
-    pipeline = load_small_qa_tf_pipeline()
-    save_model_with_latest_mlflow_version(
-        flavor="transformers",
-        transformers_model=pipeline,
-        path=model_path,
-        input_example={"question": "What is MLflow", "context": "It's an open source platform"},
     )
     return model_path

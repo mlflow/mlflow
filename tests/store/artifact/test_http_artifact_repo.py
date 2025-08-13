@@ -126,38 +126,45 @@ def test_log_artifact(
 
     # assert reverted to normal upload when mpu is not supported
     # mock that create_multipart_upload will returns a 400 error with appropriate message
-    with mock.patch.object(
-        http_artifact_repo,
-        "create_multipart_upload",
-        side_effect=HTTPError(
-            response=MockResponse(
-                data={
-                    "message": "Multipart upload is not supported for the current "
-                    "artifact repository"
-                },
-                status_code=501,
-            )
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(
+                response=MockResponse(
+                    data={
+                        "message": "Multipart upload is not supported for the current "
+                        "artifact repository"
+                    },
+                    status_code=501,
+                )
+            ),
         ),
-    ), mock.patch(
-        "mlflow.store.artifact.http_artifact_repo.http_request",
-        return_value=MockResponse({}, 200),
-    ) as mock_put:
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
+    ):
         http_artifact_repo.log_artifact(file_path, artifact_path)
         assert_called_log_artifact(mock_put)
 
     # assert if mpu is triggered but the uploads failed, mpu is aborted and exception is raised
-    with mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")), mock.patch.object(
-        http_artifact_repo,
-        "create_multipart_upload",
-        return_value=CreateMultipartUploadResponse(
-            upload_id="upload_id",
-            credentials=[MultipartUploadCredential(url="url", part_number=1, headers={})],
+    with (
+        mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")),
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            return_value=CreateMultipartUploadResponse(
+                upload_id="upload_id",
+                credentials=[MultipartUploadCredential(url="url", part_number=1, headers={})],
+            ),
         ),
-    ), mock.patch.object(
-        http_artifact_repo,
-        "abort_multipart_upload",
-        return_value=None,
-    ) as mock_abort:
+        mock.patch.object(
+            http_artifact_repo,
+            "abort_multipart_upload",
+            return_value=None,
+        ) as mock_abort,
+    ):
         with pytest.raises(Exception, match="MPU_UPLOAD_FAILS"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
         mock_abort.assert_called_once()

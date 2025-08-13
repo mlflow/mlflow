@@ -1,9 +1,12 @@
 import functools
 import logging
-import os
+import subprocess
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
@@ -63,31 +66,40 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
     return True
 
 
-def _token_count_eval_fn(predictions, targets=None, metrics=None):
-    import tiktoken
+def _load_from_github(path: str, module_type: str = "metric"):
+    import evaluate
 
-    # ref: https://github.com/openai/tiktoken/issues/75
-    os.environ["TIKTOKEN_CACHE_DIR"] = ""
-    encoding = tiktoken.get_encoding("cl100k_base")
-
-    num_tokens = []
-    for prediction in predictions:
-        if isinstance(prediction, str):
-            num_tokens.append(len(encoding.encode(prediction)))
-        else:
-            num_tokens.append(None)
-
-    return MetricValue(
-        scores=num_tokens,
-        aggregate_results={},
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        subprocess.check_call(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                "https://github.com/huggingface/evaluate.git",
+                tmpdir,
+            ]
+        )
+        path = f"{module_type}s/{path}"
+        subprocess.check_call(["git", "sparse-checkout", "set", path], cwd=tmpdir)
+        subprocess.check_call(["git", "checkout"], cwd=tmpdir)
+        return evaluate.load(str(tmpdir / path))
 
 
 @functools.lru_cache(maxsize=8)
-def _cached_evaluate_load(path, module_type=None):
+def _cached_evaluate_load(path: str, module_type: str = "metric"):
     import evaluate
 
-    return evaluate.load(path, module_type=module_type)
+    try:
+        return evaluate.load(path, module_type=module_type)
+    except (FileNotFoundError, OSError):
+        if _MLFLOW_TESTING.get():
+            # `evaluate.load` is highly unstable and often fails due to a network error or
+            # huggingface hub being down. In testing, we want to avoid this instability, so we
+            # load the metric from the evaluate repository on GitHub.
+            return _load_from_github(path, module_type=module_type)
+        raise
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
@@ -275,11 +287,26 @@ def _mse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
         return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
-def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
-    if targets is not None and len(targets) != 0:
+def _root_mean_squared_error(*, y_true, y_pred, sample_weight):
+    try:
+        from sklearn.metrics import root_mean_squared_error
+    except ImportError:
+        # If root_mean_squared_error is unavailable, fall back to
+        # `mean_squared_error(..., squared=False)`, which is deprecated in scikit-learn >= 1.4.
         from sklearn.metrics import mean_squared_error
 
-        rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weight)
+        return mean_squared_error(
+            y_true=y_true, y_pred=y_pred, sample_weight=sample_weight, squared=False
+        )
+    else:
+        return root_mean_squared_error(y_true=y_true, y_pred=y_pred, sample_weight=sample_weight)
+
+
+def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+    if targets is not None and len(targets) != 0:
+        rmse = _root_mean_squared_error(
+            y_true=targets, y_pred=predictions, sample_weight=sample_weight
+        )
         return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
@@ -368,7 +395,8 @@ def _precision_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), prediction[:k]
+            ground_truth = set(target)
+            retrieved = prediction[:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
@@ -493,7 +521,8 @@ def _recall_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), set(prediction[:k])
+            ground_truth = set(target)
+            retrieved = set(prediction[:k])
             relevant_doc_count = len(ground_truth.intersection(retrieved))
             if len(ground_truth) > 0:
                 scores.append(relevant_doc_count / len(ground_truth))
@@ -507,3 +536,61 @@ def _recall_at_k_eval_fn(k):
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
     return _fn
+
+
+def _bleu_eval_fn(predictions, targets=None, metrics=None):
+    # Validate input data
+    if not _validate_text_data(targets, "bleu", targets_col_specifier):
+        _logger.error(
+            """Target validation failed.
+            Ensure targets are valid for BLEU computation."""
+        )
+        return
+    if not _validate_text_data(predictions, "bleu", predictions_col_specifier):
+        _logger.error(
+            """Prediction validation failed.
+            Ensure predictions are valid for BLEU computation."""
+        )
+        return
+
+    # Load BLEU metric
+    try:
+        bleu = _cached_evaluate_load("bleu")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'bleu' metric (error: {e!r}), skipping metric logging.")
+        return
+
+    # Calculate BLEU scores for each prediction-target pair
+    result = []
+    invalid_indices = []
+
+    for i, (prediction, target) in enumerate(zip(predictions, targets)):
+        if len(target) == 0 or len(prediction) == 0:
+            invalid_indices.append(i)
+            result.append(0)  # Append 0 as a placeholder for invalid entries
+            continue
+
+        try:
+            score = bleu.compute(predictions=[prediction], references=[[target]])
+            result.append(score["bleu"])
+        except Exception as e:
+            _logger.warning(f"Failed to calculate BLEU for row {i} (error: {e!r}). Skipping.")
+            result.append(0)  # Append 0 for consistency if an unexpected error occurs
+
+    # Log warning for any invalid indices
+    if invalid_indices:
+        _logger.warning(
+            f"BLEU score calculation skipped for the following indices "
+            f"due to empty target or prediction: {invalid_indices}. "
+            f"A score of 0 was appended for these entries."
+        )
+
+    # Return results
+    if not result:
+        _logger.warning("No BLEU scores were calculated due to input errors.")
+        return
+
+    return MetricValue(
+        scores=result,
+        aggregate_results=standard_aggregations(result),
+    )

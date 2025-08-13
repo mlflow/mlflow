@@ -18,12 +18,14 @@ import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
 import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
 import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 const getLatestVersionNumberByStage = (latestVersions: ModelVersionInfoEntity[], stage: string) => {
   const modelVersion = latestVersions && latestVersions.find((v) => v.current_stage === stage);
@@ -52,7 +54,8 @@ export interface ModelListTableProps {
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
 }
 
-type ModelsColumnDef = ColumnDef<ModelEntity> & {
+type EnrichedModelEntity = ModelEntity;
+type ModelsColumnDef = ColumnDef<EnrichedModelEntity> & {
   // Our experiments column definition houses style definitions in the metadata field
   meta?: { styles?: Interpolation<Theme> };
 };
@@ -70,6 +73,10 @@ export const ModelListTable = ({
   const intl = useIntl();
 
   const { usingNextModelsUI } = useNextModelsUIContext();
+
+  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
+    return model;
+  });
 
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
@@ -169,7 +176,9 @@ export const ModelListTable = ({
         }),
         accessorKey: 'user_id',
         enableSorting: false,
-        cell: ({ getValue }) => <span title={getValue() as string}>{getValue()}</span>,
+        cell: ({ getValue, row: { original } }) => {
+          return <span title={getValue() as string}>{getValue()}</span>;
+        },
         meta: { styles: { flex: 1 } },
       },
       {
@@ -180,7 +189,7 @@ export const ModelListTable = ({
           description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
-        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
+        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue(), intl)}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
       {
@@ -198,11 +207,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
@@ -227,7 +232,7 @@ export const ModelListTable = ({
   const emptyComponent = error ? (
     <Empty
       image={<WarningIcon />}
-      description={error.message}
+      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
       title={
         <FormattedMessage
           defaultMessage="Error fetching models"
@@ -268,8 +273,8 @@ export const ModelListTable = ({
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<ModelEntity>({
-    data: modelsData,
+  const table = useReactTable<EnrichedModelEntity>({
+    data: enrichedModelsData,
     columns: tableColumns,
     state: {
       sorting,
@@ -290,6 +295,7 @@ export const ModelListTable = ({
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
+              componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_412"
               ellipsis
               key={header.id}
               sortable={header.column.getCanSort()}

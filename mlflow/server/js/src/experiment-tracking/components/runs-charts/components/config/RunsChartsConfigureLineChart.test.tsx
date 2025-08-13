@@ -2,19 +2,9 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { RunsChartsConfigureLineChart } from './RunsChartsConfigureLineChart';
 import { IntlProvider } from 'react-intl';
 import { RunsChartsLineChartXAxisType } from '../RunsCharts.common';
-import { shouldEnableManualRangeControls } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('@mlflow/mlflow/src/common/utils/FeatureUtils'),
-  shouldEnableManualRangeControls: jest.fn(),
-}));
-
 describe('RunsChartsConfigureLineChart', () => {
-  beforeEach(() => {
-    jest.mocked(shouldEnableManualRangeControls).mockImplementation(() => true);
-  });
-
   test('should update x and y range when manual controls are changed', () => {
     // Arrange
     const metricKeyList = ['metric1'];

@@ -2,9 +2,9 @@ import json
 import os
 import re
 import time
-from collections import namedtuple
 from functools import wraps
 from io import BytesIO
+from typing import NamedTuple
 from unittest import mock
 
 import boto3
@@ -35,7 +35,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 from tests.sagemaker.mock import Endpoint, EndpointOperation, mock_sagemaker
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
+
+class TrainedModel(NamedTuple):
+    model_path: str
+    run_id: str
+    model_uri: str
 
 
 @pytest.fixture
@@ -46,7 +50,7 @@ def pretrained_model():
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression(solver="lbfgs")
         lr.fit(X, y)
-        mlflow.sklearn.log_model(lr, model_path)
+        mlflow.sklearn.log_model(lr, name=model_path)
         run_id = mlflow.active_run().info.run_id
         model_uri = "runs:/" + run_id + "/" + model_path
         return TrainedModel(model_path, run_id, model_uri)
@@ -439,19 +443,6 @@ def test_create_deployment_with_unsupported_flavor_raises_exception(
         )
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_create_deployment_with_missing_flavor_raises_exception(
-    pretrained_model, sagemaker_deployment_client
-):
-    missing_flavor = "mleap"
-    match = "The specified model does not contain the specified deployment flavor"
-    with pytest.raises(MlflowException, match=match) as exc:
-        sagemaker_deployment_client.create_deployment(
-            name="missing-flavor", model_uri=pretrained_model.model_uri, flavor=missing_flavor
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_create_deployment_of_model_with_no_supported_flavors_raises_exception(
@@ -975,9 +966,10 @@ def test_create_deployment_throws_exception_after_endpoint_creation_fails(
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations
-    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),
+        pytest.raises(MlflowException, match="deployment operation failed") as exc,
+    ):
         sagemaker_deployment_client.create_deployment(
             name="test-app",
             model_uri=pretrained_model.model_uri,
@@ -1224,9 +1216,10 @@ def test_update_deployment_in_replace_mode_throws_exception_after_endpoint_updat
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates
-    ), pytest.raises(MlflowException, match="deployment operation failed") as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),
+        pytest.raises(MlflowException, match="deployment operation failed") as exc,
+    ):
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
@@ -1311,7 +1304,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, new_artifact_path)
+        mlflow.sklearn.log_model(sk_model, name=new_artifact_path)
         new_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{new_artifact_path}"
     sagemaker_deployment_client.update_deployment(
         name=name,

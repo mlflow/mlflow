@@ -17,7 +17,6 @@ RUN python -c "from mlflow.models import container as C; C._install_pyfunc_deps(
 
 ENV MLFLOW_DISABLE_ENV_CREATION=True
 ENV ENABLE_MLSERVER=False
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints

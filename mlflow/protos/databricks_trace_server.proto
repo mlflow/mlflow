@@ -1,0 +1,268 @@
+// This file contains the proto definition for communicating with the Databricks tracing server.
+// The message definition should be kept in (mostly) sync with the MLflow service definition.
+syntax = "proto2";
+
+package mlflow.traceserver;
+
+import "databricks.proto";
+import "assessments.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+option py_generic_services = true;
+
+service DatabricksTracingServerService {
+  // Create a new trace in the tracing server.
+  rpc createTrace(CreateTrace) returns (Trace) {
+    option (rpc) = {
+      visibility: PUBLIC_UNDOCUMENTED
+      endpoints: [{
+        method: "POST",
+        path: "/tracing/traces",
+      }],
+    };
+  }
+}
+
+
+// NB: This is different from the proto definition of the Databricks Trace Server,
+// which has `Trace` message as the top level field. The field is actually unwrapped
+// in the actual JSON payload, because Databricks endpoint uses (google.api.http)
+// annotation and specify "trace" as the body field. When it is specified, the
+// endpoint expects the unwrapped message rather than having a top level "trace" field.
+// We did not use the google.api.http annotation because it requires adding the
+// google-api-python-client package as a core dependency, which is > 10MB in size.
+message CreateTrace {
+    option (scalapb.message).extends = "com.databricks.rpc.RPC[Trace]";
+    optional TraceInfo info = 1;
+    optional TraceData data = 2;
+}
+
+
+// Top level message for a trace.
+message Trace {
+    optional TraceInfo info = 1;
+    optional TraceData data = 2;
+}
+
+message TraceInfo {
+  // The primary key associated with the trace
+  optional string trace_id = 1;
+
+  // Client supplied request ID associated with the trace. This could be used to identify the trace/request from an
+  // external system that produced the trace.
+  optional string client_request_id = 2;
+
+  optional TraceLocation trace_location = 3;
+
+  // [Deprecated, please use ``request_preview`` instead].
+  // The request to the model/agent represented as a JSON string. This is equivalent to the input of the root span.
+  optional string request = 4;
+
+  // [Deprecated, please use ``response_preview`` instead].
+  // The response of the model/agent represented as a JSON string. This is equivalent to the output of the root span.
+  optional string response = 5;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 12;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 13;
+
+  // Start time of the trace
+  optional google.protobuf.Timestamp request_time = 6;
+
+  // Execution time of the trace
+  optional google.protobuf.Duration execution_duration = 7;
+
+  // Execution state of the trace at the time that it was logged.
+  enum State {
+    STATE_UNSPECIFIED = 0;
+
+    // The operation being traced was successful.
+    OK = 1;
+
+    // The operation being traced failed.
+    ERROR = 2;
+
+    // The operation being traced is still in progress. This is useful for incremental/distributed tracing logging in
+    // contrast with when the full trace is logged only upon its completion.
+    IN_PROGRESS = 3;
+  }
+  optional State state = 8;
+
+  // Metadata associated with the trace.
+  // Examples include:
+  // - run_id: The ID of the mlflow Run (i.e. evaluation job) that produced the trace. May not be
+  //           applicable in certain situations such as if the trace was created via interactive vibe checks)
+  // - model_id: The ID of the associated model that produced the trace.
+  // - dataset_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - dataset_record_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - session_id: The ID of the session (e.g. chat conversation) where the request came from
+  map<string, string> trace_metadata = 9;
+
+  repeated assessments.Assessment assessments = 10;
+
+  // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
+  map<string, string> tags = 11;
+}
+
+// The location where the traces was stored and produced
+message TraceLocation {
+
+  enum TraceLocationType {
+    TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
+    MLFLOW_EXPERIMENT = 1;
+    INFERENCE_TABLE= 2;
+  }
+  optional TraceLocationType type = 1;
+
+  message MlflowExperimentLocation {
+    // MLflow experiment ID which is the ACL container holding the trace.
+    optional string experiment_id = 1;
+  }
+
+  message InferenceTableLocation {
+    // Full inference table name in the form of catalog.schema.table_name
+    optional string full_table_name = 1;
+  }
+
+  oneof identifier {
+    MlflowExperimentLocation mlflow_experiment = 2;
+    InferenceTableLocation inference_table = 3;
+  }
+}
+
+
+// TraceData is a collection of spans that represent the operations performed in a trace.
+// This is not defined for MLflow service because spans are logged as an artifact file.
+// TODO: Move this to the MLflow proto definition once the MLflow service is updated to
+// the same V3 trace definition.
+message TraceData {
+    // A single trace consists of a list of spans detailing the operations performed
+    repeated Span spans = 1;
+}
+
+
+// Open telemetry compatible Span data model
+// Shameless copied over from OTLP: https://github.com/open-telemetry/opentelemetry-proto to make sure that it is
+// OTLP compliant: https://opentelemetry.io/docs/specs/otel/
+message Span {
+    // A unique identifier for a trace.
+    // Note that bytes are used to be compliant with the OTLP spec even though the trace data model is using String.
+    optional bytes trace_id = 1 [(validate_required) = true];
+
+    // A unique identifier for a span within a trace.
+    optional bytes span_id = 2 [(validate_required) = true];
+
+    // Conveys information about request position in multiple distributed tracing graphs (W3C trace_state).
+    optional string trace_state = 3;
+
+    // The `span_id` of this span's parent span. If this is a root span, then this field must be empty.
+    optional bytes parent_span_id = 4;
+
+    // Flags, a bit field. Not used by MLflow right now but included for OTLP compatibility [Optional].
+    optional fixed32 flags = 16;
+
+    // A description of the span's operation.
+    optional string name = 5 [(validate_required) = true];
+
+    // SpanKind is the type of span.
+    enum SpanKind {
+        SPAN_KIND_UNSPECIFIED = 0;
+        SPAN_KIND_INTERNAL = 1;
+        SPAN_KIND_SERVER = 2;
+        SPAN_KIND_CLIENT = 3;
+        SPAN_KIND_PRODUCER = 4;
+        SPAN_KIND_CONSUMER = 5;
+    }
+    optional SpanKind kind = 6;
+
+    // Start time of the span.
+    optional fixed64 start_time_unix_nano = 7 [(validate_required) = true];
+
+    // End time of the span.
+    optional fixed64 end_time_unix_nano = 8 [(validate_required) = true];
+
+    // A collection of key/value attributes.
+    // Note: different from the KeyValue in OTLP but will be wire compatible
+    map<string, google.protobuf.Value> attributes = 9;
+
+    // The number of attributes that were discarded.
+    optional uint32 dropped_attributes_count = 10;
+
+    // Event is a time-stamped annotation of the span.
+    message Event {
+        // The time the event occurred.
+        optional fixed64 time_unix_nano = 1 [(validate_required) = true];
+
+        // The name of the event.
+        optional string name = 2 [(validate_required) = true];
+
+        // A collection of attribute key/value pairs on the event.
+        // Note: different from the KeyValue in OTLP but will be wire compatible
+        map<string, google.protobuf.Value> attributes = 3;
+
+        // The number of dropped attributes.
+        optional uint32 dropped_attributes_count = 4;
+    }
+    // A collection of Event items.
+    repeated Event events = 11;
+
+    // The number of dropped events.
+    optional uint32 dropped_events_count = 12;
+
+    // A pointer from the current span to another span in the same trace or in a different trace.
+    // Not used by MLflow right now but included for OTLP compatibility.
+    message Link {
+        // A unique identifier of a trace that this linked span is part of.
+        // Note that bytes are used to be compliant with the OTLP spec even though the trace data model is using String.
+        optional bytes trace_id = 1 [(validate_required) = true];
+
+        // A unique identifier for the linked span.
+        optional bytes span_id = 2 [(validate_required) = true];
+
+        // The trace_state associated with the link.
+        optional string trace_state = 3;
+
+        // A collection of attribute key/value pairs on the link.
+        // Note: different from the KeyValue in OTLP but will be wire compatible
+        map<string, google.protobuf.Value> attributes = 4;
+
+        // The number of dropped attributes.
+        optional uint32 dropped_attributes_count = 5;
+
+        // Flags, a bit field. [Optional].
+        optional fixed32 flags = 6;
+    }
+    // A collection of Links, references from this span to other spans.
+    repeated Link links = 13;
+
+    // The number of dropped links.
+    optional uint32 dropped_links_count = 14;
+
+    // The Status type defines a logical error model suitable for different environments.
+    message Status {
+        // Reserved field for future use.
+        reserved 1;
+
+        // A developer-facing human readable error message.
+        optional string message = 2;
+
+        // For the semantics of status codes see OTEL specification.
+        enum StatusCode {
+            STATUS_CODE_UNSET = 0;
+            STATUS_CODE_OK = 1;
+            STATUS_CODE_ERROR = 2;
+        }
+
+        // The status code.
+        optional StatusCode code = 3;
+    }
+    // An optional final status for this span.
+    optional Status status = 15;
+}

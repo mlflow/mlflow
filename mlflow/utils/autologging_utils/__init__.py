@@ -2,13 +2,12 @@ import contextlib
 import importlib
 import inspect
 import logging
-import sys
+import threading
 import time
-from typing import List
+from typing import Any, Callable
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
@@ -17,12 +16,12 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
-from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
-    set_non_mlflow_warnings_behavior_for_current_thread,
+    MlflowEventsAndWarningsBehaviorGlobally,
+    NonMlflowWarningsBehaviorForCurrentThread,
 )
 
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
@@ -31,7 +30,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     ExceptionSafeAbstractClass,
     ExceptionSafeClass,
-    PatchFunction,
     exception_safe_function_for_class,
     is_testing,
     picklable_exception_safe_function,
@@ -52,8 +50,6 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 
 # Flag indicating whether autologging is globally disabled for all integrations.
 _AUTOLOGGING_GLOBALLY_DISABLED = False
-# Exempts autologging flavors from the `_AUTOLOGGING_GLOBALLY_DISABLED` flag
-_AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
 
 # Autologging config key indicating whether or not a particular autologging integration
 # was configured (i.e. its various `log_models`, `disable`, etc. configuration options
@@ -64,36 +60,23 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
-# Corresponds to `mlflow.langchain.autolog` kwargs. Restricts
-# autologging to only log traces.
-MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG = {
-    "log_input_examples": False,
-    "log_model_signatures": False,
-    "log_models": False,
-    "log_datasets": False,
-    "log_inputs_outputs": False,
-    "disable": False,
-    "exclusive": False,
-    "disable_for_unsupported_versions": False,
-    "silent": False,
-    "registered_model_name": None,
-    "extra_tags": None,
-    "extra_model_classes": None,
-    "log_traces": True,
-}
-
-# When the library version installed in the user's environment is outside of the supported
-# version range declared in `ml-package-versions.yml`, a warning message is issued to the user.
-# However, some libraries releases versions very frequently, and our configuration (updated on
-# MLflow release) cannot keep up with the pace, resulting in false alarms. Therefore, we
-# suppress warnings for certain libraries that are known to have frequent releases.
-_AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
-    "langchain",
-    "llama_index",
-    "openai",
-]
+# Global lock for turning on / off autologging
+# Note "RLock" is required instead of plain lock, for avoid dead-lock
+_autolog_conf_global_lock = threading.RLock()
 
 _logger = logging.getLogger(__name__)
+
+
+def autologging_conf_lock(fn):
+    """
+    Apply a global lock on functions that enable / disable autologging.
+    """
+
+    def wrapper(*args, **kwargs):
+        with _autolog_conf_global_lock:
+            return fn(*args, **kwargs)
+
+    return update_wrapper_extended(wrapper, fn)
 
 
 def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
@@ -251,8 +234,11 @@ class BatchMetricsLogger:
     `record_metrics()` or `flush()`.
     """
 
-    def __init__(self, run_id=None, tracking_uri=None):
+    def __init__(self, run_id=None, tracking_uri=None, model_id=None):
+        from mlflow.tracking.client import MlflowClient
+
         self.run_id = run_id
+        self.model_id = model_id
         self.client = MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
@@ -315,7 +301,9 @@ class BatchMetricsLogger:
             step = 0
 
         for key, value in metrics.items():
-            self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
+            self.data.append(
+                Metric(key, value, int(current_timestamp * 1000), step, model_id=self.model_id)
+            )
 
         if self._should_flush():
             self.flush()
@@ -324,7 +312,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def batch_metrics_logger(run_id):
+def batch_metrics_logger(run_id: str | None = None, model_id: str | None = None):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
@@ -339,9 +327,10 @@ def batch_metrics_logger(run_id):
 
     Args:
         run_id: ID of the run that the metrics will be logged to.
+        model_id: ID of the model that the metrics will be associated with.
     """
 
-    batch_metrics_logger = BatchMetricsLogger(run_id)
+    batch_metrics_logger = BatchMetricsLogger(run_id, model_id=model_id)
     yield batch_metrics_logger
     batch_metrics_logger.flush()
 
@@ -365,23 +354,27 @@ def gen_autologging_package_version_requirements_doc(integration_name):
 
 def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     """
-    When autologging is enabled and `disable_for_unsupported_versions=False` for the specified
-    autologging integration, check whether the currently-installed versions of the integration's
-    associated package versions are supported by the specified integration. If the package versions
-    are not supported, log a warning message.
+    If the package version is not supported for autologging, log a warning message.
+
+    Only check the minimum version, not the maximum version. This is because the "maximum" version
+    in the ml-package-versions.yml is only updated per release and it cannot keep up with the pace
+    of the package releases. The cross-version tests in MLflow CI runs tests against the latest
+    available version, not limited to the "maximum" version, so it is safe to assume it supports
+    up to the latest version.
     """
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
-        and not is_flavor_supported_for_associated_package_versions(integration_name)
-        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
+        and not is_flavor_supported_for_associated_package_versions(
+            integration_name, check_max_version=False
+        )
     ):
-        min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
+        min_var, _, pip_release = get_min_max_version_and_pip_release(integration_name)
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
         _logger.warning(
             f"MLflow {integration_name} autologging is known to be compatible with "
-            f"{min_var} <= {pip_release} <= {max_var}, but the installed version is "
+            f"{min_var} <= {pip_release}, but the installed version is "
             f"{module.__version__}. If you encounter errors during autologging, try upgrading "
             f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
@@ -415,6 +408,7 @@ def autologging_integration(name):
         AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
+        @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
             config_to_store.update(
@@ -444,22 +438,25 @@ def autologging_integration(name):
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
-            with set_mlflow_events_and_warnings_behavior_globally(
-                # MLflow warnings emitted during autologging setup / enablement are likely
-                # actionable and relevant to the user, so they should be emitted as normal
-                # when `silent=False`. For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=False,
-                disable_event_logs=is_silent_mode,
-                disable_warnings=is_silent_mode,
-            ), set_non_mlflow_warnings_behavior_for_current_thread(
-                # non-MLflow warnings emitted during autologging setup / enablement are not
-                # actionable for the user, as they are a byproduct of the autologging
-                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
-                # For reference, see recommended warning and event logging
-                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
+            with (
+                MlflowEventsAndWarningsBehaviorGlobally(
+                    # MLflow warnings emitted during autologging setup / enablement are likely
+                    # actionable and relevant to the user, so they should be emitted as normal
+                    # when `silent=False`. For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=False,
+                    disable_event_logs=is_silent_mode,
+                    disable_warnings=is_silent_mode,
+                ),
+                NonMlflowWarningsBehaviorForCurrentThread(
+                    # non-MLflow warnings emitted during autologging setup / enablement are not
+                    # actionable for the user, as they are a byproduct of the autologging
+                    # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                    # For reference, see recommended warning and event logging
+                    # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                    reroute_warnings=True,
+                    disable_warnings=is_silent_mode,
+                ),
             ):
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
@@ -512,50 +509,51 @@ def autologging_is_disabled(integration_name):
 
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
+        and get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
-        return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
+        return True
 
     return False
 
 
+def is_autolog_supported(integration_name: str) -> bool:
+    """
+    Whether the specified autologging integration is supported by the current environment.
+
+    Args:
+        integration_name: An autologging integration flavor name.
+    """
+    # NB: We don't check for the presence of autolog() function as it requires importing
+    #   the flavor module, which may cause import error or overhead.
+    return "autologging" in _ML_PACKAGE_VERSIONS.get(integration_name, {})
+
+
+def get_autolog_function(integration_name: str) -> Callable[..., Any] | None:
+    """
+    Get the autolog() function for the specified integration.
+    Returns None if the flavor does not have an autolog() function.
+    """
+    flavor_module = importlib.import_module(f"mlflow.{integration_name}")
+    return getattr(flavor_module, "autolog", None)
+
+
 @contextlib.contextmanager
-def disable_autologging(exemptions=None):
+def disable_autologging():
     """
     Context manager that temporarily disables autologging globally for all integrations upon
     entry and restores the previous autologging configuration upon exit.
-
-    Args:
-        exemptions: flavors that we do not disable
     """
-    if exemptions is None:
-        exemptions = []
     global _AUTOLOGGING_GLOBALLY_DISABLED
-    global _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS
     _AUTOLOGGING_GLOBALLY_DISABLED = True
-    _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = exemptions
     try:
         yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
-        _AUTOLOGGING_GLOBALLY_DISABLED_EXEMPTIONS = []
 
 
 @contextlib.contextmanager
-def restrict_langchain_autologging_to_traces_only():
-    if sys.modules.get("langchain") is None:
-        yield
-    else:
-        prev_langchain_params = AUTOLOGGING_INTEGRATIONS.get(mlflow.langchain.FLAVOR_NAME)
-        try:
-            mlflow.langchain.autolog(**MLFLOW_EVALUATE_RESTRICT_LANGCHAIN_AUTOLOG_TO_TRACES_CONFIG)
-            yield
-        finally:
-            mlflow.langchain.autolog(**prev_langchain_params)
-
-
-@contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+def disable_discrete_autologging(flavors_to_disable: list[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for
@@ -582,6 +580,9 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     for flavor in enabled_flavors:
         autolog_func = getattr(mlflow, flavor)
         autolog_func.autolog(disable=False)
+
+
+_training_sessions = []
 
 
 def _get_new_training_session_class():
@@ -675,7 +676,12 @@ def _get_new_training_session_class():
                 return _TrainingSession._session_stack[-1]
             return None
 
+    _training_sessions.append(_TrainingSession)
     return _TrainingSession
+
+
+def _has_active_training_session():
+    return any(s.is_active() for s in _training_sessions)
 
 
 def get_instance_method_first_arg_value(method, call_pos_args, call_kwargs):

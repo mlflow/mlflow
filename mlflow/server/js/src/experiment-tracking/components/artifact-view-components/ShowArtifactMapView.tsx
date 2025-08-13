@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -15,6 +15,8 @@ import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 function onEachFeature(feature: any, layer: any) {
   if (feature.properties && feature.properties.popupContent) {
@@ -23,15 +25,13 @@ function onEachFeature(feature: any, layer: any) {
   }
 }
 
-type OwnProps = {
+type Props = {
   runUuid: string;
   path: string;
-  getArtifact?: (...args: any[]) => any;
-};
+  getArtifact: FetchArtifactUnifiedFn;
+} & LoggedModelArtifactViewerProps;
 
 type State = any;
-
-type Props = OwnProps & typeof ShowArtifactMapView.defaultProps;
 
 class ShowArtifactMapView extends Component<Props, State> {
   constructor(props: Props) {
@@ -42,7 +42,7 @@ class ShowArtifactMapView extends Component<Props, State> {
   }
 
   static defaultProps = {
-    getArtifact: getArtifactContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   leafletMap: any;
@@ -129,7 +129,7 @@ class ShowArtifactMapView extends Component<Props, State> {
             ref={(ref) => {
               this.mapRef = ref;
             }}
-          ></div>
+          />
         </div>
       );
     }
@@ -137,9 +137,10 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
       .then((rawFeatures: any) => {
         const parsedFeatures = JSON.parse(rawFeatures);
         this.setState({ features: parsedFeatures, loading: false });

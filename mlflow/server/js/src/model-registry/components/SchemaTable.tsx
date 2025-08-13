@@ -1,33 +1,30 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React from 'react';
-import { Typography } from '@databricks/design-system';
-import { Table } from 'antd';
-import { LogModelWithSignatureUrl } from '../../common/constants';
-import { spacingMedium } from '../../common/styles/spacing';
-import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
-import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Interpolation, Theme } from '@emotion/react';
+import React, { useMemo, useState } from 'react';
 import {
-  DesignSystemHocProps,
-  MinusBoxIcon,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  Typography,
+  useDesignSystemTheme,
+  MinusSquareIcon,
   PlusSquareIcon,
-  WithDesignSystemThemeHoc,
+  Input,
+  Spacer,
 } from '@databricks/design-system';
+import { LogModelWithSignatureUrl } from '../../common/constants';
+import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { Interpolation, Theme } from '@emotion/react';
+import { identity, isEmpty, isFunction } from 'lodash';
+import { useSafeDeferredValue } from '../../common/hooks/useSafeDeferredValue';
 
-const { Column } = Table;
 const { Text } = Typography;
 const INDENTATION_SPACES = 2;
+const LIMIT_VISIBLE_COLUMNS = 100;
 
-type Props = DesignSystemHocProps & {
+type Props = {
   schema?: any;
   defaultExpandAllRows?: boolean;
-  intl: IntlShape;
 };
 
 function getTensorTypeRepr(tensorType: TensorSpec): string {
@@ -61,7 +58,7 @@ function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): st
   return `${indentation}${type}`;
 }
 
-function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
+function ColumnName({ spec }: { spec: ColumnSpec | TensorSpec }): React.ReactElement {
   let required = true;
   if (spec.required !== undefined) {
     ({ required } = spec);
@@ -73,234 +70,204 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
   const name = 'name' in spec ? spec.name : '-';
 
   return (
-    <Text>
+    <Text css={{ marginLeft: 32 }}>
       {name} {requiredTag}
     </Text>
   );
 }
 
-function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
+function ColumnSchema({ spec }: { spec: ColumnSpec | TensorSpec }): React.ReactElement {
+  const { theme } = useDesignSystemTheme();
   const repr = spec.type === 'tensor' ? getTensorTypeRepr(spec) : getColumnTypeRepr(spec, 0);
 
-  return <pre css={signatureCodeBlock}>{repr}</pre>;
+  return (
+    <pre
+      css={{
+        whiteSpace: 'pre-wrap',
+        padding: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+        marginBottom: theme.spacing.sm,
+      }}
+    >
+      {repr}
+    </pre>
+  );
 }
 
-export class SchemaTableImpl extends React.PureComponent<Props> {
-  renderSchemaTable = (schemaData: any, schemaType: any) => {
-    const columns = [
-      {
-        title: 'Name',
-        dataIndex: 'name',
-        key: 'name',
-        width: '40%',
-      },
-      {
-        title: 'Type',
-        dataIndex: 'type',
-        key: 'type',
-        width: '60%',
-      },
-    ];
+const SchemaTableRow = ({ schemaData }: { schemaData?: (ColumnSpec | TensorSpec)[] }) => {
+  const isEmptySchema = isEmpty(schemaData);
+  const intl = useIntl();
 
+  // Determine if the schema is too large (more than LIMIT_VISIBLE_COLUMNS = 100 rows) to display all at once
+  const isLargeSchema = Boolean(schemaData && schemaData.length > LIMIT_VISIBLE_COLUMNS);
+  const [searchText, setSearchText] = useState('');
+
+  // Defer the search text to avoid blocking the UI when typing
+  const deferredSearchText = useSafeDeferredValue(searchText);
+
+  const filteredSchemaData = useMemo(() => {
+    if (!isLargeSchema) {
+      return schemaData;
+    }
+    const normalizedSearchText = deferredSearchText.toLowerCase();
+    return schemaData
+      ?.filter((schemaRow) => {
+        return (
+          'name' in schemaRow &&
+          schemaRow.name !== null &&
+          String(schemaRow.name).toLowerCase().includes(normalizedSearchText)
+        );
+      })
+      .slice(0, LIMIT_VISIBLE_COLUMNS);
+  }, [schemaData, deferredSearchText, isLargeSchema]);
+
+  if (isEmptySchema) {
     return (
-      <Table
-        className="inner-table"
-        size="middle"
-        showHeader={false}
-        pagination={false}
-        locale={{ emptyText: `No schema ${schemaType}.` }}
-        dataSource={this.getSchemaRowData(schemaData)}
-        columns={columns}
-        scroll={{ y: 240 }}
-      />
-    );
-  };
-
-  getSchemaRowData = (schemaData: any) => {
-    const rowData: any = [];
-    schemaData.forEach((row: any, index: any) => {
-      rowData[index] = {
-        key: index,
-        name: formatColumnName(row),
-        type: formatColumnSchema(row),
-      };
-    });
-    return rowData;
-  };
-
-  renderSectionHeader = (text: any) => {
-    return <strong className="primary-text">{text}</strong>;
-  };
-
-  render() {
-    const { schema } = this.props;
-    const hasSchema = schema.inputs.length || schema.outputs.length;
-    const sectionHeaders = hasSchema
-      ? [
-          {
-            key: '1',
-            name: this.props.intl.formatMessage(
-              {
-                defaultMessage: 'Inputs ({numInputs})',
-                description: 'Input section header for schema table in model version page',
-              },
-              {
-                numInputs: schema.inputs.length,
-              },
-            ),
-            type: '',
-            table: this.renderSchemaTable(schema.inputs, 'inputs'),
-          },
-          {
-            key: '2',
-            name: this.props.intl.formatMessage(
-              {
-                defaultMessage: 'Outputs ({numOutputs})',
-                description: 'Input section header for schema table in model version page',
-              },
-              {
-                numOutputs: schema.outputs.length,
-              },
-            ),
-            type: '',
-            table: this.renderSchemaTable(schema.outputs, 'outputs'),
-          },
-        ]
-      : [];
-
-    const { theme } = this.props.designSystemThemeApi;
-
-    return (
-      // @ts-expect-error TS(2322): Type '{ [x: string]: { padding: string; width: str... Remove this comment to see the full error message
-      <div css={getSchemaTableStyles(theme)}>
-        <Table
-          key="schema-table"
-          className="outer-table"
-          rowClassName="section-header-row"
-          size="middle"
-          pagination={false}
-          defaultExpandAllRows={this.props.defaultExpandAllRows}
-          expandRowByClick
-          expandedRowRender={(record) => record.table}
-          expandIcon={({ expanded, onExpand, record }) =>
-            expanded ? (
-              <span onClick={(e) => onExpand(record, e)}>
-                <MinusBoxIcon />
-              </span>
-            ) : (
-              <span onClick={(e) => onExpand(record, e)}>
-                <PlusSquareIcon />
-              </span>
-            )
-          }
-          locale={{
-            emptyText: (
-              <div>
-                {/* eslint-disable-next-line max-len */}
-                <FormattedMessage
-                  defaultMessage="No schema. See <link>MLflow docs</link> for how to include
+      <TableRow>
+        <TableCell>
+          <FormattedMessage
+            defaultMessage="No schema. See <link>MLflow docs</link> for how to include
                      input and output schema with your model."
-                  description="Text for schema table when no schema exists in the model version
+            description="Text for schema table when no schema exists in the model version
                      page"
-                  values={{
-                    link: (chunks: any) => (
-                      <a href={LogModelWithSignatureUrl} target="_blank" rel="noreferrer">
-                        {chunks}
-                      </a>
-                    ),
-                  }}
-                />
-              </div>
-            ),
-          }}
-          dataSource={sectionHeaders}
-          scroll={{ x: 240 }}
-        >
-          <Column
-            key={1}
-            title={this.props.intl.formatMessage({
-              defaultMessage: 'Name',
-              description: 'Text for name column in schema table in model version page',
-            })}
-            width="40%"
-            dataIndex="name"
-            render={this.renderSectionHeader}
+            values={{
+              link: (chunks: any) => (
+                <a href={LogModelWithSignatureUrl} target="_blank" rel="noreferrer">
+                  {chunks}
+                </a>
+              ),
+            }}
           />
-          <Column
-            key={2}
-            title={this.props.intl.formatMessage({
-              defaultMessage: 'Type',
-              description: 'Text for type column in schema table in model version page',
-            })}
-            width="60%"
-            dataIndex="type"
-            render={this.renderSectionHeader}
-          />
-        </Table>
-      </div>
+        </TableCell>
+      </TableRow>
     );
   }
-}
 
-export const SchemaTable = injectIntl(WithDesignSystemThemeHoc(SchemaTableImpl));
+  return (
+    <>
+      {isLargeSchema && (
+        <>
+          <Spacer />
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows."
+              description="Text for model inputs/outputs schema table when schema is too large to display all rows"
+              values={{
+                currentResults: filteredSchemaData?.length,
+                allResults: schemaData?.length,
+              }}
+            />
+          </Typography.Hint>
+          <Spacer />
+          <Input
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Search for a field',
+              description: 'Placeholder for search input in schema table',
+            })}
+            componentId="mlflow.schema_table.search_input"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Spacer />
+        </>
+      )}
+      {filteredSchemaData?.map((schemaRow, index) => (
+        <TableRow key={index}>
+          <TableCell css={{ flex: 2, alignItems: 'center' }}>
+            <ColumnName spec={schemaRow} />
+          </TableCell>
+          <TableCell css={{ flex: 3, alignItems: 'center' }}>
+            <ColumnSchema spec={schemaRow} />
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+};
 
-const antTable = '.ant-table-middle>.ant-table-content>.ant-table-scroll>.ant-table-body>table';
-const getSchemaTableStyles = (theme: Theme) => ({
-  [`${antTable}>.ant-table-thead>tr>th.ant-table-expand-icon-th`]: {
-    padding: `${spacingMedium}px 0`,
-    width: '32px',
-  },
-  [`${antTable}>.ant-table-thead>tr>th.ant-table-row-cell-break-word`]: {
-    padding: `${spacingMedium}px 0`,
-  },
-  [`${antTable}>.ant-table-tbody>tr>td.ant-table-row-cell-break-word`]: {
-    padding: `${spacingMedium}px 0`,
-  },
-  [`${antTable}>.ant-table-tbody>tr.section-header-row>td.ant-table-row-cell-break-word`]: {
-    padding: '0',
-    width: '32px',
-  },
-  [`${antTable}>.ant-table-tbody>tr.section-header-row>td.ant-table-row-expand-icon-cell`]: {
-    padding: '0',
-  },
-  '.outer-table .ant-table-body': {
-    // !important to override inline style of overflowX: scroll
-    overflowX: 'auto !important',
-    overflowY: 'hidden',
-  },
-  '.inner-table .ant-table-body': {
-    // !important to override inline style of overflowY: scroll
-    overflowY: 'auto !important',
-  },
-  '.inner-table': {
-    maxWidth: 800,
-  },
-  '.outer-table': {
-    maxWidth: 800,
-  },
-  '.section-header-row': {
-    lineHeight: '32px',
-    cursor: 'pointer',
-  },
-  '.ant-table-tbody>tr>td': {
-    borderColor: theme.colors.borderDecorative,
-  },
-  '.ant-table-thead>tr>th': {
-    backgroundColor: theme.colors.backgroundSecondary,
-    color: theme.colors.textPrimary,
-    borderColor: theme.colors.borderDecorative,
-  },
-  '.ant-table-tbody>tr.ant-table-row:hover td': {
-    backgroundColor: theme.colors.backgroundSecondary,
-  },
-  '.ant-table-cell': {
-    backgroundColor: theme.colors.backgroundPrimary,
-    color: theme.colors.textPrimary,
-  },
-});
-const signatureCodeBlock = (theme: Theme): Interpolation<Theme> => ({
-  whiteSpace: 'pre-wrap',
-  padding: theme.spacing.sm,
-  marginTop: theme.spacing.sm,
-  marginBottom: theme.spacing.sm,
-});
+export const SchemaTable = ({ schema, defaultExpandAllRows }: Props) => {
+  const { theme } = useDesignSystemTheme();
+  const [inputsExpanded, setInputsExpanded] = useState(defaultExpandAllRows);
+  const [outputsExpanded, setOutputsExpanded] = useState(defaultExpandAllRows);
+
+  return (
+    <Table css={{ maxWidth: 800 }}>
+      <TableRow isHeader>
+        <TableHeader componentId="mlflow.schema_table.header.name" css={{ flex: 2 }}>
+          <Text bold css={{ paddingLeft: theme.spacing.lg + theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="Name"
+              description="Text for name column in schema table in model version page"
+            />
+          </Text>
+        </TableHeader>
+        <TableHeader componentId="mlflow.schema_table.header.type" css={{ flex: 3 }}>
+          <Text bold>
+            <FormattedMessage
+              defaultMessage="Type"
+              description="Text for type column in schema table in model version page"
+            />
+          </Text>
+        </TableHeader>
+      </TableRow>
+      <>
+        <TableRow onClick={() => setInputsExpanded(!inputsExpanded)} css={{ cursor: 'pointer' }}>
+          <TableCell>
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <div
+                css={{
+                  width: theme.spacing.lg,
+                  height: theme.spacing.lg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  svg: {
+                    color: theme.colors.textSecondary,
+                  },
+                }}
+              >
+                {inputsExpanded ? <MinusSquareIcon /> : <PlusSquareIcon />}
+              </div>
+              <FormattedMessage
+                defaultMessage="Inputs ({numInputs})"
+                description="Input section header for schema table in model version page"
+                values={{
+                  numInputs: schema.inputs.length,
+                }}
+              />
+            </div>
+          </TableCell>
+        </TableRow>
+        {inputsExpanded && <SchemaTableRow schemaData={schema.inputs} />}
+        <TableRow onClick={() => setOutputsExpanded(!outputsExpanded)} css={{ cursor: 'pointer' }}>
+          <TableCell>
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <div
+                css={{
+                  width: theme.spacing.lg,
+                  height: theme.spacing.lg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  svg: {
+                    color: theme.colors.textSecondary,
+                  },
+                }}
+              >
+                {outputsExpanded ? <MinusSquareIcon /> : <PlusSquareIcon />}
+              </div>
+              <FormattedMessage
+                defaultMessage="Outputs ({numOutputs})"
+                description="Input section header for schema table in model version page"
+                values={{
+                  numOutputs: schema.outputs.length,
+                }}
+              />
+            </div>
+          </TableCell>
+        </TableRow>
+        {outputsExpanded && <SchemaTableRow schemaData={schema.outputs} />}
+      </>
+    </Table>
+  );
+};

@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,9 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -79,9 +81,10 @@ def get_pip_requirements_from_conda_file(conda_env_path):
 
 def validate_updated_model_file(original_model_config, wheeled_model_config):
     differing_keys = {"run_id", "utc_time_created", "model_uuid", "artifact_path"}
+    ignore_keys = {"model_id"}
 
     # Compare wheeled model configs with original model config (MLModel files)
-    for key in original_model_config:
+    for key in original_model_config.keys() - ignore_keys:
         if key not in differing_keys:
             assert wheeled_model_config[key] == original_model_config[key]
         else:
@@ -90,11 +93,6 @@ def validate_updated_model_file(original_model_config, wheeled_model_config):
     # Wheeled model key should only exist in wheeled_model_config
     assert wheeled_model_config.get(_WHEELS_FOLDER_NAME, None)
     assert not original_model_config.get(_WHEELS_FOLDER_NAME, None)
-
-    # Verify new artifact path
-    assert wheeled_model_config["artifact_path"] == WheeledModel.get_wheel_artifact_path(
-        original_model_config["artifact_path"]
-    )
 
     # Every key in the original config should also exist in the wheeled config.
     for key in original_model_config:
@@ -107,9 +105,10 @@ def validate_updated_conda_dependencies(original_model_path, wheeled_model_path)
     wheeled_model_path = os.path.join(wheeled_model_path, _CONDA_ENV_FILE_NAME)
     original_conda_env_path = os.path.join(original_model_path, _CONDA_ENV_FILE_NAME)
 
-    with open(wheeled_model_path) as wheeled_conda_env, open(
-        original_conda_env_path
-    ) as original_conda_env:
+    with (
+        open(wheeled_model_path) as wheeled_conda_env,
+        open(original_conda_env_path) as original_conda_env,
+    ):
         wheeled_conda_env = yaml.safe_load(wheeled_conda_env)
         original_conda_env = yaml.safe_load(original_conda_env)
 
@@ -154,7 +153,7 @@ def test_model_log_load(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, tmp_path)
@@ -190,7 +189,7 @@ def test_model_save_load(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, model_download_path)
@@ -221,7 +220,7 @@ def test_logging_and_saving_wheeled_model_throws(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -330,7 +329,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
             input_example=pd.DataFrame(inference_data),
         )
@@ -364,7 +363,7 @@ def test_wheel_download_works(tmp_path):
     assert simple_dependency in wheels[0]  # Cloudpickle wheel downloaded
 
 
-def test_wheel_download_override_option_works(tmp_path):
+def test_wheel_download_override_option_works(tmp_path, monkeypatch):
     dependency = "pyspark"
     requirements_file = os.path.join(tmp_path, "req.txt")
     wheel_dir = os.path.join(tmp_path, "wheels")
@@ -378,7 +377,7 @@ def test_wheel_download_override_option_works(tmp_path):
         WheeledModel._download_wheels(requirements_file, wheel_dir)
 
     # Set option override
-    os.environ["MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"] = "--prefer-binary"
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary")
     WheeledModel._download_wheels(requirements_file, wheel_dir)
     assert len(os.listdir(wheel_dir))  # Wheel dir is not empty
 
@@ -398,7 +397,7 @@ def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            "model",
+            name="model",
             registered_model_name="sklearn_knn_model",
         )
 

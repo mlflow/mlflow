@@ -3,9 +3,18 @@ import getpass
 import json
 import logging
 import os
+import platform
 import subprocess
 import time
-from typing import NamedTuple, Optional, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NamedTuple, TypeVar
+
+from mlflow.utils.logging_utils import eprint
+from mlflow.utils.request_utils import augmented_raise_for_status
+
+if TYPE_CHECKING:
+    from pyspark.sql.connect.session import SparkSession as SparkConnectSession
+
 
 import mlflow.utils
 from mlflow.environment_variables import (
@@ -22,7 +31,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_db_info_from_uri,
@@ -256,9 +265,143 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
-def is_in_databricks_serverless():
+def is_in_databricks_serverless_runtime():
     dbr_version = get_databricks_runtime_version()
     return dbr_version and dbr_version.startswith("client.")
+
+
+def is_in_databricks_shared_cluster_runtime():
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    return (
+        is_in_databricks_runtime()
+        and is_spark_connect_mode()
+        and not is_in_databricks_serverless_runtime()
+    )
+
+
+def is_databricks_connect(spark=None):
+    """
+    Return True if current Spark-connect client connects to Databricks cluster.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
+        return True
+
+    spark = spark or _get_active_spark_session()
+    if spark is None:
+        return False
+
+    if not is_spark_connect_mode():
+        return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata()
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k in ["x-databricks-session-id", "x-databricks-cluster-id"] for k, v in metadata)
+
+
+@dataclass
+class DBConnectUDFSandboxInfo:
+    spark: "SparkConnectSession"
+    image_version: str
+    runtime_version: str
+    platform_machine: str
+    mlflow_version: str
+
+
+_dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
+
+
+def get_dbconnect_udf_sandbox_info(spark):
+    """
+    Get Databricks UDF sandbox info which includes the following fields:
+     - image_version like
+      '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
+     - runtime_version like '{major_version}.{minor_version}'
+     - platform_machine like 'x86_64' or 'aarch64'
+     - mlflow_version
+    """
+    global _dbconnect_udf_sandbox_info_cache
+    from pyspark.sql.functions import pandas_udf
+
+    if (
+        _dbconnect_udf_sandbox_info_cache is not None
+        and spark is _dbconnect_udf_sandbox_info_cache.spark
+    ):
+        return _dbconnect_udf_sandbox_info_cache
+
+    # version is like '15.4.x-scala2.12'
+    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+    major, minor, *_rest = version.split(".")
+    runtime_version = f"{major}.{minor}"
+
+    # For Databricks Serverless python REPL,
+    # the UDF sandbox runs on client image, which has version like 'client.1.1'
+    # in other cases, UDF sandbox runs on databricks runtime image with version like '15.4'
+    if is_in_databricks_runtime():
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
+            spark=_get_active_spark_session(),
+            runtime_version=runtime_version,
+            image_version=get_databricks_runtime_version(),
+            platform_machine=platform.machine(),
+            # In databricks runtime, driver and executor should have the
+            # same version.
+            mlflow_version=mlflow.__version__,
+        )
+    else:
+        image_version = runtime_version
+
+        @pandas_udf("string")
+        def f(_):
+            import pandas as pd
+
+            platform_machine = platform.machine()
+
+            try:
+                import mlflow
+
+                mlflow_version = mlflow.__version__
+            except ImportError:
+                mlflow_version = ""
+
+            return pd.Series([f"{platform_machine}\n{mlflow_version}"])
+
+        platform_machine, mlflow_version = (
+            spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        )
+        if mlflow_version == "":
+            mlflow_version = None
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
+            spark=spark,
+            image_version=image_version,
+            runtime_version=runtime_version,
+            platform_machine=platform_machine,
+            mlflow_version=mlflow_version,
+        )
+
+    return _dbconnect_udf_sandbox_info_cache
+
+
+def is_databricks_serverless(spark):
+    """
+    Return True if running on Databricks Serverless notebook or
+    on Databricks Connect client that connects to Databricks Serverless.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if not is_spark_connect_mode():
+        return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata()
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k == "x-databricks-session-id" for k, v in metadata)
 
 
 def is_dbfs_fuse_available():
@@ -524,20 +667,33 @@ def _fail_malformed_databricks_auth(uri):
     else:
         uri_name = "tracking URI"
         uri_scheme = "databricks"
+    if is_in_databricks_model_serving_environment():
+        raise MlflowException(
+            f"Reading Databricks credential configuration in model serving failed. "
+            f"Most commonly, this happens because the model currently "
+            f"being served was logged without Databricks resource dependencies "
+            f"properly specified. Re-log your model, specifying resource dependencies as "
+            f"described in "
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/log-agent.html"
+            f"#specify-resources-for-pyfunc-or-langchain-agent "
+            f"and then register and attempt to serve it again. Alternatively, you can explicitly "
+            f"configure authentication by setting environment variables as described in "
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/deploy-agent.html"
+            f"#manual-authentication. "
+            f"Additional debug info: the MLflow {uri_name} was set to '{uri}'"
+        )
     raise MlflowException(
-        f"Reading databricks credential configuration failed with MLflow {uri_name} '{uri}', "
-        "Please ensure that you installed 'databricks-sdk' library, set correct tracking "
-        "URI and set up databricks authentication configuration correctly. "
-        f"The available {uri_name} can be either '{uri_scheme}' "
-        f"(using 'DEFAULT' authentication profile) or '{uri_scheme}://{{profile}}'. "
-        "To set up databricks authentication configuration, you can set environmental "
-        "variables DATABRICKS_HOST + DATABRICKS_TOKEN, or set environmental variables "
-        "DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET, or you can "
-        "edit '~/.databrickscfg' file to set host + token or host + client_id + client_secret "
-        "for specific profile section, or you can log in by command 'databricks auth login' "
-        "which configures an authentication profile in '~/.databrickscfg' with auth_type of "
-        "'databricks-cli'.\n"
-        "For details of these authentication types, please refer to document "
+        f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}'. "
+        "Please ensure that the 'databricks-sdk' PyPI library is installed, the tracking "
+        "URI is set correctly, and Databricks authentication is properly configured. "
+        f"The {uri_name} can be either '{uri_scheme}' "
+        f"(using profile name specified by 'DATABRICKS_CONFIG_PROFILE' environment variable "
+        f"or using 'DEFAULT' authentication profile if 'DATABRICKS_CONFIG_PROFILE' environment "
+        f"variable does not exist) or '{uri_scheme}://{{profile}}'. "
+        "You can configure Databricks authentication in several ways, for example by "
+        "specifying environment variables (e.g. DATABRICKS_HOST + DATABRICKS_TOKEN) or "
+        "logging in using 'databricks auth login'. \n"
+        "For details on configuring Databricks authentication, please refer to "
         "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
@@ -619,6 +775,7 @@ def get_databricks_host_creds(server_uri=None):
         from databricks.sdk import WorkspaceClient
 
         profile, key_prefix = get_db_info_from_uri(server_uri)
+        profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
@@ -747,7 +904,7 @@ def is_running_in_ipython_environment():
         return False
 
 
-def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> Optional[str]:
+def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> str | None:
     """
     Obtains a Databricks URL corresponding to the specified MLflow Run, optionally referring
     to an artifact within the run.
@@ -783,7 +940,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> str | None:
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:
@@ -819,12 +976,12 @@ class DatabricksWorkspaceInfo:
     WORKSPACE_HOST_ENV_VAR = "_DATABRICKS_WORKSPACE_HOST"
     WORKSPACE_ID_ENV_VAR = "_DATABRICKS_WORKSPACE_ID"
 
-    def __init__(self, host: str, workspace_id: Optional[str] = None):
+    def __init__(self, host: str, workspace_id: str | None = None):
         self.host = host
         self.workspace_id = workspace_id
 
     @classmethod
-    def from_environment(cls) -> Optional[DatabricksWorkspaceInfoType]:
+    def from_environment(cls) -> DatabricksWorkspaceInfoType | None:
         if DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR in os.environ:
             return DatabricksWorkspaceInfo(
                 host=os.environ[DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR],
@@ -843,7 +1000,7 @@ class DatabricksWorkspaceInfo:
         return env
 
 
-def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[DatabricksWorkspaceInfo]:
+def get_databricks_workspace_info_from_uri(tracking_uri: str) -> DatabricksWorkspaceInfo | None:
     if not is_databricks_uri(tracking_uri):
         return None
 
@@ -888,8 +1045,8 @@ def _construct_databricks_run_url(
     host: str,
     experiment_id: str,
     run_id: str,
-    workspace_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
+    workspace_id: str | None = None,
+    artifact_path: str | None = None,
 ) -> str:
     run_url = host
     if workspace_id and workspace_id != "0":
@@ -904,7 +1061,7 @@ def _construct_databricks_run_url(
 
 
 def _construct_databricks_model_version_url(
-    host: str, name: str, version: str, workspace_id: Optional[str] = None
+    host: str, name: str, version: str, workspace_id: str | None = None
 ) -> str:
     model_version_url = host
     if workspace_id and workspace_id != "0":
@@ -913,6 +1070,65 @@ def _construct_databricks_model_version_url(
     model_version_url += f"#mlflow/models/{name}/versions/{version}"
 
     return model_version_url
+
+
+def _construct_databricks_logged_model_url(
+    workspace_url: str, experiment_id: str, model_id: str, workspace_id: str | None = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        experiment_id: The ID of the experiment the model is logged to.
+        model_id: The ID of the logged model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/ml/experiments/{experiment_id}/models/{model_id}{query}"
+
+
+def _construct_databricks_uc_registered_model_url(
+    workspace_url: str, registered_model_name: str, version: str, workspace_id: str | None = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        registered_model_name: The full name of the registered model containing the version.
+        version: The version of the registered model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    path = registered_model_name.replace(".", "/")
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
+
+
+def _print_databricks_deployment_job_url(
+    model_name: str,
+    job_id: str,
+    workspace_url: str | None = None,
+    workspace_id: str | None = None,
+) -> str:
+    if not workspace_url:
+        workspace_url = get_workspace_url()
+    if not workspace_id:
+        workspace_id = get_workspace_id()
+    # If there is no workspace_url, we cannot print the job URL
+    if not workspace_url:
+        return None
+
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    job_url = f"{workspace_url}/jobs/{job_id}{query}"
+    eprint(f"🔗 Linked deployment job to '{model_name}': {job_url}")
+    return job_url
 
 
 def _get_databricks_creds_config(tracking_uri, use_databricks_sdk=False):
@@ -1001,14 +1217,36 @@ def get_databricks_env_vars(tracking_uri):
     return env_vars
 
 
+def _get_databricks_serverless_env_vars() -> dict[str, str]:
+    """
+    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    with serverless compute.
+
+    Note:
+        Databricks authentication related environment variables such as DATABRICKS_HOST are
+        set in the are set in the _capture_imported_modules function.
+    """
+    envs = {}
+    if "SPARK_REMOTE" in os.environ:
+        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    else:
+        _logger.warning(
+            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`. "
+            "These are necessary to initialize the WorkspaceClient with serverless compute in "
+            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
+        )
+        envs["SPARK_LOCAL_REMOTE"] = "true"
+    return envs
+
+
 class DatabricksRuntimeVersion(NamedTuple):
     is_client_image: bool
     major: int
     minor: int
 
     @classmethod
-    def parse(cls):
-        dbr_version = get_databricks_runtime_version()
+    def parse(cls, databricks_runtime: str | None = None):
+        dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
@@ -1185,3 +1423,17 @@ def get_databricks_local_temp_dir():
         except Exception:
             # fallback
             return entry_point.getReplLocalTempDir()
+
+
+def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+    response = http_request(
+        host_creds=get_databricks_host_creds(),
+        endpoint="/api/2.0/serving-endpoints:stageDeployment",
+        method="POST",
+        raise_on_status=False,
+        json={
+            "model_name": model_name,
+            "model_version": model_version,
+        },
+    )
+    augmented_raise_for_status(response)

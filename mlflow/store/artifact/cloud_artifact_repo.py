@@ -4,8 +4,8 @@ import os
 import posixpath
 import time
 from abc import abstractmethod
-from collections import namedtuple
 from concurrent.futures import as_completed
+from typing import NamedTuple
 
 from mlflow.environment_variables import (
     _MLFLOW_MPD_NUM_RETRIES,
@@ -85,38 +85,16 @@ def _complete_futures(futures_dict, file):
     return results, errors
 
 
-def _retry_with_new_creds(try_func, creds_func, og_creds=None):
-    """
-    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
-    credentials using creds_func. If the try_func throws, then try again with new credentials
-    provided by creds_func.
-    """
-    try:
-        first_creds = creds_func() if og_creds is None else og_creds
-        return try_func(first_creds)
-    except Exception as e:
-        _logger.info(
-            "Failed to complete request, possibly due to credential expiration."
-            f" Refreshing credentials and trying again... (Error: {e})"
-        )
-        new_creds = creds_func()
-        return try_func(new_creds)
-
-
-StagedArtifactUpload = namedtuple(
-    "StagedArtifactUpload",
-    [
-        # Local filesystem path of the source file to upload
-        "src_file_path",
-        # Base artifact URI-relative path specifying the upload destination
-        "artifact_file_path",
-    ],
-)
+class StagedArtifactUpload(NamedTuple):
+    # Local filesystem path of the source file to upload
+    src_file_path: str
+    # Base artifact URI-relative path specifying the upload destination
+    artifact_file_path: str
 
 
 class CloudArtifactRepository(ArtifactRepository):
-    def __init__(self, artifact_uri):
-        super().__init__(artifact_uri)
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task

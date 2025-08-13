@@ -3,8 +3,8 @@ import {
   CopyIcon,
   Input,
   Modal,
-  TabPane,
-  Tabs,
+  LegacyTabPane,
+  LegacyTabs,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -22,6 +22,8 @@ const SNIPPET_LINE_HEIGHT = 18;
 
 export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Props): JSX.Element => {
   const { theme } = useDesignSystemTheme();
+
+  const codeSnippetTheme = theme.isDarkMode ? 'duotoneDark' : 'light';
 
   const classical_ml_text = `
 import mlflow
@@ -48,6 +50,8 @@ predictions = rf.predict(X_test)
   const llm_text = `
 import mlflow
 import openai
+import os
+import pandas as pd
 
 # you must set the OPENAI_API_KEY environment variable
 assert (
@@ -70,7 +74,7 @@ mlflow.log_param("system_prompt", system_prompt)
 # with OpenAI. Log the model to MLflow Tracking
 logged_model = mlflow.openai.log_model(
     model="gpt-4o-mini",
-    task=openai.ChatCompletion,
+    task=openai.chat.completions,
     artifact_path="model",
     messages=[
         {"role": "system", "content": system_prompt},
@@ -136,14 +140,15 @@ mlflow.end_run()
         </div>
       }
     >
-      <Tabs>
-        <TabPane
+      <LegacyTabs>
+        <LegacyTabPane
           tab={<FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />}
           key="classical-ml"
         >
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{
@@ -157,11 +162,15 @@ mlflow.end_run()
           >
             {classical_ml_text}
           </CodeSnippet>
-        </TabPane>
-        <TabPane tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />} key="llm">
+        </LegacyTabPane>
+        <LegacyTabPane
+          tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />}
+          key="llm"
+        >
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
+            theme={codeSnippetTheme}
             actions={
               <div
                 style={{
@@ -175,8 +184,8 @@ mlflow.end_run()
           >
             {llm_text}
           </CodeSnippet>
-        </TabPane>
-      </Tabs>
+        </LegacyTabPane>
+      </LegacyTabs>
     </Modal>
   );
 };

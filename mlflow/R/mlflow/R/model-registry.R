@@ -18,7 +18,7 @@ mlflow_create_registered_model <- function(name, tags = NULL,
     verb = "POST",
     version = "2.0",
     data = list(
-      name = forge::cast_string(name),
+      name = cast_string(name),
       tags = tags,
       description = description
     )
@@ -67,8 +67,8 @@ mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
     verb = "POST",
     version = "2.0",
     data = list(
-      name = forge::cast_string(name),
-      new_name = forge::cast_string(new_name)
+      name = cast_string(name),
+      new_name = cast_string(new_name)
     )
   )
 
@@ -93,8 +93,8 @@ mlflow_update_registered_model <- function(name, description, client = NULL) {
     verb = "PATCH",
     version = "2.0",
     data = list(
-      name = forge::cast_string(name),
-      description = forge::cast_string(description)
+      name = cast_string(name),
+      description = cast_string(description)
     )
   )
 
@@ -117,7 +117,7 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
     client = client,
     verb = "DELETE",
     version = "2.0",
-    data = list(name = forge::cast_string(name))
+    data = list(name = cast_string(name))
   )
 }
 
@@ -180,8 +180,8 @@ mlflow_get_latest_versions <- function(name, stages = list(), client = NULL) {
     verb = "GET",
     version = "2.0",
     query = list(
-      name = forge::cast_string(name),
-      stages = forge::cast_string_list(stages)
+      name = cast_string(name),
+      stages = cast_string_list(stages)
     )
   )
 
@@ -292,8 +292,8 @@ mlflow_delete_model_version <- function(name, version, client = NULL) {
     verb = "DELETE",
     version = "2.0",
     data = list(
-      name = forge::cast_string(name),
-      version = forge::cast_string(version)
+      name = cast_string(name),
+      version = cast_string(version)
     )
   )
 }

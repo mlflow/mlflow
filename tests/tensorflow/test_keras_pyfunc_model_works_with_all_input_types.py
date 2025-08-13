@@ -309,7 +309,7 @@ def test_single_multidim_input_model_spark_udf(
         pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
     )
     with mlflow.start_run():
-        model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
+        model_uri = mlflow.tensorflow.log_model(model, name="model", signature=signature).model_uri
 
     infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
@@ -352,7 +352,7 @@ def test_multi_multidim_input_model_spark_udf(
         )
     )
     with mlflow.start_run():
-        model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
+        model_uri = mlflow.tensorflow.log_model(model, name="model", signature=signature).model_uri
 
     infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
@@ -377,7 +377,7 @@ def test_scoring_server_successfully_on_single_multidim_input_model(
     x, _ = data
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, "model", input_example=test_input)
+        model_info = mlflow.tensorflow.log_model(model, name="model", input_example=test_input)
     assert model_info.signature.inputs == signature.inputs
 
     inp_dict = json.dumps({"instances": test_input.tolist()})
@@ -415,7 +415,7 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
         }
     )
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(model, "model", input_example=input_example)
+        model_info = mlflow.tensorflow.log_model(model, name="model", input_example=input_example)
     assert model_info.signature.inputs == signature.inputs
 
     serving_input_example = load_serving_example(model_info.model_uri)

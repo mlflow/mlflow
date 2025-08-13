@@ -41,6 +41,7 @@ flavors:
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
@@ -61,6 +62,7 @@ flavors:
     expect(wrapper.find('.artifact-logged-model-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render schema table when valid signature in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(validMlModelFile);
@@ -74,6 +76,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not render schema table when invalid signature in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(validMlModelFile + '\nhahaha');
@@ -87,6 +90,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not break schema table when inputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
@@ -106,6 +110,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not break schema table when outputs only in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(
@@ -125,6 +130,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not break schema table when no inputs or outputs in MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(minimumFlavors + 'signature:');
@@ -138,6 +144,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render code group and code snippet', (done) => {
     setImmediate(() => {
       wrapper.update();
@@ -147,6 +154,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should find model path in code snippet', (done) => {
     const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
@@ -159,18 +167,18 @@ flavors:
     });
   });
 
-  test('should render serving input validation in code snippet', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render models predict in code snippet', (done) => {
     const props = { ...commonProps, path: 'modelPath', artifactRootUri: 'some/root' };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).text()).toContain(
-        'validate_serving_input(model_uri, serving_payload)',
-      );
+      expect(wrapper.find('.artifact-logged-model-view-code-content').at(0).text()).toContain('mlflow.models.predict');
       done();
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should suggest registration when model not registered', (done) => {
     const props = { ...commonProps };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
@@ -181,6 +189,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not suggest registration when model already registered', (done) => {
     const props = { ...commonProps, registeredModelLink: 'someLink' };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
@@ -196,12 +205,12 @@ flavors:
   test('should fetch artifacts and serving input on component update', () => {
     instance = wrapper.instance();
     instance.fetchLoggedModelMetadata = jest.fn();
-    instance.fetchServingInputExample = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchLoggedModelMetadata).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchLoggedModelMetadata).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render code snippet with original flavor when no pyfunc flavor', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(`
@@ -223,6 +232,7 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not render code snippet for mleap flavor', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve(`
@@ -243,78 +253,52 @@ flavors:
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render serving validation code snippet if serving_input_example exists', (done) => {
-    const getArtifact = jest
-      .fn()
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`
+    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
+      return Promise.resolve(`
 flavors:
-  sklearn:
-    version: 1.2.3
+  python_function:
+    python_version: 3.9.18
 saved_input_example_info:
-  serving_input_path: serving_input_example.json
+  artifact_path: input_example.json
 `);
-      })
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`
-{
-  "dataframe_split": {
-    "columns": [
-      "messages"
-    ],
-    "data": [
-      [
-        [
-          {
-            "role": "user",
-            "content": "some question"
-          }
-        ]
-      ]
-    ]
-  }
-}
-`);
-      });
+    });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().serving_input).toBeDefined();
+      expect(impl.state().hasInputExample).toBe(true);
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
-      expect(codeContentText.includes('# The model is logged with an input example')).toBe(true);
-      expect(codeContentText.includes('validate_serving_input(model_uri, serving_payload)')).toBe(true);
+      expect(codeContentText.includes('input_data = pyfunc_model.input_example')).toBe(true);
+      expect(codeContentText.includes('mlflow.models.predict')).toBe(true);
       done();
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render serving validation code snippet if serving_input_example does not exist', (done) => {
-    const getArtifact = jest
-      .fn()
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.resolve(`
+    const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
+      return Promise.resolve(`
 flavors:
   sklearn:
     version: 1.2.3
 `);
-      })
-      .mockImplementationOnce((artifactLocation) => {
-        return Promise.reject(new Error('file not existing'));
-      });
+    });
     const props = { ...minimalProps, getArtifact };
     wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
     setImmediate(() => {
       wrapper.update();
       const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().serving_input).toBeDefined();
+      expect(impl.state().hasInputExample).toBe(false);
       const codeContent = impl.find('.artifact-logged-model-view-code-content');
       expect(codeContent.length).toBe(2);
       const codeContentText = codeContent.at(0).text();
-      expect(codeContentText.includes('# The logged model does not contain an input_example')).toBe(true);
-      expect(codeContentText.includes('validate_serving_input(model_uri, serving_payload)')).toBe(true);
+      expect(codeContentText.includes('# Replace INPUT_EXAMPLE with your own input example to the model')).toBe(true);
+      expect(codeContentText.includes('mlflow.models.predict')).toBe(true);
       done();
     });
   });

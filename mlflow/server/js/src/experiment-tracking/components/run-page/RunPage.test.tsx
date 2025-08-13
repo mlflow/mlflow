@@ -1,5 +1,5 @@
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';
@@ -8,17 +8,28 @@ import { DeepPartial } from 'redux';
 import { RunPage } from './RunPage';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { RunInfoEntity } from '../../types';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
-import { shouldEnableGraphQLRunDetailsPage } from '../../../common/utils/FeatureUtils';
+import {
+  shouldEnableGraphQLRunDetailsPage,
+  shouldUseGetLoggedModelsBatchAPI,
+} from '../../../common/utils/FeatureUtils';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { graphql } from 'msw';
+import { graphql, rest } from 'msw';
 import { GetRun, GetRunVariables, MlflowRunStatus } from '../../../graphql/__generated__/graphql';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import Utils from '../../../common/utils/Utils';
+
+jest.setTimeout(90000); // Higher timeout due to integration testing and tables
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableGraphQLRunDetailsPage: jest.fn(),
+  isModelsInUCEnabled: jest.fn(),
+  isRegisterUCModelFromUIEnabled: jest.fn(),
+  shouldUseGetLoggedModelsBatchAPI: jest.fn(),
 }));
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
@@ -31,6 +42,8 @@ jest.mock('../../actions', () => ({
 
 jest.mock('../../../model-registry/actions', () => ({
   searchModelVersionsApi: jest.fn(() => mockAction('models_request')),
+  searchRegisteredModelsApi: jest.fn(() => mockAction('search_registered_models_request')),
+  ucRegisterModelVersionApi: jest.fn(() => mockAction('register_model_version_request')),
 }));
 
 const testRunUuid = 'test-run-uuid';
@@ -41,6 +54,8 @@ const testRunInfo: Partial<RunInfoEntity> = {
 };
 
 describe('RunPage (legacy redux + REST API)', () => {
+  const server = setupServer();
+
   beforeEach(() => {
     jest.mocked(shouldEnableGraphQLRunDetailsPage).mockImplementation(() => false);
   });
@@ -72,14 +87,18 @@ describe('RunPage (legacy redux + REST API)', () => {
       ),
     };
 
+    const queryClient = new QueryClient();
+
     const renderResult = renderWithIntl(
       <TestApolloProvider>
-        <MockedReduxStoreProvider state={state}>
-          <TestRouter
-            initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
-            routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
-          />
-        </MockedReduxStoreProvider>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider state={state}>
+            <TestRouter
+              initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
+              routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
+            />
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
         ,
       </TestApolloProvider>,
     );
@@ -101,9 +120,9 @@ describe('RunPage (legacy redux + REST API)', () => {
       expect(screen.getByText('Run page loading')).toBeInTheDocument();
     });
 
-    expect(getRunApi).toBeCalledWith(testRunUuid);
-    expect(getExperimentApi).toBeCalledWith(testExperimentId);
-    expect(searchModelVersionsApi).toBeCalledWith({ run_id: testRunUuid });
+    expect(getRunApi).toHaveBeenCalledWith(testRunUuid);
+    expect(getExperimentApi).toHaveBeenCalledWith(testExperimentId);
+    expect(searchModelVersionsApi).toHaveBeenCalledWith({ run_id: testRunUuid });
   });
 
   const entitiesWithMockRun = {
@@ -125,9 +144,9 @@ describe('RunPage (legacy redux + REST API)', () => {
       expect(screen.getByRole('heading', { name: /Test run Name/ })).toBeInTheDocument();
     });
 
-    expect(getRunApi).not.toBeCalled();
-    expect(getExperimentApi).not.toBeCalled();
-    expect(searchModelVersionsApi).toBeCalled();
+    expect(getRunApi).not.toHaveBeenCalled();
+    expect(getExperimentApi).not.toHaveBeenCalled();
+    expect(searchModelVersionsApi).toHaveBeenCalled();
   });
 
   test('Attempt to rename the run', async () => {
@@ -143,7 +162,7 @@ describe('RunPage (legacy redux + REST API)', () => {
     await userEvent.type(screen.getByTestId('rename-modal-input'), 'brand_new_run_name');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(updateRunApi).toBeCalledWith('test-run-uuid', 'brand_new_run_name', expect.anything());
+    expect(updateRunApi).toHaveBeenCalledWith('test-run-uuid', 'brand_new_run_name', expect.anything());
   });
 
   test('Display 404 page in case of missing run', async () => {
@@ -194,7 +213,13 @@ describe('RunPage (GraphQL API)', () => {
                 data: {
                   __typename: 'MlflowRunData',
                   metrics: [
-                    { __typename: 'MlflowMetric', key: 'test-metric', value: 100, step: '1', timestamp: '1000' },
+                    {
+                      __typename: 'MlflowMetricExtension',
+                      key: 'test-metric',
+                      value: 100,
+                      step: '1',
+                      timestamp: '1000',
+                    },
                   ],
                   params: [{ __typename: 'MlflowParam', key: 'test-param', value: 'test-param-value' }],
                   tags: [
@@ -225,6 +250,7 @@ describe('RunPage (GraphQL API)', () => {
                 },
                 inputs: {
                   __typename: 'MlflowRunInputs',
+                  modelInputs: null,
                   datasetInputs: [
                     {
                       __typename: 'MlflowDatasetInput',
@@ -241,6 +267,10 @@ describe('RunPage (GraphQL API)', () => {
                     },
                   ],
                 },
+                outputs: {
+                  __typename: 'MlflowRunOutputs',
+                  modelOutputs: [{ __typename: 'MlflowModelOutput', modelId: 'test-model-id', step: '1' }],
+                },
                 modelVersions: [],
               },
             },
@@ -251,14 +281,22 @@ describe('RunPage (GraphQL API)', () => {
   });
 
   const mountComponent = (runUuid = testRunUuid) => {
+    const queryClient = new QueryClient();
+
     const renderResult = renderWithIntl(
-      <TestApolloProvider>
-        <MockedReduxStoreProvider state={{ entities: { modelVersionsByRunUuid: {}, tagsByRunUuid: {} } }}>
-          <TestRouter
-            initialEntries={[`/experiment/${testExperimentId}/run/${runUuid}`]}
-            routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
-          />
-        </MockedReduxStoreProvider>
+      <TestApolloProvider disableCache>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider
+            state={{ entities: { modelVersionsByRunUuid: {}, tagsByRunUuid: {}, modelByName: {} } }}
+          >
+            <DesignSystemProvider>
+              <TestRouter
+                initialEntries={[`/experiment/${testExperimentId}/run/${runUuid}`]}
+                routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
+              />
+            </DesignSystemProvider>
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
       </TestApolloProvider>,
     );
 
@@ -291,6 +329,62 @@ describe('RunPage (GraphQL API)', () => {
     expect(screen.getByRole('row', { name: /Duration\s+5\.0min/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Experiment ID\s+test-experiment/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Status\s+Finished/ })).toBeInTheDocument();
+  });
+
+  test('Properly display duration for ongoing run', async () => {
+    // Mock run response with ongoing run and endTime set to 0
+    server.resetHandlers(
+      graphql.query<GetRun, GetRunVariables>('GetRun', (req, res, ctx) => {
+        return res(
+          ctx.data({
+            mlflowGetRun: {
+              __typename: 'MlflowGetRunResponse',
+              apiError: null,
+              run: {
+                __typename: 'MlflowRun' as any,
+                data: null,
+                experiment: {
+                  __typename: 'MlflowExperiment',
+                  artifactLocation: null,
+                  experimentId: 'test-experiment',
+                  lastUpdateTime: null,
+                  lifecycleStage: null,
+                  name: 'test experiment',
+                  tags: [],
+                },
+                info: {
+                  __typename: 'MlflowRunInfo',
+                  artifactUri: null,
+                  experimentId: 'test-experiment',
+                  lifecycleStage: null,
+                  runName: 'test run',
+                  runUuid: 'test-run-uuid',
+                  status: MlflowRunStatus.RUNNING,
+                  userId: null,
+                  startTime: '1672578000000',
+                  endTime: '0',
+                },
+                inputs: null,
+                outputs: null,
+                modelVersions: [],
+              },
+            },
+          }),
+        );
+      }),
+    );
+
+    mountComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('test run')).toBeInTheDocument();
+    });
+
+    // Duration metadata row should be empty (no value after 'Duration' label)
+    expect(screen.getByRole('row', { name: /Duration$/ })).toBeInTheDocument();
+
+    // Relevant status should be displayed
+    expect(screen.getByRole('row', { name: /Status\s+Running/ })).toBeInTheDocument();
   });
 
   test('Display 404 page in case of missing run', async () => {

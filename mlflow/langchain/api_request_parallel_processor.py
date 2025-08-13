@@ -24,7 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import langchain.chains
 from langchain.callbacks.base import BaseCallbackHandler
@@ -37,11 +37,8 @@ from mlflow.langchain.utils.chat import (
     try_transform_response_to_chat_format,
 )
 from mlflow.langchain.utils.serialization import convert_to_serializable
-from mlflow.pyfunc.context import (
-    Context,
-    get_prediction_context,
-    maybe_set_prediction_context,
-)
+from mlflow.pyfunc.context import Context, get_prediction_context
+from mlflow.tracing.utils import maybe_set_prediction_context
 
 _logger = logging.getLogger(__name__)
 
@@ -99,14 +96,14 @@ class APIRequest:
 
     index: int
     lc_model: langchain.chains.base.Chain
-    request_json: dict
+    request_json: dict[str, Any]
     results: list[tuple[int, str]]
-    errors: dict
+    errors: dict[int, str]
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
-    params: Dict[str, Any]
-    prediction_context: Optional[Context] = None
+    params: dict[str, Any]
+    prediction_context: Context | None = None
 
     def _predict_single_input(self, single_input, callback_handlers, **kwargs):
         config = kwargs.pop("config", {})
@@ -126,10 +123,10 @@ class APIRequest:
         else:
             return try_transform_response_to_chat_format(response)
 
-    def single_call_api(self, callback_handlers: Optional[List[BaseCallbackHandler]]):
+    def single_call_api(self, callback_handlers: list[BaseCallbackHandler] | None):
         from langchain.schema import BaseRetriever
 
-        from mlflow.langchain.utils import langgraph_types, lc_runnables_types
+        from mlflow.langchain.utils.logging import langgraph_types, lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
@@ -147,7 +144,7 @@ class APIRequest:
                         self.request_json, callback_handlers, **self.params
                     )
                 except TypeError as e:
-                    _logger.warning(
+                    _logger.debug(
                         f"Failed to invoke {self.lc_model.__class__.__name__} "
                         f"with {self.request_json}. Error: {e!r}. Trying to "
                         "invoke with the first value of the dictionary."
@@ -190,7 +187,7 @@ class APIRequest:
         return convert_to_serializable(response)
 
     def call_api(
-        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+        self, status_tracker: StatusTracker, callback_handlers: list[BaseCallbackHandler] | None
     ):
         """
         Calls the LangChain API and stores results.
@@ -213,11 +210,12 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
+    requests: list[Any | dict[str, Any]] | None = None,
     max_workers: int = 10,
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    callback_handlers: list[BaseCallbackHandler] | None = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
+    context: Context | None = None,
 ):
     """
     Processes API requests in parallel.
@@ -227,6 +225,7 @@ def process_api_requests(
     retry_queue = queue.Queue()
     status_tracker = StatusTracker()  # single instance to track a collection of variables
     next_request = None  # variable to hold the next request to call
+    context = context or get_prediction_context()
 
     results = []
     errors = {}
@@ -241,7 +240,9 @@ def process_api_requests(
     ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(converted_chat_requests)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowLangChainApi"
+    ) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
             if not retry_queue.empty():
@@ -259,7 +260,7 @@ def process_api_requests(
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
-                    prediction_context=get_prediction_context(),
+                    prediction_context=context,
                     params=params,
                 )
                 status_tracker.start_task()
@@ -294,10 +295,10 @@ def process_api_requests(
 
 def process_stream_request(
     lc_model,
-    request_json: Union[Any, Dict[str, Any]],
-    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    request_json: Any | dict[str, Any],
+    callback_handlers: list[BaseCallbackHandler] | None = None,
     convert_chat_responses: bool = False,
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ):
     """
     Process single stream request.

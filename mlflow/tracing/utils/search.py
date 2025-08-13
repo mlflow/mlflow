@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from mlflow.entities import Trace
 
 
-def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
+def traces_to_df(traces: list[Trace]) -> "pandas.DataFrame":
     """
     Convert a list of MLflow Traces to a pandas DataFrame with one column called "traces"
     containing string representations of each Trace.
@@ -29,9 +29,9 @@ def traces_to_df(traces: List[Trace]) -> "pandas.DataFrame":
 
 
 def extract_span_inputs_outputs(
-    traces: Union[List["mlflow.entities.Trace"], "pandas.DataFrame"],
-    fields: List[str],
-    col_name: Optional[str] = None,
+    traces: list["mlflow.entities.Trace"] | "pandas.DataFrame",
+    fields: list[str],
+    col_name: str | None = None,
 ) -> "pandas.DataFrame":
     """
     Extracts the specified input and output fields from the spans contained in the specified traces.
@@ -113,7 +113,7 @@ class _ParsedField(NamedTuple):
 
     span_name: str
     field_type: Literal["inputs", "outputs"]
-    field_name: Optional[str]
+    field_name: str | None
 
     def __str__(self) -> str:
         return (
@@ -140,7 +140,7 @@ class _FieldParser:
     def has_next(self) -> bool:
         return self.peek() is not None
 
-    def consume_until_char_or_end(self, stop_char: Optional[str] = None) -> str:
+    def consume_until_char_or_end(self, stop_char: str | None = None) -> str:
         """
         Consume characters until the specified character is encountered or the end of the
         string. If char is None, consume until the end of the string.
@@ -208,7 +208,7 @@ class _FieldParser:
         return _ParsedField(span_name=span_name, field_type=field_type, field_name=field_name)
 
 
-def _parse_fields(fields: List[str]) -> List[_ParsedField]:
+def _parse_fields(fields: list[str]) -> list[_ParsedField]:
     """
     Parses the specified field strings of the form 'span_name.[inputs|outputs]' or
     'span_name.[inputs|outputs].field_name' into _ParsedField objects.
@@ -217,7 +217,7 @@ def _parse_fields(fields: List[str]) -> List[_ParsedField]:
 
 
 def _extract_from_traces_pandas_df(
-    df: "pandas.DataFrame", col_name: str, fields: List[_ParsedField]
+    df: "pandas.DataFrame", col_name: str, fields: list[_ParsedField]
 ) -> "pandas.DataFrame":
     """
     Extracts the specified fields from the spans contained in the specified column of the
@@ -235,9 +235,9 @@ def _extract_from_traces_pandas_df(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    new_columns: Dict[str, List[Any]] = defaultdict(list)
+    new_columns: dict[str, list[Any]] = defaultdict(list)
     for _, row in df.iterrows():
-        spans_dict: Dict[str, List[Span]] = defaultdict(list)
+        spans_dict: dict[str, list[Span]] = defaultdict(list)
         for span in _extract_spans_from_row(row[col_name]):
             spans_dict[span.name].append(span)
 
@@ -253,7 +253,7 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"]) -> Optional[Any]:
+def _find_matching_value(field: _ParsedField, spans: list["mlflow.entities.Span"]) -> Any | None:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """
@@ -270,8 +270,8 @@ def _find_matching_value(field: _ParsedField, spans: List["mlflow.entities.Span"
 
 
 def _extract_spans_from_row(
-    row_content: Optional[List[Dict[str, Any]]],
-) -> List["mlflow.entities.Span"]:
+    row_content: list[dict[str, Any]] | None,
+) -> list["mlflow.entities.Span"]:
     """
     Parses and extracts MLflow Spans from the row content of a traces pandas DataFrame.
     """

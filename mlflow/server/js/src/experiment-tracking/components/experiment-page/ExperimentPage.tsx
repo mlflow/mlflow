@@ -9,7 +9,10 @@ import {
 import Utils from '../../../common/utils/Utils';
 import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext';
 import { ExperimentView } from './ExperimentView';
-import { PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySkeleton, PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
+import { useNavigateToExperimentPageTab } from './hooks/useNavigateToExperimentPageTab';
+import { shouldEnableExperimentPageHeaderV2 } from '../../../common/utils/FeatureUtils';
+import { useExperimentIds } from './hooks/useExperimentIds';
 
 /**
  * Concrete actions for GetExperiments context
@@ -25,9 +28,10 @@ const getExperimentActions = {
  * provides underlying structure with context containing
  * concrete versions of store actions.
  */
-export const ExperimentPage = () => {
+const ExperimentPage = () => {
   const { formatMessage } = useIntl();
   const { theme } = useDesignSystemTheme();
+  const experimentIds = useExperimentIds();
 
   useEffect(() => {
     const pageTitle = formatMessage({
@@ -37,6 +41,20 @@ export const ExperimentPage = () => {
     Utils.updatePageTitle(pageTitle);
   }, [formatMessage]);
 
+  const isComparingExperiments = experimentIds.length > 1;
+
+  // Check if view mode determines rendering using another route. If true, wait for the redirection and return null.
+  const { isLoading: isAutoNavigatingToTab, isEnabled: isAutoNavigateEnabled } = useNavigateToExperimentPageTab({
+    enabled: !isComparingExperiments && shouldEnableExperimentPageHeaderV2(),
+    experimentId: experimentIds[0],
+  });
+
+  if (isAutoNavigatingToTab) {
+    return <LegacySkeleton />;
+  }
+  if (isAutoNavigateEnabled) {
+    return null;
+  }
   return (
     <PageWrapper css={{ height: '100%', paddingTop: theme.spacing.md }}>
       <GetExperimentsContextProvider actions={getExperimentActions}>

@@ -1,7 +1,5 @@
-from typing import List, Optional, Union
-
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import IS_PYDANTIC_V2
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
@@ -11,10 +9,10 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(RequestModel):
-    input: Union[str, List[str], List[int], List[List[int]]]
+    input: str | list[str] | list[int] | list[list[int]]
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
@@ -22,13 +20,13 @@ class RequestPayload(RequestModel):
 
 class EmbeddingObject(ResponseModel):
     object: str = "embedding"
-    embedding: Union[List[float], str]
+    embedding: list[float] | str
     index: int
 
 
 class EmbeddingsUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -86,12 +84,12 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 class ResponsePayload(ResponseModel):
     object: str = "list"
-    data: List[EmbeddingObject]
+    data: list[EmbeddingObject]
     model: str
     usage: EmbeddingsUsage
 
     class Config:
-        if IS_PYDANTIC_V2:
+        if IS_PYDANTIC_V2_OR_NEWER:
             json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
         else:
             schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA

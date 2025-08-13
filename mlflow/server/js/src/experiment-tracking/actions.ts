@@ -16,21 +16,14 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
+import { ArtifactListFilesResponse, EvaluationArtifactTable } from './types';
+import { KeyValueEntity } from '../common/types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
+import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
-export const searchExperimentsApi = (id = getUUID()) => {
-  return {
-    type: SEARCH_EXPERIMENTS_API,
-    payload: MlflowService.searchExperiments({
-      max_results: 20000,
-    }),
-    meta: { id: id },
-  };
-};
 
 export const GET_EXPERIMENT_API = 'GET_EXPERIMENT_API';
 export const getExperimentApi = (experimentId: any, id = getUUID()) => {
@@ -41,7 +34,7 @@ export const getExperimentApi = (experimentId: any, id = getUUID()) => {
   };
 };
 
-export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
+const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
 export const createExperimentApi = (experimentName: any, artifactPath = undefined, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
@@ -56,7 +49,7 @@ export const createExperimentApi = (experimentName: any, artifactPath = undefine
   };
 };
 
-export const DELETE_EXPERIMENT_API = 'DELETE_EXPERIMENT_API';
+const DELETE_EXPERIMENT_API = 'DELETE_EXPERIMENT_API';
 export const deleteExperimentApi = (experimentId: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const deleteResponse = dispatch({
@@ -68,7 +61,7 @@ export const deleteExperimentApi = (experimentId: any, id = getUUID()) => {
   };
 };
 
-export const UPDATE_EXPERIMENT_API = 'UPDATE_EXPERIMENT_API';
+const UPDATE_EXPERIMENT_API = 'UPDATE_EXPERIMENT_API';
 export const updateExperimentApi = (experimentId: any, newExperimentName: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const updateResponse = dispatch({
@@ -83,8 +76,8 @@ export const updateExperimentApi = (experimentId: any, newExperimentName: any, i
   };
 };
 
-export const UPDATE_RUN_API = 'UPDATE_RUN_API';
-export const updateRunApi = (runId: any, newName: any, id = getUUID()) => {
+const UPDATE_RUN_API = 'UPDATE_RUN_API';
+export const updateRunApi = (runId: string, newName: string, id: string = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const updateResponse = dispatch({
       type: UPDATE_RUN_API,
@@ -107,8 +100,8 @@ export const getRunApi = (runId: any, id = getUUID()) => {
   };
 };
 
-export const CREATE_RUN_API = 'CREATE_RUN_API';
-export const createRunApi = (experimentId: string, tags?: any, run_name?: string) => {
+const CREATE_RUN_API = 'CREATE_RUN_API';
+const createRunApi = (experimentId: string, tags?: any, run_name?: string) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
       type: CREATE_RUN_API,
@@ -164,7 +157,7 @@ export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any)
   };
 };
 
-export const DELETE_RUN_API = 'DELETE_RUN_API';
+const DELETE_RUN_API = 'DELETE_RUN_API';
 export const deleteRunApi = (runUuid: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const deleteResponse = dispatch({
@@ -175,7 +168,7 @@ export const deleteRunApi = (runUuid: any, id = getUUID()) => {
     return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
   };
 };
-export const RESTORE_RUN_API = 'RESTORE_RUN_API';
+const RESTORE_RUN_API = 'RESTORE_RUN_API';
 export const restoreRunApi = (runUuid: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const restoreResponse = dispatch({
@@ -408,6 +401,33 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
 };
 
 /**
+ * Redux action to list artifacts for a logged model.
+ * TODO: discard redux, refactor into hooks
+ */
+export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
+export const listArtifactsLoggedModelApi = (
+  loggedModelId: any,
+  path?: any,
+  experimentId?: string,
+  id = getUUID(),
+  entityTags?: Partial<KeyValueEntity>[],
+) => {
+  const getLoggedModelDataFromMLflowAPI = () =>
+    MlflowService.listArtifactsLoggedModel({
+      loggedModelId,
+      path,
+    });
+  const getLoggedModelDataFn = () => {
+    return getLoggedModelDataFromMLflowAPI();
+  };
+  return {
+    type: LIST_ARTIFACTS_LOGGED_MODEL_API,
+    payload: getLoggedModelDataFn(),
+    meta: { id: id, loggedModelId, path: path },
+  };
+};
+
+/**
  * Run this action only after verifying that the /images directory exists
  * Reducer will populate image keys.
  */
@@ -509,19 +529,36 @@ export const setTagApi = (runUuid: any, tagName: any, tagValue: any, id = getUUI
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
-export const deleteTagApi = (runUuid: any, tagName: any, id = getUUID()) => {
+const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+
+/**
+ * Used in new, unified tagging UI
+ */
+export const saveRunTagsApi = (
+  run_uuid: string,
+  newTags: KeyValueEntity[],
+  deletedTags: KeyValueEntity[],
+  id = getUUID(),
+) => {
+  const updateRequests = Promise.all([
+    ...newTags.map(({ key, value }) => MlflowService.setTag({ run_uuid, key, value })),
+    ...deletedTags.map(({ key }) => MlflowService.deleteTag({ run_id: run_uuid, key })),
+  ]);
+
   return {
-    type: DELETE_TAG_API,
-    payload: MlflowService.deleteTag({
-      run_id: runUuid,
-      key: tagName,
-    }),
-    meta: { id: id, runUuid: runUuid, key: tagName },
+    type: SET_RUN_TAGS_BULK,
+    payload: updateRequests,
+    meta: { id, runUuid: run_uuid, deletedTags, newTags },
   };
 };
 
-export const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+// TODO: remove the action once "databricks.fe.mlflow.useSharedTaggingUI" flag is enabled
 /**
+ * @deprecated
+ *
+ *
+ * Used in old implementation of tags editor
+ *
  * Given lists of existing and new tags, creates and calls
  * multiple requests for setting/deleting tags in a experiment run
  */
@@ -678,4 +715,4 @@ export const createPromptLabRunApi = ({
     meta: { payload },
   };
 };
-export const CREATE_PROMPT_LAB_RUN = 'CREATE_PROMPT_LAB_RUN';
+const CREATE_PROMPT_LAB_RUN = 'CREATE_PROMPT_LAB_RUN';

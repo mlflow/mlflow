@@ -66,13 +66,22 @@ if (require.main === module) {
 
 module.exports = async ({ context, github }) => {
   const { body } = context.payload.pull_request;
-  getIssuesToClose(body || "").forEach(async (issue_number) => {
-    const { owner, repo } = context.repo;
+  const { owner, repo } = context.repo;
+  for (const issue_number of getIssuesToClose(body || "")) {
+    // Ignore PRs
+    const { data: issue } = await github.rest.issues.get({
+      owner,
+      repo,
+      issue_number,
+    });
+    if (issue.pull_request) {
+      continue;
+    }
     await github.rest.issues.addLabels({
       owner,
       repo,
       issue_number,
       labels: [HAS_CLOSING_PR_LABEL],
     });
-  });
+  }
 };

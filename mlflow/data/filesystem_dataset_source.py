@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -54,7 +54,7 @@ class FileSystemDatasetSource(DatasetSource):
             raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
 
         Returns:
-            True if this DatsetSource can resolve the raw source, False otherwise.
+            True if this DatasetSource can resolve the raw source, False otherwise.
         """
 
     @classmethod
@@ -66,7 +66,7 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         """
         Returns:
             A JSON-compatible dictionary representation of the FileSystemDatasetSource.
@@ -74,7 +74,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "FileSystemDatasetSource":
         """
         Args:
             source_dict: A dictionary representation of the FileSystemDatasetSource.

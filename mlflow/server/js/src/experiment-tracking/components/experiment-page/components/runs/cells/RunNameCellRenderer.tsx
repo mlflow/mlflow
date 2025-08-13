@@ -1,5 +1,5 @@
 import { ICellRendererParams } from '@ag-grid-community/core';
-import { Button, MinusBoxIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, MinusSquareIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
@@ -8,10 +8,7 @@ import { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
@@ -69,7 +66,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
               }}
               key={'Expander-' + runUuid}
               type="link"
-              icon={expanderOpen ? <MinusBoxIcon /> : <PlusSquareIcon />}
+              icon={expanderOpen ? <MinusSquareIcon /> : <PlusSquareIcon />}
             />
           )}
         </div>
@@ -81,7 +78,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
         ) : (
           <RunColorPill
             color={getRunColor(runUuid)}
-            hidden={shouldUseNewRunRowsVisibilityModel() && props.isComparingRuns && hidden}
+            hidden={props.isComparingRuns && hidden}
             data-testid="experiment-view-table-run-color"
             onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
           />

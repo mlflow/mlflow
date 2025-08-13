@@ -35,7 +35,8 @@ describe('RestoreRunModal', () => {
     expect(wrapper.find(ConfirmModal).length).toBe(1);
   });
 
-  test('test handleRenameExperiment', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameExperiment', (done) => {
     const promise = wrapper.find(ConfirmModal).prop('handleSubmit')();
     promise.finally(() => {
       expect(mockRestoreRunApi).toHaveBeenCalledTimes(2);
@@ -43,14 +44,15 @@ describe('RestoreRunModal', () => {
     });
   });
 
-  test('test handleRenameExperiment errors correctly', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameExperiment errors correctly', (done) => {
     const mockFailRestoreRunApi = jest.fn(
       () =>
         new Promise((resolve, reject) => {
           window.setTimeout(() => {
             reject(
-              // @ts-expect-error TS(2554): Expected 0-1 arguments, but got 2.
               new Error('Limit exceeded', {
+                // @ts-expect-error TS(2554): Object literal may only specify known properties, and 'textJson' does not exist in type 'ErrorOptions'.
                 textJson: { error_code: 'RESOURCE_LIMIT_EXCEEDED', message: 'Limit exceeded' },
               }),
             );

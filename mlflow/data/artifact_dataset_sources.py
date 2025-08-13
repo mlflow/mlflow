@@ -1,7 +1,7 @@
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, TypeVar
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -140,7 +140,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(str(raw_source))
 
-        def to_dict(self) -> Dict[Any, Any]:
+        def to_dict(self) -> dict[Any, Any]:
             """
             Returns:
                 A JSON-compatible dictionary representation of the {dataset_source_name}.
@@ -150,7 +150,7 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             }
 
         @classmethod
-        def from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
+        def from_dict(cls, source_dict: dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
             uri = source_dict.get("uri")
             if uri is None:
                 raise MlflowException(
