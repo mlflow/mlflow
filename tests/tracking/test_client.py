@@ -2742,7 +2742,7 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     ):
         dataset = MlflowClient().create_evaluation_dataset(
             name="qa_evaluation",
-            experiment_ids=["exp1", "exp2"],
+            experiment_id=["exp1", "exp2"],
             tags={"environment": "production", "version": "1.0"},
         )
 
@@ -2753,7 +2753,7 @@ def test_mlflow_client_create_evaluation_dataset(mock_store):
     mock_store.create_evaluation_dataset.assert_called_once_with(
         name="qa_evaluation",
         tags={"environment": "production", "version": "1.0"},
-        experiment_ids=["exp1", "exp2"],
+        experiment_id=["exp1", "exp2"],
     )
 
 
@@ -2779,7 +2779,7 @@ def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
     mock_store.create_evaluation_dataset.assert_called_once_with(
         name="test_dataset",
         tags=None,
-        experiment_ids=None,
+        experiment_id=None,
     )
 
 

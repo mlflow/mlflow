@@ -1,4 +1,7 @@
-FROM amd64/python:3.10
+# MSSQL tools are only available for amd64 architecture
+# GitHub Actions runners use amd64, but local development might use ARM (Apple Silicon)
+# The --platform flag ensures consistent behavior across environments
+FROM --platform=linux/amd64 python:3.10
 
 ARG DEPENDENCIES
 
@@ -9,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # adding custom MS repository (using modern approach without deprecated apt-key)
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
-RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sed 's/^deb /deb [signed-by=\/usr\/share\/keyrings\/microsoft-archive-keyring.gpg] /' > /etc/apt/sources.list.d/mssql-release.list
+RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sed 's|\[arch=|\[signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg arch=|' > /etc/apt/sources.list.d/mssql-release.list
 
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
