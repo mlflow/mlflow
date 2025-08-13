@@ -6,27 +6,26 @@ MLflow 3.3.0 includes several major features and improvements
 
 Features:
 
-- [Webhooks] Webhooks support for model registry (#16583, @harupy)
-- [Tracking] Agno tracing Integration (#16995, @joelrobin18)
-- [Evaluation] Merge GenAI Eval branch (#17161, @B-Step62)
-- [Tracing] Add memory span type (#17034, @B-Step62)
+- [Webhooks] Add webhook support for model registry events to enable automated notifications (#16583, @harupy)
+- [Tracking] Add Agno tracing integration for AI agent workflow observability (#16995, @joelrobin18)
+- [Evaluation] Introduce GenAI evaluation capabilities for LLM applications in OSS MLflow (#17161, #17159, @B-Step62)
+- [Tracing] Add `memory` span type for agentic workflows (#17034, @B-Step62)
 - [UI] MLflow UI Sync (#17092, @daniellok-db)
-- [Tracking] Make fastapi + uvicorn the default MLflow server backend, with flask compatibility middleware (#17038, @dbczumar)
-- [Prompts] Refactor optimize_prompt to support custom optimizer (#17052, @TomeHirata)
-- [] Allow users to pass the encoding tokenizer (#16253, @joelrobin18)
+- [Tracking] Switch default server to FastAPI + Uvicorn for improved performance with Flask compatibility (#17038, @dbczumar)
+- [Prompts] Enable custom prompt optimizers in `optimize_prompt` including DSPy support (#17052, @TomeHirata)
+- [Metrics] Allow custom tokenizer encoding in `token_count` function (#16253, @joelrobin18)
 
 Bug fixes:
 
-- [Tracking] Fix Databricks secret scope check to reduce error rates (#17166, @harupy)
-- [Tracing] remove api_key before log to fix security thread (#17082, @diy2learn)
-- [Tracking] Fix Databricks SDK error code to HTTP status mapping (#17095, @harupy)
-- [Tracing] Fix LiteLLM tracing issue (#16982, @B-Step62)
+- [Tracking] Fix Databricks secret scope check to reduce audit log errors (#17166, @harupy)
+- [Tracing] Remove API keys from CrewAI traces to prevent credential leakage (#17082, @diy2learn)
+- [Tracking] Fix Databricks SDK error code mapping in retry logic (#17095, @harupy)
+- [Tracing] Fix LiteLLM span association issue by making callbacks synchronous (#16982, @B-Step62)
 
 Documentation updates:
 
-- [Evaluation] [OSS GenAI Eval #11] GenAI Eval minimum doc (#17159, @B-Step62)
-- [Docs] Document the usage of custom optimizers with optimize_prompt (#17084, @TomeHirata)
-- [Docs / Evaluation] Fix documentation for built in scorers using expectation (#17075, @smoorjani)
+- [Docs] Document custom optimizer usage with `optimize_prompt` (#17084, @TomeHirata)
+- [Docs / Evaluation] Fix built-in scorer documentation for expectation parameter (#17075, @smoorjani)
 
 Small bug fixes and documentation updates:
 
