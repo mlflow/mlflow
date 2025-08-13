@@ -971,7 +971,7 @@ Please see the screenshot below for clarity:
 
 ![Demo UI of MLflow evaluate](/images/llm_evaluate_experiment_view.png)
 
-   ## Error Handling and Retrying Failed Examples
+## Error Handling and Retrying Failed Examples
 
 When evaluating LLM calls at scale, some requests may raise exceptions due to timeouts or provider errors. You can wrap your evaluation function in a try/except loop, capture the indices of failed rows, and retry them later after addressing the issue:
 
