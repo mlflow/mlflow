@@ -49,14 +49,14 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Connect to MLflow',
         },
         {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html',
-          label: 'Evaluate your GenAI App',
+          type: 'doc',
+          id: 'eval-monitor/quickstart',
+          label: 'Evaluate LLMs and Agents',
         },
         {
           type: 'link',
           href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing',
+          label: 'Tracing GenAI Apps',
         },
       ],
       link: {
@@ -238,45 +238,76 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
+          id: 'eval-monitor/quickstart',
+          label: 'Quickstart',
+        },
+        // {
+        //   type: 'category',
+        //   label: 'Running Evaluations',
+        //   items: [
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/running-evaluation/prompts',
+        //       label: 'Evaluate Prompts',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/running-evaluation/agents',
+        //       label: 'Evaluate Agents',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/running-evaluation/traces',
+        //       label: 'Evaluate Traces',
+        //     },
+        //   ],
+        //   collapsed: false,
+        // },
+        // {
+        //   type: 'category',
+        //   label: 'Scorers',
+        //   items: [
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/scorers/index',
+        //       label: 'What is a Scorer?',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/scorers/llm-judge',
+        //       label: 'LLM-as-a-Judge Scorers',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/scorers/custom',
+        //       label: 'Custom Scorers',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/scorers/alignment',
+        //       label: 'How to write a good LLM judge?',
+        //     },
+        //     {
+        //       type: 'doc',
+        //       id: 'eval-monitor/scorers/integrations',
+        //       label: 'Third-Party Integrations',
+        //     },
+        //   ],
+        // },
+        {
+          type: 'doc',
           id: 'assessments/feedback',
-          label: 'Feedback Collection',
+          label: 'Human Feedback',
         },
         {
           type: 'doc',
           id: 'assessments/expectations',
-          label: 'Ground Truth Expectations',
+          label: 'Annotating Ground Truth',
         },
         {
           type: 'doc',
-          id: 'eval-monitor/llm-evaluation',
-          label: 'LLM Evaluation',
-        },
-        {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
-          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
-        },
-        {
-          type: 'category',
-          label: 'Notebooks',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
-            },
-          ],
+          id: 'eval-monitor/legacy-llm-evaluation',
+          label: 'LLM Evaluation (Legacy)',
         },
       ],
       link: {

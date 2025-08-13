@@ -626,6 +626,20 @@ service MlflowService {
     };
   }
 
+  // Links traces to a run by creating internal trace input relationships.
+  // This API allows associating multiple traces with runs for evaluation and labeling workflows.
+  rpc linkTracesToRun (LinkTracesToRun) returns (LinkTracesToRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/link-to-run"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Traces to Run",
+    };
+  }
+
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
@@ -2152,8 +2166,6 @@ message TraceInfoV3 {
 
 
 message StartTraceV3 {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   // The information for the trace being created.
   optional Trace trace = 1 [(validate_required) = true];
 
@@ -2161,6 +2173,17 @@ message StartTraceV3 {
     // The created trace information.
     optional Trace trace = 1;
   }
+}
+
+message LinkTracesToRun {
+  // IDs of the traces to link to the run.
+  // The maximum number of trace IDs that can be linked in a single request is 100.
+  repeated string trace_ids = 1;
+
+  // ID of the run to link the traces to.
+  optional string run_id = 2 [(validate_required) = true];
+
+  message Response {}
 }
 
 // DatasetSummary. Represents a summary of information about a dataset.
