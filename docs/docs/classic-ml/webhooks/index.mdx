@@ -455,7 +455,7 @@ if __name__ == "__main__":
    export MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 
    # Start MLflow server with webhook support
-   mlflow server
+   mlflow server --backend-store-uri sqlite:///mlflow.db
    ```
 
 3. **Start the webhook receiver:**
