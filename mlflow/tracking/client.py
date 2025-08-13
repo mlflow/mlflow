@@ -6021,6 +6021,7 @@ class MlflowClient:
         """
         return self._get_registry_client().list_webhooks(max_results, page_token)
 
+    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -6063,6 +6064,7 @@ class MlflowClient:
             status=status,
         )
 
+    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -6075,6 +6077,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_webhook(webhook_id)
 
+    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEvent | str | None = None
     ) -> WebhookTestResult:
