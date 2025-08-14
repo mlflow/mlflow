@@ -118,6 +118,23 @@ class TestConfig(BaseModel):
     def validate_unsupported(cls, v):
         return [SpecifierSet(x) for x in v] if v else None
 
+    @field_validator("python", mode="before")
+    @classmethod
+    def validate_python_requirements(cls, v):
+        if v is None:
+            return v
+
+        # Read the minimum Python version from .python-version file
+        python_version_file = Path(".python-version")
+        min_python_version = python_version_file.read_text().strip()
+
+        # Check if any value in the python dict matches the minimum version
+        for version in v.values():
+            if version == min_python_version:
+                raise ValueError(f"Unnecessary Python version requirement: {version}")
+
+        return v
+
 
 class FlavorConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
