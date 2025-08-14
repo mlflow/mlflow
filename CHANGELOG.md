@@ -8,7 +8,7 @@ MLflow 3.3.0 includes several major features and improvements
 
 - 🪝 **Model Registry Webhooks**: MLflow now supports [webhooks](https://mlflow.org/docs/latest/ml/webhooks/) for model registry events, enabling automated notifications and integrations with external systems. (#16583, @harupy)
 - 🧭 **Agno Tracing Integration**: Added [Agno tracing integration](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/agno/) for enhanced observability of AI agent workflows. (#16995, @joelrobin18)
-- 🧪 **GenAI Evaluation**: MLflow OSS introduces GenAI evaluation capabilities for LLM applications, allowing users to assess and monitor model quality natively. (#17161, #17159, @B-Step62)
+- 🧪 **GenAI Evaluation in OSS**: MLflow open-sources [the new evaluation capability for LLM applications](https://mlflow.org/releases/3). This suite enables systematic measurement and improvement of LLM application quality, with tight integration into MLflow's observability, feedback collection, and experiment tracking capabilities. (#17161, #17159, @B-Step62)
 - 🖥️ **Revamped Trace Table View**: The new trace view in MLflow UI provides a streamlined interface for exploring, filtering, and monitoring traces, with enhanced search capabilities including full-text search across requests.(#17092, @daniellok-db)
 
 - ⚡️ **FastAPI + Uvicorn Server**: MLflow Tracking Server now defaults to FastAPI + Uvicorn for improved performance, while maintaining Flask compatibility. (#17038, @dbczumar)
