@@ -21,7 +21,7 @@ runs:
       run: |
         python_version="${{ inputs.python-version }}"
         if [ -z "$python_version" ]; then
-          python_version=$(cat requirements/python-version.txt)
+          python_version=$(cat .python-version)
         fi
         if [[ "$python_version" == "3.10" ]]; then
           if [ ${{ runner.os }} == "Windows" ]; then

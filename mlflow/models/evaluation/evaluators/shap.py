@@ -54,7 +54,7 @@ class ShapEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         if isinstance(model, _ServedPyFuncModel):
             _logger.warning(
                 "Skipping model explainability because a model server is used for environment "

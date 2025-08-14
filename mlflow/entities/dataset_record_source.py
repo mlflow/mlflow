@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -90,7 +90,7 @@ class DatasetRecordSource(_MlflowObject):
     """
 
     source_type: DatasetRecordSourceType
-    source_data: Optional[dict[str, Any]] = None
+    source_data: dict[str, Any] | None = None
 
     def __post_init__(self):
         self.source_type = DatasetRecordSourceType._standardize(self.source_type)

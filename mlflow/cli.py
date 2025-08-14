@@ -243,18 +243,22 @@ def _user_args_to_dict(arguments, argument_type="P"):
     return user_dict
 
 
-def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
+def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, uvicorn_opts=None):
     if sys.platform == "win32":
-        if gunicorn_opts is not None or workers is not None:
+        if gunicorn_opts is not None:
             raise NotImplementedError(
-                "waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts or --workers"
+                "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
-    else:
-        if waitress_opts is not None:
-            raise NotImplementedError(
-                "gunicorn replaces waitress on non-Windows platforms, "
-                "cannot specify --waitress-opts"
-            )
+
+    # Check for conflicting options
+    num_server_opts_specified = sum(
+        1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
+    )
+    if num_server_opts_specified > 1:
+        raise click.UsageError(
+            "Cannot specify multiple server options. Choose one of: "
+            "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+        )
 
 
 def _validate_static_prefix(ctx, param, value):
@@ -338,6 +342,12 @@ def _validate_static_prefix(ctx, param, value):
     "--waitress-opts", default=None, help="Additional command line options for waitress-serve."
 )
 @click.option(
+    "--uvicorn-opts",
+    envvar="MLFLOW_UVICORN_OPTS",
+    default=None,
+    help="Additional command line options forwarded to uvicorn processes (used by default).",
+)
+@click.option(
     "--expose-prometheus",
     envvar="MLFLOW_EXPOSE_PROMETHEUS",
     default=None,
@@ -363,7 +373,7 @@ def _validate_static_prefix(ctx, param, value):
     help=(
         "If enabled, run the server with debug logging and auto-reload. "
         "Should only be used for development purposes. "
-        "Cannot be used with '--gunicorn-opts'. "
+        "Cannot be used with '--gunicorn-opts' or '--uvicorn-opts'. "
         "Unsupported on Windows."
     ),
 )
@@ -383,6 +393,7 @@ def server(
     expose_prometheus,
     app_name,
     dev,
+    uvicorn_opts,
 ):
     """
     Run the MLflow tracking server.
@@ -395,14 +406,28 @@ def server(
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
 
-    if dev and is_windows():
-        raise click.UsageError("'--dev' is not supported on Windows.")
+    if dev:
+        if is_windows():
+            raise click.UsageError("'--dev' is not supported on Windows.")
+        if gunicorn_opts:
+            raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
+        if uvicorn_opts:
+            raise click.UsageError("'--dev' and '--uvicorn-opts' cannot be specified together.")
+        if app_name:
+            raise click.UsageError(
+                "'--dev' cannot be used with '--app-name'. Development mode with auto-reload "
+                "is only supported for the default MLflow tracking server."
+            )
 
-    if dev and gunicorn_opts:
-        raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
+        # In dev mode, use uvicorn with reload and debug logging
+        uvicorn_opts = "--reload --log-level debug"
 
-    gunicorn_opts = "--log-level debug --reload" if dev else gunicorn_opts
-    _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
+    _validate_server_args(
+        gunicorn_opts=gunicorn_opts,
+        workers=workers,
+        waitress_opts=waitress_opts,
+        uvicorn_opts=uvicorn_opts,
+    )
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -426,20 +451,21 @@ def server(
 
     try:
         _run_server(
-            backend_store_uri,
-            registry_store_uri,
-            default_artifact_root,
-            serve_artifacts,
-            artifacts_only,
-            artifacts_destination,
-            host,
-            port,
-            static_prefix,
-            workers,
-            gunicorn_opts,
-            waitress_opts,
-            expose_prometheus,
-            app_name,
+            file_store_path=backend_store_uri,
+            registry_store_uri=registry_store_uri,
+            default_artifact_root=default_artifact_root,
+            serve_artifacts=serve_artifacts,
+            artifacts_only=artifacts_only,
+            artifacts_destination=artifacts_destination,
+            host=host,
+            port=port,
+            static_prefix=static_prefix,
+            workers=workers,
+            gunicorn_opts=gunicorn_opts,
+            waitress_opts=waitress_opts,
+            expose_prometheus=expose_prometheus,
+            app_name=app_name,
+            uvicorn_opts=uvicorn_opts,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

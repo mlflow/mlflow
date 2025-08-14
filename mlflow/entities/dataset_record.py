@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from google.protobuf.json_format import MessageToDict
 
@@ -26,13 +26,13 @@ class DatasetRecord(_MlflowObject):
     dataset_record_id: str
     created_time: int
     last_update_time: int
-    expectations: Optional[dict[str, Any]] = None
-    tags: Optional[dict[str, str]] = None
-    source: Optional[DatasetRecordSource] = None
-    source_id: Optional[str] = None
-    source_type: Optional[str] = None
-    created_by: Optional[str] = None
-    last_updated_by: Optional[str] = None
+    expectations: dict[str, Any] | None = None
+    tags: dict[str, str] | None = None
+    source: DatasetRecordSource | None = None
+    source_id: str | None = None
+    source_type: str | None = None
+    created_by: str | None = None
+    last_updated_by: str | None = None
 
     def __post_init__(self):
         if self.inputs is None:

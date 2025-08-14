@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -16,7 +16,7 @@ class AutoLoggingConfig:
     log_input_examples: bool
     log_model_signatures: bool
     log_traces: bool
-    extra_tags: Optional[dict[str, Any]] = None
+    extra_tags: dict[str, Any] | None = None
     log_models: bool = True
 
     @classmethod

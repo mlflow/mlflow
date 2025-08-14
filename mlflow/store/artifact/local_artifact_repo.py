@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
@@ -22,7 +22,7 @@ from mlflow.utils.uri import validate_path_is_safe
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         super().__init__(artifact_uri, tracking_uri)
         self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
 

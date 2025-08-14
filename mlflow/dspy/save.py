@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import cloudpickle
 import yaml
@@ -28,7 +28,6 @@ from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import DataType
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -70,23 +69,22 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def save_model(
     model,
     path: str,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
 ):
     """
     Save a Dspy model.
@@ -262,31 +260,30 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: Optional[str] = None,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    registered_model_name: Optional[str] = None,
+    artifact_path: str | None = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    registered_model_name: str | None = None,
     await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.

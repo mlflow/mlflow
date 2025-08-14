@@ -1,5 +1,4 @@
 import threading
-from typing import Optional
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -10,10 +9,10 @@ class RunBatch:
     def __init__(
         self,
         run_id: str,
-        params: Optional[list["Param"]] = None,
-        tags: Optional[list["RunTag"]] = None,
-        metrics: Optional[list["Metric"]] = None,
-        completion_event: Optional[threading.Event] = None,
+        params: list["Param"] | None = None,
+        tags: list["RunTag"] | None = None,
+        metrics: list["Metric"] | None = None,
+        completion_event: threading.Event | None = None,
     ):
         """Initializes an instance of `RunBatch`.
 

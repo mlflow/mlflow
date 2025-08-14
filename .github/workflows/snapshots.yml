@@ -8,7 +8,11 @@ on:
   pull_request: # To test updates
     paths:
       - ".github/workflows/snapshots.yml"
-      - ".github/scripts/snapshots.js"
+      - ".github/scripts/src/snapshots.ts"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -61,14 +65,18 @@ jobs:
               -exec cp {} $ARTIFACT_DIR/ \;
           ls $ARTIFACT_DIR
 
+      - name: Install and build
+        working-directory: .github/scripts
+        run: npm ci && npm run build
+
       - name: Upload artifacts to nightly release
         # This step requires contents write permission, but pull requests filed from forks do not have this permission.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'mlflow/mlflow'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            const script = require('./.github/scripts/snapshots.js');
-            await script({
+            const { uploadSnapshots } = require('./.github/scripts/dist/bundle.js');
+            await uploadSnapshots({
               github,
               context,
               artifactDir: process.env.ARTIFACT_DIR
