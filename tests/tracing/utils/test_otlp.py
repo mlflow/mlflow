@@ -133,13 +133,10 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
 
     experiment = mlflow.set_experiment("dual_export_test")
-    mlflow.tracing.reset()
 
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
+    processors = _get_tracer("test").span_processor._span_processors
     assert len(processors) == 2
     assert isinstance(processors[0], OtelSpanProcessor)
     assert isinstance(processors[1], MlflowV3SpanProcessor)
@@ -158,9 +155,6 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     result = parent_function()
     assert result == "Parent: Hello World"
 
-    # Wait for traces to be exported to OTLP
-    time.sleep(15)
-
     client = MlflowClient()
     traces = client.search_traces(experiment_ids=[experiment.experiment_id])
     assert len(traces) == 1
@@ -173,10 +167,17 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert "version" in trace.info.tags
     assert trace.info.tags["version"] == "1.0"
 
-    # Verify collector received spans (check for span markers in logs)
+    # Wait for collector to receive spans, checking every second for up to 30 seconds
     _, output_file = otel_collector
-    with open(output_file) as f:
-        collector_logs = f.read()
-    # Just verify that the collector received some spans
-    assert "Span #0" in collector_logs
-    assert "Span #1" in collector_logs
+    spans_found = False
+    for _ in range(30):
+        time.sleep(1)
+        with open(output_file) as f:
+            collector_logs = f.read()
+        # Check if both spans are in the logs
+        if "Span #0" in collector_logs and "Span #1" in collector_logs:
+            spans_found = True
+            break
+
+    # Assert that spans were found in collector logs
+    assert spans_found, "Expected spans not found in collector logs after 30 seconds"
