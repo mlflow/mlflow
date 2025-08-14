@@ -19,6 +19,26 @@ from mlflow.utils.docstring_utils import format_docstring
 GENAI_CONFIG_NAME = "databricks-agent"
 
 
+def _validate_databricks_environment(scorer_name: str) -> None:
+    """Validate that we're in a Databricks environment.
+
+    Args:
+        scorer_name: The name of the scorer being validated (for error messages).
+
+    Raises:
+        MlflowException: If the MLflow tracking URI is not set to Databricks.
+    """
+    from mlflow.utils.uri import is_databricks_uri
+
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
+        raise MlflowException(
+            f"The {scorer_name} scorer is currently only available in "
+            "Databricks environments. It requires a Databricks tracking URI. "
+            "Please set your MLflow tracking URI to point to a Databricks workspace "
+            "using mlflow.set_tracking_uri()."
+        )
+
+
 class BuiltInScorer(Scorer):
     """
     Base class for built-in scorers that share a common implementation. All built-in scorers should
@@ -95,6 +115,11 @@ class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
 
+    .. warning::
+        This scorer is currently only available in Databricks environments. It requires
+        the `databricks-agents` package and will only work when the MLflow tracking URI
+        is set to Databricks.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
@@ -121,6 +146,10 @@ class RetrievalRelevance(BuiltInScorer):
 
     name: str = "retrieval_relevance"
     required_columns: set[str] = {"inputs", "trace"}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        _validate_databricks_environment("RetrievalRelevance")
 
     def __call__(self, *, trace: Trace) -> Feedback:
         """
@@ -609,6 +638,11 @@ class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
 
+    .. warning::
+        This scorer is currently only available in Databricks environments. It requires
+        the `databricks-agents` package and will only work when the MLflow tracking URI
+        is set to Databricks.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
@@ -640,6 +674,10 @@ class Safety(BuiltInScorer):
 
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        _validate_databricks_environment("Safety")
 
     def __call__(self, *, outputs: Any) -> Feedback:
         """

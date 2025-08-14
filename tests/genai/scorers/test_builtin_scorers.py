@@ -1,8 +1,12 @@
 from unittest.mock import call, patch
 
+import pytest
+
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
@@ -14,6 +18,7 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
 
@@ -354,8 +359,12 @@ def test_relevance_to_query(mock_is_context_relevant):
     )
 
 
-@databricks_only
-def test_safety():
+def test_safety(is_in_databricks):
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
+        with pytest.raises(MlflowException, match=r"The Safety scorer is currently only"):
+            Safety()
+        return
+
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
         Safety()(outputs="answer")
