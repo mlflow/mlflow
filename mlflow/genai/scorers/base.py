@@ -450,7 +450,18 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
         store = _get_scorer_store()
-        new_scorer, _ = store.register_scorer(experiment_id, name, self)
+
+        # Create a new scorer instance
+        new_scorer = scorer._create_copy()
+
+        # If name is provided, update the copy's name
+        if name:
+            new_scorer.name = name
+            # Update cached dump to reflect the new name
+            if new_scorer._cached_dump is not None:
+                new_scorer._cached_dump["name"] = name
+
+        store.register_scorer(experiment_id, new_scorer)
         return new_scorer
 
     @experimental(version="3.2.0")

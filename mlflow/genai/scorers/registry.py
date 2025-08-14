@@ -6,14 +6,11 @@ evaluate traces in MLflow experiments.
 """
 
 import json
-import threading
-from functools import lru_cache
 from abc import ABCMeta, abstractmethod
+from typing import Optional
 
-from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.databricks_utils import is_databricks_uri
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
@@ -43,7 +40,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def register_scorer(self, experiment_id: str, name: str, scorer: Scorer) -> tuple[Scorer, int]:
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
         """
         Register a scorer for an experiment.
 
@@ -53,7 +50,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
             scorer: The scorer object.
 
         Returns:
-            A tuple of (scorer, version). If versioning is not supported, return None.
+            The registered scorer version. If versioning is not supported, return None.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -202,10 +199,9 @@ class MLflowTrackingStore(AbstractScorerStore):
     def __init__(self, tracking_uri=None):
         self._tracking_store = _get_store(tracking_uri)
 
-    def register_scorer(self, experiment_id: str, name: str, scorer: Scorer) -> tuple[Scorer, int]:
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
         serialized_scorer = json.dumps(scorer.model_dump())
-        version = self._tracking_store.register_scorer(experiment_id, name, serialized_scorer)
-        return scorer, version
+        return self._tracking_store.register_scorer(experiment_id, serialized_scorer)
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
@@ -323,30 +319,20 @@ class DatabricksStore(AbstractScorerStore):
         )
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
-    def register_scorer(self, experiment_id: str, name: str, scorer: Scorer) -> tuple[Scorer, int]:
-        # Create a new scorer instance
-        new_scorer = scorer._create_copy()
-
-        # If name is provided, update the copy's name
-        if name:
-            new_scorer.name = name
-            # Update cached dump to reflect the new name
-            if new_scorer._cached_dump is not None:
-                new_scorer._cached_dump["name"] = name
-
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         DatabricksStore.add_registered_scorer(
-            name=new_scorer.name,
-            scorer=new_scorer,
+            name=scorer.name,
+            scorer=scorer,
             sample_rate=0.0,
             filter_string=None,
             experiment_id=experiment_id,
         )
 
         # Set the sampling config on the new instance
-        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+        scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
 
-        return new_scorer, None
+        return None
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         try:
