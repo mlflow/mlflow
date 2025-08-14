@@ -26,12 +26,12 @@ There are several ways to create evaluation datasets, each suited to different s
 
 ```python
 import mlflow
-from mlflow.genai.datasets import create_evaluation_dataset
+from mlflow.genai.datasets import create_dataset
 
 # Create your evaluation dataset
-dataset = create_evaluation_dataset(
+dataset = create_dataset(
     name="production_validation_set",
-    experiment_ids=["0"],  # "0" is the default experiment
+    experiment_id=["0"],  # "0" is the default experiment
     tags={"team": "ml-platform", "stage": "validation"},
 )
 
@@ -74,12 +74,12 @@ dataset.merge_records(annotated_traces)
 
 ```python
 import mlflow
-from mlflow.genai.datasets import create_evaluation_dataset
+from mlflow.genai.datasets import create_dataset
 
 # Create dataset with manual test cases
-dataset = create_evaluation_dataset(
+dataset = create_dataset(
     name="regression_test_suite",
-    experiment_ids=["0", "1"],  # Multiple experiments
+    experiment_id=["0", "1"],  # Multiple experiments
     tags={"type": "regression", "priority": "critical"},
 )
 
@@ -119,12 +119,12 @@ dataset.merge_records(test_cases)
 ```python
 import pandas as pd
 import mlflow
-from mlflow.genai.datasets import create_evaluation_dataset
+from mlflow.genai.datasets import create_dataset
 
 # Create dataset from existing test data
-dataset = create_evaluation_dataset(
+dataset = create_dataset(
     name="benchmark_dataset",
-    experiment_ids=["0"],  # Use your experiment ID
+    experiment_id=["0"],  # Use your experiment ID
     tags={"source": "benchmark", "version": "2024.1"},
 )
 

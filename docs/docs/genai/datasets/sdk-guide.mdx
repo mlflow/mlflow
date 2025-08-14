@@ -16,11 +16,11 @@ MLflow provides a fluent API for working with evaluation datasets that makes com
 
 ```python
 from mlflow.genai.datasets import (
-    create_evaluation_dataset,
-    get_evaluation_dataset,
-    search_evaluation_datasets,
-    set_evaluation_dataset_tags,
-    delete_evaluation_dataset_tag,
+    create_dataset,
+    get_dataset,
+    search_datasets,
+    set_dataset_tags,
+    delete_dataset_tag,
 )
 ```
 
@@ -86,12 +86,12 @@ Follow this typical workflow to build and evolve your evaluation datasets:
 Start by creating a new evaluation dataset with meaningful metadata:
 
 ```python
-from mlflow.genai.datasets import create_evaluation_dataset
+from mlflow.genai.datasets import create_dataset
 
 # Create a new dataset with tags for organization
-dataset = create_evaluation_dataset(
+dataset = create_dataset(
     name="customer_support_qa_v1",
-    experiment_ids=["0"],  # Link to experiments ("0" is default)
+    experiment_id=["0"],  # Link to experiments ("0" is default)
     tags={
         "version": "1.0",
         "purpose": "regression_testing",
@@ -235,10 +235,10 @@ dataset.merge_records(updated_records)
 Use tags to track dataset evolution and enable powerful searches:
 
 ```python
-from mlflow.genai.datasets import set_evaluation_dataset_tags
+from mlflow.genai.datasets import set_dataset_tags
 
 # Update dataset metadata
-set_evaluation_dataset_tags(
+set_dataset_tags(
     dataset_id=dataset.dataset_id,
     tags={
         "status": "validated",
@@ -248,7 +248,7 @@ set_evaluation_dataset_tags(
 )
 
 # Remove outdated tags
-set_evaluation_dataset_tags(
+set_dataset_tags(
     dataset_id=dataset.dataset_id,
     tags={"development_only": None},  # Setting to None removes the tag
 )
@@ -259,20 +259,20 @@ set_evaluation_dataset_tags(
 Find datasets using powerful search capabilities:
 
 ```python
-from mlflow.genai.datasets import search_evaluation_datasets
+from mlflow.genai.datasets import search_datasets
 
 # Find datasets by experiment
-datasets = search_evaluation_datasets(
+datasets = search_datasets(
     experiment_ids=["0", "1"]  # Search in multiple experiments
 )
 
 # Search by name pattern
-regression_datasets = search_evaluation_datasets(
+regression_datasets = search_datasets(
     filter_string="name LIKE '%regression%'"
 )
 
 # Complex search with tags
-production_ready = search_evaluation_datasets(
+production_ready = search_datasets(
     filter_string="tags.status = 'validated' AND tags.coverage = 'comprehensive'",
     order_by=["last_update_time DESC"],
     max_results=10,
@@ -290,7 +290,7 @@ The `EvaluationDataset` object follows an active record pattern—it's both a da
 
 ```python
 # Get a dataset
-dataset = get_evaluation_dataset(dataset_id="d-abc123...")
+dataset = get_dataset(dataset_id="d-abc123...")
 
 # The dataset object is "live" - it can fetch and update data
 current_record_count = len(dataset.records)  # Lazy loads if needed
@@ -414,7 +414,7 @@ Use these fields in your filter strings. **Note:** The fluent API returns a `Pag
 
 ```python
 # Complex filter example
-datasets = search_evaluation_datasets(
+datasets = search_datasets(
     filter_string="""
         tags.status = 'production'
         AND name LIKE '%customer%'
@@ -438,9 +438,9 @@ from mlflow import MlflowClient
 client = MlflowClient()
 
 # Create a dataset
-dataset = client.create_evaluation_dataset(
+dataset = client.create_dataset(
     name="customer_support_qa",
-    experiment_ids=["0"],
+    experiment_id=["0"],
     tags={"version": "1.0", "team": "ml-platform"},
 )
 ```
@@ -450,7 +450,7 @@ dataset = client.create_evaluation_dataset(
 
 ```python
 # Get a dataset by ID
-dataset = client.get_evaluation_dataset(dataset_id="d-abc123...")
+dataset = client.get_dataset(dataset_id="d-abc123...")
 
 # Access properties
 print(f"Dataset: {dataset.name}")
@@ -462,7 +462,7 @@ print(f"Records: {len(dataset.records)}")
 
 ```python
 # Search for datasets
-datasets = client.search_evaluation_datasets(
+datasets = client.search_datasets(
     experiment_ids=["0"],
     filter_string="tags.status = 'validated'",
     order_by=["created_time DESC"],
@@ -478,12 +478,12 @@ for dataset in datasets:
 
 ```python
 # Set tags
-client.set_evaluation_dataset_tags(
+client.set_dataset_tags(
     dataset_id=dataset.dataset_id, tags={"status": "production", "validated": "true"}
 )
 
 # Delete a tag
-client.delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+client.delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
 ```
 
     </TabItem>
@@ -491,7 +491,7 @@ client.delete_evaluation_dataset_tag(dataset_id=dataset.dataset_id, key="depreca
 
 ```python
 # Delete a dataset
-client.delete_evaluation_dataset(dataset_id=dataset.dataset_id)
+client.delete_dataset(dataset_id=dataset.dataset_id)
 ```
 
     </TabItem>
