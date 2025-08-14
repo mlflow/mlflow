@@ -10,10 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
 
 from mlflow.server import app as flask_app
+from mlflow.server.spans_router import router as spans_router
 from mlflow.version import VERSION
 
 
-def create_fastapi_app():
+def create_fastapi_app() -> FastAPI:
     """
     Create a FastAPI application that wraps the existing Flask app.
 
@@ -35,6 +36,7 @@ def create_fastapi_app():
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs
     fastapi_app.mount("/", WSGIMiddleware(flask_app))
+    fastapi_app.include_router(spans_router)
 
     return fastapi_app
 
