@@ -42,6 +42,7 @@ def get_trace_span_content(
     trace_id: str,
     span_id: str,
     max_content_length: int = 100_000,
+    page_token: str | None = None,
 ) -> GetTraceSpanContentResponse:
     raise NotImplementedError("TODO: Implement span content retrieval logic")
 
