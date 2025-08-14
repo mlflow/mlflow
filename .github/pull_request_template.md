@@ -62,7 +62,6 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 - [ ] `rn/none` - No description will be included. The PR will be mentioned only by the PR number in the "Small Bugfixes and Documentation Updates" section
 - [ ] `rn/breaking-change` - The PR will be mentioned in the "Breaking Changes" section
 - [ ] `rn/feature` - A new user-facing feature worth mentioning in the release notes
-- [ ] `rn/highlight` - A major new feature or improvement worth highlighting in the release notes
 - [ ] `rn/bug-fix` - A user-facing bug fix worth mentioning in the release notes
 - [ ] `rn/documentation` - A user-facing documentation change worth mentioning in the release notes
 
