@@ -230,11 +230,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "openai"
         },
         "models": {
-            "minimum": "1.0.1",
+            "minimum": "1.40.7",
             "maximum": "1.99.6"
         },
         "autologging": {
-            "minimum": "1.17.0",
+            "minimum": "1.40.7",
             "maximum": "1.99.6"
         }
     },
@@ -256,11 +256,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.0.354",
+            "minimum": "0.2.14",
             "maximum": "0.3.27"
         },
         "autologging": {
-            "minimum": "0.1.0",
+            "minimum": "0.2.14",
             "maximum": "0.3.27"
         }
     },
@@ -269,11 +269,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langgraph"
         },
         "models": {
-            "minimum": "0.2.0",
+            "minimum": "0.2.4",
             "maximum": "0.6.4"
         },
         "autologging": {
-            "minimum": "0.2.0",
+            "minimum": "0.2.4",
             "maximum": "0.6.4"
         }
     },
@@ -283,11 +283,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "llama_index.core"
         },
         "models": {
-            "minimum": "0.10.44",
+            "minimum": "0.10.67.post1",
             "maximum": "0.13.1"
         },
         "autologging": {
-            "minimum": "0.10.44",
+            "minimum": "0.10.67.post1",
             "maximum": "0.13.1"
         }
     },
@@ -326,7 +326,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "anthropic"
         },
         "autologging": {
-            "minimum": "0.30.0",
+            "minimum": "0.34.0",
             "maximum": "0.62.0"
         }
     },
@@ -376,7 +376,7 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "mistralai"
         },
         "autologging": {
-            "minimum": "1.0.0",
+            "minimum": "1.0.2",
             "maximum": "1.9.3"
         }
     },
@@ -431,7 +431,7 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "boto3"
         },
         "autologging": {
-            "minimum": "1.33.0",
+            "minimum": "1.34.161",
             "maximum": "1.40.6"
         }
     }
