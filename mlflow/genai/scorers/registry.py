@@ -109,14 +109,14 @@ class AbstractScorerStore(metaclass=ABCMeta):
         raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version):
         """
         Delete a scorer by name and optional version.
 
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
-            version: The scorer version to delete. If None, deletes all versions.
+            version: The scorer version to delete.
 
         Raises:
             MlflowException: If scorer is not found.
@@ -249,7 +249,12 @@ class MLflowTrackingStore(AbstractScorerStore):
         
         return scorers
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version):
+        if version is None:
+            raise MlflowException("You must set `version` argument to either an integer or 'all'.")
+        if version == "all":
+            version = None
+
         return self._tracking_store.delete_scorer(experiment_id, name, version)
 
 
@@ -362,6 +367,11 @@ class DatabricksStore(AbstractScorerStore):
         return scorers
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
+        if version is not None:
+            raise MlflowException(
+                "Databricks does not support getting a certain version scorer."
+            )
+
         try:
             from databricks.agents.scorers import get_scheduled_scorer
         except ImportError as e:
@@ -381,7 +391,10 @@ class DatabricksStore(AbstractScorerStore):
             "Scorer DatabricksStore does not support versioning."
         )
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version):
+        if version is not None:
+            raise MlflowException("Databricks does not support deleting a certain version scorer.")
+
         try:
             from databricks.agents.scorers import delete_scheduled_scorer
         except ImportError as e:
@@ -402,12 +415,12 @@ def _register_scorer_stores():
     from mlflow.store.db.db_types import DATABASE_ENGINES
 
     # Register for database schemes (these will use MLflowTrackingStore)
-    for scheme in DATABASE_ENGINES:
+    for scheme in DATABASE_ENGINES + ["http", "https"]:
         _scorer_store_registry.register(scheme, MLflowTrackingStore)
 
     # Register Databricks store
     _scorer_store_registry.register("databricks", DatabricksStore)
-    
+
     # Register entrypoints for custom implementations
     _scorer_store_registry.register_entrypoints()
 
@@ -462,7 +475,7 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
 
 
 @experimental(version="3.2.0")
-def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
+def get_scorer(*, name: str, experiment_id: str | None = None, version: int | None = None) -> Scorer:
     """
     Retrieve a specific registered scorer by name.
 
@@ -473,6 +486,7 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
         name: The name of the registered scorer to retrieve.
         experiment_id: The ID of the MLflow experiment containing the scorer.
             If None, uses the currently active experiment.
+        version: The scorer version. If None, returns the scorer with maximum version.
 
     Returns:
         A Scorer object with its current registration configuration.
@@ -493,7 +507,7 @@ def get_scorer(*, name: str, experiment_id: str | None = None) -> Scorer:
     """
 
     store = _get_scorer_store()
-    return store.get_scorer(experiment_id, name)
+    return store.get_scorer(experiment_id, name, version)
 
 
 @experimental(version="3.2.0")
@@ -501,6 +515,7 @@ def delete_scorer(
     *,
     name: str,
     experiment_id: str | None = None,
+    version: int | str | None = None,
 ) -> None:
     """
     Delete scorer with given name from the server.
@@ -513,6 +528,9 @@ def delete_scorer(
         name: Name of the scorer to delete.
         experiment_id: The ID of the MLflow experiment containing the scorer.
             If None, uses the currently active experiment.
+        version: The version to delete. For MLflow tracking backend, set it to 'all' to delete
+            all versions, or set it to an integer value to delete the certain version.
+            For Databricks backend, versioning is not supported, you must set it to `None`.
 
     Example:
         .. code-block:: python
@@ -527,4 +545,4 @@ def delete_scorer(
     """
 
     store = _get_scorer_store()
-    return store.delete_scorer(experiment_id, name)
+    return store.delete_scorer(experiment_id, name, version)
