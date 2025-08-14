@@ -4,7 +4,9 @@ import { APILink } from "@site/src/components/APILink";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import DAGLoop from "@site/src/components/DAGLoop";
-import { Sparkles, Layers, Search, Tag, RefreshCw, Users, Database, FileText, GitBranch, BarChart3, Code, Activity } from "lucide-react";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Sparkles, Layers, Search, Tag, RefreshCw, Users, Database, FileText, GitBranch, BarChart3, Code, Activity, Target, Rocket } from "lucide-react";
 
 # Evaluation Datasets SDK Guide
 
@@ -505,7 +507,41 @@ The client API provides the same capabilities as the fluent API but is better su
 
 ## Next Steps
 
-- [Evaluation Dataset Concepts](/genai/concepts/evaluation-datasets) - Understand the conceptual model
-- [Expectations Guide](/genai/assessments/expectations) - Define ground truth for your tests
-- [MLflow Evaluation](/genai/eval-monitor) - Run evaluations with your datasets
-- [Tracing Integration](/genai/tracing) - Capture production data for datasets
+<TilesGrid>
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="End-to-End Workflow"
+    description="Learn the complete evaluation-driven development workflow from app building to production"
+    href="/genai/datasets/end-to-end-workflow"
+    linkText="View complete workflow →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="Run Evaluations"
+    description="Use your datasets to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Define Expectations"
+    description="Learn how to add ground truth expectations to your test data for quality validation"
+    href="/genai/assessments/expectations"
+    linkText="Set expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Capture Traces"
+    description="Instrument your applications to capture production data for building datasets"
+    href="/genai/tracing"
+    linkText="Enable tracing →"
+    containerHeight={64}
+  />
+</TilesGrid>
