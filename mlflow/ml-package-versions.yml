@@ -874,8 +874,6 @@ agno:
   autologging:
     minimum: "1.7.0"
     maximum: "1.7.9"
-    python:
-      ">= 1.7.0": "3.10"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
     run: pytest tests/agno
