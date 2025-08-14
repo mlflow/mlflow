@@ -35,6 +35,7 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_GENAI_EVAL_RUN
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -294,6 +295,11 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
         _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
     ):
+        # Set a special tag to indicate the run is GenAI eval run. This is used as a temporary
+        # workaround for UI to default to the "Traces" tab, until the new evaluation run UI
+        # is available.
+        mlflow.set_tag(MLFLOW_GENAI_EVAL_RUN, "true")
+
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
         return harness.run(

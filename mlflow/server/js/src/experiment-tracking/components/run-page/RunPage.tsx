@@ -1,7 +1,7 @@
 import { DangerIcon, Empty, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useSelector } from 'react-redux';
 import invariant from 'invariant';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 import { PageContainer } from '../../../common/components/PageContainer';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
@@ -55,6 +55,7 @@ export const RunPage = () => {
   const { theme } = useDesignSystemTheme();
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const hasRedirectedRef = useRef(false);
 
   invariant(runUuid, '[RunPage] Run UUID route param not provided');
   invariant(experimentId, '[RunPage] Experiment ID route param not provided');
@@ -96,6 +97,14 @@ export const RunPage = () => {
   );
 
   const activeTab = useRunViewActiveTab();
+
+  // Check for mlflow.genai.evalRun tag and redirect to traces tab if present on initial load
+  useEffect(() => {
+    if (tags && tags['mlflow.genai.evalRun'] && activeTab === RunPageTabName.OVERVIEW && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
+      navigate(Routes.getRunPageTabRoute(experimentId, runUuid, 'traces'));
+    }
+  }, [tags, activeTab, navigate, experimentId, runUuid]);
 
   const isUsingGetLoggedModelsApi = shouldUseGetLoggedModelsBatchAPI();
 

@@ -30,6 +30,8 @@ MLFLOW_AUTOLOGGING = "mlflow.autologging"
 MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
+# Indicates the run is created from mlflow.genai.evaluate()
+MLFLOW_GENAI_EVAL_RUN = "mlflow.genai.evalRun"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
