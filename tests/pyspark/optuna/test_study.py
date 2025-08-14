@@ -130,7 +130,7 @@ def test_new_study_is_not_resumed(setup_storage):
     assert study.completed_trials_count == 0
 
     info = study.get_resume_info()
-    assert not info["is_resumed"]
+    assert not info.is_resumed
 
 
 def test_resume_info_method(setup_storage):
@@ -141,7 +141,7 @@ def test_resume_info_method(setup_storage):
     # New study
     study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
     info = study1.get_resume_info()
-    assert not info["is_resumed"]
+    assert not info.is_resumed
 
     # Run some trials
     def objective(trial):
@@ -152,14 +152,14 @@ def test_resume_info_method(setup_storage):
     # Resume study
     study2 = MlflowSparkStudy(study_name, storage, sampler=sampler)
     info = study2.get_resume_info()
-    assert info["is_resumed"]
-    assert info["study_name"] == study_name
-    assert info["existing_trials"] == 2
-    assert info["completed_trials"] == 2
-    assert "best_value" in info
-    assert "best_params" in info
-    assert info["best_value"] is not None
-    assert info["best_params"] is not None
+    assert info.is_resumed
+    assert info.study_name == study_name
+    assert info.existing_trials == 2
+    assert info.completed_trials == 2
+    assert hasattr(info, "best_value")
+    assert hasattr(info, "best_params")
+    assert info.best_value is not None
+    assert info.best_params is not None
 
 
 def test_completed_trials_count_property(setup_storage):
