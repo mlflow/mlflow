@@ -1,1 +1,53 @@
+<<<<<<< HEAD
 To be written.
+=======
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+
+# What are Scorers?
+
+--- INSTRUCTION TO AUTHOR ---
+This guide shows the basic concept of scorers.
+
+This page explains
+- What is the scorer
+- The interface of the scorer
+- Type of scorers (built-in, custom function)
+- Example usage
+- How to write a good scorer (general scorer does not work in reality!)
+- Next step (other detailed guides in the sidebar)
+
+--- END INSTRUCTION TO AUTHOR ---
+
+
+Scorers is an unified interface to define evaluation criteria for your GenAI app quality. 
+
+
+
+by analyzing outputs and producing structured feedback.
+
+### Evaluation Approaches Comparison
+
+| Type | Heuristic Scorers | LLM Judge Scorers | Human |
+|--------|------------------|-------------------|------------------|
+| **Example** | `exact_match`, `BLEU`, `ROUGE` | `Correctness`,  `Safety` | Domain expert feedback, User study |
+| **Cost** | Minimal | API costs for LLM calls | High (human time) |
+| **Scalability** | Highly scalable | Scalable | Limited |
+| **Consistency** | Perfect consistency | Somewhat consistent (if prompted well) | Variable (inter-annotator agreement) |
+| **Flexibility** | Limited to predefined patterns | Highly flexible with custom prompts | Maximum flexibility |
+| **MLflow Guide** | [Custom Scorers](custom.mdx) | [LLM-based Scorers](/genai/eval-monitor/scorers/llm-judge) | [Collecting Human Feedback](/genai/tracing/collect-user-feedback) |
+
+
+## How scorers work
+
+Scorers analyze inputs, outputs, and traces, from your GenAI application and produce quality assessments. Here's the flow:
+
+- Your app runs and produces a trace capturing its execution
+- MLflow passes the trace to your scorer function
+-Scorers analyze the trace's inputs, outputs, and intermediate execution steps using custom logic
+- Feedback is produced with scores and explanations
+- Feedbacks are attached to the trace for analysis
+
+
+## Next Steps
+>>>>>>> ad5d2342f (Add scorers doc)

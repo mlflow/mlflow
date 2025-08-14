@@ -233,9 +233,21 @@ email_scorers = [
 ]
 ```
 
+<<<<<<< HEAD
 ### Step 3: Evaluate trace quality
 
 Now we are ready to run the evaluation. One notable difference from other examples is that we don't need to specify a `predict_fn` function. The <APILink fn="mlflow.genai.evaluate" /> function will automatically extract the inputs, outputs, and other intermediate information from the trace object and use them for scoring.
+=======
+:::tip Scoring Intermediate Information in Traces
+
+Scorers have access to the complete MLflow traces, including spans, attributes, and outputs. This allows you to evaluate the agent's behavior precisely, not only the final output, such as the **tool call trajectory**, the **sub-agents routing**, the **retrieved document recall**, etc. See <ins>[Parsing Traces for Scoring](/genai/eval-monitor/scorers/custom#parsing-traces-for-scoring)</ins> for more details.
+
+:::
+
+### Step 3: Evaluate trace quality
+
+Now we are ready to run the evaluation. One notable different from other examples is that we don't need to specify a `predict_fn` function. The <APILink fn="mlflow.genai.evaluate" /> function will automatically extract the inputs, outputs, and other intermediate information from the trace object and use them for scoring.
+>>>>>>> ad5d2342f (Add scorers doc)
 
 ```python
 results = mlflow.genai.evaluate(
@@ -252,7 +264,11 @@ By clicking on the each row in the result, you can open the trace and see the de
 
 ## Annotate Traces with Ground Truth and Manual Feedbacks
 
+<<<<<<< HEAD
 Some evaluation criteria require ground truths to be defined. MLflow allows you to directly annotate traces with ground truths and any other human feedbacks.
+=======
+Some evaluation criteria requires ground truths to be defined. MLflow allows you to directly annotate traces with ground truths and any other human feedbacks.
+>>>>>>> ad5d2342f (Add scorers doc)
 
 To annotate a trace with ground truth or manual feedback, open the trace in the MLflow UI and click the **Assessments** button to add expectations or feedback directly through the web interface.
 
