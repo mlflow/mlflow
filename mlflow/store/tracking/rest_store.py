@@ -71,6 +71,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -1375,3 +1376,22 @@ class RestStore(AbstractStore):
                 break
 
         return all_records
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        req_body = message_to_json(
+            LinkTracesToRun(
+                trace_ids=trace_ids,
+                run_id=run_id,
+            )
+        )
+        self._call_endpoint(LinkTracesToRun, req_body)
