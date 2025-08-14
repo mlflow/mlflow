@@ -3,7 +3,7 @@
 This module provides automatic tracing of Claude Code conversations to MLflow.
 
 Usage:
-    mlflow trace claude [directory] [options]
+    mlflow autolog claude [directory] [options]
 
 After setup, use the regular 'claude' command and traces will be automatically captured.
 """

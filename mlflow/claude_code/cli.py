@@ -8,9 +8,9 @@ from mlflow.claude_code.config import get_tracing_status, setup_environment_conf
 from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config
 
 
-@click.group("trace")
+@click.group("autolog")
 def commands():
-    """Commands for tracing with MLflow."""
+    """Commands for autologging with MLflow."""
 
 
 @commands.command("claude")
@@ -41,19 +41,19 @@ def claude(
     Examples:
 
       # Set up tracing in current directory with local storage
-      mlflow trace claude
+      mlflow autolog claude
 
       # Set up tracing in a specific project directory
-      mlflow trace claude ~/my-project
+      mlflow autolog claude ~/my-project
 
       # Set up tracing with Databricks
-      mlflow trace claude -u databricks -e 123456789
+      mlflow autolog claude -u databricks -e 123456789
 
       # Set up tracing with custom tracking URI
-      mlflow trace claude -u file://./custom-mlruns
+      mlflow autolog claude -u file://./custom-mlruns
 
       # Disable tracing in current directory
-      mlflow trace claude --disable
+      mlflow autolog claude --disable
     """
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
@@ -159,4 +159,4 @@ def _show_setup_status(
         click.echo("\n💡 View your traces in your Databricks workspace")
 
     click.echo("\n🔧 To disable tracing later:")
-    click.echo("   mlflow trace claude --disable")
+    click.echo("   mlflow autolog claude --disable")
