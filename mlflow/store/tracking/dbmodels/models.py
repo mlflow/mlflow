@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -1659,6 +1660,95 @@ class SqlEvaluationDatasetRecord(Base):
         # Otherwise keep the existing last_updated_by (don't change it to None)
         if new_tags and MLFLOW_USER in new_tags:
             self.last_updated_by = new_tags[MLFLOW_USER]
+
+
+class SqlSpan(Base):
+    __tablename__ = "spans"
+
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite primary key.
+    Foreign key to trace_info table.
+    """
+
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. Foreign key to experiments table.
+    """
+
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite primary key.
+    """
+
+    parent_span_id = Column(String(50), nullable=True)
+    """
+    Parent span ID: `String` (limit 50 characters). Can be null for root spans.
+    """
+
+    name = Column(Text, nullable=True)
+    """
+    Span name: `Text`. Can be null.
+    """
+
+    type = Column(String(500), nullable=True)
+    """
+    Span type: `String` (limit 500 characters). Can be null.
+    Uses String instead of Text to support MSSQL indexes.
+    Limited to 500 chars to stay within MySQL's max index key length.
+    """
+
+    status = Column(String(50), nullable=False)
+    """
+    Span status: `String` (limit 50 characters).
+    """
+
+    start_time_unix_nano = Column(BigInteger, nullable=False)
+    """
+    Start time in nanoseconds since Unix epoch: `BigInteger`.
+    """
+
+    end_time_unix_nano = Column(BigInteger, nullable=True)
+    """
+    End time in nanoseconds since Unix epoch: `BigInteger`. Can be null if span is in progress.
+    """
+
+    duration_ns = Column(
+        BigInteger,
+        Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
+        nullable=True,
+    )
+    """
+    Duration in nanoseconds: `BigInteger`. Computed from end_time - start_time.
+    Stored as a persisted/stored generated column for efficient filtering.
+    Will be NULL for in-progress spans (where end_time is NULL).
+    """
+
+    content = Column(Text, nullable=False)
+    """
+    Full span content as JSON: `Text`.
+    Uses LONGTEXT in MySQL to support large spans (up to 4GB).
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        Index("index_spans_experiment_id", "experiment_id"),
+        # Two indexes needed to support both filter patterns efficiently:
+        Index(
+            "index_spans_experiment_id_status_type", "experiment_id", "status", "type"
+        ),  # For status-only and status+type filters
+        Index(
+            "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
+        ),  # For type-only and type+status filters
+        Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
+    )
 
 
 class SqlEntityAssociation(Base):

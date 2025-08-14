@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
@@ -36,7 +36,7 @@ class DatasetSourceRegistry:
                 )
 
     def resolve(
-        self, raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
+        self, raw_source: Any, candidate_sources: list[DatasetSource] | None = None
     ) -> DatasetSource:
         """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
         MLflow Tracking.
@@ -126,7 +126,7 @@ def register_dataset_source(source: DatasetSource):
 
 
 def resolve_dataset_source(
-    raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
+    raw_source: Any, candidate_sources: list[DatasetSource] | None = None
 ) -> DatasetSource:
     """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
     MLflow Tracking.

@@ -50,6 +50,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteEvaluationDataset,
+    DeleteEvaluationDatasetTag,
     DeleteExperiment,
     DeleteRun,
     DeleteTag,
@@ -1484,10 +1485,10 @@ def test_create_evaluation_dataset():
 
         mock_call.side_effect = [create_response]
 
-        store.create_evaluation_dataset(
+        store.create_dataset(
             name="test_dataset",
             tags={"env": "test"},
-            experiment_ids=["0", "1"],
+            experiment_id=["0", "1"],
         )
 
         assert mock_call.call_count == 1
@@ -1518,7 +1519,7 @@ def test_get_evaluation_dataset():
         response.dataset.last_update_time = 1234567890
         mock_call.return_value = response
 
-        result = store.get_evaluation_dataset(dataset_id)
+        result = store.get_dataset(dataset_id)
 
         assert result.dataset_id == dataset_id
         assert result.name == "test_dataset"
@@ -1541,7 +1542,7 @@ def test_delete_evaluation_dataset():
     with mock.patch.object(store, "_call_endpoint") as mock_call:
         mock_call.return_value = DeleteEvaluationDataset.Response()
 
-        store.delete_evaluation_dataset(dataset_id)
+        store.delete_dataset(dataset_id)
 
         req = DeleteEvaluationDataset.Request(dataset_id=dataset_id)
         expected_json = message_to_json(req)
@@ -1557,7 +1558,7 @@ def test_search_evaluation_datasets():
     store = RestStore(lambda: creds)
 
     with mock_http_request() as mock_http:
-        store.search_evaluation_datasets(
+        store.search_datasets(
             experiment_ids=["0", "1"],
             filter_string='name = "dataset1"',
             max_results=10,
@@ -1590,7 +1591,7 @@ def test_set_evaluation_dataset_tags():
 
     with mock.patch.object(store, "_call_endpoint") as mock_call:
         mock_call.return_value = mock.Mock()
-        store.set_evaluation_dataset_tags(
+        store.set_dataset_tags(
             dataset_id=dataset_id,
             tags=tags,
         )
@@ -1605,6 +1606,54 @@ def test_set_evaluation_dataset_tags():
             SetEvaluationDatasetTags,
             expected_json,
         )
+
+
+def test_delete_dataset_tag():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    key = "deprecated_tag"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.return_value = mock.Mock()
+        store.delete_dataset_tag(
+            dataset_id=dataset_id,
+            key=key,
+        )
+
+        req = DeleteEvaluationDatasetTag.Request(
+            dataset_id=dataset_id,
+            key=key,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteEvaluationDatasetTag,
+            expected_json,
+        )
+
+
+def test_dataset_apis_blocked_in_databricks():
+    creds_with_sdk = MlflowHostCreds(
+        "https://workspace.cloud.databricks.com", use_databricks_sdk=True
+    )
+    store_with_sdk = RestStore(lambda: creds_with_sdk)
+
+    with pytest.raises(MlflowException, match="Evaluation dataset APIs is not supported"):
+        store_with_sdk.create_dataset(name="test", experiment_id=["0"])
+
+    non_sdk_creds = MlflowHostCreds("https://workspace.cloud.databricks.com")
+    non_sdk_store = RestStore(lambda: non_sdk_creds)
+
+    mock_response = mock.MagicMock()
+    mock_response.dataset.tags = "{}"
+    non_sdk_store._call_endpoint = mock.MagicMock(return_value=mock_response)
+
+    try:
+        non_sdk_store.get_dataset("d-123")
+    except Exception as e:
+        assert "not supported in Databricks" not in str(e)
 
 
 def test_upsert_evaluation_dataset_records():
@@ -1637,7 +1686,7 @@ def test_upsert_evaluation_dataset_records():
         response.updated_count = 0
         mock_call.return_value = response
 
-        result = store.upsert_evaluation_dataset_records(
+        result = store.upsert_dataset_records(
             dataset_id=dataset_id,
             records=records,
         )
@@ -1667,7 +1716,7 @@ def test_get_evaluation_dataset_experiment_ids():
         response.experiment_ids.extend(["exp1", "exp2", "exp3"])
         mock_call.return_value = response
 
-        result = store.get_evaluation_dataset_experiment_ids(dataset_id)
+        result = store.get_dataset_experiment_ids(dataset_id)
 
         assert result == ["exp1", "exp2", "exp3"]
 
@@ -1695,7 +1744,7 @@ def test_evaluation_dataset_error_handling():
         mock_http.return_value = response
 
         with pytest.raises(MlflowException, match="Evaluation dataset not found"):
-            store.get_evaluation_dataset("d-nonexistent")
+            store.get_dataset("d-nonexistent")
 
 
 def test_evaluation_dataset_comprehensive_workflow():
@@ -1739,32 +1788,32 @@ def test_evaluation_dataset_comprehensive_workflow():
             upsert_response2,  # Second record upsert
         ]
 
-        dataset = store.create_evaluation_dataset(
+        dataset = store.create_dataset(
             name="test_dataset",
             tags={"env": "test", "version": "1.0"},
-            experiment_ids=["exp1"],
+            experiment_id=["exp1"],
         )
         assert dataset.tags == {"env": "test", "version": "1.0"}
 
-        store.set_evaluation_dataset_tags(
+        store.set_dataset_tags(
             dataset_id=dataset_id,
             tags={"env": "staging", "version": "1.1", "team": "ml"},
         )
-        updated_dataset = store.get_evaluation_dataset(dataset_id)
+        updated_dataset = store.get_dataset(dataset_id)
         assert updated_dataset.tags == {"env": "staging", "version": "1.1", "team": "ml"}
 
         records1 = [
             {"inputs": {"q": "What is MLflow?"}, "expectations": {"score": 0.9}},
             {"inputs": {"q": "How to track?"}, "expectations": {"score": 0.8}},
         ]
-        result1 = store.upsert_evaluation_dataset_records(dataset_id, records1)
+        result1 = store.upsert_dataset_records(dataset_id, records1)
         assert result1 == {"inserted": 2, "updated": 0}
 
-        store.set_evaluation_dataset_tags(
+        store.set_dataset_tags(
             dataset_id=dataset_id,
             tags={"env": "production", "version": "2.0", "team": None},
         )
-        final_dataset = store.get_evaluation_dataset(dataset_id)
+        final_dataset = store.get_dataset(dataset_id)
         assert final_dataset.tags == {"env": "production", "version": "2.0"}
 
         records2 = [
@@ -1772,7 +1821,7 @@ def test_evaluation_dataset_comprehensive_workflow():
             {"inputs": {"q": "What is MLflow?"}, "expectations": {"score": 0.95}},  # Update
             {"inputs": {"q": "How to track?"}, "expectations": {"score": 0.85}},  # Update
         ]
-        result2 = store.upsert_evaluation_dataset_records(dataset_id, records2)
+        result2 = store.upsert_dataset_records(dataset_id, records2)
         assert result2 == {"inserted": 1, "updated": 2}
 
         assert mock_call.call_count == 7
@@ -1795,7 +1844,7 @@ def test_evaluation_dataset_merge_records():
     with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
-        with mock.patch.object(store, "get_evaluation_dataset") as mock_get:
+        with mock.patch.object(store, "get_dataset") as mock_get:
             mock_get.return_value = eval_dataset
 
             with mock.patch.object(store, "_call_endpoint") as mock_call:
@@ -1934,7 +1983,7 @@ def test_evaluation_dataset_pagination():
     store = RestStore(lambda: creds)
 
     with mock_http_request() as mock_http:
-        store.search_evaluation_datasets(max_results=10)
+        store.search_datasets(max_results=10)
         _verify_requests(
             mock_http,
             creds,
@@ -1952,7 +2001,7 @@ def test_evaluation_dataset_pagination():
         )
 
     with mock_http_request() as mock_http:
-        store.search_evaluation_datasets(max_results=10, page_token="page2")
+        store.search_datasets(max_results=10, page_token="page2")
         _verify_requests(
             mock_http,
             creds,
@@ -1987,9 +2036,9 @@ def test_evaluation_dataset_created_by_and_updated_by():
 
         mock_call.return_value = created_response
 
-        dataset = store.create_evaluation_dataset(
+        dataset = store.create_dataset(
             name="test_dataset",
-            experiment_ids=["exp1"],
+            experiment_id=["exp1"],
             tags={"mlflow.user": "user1", "environment": "test"},
         )
 
@@ -2020,12 +2069,12 @@ def test_evaluation_dataset_created_by_and_updated_by():
                 "tags": {"mlflow.user": "user2"},
             }
         ]
-        result = store.upsert_evaluation_dataset_records("d-test123", records)
+        result = store.upsert_dataset_records("d-test123", records)
 
         assert result["inserted"] == 1
         assert result["updated"] == 0
 
-        updated_dataset = store.get_evaluation_dataset("d-test123")
+        updated_dataset = store.get_dataset("d-test123")
         assert updated_dataset.created_by == "user1"
         assert updated_dataset.last_updated_by == "user2"
 
@@ -2040,9 +2089,9 @@ def test_evaluation_dataset_created_by_and_updated_by():
         mock_call.side_effect = None
         mock_call.return_value = created_response_no_user
 
-        dataset_no_user = store.create_evaluation_dataset(
+        dataset_no_user = store.create_dataset(
             name="test_dataset_no_user",
-            experiment_ids=["exp2"],
+            experiment_id=["exp2"],
             tags={"environment": "production"},
         )
 
@@ -2063,7 +2112,7 @@ def test_evaluation_dataset_created_by_and_updated_by():
 
         mock_call.return_value = set_tags_response
 
-        store.set_evaluation_dataset_tags(
+        store.set_dataset_tags(
             "d-test123",
             {"mlflow.user": "user3", "version": "2.0", "environment": "staging"},
         )
@@ -2104,7 +2153,7 @@ def test_evaluation_dataset_user_tracking_search():
 
         mock_call.return_value = search_response
 
-        results = store.search_evaluation_datasets(filter_string="created_by = 'user1'")
+        results = store.search_datasets(filter_string="created_by = 'user1'")
 
         assert len(results) == 2
         assert results[0].created_by == "user1"
@@ -2116,7 +2165,7 @@ def test_evaluation_dataset_user_tracking_search():
         request_json = json.loads(json_body)
         assert request_json["filter_string"] == "created_by = 'user1'"
 
-        results = store.search_evaluation_datasets(filter_string="last_updated_by = 'user2'")
+        results = store.search_datasets(filter_string="last_updated_by = 'user2'")
 
         call_args = mock_call.call_args_list[-1]
         api, json_body = call_args[0]

@@ -4,9 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
-
-from mlflow.utils.annotations import experimental
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.models.model import Model
@@ -22,14 +20,13 @@ class DependenciesSchemasType(Enum):
     RETRIEVERS = "retrievers"
 
 
-@experimental(version="2.13.0")
 def set_retriever_schema(
     *,
     primary_key: str,
     text_column: str,
-    doc_uri: Optional[str] = None,
-    other_columns: Optional[list[str]] = None,
-    name: Optional[str] = "retriever",
+    doc_uri: str | None = None,
+    other_columns: list[str] | None = None,
+    name: str | None = "retriever",
 ):
     """
     Specify the return schema of a retriever span within your agent or generative AI app code.
@@ -172,7 +169,7 @@ def _get_dependencies_schemas():
         _clear_dependencies_schemas()
 
 
-def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict[str, Any]]:
+def _get_dependencies_schema_from_model(model: "Model") -> dict[str, Any] | None:
     """
     Get the dependencies schema from the logged model metadata.
 
@@ -235,8 +232,8 @@ class RetrieverSchema(Schema):
         name: str,
         primary_key: str,
         text_column: str,
-        doc_uri: Optional[str] = None,
-        other_columns: Optional[list[str]] = None,
+        doc_uri: str | None = None,
+        other_columns: list[str] | None = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name

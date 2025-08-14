@@ -42,12 +42,14 @@ export const PromptVersionRuns = ({
                 if (!isNil(runInfo?.experimentId) && runInfo?.runUuid && runInfo?.runName) {
                   const { experimentId, runUuid, runName } = runInfo;
                   return (
+                    // eslint-disable-next-line react/jsx-key
                     <Typography.Text>
                       <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>
                       {index < visibleCount - 1 && ','}
                     </Typography.Text>
                   );
                 } else {
+                  // eslint-disable-next-line react/jsx-key
                   return <span>{runInfo?.runName || runInfo?.runUuid}</span>;
                 }
               })}

@@ -15,11 +15,11 @@ import { compact, flatMap, groupBy, isEmpty, keyBy, mapValues, sum, values } fro
 import { useMemo, useState } from 'react';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
+import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { ColumnDef, Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
-import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
@@ -85,7 +85,13 @@ const RunViewMetricsTableSection = ({
                 flex: keyColumn.getCanResize() ? keyColumn.getSize() / 100 : undefined,
               }}
             >
-              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+              <Link
+                to={Routes.getRunPageTabRoute(
+                  runInfo.experimentId ?? '',
+                  runInfo.runUuid ?? '',
+                  RunPageTabName.MODEL_METRIC_CHARTS,
+                )}
+              >
                 {key}
               </Link>
             </TableCell>

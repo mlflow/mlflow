@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     ExperimentTag,
@@ -43,6 +43,8 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -140,6 +142,7 @@ class TrackingServiceClient:
             token = paged_history.token
         return history
 
+    @record_usage_event(CreateRunEvent)
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -265,6 +268,7 @@ class TrackingServiceClient:
         """
         return self.store.get_experiment_by_name(name)
 
+    @record_usage_event(CreateExperimentEvent)
     def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
@@ -322,10 +326,10 @@ class TrackingServiceClient:
         timestamp=None,
         step=None,
         synchronous=True,
-        dataset_name: Optional[str] = None,
-        dataset_digest: Optional[str] = None,
-        model_id: Optional[str] = None,
-    ) -> Optional[RunOperations]:
+        dataset_name: str | None = None,
+        dataset_digest: str | None = None,
+        model_id: str | None = None,
+    ) -> RunOperations | None:
         """Log a metric against the run ID.
 
         Args:
@@ -422,7 +426,7 @@ class TrackingServiceClient:
         """
         self.store.delete_experiment_tag(experiment_id, key)
 
-    def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
+    def set_tag(self, run_id, key, value, synchronous=True) -> RunOperations | None:
         """Set a tag on the run with the specified ID. Value is converted to a string.
 
         Args:
@@ -486,7 +490,7 @@ class TrackingServiceClient:
 
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
-    ) -> Optional[RunOperations]:
+    ) -> RunOperations | None:
         """Log multiple metrics, params, and/or tags.
 
         Args:
@@ -575,8 +579,8 @@ class TrackingServiceClient:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """Log one or more dataset inputs to a run.
 
@@ -695,9 +699,7 @@ class TrackingServiceClient:
 
         return list_artifacts(run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri)
 
-    def list_logged_model_artifacts(
-        self, model_id: str, path: Optional[str] = None
-    ) -> list[FileInfo]:
+    def list_logged_model_artifacts(self, model_id: str, path: str | None = None) -> list[FileInfo]:
         """List the artifacts for a logged model.
 
         Args:
@@ -710,7 +712,7 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
 
-    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None):
+    def download_artifacts(self, run_id: str, path: str, dst_path: str | None = None):
         """Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
@@ -829,14 +831,18 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
+    @record_usage_event(CreateLoggedModelEvent)
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
-        params: Optional[dict[str, str]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
+        model_type: str | None = None,
+        # This parameter is only used for telemetry purposes, and
+        # does not affect the logged model.
+        flavor: str | None = None,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,
@@ -883,11 +889,11 @@ class TrackingServiceClient:
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ):
         if not isinstance(experiment_ids, list) or not all(
             isinstance(eid, str) for eid in experiment_ids
@@ -899,66 +905,67 @@ class TrackingServiceClient:
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
 
-    def create_evaluation_dataset(
+    def create_dataset(
         self,
         name: str,
-        experiment_ids: Optional[list[str]] = None,
-        tags: Optional[dict[str, Any]] = None,
+        experiment_id: str | list[str] | None = None,
+        tags: dict[str, Any] | None = None,
     ) -> "EvaluationDataset":
         """
-        Create a new evaluation dataset.
+        Create a new dataset.
 
         Args:
-            name: Name of the evaluation dataset.
-            experiment_ids: List of experiment IDs to associate with the dataset.
+            name: Name of the dataset.
+            experiment_id: Single experiment ID (str), list of experiment IDs, or None.
             tags: Dictionary of tags to apply to the dataset.
 
         Returns:
             The created EvaluationDataset object.
         """
+        experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
         context_tags = context_registry.resolve_tags()
         merged_tags = tags.copy() if tags else {}
 
         if MLFLOW_USER not in merged_tags and MLFLOW_USER in context_tags:
             merged_tags[MLFLOW_USER] = context_tags[MLFLOW_USER]
 
-        return self.store.create_evaluation_dataset(
+        return self.store.create_dataset(
             name=name,
             tags=merged_tags if merged_tags else None,
             experiment_ids=experiment_ids,
         )
 
-    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
-        Get an evaluation dataset by ID.
+        Get a dataset by ID.
 
         Args:
-            dataset_id: ID of the evaluation dataset to retrieve.
+            dataset_id: ID of the dataset to retrieve.
 
         Returns:
             The EvaluationDataset object.
         """
-        return self.store.get_evaluation_dataset(dataset_id)
+        return self.store.get_dataset(dataset_id)
 
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    def delete_dataset(self, dataset_id: str) -> None:
         """
-        Delete an evaluation dataset.
+        Delete a dataset.
 
         Args:
-            dataset_id: ID of the evaluation dataset to delete.
+            dataset_id: ID of the dataset to delete.
         """
-        self.store.delete_evaluation_dataset(dataset_id)
+        self.store.delete_dataset(dataset_id)
 
-    def search_evaluation_datasets(
+    def search_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
-        Search for evaluation datasets.
+        Search for datasets.
 
         Args:
             experiment_ids: List of experiment IDs to filter by.
@@ -970,7 +977,7 @@ class TrackingServiceClient:
         Returns:
             A PagedList of EvaluationDataset objects.
         """
-        return self.store.search_evaluation_datasets(
+        return self.store.search_datasets(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -978,9 +985,9 @@ class TrackingServiceClient:
             page_token=page_token,
         )
 
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
-        Set tags for an evaluation dataset.
+        Set tags for a dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
         To remove a tag, set its value to None.
@@ -992,11 +999,11 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found or invalid parameters.
         """
-        self.store.set_evaluation_dataset_tags(dataset_id=dataset_id, tags=tags)
+        self.store.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
-        Delete a tag from an evaluation dataset.
+        Delete a tag from a dataset.
 
         Args:
             dataset_id: The ID of the dataset.
@@ -1005,4 +1012,29 @@ class TrackingServiceClient:
         Raises:
             MlflowException: If dataset not found.
         """
-        self.store.delete_evaluation_dataset_tag(dataset_id=dataset_id, key=key)
+        self.store.delete_dataset_tag(dataset_id=dataset_id, key=key)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided or run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        if len(trace_ids) > 100:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot link more than 100 traces to a run in a single request. "
+                f"Provided {len(trace_ids)} traces."
+            )
+
+        return self.store.link_traces_to_run(trace_ids, run_id)

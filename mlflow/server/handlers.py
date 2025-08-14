@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import Optional
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -98,6 +97,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteEvaluationDataset,
+    DeleteEvaluationDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
@@ -105,7 +105,9 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteTag,
     DeleteTraces,
+    DeleteTracesV3,
     DeleteTraceTag,
+    DeleteTraceTagV3,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -120,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
     LogBatch,
@@ -144,6 +147,7 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
+    SetTraceTagV3,
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
@@ -2668,6 +2672,26 @@ def _delete_trace_tag(request_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _link_traces_to_run():
+    """
+    A request handler for `POST /mlflow/traces/link-to-run` to link traces to a run.
+    """
+    request_message = _get_request_message(
+        LinkTracesToRun(),
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "run_id": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().link_traces_to_run(
+        trace_ids=request_message.trace_ids,
+        run_id=request_message.run_id,
+    )
+    return _wrap_response(LinkTracesToRun.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def get_trace_artifact_handler():
     request_id = request.args.get("request_id")
 
@@ -3107,7 +3131,7 @@ def _list_logged_model_artifacts(model_id: str):
 
 
 def _list_logged_model_artifacts_impl(
-    model_id: str, artifact_directory_path: Optional[str]
+    model_id: str, artifact_directory_path: str | None
 ) -> Response:
     response = ListLoggedModelArtifacts.Response()
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
@@ -3205,7 +3229,7 @@ def get_endpoints(get_handler=get_handler):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _create_evaluation_dataset():
+def _create_dataset():
     request_message = _get_request_message(
         CreateEvaluationDataset.Request(),
         schema={
@@ -3219,9 +3243,9 @@ def _create_evaluation_dataset():
     if hasattr(request_message, "tags") and request_message.tags:
         tags = json.loads(request_message.tags)
 
-    dataset = _get_tracking_store().create_evaluation_dataset(
+    dataset = _get_tracking_store().create_dataset(
         name=request_message.name,
-        experiment_ids=list(request_message.experiment_ids)
+        experiment_id=list(request_message.experiment_ids)
         if request_message.experiment_ids
         else None,
         tags=tags,
@@ -3234,12 +3258,12 @@ def _create_evaluation_dataset():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_evaluation_dataset():
+def _get_dataset():
     request_message = _get_request_message(
         GetEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
     )
 
-    dataset = _get_tracking_store().get_evaluation_dataset(request_message.dataset_id)
+    dataset = _get_tracking_store().get_dataset(request_message.dataset_id)
 
     response_message = GetEvaluationDataset.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
@@ -3248,12 +3272,12 @@ def _get_evaluation_dataset():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _delete_evaluation_dataset():
+def _delete_dataset():
     request_message = _get_request_message(
         DeleteEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
     )
 
-    _get_tracking_store().delete_evaluation_dataset(request_message.dataset_id)
+    _get_tracking_store().delete_dataset(request_message.dataset_id)
 
     response_message = DeleteEvaluationDataset.Response()
     return _wrap_response(response_message)
@@ -3261,7 +3285,7 @@ def _delete_evaluation_dataset():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _search_evaluation_datasets():
+def _search_datasets():
     request_message = _get_request_message(
         SearchEvaluationDatasets.Request(),
         schema={
@@ -3273,7 +3297,7 @@ def _search_evaluation_datasets():
         },
     )
 
-    datasets = _get_tracking_store().search_evaluation_datasets(
+    datasets = _get_tracking_store().search_datasets(
         experiment_ids=list(request_message.experiment_ids)
         if request_message.experiment_ids
         else None,
@@ -3293,7 +3317,7 @@ def _search_evaluation_datasets():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _set_evaluation_dataset_tags():
+def _set_dataset_tags():
     request_message = _get_request_message(
         SetEvaluationDatasetTags.Request(),
         schema={
@@ -3304,7 +3328,7 @@ def _set_evaluation_dataset_tags():
 
     tags = json.loads(request_message.tags)
 
-    _get_tracking_store().set_evaluation_dataset_tags(
+    _get_tracking_store().set_dataset_tags(
         dataset_id=request_message.dataset_id,
         tags=tags,
     )
@@ -3315,7 +3339,27 @@ def _set_evaluation_dataset_tags():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _upsert_evaluation_dataset_records():
+def _delete_dataset_tag():
+    request_message = _get_request_message(
+        DeleteEvaluationDatasetTag.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store().delete_dataset_tag(
+        dataset_id=request_message.dataset_id,
+        key=request_message.key,
+    )
+
+    response_message = DeleteEvaluationDatasetTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _upsert_dataset_records():
     request_message = _get_request_message(
         UpsertEvaluationDatasetRecords.Request(),
         schema={
@@ -3327,7 +3371,7 @@ def _upsert_evaluation_dataset_records():
 
     records = json.loads(request_message.records)
 
-    result = _get_tracking_store().upsert_evaluation_dataset_records(
+    result = _get_tracking_store().upsert_dataset_records(
         dataset_id=request_message.dataset_id,
         records=records,
         updated_by=request_message.updated_by if request_message.updated_by else None,
@@ -3340,7 +3384,7 @@ def _upsert_evaluation_dataset_records():
     return _wrap_response(response_message)
 
 
-def _get_evaluation_dataset_experiment_ids():
+def _get_dataset_experiment_ids():
     """
     Get experiment IDs associated with an evaluation dataset.
     """
@@ -3348,7 +3392,7 @@ def _get_evaluation_dataset_experiment_ids():
         GetEvaluationDatasetExperimentIds.Request(), flask_request=request
     )
 
-    experiment_ids = _get_tracking_store().get_evaluation_dataset_experiment_ids(
+    experiment_ids = _get_tracking_store().get_dataset_experiment_ids(
         dataset_id=request_message.dataset_id
     )
 
@@ -3360,7 +3404,7 @@ def _get_evaluation_dataset_experiment_ids():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_evaluation_dataset_records():
+def _get_dataset_records():
     request_message = _get_request_message(
         GetEvaluationDatasetRecords.Request(),
         schema={
@@ -3418,14 +3462,15 @@ HANDLERS = {
     LogInputs: _log_inputs,
     LogOutputs: _log_outputs,
     # Evaluation Dataset APIs
-    CreateEvaluationDataset: _create_evaluation_dataset,
-    GetEvaluationDataset: _get_evaluation_dataset,
-    DeleteEvaluationDataset: _delete_evaluation_dataset,
-    SearchEvaluationDatasets: _search_evaluation_datasets,
-    SetEvaluationDatasetTags: _set_evaluation_dataset_tags,
-    UpsertEvaluationDatasetRecords: _upsert_evaluation_dataset_records,
-    GetEvaluationDatasetExperimentIds: _get_evaluation_dataset_experiment_ids,
-    GetEvaluationDatasetRecords: _get_evaluation_dataset_records,
+    CreateEvaluationDataset: _create_dataset,
+    GetEvaluationDataset: _get_dataset,
+    DeleteEvaluationDataset: _delete_dataset,
+    SearchEvaluationDatasets: _search_datasets,
+    SetEvaluationDatasetTags: _set_dataset_tags,
+    DeleteEvaluationDatasetTag: _delete_dataset_tag,
+    UpsertEvaluationDatasetRecords: _upsert_dataset_records,
+    GetEvaluationDatasetExperimentIds: _get_dataset_experiment_ids,
+    GetEvaluationDatasetRecords: _get_dataset_records,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,
@@ -3460,9 +3505,10 @@ HANDLERS = {
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
-    DeleteTraces: _delete_traces,
-    SetTraceTag: _set_trace_tag,
-    DeleteTraceTag: _delete_trace_tag,
+    DeleteTracesV3: _delete_traces,
+    SetTraceTagV3: _set_trace_tag,
+    DeleteTraceTagV3: _delete_trace_tag,
+    LinkTracesToRun: _link_traces_to_run,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
@@ -3473,6 +3519,9 @@ HANDLERS = {
     EndTrace: _deprecated_end_trace_v2,
     GetTraceInfo: _deprecated_get_trace_info_v2,
     SearchTraces: _deprecated_search_traces_v2,
+    DeleteTraces: _delete_traces,
+    SetTraceTag: _set_trace_tag,
+    DeleteTraceTag: _delete_trace_tag,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,
