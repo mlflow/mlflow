@@ -160,7 +160,8 @@ def trace(
             single value to be set as the span output.
         experiment_id: The ID of the experiment to log the trace to. If not provided,
             the experiment ID will be determined by the default resolution order. This
-            parameter should only be used for root span and non-root span will raise an exception.
+            parameter should only be used for root span and setting this for non-root spans
+            will be ignored with a warning.
     """
 
     def decorator(fn):
@@ -464,7 +465,8 @@ def start_span(
         attributes: A dictionary of attributes to set on the span.
         experiment_id: The ID of the experiment to log the trace to. If not provided,
             the experiment ID will be determined by the default resolution order. This
-            parameter should only be used for root span and non-root span will raise an exception.
+            parameter should only be used for root span and setting this for non-root spans
+            will be ignored with a warning.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
