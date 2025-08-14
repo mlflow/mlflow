@@ -102,7 +102,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
         # Create a trace
         model = TestModel()
         model.predict(2, 5)
-        time.sleep(10)
 
     # Tracer should be configured to export to OTLP
     exporter = _get_trace_exporter()
@@ -114,16 +113,25 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     mock_client._upload_trace_data.assert_not_called()
     mock_client._upload_ended_trace_info.assert_not_called()
 
-    # Analyze the logs of the collector
+    # Wait for collector to receive spans, checking every second for up to 30 seconds
     _, output_file = otel_collector
-    with open(output_file) as f:
-        collector_logs = f.read()
+    spans_found = False
+    for _ in range(30):
+        time.sleep(1)
+        with open(output_file) as f:
+            collector_logs = f.read()
+        # Check if all 3 spans are in the logs
+        if (
+            "Span #0" in collector_logs
+            and "Span #1" in collector_logs
+            and "Span #2" in collector_logs
+        ):
+            spans_found = True
+            break
 
-    # 3 spans should be exported
-    assert "Span #0" in collector_logs
-    assert "Span #1" in collector_logs
-    assert "Span #2" in collector_logs
-    assert "Span #3" not in collector_logs
+    # Assert that expected spans were found in collector logs
+    assert spans_found, "Expected 3 spans not found in collector logs after 30 seconds"
+    assert "Span #3" not in collector_logs, "Unexpected span found in collector logs"
 
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
