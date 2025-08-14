@@ -218,6 +218,7 @@ onnx:
 
 semantic_kernel:
   package_info:
+    genai: true
     pip_release: "semantic-kernel"
     install_dev: |
       pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
