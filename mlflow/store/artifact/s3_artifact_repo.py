@@ -303,6 +303,42 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     key=posixpath.join(upload_path, f),
                 )
 
+    def _iterate_s3_paginated_results(self, bucket, prefix):
+        """
+        Iterate over paginated S3 list_objects_v2 results with error handling.
+
+        This helper method isolates the S3 client operations that can raise ClientError
+        and provides appropriate error handling and mapping to MLflow exceptions.
+        The ClientError can occur during both paginator setup and iteration, because
+        the botocore library makes lazy calls.
+
+        Args:
+            bucket: S3 bucket name
+            prefix: S3 prefix to list objects under
+
+        Yields:
+            Individual result pages from S3 list_objects_v2 operation
+
+        Raises:
+            MlflowException: If S3 client operations fail
+        """
+        from botocore.exceptions import ClientError
+
+        try:
+            s3_client = self._get_s3_client()
+            paginator = s3_client.get_paginator("list_objects_v2")
+            results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
+            for result in results:
+                yield result
+        except ClientError as error:
+            error_code = error.response["Error"]["Code"]
+            mlflow_error_code = BOTO_TO_MLFLOW_ERROR.get(error_code, INTERNAL_ERROR)
+            error_message = error.response["Error"]["Message"]
+            raise MlflowException(
+                f"Failed to list artifacts in {self.artifact_uri}: {error_message}",
+                error_code=mlflow_error_code,
+            )
+
     def list_artifacts(self, path=None):
         """
         List all artifacts directly under the specified S3 path.
@@ -323,49 +359,35 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             - is_dir: True if the artifact represents a directory (S3 prefix)
             - file_size: Size in bytes for files, None for directories
         """
-        from botocore.exceptions import ClientError
-
-        try:
-            (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
-            dest_path = artifact_path
-            if path:
-                dest_path = posixpath.join(dest_path, path)
-            dest_path = dest_path.rstrip("/") if dest_path else ""
-            infos = []
-            prefix = dest_path + "/" if dest_path else ""
-            s3_client = self._get_s3_client()
-            paginator = s3_client.get_paginator("list_objects_v2")
-            results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
-            for result in results:
-                # Subdirectories will be listed as "common prefixes"
-                # due to the way we made the request
-                for obj in result.get("CommonPrefixes", []):
-                    subdir_path = obj.get("Prefix")
-                    self._verify_listed_object_contains_artifact_path_prefix(
-                        listed_object_path=subdir_path, artifact_path=artifact_path
-                    )
-                    subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
-                    if subdir_rel_path.endswith("/"):
-                        subdir_rel_path = subdir_rel_path[:-1]
-                    infos.append(FileInfo(subdir_rel_path, True, None))
-                # Objects listed directly will be files
-                for obj in result.get("Contents", []):
-                    file_path = obj.get("Key")
-                    self._verify_listed_object_contains_artifact_path_prefix(
-                        listed_object_path=file_path, artifact_path=artifact_path
-                    )
-                    file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
-                    file_size = int(obj.get("Size"))
-                    infos.append(FileInfo(file_rel_path, False, file_size))
-            return sorted(infos, key=lambda f: f.path)
-        except ClientError as error:
-            error_code = error.response["Error"]["Code"]
-            mlflow_error_code = BOTO_TO_MLFLOW_ERROR.get(error_code, INTERNAL_ERROR)
-            error_message = error.response["Error"]["Message"]
-            raise MlflowException(
-                f"Failed to list artifacts in {self.artifact_uri}: {error_message}",
-                error_code=mlflow_error_code,
-            )
+        (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        dest_path = artifact_path
+        if path:
+            dest_path = posixpath.join(dest_path, path)
+        dest_path = dest_path.rstrip("/") if dest_path else ""
+        infos = []
+        prefix = dest_path + "/" if dest_path else ""
+        for result in self._iterate_s3_paginated_results(bucket, prefix):
+            # Subdirectories will be listed as "common prefixes"
+            # due to the way we made the request
+            for obj in result.get("CommonPrefixes", []):
+                subdir_path = obj.get("Prefix")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=subdir_path, artifact_path=artifact_path
+                )
+                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
+                if subdir_rel_path.endswith("/"):
+                    subdir_rel_path = subdir_rel_path[:-1]
+                infos.append(FileInfo(subdir_rel_path, True, None))
+            # Objects listed directly will be files
+            for obj in result.get("Contents", []):
+                file_path = obj.get("Key")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=file_path, artifact_path=artifact_path
+                )
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
+                file_size = int(obj.get("Size"))
+                infos.append(FileInfo(file_rel_path, False, file_size))
+        return sorted(infos, key=lambda f: f.path)
 
     @staticmethod
     def _verify_listed_object_contains_artifact_path_prefix(listed_object_path, artifact_path):
