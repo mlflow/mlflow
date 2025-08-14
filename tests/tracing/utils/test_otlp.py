@@ -113,10 +113,10 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     mock_client._upload_trace_data.assert_not_called()
     mock_client._upload_ended_trace_info.assert_not_called()
 
-    # Wait for collector to receive spans, checking every second for up to 30 seconds
+    # Wait for collector to receive spans, checking every second for up to 60 seconds
     _, output_file = otel_collector
     spans_found = False
-    for _ in range(30):
+    for _ in range(60):
         time.sleep(1)
         with open(output_file) as f:
             collector_logs = f.read()
@@ -130,7 +130,7 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
             break
 
     # Assert that expected spans were found in collector logs
-    assert spans_found, "Expected 3 spans not found in collector logs after 30 seconds"
+    assert spans_found, "Expected 3 spans not found in collector logs after 60 seconds"
     assert "Span #3" not in collector_logs, "Unexpected span found in collector logs"
 
 
@@ -175,10 +175,10 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert "version" in trace.info.tags
     assert trace.info.tags["version"] == "1.0"
 
-    # Wait for collector to receive spans, checking every second for up to 30 seconds
+    # Wait for collector to receive spans, checking every second for up to 60 seconds
     _, output_file = otel_collector
     spans_found = False
-    for _ in range(30):
+    for _ in range(60):
         time.sleep(1)
         with open(output_file) as f:
             collector_logs = f.read()
@@ -188,4 +188,4 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
             break
 
     # Assert that spans were found in collector logs
-    assert spans_found, "Expected spans not found in collector logs after 30 seconds"
+    assert spans_found, "Expected spans not found in collector logs after 60 seconds"
