@@ -36,6 +36,24 @@ def gen_protos(
     )
 
 
+def gen_stub_files(
+    proto_dir: Path,
+    proto_files: list[Path],
+    protoc_bin: Path,
+    protoc_include_path: Path,
+    out_dir: Path,
+) -> None:
+    subprocess.check_call(
+        [
+            protoc_bin,
+            f"-I={protoc_include_path}",
+            f"-I={proto_dir}",
+            f"--pyi_out={out_dir}",
+            *[proto_dir / pf for pf in proto_files],
+        ]
+    )
+
+
 def apply_python_gencode_replacement(file_path: Path) -> None:
     content = file_path.read_text()
 
@@ -233,6 +251,14 @@ def main() -> None:
         protoc3194,
         protoc3194_include,
         Path("mlflow/java/client/src/main/java"),
+    )
+
+    gen_stub_files(
+        MLFLOW_PROTOS_DIR,
+        python_proto_files,
+        protoc5260,
+        protoc5260_include,
+        Path("mlflow/protos/"),
     )
 
 
