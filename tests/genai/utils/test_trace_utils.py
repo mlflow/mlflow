@@ -13,6 +13,7 @@ from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     convert_predict_fn,
     extract_retrieval_context_from_trace,
@@ -116,6 +117,19 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrappe
 
     # Trace should be generated if decorated or wrapped with @mlflow.trace
     assert len(get_traces()) == (1 if with_tracing or should_be_wrapped else 0)
+    purge_traces()
+
+    # All function should generate a trace when executed through mlflow.genai.evaluate
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 0
+
+    mlflow.genai.evaluate(
+        data=[{"inputs": sample_input}],
+        predict_fn=predict_fn,
+        scorers=[dummy_scorer],
+    )
+    assert len(get_traces()) == 1
 
 
 def create_span(
