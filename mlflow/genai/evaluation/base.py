@@ -26,6 +26,7 @@ from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -293,6 +294,8 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
     with (
         _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
+        # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
+        configure_autologging_for_evaluation(enable_tracing=True),
     ):
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
