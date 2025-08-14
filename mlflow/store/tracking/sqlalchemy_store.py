@@ -3379,9 +3379,6 @@ class SqlAlchemyStore(AbstractStore):
                 if existing_record:
                     existing_record.merge(record_dict)
                     updated_count += 1
-                    tags = record_dict.get("tags")
-                    if tags and MLFLOW_USER in tags:
-                        last_updated_by = tags[MLFLOW_USER]
                 else:
                     created_by = None
                     if tags and MLFLOW_USER in tags:

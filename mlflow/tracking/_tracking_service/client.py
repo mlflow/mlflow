@@ -8,11 +8,7 @@ import logging
 import os
 import sys
 from itertools import zip_longest
-<<<<<<< HEAD
-from typing import TYPE_CHECKING, Any, Literal, Optional
-=======
 from typing import TYPE_CHECKING, Any, Literal
->>>>>>> genai-dataset
 
 from mlflow.entities import (
     ExperimentTag,

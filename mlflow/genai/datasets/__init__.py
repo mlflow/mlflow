@@ -11,7 +11,7 @@ from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
-from mlflow.tracking import get_tracking_uri
+from mlflow.tracking import MlflowClient, get_tracking_uri
 from mlflow.utils.annotations import deprecated_parameter, experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
 

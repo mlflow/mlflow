@@ -967,6 +967,24 @@ service MlflowService {
     };
   }
 
+  // Delete an evaluation dataset tag
+  rpc deleteEvaluationDatasetTag(DeleteEvaluationDatasetTag) returns (DeleteEvaluationDatasetTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/evaluation-datasets/{dataset_id}/tags/{key}"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Evaluation Dataset Tag",
+    };
+  }
+
   // Upsert evaluation dataset records
   rpc upsertEvaluationDatasetRecords(UpsertEvaluationDatasetRecords) returns (UpsertEvaluationDatasetRecords.Response) {
     option (rpc) = {
@@ -1018,60 +1036,6 @@ service MlflowService {
       ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get Evaluation Dataset Records",
-    };
-  }
-
-  // Update evaluation dataset tags
-  rpc setEvaluationDatasetTags(SetEvaluationDatasetTags) returns (SetEvaluationDatasetTags.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/tags"
-        since { major: 3, minor: 0 },
-      }],
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Evaluation Dataset Tags",
-    };
-  }
-
-  // Upsert evaluation dataset records
-  rpc upsertEvaluationDatasetRecords(UpsertEvaluationDatasetRecords) returns (UpsertEvaluationDatasetRecords.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/records"
-        since { major: 3, minor: 0 },
-      }],
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Upsert Evaluation Dataset Records",
-    };
-  }
-
-  // Get experiment IDs associated with an evaluation dataset
-  rpc getEvaluationDatasetExperimentIds(GetEvaluationDatasetExperimentIds) returns (GetEvaluationDatasetExperimentIds.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/experiment-ids"
-        since { major: 3, minor: 0 },
-      }],
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Evaluation Dataset Experiment IDs",
     };
   }
 }
@@ -2844,13 +2808,28 @@ message SetEvaluationDatasetTags {
     // Dataset ID to update tags for
     optional string dataset_id = 1 [(validate_required) = true];
     
-    // Tags to update (JSON string). Setting a value to null removes the tag.
+    // Tags to update (JSON string).
     optional string tags = 2 [(validate_required) = true];
   }
 
   message Response {
     // The updated dataset
     optional evaluation_datasets.EvaluationDataset dataset = 1;
+  }
+}
+
+message DeleteEvaluationDatasetTag {
+  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
+
+  message Request {
+    // Dataset ID to delete tag from
+    optional string dataset_id = 1 [(validate_required) = true];
+    
+    // Tag key to delete
+    optional string key = 2 [(validate_required) = true];
+  }
+
+  message Response {
   }
 }
 
@@ -2911,59 +2890,5 @@ message GetEvaluationDatasetRecords {
     
     // Pagination token for next page (if more records exist)
     optional string next_page_token = 2;
-  }
-}
-
-message SetEvaluationDatasetTags {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to update tags for
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Tags to update (JSON string). Setting a value to null removes the tag.
-    optional string tags = 2 [(validate_required) = true];
-  }
-
-  message Response {
-    // The updated dataset
-    optional evaluation_datasets.EvaluationDataset dataset = 1;
-  }
-}
-
-message UpsertEvaluationDatasetRecords {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to upsert records for
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Records to upsert (JSON serialized list of record dictionaries)
-    optional string records = 2 [(validate_required) = true];
-    
-    // User performing the update
-    optional string updated_by = 3;
-  }
-
-  message Response {
-    // Number of records inserted
-    optional int32 inserted_count = 1;
-    
-    // Number of records updated
-    optional int32 updated_count = 2;
-  }
-}
-
-message GetEvaluationDatasetExperimentIds {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to get experiment IDs for
-    optional string dataset_id = 1 [(validate_required) = true];
-  }
-
-  message Response {
-    // List of experiment IDs associated with the dataset
-    repeated string experiment_ids = 1;
   }
 }

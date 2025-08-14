@@ -20,6 +20,10 @@ from mlflow.entities import (
     ViewType,
 )
 
+# Constants for Databricks API disabled decorator
+_DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
+_DATABRICKS_DATASET_ALTERNATIVE = "Use the databricks-agents library for dataset operations."
+
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -44,6 +48,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteEvaluationDataset,
+    DeleteEvaluationDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
@@ -66,7 +71,6 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
-    LinkTracesToRun,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -101,6 +105,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -1157,7 +1162,8 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def create_evaluation_dataset(
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def create_dataset(
         self,
         name: str,
         tags: dict[str, str] | None = None,
@@ -1178,7 +1184,7 @@ class RestStore(AbstractStore):
 
         req = CreateEvaluationDataset.Request(
             name=name,
-            experiment_ids=experiment_ids or [],
+            experiment_ids=experiment_id or [],
         )
 
         if tags:
@@ -1188,7 +1194,8 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateEvaluationDataset, req_body)
         return EvaluationDataset.from_proto(response_proto.dataset)
 
-    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -1205,7 +1212,8 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetEvaluationDataset, req_body)
         return EvaluationDataset.from_proto(response_proto.dataset)
 
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def delete_dataset(self, dataset_id: str) -> None:
         """
         Delete an evaluation dataset.
 
@@ -1216,13 +1224,14 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         self._call_endpoint(DeleteEvaluationDataset, req_body)
 
-    def search_evaluation_datasets(
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def search_datasets(
         self,
-        experiment_ids: Optional[list[str]] = None,
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = 1000,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -1251,7 +1260,8 @@ class RestStore(AbstractStore):
         datasets = [EvaluationDataset.from_proto(ds) for ds in response_proto.datasets]
         return PagedList(datasets, response_proto.next_page_token)
 
-    def upsert_evaluation_dataset_records(
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def upsert_dataset_records(
         self, dataset_id: str, records: list[dict[str, Any]]
     ) -> dict[str, int]:
         """
@@ -1275,16 +1285,16 @@ class RestStore(AbstractStore):
             "updated": response_proto.updated_count,
         }
 
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
         This implements an upsert operation - existing tags are merged with new tags.
-        To remove a tag, set its value to None.
 
         Args:
             dataset_id: The ID of the dataset to update.
-            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+            tags: Dictionary of tags to update.
         """
         req = SetEvaluationDatasetTags.Request(
             dataset_id=dataset_id,
@@ -1293,7 +1303,24 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         self._call_endpoint(SetEvaluationDatasetTags, req_body)
 
-    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        req = DeleteEvaluationDatasetTag.Request(
+            dataset_id=dataset_id,
+            key=key,
+        )
+        req_body = message_to_json(req)
+        self._call_endpoint(DeleteEvaluationDatasetTag, req_body)
+
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
 
