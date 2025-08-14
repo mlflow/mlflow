@@ -339,6 +339,31 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 error_code=mlflow_error_code,
             )
 
+    def _parse_s3_path_prefix(self, path=None):
+        """
+        Parse and resolve S3 path components for artifact operations.
+
+        This helper method takes the optional path parameter and resolves it
+        against the repository's artifact URI to produce the S3 bucket,
+        artifact path, and properly formatted S3 prefix.
+
+        Args:
+            path: Optional relative path within the S3 bucket
+
+        Returns:
+            A tuple containing (bucket, artifact_path, prefix) where:
+            - bucket: S3 bucket name
+            - artifact_path: Base artifact path within the bucket
+            - prefix: S3 prefix for listing operations (with trailing slash)
+        """
+        (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        dest_path = artifact_path
+        if path:
+            dest_path = posixpath.join(dest_path, path)
+        dest_path = dest_path.rstrip("/") if dest_path else ""
+        prefix = dest_path + "/" if dest_path else ""
+        return bucket, artifact_path, prefix
+
     def list_artifacts(self, path=None):
         """
         List all artifacts directly under the specified S3 path.
@@ -359,13 +384,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             - is_dir: True if the artifact represents a directory (S3 prefix)
             - file_size: Size in bytes for files, None for directories
         """
-        (bucket, artifact_path) = self.parse_s3_compliant_uri(self.artifact_uri)
-        dest_path = artifact_path
-        if path:
-            dest_path = posixpath.join(dest_path, path)
-        dest_path = dest_path.rstrip("/") if dest_path else ""
+        bucket, artifact_path, prefix = self._parse_s3_path_prefix(path)
         infos = []
-        prefix = dest_path + "/" if dest_path else ""
         for result in self._iterate_s3_paginated_results(bucket, prefix):
             # Subdirectories will be listed as "common prefixes"
             # due to the way we made the request
