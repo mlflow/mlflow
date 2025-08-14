@@ -919,6 +919,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
   },
+  "8bHiDb": {
+    "defaultMessage": "No child runs found",
+    "description": "Run page > Overview > No child runs found"
+  },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
@@ -1038,6 +1042,10 @@
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
+  },
+  "A6c78D": {
+    "defaultMessage": "Child runs loading",
+    "description": "Run page > Overview > Child runs loading"
   },
   "A7R0ii": {
     "defaultMessage": "Copy path",
@@ -1638,6 +1646,10 @@
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
+  },
+  "HXbUkt": {
+    "defaultMessage": "Child runs",
+    "description": "Run page > Overview > Child runs"
   },
   "HYQHVk": {
     "defaultMessage": "See more",
@@ -3090,6 +3102,10 @@
   "ZgAOhX": {
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
+  },
+  "ZiO9GT": {
+    "defaultMessage": "Found {count} child run{count, plural, one {} other {s}}",
+    "description": "Run page > Overview > Child runs count"
   },
   "ZlokCq": {
     "defaultMessage": "Cancel",
@@ -4886,6 +4902,10 @@
   "sblqXA": {
     "defaultMessage": "Use the runs difference view to compare model and system metrics, parameters, attributes, and tags across runs.",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
+  },
+  "sdNawZ": {
+    "defaultMessage": "Showing most recent 10 child runs (may be more available)",
+    "description": "Run page > Overview > Child runs limit note"
   },
   "sguNEF": {
     "defaultMessage": "No evaluation tables logged",

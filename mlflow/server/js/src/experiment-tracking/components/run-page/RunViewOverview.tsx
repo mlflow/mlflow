@@ -15,6 +15,7 @@ import { DetailsOverviewParamsTable } from '../DetailsOverviewParamsTable';
 import { RunViewMetricsTable } from './overview/RunViewMetricsTable';
 import { RunViewDatasetBox } from './overview/RunViewDatasetBox';
 import { RunViewParentRunBox } from './overview/RunViewParentRunBox';
+import { RunViewChildRunsBox } from './overview/RunViewChildRunsBox';
 import { RunViewTagsBox } from './overview/RunViewTagsBox';
 import { RunViewDescriptionBox } from './overview/RunViewDescriptionBox';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
@@ -171,6 +172,13 @@ export const RunViewOverview = ({
           <DetailsOverviewMetadataRow
             title={<FormattedMessage defaultMessage="Parent run" description="Run page > Overview > Parent run" />}
             value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
+          />
+        )}
+        {/* Show child runs if this is a parent run */}
+        {!parentRunIdTag && runInfo.runUuid && runInfo.experimentId && (
+          <DetailsOverviewMetadataRow
+            title={<FormattedMessage defaultMessage="Child runs" description="Run page > Overview > Child runs" />}
+            value={<RunViewChildRunsBox parentRunUuid={runInfo.runUuid} experimentId={runInfo.experimentId} />}
           />
         )}
         <DetailsOverviewMetadataRow
