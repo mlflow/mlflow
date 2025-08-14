@@ -29,8 +29,8 @@ class ResumeInfo:
     study_name: str | None = None
     existing_trials: int | None = None
     completed_trials: int | None = None
-    best_value: Any = None
-    best_params: Any = None
+    best_value: Any | None = None
+    best_params: Any | None = None
 
 
 def is_spark_connect_mode() -> bool:

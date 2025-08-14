@@ -232,7 +232,7 @@ class MlflowStorage(BaseStorage):
         return self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=filter_string,
-            order_by=["attributes.start_time DESC"]
+            order_by=["attributes.start_time DESC"],
         )
 
     def create_new_study(
