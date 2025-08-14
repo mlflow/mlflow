@@ -92,7 +92,6 @@ def test_study_with_failed_objective(setup_storage):
 
 
 def test_auto_resume_existing_study(setup_storage):
-    """Test that MlflowSparkStudy automatically resumes existing studies."""
     storage = setup_storage
     study_name = "resume-test-study"
     sampler = TPESampler(seed=42)
@@ -118,9 +117,11 @@ def test_auto_resume_existing_study(setup_storage):
     study2.optimize(objective, n_trials=2, n_jobs=1)
     assert len(study2.trials) == first_trial_count + 2
 
+    # Assert that the resumed study generates a better (lower) objective value than the first study
+    assert study2.best_value <= first_best_value
+
 
 def test_new_study_is_not_resumed(setup_storage):
-    """Test that new studies are correctly identified as not resumed."""
     storage = setup_storage
     study_name = "new-study"
 
@@ -133,7 +134,6 @@ def test_new_study_is_not_resumed(setup_storage):
 
 
 def test_resume_info_method(setup_storage):
-    """Test get_resume_info method."""
     storage = setup_storage
     study_name = "info-test-study"
     sampler = TPESampler(seed=123)
@@ -163,7 +163,6 @@ def test_resume_info_method(setup_storage):
 
 
 def test_completed_trials_count_property(setup_storage):
-    """Test completed_trials_count property."""
     storage = setup_storage
     study_name = "count-test-study"
 
@@ -182,7 +181,6 @@ def test_completed_trials_count_property(setup_storage):
 
 
 def test_resume_preserves_best_results(setup_storage):
-    """Test that resuming preserves best results from previous optimization."""
     storage = setup_storage
     study_name = "best-results-study"
     sampler = TPESampler(seed=456)

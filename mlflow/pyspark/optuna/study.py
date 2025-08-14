@@ -3,6 +3,7 @@ import logging
 import tempfile
 import traceback
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,16 @@ from mlflow.exceptions import ExecutionException
 from mlflow.optuna.storage import MlflowStorage
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ResumeInfo:
+    is_resumed: bool
+    study_name: str | None = None
+    existing_trials: int | None = None
+    completed_trials: int | None = None
+    best_value: Any = None
+    best_params: Any = None
 
 
 def is_spark_connect_mode() -> bool:
@@ -215,23 +226,24 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def get_resume_info(self) -> dict[str, Any]:
+    def get_resume_info(self) -> ResumeInfo:
         """Get information about the resumed study.
 
         Returns:
-            Dictionary containing resume information including trial counts and best results
+            ResumeInfo dataclass containing resume information including trial
+            counts and best results
         """
         if not self._is_resumed:
-            return {"is_resumed": False}
+            return ResumeInfo(is_resumed=False)
 
-        return {
-            "is_resumed": True,
-            "study_name": self.study_name,
-            "existing_trials": len(self._study.trials),
-            "completed_trials": self.completed_trials_count,
-            "best_value": self._study.best_value if self._study.trials else None,
-            "best_params": self._study.best_params if self._study.trials else None,
-        }
+        return ResumeInfo(
+            is_resumed=True,
+            study_name=self.study_name,
+            existing_trials=len(self._study.trials),
+            completed_trials=self.completed_trials_count,
+            best_value=self._study.best_value if self._study.trials else None,
+            best_params=self._study.best_params if self._study.trials else None,
+        )
 
     def optimize(
         self,
