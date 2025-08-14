@@ -8,7 +8,7 @@ import agents.tracing as oai
 from agents import add_trace_processor
 from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
-from mlflow.entities.span import LiveSpan, SpanType
+from mlflow.entities.span import SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
@@ -19,6 +19,7 @@ from mlflow.tracing.fluent import (
 )
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import construct_full_inputs
+from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import (
     ChatTool,
     FunctionToolDefinition,
@@ -78,7 +79,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self._span_id_to_mlflow_span: dict[str, LiveSpan] = {}
+        self._span_id_to_mlflow_span: dict[str, SpanWithToken] = {}
 
     def on_trace_start(self, trace: oai.Trace) -> None:
         if (active_span := get_current_active_span()) and active_span.name == _AGENT_RUN_SPAN_NAME:
@@ -99,7 +100,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             token = set_span_in_context(mlflow_span)
 
         # NB: Trace ID has different prefix as span ID so will not conflict
-        self._span_id_to_mlflow_span[trace.trace_id] = (mlflow_span, token)
+        self._span_id_to_mlflow_span[trace.trace_id] = SpanWithToken(mlflow_span, token)
 
         if trace.group_id:
             # Group ID is used for grouping multiple agent executions together
@@ -107,22 +108,20 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
     def on_trace_end(self, trace: oai.Trace) -> None:
         try:
-            mlflow_span, token = self._span_id_to_mlflow_span.pop(trace.trace_id, (None, None))
-            if token:
-                detach_span_from_context(token)
-                mlflow_span.end(status=mlflow_span.status, outputs="")
+            st = self._span_id_to_mlflow_span.pop(trace.trace_id, None)
+            if st and st.token:
+                detach_span_from_context(st.token)
+                st.span.end(status=st.span.status, outputs="")
         except Exception:
             _logger.debug("Failed to end MLflow trace", exc_info=True)
 
     def on_span_start(self, span: oai.Span[Any]) -> None:
         try:
-            parent_mlflow_span, _ = self._span_id_to_mlflow_span.get(span.parent_id, (None, None))
+            parent_st: SpanWithToken | None = self._span_id_to_mlflow_span.get(span.parent_id, None)
 
             # Parent might be a trace
-            if not parent_mlflow_span:
-                parent_mlflow_span, _ = self._span_id_to_mlflow_span.get(
-                    span.trace_id, (None, None)
-                )
+            if not parent_st:
+                parent_st = self._span_id_to_mlflow_span.get(span.trace_id, None)
 
             inputs, _, attributes = _parse_span_data(span.span_data)
             span_type = _SPAN_TYPE_MAP.get(span.span_data.type, SpanType.CHAIN)
@@ -130,7 +129,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             mlflow_span = start_span_no_context(
                 name=_get_span_name(span.span_data),
                 span_type=span_type,
-                parent_span=parent_mlflow_span,
+                parent_span=parent_st.span if parent_st else None,
                 inputs=inputs,
                 attributes=attributes,
             )
@@ -139,15 +138,16 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             if span_type == SpanType.CHAT_MODEL:
                 mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai-agent")
 
-            self._span_id_to_mlflow_span[span.span_id] = (mlflow_span, token)
+            self._span_id_to_mlflow_span[span.span_id] = SpanWithToken(mlflow_span, token)
         except Exception:
             _logger.debug("Failed to start MLflow span", exc_info=True)
 
     def on_span_end(self, span: oai.Span[Any]) -> None:
         try:
             # parsed_span_data = parse_spandata(span.span_data)
-            mlflow_span, token = self._span_id_to_mlflow_span.pop(span.span_id, (None, None))
-            detach_span_from_context(token)
+            st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(span.span_id, None)
+            detach_span_from_context(st.token)
+            mlflow_span = st.span
 
             inputs, outputs, attributes = _parse_span_data(span.span_data)
 
