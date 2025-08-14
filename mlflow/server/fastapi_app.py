@@ -8,6 +8,7 @@ to FastAPI endpoints.
 
 from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
+from fastapi_mcp import FastApiMCP
 
 from mlflow.server import app as flask_app
 from mlflow.server.spans_router import router as spans_router
@@ -28,15 +29,17 @@ def create_fastapi_app() -> FastAPI:
         version=VERSION,
         # TODO: Enable API documentation when we have native FastAPI endpoints
         # For now, disable docs since we only have Flask routes via WSGI
-        docs_url=None,
-        redoc_url=None,
-        openapi_url=None,
+        # docs_url=None,
+        # redoc_url=None,
+        # openapi_url=None,
     )
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs
-    fastapi_app.mount("/", WSGIMiddleware(flask_app))
     fastapi_app.include_router(spans_router)
+    mcp = FastApiMCP(fastapi_app)
+    mcp.mount()
+    fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
     return fastapi_app
 
