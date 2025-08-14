@@ -203,13 +203,21 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Example:
             .. code-block:: python
 
-                # Direct usage with search_traces DataFrame output
+                # Method 1: Direct usage with search_traces DataFrame output (default)
                 traces_df = mlflow.search_traces()  # Returns DataFrame by default
-                dataset.merge_records(traces_df)  # No extraction needed
+                dataset.merge_records(traces_df)  # Automatically extracts trace data
 
-                # Or with standard DataFrame
+                # Method 2: Using list of Trace objects from search_traces
+                traces_list = mlflow.search_traces(return_type="list")  # Returns list[Trace]
+                dataset.merge_records(traces_list)  # Directly accepts Trace objects
+
+                # Method 3: Standard DataFrame with inputs/expectations
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
+
+                # Method 4: List of dictionaries
+                records = [{"inputs": {"q": "Test?"}, "expectations": {"score": 0.9}}]
+                dataset.merge_records(records)
         """
         import pandas as pd
 
