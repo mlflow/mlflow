@@ -224,6 +224,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         self._validate_record_dicts(record_dicts)
 
+        self._infer_source_types(record_dicts)
+
         tracking_store = _get_store()
 
         try:
@@ -266,6 +268,36 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 raise MlflowException.invalid_parameter_value(
                     "Each record must have an 'inputs' field"
                 )
+
+    def _infer_source_types(self, record_dicts: list[dict[str, Any]]) -> None:
+        """Infer source types for records without explicit source information.
+
+        Simple inference rules:
+        - Records with expectations -> HUMAN (manual test cases/ground truth)
+        - Records with inputs but no expectations -> CODE (programmatically generated)
+
+        Inference can be overridden by providing explicit source information.
+
+        Note that trace inputs (from List[Trace] or pd.DataFrame of Trace data) will
+        always be inferred as a trace source type when processing trace records.
+
+        Args:
+            record_dicts: List of record dictionaries to process (modified in place)
+        """
+        for record in record_dicts:
+            if "source" in record:
+                continue
+
+            if "expectations" in record and record["expectations"]:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.HUMAN.value,
+                    "source_data": {},
+                }
+            elif "inputs" in record and "expectations" not in record:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.CODE.value,
+                    "source_data": {},
+                }
 
     def to_df(self) -> "pd.DataFrame":
         """
