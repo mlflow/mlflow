@@ -52,8 +52,9 @@ def optimize_prompt(
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
     By default, the optimized prompt template is automatically registered as a new version of the
-    original prompt. This can be disabled using the skip_registration parameter in optimizer_config.
-    Currently, this API only supports DSPy's MIPROv2 optimizer.
+    original prompt and optimization metrics are logged.
+    Currently, this API provides built-in support for DSPy's MIPROv2 optimizer and
+    you can also implement custom optimization algorithms by extending BasePromptOptimizer class.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
@@ -83,8 +84,7 @@ def optimize_prompt(
             returns a float value (greater is better).
         eval_data: Evaluation dataset with the same format as train_data. If not provided,
             train_data will be automatically split into training and evaluation sets.
-        optimizer_config: Configuration parameters for the optimizer. Use skip_registration=True
-            to disable automatic prompt registration and get the raw optimized template instead.
+        optimizer_config: Configuration parameters for the optimizer.
 
     Returns:
         PromptOptimizationResult: The optimization result including the optimized prompt.
@@ -147,7 +147,7 @@ def optimize_prompt(
             eval_data=eval_data,
         )
 
-        if optimizer_config.skip_registration:
+        if not optimizer_config.autolog:
             result_prompt = optimizer_output.optimized_prompt
         else:
             optimized_prompt = register_prompt(
@@ -158,8 +158,7 @@ def optimize_prompt(
                 },
             )
             result_prompt = optimized_prompt
-            if optimizer_config.autolog:
-                _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
+            _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
 
     return PromptOptimizationResult(
         prompt=result_prompt,

@@ -76,6 +76,15 @@ def test_optimize_prompt_basic(sample_prompt, sample_data):
     assert result.initial_eval_score == 0.5
     assert mock_optimizer.call_count == 1
 
+    # Verify that default autolog=True behavior includes MLflow run and logging
+    run = mlflow.last_active_run()
+    assert run is not None
+    assert run.data.metrics["final_eval_score"] == 1.0
+    assert (
+        run.data.params["optimized_prompt_uri"]
+        == f"prompts:/{sample_prompt.name}/{sample_prompt.version + 1}"
+    )
+
 
 def test_optimize_prompt_custom_optimizer(sample_prompt, sample_data):
     class _CustomOptimizer(BasePromptOptimizer):
@@ -189,7 +198,7 @@ def test_optimize_autolog(sample_prompt, sample_data):
     assert "eval_data.json" in artifacts
 
 
-def test_optimize_prompt_skip_registration(sample_prompt, sample_data):
+def test_optimize_prompt_no_autolog(sample_prompt, sample_data):
     with patch(
         "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
         return_value=OptimizerOutput(
@@ -204,7 +213,7 @@ def test_optimize_prompt_skip_registration(sample_prompt, sample_data):
             prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
             train_data=sample_data,
             scorers=[sample_scorer],
-            optimizer_config=OptimizerConfig(skip_registration=True),
+            optimizer_config=OptimizerConfig(autolog=False),
         )
 
     assert isinstance(result, PromptOptimizationResult)
