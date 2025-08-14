@@ -6,7 +6,7 @@ This module provides automatic tracing integration between Claude Code and MLflo
 
 - **`config.py`** - Configuration management (settings files, environment variables)
 - **`hooks.py`** - Claude Code hook setup and management
-- **`cli.py`** - MLflow CLI commands (`mlflow claude trace`)
+- **`cli.py`** - MLflow CLI commands (`mlflow trace claude`)
 - **`tracing.py`** - Core tracing logic and processors
 - **`hooks/`** - Hook implementation handlers
 
@@ -22,28 +22,28 @@ Set up Claude Code tracing in any project directory:
 
 ```bash
 # Set up tracing in current directory
-mlflow claude trace
+mlflow trace claude
 
 # Set up tracing in specific directory
-mlflow claude trace ~/my-project
+mlflow trace claude ~/my-project
 
 # Set up with custom tracking URI
-mlflow claude trace -u file://./custom-mlruns
-mlflow claude trace -u sqlite:///mlflow.db
+mlflow trace claude -u file://./custom-mlruns
+mlflow trace claude -u sqlite:///mlflow.db
 
 # Set up with Databricks
-mlflow claude trace -u databricks -e 123456789
+mlflow trace claude -u databricks -e 123456789
 
 # Check status
-mlflow claude trace --status
+mlflow trace claude --status
 
 # Disable tracing
-mlflow claude trace --disable
+mlflow trace claude --disable
 ```
 
 ## How it Works
 
-1. **Setup**: The `mlflow claude trace` command configures Claude Code hooks in a `.claude/settings.json` file
+1. **Setup**: The `mlflow trace claude` command configures Claude Code hooks in a `.claude/settings.json` file
 2. **Automatic Tracing**: When you use the `claude` command in the configured directory, your conversations are automatically traced to MLflow
 3. **View Traces**: Use `mlflow ui` to view your conversation traces
 
@@ -67,7 +67,7 @@ The setup creates two types of configuration:
 ### Basic Local Setup
 
 ```bash
-mlflow claude trace
+mlflow trace claude
 cd .
 claude "help me write a function"
 mlflow ui --backend-store-uri sqlite:///mlflow.db
@@ -76,7 +76,7 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db
 ### Databricks Integration
 
 ```bash
-mlflow claude trace -u databricks -e 123456789
+mlflow trace claude -u databricks -e 123456789
 claude "analyze this data"
 # View traces in Databricks
 ```
@@ -84,7 +84,7 @@ claude "analyze this data"
 ### Custom Project Setup
 
 ```bash
-mlflow claude trace ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
+mlflow trace claude ~/my-ai-project -u sqlite:///mlflow.db -n "My AI Project"
 cd ~/my-ai-project
 claude "refactor this code"
 mlflow ui --backend-store-uri sqlite:///mlflow.db
@@ -95,13 +95,13 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db
 ### Check Status
 
 ```bash
-mlflow claude trace --status
+mlflow trace claude --status
 ```
 
 ### Disable Tracing
 
 ```bash
-mlflow claude trace --disable
+mlflow trace claude --disable
 ```
 
 ### View Raw Configuration

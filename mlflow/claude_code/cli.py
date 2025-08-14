@@ -8,12 +8,12 @@ from mlflow.claude_code.config import get_tracing_status, setup_environment_conf
 from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config
 
 
-@click.group("claude")
+@click.group("trace")
 def commands():
-    """Commands for Claude Code integration with MLflow."""
+    """Commands for tracing with MLflow."""
 
 
-@commands.command("trace")
+@commands.command("claude")
 @click.argument("directory", default=".", type=click.Path(file_okay=False, dir_okay=True))
 @click.option(
     "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://mlruns')"
@@ -22,7 +22,7 @@ def commands():
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
 @click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
-def trace(
+def claude(
     directory: str,
     tracking_uri: str | None,
     experiment_id: str | None,
@@ -41,19 +41,19 @@ def trace(
     Examples:
 
       # Set up tracing in current directory with local storage
-      mlflow claude trace
+      mlflow trace claude
 
       # Set up tracing in a specific project directory
-      mlflow claude trace ~/my-project
+      mlflow trace claude ~/my-project
 
       # Set up tracing with Databricks
-      mlflow claude trace -u databricks -e 123456789
+      mlflow trace claude -u databricks -e 123456789
 
       # Set up tracing with custom tracking URI
-      mlflow claude trace -u file://./custom-mlruns
+      mlflow trace claude -u file://./custom-mlruns
 
       # Disable tracing in current directory
-      mlflow claude trace --disable
+      mlflow trace claude --disable
     """
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
@@ -159,4 +159,4 @@ def _show_setup_status(
         click.echo("\n💡 View your traces in your Databricks workspace")
 
     click.echo("\n🔧 To disable tracing later:")
-    click.echo("   mlflow claude trace --disable")
+    click.echo("   mlflow trace claude --disable")
