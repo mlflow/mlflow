@@ -783,9 +783,9 @@ llama_index:
 
 ag2:
   package_info:
+    genai: true
     pip_release: "ag2"
     module_name: "autogen"
-    genai: true
   autologging:
     minimum: "0.7.0"
     maximum: "0.9.7"
