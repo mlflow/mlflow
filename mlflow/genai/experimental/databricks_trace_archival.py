@@ -53,6 +53,7 @@ def _validate_schema_versions(spans_version: str, events_version: str) -> None:
         f"Schema version validation passed: spans={spans_version}, events={events_version}"
     )
 
+
 def _get_spark_session():
     try:
         from pyspark.sql import SparkSession
@@ -62,6 +63,7 @@ def _get_spark_session():
         from databricks.connect import DatabricksSession
 
         return DatabricksSession.builder.serverless(True).getOrCreate()
+
 
 def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str) -> None:
     """
@@ -78,7 +80,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
     try:
         spark = _get_active_spark_session()
         if spark is None:
-          spark = _get_spark_session()
+            spark = _get_spark_session()
 
         query = f"""
             CREATE OR REPLACE VIEW {view_name} AS

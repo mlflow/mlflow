@@ -105,20 +105,20 @@ class InferenceTableSpanExporter(SpanExporter):
                 )
                 return
 
-            try:
-                # Log the trace to the MLflow backend asynchronously
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_trace_to_mlflow_backend,
-                        args=(trace, manager_trace.prompts),
-                        error_msg=f"Failed to log trace {trace.info.trace_id}.",
-                    )
+        try:
+            # Log the trace to the MLflow backend asynchronously
+            self._async_queue.put(
+                task=Task(
+                    handler=self._log_trace_to_mlflow_backend,
+                    args=(trace, manager_trace.prompts),
+                    error_msg=f"Failed to log trace {trace.info.trace_id}.",
                 )
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to export trace to MLflow backend. Error: {e}",
-                    stack_info=_logger.isEnabledFor(logging.DEBUG),
-                )
+            )
+        except Exception as e:
+            _logger.warning(
+                f"Failed to export trace to MLflow backend. Error: {e}",
+                stack_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def _log_trace_to_mlflow_backend(self, trace: Trace, prompts: Sequence[PromptVersion]):
         add_size_stats_to_trace_metadata(trace)
