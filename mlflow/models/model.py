@@ -420,7 +420,11 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.now(timezone.utc))
+        self.utc_time_created = str(
+            # In mlflow <= 3.3.0, `datetime.utcnow()` was used. To preserve the original behavior,
+            # use `.replace(tzinfo=None)` to make the timestamp naive.
+            utc_time_created or datetime.now(timezone.utc).replace(tzinfo=None)
+        )
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
