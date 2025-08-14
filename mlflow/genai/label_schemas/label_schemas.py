@@ -196,6 +196,25 @@ class LabelSchema:
     """Whether to enable additional comment functionality for reviewers."""
 
     @classmethod
+    def _convert_databricks_input(cls, input_obj):
+        """Convert a Databricks input type to the corresponding MLflow input type."""
+        from databricks.agents.review_app import label_schemas as _label_schemas
+
+        input_type_mapping = {
+            _label_schemas.InputCategorical: InputCategorical,
+            _label_schemas.InputCategoricalList: InputCategoricalList,
+            _label_schemas.InputText: InputText,
+            _label_schemas.InputTextList: InputTextList,
+            _label_schemas.InputNumeric: InputNumeric,
+        }
+
+        input_class = input_type_mapping.get(type(input_obj))
+        if input_class is None:
+            raise ValueError(f"Unknown input type: {type(input_obj)}")
+
+        return input_class._from_databricks_input(input_obj)
+
+    @classmethod
     def _from_databricks_label_schema(cls, schema: "_LabelSchema") -> "LabelSchema":
         """Convert from the internal Databricks label schema type."""
 
@@ -203,7 +222,7 @@ class LabelSchema:
             name=schema.name,
             type=schema.type,
             title=schema.title,
-            input=schema.input._from_databricks_input(),
+            input=cls._convert_databricks_input(schema.input),
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,
         )
