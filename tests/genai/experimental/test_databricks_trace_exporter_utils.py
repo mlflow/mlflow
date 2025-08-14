@@ -38,12 +38,22 @@ def mock_workspace_id():
     return "12345"
 
 
+@pytest.fixture
+def mock_workspace_client(mock_workspace_id):
+    """Mock WorkspaceClient for testing."""
+    client = mock.MagicMock()
+    client.get_workspace_id.return_value = mock_workspace_id
+    return client
+
+
 # =============================================================================
 # create_archival_ingest_sdk Tests
 # =============================================================================
 
 
-def test_create_archival_ingest_sdk_success(mock_host_creds, mock_workspace_id, monkeypatch):
+def test_create_archival_ingest_sdk_success(
+    mock_host_creds, mock_workspace_id, mock_workspace_client, monkeypatch
+):
     """Test successful creation of IngestApiSdk."""
     # Clear any environment overrides
     monkeypatch.delenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", raising=False)
@@ -56,8 +66,8 @@ def test_create_archival_ingest_sdk_success(mock_host_creds, mock_workspace_id, 
             return_value=mock_host_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=mock_workspace_id,
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client,
         ),
         mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
     ):
@@ -111,14 +121,18 @@ def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
 
 def test_create_archival_ingest_sdk_resolution_error(mock_host_creds):
     """Test error handling when resolution functions fail."""
+    # Create a mock WorkspaceClient that returns None for workspace_id
+    mock_workspace_client_none = mock.MagicMock()
+    mock_workspace_client_none.get_workspace_id.return_value = None
+
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_host_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=None,  # This will cause _resolve_ingest_url to fail
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client_none,
         ),
         mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
     ):
@@ -149,7 +163,9 @@ def test_create_archival_ingest_sdk_resolution_error(mock_host_creds):
         ("test.azuredatabricks.net", ".ingest.azuredatabricks.net"),
     ],
 )
-def test_resolve_ingest_url_patterns(host_url, expected_suffix, mock_workspace_id):
+def test_resolve_ingest_url_patterns(
+    host_url, expected_suffix, mock_workspace_id, mock_workspace_client
+):
     """Test URL resolution for various host patterns."""
     mock_creds = mock.Mock()
     mock_creds.host = host_url
@@ -160,8 +176,8 @@ def test_resolve_ingest_url_patterns(host_url, expected_suffix, mock_workspace_i
             return_value=mock_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=mock_workspace_id,
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client,
         ),
     ):
         result = _resolve_ingest_url()
@@ -183,7 +199,9 @@ def test_resolve_ingest_url_with_env_override(monkeypatch):
         mock_get_creds.assert_not_called()
 
 
-def test_resolve_ingest_url_with_trailing_slash_and_params(mock_workspace_id):
+def test_resolve_ingest_url_with_trailing_slash_and_params(
+    mock_workspace_id, mock_workspace_client
+):
     """Test URL cleanup for trailing slashes and query parameters."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.cloud.databricks.com/?param=value"
@@ -194,8 +212,8 @@ def test_resolve_ingest_url_with_trailing_slash_and_params(mock_workspace_id):
             return_value=mock_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=mock_workspace_id,
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client,
         ),
     ):
         result = _resolve_ingest_url()
@@ -208,21 +226,25 @@ def test_resolve_ingest_url_no_workspace_id():
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.cloud.databricks.com"
 
+    # Create a mock WorkspaceClient that returns None for workspace_id
+    mock_workspace_client_none = mock.MagicMock()
+    mock_workspace_client_none.get_workspace_id.return_value = None
+
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=None,
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client_none,
         ),
     ):
         with pytest.raises(MlflowException, match=r"No workspace ID available"):
             _resolve_ingest_url()
 
 
-def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id):
+def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id, mock_workspace_client):
     """Test error for unrecognized host patterns."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://unknown.domain.com"
@@ -233,30 +255,14 @@ def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id):
             return_value=mock_creds,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_workspace_id",
-            return_value=mock_workspace_id,
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock_workspace_client,
         ),
     ):
         with pytest.raises(
             MlflowException, match=r"Unrecognized host pattern.*unknown\.domain\.com"
         ):
             _resolve_ingest_url()
-
-
-def test_resolve_ingest_url_with_provided_workspace_id(mock_host_creds):
-    """Test resolution with explicitly provided workspace ID."""
-    provided_workspace_id = "67890"
-
-    with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
-        return_value=mock_host_creds,
-    ):
-        # Should not call get_workspace_id when workspace_id is provided
-        with mock.patch("mlflow.utils.databricks_utils.get_workspace_id") as mock_get_workspace_id:
-            result = _resolve_ingest_url(workspace_id=provided_workspace_id)
-            expected = f"{provided_workspace_id}.ingest.cloud.databricks.com"
-            assert result == expected
-            mock_get_workspace_id.assert_not_called()
 
 
 # =============================================================================

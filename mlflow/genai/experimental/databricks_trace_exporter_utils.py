@@ -117,6 +117,7 @@ def _resolve_ingest_url() -> str:
     try:
         # Get workspace ID if not provided
         from databricks.sdk import WorkspaceClient
+
         workspace_id = WorkspaceClient().get_workspace_id()
 
         if not workspace_id:
