@@ -51,9 +51,10 @@ def optimize_prompt(
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
-    The optimized prompt template is automatically registered as a new version of the
-    original prompt and included in the result.
-    Currently, this API only supports DSPy's MIPROv2 optimizer.
+    By default, the optimized prompt template is automatically registered as a new version of the
+    original prompt and optimization metrics are logged.
+    Currently, this API provides built-in support for DSPy's MIPROv2 optimizer and
+    you can also implement custom optimization algorithms by extending BasePromptOptimizer class.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
@@ -61,7 +62,6 @@ def optimize_prompt(
             - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
             - `<provider>/<model>` (e.g., "openai/gpt-4o")
         prompt: The URI or Prompt object of the MLflow prompt to optimize.
-            The optimized prompt is registered as a new version of the prompt.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
 
@@ -149,19 +149,21 @@ def optimize_prompt(
             eval_data=eval_data,
         )
 
-        optimized_prompt = register_prompt(
-            name=prompt.name,
-            template=optimizer_output.optimized_prompt,
-            tags={
-                "overall_eval_score": str(optimizer_output.final_eval_score),
-            },
-        )
-
-        if optimizer_config.autolog:
+        if not optimizer_config.autolog:
+            result_prompt = optimizer_output.optimized_prompt
+        else:
+            optimized_prompt = register_prompt(
+                name=prompt.name,
+                template=optimizer_output.optimized_prompt,
+                tags={
+                    "overall_eval_score": str(optimizer_output.final_eval_score),
+                },
+            )
+            result_prompt = optimized_prompt
             _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
 
     return PromptOptimizationResult(
-        prompt=optimized_prompt,
+        prompt=result_prompt,
         initial_prompt=prompt,
         optimizer_name=optimizer_output.optimizer_name,
         final_eval_score=optimizer_output.final_eval_score,
