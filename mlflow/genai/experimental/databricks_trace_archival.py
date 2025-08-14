@@ -54,6 +54,17 @@ def _validate_schema_versions(spans_version: str, events_version: str) -> None:
     )
 
 
+def _get_spark_session():
+    try:
+        from pyspark.sql import SparkSession
+
+        return SparkSession.builder.getOrCreate()
+    except Exception:
+        from databricks.connect import DatabricksSession
+
+        return DatabricksSession.builder.serverless(True).getOrCreate()
+
+
 def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str) -> None:
     """
     Create a logical view for GenAI trace data that combines spans and events tables.
@@ -69,9 +80,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
     try:
         spark = _get_active_spark_session()
         if spark is None:
-            from pyspark.sql import SparkSession
-
-            spark = SparkSession.builder.getOrCreate()
+            spark = _get_spark_session()
 
         query = f"""
             CREATE OR REPLACE VIEW {view_name} AS
