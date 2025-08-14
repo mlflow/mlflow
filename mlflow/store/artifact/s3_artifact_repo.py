@@ -2,7 +2,7 @@ import json
 import os
 import posixpath
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from mimetypes import guess_type
 
@@ -28,7 +28,7 @@ _MAX_CACHE_SECONDS = 300
 
 
 def _get_utcnow_timestamp():
-    return datetime.utcnow().timestamp()
+    return datetime.now(timezone.utc).timestamp()
 
 
 @lru_cache(maxsize=64)
