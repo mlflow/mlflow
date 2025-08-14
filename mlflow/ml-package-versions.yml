@@ -566,7 +566,8 @@ openai:
           "uvicorn",
         ]
       "< 1.55.3": ["httpx<0.28.0"]
-      ">= 1.66.2": ["openai-agents"]
+      # minimum version supported by openai-agents>=0.2.0
+      ">= 1.93.1": ["openai-agents"]
     run: |
       pytest tests/openai/*_autolog.py
     test_every_n_versions: 10
