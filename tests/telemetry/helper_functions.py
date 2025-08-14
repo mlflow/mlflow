@@ -1,6 +1,8 @@
 import json
 from typing import Any
 
+from mlflow.telemetry.client import TelemetryClient
+
 
 def validate_telemetry_record(
     mock_telemetry_client,
@@ -35,3 +37,14 @@ def validate_telemetry_record(
     assert data["duration_ms"] is not None
     mock_requests.clear()
     return data
+
+
+class TelemetryClientContext:
+    def __init__(self):
+        self.telemetry_client = TelemetryClient()
+
+    def __enter__(self):
+        return self.telemetry_client
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.telemetry_client._clean_up()
