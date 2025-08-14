@@ -159,7 +159,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert result == "Parent: Hello World"
 
     # Wait for traces to be exported to OTLP
-    time.sleep(5)
+    time.sleep(15)
 
     client = MlflowClient()
     traces = client.search_traces(experiment_ids=[experiment.experiment_id])
