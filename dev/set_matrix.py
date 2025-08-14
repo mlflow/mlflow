@@ -126,13 +126,12 @@ class TestConfig(BaseModel):
 
         # Read the minimum Python version from .python-version file
         python_version_file = Path(".python-version")
-        if python_version_file.exists():
-            min_python_version = python_version_file.read_text().strip()
+        min_python_version = python_version_file.read_text().strip()
 
-            # Check if any value in the python dict matches the minimum version
-            for version in v.values():
-                if version == min_python_version:
-                    raise ValueError(f"Unnecessary Python version requirement: {version}")
+        # Check if any value in the python dict matches the minimum version
+        for version in v.values():
+            if version == min_python_version:
+                raise ValueError(f"Unnecessary Python version requirement: {version}")
 
         return v
 
