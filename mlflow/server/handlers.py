@@ -91,10 +91,13 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateAssessment,
+    CreateEvaluationDataset,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
     DeleteAssessment,
+    DeleteEvaluationDataset,
+    DeleteEvaluationDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
@@ -108,6 +111,9 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
+    GetEvaluationDataset,
+    GetEvaluationDatasetExperimentIds,
+    GetEvaluationDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -130,11 +136,13 @@ from mlflow.protos.service_pb2 import (
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
+    SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetEvaluationDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -145,6 +153,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpsertEvaluationDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.server.validation import _validate_content_type
@@ -3215,6 +3224,215 @@ def get_endpoints(get_handler=get_handler):
     )
 
 
+# Evaluation Dataset APIs
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_dataset():
+    request_message = _get_request_message(
+        CreateEvaluationDataset.Request(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "experiment_ids": [_assert_array],
+            "tags": [_assert_string],
+        },
+    )
+
+    tags = None
+    if hasattr(request_message, "tags") and request_message.tags:
+        tags = json.loads(request_message.tags)
+
+    dataset = _get_tracking_store().create_dataset(
+        name=request_message.name,
+        experiment_id=list(request_message.experiment_ids)
+        if request_message.experiment_ids
+        else None,
+        tags=tags,
+    )
+
+    response_message = CreateEvaluationDataset.Response()
+    response_message.dataset.CopyFrom(dataset.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_dataset():
+    request_message = _get_request_message(
+        GetEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
+    )
+
+    dataset = _get_tracking_store().get_dataset(request_message.dataset_id)
+
+    response_message = GetEvaluationDataset.Response()
+    response_message.dataset.CopyFrom(dataset.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset():
+    request_message = _get_request_message(
+        DeleteEvaluationDataset.Request(), schema={"dataset_id": [_assert_required, _assert_string]}
+    )
+
+    _get_tracking_store().delete_dataset(request_message.dataset_id)
+
+    response_message = DeleteEvaluationDataset.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_datasets():
+    request_message = _get_request_message(
+        SearchEvaluationDatasets.Request(),
+        schema={
+            "experiment_ids": [_assert_array],
+            "filter_string": [_assert_string],
+            "max_results": [_assert_intlike],
+            "order_by": [_assert_array],
+            "page_token": [_assert_string],
+        },
+    )
+
+    datasets = _get_tracking_store().search_datasets(
+        experiment_ids=list(request_message.experiment_ids)
+        if request_message.experiment_ids
+        else None,
+        filter_string=request_message.filter_string if request_message.filter_string else None,
+        max_results=request_message.max_results if request_message.max_results else None,
+        order_by=list(request_message.order_by) if request_message.order_by else None,
+        page_token=request_message.page_token if request_message.page_token else None,
+    )
+
+    response_message = SearchEvaluationDatasets.Response()
+    response_message.datasets.extend([d.to_proto() for d in datasets])
+    if datasets.token:
+        response_message.next_page_token = datasets.token
+
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_dataset_tags():
+    request_message = _get_request_message(
+        SetEvaluationDatasetTags.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "tags": [_assert_required, _assert_string],
+        },
+    )
+
+    tags = json.loads(request_message.tags)
+
+    _get_tracking_store().set_dataset_tags(
+        dataset_id=request_message.dataset_id,
+        tags=tags,
+    )
+
+    response_message = SetEvaluationDatasetTags.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset_tag():
+    request_message = _get_request_message(
+        DeleteEvaluationDatasetTag.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store().delete_dataset_tag(
+        dataset_id=request_message.dataset_id,
+        key=request_message.key,
+    )
+
+    response_message = DeleteEvaluationDatasetTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _upsert_dataset_records():
+    request_message = _get_request_message(
+        UpsertEvaluationDatasetRecords.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "records": [_assert_required, _assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+
+    records = json.loads(request_message.records)
+
+    result = _get_tracking_store().upsert_dataset_records(
+        dataset_id=request_message.dataset_id,
+        records=records,
+        updated_by=request_message.updated_by if request_message.updated_by else None,
+    )
+
+    response_message = UpsertEvaluationDatasetRecords.Response()
+    response_message.inserted_count = result["inserted"]
+    response_message.updated_count = result["updated"]
+
+    return _wrap_response(response_message)
+
+
+def _get_dataset_experiment_ids():
+    """
+    Get experiment IDs associated with an evaluation dataset.
+    """
+    request_message = _get_request_message(
+        GetEvaluationDatasetExperimentIds.Request(), flask_request=request
+    )
+
+    experiment_ids = _get_tracking_store().get_dataset_experiment_ids(
+        dataset_id=request_message.dataset_id
+    )
+
+    response_message = GetEvaluationDatasetExperimentIds.Response()
+    response_message.experiment_ids.extend(experiment_ids)
+
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_dataset_records():
+    request_message = _get_request_message(
+        GetEvaluationDatasetRecords.Request(),
+        schema={
+            "dataset_id": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+
+    records = _get_tracking_store()._load_dataset_records(request_message.dataset_id)
+
+    max_results = request_message.max_results if request_message.max_results else 1000
+    page_token = request_message.page_token if request_message.page_token else "0"
+    start_index = int(page_token)
+
+    paginated_records = records[start_index : start_index + max_results]
+
+    response_message = GetEvaluationDatasetRecords.Response()
+
+    records_dicts = [record.to_dict() for record in paginated_records]
+    response_message.records = json.dumps(records_dicts)
+
+    if start_index + max_results < len(records):
+        response_message.next_page_token = str(start_index + max_results)
+
+    return _wrap_response(response_message)
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -3243,6 +3461,16 @@ HANDLERS = {
     SearchExperiments: _search_experiments,
     LogInputs: _log_inputs,
     LogOutputs: _log_outputs,
+    # Evaluation Dataset APIs
+    CreateEvaluationDataset: _create_dataset,
+    GetEvaluationDataset: _get_dataset,
+    DeleteEvaluationDataset: _delete_dataset,
+    SearchEvaluationDatasets: _search_datasets,
+    SetEvaluationDatasetTags: _set_dataset_tags,
+    DeleteEvaluationDatasetTag: _delete_dataset_tag,
+    UpsertEvaluationDatasetRecords: _upsert_dataset_records,
+    GetEvaluationDatasetExperimentIds: _get_dataset_experiment_ids,
+    GetEvaluationDatasetRecords: _get_dataset_records,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

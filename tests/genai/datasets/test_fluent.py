@@ -682,6 +682,17 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
                 trace_id = span.trace_id
                 created_trace_ids.append(trace_id)
 
+                mlflow.log_expectation(
+                    trace_id=trace_id,
+                    name="expected_answer",
+                    value=f"Detailed answer for {inputs['question']}",
+                )
+                mlflow.log_expectation(
+                    trace_id=trace_id,
+                    name="quality_score",
+                    value=0.85 + i * 0.05,
+                )
+
     traces = mlflow.search_traces(
         experiment_ids=[experiments[0], experiments[1]],
         max_results=10,
@@ -753,6 +764,62 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
     all_datasets = search_datasets(max_results=100)
     all_dataset_ids = [d.dataset_id for d in all_datasets]
     assert dataset.dataset_id not in all_dataset_ids
+
+
+def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiments):
+    for i in range(3):
+        with mlflow.start_run(experiment_id=experiments[0]):
+            with mlflow.start_span(name=f"test_span_{i}") as span:
+                span.set_inputs({"question": f"Question {i}?", "temperature": 0.7})
+                span.set_outputs({"answer": f"Answer {i}"})
+
+                mlflow.log_expectation(
+                    trace_id=span.trace_id,
+                    name="expected_answer",
+                    value=f"Expected answer {i}",
+                )
+                mlflow.log_expectation(
+                    trace_id=span.trace_id,
+                    name="min_score",
+                    value=0.8,
+                )
+
+    traces_df = mlflow.search_traces(
+        experiment_ids=[experiments[0]],
+    )
+
+    assert "trace" in traces_df.columns
+    assert "assessments" in traces_df.columns
+    assert len(traces_df) == 3
+
+    dataset = create_dataset(
+        name="traces_dataframe_dataset",
+        experiment_id=experiments[0],
+        tags={"source": "search_traces", "format": "dataframe"},
+    )
+
+    dataset.merge_records(traces_df)
+
+    result_df = dataset.to_df()
+    assert len(result_df) == 3
+
+    for idx, row in result_df.iterrows():
+        assert "inputs" in row
+        assert "expectations" in row
+        assert "source_type" in row
+        assert row["source_type"] == "TRACE"
+
+        assert "question" in row["inputs"]
+        question_text = row["inputs"]["question"]
+        assert question_text.startswith("Question ")
+        assert question_text.endswith("?")
+        question_num = int(question_text.replace("Question ", "").replace("?", ""))
+        assert 0 <= question_num <= 2
+
+        assert "expected_answer" in row["expectations"]
+        assert f"Expected answer {question_num}" == row["expectations"]["expected_answer"]
+        assert "min_score" in row["expectations"]
+        assert row["expectations"]["min_score"] == 0.8
 
 
 def test_trace_to_dataset_with_assessments(client, experiment):
