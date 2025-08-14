@@ -16,13 +16,13 @@ def test_claude_help_command(runner):
     """Test that the main claude command shows help."""
     result = runner.invoke(commands, ["--help"])
     assert result.exit_code == 0
-    assert "Commands for Claude Code integration" in result.output
-    assert "trace" in result.output
+    assert "Commands for tracing with MLflow" in result.output
+    assert "claude" in result.output
 
 
 def test_trace_command_help(runner):
-    """Test that the trace command shows help."""
-    result = runner.invoke(commands, ["trace", "--help"])
+    """Test that the claude subcommand shows help."""
+    result = runner.invoke(commands, ["claude", "--help"])
     assert result.exit_code == 0
     assert "Set up Claude Code tracing" in result.output
     assert "--tracking-uri" in result.output
@@ -34,7 +34,7 @@ def test_trace_command_help(runner):
 def test_trace_status_with_no_config(runner):
     """Test trace status when no config exists."""
     with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["trace", "--status"])
+        result = runner.invoke(commands, ["claude", "--status"])
         assert result.exit_code == 0
         assert "❌ Claude tracing is not enabled" in result.output
 
@@ -42,6 +42,6 @@ def test_trace_status_with_no_config(runner):
 def test_trace_disable_with_no_config(runner):
     """Test trace disable when no config exists."""
     with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["trace", "--disable"])
+        result = runner.invoke(commands, ["claude", "--disable"])
         assert result.exit_code == 0
         # Should handle gracefully even if no config exists
