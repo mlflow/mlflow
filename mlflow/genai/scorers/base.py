@@ -504,7 +504,7 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore
 
         if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException("Starting scorer is only supported by Databricks tracking URI.")
+            raise MlflowException("Scheduling scorers is only supported by Databricks tracking URI.")
 
         self._check_can_be_registered()
 
@@ -575,7 +575,9 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore
 
         if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException("Updating scorer is only supported by Databricks tracking URI.")
+            raise MlflowException(
+                "Updating scheduled scorers is only supported by Databricks tracking URI."
+            )
 
         self._check_can_be_registered()
 
@@ -632,7 +634,9 @@ class Scorer(BaseModel):
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
         if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException("Stopping scorer is only supported by Databricks tracking URI.")
+            raise MlflowException(
+                "Stopping scheduled scorers is only supported by Databricks tracking URI."
+            )
 
         self._check_can_be_registered()
 

@@ -37,7 +37,7 @@ class ScorerVersion(_MlflowObject):
 
     @property
     def serialized_scorer(self):
-        """SerializedScorer object containing the serialized scorer data."""
+        """SerializedScorer object containing the metadata and function code for the scorer."""
         from mlflow.genai.scorers.base import SerializedScorer
 
         return SerializedScorer(**json.loads(self._serialized_scorer))
