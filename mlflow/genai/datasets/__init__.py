@@ -11,7 +11,7 @@ from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
-from mlflow.tracking import MlflowClient, get_tracking_uri
+from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import deprecated_parameter, experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
 
@@ -352,76 +352,6 @@ def delete_dataset_tag(
     from mlflow.tracking.client import MlflowClient
 
     MlflowClient().delete_dataset_tag(dataset_id, key)
-
-
-@experimental(version="3.3.0")
-def set_evaluation_dataset_tags(
-    dataset_id: str,
-    tags: dict[str, Any],
-) -> None:
-    """
-    Set tags for an evaluation dataset.
-
-    This implements a batch tag operation - existing tags are merged with new tags.
-    To remove a tag, use delete_evaluation_dataset_tag() instead.
-
-    Args:
-        dataset_id: The ID of the dataset.
-        tags: Dictionary of tags to set.
-
-    Usage::
-
-        set_evaluation_dataset_tags(
-            dataset_id="dataset_abc123",
-            tags={
-                "environment": "production",
-                "version": "2.0",
-            },
-        )
-
-    Note:
-        This API is not available in Databricks environments yet.
-    """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Evaluation Dataset tag operations are not available in Databricks yet. "
-            "Tags are managed through Unity Catalog."
-        )
-
-    if tags is None:
-        raise ValueError("'tags' must be provided")
-
-    client = MlflowClient()
-    client.set_evaluation_dataset_tags(dataset_id, tags)
-
-
-@experimental(version="3.3.0")
-def delete_evaluation_dataset_tag(
-    dataset_id: str,
-    key: str,
-) -> None:
-    """
-    Delete a tag from an evaluation dataset.
-
-    Args:
-        dataset_id: The ID of the dataset.
-        key: The tag key to delete.
-
-    Usage::
-
-        delete_evaluation_dataset_tag(dataset_id="dataset_abc123", key="deprecated")
-
-    Note:
-        This API is not available in Databricks environments yet.
-    """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Evaluation Dataset tag operations are not available in Databricks yet. "
-            "Tags are managed through Unity Catalog."
-        )
-
-    client = MlflowClient()
-    client.delete_evaluation_dataset_tag(dataset_id, key)
 
 
 __all__ = [
