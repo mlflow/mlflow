@@ -8,12 +8,11 @@ interface ImageBoxProps {
   width?: string;
   caption?: string;
   className?: string;
-  alignLeft?: boolean;
 }
 
-export default function ImageBox({ src, alt, width, caption, className, alignLeft }: ImageBoxProps) {
+export default function ImageBox({ src, alt, width, caption, className }: ImageBoxProps) {
   return (
-    <div className={`${styles.container} ${alignLeft ? styles.alignLeft : ''} ${className || ''}`}>
+    <div className={`${styles.container} ${className || ''}`}>
       <div className={styles.imageWrapper} style={width ? { width } : {}}>
         <img src={useBaseUrl(src)} alt={alt} className={styles.image} />
       </div>
