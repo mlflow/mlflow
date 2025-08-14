@@ -785,6 +785,7 @@ ag2:
   package_info:
     pip_release: "ag2"
     module_name: "autogen"
+    genai: true
   autologging:
     minimum: "0.7.0"
     maximum: "0.9.7"
@@ -1008,6 +1009,7 @@ promptflow:
 
 litellm:
   package_info:
+    genai: true
     pip_release: "litellm"
     install_dev: |
       pip install git+https://github.com/BerriAI/litellm.git
