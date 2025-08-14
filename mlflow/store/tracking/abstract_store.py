@@ -931,7 +931,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def create_evaluation_dataset(
+    def create_dataset(
         self,
         name: str,
         tags: dict[str, str] | None = None,
@@ -951,7 +951,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -964,9 +964,9 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    def delete_dataset(self, dataset_id: str) -> None:
         """
-        Delete an evaluation dataset and all its records.
+        Delete a dataset and all its records.
 
         Args:
             dataset_id: The ID of the dataset to delete.
@@ -974,7 +974,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def search_evaluation_datasets(
+    def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
@@ -998,7 +998,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def upsert_evaluation_dataset_records(
+    def upsert_dataset_records(
         self,
         dataset_id: str,
         records: list[dict[str, Any]],
@@ -1016,7 +1016,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -1032,7 +1032,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
         Delete a tag from an evaluation dataset.
 
@@ -1046,7 +1046,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
 
