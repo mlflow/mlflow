@@ -5,6 +5,10 @@
   align-items: center;
 }
 
+.alignLeft {
+  align-items: flex-start;
+}
+
 .imageWrapper {
   display: inline-block;
 }
@@ -37,4 +41,8 @@
   color: var(--ifm-color-secondary);
   text-align: center;
   font-style: italic;
+}
+
+.alignLeft .caption {
+  text-align: left;
 }

@@ -16,7 +16,6 @@ Prompts are the core components of GenAI applications. However, iterating over p
 
 <ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-hero.png" alt="Prompt Evaluation" width="95%"/>
 
-
 ## Workflow
 
 <WorkflowSteps
@@ -49,7 +48,6 @@ Prompts are the core components of GenAI applications. However, iterating over p
 ]}
 />
 
-
 ## Example: Evaluating a Prompt Template
 
 ### Prerequisites
@@ -60,10 +58,13 @@ First, install the required packages by running the following command:
 pip install --upgrade mlflow>=3.3 openai
 ```
 
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<ServerSetup />
 
 ### Step 1: Create prompt templates
 
-Let's define a simple prompt template to evaluate. We use [MLflow Prompt Registry](/genai/mlflow-3/prompt-registry) to save the prompt and version control it, but it is optional for evaluation.
+Let's define a simple prompt template to evaluate. We use [MLflow Prompt Registry](/genai/prompt-registry) to save the prompt and version control it, but it is optional for evaluation.
 
 ```python
 import mlflow
@@ -72,12 +73,12 @@ import mlflow
 PROMPT_V1 = [
     {
         "role": "system",
-        "content": "You are a helpful assistant. Answer the following question."
+        "content": "You are a helpful assistant. Answer the following question.",
     },
     {
         "role": "user",
         # Use double curly braces to indicate variables.
-        "content": "Question: {{question}}"
+        "content": "Question: {{question}}",
     },
 ]
 
@@ -98,18 +99,23 @@ The evaluation dataset is defined as a list of dictionaries, each with an `input
 eval_dataset = [
     {
         "inputs": {"question": "What causes rain?"},
-        "expectations": {"key_concepts": ["evaporation", "condensation", "precipitation"]}
+        "expectations": {
+            "key_concepts": ["evaporation", "condensation", "precipitation"]
+        },
     },
     {
         "inputs": {"question": "Explain the difference between AI and ML"},
-        "expectations": {"key_concepts": ["artificial intelligence", "machine learning", "subset"]}
+        "expectations": {
+            "key_concepts": ["artificial intelligence", "machine learning", "subset"]
+        },
     },
     {
         "inputs": {"question": "How do vaccines work?"},
-        "expectations": {"key_concepts": ["immune", "antibodies", "protection"]}
+        "expectations": {"key_concepts": ["immune", "antibodies", "protection"]},
     },
 ]
 ```
+
 ### Step 3: Create prediction function
 
 Now wrap the prompt template in a simple function that takes a question to generate responses using the prompt template. **IMPORTANT: The function must take the keyword arguments used in the `inputs` field of the dataset.** Therefore, we use `question` as the argument of the function here.
@@ -119,18 +125,22 @@ from openai import OpenAI
 
 client = OpenAI()
 
+
 @mlflow.trace
 def predict_fn(question: str) -> str:
     prompt = mlflow.genai.load_prompt("prompts:/qa_prompt/latest")
     rendered_prompt = prompt.format(question=question)
 
-    response = client.chat.completions.create(model="gpt-4.1-mini", messages=rendered_prompt)
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini", messages=rendered_prompt
+    )
     return response.choices[0].message.content
 ```
 
 ### Step 4: Define task-specific scorers
 
 Finally, let's define a few [scorers](/genai/eval-monitor/scorers) that decides the evaluation criteria. Here we use two types of scorers:
+
 - Built-in LLM scorers for evaluating the qualitative aspects of the response.
 - Custom heuristic scorer for evaluating the coverage of the key concepts.
 
@@ -140,8 +150,13 @@ from mlflow.genai import scorer
 from mlflow.genai.scorers import Guidelines
 
 # Define LLM scorers
-is_concise = Guidelines(name="is_concise", guidelines="The response should be concise and to the point.")
-is_professional = Guidelines(name="is_professional", guidelines="The response should be in professional tone.")
+is_concise = Guidelines(
+    name="is_concise", guidelines="The response should be concise and to the point."
+)
+is_professional = Guidelines(
+    name="is_professional", guidelines="The response should be in professional tone."
+)
+
 
 # Evaluate the coverage of the key concepts using custom scorer
 @scorer
@@ -150,8 +165,9 @@ def concept_coverage(outputs: str, expectations: dict) -> Feedback:
     included = {c for c in concepts if c.lower() in outputs.lower()}
     return Feedback(
         value=len(included) / len(concepts),
-        rationale=(f"Included {len(included)} out of {len(concepts)} concepts. Missing: {concepts - included}"
-        )
+        rationale=(
+            f"Included {len(included)} out of {len(concepts)} concepts. Missing: {concepts - included}"
+        ),
     )
 ```
 
@@ -166,10 +182,10 @@ LLM scorers uses OpenAI's GPT 4.1-mini by default. You can use different models 
 Now we are ready to run the evaluation!
 
 ```python
-results = mlflow.genai.evaluate(
+mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
-    scorers=[is_concise, is_professional, concept_coverage]
+    scorers=[is_concise, is_professional, concept_coverage],
 )
 ```
 
@@ -181,9 +197,6 @@ By clicking on the each row in the result, you can open the trace and see the de
 
 <ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-trace.png" alt="Prompt Evaluation" width="95%"/>
 
-
-
-
 ## Iterating on Prompts
 
 The prompt evaluation is a iterative process. You can register a new prompt version, run the same eval again, and compare the evaluation results. The prompt registry keep track of the version changes and lineage between the prompt versions and evaluation results.
@@ -193,24 +206,31 @@ The prompt evaluation is a iterative process. You can register a new prompt vers
 PROMPT_V2 = [
     {
         "role": "system",
-        "content": "You are a helpful assistant. Answer the following question in three sentences."
+        "content": "You are a helpful assistant. Answer the following question in three sentences.",
     },
-    {
-        "role": "user",
-        "content": "Question: {{question}}"
-    },
+    {"role": "user", "content": "Question: {{question}}"},
 ]
 
 mlflow.genai.register_prompt(name="qa_prompt", template=PROMPT_V2)
 
 # Run the same evaluation again.
 # MLflow automatically loads the latest prompt template via the `@latest` alias.
-results = mlflow.genai.evaluate(
+mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
-    scorers=[is_concise, is_professional, concept_coverage]
+    scorers=[is_concise, is_professional, concept_coverage],
 )
 ```
+
+## Compare Evaluation Results
+
+Once you have multiple evaluation runs, you can compare the result side-by-side to analyze the performance changes. To see the comparison view, open the evaluation result page for one of the runs, and pick another run to compare from the dropdown on the top.
+
+To see the comparison view, open the evaluation result page for one of the runs, and pick another run to compare from the dropdown on the top.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-dropdown.png" alt="Prompt Evaluation" />
+
+MLflow will load the evaluation results for the two runs and display the comparison view. In this example, you can see the overall concise scorer is improved 33%, but the concept coverage is dropped 11%. The little arrow ↗️/↘️ in each row indicates where the change is coming from.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/prompt-evaluation-compare.png" alt="Prompt Evaluation" width="95%"/>
 
@@ -222,7 +242,7 @@ results = mlflow.genai.evaluate(
     iconSize={48}
     title="Customize Scorers"
     description="Build specialized evaluation metrics for your specific use cases and requirements."
-    href="/genai/eval-monitor/scorers/custom"
+    href="/genai/eval-monitor/scorers"
     linkText="Learn about custom scorers →"
     containerHeight={64}
   />
@@ -245,4 +265,3 @@ results = mlflow.genai.evaluate(
     containerHeight={64}
   />
 </TilesGrid>
-

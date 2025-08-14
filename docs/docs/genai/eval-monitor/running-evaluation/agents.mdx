@@ -42,7 +42,6 @@ AI Agents are emerging pattern of GenAI applications that can use tools, make de
   ]}
 />
 
-
 ## Example: Evaluating a Tool-Calling Agent
 
 ### Prerequisites
@@ -71,15 +70,18 @@ def add(a: float, b: float) -> float:
     """Adds two numbers."""
     return a + b
 
+
 @function_tool
 def multiply(a: float, b: float) -> float:
     """Multiply two numbers."""
     return a * b
 
+
 @function_tool
 def modular(a: int, b: int) -> int:
     """Modular arithmetic"""
     return a % b
+
 
 agent = Agent(
     name="Math Agent",
@@ -111,6 +113,7 @@ from openai import OpenAI
 # import nest_asyncio
 # nest_asyncio.apply()
 
+
 def predict_fn(question: str) -> str:
     return Runner.run_sync(agent, question).final_output
 ```
@@ -123,24 +126,19 @@ Design test cases as a list of dictionaries, each with an `inputs` and `expectat
 eval_dataset = [
     {
         "inputs": {"task": "What is 15% of 240?"},
-        "expectations": {
-            "answer": 36,
-            "tool_calls": ["multiply"]
-        }
+        "expectations": {"answer": 36, "tool_calls": ["multiply"]},
     },
     {
-        "inputs": {"task": "I have 8 cookies and 3 friends. How many more cookies should I buy to share equally?"},
-        "expectations": {
-            "answer": 1,
-            "tool_calls": ["modular", "add"]
-        }
+        "inputs": {
+            "task": "I have 8 cookies and 3 friends. How many more cookies should I buy to share equally?"
+        },
+        "expectations": {"answer": 1, "tool_calls": ["modular", "add"]},
     },
     {
-        "inputs": {"task": "I bought 2 shares of stock at $100 each. It's now worth $150. How much profit did I make?"},
-        "expectations": {
-            "answer": 100,
-            "tool_calls": ["add", "multiply"]
-        }
+        "inputs": {
+            "task": "I bought 2 shares of stock at $100 each. It's now worth $150. How much profit did I make?"
+        },
+        "expectations": {"answer": 100, "tool_calls": ["add", "multiply"]},
     },
 ]
 ```
@@ -165,6 +163,7 @@ from mlflow.genai import scorer
 @scorer
 def exact_match(outputs, expectations) -> bool:
     return int(outputs) == expectations["answer"]
+
 
 @scorer
 def uses_correct_tools(trace: Trace, expectations: dict) -> Feedback:
@@ -191,9 +190,7 @@ Now we are ready to run the evaluation!
 
 ```python
 results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=predict_fn,
-    scorers=[exact_match, uses_correct_tools]
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
 )
 ```
 
@@ -205,7 +202,7 @@ It seems the agent does not call tools in the correct order for the second test 
 
 <ImageBox src="/images/mlflow-3/eval-monitor/agent-evaluation-trace.png" alt="Agent Evaluation" width="95%"/>
 
-By looking at the trace, we can figure out the agent computes the answer in three steps (1) compute 100 * 2 (2) compute 150 * 2 (3) subtract the two results. However, the more effective way is (1) subtract 100 from 150 (2) multiply the result by 2. In the next version, we can update the system instruction to use tools in a more effective way.
+By looking at the trace, we can figure out the agent computes the answer in three steps (1) compute 100 _ 2 (2) compute 150 _ 2 (3) subtract the two results. However, the more effective way is (1) subtract 100 from 150 (2) multiply the result by 2. In the next version, we can update the system instruction to use tools in a more effective way.
 
 ## Configure parallelization
 
@@ -225,15 +222,15 @@ import mlflow
 # Load the model **outside** the prediction function.
 model = mlflow.pyfunc.load_model("models:/math_agent/1")
 
+
 # Wrap the model in a function that MLflow can call.
 def predict_fn(question: str) -> str:
     return model.predict(question)
 
+
 # Run the evaluation as usual.
 mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=predict_fn,
-    scorers=[exact_match, uses_correct_tools]
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
 )
 ```
 
@@ -245,7 +242,7 @@ mlflow.genai.evaluate(
     iconSize={48}
     title="Customize Scorers"
     description="Build advanced evaluation criteria and metrics specifically designed for agent behaviors and tool usage patterns."
-    href="/genai/eval-monitor/scorers/custom"
+    href="/genai/eval-monitor/scorers"
     linkText="Create custom scorers →"
     containerHeight={64}
   />
