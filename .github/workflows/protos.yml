@@ -47,6 +47,10 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .
+      - uses: actions/checkout@v4
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15
       - name: Run tests
         run: |
           ./dev/test-generate-protos.sh
