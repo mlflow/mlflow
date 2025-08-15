@@ -119,9 +119,7 @@ class Scorer(BaseModel):
         if self._sampling_config is None:
             return ScorerStatus.UNREGISTERED
 
-        if self.sample_rate is not None and self.sample_rate > 0:
-            return ScorerStatus.STARTED
-        return ScorerStatus.STOPPED
+        return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
