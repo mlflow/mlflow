@@ -24,7 +24,6 @@ def gen_protos(
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
-
     subprocess.check_call(
         [
             protoc_bin,
@@ -43,12 +42,34 @@ def gen_stub_files(
     protoc_include_path: Path,
     out_dir: Path,
 ) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
     subprocess.check_call(
         [
             protoc_bin,
             f"-I={protoc_include_path}",
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
+            *[proto_dir / pf for pf in proto_files],
+        ]
+    )
+
+
+def gen_proto_docs(
+    proto_dir: Path,
+    proto_files: list[Path],
+    protoc_bin: Path,
+    protoc_include_path: Path,
+    out_dir: Path,
+) -> None:
+    plugin_path = Path("dev/proto-plugin.sh").resolve()
+    subprocess.check_call(
+        [
+            protoc_bin,
+            f"-I={protoc_include_path}",
+            f"-I={proto_dir}",
+            f"--pyi_out={out_dir}",
+            f"--plugin=protos-gen-docs={plugin_path}",
+            f"--doc_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
         ]
     )
@@ -259,6 +280,14 @@ def main() -> None:
         protoc5260,
         protoc5260_include,
         Path("mlflow/protos/"),
+    )
+
+    gen_proto_docs(
+        MLFLOW_PROTOS_DIR,
+        basic_proto_files,
+        protoc5260,
+        protoc5260_include,
+        Path("mlflow/protos"),
     )
 
 
