@@ -520,7 +520,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
 
     if is_in_databricks:
         with mlflow.start_run():
-            with caplog.at_level("WARNING"):
+            with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
                 mlflow.genai.evaluate(
                     data=data, scorers=[Safety()], dataset_name="my_custom_eval_dataset"
                 )
@@ -531,7 +531,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
 
         caplog.clear()
         with mlflow.start_run():
-            with caplog.at_level("WARNING"):
+            with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
                 mlflow.genai.evaluate(
                     data=data,
                     scorers=[Safety()],
