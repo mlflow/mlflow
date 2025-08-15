@@ -16,6 +16,7 @@ from mlflow.utils.uri import get_uri_scheme
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.utils.annotations import experimental
+from mlflow.tracking.fluent import _get_experiment_id
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -205,6 +206,8 @@ class MLflowTrackingStore(AbstractScorerStore):
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
+
+        experiment_id = experiment_id or _get_experiment_id()
         
         # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorers(experiment_id)
@@ -219,7 +222,9 @@ class MLflowTrackingStore(AbstractScorerStore):
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         from mlflow.genai.scorers import Scorer
-        
+
+        experiment_id = experiment_id or _get_experiment_id()
+
         # Get ScorerVersion entity from tracking store
         scorer_version = self._tracking_store.get_scorer(experiment_id, name, version)
         
@@ -230,7 +235,9 @@ class MLflowTrackingStore(AbstractScorerStore):
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
         from mlflow.genai.scorers import Scorer
-        
+
+        experiment_id = experiment_id or _get_experiment_id()
+
         # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorer_versions(experiment_id, name)
         
@@ -249,6 +256,7 @@ class MLflowTrackingStore(AbstractScorerStore):
         if version == "all":
             version = None
 
+        experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
 
 
@@ -469,6 +477,26 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     """
     store = _get_scorer_store()
     return store.list_scorers(experiment_id)
+
+
+@experimental(version="3.2.0")
+def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list[Scorer, int]:
+    """
+    List all versions of a specific scorer for an experiment.
+
+    Args:
+        name: The scorer name.
+        experiment_id: The experiment ID. If None, uses the currently active experiment.
+
+    Returns:
+        A list of tuple, each tuple contains `mlflow.genai.scorers.Scorer` object
+        and the version number.
+
+    Raises:
+        MlflowException: If scorer is not found.
+    """
+    store = _get_scorer_store()
+    return store.list_scorer_versions(experiment_id, name)
 
 
 @experimental(version="3.2.0")

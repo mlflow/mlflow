@@ -5,6 +5,7 @@ import mlflow
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.registry import (
     list_scorers,
+    list_scorer_versions,
     get_scorer,
     delete_scorer,
 )
@@ -35,6 +36,10 @@ def test_mlflow_backend_scorer_operations():
     scorers = list_scorers(experiment_id=experiment_id)
     assert len(scorers) == 1
     assert scorers[0]._original_func.__name__ == "test_mlflow_scorer_v2"
+
+    # Test list versions
+    scorer_versions = list_scorer_versions(name="test_mlflow_scorer", experiment_id=experiment_id)
+    assert len(scorer_versions) == 2
 
     # Test get_scorer with specific version
     retrieved_scorer_v1 = get_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=1)
