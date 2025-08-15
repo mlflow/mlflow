@@ -35,6 +35,7 @@ from mlflow.entities import (
     Param,
     RunInputs,
     RunTag,
+    ScorerVersion,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -3359,3 +3360,144 @@ def test_graphql_nan_metric_handling(mlflow_client):
     assert nan_metric["value"] is None
     assert nan_metric["timestamp"] == "2"
     assert nan_metric["step"] == "2"
+
+
+def test_scorer_CRUD(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("File store doesn't support scorer CRUD operations")
+
+    """Test all scorer API endpoints end-to-end through REST API."""
+    experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
+    
+    # Test register scorer
+    scorer_data = {
+        "experiment_id": str(experiment_id),
+        "name": "test_scorer",
+        "serialized_scorer": '{"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}'
+    }
+    
+    register_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/register",
+        json=scorer_data
+    )
+    assert register_response.status_code == 200
+    register_data = register_response.json()
+    assert "version" in register_data
+    assert register_data["version"] == 1
+    
+    # Test list scorers
+    list_response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
+        params={"experiment_id": str(experiment_id)}
+    )
+    assert list_response.status_code == 200
+    list_data = list_response.json()
+    assert "scorers" in list_data
+    assert len(list_data["scorers"]) == 1
+    assert list_data["scorers"][0]["scorer_name"] == "test_scorer"
+    assert list_data["scorers"][0]["scorer_version"] == 1
+    
+    # Test list scorer versions
+    versions_response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+    )
+    assert versions_response.status_code == 200
+    versions_data = versions_response.json()
+    assert "scorers" in versions_data
+    assert len(versions_data["scorers"]) == 1
+    assert versions_data["scorers"][0]["scorer_name"] == "test_scorer"
+    assert versions_data["scorers"][0]["scorer_version"] == 1
+    
+    # Test get scorer (latest version)
+    get_response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/get",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+    )
+    assert get_response.status_code == 200
+    get_data = get_response.json()
+    assert "scorer" in get_data
+    assert get_data["scorer"]["scorer_name"] == "test_scorer"
+    assert get_data["scorer"]["scorer_version"] == 1
+    
+    # Test get scorer (specific version)
+    get_version_response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/get",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
+    )
+    assert get_version_response.status_code == 200
+    get_version_data = get_version_response.json()
+    assert "scorer" in get_version_data
+    assert get_version_data["scorer"]["scorer_name"] == "test_scorer"
+    assert get_version_data["scorer"]["scorer_version"] == 1
+    
+    # Test register second version
+    scorer_data_v2 = {
+        "experiment_id": str(experiment_id),
+        "name": "test_scorer",
+        "serialized_scorer": '{"name": "test_scorer_v2", "call_source": "test", "original_func_name": "test_func_v2"}'
+    }
+    
+    register_v2_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/register",
+        json=scorer_data_v2
+    )
+    assert register_v2_response.status_code == 200
+    register_v2_data = register_v2_response.json()
+    assert register_v2_data["version"] == 2
+    
+    # Verify list scorers returns latest version
+    list_response_after_v2 = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
+        params={"experiment_id": str(experiment_id)}
+    )
+    assert list_response_after_v2.status_code == 200
+    list_after_v2_data = list_response_after_v2.json()
+    assert len(list_after_v2_data["scorers"]) == 1
+    assert list_after_v2_data["scorers"][0]["scorer_version"] == 2
+    
+    # Verify list versions returns both versions
+    versions_after_v2_response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+    )
+    assert versions_after_v2_response.status_code == 200
+    versions_after_v2_data = versions_after_v2_response.json()
+    assert len(versions_after_v2_data["scorers"]) == 2
+    
+    # Test delete specific version
+    delete_v1_response = requests.delete(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
+    )
+    delete_v1_response.raise_for_status()
+    assert delete_v1_response.status_code == 200
+    
+    # Verify version 1 is deleted
+    versions_after_delete = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+    )
+    assert versions_after_delete.status_code == 200
+    versions_after_delete_data = versions_after_delete.json()
+    assert len(versions_after_delete_data["scorers"]) == 1
+    assert versions_after_delete_data["scorers"][0]["scorer_version"] == 2
+    
+    # Test delete all versions
+    delete_all_response = requests.delete(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
+        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+    )
+    assert delete_all_response.status_code == 200
+    
+    # Verify all versions are deleted
+    list_after_delete_all = requests.get(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
+        params={"experiment_id": str(experiment_id)}
+    )
+    assert list_after_delete_all.status_code == 200
+    list_after_delete_all_data = list_after_delete_all.json()
+    assert len(list_after_delete_all_data["scorers"]) == 0
+    
+    # Clean up
+    mlflow_client.delete_experiment(experiment_id)
