@@ -37,6 +37,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import _get_tracer, set_destination
@@ -613,7 +614,7 @@ def test_trace_with_experiment_id():
     exp_1 = mlflow.create_experiment("exp_1")
     exp_2 = mlflow.set_experiment("exp_2").experiment_id  # active experiment
 
-    @mlflow.trace(experiment_id=exp_1)
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
     def predict_1():
         with mlflow.start_span(name="child_span"):
             return
@@ -640,11 +641,11 @@ def test_trace_with_experiment_id():
 def test_trace_with_experiment_id_issue_warning_when_not_root_span():
     exp_1 = mlflow.create_experiment("exp_1")
 
-    @mlflow.trace(experiment_id=exp_1)
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
     def predict_1():
         return predict_2()
 
-    @mlflow.trace(experiment_id=exp_1)
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
     def predict_2():
         return
 
