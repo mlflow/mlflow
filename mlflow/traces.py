@@ -61,6 +61,7 @@ import json
 import click
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.assessment import (
     log_expectation as _log_expectation,
 )
@@ -76,11 +77,13 @@ from mlflow.utils.jsonpath_utils import (
 from mlflow.utils.string_utils import _create_table
 
 # Define reusable options following mlflow/runs.py pattern
-EXPERIMENT_IDS = click.option(
-    "--experiment-ids",
+EXPERIMENT_ID = click.option(
+    "--experiment-id",
+    "-x",
+    envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
     required=True,
-    help="Comma-separated list of experiment IDs to search within.",
+    help="Experiment ID to search within. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
 TRACE_ID = click.option("--trace-id", type=click.STRING, required=True)
 
@@ -199,7 +202,7 @@ def commands():
 
 
 @commands.command("search")
-@EXPERIMENT_IDS
+@EXPERIMENT_ID
 @click.option(
     "--filter-string",
     type=click.STRING,
@@ -265,7 +268,7 @@ Available fields:
     "Defaults to standard columns for table mode, all fields for JSON mode.",
 )
 def search_traces(
-    experiment_ids,
+    experiment_id,
     filter_string,
     max_results,
     order_by,
@@ -278,44 +281,44 @@ def search_traces(
     fields,
 ):
     """
-    Search for traces in the specified experiments.
+    Search for traces in the specified experiment.
 
     Examples:
 
     \b
     # Search all traces in experiment 1
-    mlflow traces search --experiment-ids 1
+    mlflow traces search --experiment-id 1
 
     \b
-    # Search traces from multiple experiments
-    mlflow traces search --experiment-ids 1,2,3 --max-results 50
+    # Using environment variable
+    export MLFLOW_EXPERIMENT_ID=1
+    mlflow traces search --max-results 50
 
     \b
     # Filter traces by run ID
-    mlflow traces search --experiment-ids 1 --run-id abc123def
+    mlflow traces search --experiment-id 1 --run-id abc123def
 
     \b
     # Use filter string for complex queries
-    mlflow traces search --experiment-ids 1 \\
+    mlflow traces search --experiment-id 1 \\
         --filter-string "run_id = 'abc123' AND timestamp_ms > 1700000000000"
 
     \b
     # Order results and use pagination
-    mlflow traces search --experiment-ids 1 \\
+    mlflow traces search --experiment-id 1 \\
         --order-by "timestamp_ms DESC" \\
         --max-results 10 \\
         --page-token <token_from_previous>
 
     \b
     # Search without span data (faster for metadata-only queries)
-    mlflow traces search --experiment-ids 1 --no-include-spans
+    mlflow traces search --experiment-id 1 --no-include-spans
     """
     client = TracingClient()
-    exp_ids = experiment_ids.split(",")
     order_by_list = order_by.split(",") if order_by else None
 
     traces = client.search_traces(
-        experiment_ids=exp_ids,
+        experiment_ids=[experiment_id],
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by_list,
@@ -349,7 +352,10 @@ def search_traces(
     if output == "json":
         if field_list is None:
             # Full JSON output
-            result = {"traces": [trace.to_dict() for trace in traces], "next_page_token": traces.token}
+            result = {
+                "traces": [trace.to_dict() for trace in traces],
+                "next_page_token": traces.token
+            }
         else:
             # Custom fields JSON output - filter original structure
             traces_data = []
@@ -430,7 +436,7 @@ def get_trace(trace_id):
 
 
 @commands.command("delete")
-@EXPERIMENT_IDS
+@EXPERIMENT_ID
 @click.option("--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete")
 @click.option(
     "--max-timestamp-millis",
@@ -438,46 +444,35 @@ def get_trace(trace_id):
     help="Delete traces older than this timestamp (milliseconds since epoch)",
 )
 @click.option("--max-traces", type=click.INT, help="Maximum number of traces to delete")
-def delete_traces(experiment_ids, trace_ids, max_timestamp_millis, max_traces):
+def delete_traces(experiment_id, trace_ids, max_timestamp_millis, max_traces):
     """
-    Delete traces from experiments.
+    Delete traces from an experiment.
 
     Either --trace-ids or timestamp criteria can be specified, but not both.
 
     \b
     Examples:
-    # Delete specific traces from one experiment
-    mlflow traces delete --experiment-ids 1 --trace-ids tr-abc123,tr-def456
+    # Delete specific traces
+    mlflow traces delete --experiment-id 1 --trace-ids tr-abc123,tr-def456
 
     \b
-    # Delete traces older than a timestamp from multiple experiments
-    mlflow traces delete --experiment-ids 1,2,3 --max-timestamp-millis 1700000000000
+    # Delete traces older than a timestamp
+    mlflow traces delete --experiment-id 1 --max-timestamp-millis 1700000000000
 
     \b
-    # Delete up to 100 old traces per experiment
-    mlflow traces delete --experiment-ids 1,2 --max-timestamp-millis 1700000000000 --max-traces 100
+    # Delete up to 100 old traces
+    mlflow traces delete --experiment-id 1 --max-timestamp-millis 1700000000000 --max-traces 100
     """
     client = TracingClient()
     trace_id_list = trace_ids.split(",") if trace_ids else None
-    exp_ids = experiment_ids.split(",")
 
-    # Delete traces from each experiment
-    total_count = 0
-    for experiment_id in exp_ids:
-        count = client.delete_traces(
-            experiment_id=experiment_id,
-            trace_ids=trace_id_list,
-            max_timestamp_millis=max_timestamp_millis,
-            max_traces=max_traces,
-        )
-        total_count += count
-        if len(exp_ids) > 1:
-            click.echo(f"Deleted {count} trace(s) from experiment {experiment_id}.")
-
-    if len(exp_ids) == 1:
-        click.echo(f"Deleted {total_count} trace(s) from experiment {exp_ids[0]}.")
-    else:
-        click.echo(f"Total: Deleted {total_count} trace(s) from {len(exp_ids)} experiment(s).")
+    count = client.delete_traces(
+        experiment_id=experiment_id,
+        trace_ids=trace_id_list,
+        max_timestamp_millis=max_timestamp_millis,
+        max_traces=max_traces,
+    )
+    click.echo(f"Deleted {count} trace(s) from experiment {experiment_id}.")
 
 
 @commands.command("set-tag")
