@@ -70,8 +70,7 @@ def gen_proto_docs(
             protoc_bin,
             f"-I={protoc_include_path}",
             f"-I={proto_dir}",
-            f"--pyi_out={out_dir}",
-            f"--plugin=protos-gen-docs={plugin_path}",
+            f"--plugin=protoc-gen-doc={plugin_path}",
             f"--doc_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
         ]

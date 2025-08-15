@@ -1,5 +1,6 @@
 import json
 import sys
+import textwrap
 from dataclasses import asdict, dataclass
 from dataclasses import field as dataclass_field
 from enum import Enum
@@ -123,18 +124,6 @@ class ProtoAllContent:
 
 
 class ProtobufDocGenerator:
-    """Generates documentation from protobuf file descriptors."""
-
-    # Databricks protobuf extension field numbers
-    VISIBILITY_FIELD = 50000
-    VALIDATE_REQUIRED_FIELD = 50001
-    JSON_INLINE_FIELD = 50002
-    JSON_MAP_FIELD = 50003
-    DOC_FIELD = 50004
-
-    def __init__(self):
-        self.type_map = {}
-
     def get_field_type_name(self, field: descriptor_pb2.FieldDescriptorProto) -> str:
         type_names = {
             descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE: "DOUBLE",
@@ -172,6 +161,15 @@ class ProtobufDocGenerator:
         # For now, return PUBLIC as default
         # In a real implementation, this would check custom options
         return Visibility.PUBLIC
+
+    def get_validate_required(self, options) -> bool:
+        """Extract validate_required value from field options.
+
+        Checks if the field has the validate_required extension set.
+        """
+        if options.HasExtension(databricks_pb2.validate_required):
+            return options.Extensions[databricks_pb2.validate_required]
+        return False
 
     def extract_rpc_options(self, options) -> DatabricksRpcOptionsDescription | None:
         """Extract RPC options from method options.
@@ -243,7 +241,7 @@ class ProtobufDocGenerator:
 
     def get_documentation(self, source_location: descriptor_pb2.SourceCodeInfo.Location) -> str:
         if source_location and source_location.leading_comments:
-            return source_location.leading_comments.strip()
+            return textwrap.dedent(source_location.leading_comments).strip()
         return ""
 
     def find_source_location(
@@ -283,7 +281,7 @@ class ProtobufDocGenerator:
             since="",
             deprecated=field.options.deprecated if field.options.HasField("deprecated") else False,
             repeated=field.label == descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED,
-            validate_required=False,  # Would check custom extension
+            validate_required=self.get_validate_required(field.options),
             oneof=[],
         )
 
