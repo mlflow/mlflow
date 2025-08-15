@@ -141,31 +141,31 @@ def _backtick_quote(s: str) -> str:
 def jsonpath_extract_values(obj: dict, path: str) -> list:
     """
     Extract values from nested dict using JSONPath-like dot notation with * wildcard support.
-    
+
     Args:
         obj: The dictionary/object to traverse
         path: Dot-separated path like 'info.trace_id' or 'data.spans.*.name'
-        
+
     Returns:
         List of values found at the path. Returns empty list if path not found.
-        
+
     Examples:
-        >>> data = {'info': {'trace_id': 'tr-123', 'status': 'OK'}}
-        >>> jsonpath_extract_values(data, 'info.trace_id')
+        >>> data = {"info": {"trace_id": "tr-123", "status": "OK"}}
+        >>> jsonpath_extract_values(data, "info.trace_id")
         ['tr-123']
-        >>> jsonpath_extract_values(data, 'info.*')
+        >>> jsonpath_extract_values(data, "info.*")
         ['tr-123', 'OK']
     """
-    parts = path.split('.')
-    
+    parts = path.split(".")
+
     def traverse(current, parts_remaining):
         if not parts_remaining:
             return [current]
-        
+
         part = parts_remaining[0]
         rest = parts_remaining[1:]
-        
-        if part == '*':
+
+        if part == "*":
             # Wildcard - expand all keys at this level
             if isinstance(current, dict):
                 results = []
@@ -185,5 +185,5 @@ def jsonpath_extract_values(obj: dict, path: str) -> list:
                 return traverse(current[part], rest)
             else:
                 return []
-    
+
     return traverse(obj, parts)

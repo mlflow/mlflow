@@ -7,14 +7,14 @@ import json
 import click
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType
-from mlflow.experiments import EXPERIMENT_ID  # Reuse from experiments.py
-from mlflow.tracing.client import TracingClient
 from mlflow.tracing.assessment import (
-    log_feedback as _log_feedback,
     log_expectation as _log_expectation,
 )
+from mlflow.tracing.assessment import (
+    log_feedback as _log_feedback,
+)
+from mlflow.tracing.client import TracingClient
 from mlflow.utils.string_utils import _create_table, jsonpath_extract_values
-from mlflow.utils.time import conv_longdate_to_str
 
 # Define reusable options following mlflow/runs.py pattern
 EXPERIMENT_IDS = click.option(
@@ -30,49 +30,47 @@ def _filter_json_by_fields(data: dict, field_paths: list) -> dict:
     """
     Filter a JSON dict to only include fields specified by the field paths.
     Expands wildcards but preserves original JSON structure.
-    
+
     Args:
         data: Original JSON dictionary
         field_paths: List of dot-notation paths like ['info.trace_id', 'info.assessments.*']
-    
+
     Returns:
         Filtered dictionary with original structure preserved
     """
     result = {}
-    
+
     # Collect all actual paths by expanding wildcards
     expanded_paths = set()
     for field_path in field_paths:
-        if '*' in field_path:
+        if "*" in field_path:
             # Find all actual paths that match this wildcard pattern
-            actual_values = jsonpath_extract_values(data, field_path)
-            # We need to find which actual paths in the data match this pattern
             matching_paths = _find_matching_paths(data, field_path)
             expanded_paths.update(matching_paths)
         else:
             # Direct path
             expanded_paths.add(field_path)
-    
+
     # Build the result by including only the specified paths
     for path in expanded_paths:
-        parts = path.split('.')
+        parts = path.split(".")
         _set_nested_value(result, parts, _get_nested_value_safe(data, parts))
-    
+
     return result
 
 
 def _find_matching_paths(data: dict, wildcard_path: str) -> list:
     """Find all actual paths in data that match a wildcard pattern."""
-    parts = wildcard_path.split('.')
-    
+    parts = wildcard_path.split(".")
+
     def find_paths(current_data, current_parts, current_path=""):
         if not current_parts:
-            return [current_path.lstrip('.')]
-        
+            return [current_path.lstrip(".")]
+
         part = current_parts[0]
         remaining = current_parts[1:]
-        
-        if part == '*':
+
+        if part == "*":
             paths = []
             if isinstance(current_data, dict):
                 for key in current_data.keys():
@@ -88,7 +86,7 @@ def _find_matching_paths(data: dict, wildcard_path: str) -> list:
                 new_path = f"{current_path}.{part}"
                 return find_paths(current_data[part], remaining, new_path)
             return []
-    
+
     return find_paths(data, parts)
 
 
@@ -109,7 +107,7 @@ def _set_nested_value(data: dict, parts: list, value):
     """Set a nested value in a dictionary, creating intermediate dicts/lists as needed."""
     if value is None:
         return
-        
+
     current = data
     for i, part in enumerate(parts[:-1]):
         if part.isdigit() and isinstance(current, list):
@@ -130,7 +128,7 @@ def _set_nested_value(data: dict, parts: list, value):
                 else:
                     current[part] = {}
             current = current[part]
-    
+
     if parts:
         final_part = parts[-1]
         if final_part.isdigit() and isinstance(current, list):
@@ -146,60 +144,60 @@ def _set_nested_value(data: dict, parts: list, value):
 def _validate_field_paths(field_paths: list, sample_trace: dict):
     """Validate that field paths exist in the trace data structure."""
     invalid_paths = []
-    
+
     for path in field_paths:
         # Skip validation for paths with wildcards - they'll be expanded later
-        if '*' in path:
+        if "*" in path:
             continue
-            
+
         # Test if the path exists by trying to extract values
         values = jsonpath_extract_values(sample_trace, path)
         if not values:  # Empty list means path doesn't exist
             invalid_paths.append(path)
-    
+
     if invalid_paths:
         available_fields = _get_available_field_suggestions(sample_trace)
-        
+
         # Create a nice error message
         error_msg = "❌ Invalid field path(s):\n"
         for path in invalid_paths:
             error_msg += f"   • {path}\n"
-        
+
         error_msg += "\n💡 Use dot notation to specify nested fields:"
         error_msg += "\n   Examples: info.trace_id, info.state, info.assessments.*"
-        
+
         if available_fields:
-            error_msg += f"\n\n📋 Available fields in this trace:\n"
+            error_msg += "\n\n📋 Available fields in this trace:\n"
             # Group by top-level key for better readability
-            info_fields = [f for f in available_fields if f.startswith('info.')]
-            data_fields = [f for f in available_fields if f.startswith('data.')]
-            
+            info_fields = [f for f in available_fields if f.startswith("info.")]
+            data_fields = [f for f in available_fields if f.startswith("data.")]
+
             if info_fields:
                 error_msg += f"   info.*: {', '.join(info_fields[:8])}"
                 if len(info_fields) > 8:
-                    error_msg += f", ... (+{len(info_fields)-8} more)"
+                    error_msg += f", ... (+{len(info_fields) - 8} more)"
                 error_msg += "\n"
-            
+
             if data_fields:
                 error_msg += f"   data.*: {', '.join(data_fields[:5])}"
                 if len(data_fields) > 5:
-                    error_msg += f", ... (+{len(data_fields)-5} more)"
+                    error_msg += f", ... (+{len(data_fields) - 5} more)"
                 error_msg += "\n"
-        
+
         raise click.UsageError(error_msg)
 
 
 def _get_available_field_suggestions(data: dict, prefix: str = "") -> list:
     """Get a list of available field paths for suggestions."""
     paths = []
-    
+
     def collect_paths(obj, current_path=""):
         if isinstance(obj, dict):
             for key, value in obj.items():
                 path = f"{current_path}.{key}" if current_path else key
                 paths.append(path)
                 # Only go 2 levels deep for suggestions to keep it manageable
-                if current_path.count('.') < 2:
+                if current_path.count(".") < 2:
                     collect_paths(value, path)
         elif isinstance(obj, list) and obj:
             # Show array notation but don't expand all indices
@@ -209,7 +207,7 @@ def _get_available_field_suggestions(data: dict, prefix: str = "") -> list:
             # Sample first item if it's an object
             if isinstance(obj[0], dict):
                 collect_paths(obj[0], f"{current_path}.*" if current_path else "*")
-    
+
     collect_paths(data, prefix)
     return sorted(set(paths))
 
@@ -219,7 +217,7 @@ def commands():
     """
     Manage traces. To manage traces associated with a tracking server, set the
     MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
-    
+
     \b
     TRACE SCHEMA:
     trace:
@@ -305,11 +303,11 @@ def commands():
             }
           }
         ]
-    
+
     \b
     FIELD SELECTION:
     Use --fields with dot notation to select specific fields.
-    
+
     \b
     Examples:
       info.trace_id                           # Single field
@@ -362,9 +360,7 @@ Available fields:
     type=click.STRING,
     help="Comma-separated list of fields to order by (e.g., 'timestamp_ms DESC, status')",
 )
-@click.option(
-    "--page-token", type=click.STRING, help="Token for pagination from previous search"
-)
+@click.option("--page-token", type=click.STRING, help="Token for pagination from previous search")
 @click.option(
     "--run-id",
     type=click.STRING,
@@ -391,9 +387,9 @@ Available fields:
     "--fields",
     type=click.STRING,
     help="Filter and select specific fields using dot notation. "
-         "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name'. "
-         "Comma-separated for multiple fields. "
-         "Defaults to standard columns for table mode, all fields for JSON mode.",
+    "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name'. "
+    "Comma-separated for multiple fields. "
+    "Defaults to standard columns for table mode, all fields for JSON mode.",
 )
 def search_traces(
     experiment_ids,
@@ -470,20 +466,17 @@ def search_traces(
         # Table mode defaults to standard columns
         field_list = [
             "info.trace_id",
-            "info.request_time", 
+            "info.request_time",
             "info.state",
             "info.execution_duration_ms",
             "info.request_preview",
-            "info.response_preview"
+            "info.response_preview",
         ]
-    
+
     if output == "json":
         if field_list is None:
             # Full JSON output
-            result = {
-                "traces": [trace.to_dict() for trace in traces],
-                "token": traces.token
-            }
+            result = {"traces": [trace.to_dict() for trace in traces], "token": traces.token}
         else:
             # Custom fields JSON output - filter original structure
             traces_data = []
@@ -491,10 +484,7 @@ def search_traces(
                 trace_dict = trace.to_dict()
                 filtered_trace = _filter_json_by_fields(trace_dict, field_list)
                 traces_data.append(filtered_trace)
-            result = {
-                "traces": traces_data,
-                "token": traces.token
-            }
+            result = {"traces": traces_data, "token": traces.token}
         click.echo(json.dumps(result, indent=2))
     else:
         # Table output format
@@ -502,10 +492,10 @@ def search_traces(
         for trace in traces:
             trace_dict = trace.to_dict()
             row = []
-            
+
             for field in field_list:
                 values = jsonpath_extract_values(trace_dict, field)
-                
+
                 if not values:
                     cell_value = "N/A"
                 elif len(values) == 1:
@@ -514,29 +504,34 @@ def search_traces(
                     # Multiple values - join them
                     cell_value = ", ".join(str(v) for v in values[:3])  # Limit to first 3
                     if len(values) > 3:
-                        cell_value += f", ... (+{len(values)-3} more)"
-                
+                        cell_value += f", ... (+{len(values) - 3} more)"
+
                 # Format specific fields
                 if field == "info.request_time" and cell_value != "N/A":
                     # Convert ISO timestamp to readable format
                     from datetime import datetime
+
                     try:
-                        dt = datetime.fromisoformat(cell_value.replace('Z', '+00:00'))
-                        cell_value = dt.strftime('%Y-%m-%d %H:%M:%S %Z')
-                    except:
+                        dt = datetime.fromisoformat(cell_value.replace("Z", "+00:00"))
+                        cell_value = dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+                    except Exception:
                         pass  # Keep original if conversion fails
-                elif field == "info.execution_duration_ms" and cell_value != "N/A" and cell_value is not None:
+                elif (
+                    field == "info.execution_duration_ms"
+                    and cell_value != "N/A"
+                    and cell_value is not None
+                ):
                     if cell_value < 1000:
                         cell_value = f"{cell_value}ms"
                     else:
-                        cell_value = f"{cell_value/1000:.1f}s"
+                        cell_value = f"{cell_value / 1000:.1f}s"
                 elif field in ["info.request_preview", "info.response_preview"]:
                     # Truncate previews to keep table readable
                     if len(str(cell_value)) > 20:
                         cell_value = str(cell_value)[:17] + "..."
-                
+
                 row.append(str(cell_value))
-            
+
             table.append(row)
 
         click.echo(_create_table(table, headers=field_list))
@@ -563,9 +558,7 @@ def get_trace(trace_id):
 
 @commands.command("delete")
 @EXPERIMENT_IDS
-@click.option(
-    "--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete"
-)
+@click.option("--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete")
 @click.option(
     "--max-timestamp-millis",
     type=click.INT,
@@ -607,7 +600,7 @@ def delete_traces(experiment_ids, trace_ids, max_timestamp_millis, max_traces):
         total_count += count
         if len(exp_ids) > 1:
             click.echo(f"Deleted {count} trace(s) from experiment {experiment_id}.")
-    
+
     if len(exp_ids) == 1:
         click.echo(f"Deleted {total_count} trace(s) from experiment {exp_ids[0]}.")
     else:
@@ -667,15 +660,9 @@ def delete_tag(trace_id, key):
     type=click.STRING,
     help="Source identifier (e.g., email for HUMAN, model name for LLM)",
 )
-@click.option(
-    "--rationale", type=click.STRING, help="Explanation/justification for the feedback"
-)
-@click.option(
-    "--metadata", type=click.STRING, help="Additional metadata as JSON string"
-)
-@click.option(
-    "--span-id", type=click.STRING, help="Associate feedback with a specific span ID"
-)
+@click.option("--rationale", type=click.STRING, help="Explanation/justification for the feedback")
+@click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
+@click.option("--span-id", type=click.STRING, help="Associate feedback with a specific span ID")
 def log_feedback(trace_id, name, value, source_type, source_id, rationale, metadata, span_id):
     """
     Log feedback (evaluation score) to a trace.
@@ -761,12 +748,8 @@ def log_feedback(trace_id, name, value, source_type, source_id, rationale, metad
     help="Source type of the expectation",
 )
 @click.option("--source-id", type=click.STRING, help="Source identifier")
-@click.option(
-    "--metadata", type=click.STRING, help="Additional metadata as JSON string"
-)
-@click.option(
-    "--span-id", type=click.STRING, help="Associate expectation with a specific span ID"
-)
+@click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
+@click.option("--span-id", type=click.STRING, help="Associate expectation with a specific span ID")
 def log_expectation(trace_id, name, value, source_type, source_id, metadata, span_id):
     """
     Log an expectation (ground truth label) to a trace.
@@ -825,9 +808,7 @@ def log_expectation(trace_id, name, value, source_type, source_id, metadata, spa
 
 @commands.command("get-assessment")
 @TRACE_ID
-@click.option(
-    "--assessment-id", type=click.STRING, required=True, help="Assessment ID"
-)
+@click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID")
 def get_assessment(trace_id, assessment_id):
     """
     Get assessment details as JSON.
@@ -844,9 +825,7 @@ def get_assessment(trace_id, assessment_id):
 
 @commands.command("update-assessment")
 @TRACE_ID
-@click.option(
-    "--assessment-id", type=click.STRING, required=True, help="Assessment ID to update"
-)
+@click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to update")
 @click.option("--name", type=click.STRING, help="Updated assessment name")
 @click.option("--value", type=click.STRING, help="Updated assessment value (JSON)")
 @click.option("--rationale", type=click.STRING, help="Updated rationale")
@@ -905,9 +884,7 @@ def update_assessment(trace_id, assessment_id, name, value, rationale, metadata)
 
 @commands.command("delete-assessment")
 @TRACE_ID
-@click.option(
-    "--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete"
-)
+@click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete")
 def delete_assessment(trace_id, assessment_id):
     """
     Delete an assessment from a trace.
