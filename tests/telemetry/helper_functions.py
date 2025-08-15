@@ -39,12 +39,9 @@ def validate_telemetry_record(
     return data
 
 
-class TelemetryClientContext:
-    def __init__(self):
-        self.telemetry_client = TelemetryClient()
-
+class TelemetryClientContext(TelemetryClient):
     def __enter__(self):
-        return self.telemetry_client
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.telemetry_client._clean_up()
+        self._clean_up()

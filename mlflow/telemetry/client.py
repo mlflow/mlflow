@@ -107,7 +107,7 @@ class TelemetryClient:
         """
         send_immediately = False
         if not self.is_active:
-            # send the first record immediately to ensure the session is captured
+            # send the first record immediately to ensure the current session is captured
             send_immediately = True
             self.activate()
 
