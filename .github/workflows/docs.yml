@@ -65,30 +65,6 @@ jobs:
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
-      - name: Create versions.json
-        run: |
-          uv pip install --system toml
-          python3 -c "
-          import toml
-          import json
-
-          # Read version from pyproject.toml
-          with open('../pyproject.toml', 'r') as f:
-              pyproject = toml.load(f)
-
-          current_version = pyproject['project']['version']
-
-          # Create versions.json with current version
-          # In a real deployment, this would contain multiple versions
-          versions_data = {
-              'versions': [current_version]
-          }
-
-          with open('versions.json', 'w') as f:
-              json.dump(versions_data, f, indent=2)
-
-          print(f'Created versions.json with version: {current_version}')
-          "
       - run: |
           npm run convert-notebooks
       - name: Build docs
@@ -118,6 +94,10 @@ jobs:
         run: |
           mkdir -p /tmp/docs-build/docs
           mv build/latest /tmp/docs-build/docs/latest
+
+          # Create `docs/versions.json` for the version selector in the API reference
+          VERSION="$(uv run --no-project dev/get_version.py)"
+          echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
       - name: Upload build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
