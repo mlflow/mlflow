@@ -297,7 +297,7 @@ def search_traces(
     \b
     # Use filter string for complex queries
     mlflow traces search --experiment-ids 1 \\
-        --filter-string "attribute.run_id = 'abc123' AND timestamp_ms > 1700000000000"
+        --filter-string "run_id = 'abc123' AND timestamp_ms > 1700000000000"
 
     \b
     # Order results and use pagination
