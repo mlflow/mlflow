@@ -65,6 +65,30 @@ jobs:
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
+      - name: Create versions.json
+        run: |
+          uv pip install --system toml
+          python3 -c "
+          import toml
+          import json
+
+          # Read version from pyproject.toml
+          with open('../pyproject.toml', 'r') as f:
+              pyproject = toml.load(f)
+
+          current_version = pyproject['project']['version']
+
+          # Create versions.json with current version
+          # In a real deployment, this would contain multiple versions
+          versions_data = {
+              'versions': [current_version]
+          }
+
+          with open('versions.json', 'w') as f:
+              json.dump(versions_data, f, indent=2)
+
+          print(f'Created versions.json with version: {current_version}')
+          "
       - run: |
           npm run convert-notebooks
       - name: Build docs
