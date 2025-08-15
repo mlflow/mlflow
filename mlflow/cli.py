@@ -706,6 +706,9 @@ cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 
+import mlflow.traces
+cli.add_command(mlflow.traces.commands)
+
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
 try:

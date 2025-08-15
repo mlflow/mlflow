@@ -136,3 +136,54 @@ def _backtick_quote(s: str) -> str:
     Quotes the given string with backticks if it is not already quoted with backticks.
     """
     return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
+
+
+def jsonpath_extract_values(obj: dict, path: str) -> list:
+    """
+    Extract values from nested dict using JSONPath-like dot notation with * wildcard support.
+    
+    Args:
+        obj: The dictionary/object to traverse
+        path: Dot-separated path like 'info.trace_id' or 'data.spans.*.name'
+        
+    Returns:
+        List of values found at the path. Returns empty list if path not found.
+        
+    Examples:
+        >>> data = {'info': {'trace_id': 'tr-123', 'status': 'OK'}}
+        >>> jsonpath_extract_values(data, 'info.trace_id')
+        ['tr-123']
+        >>> jsonpath_extract_values(data, 'info.*')
+        ['tr-123', 'OK']
+    """
+    parts = path.split('.')
+    
+    def traverse(current, parts_remaining):
+        if not parts_remaining:
+            return [current]
+        
+        part = parts_remaining[0]
+        rest = parts_remaining[1:]
+        
+        if part == '*':
+            # Wildcard - expand all keys at this level
+            if isinstance(current, dict):
+                results = []
+                for key, value in current.items():
+                    results.extend(traverse(value, rest))
+                return results
+            elif isinstance(current, list):
+                results = []
+                for item in current:
+                    results.extend(traverse(item, rest))
+                return results
+            else:
+                return []
+        else:
+            # Regular key
+            if isinstance(current, dict) and part in current:
+                return traverse(current[part], rest)
+            else:
+                return []
+    
+    return traverse(obj, parts)
