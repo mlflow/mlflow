@@ -9,20 +9,22 @@ _ERROR_MSG = (
 
 @experimental(version="3.3.0")
 def enable_databricks_trace_archival(
-    *, experiment_id: str | None = None, delta_table_fullname: str
+    *,
+    delta_table_fullname: str,
+    experiment_id: str | None = None,
 ) -> None:
     """
     Enable archiving traces for an MLflow experiment to a Unity Catalog Delta table.
 
     Args:
-        experiment_id: The MLflow experiment ID to enable archival for.
         delta_table_fullname: The full name of the Unity Catalog Delta table to archive traces to.
+        experiment_id: The MLflow experiment ID to enable archival for.
 
     Example:
         >>> from mlflow.tracing import enable_databricks_trace_archival
         >>> enable_databricks_trace_archival(
-        ...     experiment_id="12345",
         ...     delta_table_fullname="my_catalog.my_schema.my_prefix",
+        ...     experiment_id="12345",
         ... )
     """
     try:
