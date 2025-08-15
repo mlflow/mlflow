@@ -421,17 +421,43 @@ def search_traces(
 
 @commands.command("get")
 @TRACE_ID
-def get_trace(trace_id):
+@click.option(
+    "--fields",
+    type=click.STRING,
+    help="Filter and select specific fields using dot notation. "
+    "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name'. "
+    "Comma-separated for multiple fields. "
+    "If not specified, returns all trace data.",
+)
+def get_trace(trace_id, fields):
     """
     All trace details will print to stdout as JSON format.
 
     \b
-    Example:
+    Examples:
+    # Get full trace
     mlflow traces get --trace-id tr-1234567890abcdef
+
+    \b
+    # Get specific fields only
+    mlflow traces get --trace-id tr-1234567890abcdef \\
+        --fields "info.trace_id,info.assessments.*,data.spans.*.name"
     """
     client = TracingClient()
     trace = client.get_trace(trace_id)
-    json_trace = json.dumps(trace.to_dict(), indent=4)
+    trace_dict = trace.to_dict()
+    
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        # Validate fields against trace data
+        validate_field_paths(field_list, trace_dict)
+        # Filter to selected fields only
+        filtered_trace = filter_json_by_fields(trace_dict, field_list)
+        json_trace = json.dumps(filtered_trace, indent=4)
+    else:
+        # Return full trace
+        json_trace = json.dumps(trace_dict, indent=4)
+    
     click.echo(json_trace)
 
 
