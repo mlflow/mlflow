@@ -57,6 +57,7 @@ For detailed help on any command, use:
 """
 
 import json
+from datetime import datetime
 
 import click
 
@@ -388,8 +389,6 @@ def search_traces(
                 # Format specific fields
                 if field == "info.request_time" and cell_value != "N/A":
                     # Convert ISO timestamp to readable format
-                    from datetime import datetime
-
                     try:
                         dt = datetime.fromisoformat(cell_value.replace("Z", "+00:00"))
                         cell_value = dt.strftime("%Y-%m-%d %H:%M:%S %Z")

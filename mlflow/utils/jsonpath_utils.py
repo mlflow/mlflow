@@ -20,10 +20,12 @@ Note: This is NOT a complete JSONPath implementation. It's a custom solution
 tailored specifically for MLflow trace data structures.
 """
 
+from typing import Any
+
 import click
 
 
-def jsonpath_extract_values(obj: dict, path: str) -> list:
+def jsonpath_extract_values(obj: dict[str, Any], path: str) -> list[Any]:
     """
     Extract values from nested dict using JSONPath-like dot notation with * wildcard support.
 
@@ -74,7 +76,7 @@ def jsonpath_extract_values(obj: dict, path: str) -> list:
     return traverse(obj, parts)
 
 
-def filter_json_by_fields(data: dict, field_paths: list) -> dict:
+def filter_json_by_fields(data: dict[str, Any], field_paths: list[str]) -> dict[str, Any]:
     """
     Filter a JSON dict to only include fields specified by the field paths.
     Expands wildcards but preserves original JSON structure.
@@ -107,7 +109,7 @@ def filter_json_by_fields(data: dict, field_paths: list) -> dict:
     return result
 
 
-def find_matching_paths(data: dict, wildcard_path: str) -> list:
+def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
     """Find all actual paths in data that match a wildcard pattern."""
     parts = wildcard_path.split(".")
 
@@ -138,7 +140,7 @@ def find_matching_paths(data: dict, wildcard_path: str) -> list:
     return find_paths(data, parts)
 
 
-def get_nested_value_safe(data: dict, parts: list):
+def get_nested_value_safe(data: dict[str, Any], parts: list[str]):
     """Safely get nested value, returning None if path doesn't exist."""
     current = data
     for part in parts:
@@ -151,7 +153,7 @@ def get_nested_value_safe(data: dict, parts: list):
     return current
 
 
-def set_nested_value(data: dict, parts: list, value):
+def set_nested_value(data: dict[str, Any], parts: list[str], value):
     """Set a nested value in a dictionary, creating intermediate dicts/lists as needed."""
     if value is None:
         return
@@ -189,7 +191,7 @@ def set_nested_value(data: dict, parts: list, value):
             current[final_part] = value
 
 
-def validate_field_paths(field_paths: list, sample_data: dict):
+def validate_field_paths(field_paths: list[str], sample_data: dict[str, Any]):
     """Validate that field paths exist in the data structure."""
     invalid_paths = []
 
@@ -235,7 +237,7 @@ def validate_field_paths(field_paths: list, sample_data: dict):
         raise click.UsageError(error_msg)
 
 
-def get_available_field_suggestions(data: dict, prefix: str = "") -> list:
+def get_available_field_suggestions(data: dict[str, Any], prefix: str = "") -> list[str]:
     """Get a list of available field paths for suggestions."""
     paths = []
 
