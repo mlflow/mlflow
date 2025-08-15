@@ -22,11 +22,15 @@ def enable_databricks_trace_archival(
             Default to the current active experiment.
 
     Example:
-        >>> from mlflow.tracing import enable_databricks_trace_archival
-        >>> enable_databricks_trace_archival(
-        ...     delta_table_fullname="my_catalog.my_schema.my_prefix",
-        ...     experiment_id="12345",
-        ... )
+
+        .. code-block:: python
+
+            from mlflow.tracing import enable_databricks_trace_archival
+
+            enable_databricks_trace_archival(
+                delta_table_fullname="my_catalog.my_schema.my_prefix",
+                experiment_id="12345",
+            )
     """
     try:
         from databricks.agents.archive import enable_trace_archival
@@ -50,8 +54,12 @@ def disable_databricks_trace_archival(*, experiment_id: str | None = None) -> No
         experiment_id: The MLflow experiment ID to disable archival for.
 
     Example:
-        >>> from mlflow.tracing import disable_databricks_trace_archival
-        >>> disable_databricks_trace_archival(experiment_id="12345")
+
+        .. code-block:: python
+
+            from mlflow.tracing import disable_databricks_trace_archival
+
+            disable_databricks_trace_archival(experiment_id="12345")
     """
     try:
         from databricks.agents.archive import disable_trace_archival
