@@ -25,7 +25,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     """
     Evaluation dataset for storing inputs and expectations for GenAI evaluation.
 
-    This class supports lazy loading of records - when retrieved via get_evaluation_dataset(),
+    This class supports lazy loading of records - when retrieved via get_dataset(),
     only metadata is loaded. Records are fetched when to_df() or merge_records() is called.
     """
 
@@ -122,6 +122,68 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """Check if dataset records are loaded without triggering a load."""
         return self._records is not None
 
+    def _process_trace_records(self, traces: list["Trace"]) -> list[dict[str, Any]]:
+        """Convert a list of Trace objects to dataset record dictionaries.
+
+        Args:
+            traces: List of Trace objects to convert
+
+        Returns:
+            List of dictionaries with 'inputs', 'expectations', and 'source' fields
+        """
+        from mlflow.entities.trace import Trace
+
+        record_dicts = []
+        for i, trace in enumerate(traces):
+            if not isinstance(trace, Trace):
+                raise MlflowException.invalid_parameter_value(
+                    f"Mixed types in trace list. Expected all elements to be Trace objects, "
+                    f"but element at index {i} is {type(trace).__name__}"
+                )
+
+            root_span = trace.data._get_root_span()
+            inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+
+            expectations = {}
+            expectation_assessments = trace.search_assessments(type="expectation")
+            for expectation in expectation_assessments:
+                expectations[expectation.name] = expectation.value
+
+            record_dict = {
+                "inputs": inputs,
+                "expectations": expectations,
+                "source": {
+                    "source_type": DatasetRecordSourceType.TRACE.value,
+                    "source_data": {"trace_id": trace.info.trace_id},
+                },
+            }
+            record_dicts.append(record_dict)
+
+        return record_dicts
+
+    def _process_dataframe_records(self, df: "pd.DataFrame") -> list[dict[str, Any]]:
+        """Process a DataFrame into dataset record dictionaries.
+
+        Args:
+            df: DataFrame to process. Can be either:
+                - DataFrame from search_traces with 'trace' column containing Trace objects/JSON
+                - Standard DataFrame with 'inputs', 'expectations' columns
+
+        Returns:
+            List of dictionaries with 'inputs', 'expectations', and optionally 'source' fields
+        """
+        if "trace" in df.columns:
+            from mlflow.entities.trace import Trace
+
+            traces = []
+            for trace_item in df["trace"]:
+                trace = Trace.from_json(trace_item) if isinstance(trace_item, str) else trace_item
+                traces.append(trace)
+
+            return self._process_trace_records(traces)
+        else:
+            return df.to_dict("records")
+
     def merge_records(
         self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
@@ -131,55 +193,44 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Args:
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
+                - DataFrame from mlflow.search_traces() - automatically parsed and converted
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
                 - List of Trace objects
 
         Returns:
             Self for method chaining
+
+        Example:
+            .. code-block:: python
+
+                # Method 1: Direct usage with search_traces DataFrame output (default)
+                traces_df = mlflow.search_traces()  # Returns DataFrame by default
+                dataset.merge_records(traces_df)  # Automatically extracts trace data
+
+                # Method 2: Using list of Trace objects from search_traces
+                traces_list = mlflow.search_traces(return_type="list")  # Returns list[Trace]
+                dataset.merge_records(traces_list)  # Directly accepts Trace objects
+
+                # Method 3: Standard DataFrame with inputs/expectations
+                df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
+                dataset.merge_records(df)
+
+                # Method 4: List of dictionaries
+                records = [{"inputs": {"q": "Test?"}, "expectations": {"score": 0.9}}]
+                dataset.merge_records(records)
         """
         import pandas as pd
 
         from mlflow.entities.trace import Trace
 
         if isinstance(records, pd.DataFrame):
-            record_dicts = records.to_dict("records")
+            record_dicts = self._process_dataframe_records(records)
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
-            record_dicts = []
-            for i, trace in enumerate(records):
-                if not isinstance(trace, Trace):
-                    raise MlflowException.invalid_parameter_value(
-                        f"Mixed types in trace list. Expected all elements to be Trace objects, "
-                        f"but element at index {i} is {type(trace).__name__}"
-                    )
-                root_span = trace.data._get_root_span()
-                inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
-
-                expectations = {}
-                expectation_assessments = trace.search_assessments(type="expectation")
-                for expectation in expectation_assessments:
-                    expectations[expectation.name] = expectation.value
-
-                trace_id = trace.info.trace_id
-
-                record_dict = {
-                    "inputs": inputs,
-                    "expectations": expectations,
-                    "source": {
-                        "source_type": DatasetRecordSourceType.TRACE.value,
-                        "source_data": {"trace_id": trace_id},
-                    },
-                }
-                record_dicts.append(record_dict)
+            record_dicts = self._process_trace_records(records)
         else:
             record_dicts = records
 
-        for record in record_dicts:
-            if not isinstance(record, dict):
-                raise MlflowException.invalid_parameter_value("Each record must be a dictionary")
-            if "inputs" not in record:
-                raise MlflowException.invalid_parameter_value(
-                    "Each record must have an 'inputs' field"
-                )
+        self._validate_record_dicts(record_dicts)
 
         tracking_store = _get_store()
 
@@ -206,6 +257,23 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self._records = None
 
         return self
+
+    def _validate_record_dicts(self, record_dicts: list[dict[str, Any]]) -> None:
+        """Validate that record dictionaries have the required structure.
+
+        Args:
+            record_dicts: List of record dictionaries to validate
+
+        Raises:
+            MlflowException: If records don't have the required structure
+        """
+        for record in record_dicts:
+            if not isinstance(record, dict):
+                raise MlflowException.invalid_parameter_value("Each record must be a dictionary")
+            if "inputs" not in record:
+                raise MlflowException.invalid_parameter_value(
+                    "Each record must have an 'inputs' field"
+                )
 
     def to_df(self) -> "pd.DataFrame":
         """
