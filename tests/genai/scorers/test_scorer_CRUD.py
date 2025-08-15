@@ -13,11 +13,9 @@ from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 
 def test_mlflow_backend_scorer_operations():
     """Test all scorer operations with MLflow backend"""
-    # Set up tracking URI to use local file store
-    mlflow.set_tracking_uri("sqlite:///test.db")
 
     # Create a test experiment
-    experiment = mlflow.create_experiment("test_mlflow_backend_experiment")
+    experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
 
     # Create a simple scorer
     @scorer
@@ -25,27 +23,27 @@ def test_mlflow_backend_scorer_operations():
         return len(outputs) > 0
 
     # Test register operation
-    registered_scorer = test_mlflow_scorer.register(experiment_id=experiment.experiment_id)
+    registered_scorer = test_mlflow_scorer.register(experiment_id=experiment_id)
     assert registered_scorer.name == "test_mlflow_scorer"
 
     # Test list operation
-    scorers = list_scorers(experiment_id=experiment.experiment_id)
+    scorers = list_scorers(experiment_id=experiment_id)
     assert len(scorers) == 1
     assert scorers[0].name == "test_mlflow_scorer"
 
     # Test get operation
-    retrieved_scorer = get_scorer(name="test_mlflow_scorer", experiment_id=experiment.experiment_id)
+    retrieved_scorer = get_scorer(name="test_mlflow_scorer", experiment_id=experiment_id)
     assert retrieved_scorer.name == "test_mlflow_scorer"
 
     # Test delete operation
-    delete_scorer(name="test_mlflow_scorer", experiment_id=experiment.experiment_id, version="all")
+    delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version="all")
 
     # Verify scorer is deleted
-    scorers_after_delete = list_scorers(experiment_id=experiment.experiment_id)
+    scorers_after_delete = list_scorers(experiment_id=experiment_id)
     assert len(scorers_after_delete) == 0
 
     # Clean up
-    mlflow.delete_experiment(experiment.experiment_id)
+    mlflow.delete_experiment(experiment_id)
 
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")

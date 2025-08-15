@@ -201,7 +201,7 @@ class MLflowTrackingStore(AbstractScorerStore):
 
     def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
         serialized_scorer = json.dumps(scorer.model_dump())
-        return self._tracking_store.register_scorer(experiment_id, serialized_scorer)
+        return self._tracking_store.register_scorer(experiment_id, scorer.name, serialized_scorer)
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
