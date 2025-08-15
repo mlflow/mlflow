@@ -354,7 +354,7 @@ def search_traces(
             # Full JSON output
             result = {
                 "traces": [trace.to_dict() for trace in traces],
-                "next_page_token": traces.token
+                "next_page_token": traces.token,
             }
         else:
             # Custom fields JSON output - filter original structure
@@ -446,7 +446,7 @@ def get_trace(trace_id, fields):
     client = TracingClient()
     trace = client.get_trace(trace_id)
     trace_dict = trace.to_dict()
-    
+
     if fields:
         field_list = [f.strip() for f in fields.split(",")]
         # Validate fields against trace data
@@ -457,7 +457,7 @@ def get_trace(trace_id, fields):
     else:
         # Return full trace
         json_trace = json.dumps(trace_dict, indent=4)
-    
+
     click.echo(json_trace)
 
 
