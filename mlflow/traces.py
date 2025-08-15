@@ -335,17 +335,21 @@ def commands():
     help="""Filter string for trace search.
 
 Examples:
-- Filter by run ID: "attribute.run_id = '123abc'"
-- Filter by model ID: "request_metadata.`mlflow.modelId` = 'model123'"
+- Filter by run ID: "run_id = '123abc'"
+- Filter by status: "status = 'OK'"
 - Filter by timestamp: "timestamp_ms > 1700000000000"
-- Multiple conditions: "attribute.run_id = '123' AND status = 'OK'"
+- Filter by metadata: "metadata.`mlflow.modelId` = 'model123'"
+- Filter by tags: "tags.environment = 'production'"
+- Multiple conditions: "run_id = '123' AND status = 'OK'"
 
 Available fields:
-- attribute.run_id: Associated MLflow run ID
-- request_metadata.<key>: Custom metadata fields
-- timestamp_ms: Trace timestamp in milliseconds
+- run_id: Associated MLflow run ID
 - status: Trace status (OK, ERROR, etc.)
-- execution_time_ms: Trace execution time""",
+- timestamp_ms: Trace timestamp in milliseconds
+- execution_time_ms: Trace execution time in milliseconds
+- name: Trace name
+- metadata.<key>: Custom metadata fields (use backticks for keys with dots)
+- tags.<key>: Custom tag fields""",
 )
 @click.option(
     "--max-results",
@@ -541,15 +545,15 @@ def search_traces(
             click.echo(f"\nNext page token: {traces.token}")
 
 
-@commands.command("describe")
+@commands.command("get")
 @TRACE_ID
-def describe_trace(trace_id):
+def get_trace(trace_id):
     """
     All trace details will print to stdout as JSON format.
 
     \b
     Example:
-    mlflow traces describe --trace-id tr-1234567890abcdef
+    mlflow traces get --trace-id tr-1234567890abcdef
     """
     client = TracingClient()
     trace = client.get_trace(trace_id)
@@ -570,38 +574,44 @@ def describe_trace(trace_id):
 @click.option("--max-traces", type=click.INT, help="Maximum number of traces to delete")
 def delete_traces(experiment_ids, trace_ids, max_timestamp_millis, max_traces):
     """
-    Delete traces from an experiment.
+    Delete traces from experiments.
 
     Either --trace-ids or timestamp criteria can be specified, but not both.
 
     \b
     Examples:
-    # Delete specific traces
+    # Delete specific traces from one experiment
     mlflow traces delete --experiment-ids 1 --trace-ids tr-abc123,tr-def456
 
     \b
-    # Delete traces older than a timestamp
-    mlflow traces delete --experiment-ids 1 --max-timestamp-millis 1700000000000
+    # Delete traces older than a timestamp from multiple experiments
+    mlflow traces delete --experiment-ids 1,2,3 --max-timestamp-millis 1700000000000
 
     \b
-    # Delete up to 100 old traces
-    mlflow traces delete --experiment-ids 1 --max-timestamp-millis 1700000000000 --max-traces 100
+    # Delete up to 100 old traces per experiment
+    mlflow traces delete --experiment-ids 1,2 --max-timestamp-millis 1700000000000 --max-traces 100
     """
     client = TracingClient()
     trace_id_list = trace_ids.split(",") if trace_ids else None
     exp_ids = experiment_ids.split(",")
 
-    # Note: delete_traces only accepts single experiment_id, so we'll delete from first one
-    # This matches the original behavior where EXPERIMENT_ID was singular
-    experiment_id = exp_ids[0]
+    # Delete traces from each experiment
+    total_count = 0
+    for experiment_id in exp_ids:
+        count = client.delete_traces(
+            experiment_id=experiment_id,
+            trace_ids=trace_id_list,
+            max_timestamp_millis=max_timestamp_millis,
+            max_traces=max_traces,
+        )
+        total_count += count
+        if len(exp_ids) > 1:
+            click.echo(f"Deleted {count} trace(s) from experiment {experiment_id}.")
     
-    count = client.delete_traces(
-        experiment_id=experiment_id,
-        trace_ids=trace_id_list,
-        max_timestamp_millis=max_timestamp_millis,
-        max_traces=max_traces,
-    )
-    click.echo(f"Deleted {count} trace(s) from experiment {experiment_id}.")
+    if len(exp_ids) == 1:
+        click.echo(f"Deleted {total_count} trace(s) from experiment {exp_ids[0]}.")
+    else:
+        click.echo(f"Total: Deleted {total_count} trace(s) from {len(exp_ids)} experiment(s).")
 
 
 @commands.command("set-tag")
@@ -649,7 +659,7 @@ def delete_tag(trace_id, key):
 )
 @click.option(
     "--source-type",
-    type=click.Choice(["HUMAN", "LLM", "CODE"]),
+    type=click.Choice(["HUMAN", "LLM_JUDGE", "CODE"]),
     help="Source type of the feedback",
 )
 @click.option(
@@ -694,7 +704,7 @@ def log_feedback(trace_id, name, value, source_type, source_id, rationale, metad
     # LLM judge feedback
     mlflow traces log-feedback --trace-id tr-abc123 \\
         --name faithfulness --value 0.85 \\
-        --source-type LLM --source-id gpt-4 \\
+        --source-type LLM_JUDGE --source-id gpt-4 \\
         --rationale "Response is faithful to context"
     """
     # Parse value if it's JSON
@@ -709,14 +719,9 @@ def log_feedback(trace_id, name, value, source_type, source_id, rationale, metad
 
     # Create source if provided
     source = None
-    if source_type or source_id:
+    if source_type and source_id:
         # Map CLI choices to AssessmentSourceType constants
-        if source_type == "LLM":
-            source_type_value = AssessmentSourceType.LLM_JUDGE
-        elif source_type:
-            source_type_value = getattr(AssessmentSourceType, source_type)
-        else:
-            source_type_value = AssessmentSourceType.CODE
+        source_type_value = getattr(AssessmentSourceType, source_type)
         source = AssessmentSource(
             source_type=source_type_value,
             source_id=source_id,
@@ -752,7 +757,7 @@ def log_feedback(trace_id, name, value, source_type, source_id, rationale, metad
 )
 @click.option(
     "--source-type",
-    type=click.Choice(["HUMAN", "LLM", "CODE"]),
+    type=click.Choice(["HUMAN", "LLM_JUDGE", "CODE"]),
     help="Source type of the expectation",
 )
 @click.option("--source-id", type=click.STRING, help="Source identifier")
@@ -796,14 +801,9 @@ def log_expectation(trace_id, name, value, source_type, source_id, metadata, spa
 
     # Create source if provided
     source = None
-    if source_type or source_id:
+    if source_type and source_id:
         # Map CLI choices to AssessmentSourceType constants
-        if source_type == "LLM":
-            source_type_value = AssessmentSourceType.LLM_JUDGE
-        elif source_type:
-            source_type_value = getattr(AssessmentSourceType, source_type)
-        else:
-            source_type_value = AssessmentSourceType.CODE
+        source_type_value = getattr(AssessmentSourceType, source_type)
         source = AssessmentSource(
             source_type=source_type_value,
             source_id=source_id,
@@ -818,7 +818,8 @@ def log_expectation(trace_id, name, value, source_type, source_id, metadata, spa
         span_id=span_id,
     )
     click.echo(
-        f"Logged expectation '{name}' to trace {trace_id}. Assessment ID: {assessment.assessment_id}"
+        f"Logged expectation '{name}' to trace {trace_id}. "
+        f"Assessment ID: {assessment.assessment_id}"
     )
 
 
