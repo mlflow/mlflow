@@ -70,7 +70,7 @@ This guide demonstrates the complete workflow for building and evaluating GenAI 
 ## Prerequisites
 
 ```bash
-pip install --upgrade mlflow>=3.3 openai pandas
+pip install --upgrade mlflow>=3.4 openai
 ```
 
 ## Step 1: Build & Trace Your Application
@@ -91,6 +91,7 @@ mlflow.set_experiment("Customer Support Bot")
 # Enable automatic tracing for OpenAI
 mlflow.openai.autolog()
 
+
 class CustomerSupportBot:
     def __init__(self):
         self.client = openai.OpenAI()
@@ -99,29 +100,33 @@ class CustomerSupportBot:
             "shipping": "Standard: 5-7 days. Express available.",
             "warranty": "1-year manufacturer warranty included.",
         }
-    
+
     @mlflow.trace
     def answer(self, question: str) -> str:
         # Retrieve relevant context
         context = self._get_context(question)
-        
+
         # Generate response
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful support assistant."},
-                {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
+                {
+                    "role": "user",
+                    "content": f"Context: {context}\n\nQuestion: {question}",
+                },
             ],
-            temperature=0.3
+            temperature=0.3,
         )
         return response.choices[0].message.content
-    
+
     def _get_context(self, question: str) -> str:
         # Simple keyword matching for demo
         for key, value in self.knowledge_base.items():
             if key in question.lower():
                 return value
         return "General customer support information."
+
 
 bot = CustomerSupportBot()
 ```
@@ -141,11 +146,9 @@ test_questions = [
     "Can I get express shipping?",
 ]
 
-# Capture traces
+# Capture traces - automatically logged to the active experiment
 for question in test_questions:
-    with mlflow.start_run(nested=True):
-        response = bot.answer(question)
-        mlflow.log_param("question", question)
+    response = bot.answer(question)
 ```
 
 ## Step 3: Add Ground Truth Expectations
@@ -157,26 +160,25 @@ Add expectations to your traces to define what constitutes correct behavior.
 ```python
 # Search for recent traces (uses current active experiment by default)
 traces = mlflow.search_traces(
-    max_results=10,
-    return_type="list"  # Return list of Trace objects for iteration
+    max_results=10, return_type="list"  # Return list of Trace objects for iteration
 )
 
 # Add expectations to specific traces
 for trace in traces:
     # Determine expected behavior based on the question
     question = trace.info.tags.get("mlflow.spanInputs", "")
-    
+
     if "refund" in question.lower():
         mlflow.log_expectation(
             trace_id=trace.info.trace_id,
             name="key_information",
-            value={"must_mention": ["30 days", "receipt"], "tone": "helpful"}
+            value={"must_mention": ["30 days", "receipt"], "tone": "helpful"},
         )
     elif "shipping" in question.lower():
         mlflow.log_expectation(
             trace_id=trace.info.trace_id,
             name="key_information",
-            value={"must_mention": ["5-7 days"], "offers_express": True}
+            value={"must_mention": ["5-7 days"], "offers_express": True},
         )
 ```
 
@@ -193,14 +195,14 @@ from mlflow.genai.datasets import create_dataset
 dataset = create_dataset(
     name="customer_support_qa_v1",
     experiment_id=mlflow.get_experiment_by_name("Customer Support Bot").experiment_id,
-    tags={"stage": "validation", "domain": "customer_support"}
+    tags={"stage": "validation", "domain": "customer_support"},
 )
 
 # Get traces with expectations using fluent API
 annotated_traces = mlflow.search_traces(
     filter_string="expectations.key_information IS NOT NULL",
     max_results=100,
-    return_type="list"  # Need list for merge_records
+    return_type="list",  # Need list for merge_records
 )
 
 # Add traces to dataset
@@ -210,12 +212,12 @@ dataset.merge_records(annotated_traces)
 manual_tests = [
     {
         "inputs": {"question": "Can I return an item after 45 days?"},
-        "expectations": {"should_clarify": "30-day policy", "tone": "apologetic"}
+        "expectations": {"should_clarify": "30-day policy", "tone": "apologetic"},
     },
     {
         "inputs": {"question": "Do you ship internationally?"},
-        "expectations": {"provides_alternatives": True}
-    }
+        "expectations": {"provides_alternatives": True},
+    },
 ]
 dataset.merge_records(manual_tests)
 ```
@@ -230,23 +232,25 @@ Evaluate your application against the dataset using built-in and custom scorers.
 from mlflow.genai import evaluate
 from mlflow.genai.scorers import Correctness, Guidelines, scorer
 
+
 # Define custom scorer for your specific needs
 @scorer
 def contains_required_info(outputs: str, expectations: dict) -> float:
     """Check if response contains required information."""
     if "must_mention" not in expectations:
         return 1.0
-    
+
     output_lower = outputs.lower()
     mentioned = [term for term in expectations["must_mention"] if term in output_lower]
     return len(mentioned) / len(expectations["must_mention"])
+
 
 # Configure evaluation
 scorers = [
     Correctness(name="factual_accuracy"),
     Guidelines(
         name="support_quality",
-        guidelines="Response must be helpful, accurate, and professional"
+        guidelines="Response must be helpful, accurate, and professional",
     ),
     contains_required_info,
 ]
@@ -256,7 +260,7 @@ results = evaluate(
     data=dataset,
     predict_fn=bot.answer,
     scorers=scorers,
-    model_id="customer-support-bot-v1"
+    model_id="customer-support-bot-v1",
 )
 
 # Access results
@@ -274,22 +278,22 @@ low_scores = detailed_results[detailed_results["factual_accuracy/score"] < 0.8]
 if not low_scores.empty:
     # Identify patterns in failures
     failed_questions = low_scores["inputs.question"].tolist()
-    
+
     # Update knowledge base or prompts based on failures
     # ... make improvements ...
-    
+
     # Re-evaluate with same dataset for comparison
     improved_results = evaluate(
         data=dataset,
         predict_fn=bot.answer,  # Updated bot
         scorers=scorers,
-        model_id="customer-support-bot-v2"
+        model_id="customer-support-bot-v2",
     )
-    
+
     # Compare versions
     improvement = (
-        improved_results.metrics["factual_accuracy/score"] - 
-        metrics["factual_accuracy/score"]
+        improved_results.metrics["factual_accuracy/score"]
+        - metrics["factual_accuracy/score"]
     )
 ```
 

@@ -63,7 +63,7 @@ The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development
         Start with traces from production, add ground truth expectations, and transform them into reusable evaluation datasets that power your testing workflow.
 
         [Get started with datasets →](/genai/datasets)
-        
+
         [View SDK guide →](/genai/datasets/sdk-guide)
 
         </div>
@@ -71,24 +71,21 @@ The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development
         <div class="flex-item padding-md">
           ```python
           from mlflow.genai.datasets import create_dataset
-          
+
           # Create a dataset from production traces
           dataset = create_dataset(
-              name="customer_support_qa",
-              experiment_id=["0"],
-              tags={"stage": "validation"}
+              name="customer_support_qa", experiment_id=["0"], tags={"stage": "validation"}
           )
-          
+
           # Add test cases with expectations
-          dataset.merge_records([
-              {
-                  "inputs": {"question": "How to reset password?"},
-                  "expectations": {
-                      "contains_steps": True,
-                      "mentions_security": True
+          dataset.merge_records(
+              [
+                  {
+                      "inputs": {"question": "How to reset password?"},
+                      "expectations": {"contains_steps": True, "mentions_security": True},
                   }
-              }
-          ])
+              ]
+          )
           ```
         </div>
       </div>
