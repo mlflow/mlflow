@@ -16,7 +16,7 @@ def test_claude_help_command(runner):
     """Test that the main claude command shows help."""
     result = runner.invoke(commands, ["--help"])
     assert result.exit_code == 0
-    assert "Commands for tracing with MLflow" in result.output
+    assert "Commands for autologging with MLflow" in result.output
     assert "claude" in result.output
 
 
