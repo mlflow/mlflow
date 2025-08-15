@@ -686,13 +686,13 @@ def test_study_exists_method(setup_storage):
     storage = setup_storage
 
     # Test non-existent study
-    assert not storage.study_exists("non-existent-study")
+    assert not storage.get_study_id_by_name_if_exists("non-existent-study")
 
     # Create a study
     storage.create_new_study([StudyDirection.MINIMIZE], "test-study")
 
     # Test existing study
-    assert storage.study_exists("test-study")
+    assert storage.get_study_id_by_name_if_exists("test-study")
 
 
 def test_get_study_id_by_name_if_exists(setup_storage):

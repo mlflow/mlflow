@@ -279,21 +279,6 @@ class MlflowStorage(BaseStorage):
         else:
             raise Exception(f"Study {study_name} not found")
 
-    def study_exists(self, study_name: str) -> bool:
-        """Check if a study with the given name exists.
-
-        Args:
-            study_name: The name of the study to check
-
-        Returns:
-            True if the study exists, False otherwise
-        """
-        # Flush all batches to ensure we have the latest data
-        self.flush_all_batches()
-
-        runs = self._search_runs_by_name(study_name)
-        return len(runs) > 0
-
     def get_study_id_by_name_if_exists(self, study_name: str):
         """Get study ID from name if it exists, otherwise return None.
 

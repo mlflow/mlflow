@@ -29,8 +29,8 @@ class ResumeInfo:
     study_name: str | None = None
     existing_trials: int | None = None
     completed_trials: int | None = None
-    best_value: Any | None = None
-    best_params: Any | None = None
+    best_value: float | None = None
+    best_params: dict[str, Any] | None = None
 
 
 def is_spark_connect_mode() -> bool:
@@ -187,7 +187,7 @@ class MlflowSparkStudy(Study):
             )
 
         # Check if study exists and auto-resume if it does
-        if self._storage.study_exists(self.study_name):
+        if self._storage.get_study_id_by_name_if_exists(self.study_name):
             # Load existing study
             self._study = optuna.load_study(
                 study_name=self.study_name, sampler=self.sampler, storage=self._storage
@@ -226,7 +226,7 @@ class MlflowSparkStudy(Study):
         """
         return len([t for t in self._study.trials if t.state == TrialState.COMPLETE])
 
-    def get_resume_info(self) -> ResumeInfo:
+    def get_resume_info(self) -> ResumeInfo | None:
         """Get information about the resumed study.
 
         Returns:
