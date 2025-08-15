@@ -15,6 +15,7 @@ import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
+import mlflow.traces
 from mlflow import projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -705,8 +706,6 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
-
-import mlflow.traces
 cli.add_command(mlflow.traces.commands)
 
 # We are conditional loading these commands since the skinny client does

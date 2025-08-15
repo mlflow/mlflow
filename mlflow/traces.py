@@ -1,5 +1,59 @@
 """
-CLI for traces
+Comprehensive MLflow Traces CLI for managing trace data, assessments, and metadata.
+
+This module provides a complete command-line interface for working with MLflow traces,
+including search, retrieval, deletion, tagging, and assessment management. It supports
+both table and JSON output formats with flexible field selection capabilities.
+
+AVAILABLE COMMANDS:
+    search              Search traces with filtering, sorting, and field selection
+    get                 Retrieve detailed trace information as JSON
+    delete              Delete traces by ID or timestamp criteria
+    set-tag             Add tags to traces
+    delete-tag          Remove tags from traces
+    log-feedback        Log evaluation feedback/scores to traces
+    log-expectation     Log ground truth expectations to traces
+    get-assessment      Retrieve assessment details
+    update-assessment   Modify existing assessments
+    delete-assessment   Remove assessments from traces
+
+EXAMPLE USAGE:
+    # Search traces across multiple experiments
+    mlflow traces search --experiment-ids 1,2,3 --max-results 50
+
+    # Filter traces by status and timestamp
+    mlflow traces search --experiment-ids 1 \
+        --filter-string "status = 'OK' AND timestamp_ms > 1700000000000"
+
+    # Get specific fields in JSON format
+    mlflow traces search --experiment-ids 1 \
+        --fields "info.trace_id,info.assessments.*,data.spans.*.name" \
+        --output json
+
+    # Get full trace details
+    mlflow traces get --trace-id tr-1234567890abcdef
+
+    # Log feedback to a trace
+    mlflow traces log-feedback --trace-id tr-abc123 \
+        --name relevance --value 0.9 \
+        --source-type HUMAN --source-id reviewer@example.com \
+        --rationale "Highly relevant response"
+
+    # Delete old traces
+    mlflow traces delete --experiment-ids 1 \
+        --max-timestamp-millis 1700000000000 --max-traces 100
+
+    # Add custom tags
+    mlflow traces set-tag --trace-id tr-abc123 \
+        --key environment --value production
+
+ASSESSMENT TYPES:
+    • Feedback: Evaluation scores, ratings, or judgments
+    • Expectations: Ground truth labels or expected outputs
+    • Sources: HUMAN, LLM_JUDGE, or CODE with source identification
+
+For detailed help on any command, use:
+    mlflow traces COMMAND --help
 """
 
 import json
@@ -14,7 +68,12 @@ from mlflow.tracing.assessment import (
     log_feedback as _log_feedback,
 )
 from mlflow.tracing.client import TracingClient
-from mlflow.utils.string_utils import _create_table, jsonpath_extract_values
+from mlflow.utils.jsonpath_utils import (
+    filter_json_by_fields,
+    jsonpath_extract_values,
+    validate_field_paths,
+)
+from mlflow.utils.string_utils import _create_table
 
 # Define reusable options following mlflow/runs.py pattern
 EXPERIMENT_IDS = click.option(
@@ -24,192 +83,6 @@ EXPERIMENT_IDS = click.option(
     help="Comma-separated list of experiment IDs to search within.",
 )
 TRACE_ID = click.option("--trace-id", type=click.STRING, required=True)
-
-
-def _filter_json_by_fields(data: dict, field_paths: list) -> dict:
-    """
-    Filter a JSON dict to only include fields specified by the field paths.
-    Expands wildcards but preserves original JSON structure.
-
-    Args:
-        data: Original JSON dictionary
-        field_paths: List of dot-notation paths like ['info.trace_id', 'info.assessments.*']
-
-    Returns:
-        Filtered dictionary with original structure preserved
-    """
-    result = {}
-
-    # Collect all actual paths by expanding wildcards
-    expanded_paths = set()
-    for field_path in field_paths:
-        if "*" in field_path:
-            # Find all actual paths that match this wildcard pattern
-            matching_paths = _find_matching_paths(data, field_path)
-            expanded_paths.update(matching_paths)
-        else:
-            # Direct path
-            expanded_paths.add(field_path)
-
-    # Build the result by including only the specified paths
-    for path in expanded_paths:
-        parts = path.split(".")
-        _set_nested_value(result, parts, _get_nested_value_safe(data, parts))
-
-    return result
-
-
-def _find_matching_paths(data: dict, wildcard_path: str) -> list:
-    """Find all actual paths in data that match a wildcard pattern."""
-    parts = wildcard_path.split(".")
-
-    def find_paths(current_data, current_parts, current_path=""):
-        if not current_parts:
-            return [current_path.lstrip(".")]
-
-        part = current_parts[0]
-        remaining = current_parts[1:]
-
-        if part == "*":
-            paths = []
-            if isinstance(current_data, dict):
-                for key in current_data.keys():
-                    new_path = f"{current_path}.{key}"
-                    paths.extend(find_paths(current_data[key], remaining, new_path))
-            elif isinstance(current_data, list):
-                for i, item in enumerate(current_data):
-                    new_path = f"{current_path}.{i}"
-                    paths.extend(find_paths(item, remaining, new_path))
-            return paths
-        else:
-            if isinstance(current_data, dict) and part in current_data:
-                new_path = f"{current_path}.{part}"
-                return find_paths(current_data[part], remaining, new_path)
-            return []
-
-    return find_paths(data, parts)
-
-
-def _get_nested_value_safe(data: dict, parts: list):
-    """Safely get nested value, returning None if path doesn't exist."""
-    current = data
-    for part in parts:
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        elif isinstance(current, list) and part.isdigit() and int(part) < len(current):
-            current = current[int(part)]
-        else:
-            return None
-    return current
-
-
-def _set_nested_value(data: dict, parts: list, value):
-    """Set a nested value in a dictionary, creating intermediate dicts/lists as needed."""
-    if value is None:
-        return
-
-    current = data
-    for i, part in enumerate(parts[:-1]):
-        if part.isdigit() and isinstance(current, list):
-            # Handle array index
-            idx = int(part)
-            while len(current) <= idx:
-                current.append({})
-            current = current[idx]
-        else:
-            # Handle object key
-            if not isinstance(current, dict):
-                return  # Can't set object key on non-dict
-            if part not in current:
-                # Look ahead to see if next part is a number (array index)
-                next_part = parts[i + 1] if i + 1 < len(parts) else None
-                if next_part and next_part.isdigit():
-                    current[part] = []
-                else:
-                    current[part] = {}
-            current = current[part]
-
-    if parts:
-        final_part = parts[-1]
-        if final_part.isdigit() and isinstance(current, list):
-            # Extend list if needed
-            idx = int(final_part)
-            while len(current) <= idx:
-                current.append(None)
-            current[idx] = value
-        elif isinstance(current, dict):
-            current[final_part] = value
-
-
-def _validate_field_paths(field_paths: list, sample_trace: dict):
-    """Validate that field paths exist in the trace data structure."""
-    invalid_paths = []
-
-    for path in field_paths:
-        # Skip validation for paths with wildcards - they'll be expanded later
-        if "*" in path:
-            continue
-
-        # Test if the path exists by trying to extract values
-        values = jsonpath_extract_values(sample_trace, path)
-        if not values:  # Empty list means path doesn't exist
-            invalid_paths.append(path)
-
-    if invalid_paths:
-        available_fields = _get_available_field_suggestions(sample_trace)
-
-        # Create a nice error message
-        error_msg = "❌ Invalid field path(s):\n"
-        for path in invalid_paths:
-            error_msg += f"   • {path}\n"
-
-        error_msg += "\n💡 Use dot notation to specify nested fields:"
-        error_msg += "\n   Examples: info.trace_id, info.state, info.assessments.*"
-
-        if available_fields:
-            error_msg += "\n\n📋 Available fields in this trace:\n"
-            # Group by top-level key for better readability
-            info_fields = [f for f in available_fields if f.startswith("info.")]
-            data_fields = [f for f in available_fields if f.startswith("data.")]
-
-            if info_fields:
-                error_msg += f"   info.*: {', '.join(info_fields[:8])}"
-                if len(info_fields) > 8:
-                    error_msg += f", ... (+{len(info_fields) - 8} more)"
-                error_msg += "\n"
-
-            if data_fields:
-                error_msg += f"   data.*: {', '.join(data_fields[:5])}"
-                if len(data_fields) > 5:
-                    error_msg += f", ... (+{len(data_fields) - 5} more)"
-                error_msg += "\n"
-
-        raise click.UsageError(error_msg)
-
-
-def _get_available_field_suggestions(data: dict, prefix: str = "") -> list:
-    """Get a list of available field paths for suggestions."""
-    paths = []
-
-    def collect_paths(obj, current_path=""):
-        if isinstance(obj, dict):
-            for key, value in obj.items():
-                path = f"{current_path}.{key}" if current_path else key
-                paths.append(path)
-                # Only go 2 levels deep for suggestions to keep it manageable
-                if current_path.count(".") < 2:
-                    collect_paths(value, path)
-        elif isinstance(obj, list) and obj:
-            # Show array notation but don't expand all indices
-            path = f"{current_path}.*" if current_path else "*"
-            if path not in paths:
-                paths.append(path)
-            # Sample first item if it's an object
-            if isinstance(obj[0], dict):
-                collect_paths(obj[0], f"{current_path}.*" if current_path else "*")
-
-    collect_paths(data, prefix)
-    return sorted(set(paths))
 
 
 @click.group("traces")
@@ -458,7 +331,7 @@ def search_traces(
         field_list = [f.strip() for f in fields.split(",")]
         # Validate fields against actual trace data
         if traces:
-            _validate_field_paths(field_list, traces[0].to_dict())
+            validate_field_paths(field_list, traces[0].to_dict())
     elif output == "json":
         # JSON mode defaults to all fields (full trace data)
         field_list = None  # Will output full JSON
@@ -482,7 +355,7 @@ def search_traces(
             traces_data = []
             for trace in traces:
                 trace_dict = trace.to_dict()
-                filtered_trace = _filter_json_by_fields(trace_dict, field_list)
+                filtered_trace = filter_json_by_fields(trace_dict, field_list)
                 traces_data.append(filtered_trace)
             result = {"traces": traces_data, "token": traces.token}
         click.echo(json.dumps(result, indent=2))
