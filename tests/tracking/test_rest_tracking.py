@@ -3468,7 +3468,7 @@ def test_scorer_CRUD(mlflow_client):
     # Test delete specific version
     delete_v1_response = requests.delete(
         f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
+        json={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
     )
     delete_v1_response.raise_for_status()
     assert delete_v1_response.status_code == 200
@@ -3486,7 +3486,7 @@ def test_scorer_CRUD(mlflow_client):
     # Test delete all versions
     delete_all_response = requests.delete(
         f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
+        json={"experiment_id": str(experiment_id), "name": "test_scorer"}
     )
     assert delete_all_response.status_code == 200
     
@@ -3497,7 +3497,8 @@ def test_scorer_CRUD(mlflow_client):
     )
     assert list_after_delete_all.status_code == 200
     list_after_delete_all_data = list_after_delete_all.json()
-    assert len(list_after_delete_all_data["scorers"]) == 0
+
+    assert list_after_delete_all_data == {}
     
     # Clean up
     mlflow_client.delete_experiment(experiment_id)
