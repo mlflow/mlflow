@@ -18,7 +18,8 @@ def enable_databricks_trace_archival(
 
     Args:
         delta_table_fullname: The full name of the Unity Catalog Delta table to archive traces to.
-        experiment_id: The MLflow experiment ID to enable archival for. Default to the current active experiment.
+        experiment_id: The MLflow experiment ID to enable archival for.
+            Default to the current active experiment.
 
     Example:
         >>> from mlflow.tracing import enable_databricks_trace_archival
