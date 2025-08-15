@@ -1,3 +1,4 @@
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
 _ERROR_MSG = (
@@ -24,14 +25,13 @@ def enable_databricks_trace_archival(
 
         .. code-block:: python
 
-            from mlflow.tracing import enable_databricks_trace_archival
+            from mlflow.tracing.archival import enable_databricks_trace_archival
 
             enable_databricks_trace_archival(
                 delta_table_fullname="my_catalog.my_schema.my_prefix",
                 experiment_id="12345",
             )
     """
-    from mlflow.tracking.fluent import _get_experiment_id
     try:
         from databricks.agents.archive import enable_trace_archival
     except ImportError:
@@ -57,11 +57,10 @@ def disable_databricks_trace_archival(*, experiment_id: str | None = None) -> No
 
         .. code-block:: python
 
-            from mlflow.tracing import disable_databricks_trace_archival
+            from mlflow.tracing.archival import disable_databricks_trace_archival
 
             disable_databricks_trace_archival(experiment_id="12345")
     """
-    from mlflow.tracking.fluent import _get_experiment_id
     try:
         from databricks.agents.archive import disable_trace_archival
     except ImportError:
