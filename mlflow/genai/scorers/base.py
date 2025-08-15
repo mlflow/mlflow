@@ -450,9 +450,8 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
         store = _get_scorer_store()
-
         # Create a new scorer instance
-        new_scorer = scorer._create_copy()
+        new_scorer = self._create_copy()
 
         # If name is provided, update the copy's name
         if name:

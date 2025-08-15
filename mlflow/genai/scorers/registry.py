@@ -296,6 +296,39 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     @staticmethod
+    def list_scheduled_scorers(experiment_id):
+        try:
+            from databricks.agents.scorers import list_scheduled_scorers
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        return list_scheduled_scorers(experiment_id=experiment_id)
+
+    @staticmethod
+    def get_scheduled_scorer(name, experiment_id):
+        try:
+            from databricks.agents.scorers import get_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        return get_scheduled_scorer(
+            scheduled_scorer_name=name,
+            experiment_id=experiment_id,
+        )
+
+    @staticmethod
+    def delete_scheduled_scorer(experiment_id, name):
+        try:
+            from databricks.agents.scorers import delete_scheduled_scorer
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        delete_scheduled_scorer(
+            experiment_id=experiment_id,
+            scheduled_scorer_name=name,
+        )
+
+    @staticmethod
     def update_registered_scorer(
         *,
         name: str,
@@ -335,13 +368,8 @@ class DatabricksStore(AbstractScorerStore):
         return None
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
-        try:
-            from databricks.agents.scorers import list_scheduled_scorers
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
         # Get scheduled scorers from the server
-        scheduled_scorers = list_scheduled_scorers(experiment_id=experiment_id)
+        scheduled_scorers = DatabricksStore.list_scheduled_scorers(experiment_id)
 
         # Convert to Scorer instances with registration info
         scorers = []
@@ -356,16 +384,8 @@ class DatabricksStore(AbstractScorerStore):
                 "Databricks does not support getting a certain version scorer."
             )
 
-        try:
-            from databricks.agents.scorers import get_scheduled_scorer
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
         # Get the scheduled scorer from the server
-        scheduled_scorer = get_scheduled_scorer(
-            scheduled_scorer_name=name,
-            experiment_id=experiment_id,
-        )
+        scheduled_scorer = DatabricksStore.get_scheduled_scorer(name, experiment_id)
 
         # Extract the scorer and set registration fields
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
@@ -379,15 +399,7 @@ class DatabricksStore(AbstractScorerStore):
         if version is not None:
             raise MlflowException("Databricks does not support deleting a certain version scorer.")
 
-        try:
-            from databricks.agents.scorers import delete_scheduled_scorer
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        delete_scheduled_scorer(
-            experiment_id=experiment_id,
-            scheduled_scorer_name=name,
-        )
+        DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
 
 # Create the global scorer store registry instance
@@ -422,6 +434,7 @@ _ERROR_MSG = (
     "The `databricks-agents` package is required to register scorers. "
     "Please install it with `pip install databricks-agents`."
 )
+
 
 @experimental(version="3.2.0")
 def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
