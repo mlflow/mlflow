@@ -104,6 +104,7 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
             "The `experiment_id` parameter can only be used for root spans, but the span "
             f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
         )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
     return span
 
 
@@ -145,6 +146,7 @@ def start_detached_span(
             "The `experiment_id` parameter can only be used for root spans, but the span "
             f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
         )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
     return span
 
 
