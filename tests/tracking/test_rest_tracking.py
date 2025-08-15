@@ -3366,139 +3366,79 @@ def test_scorer_CRUD(mlflow_client):
     if mlflow_client._store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")
 
-    """Test all scorer API endpoints end-to-end through REST API."""
+    """Test all scorer API endpoints end-to-end through RestStore methods."""
     experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
+    
+    # Get the RestStore object directly
+    store = mlflow_client._tracking_client.store
     
     # Test register scorer
     scorer_data = {
-        "experiment_id": str(experiment_id),
         "name": "test_scorer",
-        "serialized_scorer": '{"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}'
+        "call_source": "test",
+        "original_func_name": "test_func"
     }
+    serialized_scorer = json.dumps(scorer_data)
     
-    register_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/register",
-        json=scorer_data
-    )
-    assert register_response.status_code == 200
-    register_data = register_response.json()
-    assert "version" in register_data
-    assert register_data["version"] == 1
+    version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
+    assert version == 1
     
     # Test list scorers
-    list_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
-        params={"experiment_id": str(experiment_id)}
-    )
-    assert list_response.status_code == 200
-    list_data = list_response.json()
-    assert "scorers" in list_data
-    assert len(list_data["scorers"]) == 1
-    assert list_data["scorers"][0]["scorer_name"] == "test_scorer"
-    assert list_data["scorers"][0]["scorer_version"] == 1
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].scorer_name == "test_scorer"
+    assert scorers[0].scorer_version == 1
     
     # Test list scorer versions
-    versions_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
-    )
-    assert versions_response.status_code == 200
-    versions_data = versions_response.json()
-    assert "scorers" in versions_data
-    assert len(versions_data["scorers"]) == 1
-    assert versions_data["scorers"][0]["scorer_name"] == "test_scorer"
-    assert versions_data["scorers"][0]["scorer_version"] == 1
+    versions = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions) == 1
+    assert versions[0].scorer_name == "test_scorer"
+    assert versions[0].scorer_version == 1
     
     # Test get scorer (latest version)
-    get_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/get",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
-    )
-    assert get_response.status_code == 200
-    get_data = get_response.json()
-    assert "scorer" in get_data
-    assert get_data["scorer"]["scorer_name"] == "test_scorer"
-    assert get_data["scorer"]["scorer_version"] == 1
+    scorer = store.get_scorer(str(experiment_id), "test_scorer")
+    assert scorer.scorer_name == "test_scorer"
+    assert scorer.scorer_version == 1
     
     # Test get scorer (specific version)
-    get_version_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/get",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
-    )
-    assert get_version_response.status_code == 200
-    get_version_data = get_version_response.json()
-    assert "scorer" in get_version_data
-    assert get_version_data["scorer"]["scorer_name"] == "test_scorer"
-    assert get_version_data["scorer"]["scorer_version"] == 1
+    scorer_v1 = store.get_scorer(str(experiment_id), "test_scorer", version=1)
+    assert scorer_v1.scorer_name == "test_scorer"
+    assert scorer_v1.scorer_version == 1
     
     # Test register second version
     scorer_data_v2 = {
-        "experiment_id": str(experiment_id),
-        "name": "test_scorer",
-        "serialized_scorer": '{"name": "test_scorer_v2", "call_source": "test", "original_func_name": "test_func_v2"}'
+        "name": "test_scorer_v2",
+        "call_source": "test",
+        "original_func_name": "test_func_v2"
     }
+    serialized_scorer_v2 = json.dumps(scorer_data_v2)
     
-    register_v2_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/register",
-        json=scorer_data_v2
-    )
-    assert register_v2_response.status_code == 200
-    register_v2_data = register_v2_response.json()
-    assert register_v2_data["version"] == 2
+    version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
+    assert version_v2 == 2
     
     # Verify list scorers returns latest version
-    list_response_after_v2 = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
-        params={"experiment_id": str(experiment_id)}
-    )
-    assert list_response_after_v2.status_code == 200
-    list_after_v2_data = list_response_after_v2.json()
-    assert len(list_after_v2_data["scorers"]) == 1
-    assert list_after_v2_data["scorers"][0]["scorer_version"] == 2
+    scorers_after_v2 = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_v2) == 1
+    assert scorers_after_v2[0].scorer_version == 2
     
     # Verify list versions returns both versions
-    versions_after_v2_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
-    )
-    assert versions_after_v2_response.status_code == 200
-    versions_after_v2_data = versions_after_v2_response.json()
-    assert len(versions_after_v2_data["scorers"]) == 2
+    versions_after_v2 = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_v2) == 2
     
     # Test delete specific version
-    delete_v1_response = requests.delete(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
-        json={"experiment_id": str(experiment_id), "name": "test_scorer", "version": 1}
-    )
-    delete_v1_response.raise_for_status()
-    assert delete_v1_response.status_code == 200
+    store.delete_scorer(str(experiment_id), "test_scorer", version=1)
     
     # Verify version 1 is deleted
-    versions_after_delete = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/versions",
-        params={"experiment_id": str(experiment_id), "name": "test_scorer"}
-    )
-    assert versions_after_delete.status_code == 200
-    versions_after_delete_data = versions_after_delete.json()
-    assert len(versions_after_delete_data["scorers"]) == 1
-    assert versions_after_delete_data["scorers"][0]["scorer_version"] == 2
+    versions_after_delete = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_delete) == 1
+    assert versions_after_delete[0].scorer_version == 2
     
     # Test delete all versions
-    delete_all_response = requests.delete(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/delete",
-        json={"experiment_id": str(experiment_id), "name": "test_scorer"}
-    )
-    assert delete_all_response.status_code == 200
+    store.delete_scorer(str(experiment_id), "test_scorer")
     
     # Verify all versions are deleted
-    list_after_delete_all = requests.get(
-        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/scorers/list",
-        params={"experiment_id": str(experiment_id)}
-    )
-    assert list_after_delete_all.status_code == 200
-    list_after_delete_all_data = list_after_delete_all.json()
-
-    assert list_after_delete_all_data == {}
+    scorers_after_delete_all = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_delete_all) == 0
     
     # Clean up
     mlflow_client.delete_experiment(experiment_id)
