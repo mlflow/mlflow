@@ -36,7 +36,7 @@ export const determineIfRowIsHidden = (
     return rowIndex >= 20;
   }
   if (runsHiddenMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
-    return ['FINISHED', 'FAILED', 'KILLED'].includes(runStatus || '');
+    return ['FINISHED', 'FAILED', 'KILLED'].includes(runStatus ?? '');
   }
   return false;
 };
