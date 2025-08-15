@@ -256,8 +256,10 @@ class MlflowSparkStudy(Study):
     ) -> None:
         # Add logging for resume information
         if self._is_resumed and self._study.trials:
-            _logger.info(f"Continuing optimization with {len(self._study.trials)} existing trials")
-            _logger.info(f"Current best value: {self._study.best_value}")
+            _logger.info(f"""
+            Continuing optimization with {len(self._study.trials)} existing trials.
+            Current best value: {self._study.best_value}
+            """)
         elif self._is_resumed:
             _logger.info("Resuming study with no previous trials")
         else:

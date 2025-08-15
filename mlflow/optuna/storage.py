@@ -279,7 +279,7 @@ class MlflowStorage(BaseStorage):
         else:
             raise Exception(f"Study {study_name} not found")
 
-    def get_study_id_by_name_if_exists(self, study_name: str):
+    def get_study_id_by_name_if_exists(self, study_name: str) -> str | None:
         """Get study ID from name if it exists, otherwise return None.
 
         Args:
@@ -291,8 +291,7 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._search_runs_by_name(study_name)
-        if len(runs):
+        if runs := self._search_runs_by_name(study_name):
             return runs[0].info.run_id
         else:
             return None

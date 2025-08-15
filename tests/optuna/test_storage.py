@@ -682,7 +682,6 @@ def test_get_n_trials(setup_storage):
 
 
 def test_study_exists_method(setup_storage):
-    """Test study_exists method."""
     storage = setup_storage
 
     # Test non-existent study
@@ -696,7 +695,6 @@ def test_study_exists_method(setup_storage):
 
 
 def test_get_study_id_by_name_if_exists(setup_storage):
-    """Test get_study_id_by_name_if_exists method."""
     storage = setup_storage
 
     # Test non-existent study
