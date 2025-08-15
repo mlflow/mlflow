@@ -349,7 +349,7 @@ def search_traces(
     if output == "json":
         if field_list is None:
             # Full JSON output
-            result = {"traces": [trace.to_dict() for trace in traces], "token": traces.token}
+            result = {"traces": [trace.to_dict() for trace in traces], "next_page_token": traces.token}
         else:
             # Custom fields JSON output - filter original structure
             traces_data = []
@@ -357,7 +357,7 @@ def search_traces(
                 trace_dict = trace.to_dict()
                 filtered_trace = filter_json_by_fields(trace_dict, field_list)
                 traces_data.append(filtered_trace)
-            result = {"traces": traces_data, "token": traces.token}
+            result = {"traces": traces_data, "next_page_token": traces.token}
         click.echo(json.dumps(result, indent=2))
     else:
         # Table output format
