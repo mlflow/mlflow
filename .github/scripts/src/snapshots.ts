@@ -150,22 +150,6 @@ export async function uploadSnapshots({
     make_latest: "false" as const,
   };
 
-  // Always update the tag to point to the current commit
-  console.log(`Updating nightly tag to point to commit: ${context.sha}`);
-  try {
-    await github.rest.git.updateRef({
-      owner,
-      repo,
-      ref: `tags/${RELEASE_TAG}`,
-      sha: context.sha,
-      force: true,
-    });
-    console.log("Successfully updated nightly tag");
-  } catch (error: any) {
-    console.log(`Failed to update tag: ${error.message}`);
-    // If tag update fails, we'll still proceed with release update/creation
-  }
-
   if (releaseExists) {
     console.log("Updating existing nightly release...");
     const { data: updatedRelease } = await github.rest.repos.updateRelease({
