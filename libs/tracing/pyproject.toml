@@ -64,6 +64,7 @@ include = [
   "mlflow.llama_index*",
   "mlflow.mistral*",
   "mlflow.openai*",
+  "mlflow.strands*",
   "mlflow.azure*",
   "mlflow.entities*",
   "mlflow.environment_variables",
