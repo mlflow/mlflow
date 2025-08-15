@@ -1,3 +1,4 @@
+import random
 import subprocess
 import tempfile
 import time
@@ -48,15 +49,12 @@ def async_logging_enabled(request, monkeypatch):
 @pytest.fixture
 def otel_collector():
     """Start an OpenTelemetry collector in a Docker container."""
-    import random  # clint: disable=lazy-builtin-import
-
     subprocess.run(["docker", "pull", "otel/opentelemetry-collector"], check=True)
 
     # Use a random port to avoid conflicts
     port = random.randint(20000, 30000)
 
-    # Create a config that will be passed via echo
-    config_content = """receivers:
+    docker_collector_config = """receivers:
   otlp:
     protocols:
       grpc:
@@ -79,7 +77,7 @@ service:
         docker_cmd = [
             "bash",
             "-c",
-            f'echo "{config_content}" | '
+            f'echo "{docker_collector_config}" | '
             f"docker run --rm -p 127.0.0.1:{port}:4317 -i "
             f"otel/opentelemetry-collector --config=/dev/stdin",
         ]
