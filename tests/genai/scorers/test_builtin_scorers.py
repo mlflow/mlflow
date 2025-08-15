@@ -361,7 +361,7 @@ def test_relevance_to_query(mock_is_context_relevant):
 
 def test_safety(is_in_databricks):
     if not is_databricks_uri(mlflow.get_tracking_uri()):
-        with pytest.raises(MlflowException, match=r"The Safety scorer is currently only"):
+        with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
             Safety()
         return
 
