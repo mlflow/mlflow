@@ -8,12 +8,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIM
 
 class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
     _resolved_notebook_experiment_id = None
+    _resolved = False
 
     def in_context(self):
         return databricks_utils.is_in_databricks_notebook()
 
     def get_experiment_id(self):
-        if DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id:
+        if DatabricksNotebookExperimentProvider._resolved:
             return DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id
 
         source_notebook_id = databricks_utils.get_notebook_id()
@@ -38,6 +39,8 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
                 experiment_id = source_notebook_id
             else:
                 raise e
+        finally:
+            DatabricksNotebookExperimentProvider._resolved = True
 
         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = experiment_id
 
