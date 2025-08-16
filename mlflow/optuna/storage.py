@@ -227,10 +227,12 @@ class MlflowStorage(BaseStorage):
         for run_id in run_ids:
             self._flush_batch(run_id)
 
-    def _search_run_by_name(self, run_name: str):
+    def _search_runs_by_name(self, run_name: str):
         filter_string = f"tags.mlflow.runName = '{run_name}'"
         return self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id], filter_string=filter_string
+            experiment_ids=[self._experiment_id],
+            filter_string=filter_string,
+            order_by=["attributes.start_time DESC"],
         )
 
     def create_new_study(
@@ -271,11 +273,28 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._search_run_by_name(study_name)
+        runs = self._search_runs_by_name(study_name)
         if len(runs):
             return runs[0].info.run_id
         else:
             raise Exception(f"Study {study_name} not found")
+
+    def get_study_id_by_name_if_exists(self, study_name: str) -> str | None:
+        """Get study ID from name if it exists, otherwise return None.
+
+        Args:
+            study_name: The name of the study to look for
+
+        Returns:
+            Study ID if found, None otherwise
+        """
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
+        if runs := self._search_runs_by_name(study_name):
+            return runs[0].info.run_id
+        else:
+            return None
 
     def get_study_name_from_id(self, study_id) -> str:
         # Flush the batch for this study to ensure we have the latest data
