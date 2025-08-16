@@ -71,7 +71,7 @@ def _get_span_type(instance) -> str:
             if isinstance(instance, crewai.Knowledge):
                 return SpanType.RETRIEVER
     except AttributeError as e:
-        _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
+        _logger.warning("An exception happens when resolving the span type. Exception: %s", e)
 
     return SpanType.UNKNOWN
 
@@ -152,7 +152,7 @@ def _set_span_attributes(span: LiveSpan, instance):
                         span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
     except AttributeError as e:
-        _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
+        _logger.warning("An exception happens when saving span attributes. Exception: %s", e)
 
 
 def _get_agent_attributes(instance):
