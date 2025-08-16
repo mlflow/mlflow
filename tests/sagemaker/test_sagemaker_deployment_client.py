@@ -1575,25 +1575,47 @@ def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client
 
 
 @mock_sagemaker_aws_services
-def test_list_deployments_returns_all_endpoints(pretrained_model, sagemaker_client):
+def test_list_deployments_returns_all_endpoints(sagemaker_client):
     region_name = sagemaker_client.meta.region_name
+    model_name = "model-name"
+    endpoint_config_name = "endpoint-config-test"
+    num_endpoints = 101  # 1 endpoint greater than the default page size of 100
+
+    # Set up model and endpoint confg that will be reused
+    sagemaker_client.create_model(
+        ModelName=model_name,
+        PrimaryContainer={
+            "Image": "image",
+            "ModelDataUrl": "model-data-url",
+            "Environment": {},
+        },
+        ExecutionRoleArn="arn:aws:iam::123456789012:role/SageMakerExecutionRole",
+    )
+    sagemaker_client.create_endpoint_config(
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=[
+            {
+                "VariantName": "AllTraffic",
+                "ModelName": model_name,
+            }
+        ],
+    )
+
+    # Generate endpoints
+    for idx in range(num_endpoints):
+        sagemaker_client.create_endpoint(
+            EndpointName=f"test-app-{idx}",
+            EndpointConfigName=endpoint_config_name,
+        )
+
     sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
-    sagemaker_deployment_client.create_deployment(
-        name="test-app-1",
-        model_uri=pretrained_model.model_uri,
-        config={"region_name": region_name},
-    )
-    sagemaker_deployment_client.create_deployment(
-        name="test-app-2",
-        model_uri=pretrained_model.model_uri,
-        config={"region_name": region_name},
-    )
 
     endpoints = sagemaker_deployment_client.list_deployments()
 
-    assert len(endpoints) == 2
-    assert endpoints[0]["EndpointName"] == "test-app-1"
-    assert endpoints[1]["EndpointName"] == "test-app-2"
+    assert len(endpoints) == num_endpoints
+
+    for idx, endpoint in enumerate(endpoints):
+        assert endpoint["EndpointName"] == f"test-app-{idx}"
 
 
 @mock_sagemaker_aws_services
