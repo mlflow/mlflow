@@ -18,6 +18,7 @@ from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
     DatabricksRuntimeVersion,
+    _get_databricks_creds_config,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
@@ -771,3 +772,11 @@ def test_databricks_runtime_version_parse_invalid(invalid_version):
     """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse(invalid_version)
+
+
+def test_get_databricks_creds_config_ignore_error():
+    with pytest.raises(MlflowException, match="Reading Databricks credential configuration failed"):
+        _get_databricks_creds_config("databricks")
+
+    config = _get_databricks_creds_config("databricks", use_databricks_sdk=True)
+    assert isinstance(config, DatabricksConfig)
