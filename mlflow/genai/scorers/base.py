@@ -33,6 +33,17 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
@@ -104,6 +115,16 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self._sampling_config is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -488,7 +509,8 @@ class Scorer(BaseModel):
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
-                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0).
+                    Must be greater than 0. Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
 
         Returns:
@@ -516,6 +538,11 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import update_registered_scorer
 
         self._check_can_be_registered()
+
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
 
         scorer_name = name or self.name
 
