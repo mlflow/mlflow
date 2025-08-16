@@ -43,6 +43,7 @@ export interface RunRowType {
   hidden: boolean;
   pinnable: boolean;
   runName?: string;
+  runStatus?: string;
   defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];

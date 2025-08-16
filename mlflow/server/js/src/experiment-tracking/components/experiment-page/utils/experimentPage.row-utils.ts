@@ -364,6 +364,7 @@ export const prepareRunsGridData = ({
       duration,
       user,
       runName,
+      runStatus: runInfo.status,
       tags,
       models,
       params,
@@ -504,7 +505,14 @@ const determineVisibleRuns = (
 
     const rowWithHiddenFlag = {
       ...runRow,
-      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter, runsVisibilityMap),
+      hidden: determineIfRowIsHidden(
+        runsHiddenMode,
+        runsHidden,
+        runUuidToToggle,
+        visibleRowCounter,
+        runsVisibilityMap,
+        runRow.runStatus,
+      ),
     };
 
     const isGroupContainingRuns = runRow.groupParentInfo && !runRow.groupParentInfo.isRemainingRunsGroup;

@@ -550,6 +550,42 @@ describe.each([
 
         expect(runsGridData.every((r) => r.hidden)).toBe(false);
       });
+
+      test('it hides finished runs when runsHiddenMode is HIDE_FINISHED_RUNS', () => {
+        const runsWithStatuses: SingleRunData[] = [
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_active', status: 'RUNNING' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_finished', status: 'FINISHED' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_failed', status: 'FAILED' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+        ];
+
+        const runsGridData = prepareRunsGridData({
+          ...commonPrepareRunsGridDataParams,
+          runsHiddenMode: RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS,
+          runData: runsWithStatuses,
+          runUuidsMatchingFilter: runsWithStatuses.map((r) => r.runInfo.runUuid),
+        });
+
+        const visibleRunUuids = runsGridData.filter((r) => !r.hidden).map((r) => r.runUuid);
+        expect(visibleRunUuids).toEqual(['run_active']);
+      });
     });
   },
 );
