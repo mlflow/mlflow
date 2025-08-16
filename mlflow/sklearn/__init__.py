@@ -78,6 +78,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+import warnings
 
 FLAVOR_NAME = "sklearn"
 
@@ -360,7 +361,7 @@ def log_model(
 
         - :py:mod:`mlflow.sklearn`
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
-          that define `predict()`, since `predict()` is required for pyfunc model inference.
+            that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     Args:
         sk_model: scikit-learn model to be saved.
@@ -423,6 +424,24 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
+    # Handle deprecated 'artifact_path' argument:
+    # If 'artifact_path' is provided but 'name' is not, we use the 'artifact_path as the value for 'name'.
+    # This maintains backward compatibility while encouraging the transition towards 'name'.
+    # To prevent ambiguity, we raise an error if both are provided.
+    if artifact_path is not None and name is None:
+        warnings.warn(
+            "'artifact_path' is deprecated and will be removed in a future release. Please use 'name' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        name = artifact_path
+        artifact_path=None
+    elif artifact_path is not None and name is not None:
+        raise MlflowException(
+            "Both 'artifact_path' (deprecated) and 'name' parameters are specified."
+            "Please use only 'name'."
+        )
+        
     return Model.log(
         artifact_path=artifact_path,
         name=name,
