@@ -21,6 +21,7 @@ concurrency:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 jobs:
   r:
