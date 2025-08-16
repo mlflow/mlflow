@@ -538,21 +538,24 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Verify that the model has not been loaded to distributed memory
-    # NB: transformers does not correctly save a model whose weights have been loaded
-    # using accelerate iff the model weights have been loaded using a device_map that is
-    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
-    # invalid state of the model's weights in this scenario. Hence, we raise.
-    # We might be able to remove this check once this PR is merged to transformers:
-    # https://github.com/huggingface/transformers/issues/20072
-    if _is_model_distributed_in_memory(built_pipeline.model):
-        raise MlflowException(
-            "The model that is attempting to be saved has been loaded into memory "
-            "with an incompatible configuration. If you are using the accelerate "
-            "library to load your model, please ensure that it is saved only after "
-            "loading with the default device mapping. Do not specify `device_map` "
-            "and please try again."
-        )
+    # transformers now supports `save_pretrained` for offloaded models:
+    # https://github.com/huggingface/transformers/commit/ff689f57aa111261e6c2a506a42479d99674b123
+    if version.parse(transformers_version) < version.parse("4.42.0"):
+        # Verify that the model has not been loaded to distributed memory
+        # NB: transformers does not correctly save a model whose weights have been loaded
+        # using accelerate iff the model weights have been loaded using a device_map that is
+        # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+        # invalid state of the model's weights in this scenario. Hence, we raise.
+        # We might be able to remove this check once this PR is merged to transformers:
+        # https://github.com/huggingface/transformers/issues/20072
+        if _is_model_distributed_in_memory(built_pipeline.model):
+            raise MlflowException(
+                "The model that is attempting to be saved has been loaded into memory "
+                "with an incompatible configuration. If you are using the accelerate "
+                "library to load your model, please ensure that it is saved only after "
+                "loading with the default device mapping. Do not specify `device_map` "
+                "and please try again."
+            )
 
     if mlflow_model is None:
         mlflow_model = Model()
