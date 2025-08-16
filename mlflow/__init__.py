@@ -72,6 +72,7 @@ dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
+haystack = LazyLoader("mlflow.haystack", globals(), "mlflow.haystack")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
@@ -126,6 +127,7 @@ if TYPE_CHECKING:
         gemini,
         groq,
         h2o,
+        haystack,
         johnsnowlabs,
         keras,
         langchain,

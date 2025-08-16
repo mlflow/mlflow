@@ -3196,6 +3196,7 @@ def autolog(
         "crewai": "mlflow.crewai",
         "smolagents": "mlflow.smolagents",
         "groq": "mlflow.groq",
+        "haystack": "mlflow.haystack",
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
         "pydantic_ai": "mlflow.pydantic_ai",
