@@ -242,7 +242,6 @@ class SearchRoutesResponse(BaseModel):
             }
         }
 
-
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
@@ -259,6 +258,15 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         version=VERSION,
         docs_url=None,
     )
+
+    # conditionally mount static files downloaded from https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/
+    # and set the swagger_css_url and swagger_js_url to the mounted files
+    if config.swagger_config and config.swagger_config.use_static_assets:
+        from fastapi.staticfiles import StaticFiles
+        static_dir = Path(__file__).parent.joinpath("static")
+        app.mount('/static', StaticFiles(directory=static_dir), name="static")
+        config.swagger_config.swagger_js_url = "/static/swagger-ui-bundle.js"
+        config.swagger_config.swagger_css_url = "/static/swagger-ui.css"
 
     @app.get("/", include_in_schema=False)
     async def index():
@@ -280,6 +288,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             openapi_url="/openapi.json",
             title="MLflow AI Gateway",
             swagger_favicon_url="/favicon.ico",
+            **(config.swagger_config and config.swagger_config.model_dump(exclude_none=True,exclude_unset=True,exclude="use_static_assets") or {})
         )
 
     # TODO: Remove deployments server URLs after deprecation window elapses
