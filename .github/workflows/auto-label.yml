@@ -3,6 +3,7 @@ name: auto-label
 on:
   issues:
     types: [opened, edited]
+  pull_request:
 
 jobs:
   inference:
@@ -32,5 +33,4 @@ jobs:
         with:
           script: |
             const { autoLabel } = require('./.github/scripts/dist/bundle.js');
-            const result = await autoLabel({ github, context });
-            console.log(result);
+            await autoLabel({ github, context });
