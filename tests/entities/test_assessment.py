@@ -13,6 +13,7 @@ from mlflow.entities.assessment import (
     Feedback,
     FeedbackValue,
 )
+from mlflow.entities.assessment_error import _STACK_TRACE_TRUNCATION_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
@@ -385,9 +386,11 @@ def test_feedback_from_exception(stack_trace_length):
     assert feedback.error_message == "An error occurred."
 
     proto = feedback.to_proto()
-    assert len(proto.feedback.error.stack_trace) == min(stack_trace_length, 1000)
+    assert len(proto.feedback.error.stack_trace) == min(
+        stack_trace_length, _STACK_TRACE_TRUNCATION_LENGTH
+    )
     assert proto.feedback.error.stack_trace.endswith("last line")
-    if stack_trace_length > 1000:
+    if stack_trace_length > _STACK_TRACE_TRUNCATION_LENGTH:
         assert proto.feedback.error.stack_trace.startswith("[Stack trace is truncated]\n...\n")
 
     recovered = Feedback.from_proto(feedback.to_proto())
