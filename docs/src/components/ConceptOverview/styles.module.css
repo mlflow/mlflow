@@ -13,17 +13,14 @@
 .conceptGrid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  max-width: 800px;
-  margin: 0 auto;
+  margin: 0 1rem;
 }
 
 .conceptCard {
-  border: 1px solid var(--ifm-color-emphasis-200);
+  border: none;
   border-radius: 8px;
   padding: 1.5rem;
   background: var(--ifm-background-surface-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .conceptHeader {
@@ -40,8 +37,8 @@
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  background: var(--ifm-color-primary-lightest);
-  color: var(--ifm-color-primary);
+  background: #e6f4fb;
+  color: #0194e2;
   flex-shrink: 0;
 }
 
@@ -77,7 +74,7 @@
 @media (min-width: 1024px) {
   .conceptGrid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
+    gap: 1rem;
   }
 
   .conceptCard {

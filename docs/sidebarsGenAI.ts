@@ -241,28 +241,28 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
         },
-        // {
-        //   type: 'category',
-        //   label: 'Running Evaluations',
-        //   items: [
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/prompts',
-        //       label: 'Evaluate Prompts',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/agents',
-        //       label: 'Evaluate Agents',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/traces',
-        //       label: 'Evaluate Traces',
-        //     },
-        //   ],
-        //   collapsed: false,
-        // },
+        {
+          type: 'category',
+          label: 'Running Evaluations',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/prompts',
+              label: 'Evaluate Prompts',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/agents',
+              label: 'Evaluate Agents',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/traces',
+              label: 'Evaluate Traces',
+            },
+          ],
+          collapsed: false,
+        },
         // {
         //   type: 'category',
         //   label: 'Scorers',
