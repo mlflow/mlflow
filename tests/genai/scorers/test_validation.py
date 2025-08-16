@@ -11,8 +11,8 @@ from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
     ExpectationsGuidelines,
     Guidelines,
+    RelevanceToQuery,
     RetrievalGroundedness,
-    RetrievalRelevance,
     RetrievalSufficiency,
     get_all_scorers,
 )
@@ -34,7 +34,7 @@ def test_validate_scorers_valid():
 
     scorers = validate_scorers(
         [
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             Correctness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
             custom_scorer,
@@ -79,16 +79,16 @@ def test_validate_scorers_invalid_all_scorers():
 
     # Special case 2: List of list of all scorers + custom scorers
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
-        validate_scorers([get_all_scorers(), RetrievalRelevance(), Correctness()])
+        validate_scorers([get_all_scorers(), RelevanceToQuery(), Correctness()])
 
     assert "an invalid item with type: list" in str(e.value)
     assert "Hint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass all" in str(e.value)
 
     # Special case 3: List of classes (not instances)
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
-        validate_scorers([RetrievalRelevance])
+        validate_scorers([RelevanceToQuery])
 
-    assert "Correct way to pass scorers is `scorers=[RetrievalRelevance()]`." in str(e.value)
+    assert "Correct way to pass scorers is `scorers=[RelevanceToQuery()]`." in str(e.value)
 
 
 def test_validate_data(mock_logger, sample_rag_trace):
@@ -104,7 +104,7 @@ def test_validate_data(mock_logger, sample_rag_trace):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -130,7 +130,7 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalSufficiency(),  # requires expected_response in expectations
             ExpectationsGuidelines(),  # requires guidelines in expectations
         ],
@@ -195,7 +195,7 @@ def test_validate_data_missing_columns(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -203,8 +203,8 @@ def test_validate_data_missing_columns(mock_logger):
 
     mock_logger.info.assert_called_once()
     msg = mock_logger.info.call_args[0][0]
-    assert " - `outputs` column is required by [guidelines]." in msg
-    assert " - `trace` column is required by [retrieval_relevance, retrieval_groundedness]." in msg
+    assert " - `outputs` column is required by [relevance_to_query, guidelines]." in msg
+    assert " - `trace` column is required by [retrieval_groundedness]." in msg
 
 
 def test_validate_data_with_trace(mock_logger):
@@ -221,7 +221,7 @@ def test_validate_data_with_trace(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            RetrievalRelevance(),
+            RelevanceToQuery(),
             RetrievalGroundedness(),
             Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
@@ -241,7 +241,7 @@ def test_validate_data_with_predict_fn(mock_logger):
             # Requires "outputs" but predict_fn will provide it
             Guidelines(guidelines=["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
-            RetrievalRelevance(),
+            RelevanceToQuery(),
         ],
     )
 
