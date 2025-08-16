@@ -1,6 +1,7 @@
+from unittest.mock import patch
+
 import pytest
 
-from unittest.mock import patch
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.scorers import (
     delete_scorer,

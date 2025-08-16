@@ -35,7 +35,6 @@ from mlflow.entities import (
     Param,
     RunInputs,
     RunTag,
-    ScorerVersion,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -3368,77 +3367,73 @@ def test_scorer_CRUD(mlflow_client):
 
     """Test all scorer API endpoints end-to-end through RestStore methods."""
     experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
-    
+
     # Get the RestStore object directly
     store = mlflow_client._tracking_client.store
-    
+
     # Test register scorer
-    scorer_data = {
-        "name": "test_scorer",
-        "call_source": "test",
-        "original_func_name": "test_func"
-    }
+    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
     serialized_scorer = json.dumps(scorer_data)
-    
+
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
     assert version == 1
-    
+
     # Test list scorers
     scorers = store.list_scorers(experiment_id)
     assert len(scorers) == 1
     assert scorers[0].scorer_name == "test_scorer"
     assert scorers[0].scorer_version == 1
-    
+
     # Test list scorer versions
     versions = store.list_scorer_versions(str(experiment_id), "test_scorer")
     assert len(versions) == 1
     assert versions[0].scorer_name == "test_scorer"
     assert versions[0].scorer_version == 1
-    
+
     # Test get scorer (latest version)
     scorer = store.get_scorer(str(experiment_id), "test_scorer")
     assert scorer.scorer_name == "test_scorer"
     assert scorer.scorer_version == 1
-    
+
     # Test get scorer (specific version)
     scorer_v1 = store.get_scorer(str(experiment_id), "test_scorer", version=1)
     assert scorer_v1.scorer_name == "test_scorer"
     assert scorer_v1.scorer_version == 1
-    
+
     # Test register second version
     scorer_data_v2 = {
         "name": "test_scorer_v2",
         "call_source": "test",
-        "original_func_name": "test_func_v2"
+        "original_func_name": "test_func_v2",
     }
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
-    
+
     version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
     assert version_v2 == 2
-    
+
     # Verify list scorers returns latest version
     scorers_after_v2 = store.list_scorers(str(experiment_id))
     assert len(scorers_after_v2) == 1
     assert scorers_after_v2[0].scorer_version == 2
-    
+
     # Verify list versions returns both versions
     versions_after_v2 = store.list_scorer_versions(str(experiment_id), "test_scorer")
     assert len(versions_after_v2) == 2
-    
+
     # Test delete specific version
     store.delete_scorer(str(experiment_id), "test_scorer", version=1)
-    
+
     # Verify version 1 is deleted
     versions_after_delete = store.list_scorer_versions(str(experiment_id), "test_scorer")
     assert len(versions_after_delete) == 1
     assert versions_after_delete[0].scorer_version == 2
-    
+
     # Test delete all versions
     store.delete_scorer(str(experiment_id), "test_scorer")
-    
+
     # Verify all versions are deleted
     scorers_after_delete_all = store.list_scorers(str(experiment_id))
     assert len(scorers_after_delete_all) == 0
-    
+
     # Clean up
     mlflow_client.delete_experiment(experiment_id)

@@ -58,9 +58,9 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
-    LinkTracesToRun,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -1096,13 +1096,13 @@ class RestStore(AbstractStore):
         Returns:
             List of Scorer entities for all versions.
         """
-        req_body = message_to_json(
-            ListScorerVersions(experiment_id=experiment_id, name=name)
-        )
+        req_body = message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name))
         response_proto = self._call_endpoint(ListScorerVersions, req_body)
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
-    def get_scorer(self, experiment_id: str, name: str, version: int | None = None) -> ScorerVersion:
+    def get_scorer(
+        self, experiment_id: str, name: str, version: int | None = None
+    ) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 

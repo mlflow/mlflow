@@ -15,7 +15,6 @@ from sqlalchemy import (
     String,
     Text,
     UnicodeText,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import backref, relationship
 
@@ -1427,7 +1426,9 @@ class SqlScorer(Base):
 
     __tablename__ = "scorers"
 
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this scorer belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -1447,7 +1448,12 @@ class SqlScorer(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
-        Index(f"index_{__tablename__}_experiment_id_scorer_name", "experiment_id", "scorer_name", unique=True),
+        Index(
+            f"index_{__tablename__}_experiment_id_scorer_name",
+            "experiment_id",
+            "scorer_name",
+            unique=True,
+        ),
     )
 
     def __repr__(self):
@@ -1461,7 +1467,9 @@ class SqlScorerVersion(Base):
 
     __tablename__ = "scorer_versions"
 
-    scorer_id = Column(String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False)
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
     """
@@ -1500,6 +1508,7 @@ class SqlScorerVersion(Base):
             mlflow.entities.ScorerVersion.
         """
         from mlflow.entities.scorer import ScorerVersion
+
         return ScorerVersion(
             experiment_id=self.scorer.experiment_id,
             scorer_name=self.scorer.scorer_name,

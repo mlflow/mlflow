@@ -7,16 +7,15 @@ evaluate traces in MLflow experiments.
 
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.plugins import get_entry_points
-from mlflow.utils.uri import get_uri_scheme
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
-from mlflow.utils.annotations import experimental
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.annotations import experimental
+from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.uri import get_uri_scheme
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -35,13 +34,13 @@ class UnsupportedScorerStoreURIException(MlflowException):
 class AbstractScorerStore(metaclass=ABCMeta):
     """
     Abstract class defining the interface for scorer store implementations.
-    
+
     This class defines the API interface for scorer operations that can be implemented
     by different backend stores (e.g., MLflow tracking store, Databricks API).
     """
 
     @abstractmethod
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
         """
         Register a scorer for an experiment.
 
@@ -150,6 +149,7 @@ class ScorerStoreRegistry:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 import warnings
+
                 warnings.warn(
                     'Failure attempting to register scorer store for scheme "{}": {}'.format(
                         entrypoint.name, str(exc)
@@ -170,11 +170,7 @@ class ScorerStoreRegistry:
             ``mlflow.genai.scorers.registry.AbstractScorerStore`` that fulfills the store
             URI requirements.
         """
-        scheme = (
-            store_uri
-            if store_uri in {"databricks"}
-            else get_uri_scheme(store_uri)
-        )
+        scheme = store_uri if store_uri in {"databricks"} else get_uri_scheme(store_uri)
         try:
             store_builder = self._registry[scheme]
         except KeyError:
@@ -200,7 +196,7 @@ class MLflowTrackingStore(AbstractScorerStore):
     def __init__(self, tracking_uri=None):
         self._tracking_store = _get_store(tracking_uri)
 
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
         return self._tracking_store.register_scorer(experiment_id, scorer.name, serialized_scorer)
 
@@ -208,16 +204,16 @@ class MLflowTrackingStore(AbstractScorerStore):
         from mlflow.genai.scorers import Scorer
 
         experiment_id = experiment_id or _get_experiment_id()
-        
+
         # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorers(experiment_id)
-        
+
         # Convert to Scorer objects
         scorers = []
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             scorers.append(scorer)
-        
+
         return scorers
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
@@ -227,10 +223,10 @@ class MLflowTrackingStore(AbstractScorerStore):
 
         # Get ScorerVersion entity from tracking store
         scorer_version = self._tracking_store.get_scorer(experiment_id, name, version)
-        
+
         # Convert to Scorer object
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-        
+
         return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
@@ -240,14 +236,14 @@ class MLflowTrackingStore(AbstractScorerStore):
 
         # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorer_versions(experiment_id, name)
-        
+
         # Convert to Scorer objects
         scorers = []
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             version = scorer_version.scorer_version
             scorers.append((scorer, version))
-        
+
         return scorers
 
     def delete_scorer(self, experiment_id, name, version):
@@ -360,7 +356,7 @@ class DatabricksStore(AbstractScorerStore):
         )
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> Optional[int]:
+    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         DatabricksStore.add_registered_scorer(
             name=scorer.name,
@@ -388,9 +384,7 @@ class DatabricksStore(AbstractScorerStore):
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
-            raise MlflowException(
-                "Databricks does not support getting a certain version scorer."
-            )
+            raise MlflowException("Databricks does not support getting a certain version scorer.")
 
         # Get the scheduled scorer from the server
         scheduled_scorer = DatabricksStore.get_scheduled_scorer(name, experiment_id)
@@ -399,9 +393,7 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
-        raise MlflowException(
-            "Scorer DatabricksStore does not support versioning."
-        )
+        raise MlflowException("Scorer DatabricksStore does not support versioning.")
 
     def delete_scorer(self, experiment_id, name, version):
         if version is not None:
@@ -500,7 +492,9 @@ def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list
 
 
 @experimental(version="3.2.0")
-def get_scorer(*, name: str, experiment_id: str | None = None, version: int | None = None) -> Scorer:
+def get_scorer(
+    *, name: str, experiment_id: str | None = None, version: int | None = None
+) -> Scorer:
     """
     Retrieve a specific registered scorer by name.
 

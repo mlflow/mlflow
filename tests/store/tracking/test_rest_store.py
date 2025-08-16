@@ -49,18 +49,23 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     DeleteTraces,
     EndTrace,
     GetExperimentByName,
     GetLoggedModel,
+    GetScorer,
     GetTraceInfoV3,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
@@ -70,11 +75,6 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
-    RegisterScorer,
-    ListScorers,
-    ListScorerVersions,
-    GetScorer,
-    DeleteScorer,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -1468,61 +1468,61 @@ def test_create_logged_models_with_params(
 def test_register_scorer():
     """Test register_scorer method."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
         serialized_scorer = "serialized_scorer_data"
-        
+
         # Mock response
         mock_response = mock.MagicMock()
         mock_response.version = 1
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         version = store.register_scorer(experiment_id, name, serialized_scorer)
-        
+
         # Verify result
         assert version == 1
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
             RegisterScorer,
-            message_to_json(RegisterScorer(
-                experiment_id=experiment_id,
-                name=name,
-                serialized_scorer=serialized_scorer
-            ))
+            message_to_json(
+                RegisterScorer(
+                    experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
+                )
+            ),
         )
 
 
 def test_list_scorers():
     """Test list_scorers method."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
-        
+
         # Mock response
         mock_scorer1 = mock.MagicMock()
         mock_scorer1.experiment_id = 123
         mock_scorer1.scorer_name = "accuracy_scorer"
         mock_scorer1.scorer_version = 1
         mock_scorer1.serialized_scorer = "serialized_accuracy_scorer"
-        
+
         mock_scorer2 = mock.MagicMock()
         mock_scorer2.experiment_id = 123
         mock_scorer2.scorer_name = "safety_scorer"
         mock_scorer2.scorer_version = 2
         mock_scorer2.serialized_scorer = "serialized_safety_scorer"
-        
+
         mock_response = mock.MagicMock()
         mock_response.scorers = [mock_scorer1, mock_scorer2]
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         scorers = store.list_scorers(experiment_id)
-        
+
         # Verify result
         assert len(scorers) == 2
         assert scorers[0].scorer_name == "accuracy_scorer"
@@ -1531,68 +1531,64 @@ def test_list_scorers():
         assert scorers[1].scorer_name == "safety_scorer"
         assert scorers[1].scorer_version == 2
         assert scorers[1]._serialized_scorer == "serialized_safety_scorer"
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            ListScorers,
-            message_to_json(ListScorers(experiment_id=experiment_id))
+            ListScorers, message_to_json(ListScorers(experiment_id=experiment_id))
         )
 
 
 def test_list_scorer_versions():
     """Test list_scorer_versions method."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
-        
+
         # Mock response
         mock_scorer1 = mock.MagicMock()
         mock_scorer1.experiment_id = 123
         mock_scorer1.scorer_name = "accuracy_scorer"
         mock_scorer1.scorer_version = 1
         mock_scorer1.serialized_scorer = "serialized_accuracy_scorer_v1"
-        
+
         mock_scorer2 = mock.MagicMock()
         mock_scorer2.experiment_id = 123
         mock_scorer2.scorer_name = "accuracy_scorer"
         mock_scorer2.scorer_version = 2
         mock_scorer2.serialized_scorer = "serialized_accuracy_scorer_v2"
-        
+
         mock_response = mock.MagicMock()
         mock_response.scorers = [mock_scorer1, mock_scorer2]
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         scorers = store.list_scorer_versions(experiment_id, name)
-        
+
         # Verify result
         assert len(scorers) == 2
         assert scorers[0].scorer_version == 1
         assert scorers[0]._serialized_scorer == "serialized_accuracy_scorer_v1"
         assert scorers[1].scorer_version == 2
         assert scorers[1]._serialized_scorer == "serialized_accuracy_scorer_v2"
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
             ListScorerVersions,
-            message_to_json(ListScorerVersions(
-                experiment_id=experiment_id,
-                name=name
-            ))
+            message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name)),
         )
 
 
 def test_get_scorer_with_version():
     """Test get_scorer method with specific version."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
         version = 2
-        
+
         # Mock response
         mock_response = mock.MagicMock()
         mock_scorer = mock.MagicMock()
@@ -1603,34 +1599,30 @@ def test_get_scorer_with_version():
         mock_scorer.creation_time = 1640995200000
         mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         result = store.get_scorer(experiment_id, name, version=version)
-        
+
         # Verify result
         assert result._serialized_scorer == "serialized_accuracy_scorer_v2"
         assert result.scorer_version == 2
         assert result.scorer_name == "accuracy_scorer"
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
             GetScorer,
-            message_to_json(GetScorer(
-                experiment_id=experiment_id,
-                name=name,
-                version=version
-            ))
+            message_to_json(GetScorer(experiment_id=experiment_id, name=name, version=version)),
         )
 
 
 def test_get_scorer_without_version():
     """Test get_scorer method without version (should return latest)."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
-        
+
         # Mock response
         mock_response = mock.MagicMock()
         mock_scorer = mock.MagicMock()
@@ -1641,7 +1633,7 @@ def test_get_scorer_without_version():
         mock_scorer.creation_time = 1640995200000
         mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         result = store.get_scorer(experiment_id, name)
 
@@ -1649,64 +1641,52 @@ def test_get_scorer_without_version():
         assert result._serialized_scorer == "serialized_accuracy_scorer_latest"
         assert result.scorer_version == 3
         assert result.scorer_name == "accuracy_scorer"
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            GetScorer,
-            message_to_json(GetScorer(
-                experiment_id=experiment_id,
-                name=name
-            ))
+            GetScorer, message_to_json(GetScorer(experiment_id=experiment_id, name=name))
         )
 
 
 def test_delete_scorer_with_version():
     """Test delete_scorer method with specific version."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
         version = 2
-        
+
         # Mock response (empty response for delete operations)
         mock_response = mock.MagicMock()
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         store.delete_scorer(experiment_id, name, version=version)
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
             DeleteScorer,
-            message_to_json(DeleteScorer(
-                experiment_id=experiment_id,
-                name=name,
-                version=version
-            ))
+            message_to_json(DeleteScorer(experiment_id=experiment_id, name=name, version=version)),
         )
 
 
 def test_delete_scorer_without_version():
     """Test delete_scorer method without version (should delete all versions)."""
     store = RestStore(lambda: None)
-    
+
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
         experiment_id = "123"
         name = "accuracy_scorer"
-        
+
         # Mock response (empty response for delete operations)
         mock_response = mock.MagicMock()
         mock_call_endpoint.return_value = mock_response
-        
+
         # Call the method
         store.delete_scorer(experiment_id, name)
-        
+
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            DeleteScorer,
-            message_to_json(DeleteScorer(
-                experiment_id=experiment_id,
-                name=name
-            ))
+            DeleteScorer, message_to_json(DeleteScorer(experiment_id=experiment_id, name=name))
         )
