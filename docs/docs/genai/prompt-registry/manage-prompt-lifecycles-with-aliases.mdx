@@ -81,3 +81,11 @@ To load a prompt using an alias, use the `prompts:/<prompt_name>@<alias>` format
 ```python
 prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
 ```
+
+### Reserved `@latest` alias
+
+The `@latest` alias is a reserved alias name and MLflow will automatically find the latest available version of the prompt. This is useful when you want to dynamically load the latest version of a prompt without updating the application code.
+
+```python
+prompt = mlflow.load_prompt("prompts:/summarization-prompt@latest")
+```

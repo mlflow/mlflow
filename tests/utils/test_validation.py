@@ -18,6 +18,7 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
     _validate_metric_name,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
@@ -79,11 +80,6 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
-    "v123",
-    "V1",
-    "latest",
-    "Latest",
-    "LATEST",
 ]
 
 
@@ -193,6 +189,13 @@ def test_validate_model_alias_name_good(alias_name):
 def test_validate_model_alias_name_bad(alias_name):
     with pytest.raises(MlflowException, match="alias name") as e:
         _validate_model_alias_name(alias_name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("alias_name", ["latest", "LATEST", "Latest", "v123", "V1"])
+def test_validate_model_alias_name_reserved(alias_name):
+    with pytest.raises(MlflowException, match="reserved") as e:
+        _validate_model_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
