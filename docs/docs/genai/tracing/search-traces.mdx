@@ -260,7 +260,11 @@ eval_data = traces.rename(
     }
 )
 
-results = mlflow.genai.evaluate(data=eval_data, scorers=[...])
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    scorers=[...],
+    dataset_name="extracted_span_data",  # Optional: Custom name for tracking
+)
 ```
 
 :::note
@@ -382,7 +386,11 @@ eval_dataset = conversation_data.rename(
 )
 
 # Use with MLflow evaluate
-results = mlflow.genai.evaluate(data=eval_dataset, scorers=[...])
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[...],
+    dataset_name="conversation_evaluation",  # Optional: Custom name for tracking
+)
 ```
 
 ### Environment Monitoring

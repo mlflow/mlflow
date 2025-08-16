@@ -206,6 +206,7 @@ results = mlflow.genai.evaluate(
         # Custom criteria using LLM judge
         Guidelines(name="is_english", guidelines="The answer must be in English"),
     ],
+    dataset_name="qa_capability_test",  # Optional: Custom name for tracking
 )
 ```
 
