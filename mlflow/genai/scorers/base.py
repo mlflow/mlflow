@@ -41,6 +41,9 @@ class ScorerSamplingConfig:
     filter_string: str | None = None
 
 
+AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
 @dataclass
 class SerializedScorer:
     """

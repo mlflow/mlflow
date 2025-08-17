@@ -151,7 +151,7 @@ backwards compatibility testing may be requested.
 ### Consider introducing new features as MLflow Plugins
 
 [MLflow Plugins](https://mlflow.org/docs/latest/plugins.html) enable
-integration of third-party modules with many of MLflow’s components,
+integration of third-party modules with many of MLflow's components,
 allowing you to maintain and iterate on certain features independently
 of the MLflow Repository. Before implementing changes to the MLflow code
 base, consider whether your feature might be better structured as an
@@ -653,7 +653,7 @@ below.
 
 ##### Building Protobuf Files
 
-To build protobuf files, simply run `python ./dev/generate_protos.py`. The required
+To build protobuf files, simply run `./dev/generate-protos.sh`. The required
 `protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
 <https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
@@ -758,7 +758,7 @@ If you are contributing a new model flavor, follow these steps:
     `mlflow/examples/new-model-flavor`
 3.  Implement your Python training `new-model-flavor` code in this
     directory
-4.  Convert this directory’s content into an [MLflow
+4.  Convert this directory's content into an [MLflow
     Project](https://mlflow.org/docs/latest/projects.html) executable
 5.  Add `README.md`, `MLproject`, and `conda.yaml` files and your code
 6.  Read instructions in the `mlflow/test/examples/README.md` and add a

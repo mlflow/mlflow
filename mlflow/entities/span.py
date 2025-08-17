@@ -31,9 +31,9 @@ from mlflow.tracing.utils import (
     encode_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
-    decode_otel_proto_anyvalue,
-    otel_proto_bytes_to_id,
-    set_otel_proto_anyvalue,
+    _decode_otel_proto_anyvalue,
+    _otel_proto_bytes_to_id,
+    _set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
 
@@ -55,6 +55,7 @@ class SpanType:
     PARSER = "PARSER"
     EMBEDDING = "EMBEDDING"
     RERANKER = "RERANKER"
+    MEMORY = "MEMORY"
     UNKNOWN = "UNKNOWN"
 
 
@@ -354,11 +355,11 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
-        trace_id = otel_proto_bytes_to_id(otel_proto_span.trace_id)
-        span_id = otel_proto_bytes_to_id(otel_proto_span.span_id)
+        trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
+        span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None
         if otel_proto_span.parent_span_id:
-            parent_id = otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
+            parent_id = _otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
 
         # Convert OTel proto status code directly to OTel SDK status
         if otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_OK:
@@ -375,7 +376,7 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: decode_otel_proto_anyvalue(attr.value)
+                attr.key: _decode_otel_proto_anyvalue(attr.value)
                 for attr in otel_proto_span.attributes
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
@@ -384,7 +385,7 @@ class Span:
                     name=event.name,
                     timestamp=event.time_unix_nano,
                     attributes={
-                        attr.key: decode_otel_proto_anyvalue(attr.value)
+                        attr.key: _decode_otel_proto_anyvalue(attr.value)
                         for attr in event.attributes
                     },
                 )
@@ -420,7 +421,7 @@ class Span:
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
-            set_otel_proto_anyvalue(attr.value, value)
+            _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
             otel_event = event._to_otel_proto()

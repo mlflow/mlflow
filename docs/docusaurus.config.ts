@@ -392,10 +392,6 @@ const config: Config = {
             from: ['/tracing/integrations/openai-agent'],
           },
           {
-            to: '/genai/tracing/integrations/listing/swarm',
-            from: ['/tracing/integrations/swarm'],
-          },
-          {
             to: '/genai/tracing/integrations/listing/txtai',
             from: ['/tracing/integrations/txtai'],
           },
@@ -527,11 +523,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',

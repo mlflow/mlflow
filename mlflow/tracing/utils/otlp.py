@@ -7,13 +7,6 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
-# Standard OTLP trace endpoint path as per OpenTelemetry specification
-# https://opentelemetry.io/docs/specs/otlp/#otlphttp-request
-OTLP_TRACES_PATH = "/v1/traces"
-
-# Custom header for passing MLflow experiment ID with OTLP requests
-MLFLOW_EXPERIMENT_ID_HEADER = "X-MLflow-Experiment-ID"
-
 
 def should_use_otlp_exporter() -> bool:
     return _get_otlp_endpoint() is not None
@@ -71,22 +64,17 @@ def _get_otlp_protocol() -> str:
     )
 
 
-def otel_proto_bytes_to_id(id_bytes: bytes) -> int:
-    """Convert OTel protobuf bytes to integer ID.
-
-    :meta private:
-    """
+def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
+    """Convert OTel protobuf bytes to integer ID."""
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
-def set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
+def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
     Args:
         pb_any_value: The OTel protobuf AnyValue message to populate.
         value: The value to set.
-
-    :meta private:
     """
     if value is None:
         # Leave the value unset for None
@@ -104,19 +92,19 @@ def set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, (list, tuple)):
         # Handle arrays
         for item in value:
-            set_otel_proto_anyvalue(pb_any_value.array_value.values.add(), item)
+            _set_otel_proto_anyvalue(pb_any_value.array_value.values.add(), item)
     elif isinstance(value, dict):
         # Handle key-value lists
         for k, v in value.items():
             kv = pb_any_value.kvlist_value.values.add()
             kv.key = str(k)
-            set_otel_proto_anyvalue(kv.value, v)
+            _set_otel_proto_anyvalue(kv.value, v)
     else:
         # For unknown types, convert to string
         pb_any_value.string_value = str(value)
 
 
-def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
+def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
     """Decode an OTel protobuf AnyValue.
 
     Args:
@@ -124,8 +112,6 @@ def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
 
     Returns:
         The decoded value.
-
-    :meta private:
     """
     value_type = pb_any_value.WhichOneof("value")
     if not value_type:
@@ -133,10 +119,10 @@ def decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
 
     # Handle complex types that need recursion
     if value_type == "array_value":
-        return [decode_otel_proto_anyvalue(v) for v in pb_any_value.array_value.values]
+        return [_decode_otel_proto_anyvalue(v) for v in pb_any_value.array_value.values]
     elif value_type == "kvlist_value":
         return {
-            kv.key: decode_otel_proto_anyvalue(kv.value) for kv in pb_any_value.kvlist_value.values
+            kv.key: _decode_otel_proto_anyvalue(kv.value) for kv in pb_any_value.kvlist_value.values
         }
     else:
         # For simple types, just get the attribute directly

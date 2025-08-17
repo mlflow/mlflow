@@ -369,20 +369,20 @@ def test_otel_attribute_conversion(attributes):
     """Test attribute conversion with various data types."""
     from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
-    from mlflow.tracing.utils.otlp import decode_otel_proto_anyvalue, set_otel_proto_anyvalue
+    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
 
     # Convert attributes to proto format
     proto_attrs = []
     for key, value in attributes.items():
         kv = KeyValue()
         kv.key = key
-        set_otel_proto_anyvalue(kv.value, value)
+        _set_otel_proto_anyvalue(kv.value, value)
         proto_attrs.append(kv)
 
     # Decode back and verify
     decoded = {}
     for kv in proto_attrs:
-        decoded[kv.key] = decode_otel_proto_anyvalue(kv.value)
+        decoded[kv.key] = _decode_otel_proto_anyvalue(kv.value)
 
     assert decoded == attributes
 
@@ -438,19 +438,19 @@ def test_span_from_otel_proto_conversion():
     otel_proto.status.message = "Error occurred"
 
     # Add attributes
-    from mlflow.tracing.utils.otlp import set_otel_proto_anyvalue
+    from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
     attr1 = otel_proto.attributes.add()
     attr1.key = "mlflow.traceRequestId"
-    set_otel_proto_anyvalue(attr1.value, '{"request": "id"}')
+    _set_otel_proto_anyvalue(attr1.value, '{"request": "id"}')
 
     attr2 = otel_proto.attributes.add()
     attr2.key = "mlflow.spanType"
-    set_otel_proto_anyvalue(attr2.value, "CHAIN")
+    _set_otel_proto_anyvalue(attr2.value, "CHAIN")
 
     attr3 = otel_proto.attributes.add()
     attr3.key = "custom"
-    set_otel_proto_anyvalue(attr3.value, {"nested": {"value": 123}})
+    _set_otel_proto_anyvalue(attr3.value, {"nested": {"value": 123}})
 
     # Add event
     event = otel_proto.events.add()
@@ -458,7 +458,7 @@ def test_span_from_otel_proto_conversion():
     event.time_unix_nano = 1500000000
     event_attr = event.attributes.add()
     event_attr.key = "event_data"
-    set_otel_proto_anyvalue(event_attr.value, "event_value")
+    _set_otel_proto_anyvalue(event_attr.value, "event_value")
 
     # Convert to MLflow span
     mlflow_span = Span._from_otel_proto(otel_proto)

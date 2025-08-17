@@ -12,7 +12,7 @@ from packaging.version import Version
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import BasePromptOptimizer
-from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig, OptimizerOutput
+from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerConfig, OptimizerOutput
 from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
 from mlflow.utils.annotations import experimental
@@ -39,13 +39,47 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
                 "Please upgrade to version >= 2.6.0"
             )
 
+    def _parse_model_name(self, model_name: str) -> str:
+        """
+        Parse model name from URI format to DSPy format.
+
+        Accepts two formats:
+        - URI format: 'openai:/gpt-4o' -> converted to 'openai/gpt-4o'
+        - DSPy format: 'openai/gpt-4o' -> returned unchanged
+
+        Raises MlflowException for invalid formats.
+        """
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        if not model_name:
+            raise MlflowException.invalid_parameter_value(
+                "Model name cannot be empty. Please provide a model name in the format "
+                "'<provider>:/<model>' or '<provider>/<model>'."
+            )
+
+        try:
+            scheme, path = _parse_model_uri(model_name)
+            return f"{scheme}/{path}"
+        except MlflowException:
+            if "/" in model_name and ":" not in model_name:
+                parts = model_name.split("/")
+                if len(parts) == 2 and parts[0] and parts[1]:
+                    return model_name
+
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid model name format: '{model_name}'. "
+                "Model name must be in one of the following formats:\n"
+                "  - '<provider>/<model>' (e.g., 'openai/gpt-4')\n"
+                "  - '<provider>:/<model>' (e.g., 'openai:/gpt-4')"
+            )
+
     def optimize(
         self,
         prompt: PromptVersion,
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: OBJECTIVE_FN | None = None,
+        objective: ObjectiveFn | None = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> OptimizerOutput:
         import dspy
@@ -61,14 +95,14 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         output_fields = self._get_output_fields(train_data)
 
         lm = dspy.LM(
-            model=target_llm_params.model_name,
+            model=self._parse_model_name(target_llm_params.model_name),
             temperature=target_llm_params.temperature,
             api_base=target_llm_params.base_uri,
         )
 
         if self.optimizer_config.optimizer_llm:
             teacher_lm = dspy.LM(
-                model=self.optimizer_config.optimizer_llm.model_name,
+                model=self._parse_model_name(self.optimizer_config.optimizer_llm.model_name),
                 temperature=self.optimizer_config.optimizer_llm.temperature,
                 api_base=self.optimizer_config.optimizer_llm.base_uri,
             )
@@ -170,7 +204,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         input_fields: dict[str, type],
         output_fields: dict[str, type],
         scorers: list[Scorer],
-        objective: OBJECTIVE_FN | None = None,
+        objective: ObjectiveFn | None = None,
     ) -> Callable[["dspy.Example"], float]:
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
             scores = {}
