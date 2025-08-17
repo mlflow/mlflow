@@ -297,6 +297,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'eval-monitor/scorers/custom',
+              label: 'Code-based Scorers',
             },
             // {
             //   type: 'doc',

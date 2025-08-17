@@ -3,9 +3,12 @@ import ImageBox from "@site/src/components/ImageBox";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, Target } from "lucide-react";
 
 
-# Code-based Scorers
+# Custom Code-based Scorers
 
 Custom scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. Custom scorers provide flexibility to define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
 
@@ -104,7 +107,7 @@ All parameters are **optional**; declare only what your scorer needs:
 
 :::info Where these values come from?
 
-When running mlflow.genai.evaluate(), the inputs, outputs, and expectations parameters can be specified in the data argument, or parsed from the trace. See [How scorers work](/genai/eval-monitor/scorers#how-scorers-work) for more details.
+When running `mlflow.genai.evaluate()`, the inputs, outputs, and expectations parameters can be specified in the data argument, or parsed from the trace. See [How scorers work](/genai/eval-monitor/scorers#how-scorers-work) for more details.
 
 :::
 
@@ -371,3 +374,23 @@ def is_valid_response(outputs):
 
 ## Next Steps
 
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn how to evaluate AI agents with specialized techniques and scorers"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand and improve your AI application's behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={Target}
+    title="Ground Truth Expectations"
+    description="Learn how to define and manage ground truth data for accurate evaluations"
+    href="/genai/assessments/expectations"
+  />
+</TilesGrid>
