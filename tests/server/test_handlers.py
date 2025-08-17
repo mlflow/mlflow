@@ -944,3 +944,26 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == ""
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+def test_catch_mlflow_exception_dynamic_headers():
+    @catch_mlflow_exception
+    def test_handler():
+        ex = MlflowException(
+            "dynamic header test",
+            error_code=INTERNAL_ERROR
+        )
+        ex.json_kwargs = {
+            "request_id": "abc123",
+            "retry_after": 30,
+            "x_custom_code": "42"
+        }
+        raise ex
+
+    response = test_handler()
+    assert response.status_code == 500
+    headers = response.headers
+    assert headers.get("X-Request-Id") == "abc123"
+    assert headers.get("X-Retry-After") == "30"
+    assert headers.get("X-X-Custom-Code") == "42"
+
