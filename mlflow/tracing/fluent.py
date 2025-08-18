@@ -306,7 +306,7 @@ def _wrap_generator(
                 span_type=span_type,
                 attributes=attributes,
                 inputs=inputs,
-                experiment_id=trace_destination.experiment_id if trace_destination else None,
+                experiment_id=getattr(trace_destination, "experiment_id", None),
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
