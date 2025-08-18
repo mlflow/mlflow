@@ -60,6 +60,9 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install --install-hooks
+      - uses: actions/checkout@v4
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Run pre-commit
         id: pre-commit
         env:
