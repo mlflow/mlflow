@@ -5,8 +5,6 @@ import warnings
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
-import pandas as pd
-
 import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -343,6 +341,7 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     the mlflow.evaluate() function. This is a temporary migration state and we will
     eventually unify this into OSS flow.
     """
+    import pandas as pd
 
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
