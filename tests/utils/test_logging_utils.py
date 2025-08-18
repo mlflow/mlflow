@@ -33,6 +33,8 @@ def reset_logging_enablement():
 @pytest.fixture(autouse=True)
 def reset_logging_level():
     level_before = logger.level
+    # Set logger to INFO level so all test logging functions work
+    logger.setLevel(logging.INFO)
     yield
     logger.setLevel(level_before)
 
