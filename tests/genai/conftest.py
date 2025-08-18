@@ -39,7 +39,6 @@ def is_in_databricks(request):
     with (
         mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param),
         mock.patch("mlflow.genai.judges.utils.is_databricks_uri", return_value=request.param),
-        mock.patch("mlflow.genai.scorers.builtin_scorers.is_databricks_uri", return_value=request.param),
     ):
         yield request.param
 

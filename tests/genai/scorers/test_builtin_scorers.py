@@ -428,9 +428,12 @@ def test_correctness(mock_is_correct):
     )
 
 
-def test_get_all_scorers(is_in_databricks):
+@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
+def test_get_all_scorers_oss(tracking_uri):
+    mlflow.set_tracking_uri(tracking_uri)
+
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (7 if is_in_databricks else 5)
+    assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
