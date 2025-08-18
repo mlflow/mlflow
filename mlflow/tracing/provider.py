@@ -17,12 +17,13 @@ from typing import TYPE_CHECKING
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -32,6 +33,7 @@ from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestin
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -267,62 +269,10 @@ def _setup_tracer_provider(disabled=False):
     """
     global _MLFLOW_TRACER_PROVIDER
 
-    if disabled:
+    processors = _get_span_processors(disabled=disabled)
+    if not processors:
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
-
-    # TODO: Update this logic to pluggable registry where
-    #  1. Partners can implement span processor/exporter and destination class.
-    #  2. They can register their implementation to the registry via entry points.
-    #  3. MLflow will pick the implementation based on given destination id.
-    if (trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get()) and isinstance(
-        trace_destination, (MlflowExperiment, Databricks)
-    ):
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-
-    elif should_use_otlp_exporter():
-        # Export to OpenTelemetry Collector when configured
-        from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-        exporter = get_otlp_exporter()
-        processor = OtelSpanProcessor(exporter)
-
-    elif is_in_databricks_model_serving_environment():
-        # Export to Inference Table when running in Databricks Model Serving
-        if not is_mlflow_tracing_enabled_in_model_serving():
-            _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-            return
-
-        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
-        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-
-        exporter = InferenceTableSpanExporter()
-        processor = InferenceTableSpanProcessor(exporter)
-
-    else:
-        # Default to MLflow Tracking Server
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-
-    # Configure sampling based on environment variable
-    sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
-    sampler = None
-    if sampling_ratio is not None:
-        if not (0.0 <= sampling_ratio <= 1.0):
-            _logger.warning(
-                f"{MLFLOW_TRACE_SAMPLING_RATIO} must be between 0.0 and 1.0, got {sampling_ratio}. "
-                "Ignoring the invalid value and using default sampling (1.0)."
-            )
-        else:
-            sampler = TraceIdRatioBased(sampling_ratio)
-
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    # MLflow tracing does not use resource right now.
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
-    tracer_provider.add_span_processor(processor)
-    _MLFLOW_TRACER_PROVIDER = tracer_provider
-
-    from mlflow.tracing.utils.warning import suppress_warning
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
     # level so that it does not show up in the user's console. This warning may indicate
@@ -337,6 +287,83 @@ def _setup_tracer_provider(disabled=False):
     # but some spans are still active. We suppress them because they are not actionable.
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
+
+    # Setting an empty resource to avoid triggering resource aggregation, which causes
+    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=_get_trace_sampler())
+    for processor in processors:
+        tracer_provider.add_span_processor(processor)
+
+    _MLFLOW_TRACER_PROVIDER = tracer_provider
+
+
+def _get_trace_sampler() -> TraceIdRatioBased | None:
+    """
+    Get the sampler configuration based on environment variable.
+
+    Returns:
+        TraceIdRatioBased sampler or None for default sampling.
+    """
+    sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
+    if sampling_ratio is not None:
+        if not (0.0 <= sampling_ratio <= 1.0):
+            _logger.warning(
+                f"{MLFLOW_TRACE_SAMPLING_RATIO} must be between 0.0 and 1.0, got {sampling_ratio}. "
+                "Ignoring the invalid value and using default sampling (1.0)."
+            )
+            return None
+        return TraceIdRatioBased(sampling_ratio)
+    return None
+
+
+def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
+    """
+    Get the list of span processors based on configuration.
+
+    Args:
+        disabled: If True, returns an empty list of processors because tracing is disabled.
+
+    Returns:
+        List of span processors to be added to the TracerProvider.
+    """
+    if disabled:
+        return []
+
+    processors = []
+
+    if should_use_otlp_exporter():
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        otel_processor = OtelSpanProcessor(exporter)
+        processors.append(otel_processor)
+
+        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
+            return processors
+
+    # TODO: Update this logic to pluggable registry where
+    #  1. Partners can implement span processor/exporter and destination class.
+    #  2. They can register their implementation to the registry via entry points.
+    #  3. MLflow will pick the implementation based on given destination id.
+    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
+        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+        processors.append(processor)
+    elif is_in_databricks_model_serving_environment():
+        if not is_mlflow_tracing_enabled_in_model_serving():
+            return processors
+
+        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+
+        exporter = InferenceTableSpanExporter()
+        processor = InferenceTableSpanProcessor(exporter)
+        processors.append(processor)
+    else:
+        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+        processors.append(processor)
+
+    return processors
 
 
 def _get_mlflow_span_processor(tracking_uri: str):
