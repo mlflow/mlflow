@@ -90,25 +90,6 @@ def create_dataset(
     Returns:
         An EvaluationDataset object representing the created dataset.
     """
-    # Log telemetry event - MUST NEVER raise exceptions
-    try:
-        from mlflow.telemetry import record_usage_event
-        from mlflow.telemetry.events import CreateDatasetEvent
-        
-        # Wrap the decorator call in another try/except for extra safety
-        try:
-            decorated_fn = record_usage_event(CreateDatasetEvent)(
-                lambda name, experiment_id, tags: None
-            )
-            decorated_fn(name, experiment_id, tags)
-        except Exception:
-            # Inner exception handler - even if decorator fails
-            pass
-    except Exception:
-        # Outer exception handler - even if imports fail
-        # Telemetry must be completely transparent to users
-        pass
-
     if name is None:
         raise ValueError("Parameter 'name' is required.")
 

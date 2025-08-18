@@ -105,28 +105,38 @@ class MergeRecordsEvent(Event):
 
             if is_databricks_default_tracking_uri(get_tracking_uri()):
                 return None
-                
+
             records = arguments.get("records")
             if records is None:
                 return None
-                
-            # Simple type detection - just check the type name
+
+            # Detect input type
             input_type = type(records).__name__.lower()
             if "dataframe" in input_type:
                 input_type = "pandas"
-            elif not isinstance(records, list):
-                input_type = "other"
-            else:
+            elif isinstance(records, list) and records:
+                # Check the first element to determine list type
+                first_elem = records[0]
+                if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
+                    input_type = "trace"
+                elif isinstance(first_elem, dict):
+                    input_type = "dict"
+                else:
+                    input_type = "list"
+            elif isinstance(records, list):
+                # Empty list
                 input_type = "list"
-            
+            else:
+                input_type = "other"
+
             # Simple count - just try len() once
             try:
                 count = len(records)
                 if count > 0:
                     return {"record_count": count, "input_type": input_type}
-            except:
+            except (TypeError, AttributeError):
                 pass
-                
+
             return None
         except Exception:
             return None

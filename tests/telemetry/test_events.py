@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
+    CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
     CreateModelVersionEvent,
@@ -10,6 +11,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     EvaluateEvent,
     LogAssessmentEvent,
+    MergeRecordsEvent,
     StartTraceEvent,
 )
 
@@ -79,3 +81,5 @@ def test_event_name():
     assert LogAssessmentEvent.name == "log_assessment"
     assert StartTraceEvent.name == "start_trace"
     assert EvaluateEvent.name == "evaluate"
+    assert CreateDatasetEvent.name == "create_dataset"
+    assert MergeRecordsEvent.name == "merge_records"
