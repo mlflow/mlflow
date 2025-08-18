@@ -37,11 +37,11 @@ message Span {
 
   // Events that occurred during the span.
   message Event {
-    // The name of the event.
-    optional string name = 1;
-
     // The time the event occurred in nanoseconds since epoch.
-    optional int64 time_unix_nano = 2;
+    optional int64 time_unix_nano = 1;
+    
+    // The name of the event.
+    optional string name = 2;
 
     // The attributes of the event.
     map<string, string> attributes = 3;
@@ -83,12 +83,13 @@ message Span {
 
   // Status of the span
   message Status {
-    // The code of the status.
-    optional string code = 1;
-
     // The message of the status.
-    optional string message = 2;
+    optional string message = 1;
+
+    // The code of the status.
+    optional string code = 2;
   }
+
   optional Status status = 16;
 }
 

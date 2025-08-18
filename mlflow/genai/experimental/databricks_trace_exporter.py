@@ -199,17 +199,8 @@ class DatabricksDeltaArchivalMixin:
             delta_proto.flags = 0
             delta_proto.name = span.name
 
-            # Map span kind to string
-            kind_mapping = {
-                "internal": "SPAN_KIND_INTERNAL",
-                "server": "SPAN_KIND_SERVER",
-                "client": "SPAN_KIND_CLIENT",
-                "producer": "SPAN_KIND_PRODUCER",
-                "consumer": "SPAN_KIND_CONSUMER",
-            }
-            delta_proto.kind = kind_mapping.get(
-                getattr(span, "kind", "internal").lower(), "SPAN_KIND_INTERNAL"
-            )
+            # Mlflow traces do not have `kind`, so we default to INTERNAL
+            delta_proto.kind = "INTERNAL"
 
             # Set timestamps (convert to nanoseconds if needed)
             current_time_ns = int(time.time() * 1e9)
@@ -233,9 +224,9 @@ class DatabricksDeltaArchivalMixin:
             events = getattr(span, "events", []) or []
             for event in events:
                 event_dict = {
-                    "time_unix_nano": getattr(event, "timestamp_ns", current_time_ns),
+                    "time_unix_nano": getattr(event, "timestamp", current_time_ns),
                     "name": getattr(event, "name", "event"),
-                    "attributes": getattr(event, "attributes", {}) or {},
+                    "attributes": {},# getattr(event, "attributes", {}) or {},
                     "dropped_attributes_count": 0,
                 }
                 delta_proto.events.append(DeltaProtoSpan.Event(**event_dict))
@@ -246,10 +237,10 @@ class DatabricksDeltaArchivalMixin:
 
             # Convert status directly
             status_dict = {
-                "code": getattr(span.status, "status_code", "STATUS_CODE_UNSET"),
                 "message": getattr(span.status, "description", "") or "",
+                "code": getattr(span.status, "status_code", "UNSET"),
             }
-            delta_proto.status = DeltaProtoSpan.Status(**status_dict)
+            delta_proto.status.CopyFrom(DeltaProtoSpan.Status(**status_dict))
 
             delta_proto_spans.append(delta_proto)
 
