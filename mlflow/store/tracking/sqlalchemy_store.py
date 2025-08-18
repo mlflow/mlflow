@@ -3201,7 +3201,7 @@ class SqlAlchemyStore(AbstractStore):
             span_id: The ID of the span.
 
         Returns:
-            The requested span or None if not found.
+            The requested span.
         """
         with self.ManagedSessionMaker() as session:
             span = (
@@ -3220,6 +3220,16 @@ class SqlAlchemyStore(AbstractStore):
             return span.to_mlflow_entity()
 
     async def get_trace_span_async(self, trace_id: str, span_id: str) -> Span:
+        """
+        Get a specific span from a trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            span_id: The ID of the span.
+
+        Returns:
+            The requested span.
+        """
         # TODO: Implement proper async support
         return self.get_trace_span(trace_id, span_id)
 
