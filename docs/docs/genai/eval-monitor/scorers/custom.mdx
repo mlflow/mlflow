@@ -7,10 +7,9 @@ import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, Target } from "lucide-react";
 
-
 # Custom Code-based Scorers
 
-Custom scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. Custom scorers provide flexibility to define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
+Custom scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. They provide the flexibility to define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
 
 ## Example Usage
 
@@ -24,7 +23,7 @@ def exact_match(outputs: dict, expectations: dict) -> bool:
     return outputs == expectations["expected_response"]
 ```
 
-To return richer information not only the primitive values, you can return a <APILink fn="mlflow.entities.Feedback">Feedback</APILink> object.
+To return richer information beyond primitive values, you can return a <APILink fn="mlflow.entities.Feedback">Feedback</APILink> object.
 
 ```python
 from mlflow.entities import Feedback
@@ -66,18 +65,14 @@ mlflow.genai.evaluate(
 
 <ImageBox src="/images/mlflow-3/eval-monitor/scorers/code-scorers-results.png" alt="Code-based Scorers" />
 
-
-
-
 ## Input Format
 
 As input, custom scorers have access to:
 
-- The `inputs` dictionary, derived from either input dataset or MLflow post-processes from your trace.
-- The `outputs` value, derived from either input dataset or trace. If `predict_fn` is provided, the `outputs` value will be the return of the `predict_fn`.
+- The `inputs` dictionary, derived from either the input dataset or MLflow post-processing from your trace.
+- The `outputs` value, derived from either the input dataset or trace. If `predict_fn` is provided, the `outputs` value will be the return value of the `predict_fn`.
 - The `expectations` dictionary, derived from the `expectations` field in the input dataset, or [assessments](/genai/assessments) associated with the trace.
 - The complete [MLflow trace](/genai/tracing/concepts/trace), including spans, attributes, and outputs.
-
 
 ```python
 @scorer
@@ -89,28 +84,27 @@ def my_scorer(
     trace: Trace,
 ) -> float | bool | str | Feedback | list[Feedback]:
     # Your evaluation logic here
+    ...
 ```
-
 
 All parameters are **optional**; declare only what your scorer needs:
 
 ```python
-# All of these signatures are valid for scorers
-✔️ def my_scorer(inputs, outputs, expectations, trace) -> bool
-✔️ def my_scorer(inputs, outputs) -> str
-✔️ def my_scorer(outputs, expectations) -> Feedback
-✔️ def my_scorer(trace) -> list[Feedback]
+# ✔️ All of these signatures are valid for scorers
+def my_scorer(inputs, outputs, expectations, trace) -> bool:
+def my_scorer(inputs, outputs) -> str:
+def my_scorer(outputs, expectations) -> Feedback:
+def my_scorer(trace) -> list[Feedback]:
 
-# Additional parameters are not allowed
-🔴 def my_scorer(inputs, outputs, expectations, trace, additional_param) -> float
+# 🔴 Additional parameters are not allowed
+def my_scorer(inputs, outputs, expectations, trace, additional_param) -> float
 ```
 
-:::info Where these values come from?
+:::info Where do these values come from?
 
-When running `mlflow.genai.evaluate()`, the inputs, outputs, and expectations parameters can be specified in the data argument, or parsed from the trace. See [How scorers work](/genai/eval-monitor/scorers#how-scorers-work) for more details.
+When running `mlflow.genai.evaluate()`, the inputs, outputs, and expectations parameters can be specified in the data argument, or parsed from the trace. See <ins>[How Scorers Work](/genai/eval-monitor/scorers#how-scorers-work)</ins> for more details.
 
 :::
-
 
 ## Return Types
 
@@ -149,7 +143,7 @@ def content_quality(outputs):
     )
 ```
 
-Multiple feedback objects can be returned as a list. Each feedback will be displayed as a separate metric in the evaluation results.
+Multiple feedback objects can be returned as a list. Each feedback object will be displayed as a separate metric in the evaluation results.
 
 ```
 @scorer
@@ -163,10 +157,10 @@ def comprehensive_check(inputs, outputs):
 
 ## Parsing Traces for Scoring
 
-Scorers have access to the complete MLflow traces, including spans, attributes, and outputs, allowing you to evaluate the agent's behavior precisely, not only the final output.
+Scorers have access to the complete MLflow traces, including spans, attributes, and outputs, allowing you to evaluate the agent's behavior precisely, not just the final output.
 The <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> API is a powerful way to retrieve such intermediate information from the trace.
 
-Open the tabs below to see examples of custom scorers that evaluate the detailed behavior of the agent by parsing the trace.
+Open the tabs below to see examples of custom scorers that evaluate the detailed behavior of agents by parsing the trace.
 
 <TabsWrapper>
   <Tabs>
@@ -183,7 +177,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
         # Search for retriever spans in the trace
         retriever_spans = trace.search_spans(span_type=SpanType.RETRIEVER)
 
-        # If there is no retriever span
+        # If there are no retriever spans
         if not retriever_spans:
             return Feedback(
                 value=0,
@@ -272,9 +266,9 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
             )
     ```
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
-
 
 ## Error handling
 
@@ -285,13 +279,13 @@ When a scorer encounters an error, MLflow provides two approaches:
 The simplest approach is to let exceptions throw naturally. MLflow automatically captures the exception and creates a Feedback object with the error details:
 
 ```python
+import json
 import mlflow
 from mlflow.entities import Feedback
 from mlflow.genai.scorers import scorer
 
 @scorer
 def is_valid_response(outputs: str) -> Feedback:
-    import json
 
     # Let json.JSONDecodeError propagate if response isn't valid JSON
     data = json.loads(outputs)
@@ -341,12 +335,11 @@ The error information will be displayed in the evaluation results. Open the corr
 For custom error handling or to provide specific error messages, catch exceptions and return a <APILink fn="mlflow.entities.Feedback">Feedback</APILink> with None value and error details:
 
 ```python
+import json
 from mlflow.entities import AssessmentError, Feedback
 
 @scorer
 def is_valid_response(outputs):
-    import json
-
     try:
         data = json.loads(outputs)
         required_fields = ["summary", "confidence", "sources"]
@@ -370,7 +363,6 @@ def is_valid_response(outputs):
         # Can pass exception object directly to the error parameter as well
         return Feedback(error=e)
 ```
-
 
 ## Next Steps
 

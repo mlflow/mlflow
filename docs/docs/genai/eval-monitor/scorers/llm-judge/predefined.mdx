@@ -20,10 +20,9 @@ See <ins>[custom LLM scorers](/genai/eval-monitor/scorers/llm-judge/custom)</ins
 
 :::
 
-
 ## Example Usage
 
-To use the predefined LLM scores, select the scorer class from the [available scorers](#available-scorers) and pass it to the `scorers` argument of the <APILink fn="mlflow.genai.evaluate">evaluate</APILink> function.
+To use the predefined LLM scorers, select the scorer class from the [available scorers](#available-scorers) and pass it to the `scorers` argument of the <APILink fn="mlflow.genai.evaluate">evaluate</APILink> function.
 
 ```python
 import mlflow
@@ -55,10 +54,13 @@ results = mlflow.genai.evaluate(
     scorers=[
         Correctness(),
         RelevanceToQuery(),
-        # Guidelines is a special scorer that takes a user-defined criteria for evaluation.
+        # Guidelines is a special scorer that takes user-defined criteria for evaluation.
         # See the "Customizing LLM Judges" section below for more details.
-        Guidelines(name="is_concise", guidelines="The answer must be concise and straight to the point."),
-    ]
+        Guidelines(
+            name="is_concise",
+            guidelines="The answer must be concise and straight to the point.",
+        ),
+    ],
 )
 ```
 
@@ -66,17 +68,16 @@ results = mlflow.genai.evaluate(
 
 ## Available Scorers
 
-
-| Scorer | What it evaluates? | Requires ground-truth? |
-|--------|-------------------|------------------------|
-| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink> | Does app's response directly address the user's input? | No |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink> | Is app's response correct compared to ground-truth? | Yes |
-| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink> | Does the response adhere to provided guidelines? | Yes |
-| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes |
-| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink> | Does the app's response avoid harmful or toxic content? | No |
-| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink> | Is the app's response grounded in retrieved information? | No |
-| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink> | Are retrieved documents relevant to the user's request? | No |
-| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink> | Do retrieved documents contain all necessary information? | Yes |
+| Scorer                                                                                     | What does it evaluate?                                           | Requires ground-truth? |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- |
+| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?       | No                     |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?          | Yes                    |
+| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    |
+| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    |
+| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     |
+| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     |
+| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     |
+| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    |
 
 :::note Availability
 Safety and RetrievalRelevance scorers are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
@@ -84,11 +85,9 @@ Safety and RetrievalRelevance scorers are currently only available in [Databrick
 
 :::tip Evaluating Retrieval
 
-Built-in scorers for evaluating retrieval (`RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`) require traces to include one or more spans with type `RETRIEVER`. If you are using <ins>[automatic tracing integration](/genai/tracing/app-instrumentation/automatic)</ins>, MLflow will automatically set type of spans for you.
+Built-in scorers for evaluating retrieval (`RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`) require traces to include one or more spans with type `RETRIEVER`. If you are using <ins>[automatic tracing integration](/genai/tracing/app-instrumentation/automatic)</ins>, MLflow will automatically set the type of spans for you.
 
 :::
-
-
 
 ## Selecting Judge Models
 
@@ -96,16 +95,15 @@ MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI,
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
 
-
 ## Output Format
 
 Predefined LLM-based scorers in MLflow return structured assessments with three key components:
 
-* **Score**: Binary output (`yes`/`no`) renders as <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-600">Pass</div> or <div className="inline-flex rounded-sm bg-red-100 px-2 py-1 text-sm text-red-800">Fail</div> in the UI.
-* **Rationale**: Detailed explanation of why the judge made its decision
-* **Source**: Metadata about the evaluation source
+- **Score**: Binary output (`yes`/`no`) renders as <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-600">Pass</div> or <div className="inline-flex rounded-sm bg-red-100 px-2 py-1 text-sm text-red-800">Fail</div> in the UI.
+- **Rationale**: Detailed explanation of why the judge made its decision
+- **Source**: Metadata about the evaluation source
 
-```python
+```
 score: "yes"  # or "no"
 rationale: "The response accurately addresses the user's question about machine learning concepts, providing clear definitions and relevant examples. The information is factually correct and well-structured."
 source: AssessmentSource(

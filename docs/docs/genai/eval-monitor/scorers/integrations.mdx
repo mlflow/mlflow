@@ -4,6 +4,7 @@
 This guide shows how to define scorers that integrates with 3rd party libraries.
 
 This page explains
+
 - Each section shows example of using 3rd party libraries inside the custom scorer function (@scorer decorator) and compute the results with mlflow.genai.evaluate
 
 For example, Ragas can be integrated like
@@ -12,7 +13,7 @@ For example, Ragas can be integrated like
 from ragas.metrics import FactualCorrectness
 @scorer
 def ragas_factual_correctness(outputs, expectations) -> float:
-    sample = SingleTurnSample(outputs, expectations[“expected_facts”])
+    sample = SingleTurnSample(outputs, expectations["expected_facts"])
     return FactualCorrectness(llm=...).single_turn_ascore(sample)
 ```
 
@@ -20,19 +21,12 @@ When writing this page, research on the integrated library to how to write a sco
 
 --- END INSTRUCTION TO AUTHOR ---
 
-
-
 ## Ragas
-
 
 ## Deepeval
 
-
 ## DSPy
-
 
 ## OpenAI Evals
 
-
 ## Guardrails
-
