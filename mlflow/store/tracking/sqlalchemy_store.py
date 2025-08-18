@@ -3202,6 +3202,9 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             The requested span.
+
+        Raises:
+            MlflowException: If the span is not found.
         """
         with self.ManagedSessionMaker() as session:
             span = (
@@ -3229,6 +3232,9 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             The requested span.
+
+        Raises:
+            MlflowException: If the span is not found.
         """
         # TODO: Implement proper async support
         return self.get_trace_span(trace_id, span_id)
