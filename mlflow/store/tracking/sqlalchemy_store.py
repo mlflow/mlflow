@@ -2006,7 +2006,6 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_scorer_version)
-            session.commit()
 
             return new_version
 
@@ -2198,8 +2197,6 @@ class SqlAlchemyStore(AbstractStore):
             # If we're deleting all versions, also delete the scorer record
             if version is None:
                 session.delete(scorer)
-
-            session.commit()
 
     def list_scorer_versions(self, experiment_id, name):
         """

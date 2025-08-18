@@ -1,8 +1,8 @@
 import json
+from functools import lru_cache
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
-from mlflow.utils.time import get_current_time_millis
 
 
 class ScorerVersion(_MlflowObject):
@@ -14,15 +14,13 @@ class ScorerVersion(_MlflowObject):
         scorer_name: str,
         scorer_version: int,
         serialized_scorer: str,
-        creation_time: int | None = None,
+        creation_time: int,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
-        self._creation_time = (
-            creation_time if creation_time is not None else get_current_time_millis()
-        )
+        self._creation_time = creation_time
 
     @property
     def experiment_id(self):
@@ -40,6 +38,7 @@ class ScorerVersion(_MlflowObject):
         return self._scorer_version
 
     @property
+    @lru_cache(maxsize=1)
     def serialized_scorer(self):
         """SerializedScorer object containing the metadata and function code for the scorer."""
         from mlflow.genai.scorers.base import SerializedScorer

@@ -997,12 +997,14 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
             scorer_name="accuracy_scorer",
             scorer_version=1,
             serialized_scorer="serialized_accuracy_scorer",
+            creation_time=12345,
         ),
         ScorerVersion(
             experiment_id=123,
             scorer_name="safety_scorer",
             scorer_version=2,
             serialized_scorer="serialized_safety_scorer",
+            creation_time=12345,
         ),
     ]
 
@@ -1040,12 +1042,14 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
             scorer_name="accuracy_scorer",
             scorer_version=1,
             serialized_scorer="serialized_accuracy_scorer_v1",
+            creation_time=12345,
         ),
         ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=2,
             serialized_scorer="serialized_accuracy_scorer_v2",
+            creation_time=12345,
         ),
     ]
 

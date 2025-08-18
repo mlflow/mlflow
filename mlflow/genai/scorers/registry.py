@@ -163,7 +163,7 @@ class ScorerStoreRegistry:
             ``mlflow.genai.scorers.registry.AbstractScorerStore`` that fulfills the store
             URI requirements.
         """
-        scheme = store_uri if store_uri in {"databricks"} else get_uri_scheme(store_uri)
+        scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
         try:
             store_builder = self._registry[scheme]
         except KeyError:
@@ -239,7 +239,9 @@ class MlflowTrackingStore(AbstractScorerStore):
 
     def delete_scorer(self, experiment_id, name, version):
         if version is None:
-            raise MlflowException("You must set `version` argument to either an integer or 'all'.")
+            raise MlflowException.invalid_parameter_value(
+                "You must set `version` argument to either an integer or 'all'."
+            )
         if version == "all":
             version = None
 
@@ -375,7 +377,9 @@ class DatabricksStore(AbstractScorerStore):
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
-            raise MlflowException("Databricks does not support getting a certain version scorer.")
+            raise MlflowException.invalid_parameter_value(
+                "Databricks does not support getting a certain version scorer."
+            )
 
         # Get the scheduled scorer from the server
         scheduled_scorer = DatabricksStore.get_scheduled_scorer(name, experiment_id)
@@ -388,7 +392,9 @@ class DatabricksStore(AbstractScorerStore):
 
     def delete_scorer(self, experiment_id, name, version):
         if version is not None:
-            raise MlflowException("Databricks does not support deleting a certain version scorer.")
+            raise MlflowException.invalid_parameter_value(
+                "Databricks does not support deleting a certain version scorer."
+            )
 
         DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
