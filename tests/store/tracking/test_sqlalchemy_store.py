@@ -5489,7 +5489,6 @@ async def test_get_trace_span(store: SqlAlchemyStore, is_async: bool):
         trace_id,
     )
 
-    # Log span with no end time
     store.log_spans(experiment_id, [span1])
     if is_async:
         span = await store.get_trace_span_async(trace_id, span1.span_id)
