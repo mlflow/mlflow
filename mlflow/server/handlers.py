@@ -166,6 +166,8 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
+from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -397,7 +399,10 @@ def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_p
     )
 
 
-def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
+def _get_tracking_store(
+    backend_store_uri: str | None = None,
+    default_artifact_root: str | None = None,
+) -> AbstractTrackingStore:
     from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
     global _tracking_store
@@ -409,7 +414,7 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
     return _tracking_store
 
 
-def _get_model_registry_store(registry_store_uri=None):
+def _get_model_registry_store(registry_store_uri: str | None = None) -> AbstractModelRegistryStore:
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, REGISTRY_STORE_URI_ENV_VAR
 
     global _model_registry_store
@@ -425,8 +430,10 @@ def _get_model_registry_store(registry_store_uri=None):
 
 
 def initialize_backend_stores(
-    backend_store_uri=None, registry_store_uri=None, default_artifact_root=None
-):
+    backend_store_uri: str | None = None,
+    registry_store_uri: str | None = None,
+    default_artifact_root: str | None = None,
+) -> None:
     _get_tracking_store(backend_store_uri, default_artifact_root)
     try:
         _get_model_registry_store(registry_store_uri)
