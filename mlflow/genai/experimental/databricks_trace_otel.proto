@@ -35,21 +35,61 @@ message Span {
   // The number of attributes that were discarded.
   optional int32 dropped_attributes_count = 11;
 
-  // JSON string representation of events.
-  repeated string events = 12;
+  // Events that occurred during the span.
+  message Event {
+    // The name of the event.
+    optional string name = 1;
+
+    // The time the event occurred in nanoseconds since epoch.
+    optional int64 time_unix_nano = 2;
+
+    // The attributes of the event.
+    map<string, string> attributes = 3;
+
+    // The number of attributes that were discarded.
+    optional int32 dropped_attributes_count = 4;
+  }
+
+  repeated Event events = 12;
 
   // The number of dropped events.
   optional int32 dropped_events_count = 13;
 
-  // JSON string representation of links.
-  repeated string links = 14;
+  // Links to another span within a trace or to a different trace.
+  message Link {
+    // A unique identifier for a trace.
+    optional string trace_id = 1;
+
+    // A unique identifier for a span within a trace.
+    optional string span_id = 2;
+
+    // Conveys information about request position in multiple distributed tracing graphs.
+    optional string trace_state = 3;
+
+    // The attributes of the link.
+    map<string, string> attributes = 4;
+
+    // The number of attributes that were discarded.
+    optional int32 dropped_attributes_count = 5;
+
+    // Flags, a bit field.
+    optional int32 flags = 6;
+  }
+
+  repeated Link links = 14;
 
   // The number of dropped links.
   optional int32 dropped_links_count = 15;
 
-  // Status of the span as JSON string containing code and message.
-  // Format: {"code": "OK|ERROR|UNSET", "message": "optional description"}
-  optional string status = 16;
+  // Status of the span
+  message Status {
+    // The code of the status.
+    optional string code = 1;
+
+    // The message of the status.
+    optional string message = 2;
+  }
+  optional Status status = 16;
 }
 
 message Event {

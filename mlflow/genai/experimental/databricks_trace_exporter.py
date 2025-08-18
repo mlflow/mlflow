@@ -238,7 +238,7 @@ class DatabricksDeltaArchivalMixin:
                     "attributes": getattr(event, "attributes", {}) or {},
                     "dropped_attributes_count": 0,
                 }
-                delta_proto.events.append(json.dumps(event_dict))
+                delta_proto.events.append(DeltaProtoSpan.Event(**event_dict))
             delta_proto.dropped_events_count = 0
 
             # Links are rarely used in MLflow, set to empty
@@ -249,7 +249,7 @@ class DatabricksDeltaArchivalMixin:
                 "code": getattr(span.status, "status_code", "STATUS_CODE_UNSET"),
                 "message": getattr(span.status, "description", "") or "",
             }
-            delta_proto.status = json.dumps(status_dict)
+            delta_proto.status = DeltaProtoSpan.Status(**status_dict)
 
             delta_proto_spans.append(delta_proto)
 

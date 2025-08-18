@@ -110,21 +110,15 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                     parent_span_id AS parent_id,
                     TIMESTAMP_MILLIS(CAST(start_time_unix_nano / 1000000 AS BIGINT)) AS start_time,
                     TIMESTAMP_MILLIS(CAST(end_time_unix_nano / 1000000 AS BIGINT)) AS end_time,
-                    status:code AS status_code,
-                    status:message AS status_message,
+                    status.code AS status_code,
+                    status.message AS status_message,
                     COALESCE(
                       TRANSFORM(
-                        TRANSFORM(
-                          events,
-                          event -> FROM_JSON(
-                            event,
-                            'STRUCT<name: STRING, time_unix_nano: BIGINT, attributes: MAP<STRING, STRING>>'
-                          )
-                        ),
-                        parsed -> STRUCT(
-                          parsed.name AS name,
-                          TIMESTAMP_MILLIS(CAST(parsed.time_unix_nano / 1000000 AS BIGINT)) AS timestamp,
-                          parsed.attributes AS attributes
+                        events,
+                        event -> STRUCT(
+                          event.name AS name,
+                          TIMESTAMP_MILLIS(CAST(event.time_unix_nano / 1000000 AS BIGINT)) AS timestamp,
+                          event.attributes AS attributes
                         )
                       ),
                       ARRAY()
