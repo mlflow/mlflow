@@ -52,7 +52,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -192,7 +192,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
@@ -204,12 +204,12 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -766,7 +766,7 @@ def _load_pyfunc(path, spark=None):
     )
 
 
-def _get_or_create_sparksession(model_path=None):  # noqa: D417
+def _get_or_create_sparksession(model_path=None):
     """Check if SparkSession running and get it.
 
     If none exists, create a new one using jars in model_path. If model_path not defined, rely on
@@ -873,7 +873,7 @@ class _PyFuncModelWrapper:
         """
         return self.spark_model
 
-    def predict(self, text, params: Optional[dict[str, Any]] = None):
+    def predict(self, text, params: dict[str, Any] | None = None):
         """Generate predictions given input data in a pandas DataFrame.
 
         Args:

@@ -1,4 +1,4 @@
-from typing import Optional
+import json
 from unittest import mock
 
 import pytest
@@ -7,7 +7,7 @@ import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -24,9 +24,10 @@ _DATABRICKS_REQUEST_ID_1 = "databricks-request-id-1"
 _DATABRICKS_REQUEST_ID_2 = "databricks-request-id-2"
 
 
-@pytest.mark.parametrize("dual_write_enabled", [True, False])
-def test_export(dual_write_enabled, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", str(dual_write_enabled))
+@pytest.mark.parametrize("experiment_id", ["test-experiment-id", None])
+def test_export(experiment_id, monkeypatch):
+    if experiment_id:
+        monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
 
     otel_span = create_mock_otel_span(
         name="root",
@@ -40,13 +41,17 @@ def test_export(dual_write_enabled, monkeypatch):
     span = LiveSpan(otel_span, trace_id)
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs("very long output" * 100)
-    _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1)
+    _register_span_and_trace(
+        span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id
+    )
 
     child_otel_span = create_mock_otel_span(
         name="child", trace_id=_OTEL_TRACE_ID, span_id=2, parent_id=1
     )
     child_span = LiveSpan(child_otel_span, trace_id)
-    _register_span_and_trace(child_span, client_request_id=_DATABRICKS_REQUEST_ID_1)
+    _register_span_and_trace(
+        child_span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id=experiment_id
+    )
 
     # Invalid span should be also ignored
     invalid_otel_span = create_mock_otel_span(trace_id=23456, span_id=1)
@@ -79,7 +84,7 @@ def test_export(dual_write_enabled, monkeypatch):
     # Last active trace ID should be set
     assert mlflow.get_last_active_trace_id() == trace_id
 
-    if dual_write_enabled:
+    if experiment_id:
         exporter._async_queue.flush(terminate=True)
 
         assert mock_tracing_client.start_trace.call_count == 1
@@ -90,7 +95,8 @@ def test_export(dual_write_enabled, monkeypatch):
         # The databricks request ID should be set to the client request ID
         assert trace_info.client_request_id == _DATABRICKS_REQUEST_ID_1
     else:
-        assert mock_tracing_client.log_trace.call_count == 0
+        # When experiment_id is not set, trace should not be exported to MLflow backend
+        assert mock_tracing_client.start_trace.call_count == 0
 
 
 def test_export_warn_invalid_attributes():
@@ -98,8 +104,6 @@ def test_export_warn_invalid_attributes():
     trace_id = generate_trace_id_v3(otel_span)
     span = LiveSpan(otel_span, trace_id)
     span.set_attribute("valid", "value")
-    # # Users may set attribute directly to the OpenTelemetry span
-    # otel_span.set_attribute("int", 1)
     span.set_attribute("str", "a")
     _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1)
 
@@ -115,15 +119,6 @@ def test_export_warn_invalid_attributes():
         "valid": "value",
         "str": "a",
     }
-
-    # Users shouldn't set attribute directly to the OTel span
-    otel_span.set_attribute("int", 1)
-    exporter.export([otel_span])
-    with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
-        span.attributes
-        mock_warning.assert_called_once()
-        msg = mock_warning.call_args[0][0]
-        assert msg.startswith("Failed to get value for key int")
 
 
 def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
@@ -156,9 +151,13 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
 
 
 def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
-    """Test that SIZE_BYTES is correctly set in the trace sent to MLflow backend via dual write."""
-    # Enable dual write
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+    """
+    Test that SIZE_BYTES is correctly set in the trace sent
+    to MLflow backend when experiment ID is set.
+    """
+    # Set experiment ID to enable MLflow backend export
+    experiment_id = "test-experiment-id"
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
 
     # Create spans and trace
     otel_span = create_mock_otel_span(
@@ -189,32 +188,43 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
     trace_info = mock_tracing_client.start_trace.call_args[0][0]
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
 
-    # Verify the trace sent to MLflow backend has SIZE_BYTES
-    assert trace_info is not None, "Trace was not sent to MLflow backend"
-    assert TraceMetadataKey.SIZE_BYTES in trace_info.trace_metadata, (
-        "SIZE_BYTES missing in trace metadata"
+    # Using pop() to exclude the size of these fields when computing the expected size
+    size_stats = json.loads(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_STATS))
+    size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
+
+    # The total size of the trace should much with the size of the trace object
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
+
+    assert size_bytes == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 1
+    assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
+
+    # Verify percentile stats are included
+    assert TraceSizeStatsKey.P25_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P50_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P75_SPAN_SIZE_BYTES in size_stats
+
+    # With only one span, all percentiles should equal the max span size
+    assert (
+        size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES]
+        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
+        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
+        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
     )
 
-    # Get the size bytes that were set
-    size_bytes = int(trace_info.trace_metadata[TraceMetadataKey.SIZE_BYTES])
 
-    # Remove the size metadata to calculate the expected size
-    del trace_info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
-
-    # Calculate size exactly the same way the function does
-    trace = Trace(info=trace_info, data=trace_data)
-    expected_size_bytes = len(trace.to_json().encode("utf-8"))
-
-    # Verify that size_bytes matches the expected calculation
-    assert size_bytes == expected_size_bytes, (
-        f"Size bytes mismatch: got {size_bytes}, expected {expected_size_bytes}"
-    )
-
-
-def test_prompt_linking_with_dual_write(monkeypatch):
-    """Test that prompts are correctly linked when dual write to MLflow backend is enabled."""
-    # Enable dual write
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+def test_prompt_linking_with_experiment_id(monkeypatch):
+    """Test that prompts are correctly linked when experiment ID is set."""
+    # Set experiment ID to enable MLflow backend export
+    experiment_id = "test-experiment-id"
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
 
     # Create span and trace
     otel_span = create_mock_otel_span(
@@ -295,10 +305,9 @@ def test_prompt_linking_with_dual_write(monkeypatch):
     assert captured_trace_id == trace_id
 
 
-def test_prompt_linking_disabled_without_dual_write(monkeypatch):
-    """Test that prompt linking is not attempted when dual write is disabled."""
-    # Disable dual write
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "False")
+def test_prompt_linking_disabled_without_experiment_id(monkeypatch):
+    """Test that prompt linking is not attempted when experiment ID is not set."""
+    # Don't set MLFLOW_EXPERIMENT_ID to disable MLflow backend export
 
     # Create span and trace
     otel_span = create_mock_otel_span(
@@ -349,9 +358,10 @@ def test_prompt_linking_disabled_without_dual_write(monkeypatch):
 
 
 def test_prompt_linking_with_empty_prompts(monkeypatch):
-    """Test that empty prompts list doesn't cause issues with dual write."""
-    # Enable dual write
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+    """Test that empty prompts list doesn't cause issues when exporting to MLflow backend."""
+    # Set experiment ID to enable MLflow backend export
+    experiment_id = "test-experiment-id"
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
 
     # Create span and trace
     otel_span = create_mock_otel_span(
@@ -403,10 +413,11 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
     assert captured_trace_id is None  # No linking occurred, so trace_id was never captured
 
 
-def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
-    """Test that prompt linking errors are handled gracefully with dual write enabled."""
-    # Enable dual write
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+def test_prompt_linking_error_handling_with_experiment_id(monkeypatch):
+    """Test that prompt linking errors are handled gracefully when exporting to MLflow backend."""
+    # Set experiment ID to enable MLflow backend export
+    experiment_id = "test-experiment-id"
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment_id)
 
     # Create span and trace
     otel_span = create_mock_otel_span(
@@ -482,7 +493,7 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
 
 
 def _register_span_and_trace(
-    span: LiveSpan, client_request_id: str, experiment_id: Optional[str] = None
+    span: LiveSpan, client_request_id: str, experiment_id: str | None = None
 ):
     trace_manager = InMemoryTraceManager.get_instance()
     if span.parent_id is None:

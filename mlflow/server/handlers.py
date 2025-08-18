@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import wraps
-from typing import Optional
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -19,8 +18,11 @@ from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     FileInfo,
     Metric,
     Param,
@@ -39,6 +41,7 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
@@ -88,18 +91,24 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    DeleteAssessment,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
+    DeleteTracesV3,
     DeleteTraceTag,
+    DeleteTraceTagV3,
     EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -108,6 +117,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
     LogBatch,
@@ -130,12 +140,23 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
+    SetTraceTagV3,
     StartTrace,
     StartTraceV3,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
+from mlflow.protos.webhooks_pb2 import (
+    CreateWebhook,
+    DeleteWebhook,
+    GetWebhook,
+    ListWebhooks,
+    TestWebhook,
+    UpdateWebhook,
+    WebhookService,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -159,6 +180,15 @@ from mlflow.utils.validation import (
     _validate_batch_log_api_req,
     invalid_value,
     missing_value,
+)
+from mlflow.webhooks.delivery import deliver_webhook, test_webhook
+from mlflow.webhooks.types import (
+    ModelVersionAliasCreatedPayload,
+    ModelVersionAliasDeletedPayload,
+    ModelVersionCreatedPayload,
+    ModelVersionTagDeletedPayload,
+    ModelVersionTagSetPayload,
+    RegisteredModelCreatedPayload,
 )
 
 _logger = logging.getLogger(__name__)
@@ -999,6 +1029,23 @@ def _set_experiment_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _delete_experiment_tag():
+    request_message = _get_request_message(
+        DeleteExperimentTag(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_experiment_tag(request_message.experiment_id, request_message.key)
+    response_message = DeleteExperimentTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _set_tag():
     request_message = _get_request_message(
         SetTag(),
@@ -1752,12 +1799,24 @@ def _create_registered_model():
             "description": [_assert_string],
         },
     )
-    registered_model = _get_model_registry_store().create_registered_model(
+    store = _get_model_registry_store()
+    registered_model = store.create_registered_model(
         name=request_message.name,
         tags=request_message.tags,
         description=request_message.description,
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
+
+    deliver_webhook(
+        event=WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+        payload=RegisteredModelCreatedPayload(
+            name=request_message.name,
+            tags={t.key: t.value for t in request_message.tags},
+            description=request_message.description,
+        ),
+        store=store,
+    )
+
     return _wrap_response(response_message)
 
 
@@ -2013,13 +2072,15 @@ def _create_model_version():
             )
 
     # If the model version is a prompt, we don't validate the source
-    if not _is_prompt_request(request_message):
+    is_prompt = _is_prompt_request(request_message)
+    if not is_prompt:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
             _validate_source_run(request_message.source, request_message.run_id)
 
-    model_version = _get_model_registry_store().create_model_version(
+    store = _get_model_registry_store()
+    model_version = store.create_model_version(
         name=request_message.name,
         source=request_message.source,
         run_id=request_message.run_id,
@@ -2028,7 +2089,7 @@ def _create_model_version():
         description=request_message.description,
         model_id=request_message.model_id,
     )
-    if not _is_prompt_request(request_message) and request_message.model_id:
+    if not is_prompt and request_message.model_id:
         tracking_store = _get_tracking_store()
         tracking_store.set_model_versions_tags(
             name=request_message.name,
@@ -2036,11 +2097,31 @@ def _create_model_version():
             model_id=request_message.model_id,
         )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
+
+    if not is_prompt:
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+            payload=ModelVersionCreatedPayload(
+                name=request_message.name,
+                version=str(model_version.version),
+                source=request_message.source,
+                run_id=request_message.run_id or None,
+                tags={t.key: t.value for t in request_message.tags},
+                description=request_message.description or None,
+            ),
+            store=store,
+        )
+
     return _wrap_response(response_message)
 
 
 def _is_prompt_request(request_message):
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+
+
+def _is_prompt(name: str) -> bool:
+    rm = _get_model_registry_store().get_registered_model(name=name)
+    return rm._is_prompt()
 
 
 @catch_mlflow_exception
@@ -2201,9 +2282,21 @@ def _set_model_version_tag():
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
-    _get_model_registry_store().set_model_version_tag(
-        name=request_message.name, version=request_message.version, tag=tag
-    )
+    store = _get_model_registry_store()
+    store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
+
+    if not _is_prompt(request_message.name):
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET),
+            payload=ModelVersionTagSetPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+                value=request_message.value,
+            ),
+            store=store,
+        )
+
     return _wrap_response(SetModelVersionTag.Response())
 
 
@@ -2218,11 +2311,24 @@ def _delete_model_version_tag():
             "key": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().delete_model_version_tag(
+    store = _get_model_registry_store()
+    store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
+
+    if not _is_prompt(request_message.name):
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED),
+            payload=ModelVersionTagDeletedPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+            ),
+            store=store,
+        )
+
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
@@ -2237,11 +2343,24 @@ def _set_registered_model_alias():
             "version": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().set_registered_model_alias(
+    store = _get_model_registry_store()
+    store.set_registered_model_alias(
         name=request_message.name,
         alias=request_message.alias,
         version=request_message.version,
     )
+
+    if not _is_prompt(request_message.name):
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED),
+            payload=ModelVersionAliasCreatedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+                version=request_message.version,
+            ),
+            store=store,
+        )
+
     return _wrap_response(SetRegisteredModelAlias.Response())
 
 
@@ -2255,9 +2374,19 @@ def _delete_registered_model_alias():
             "alias": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().delete_registered_model_alias(
-        name=request_message.name, alias=request_message.alias
-    )
+    store = _get_model_registry_store()
+    store.delete_registered_model_alias(name=request_message.name, alias=request_message.alias)
+
+    if not _is_prompt(request_message.name):
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED),
+            payload=ModelVersionAliasDeletedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+            ),
+            store=store,
+        )
+
     return _wrap_response(DeleteRegisteredModelAlias.Response())
 
 
@@ -2276,6 +2405,118 @@ def _get_model_version_by_alias():
     )
     response_proto = model_version.to_proto()
     response_message = GetModelVersionByAlias.Response(model_version=response_proto)
+    return _wrap_response(response_message)
+
+
+# Webhook APIs
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_webhook():
+    request_message = _get_request_message(
+        CreateWebhook(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "url": [_assert_string, _assert_required],
+            "events": [_assert_array, _assert_required],
+            "description": [_assert_string],
+            "secret": [_assert_string],
+            "status": [_assert_string],
+        },
+    )
+
+    webhook = _get_model_registry_store().create_webhook(
+        name=request_message.name,
+        url=request_message.url,
+        events=[WebhookEvent.from_proto(e) for e in request_message.events],
+        description=request_message.description or None,
+        secret=request_message.secret or None,
+        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+    )
+    response_message = CreateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_webhooks():
+    request_message = _get_request_message(
+        ListWebhooks(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    webhooks_page = _get_model_registry_store().list_webhooks(
+        max_results=request_message.max_results,
+        page_token=request_message.page_token,
+    )
+    response_message = ListWebhooks.Response(
+        webhooks=[w.to_proto() for w in webhooks_page],
+        next_page_token=webhooks_page.token,
+    )
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_webhook(webhook_id: str):
+    webhook = _get_model_registry_store().get_webhook(webhook_id=webhook_id)
+    response_message = GetWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_webhook(webhook_id: str):
+    request_message = _get_request_message(
+        UpdateWebhook(),
+        schema={
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "url": [_assert_string],
+            "events": [_assert_array],
+            "secret": [_assert_string],
+            "status": [_assert_string],
+        },
+    )
+    webhook = _get_model_registry_store().update_webhook(
+        webhook_id=webhook_id,
+        name=request_message.name or None,
+        description=request_message.description or None,
+        url=request_message.url or None,
+        events=(
+            [WebhookEvent.from_proto(e) for e in request_message.events]
+            if request_message.events
+            else None
+        ),
+        secret=request_message.secret or None,
+        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+    )
+    response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_webhook(webhook_id: str):
+    _get_model_registry_store().delete_webhook(webhook_id=webhook_id)
+    response_message = DeleteWebhook.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _test_webhook(webhook_id: str):
+    request_message = _get_request_message(TestWebhook())
+    event = (
+        WebhookEvent.from_proto(request_message.event)
+        if request_message.HasField("event")
+        else None
+    )
+    store = _get_model_registry_store()
+    webhook = store.get_webhook(webhook_id=webhook_id)
+    test_result = test_webhook(webhook=webhook, event=event)
+    response_message = TestWebhook.Response(result=test_result.to_proto())
     return _wrap_response(response_message)
 
 
@@ -2644,6 +2885,26 @@ def _delete_trace_tag(request_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _link_traces_to_run():
+    """
+    A request handler for `POST /mlflow/traces/link-to-run` to link traces to a run.
+    """
+    request_message = _get_request_message(
+        LinkTracesToRun(),
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "run_id": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().link_traces_to_run(
+        trace_ids=request_message.trace_ids,
+        run_id=request_message.run_id,
+    )
+    return _wrap_response(LinkTracesToRun.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def get_trace_artifact_handler():
     request_id = request.args.get("request_id")
 
@@ -2668,6 +2929,97 @@ def get_trace_artifact_handler():
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+# Assessments API handlers
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_assessment(trace_id):
+    """
+    A request handler for `POST /mlflow/traces/{assessment.trace_id}/assessments`
+    to create a new assessment.
+    """
+    request_message = _get_request_message(
+        CreateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+        },
+    )
+
+    assessment = Assessment.from_proto(request_message.assessment)
+    assessment.trace_id = trace_id
+    created_assessment = _get_tracking_store().create_assessment(assessment)
+
+    response_message = CreateAssessment.Response(assessment=created_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_assessment(trace_id, assessment_id):
+    """
+    A request handler for `GET /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to get an assessment.
+    """
+    assessment = _get_tracking_store().get_assessment(trace_id, assessment_id)
+
+    response_message = GetAssessmentRequest.Response(assessment=assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_assessment(trace_id, assessment_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to update an assessment.
+    """
+    request_message = _get_request_message(
+        UpdateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+            "update_mask": [_assert_required],
+        },
+    )
+
+    assessment_proto = request_message.assessment
+    update_mask = request_message.update_mask
+
+    kwargs = {}
+
+    for path in update_mask.paths:
+        if path == "assessment_name":
+            kwargs["name"] = assessment_proto.assessment_name
+        elif path == "expectation":
+            kwargs["expectation"] = Expectation.from_proto(assessment_proto)
+        elif path == "feedback":
+            kwargs["feedback"] = Feedback.from_proto(assessment_proto)
+        elif path == "rationale":
+            kwargs["rationale"] = assessment_proto.rationale
+        elif path == "metadata":
+            kwargs["metadata"] = dict(assessment_proto.metadata)
+        elif path == "valid":
+            kwargs["valid"] = assessment_proto.valid
+
+    updated_assessment = _get_tracking_store().update_assessment(
+        trace_id=trace_id, assessment_id=assessment_id, **kwargs
+    )
+
+    response_message = UpdateAssessment.Response(assessment=updated_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_assessment(trace_id, assessment_id):
+    """
+    A request handler for `DELETE /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to delete an assessment.
+    """
+    _get_tracking_store().delete_assessment(trace_id, assessment_id)
+
+    response_message = DeleteAssessment.Response()
+    return _wrap_response(response_message)
 
 
 # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
@@ -2992,7 +3344,7 @@ def _list_logged_model_artifacts(model_id: str):
 
 
 def _list_logged_model_artifacts_impl(
-    model_id: str, artifact_directory_path: Optional[str]
+    model_id: str, artifact_directory_path: str | None
 ) -> Response:
     response = ListLoggedModelArtifacts.Response()
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
@@ -3044,7 +3396,13 @@ def _convert_path_parameter_to_flask_format(path):
     not understand it. Instead, we need to specify it with a different format,
     like /mlflow/trace/<request_id>.
     """
-    return re.sub(r"{(\w+)}", r"<\1>", path)
+    # Handle simple parameters like {trace_id}
+    path = re.sub(r"{(\w+)}", r"<\1>", path)
+
+    # Handle Databricks-specific syntax like {assessment.trace_id} -> <trace_id>
+    # This is needed because Databricks can extract trace_id from request body,
+    # but Flask needs it in the URL path
+    return re.sub(r"{assessment\.trace_id}", r"<trace_id>", path)
 
 
 def get_handler(request_class):
@@ -3075,6 +3433,7 @@ def get_endpoints(get_handler=get_handler):
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
+        + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
     )
 
@@ -3094,6 +3453,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetExperimentTag: _set_experiment_tag,
+    DeleteExperimentTag: _delete_experiment_tag,
     SetTag: _set_tag,
     DeleteTag: _delete_tag,
     LogBatch: _log_batch,
@@ -3128,6 +3488,13 @@ HANDLERS = {
     SetRegisteredModelAlias: _set_registered_model_alias,
     DeleteRegisteredModelAlias: _delete_registered_model_alias,
     GetModelVersionByAlias: _get_model_version_by_alias,
+    # Webhook APIs
+    CreateWebhook: _create_webhook,
+    ListWebhooks: _list_webhooks,
+    GetWebhook: _get_webhook,
+    UpdateWebhook: _update_webhook,
+    DeleteWebhook: _delete_webhook,
+    TestWebhook: _test_webhook,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
@@ -3140,14 +3507,23 @@ HANDLERS = {
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
-    DeleteTraces: _delete_traces,
-    SetTraceTag: _set_trace_tag,
-    DeleteTraceTag: _delete_trace_tag,
+    DeleteTracesV3: _delete_traces,
+    SetTraceTagV3: _set_trace_tag,
+    DeleteTraceTagV3: _delete_trace_tag,
+    LinkTracesToRun: _link_traces_to_run,
+    # Assessment APIs
+    CreateAssessment: _create_assessment,
+    GetAssessmentRequest: _get_assessment,
+    UpdateAssessment: _update_assessment,
+    DeleteAssessment: _delete_assessment,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,
     GetTraceInfo: _deprecated_get_trace_info_v2,
     SearchTraces: _deprecated_search_traces_v2,
+    DeleteTraces: _delete_traces,
+    SetTraceTag: _set_trace_tag,
+    DeleteTraceTag: _delete_trace_tag,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,

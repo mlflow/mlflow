@@ -1,7 +1,7 @@
 import logging
 import os
 from subprocess import Popen
-from typing import Optional, Union
+from typing import Literal
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
@@ -68,19 +68,22 @@ SETUP_MINICONDA = """# Setup miniconda
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
+# Remove default channels to avoid `CondaToSNonInteractiveError`.
+# See https://github.com/mlflow/mlflow/pull/16752 for more details.
+RUN conda config --system --remove channels defaults && conda config --system --add channels conda-forge
 """  # noqa: E501
 
 
 def generate_dockerfile(
     output_dir: str,
     base_image: str,
-    model_install_steps: Optional[str],
+    model_install_steps: str | None,
     entrypoint: str,
-    env_manager: Union[em.CONDA, em.LOCAL, em.VIRTUALENV],
-    mlflow_home: Optional[str] = None,
+    env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
+    mlflow_home: str | None = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
-    install_java: Optional[bool] = None,
+    install_java: bool | None = None,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model

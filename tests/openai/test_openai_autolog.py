@@ -126,7 +126,7 @@ async def test_chat_completions_autolog(client):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
-
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -211,7 +211,23 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == input_params
-    assert span.outputs == "Hello world"  # aggregated string of streaming response
+
+    # Reconstructed response from streaming chunks
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["object"] == "chat.completion"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert span.outputs["system_fingerprint"] == "fp_44709d6fcb"
+    assert "choices" in span.outputs
+    assert span.outputs["choices"][0]["message"]["role"] == "assistant"
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
+
+    # Usage should be preserved when include_usage=True
+    if include_usage:
+        assert "usage" in span.outputs
+        assert span.outputs["usage"]["prompt_tokens"] == 9
+        assert span.outputs["usage"]["completion_tokens"] == 12
+        assert span.outputs["usage"]["total_tokens"] == 21
 
     stream_event_data = trace.data.spans[0].events
     assert stream_event_data[0].name == "mlflow.chunk.item.0"
@@ -362,7 +378,7 @@ async def test_completions_autolog(client):
     assert span.span_type == SpanType.LLM
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
@@ -515,9 +531,6 @@ async def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
-    )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
     assert trace.info.token_usage == {
@@ -554,10 +567,13 @@ async def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.outputs == "Hello world"
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": "Hello world"}]
-    )
+
+    # Reconstructed response from streaming chunks
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["object"] == "chat.completion"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 

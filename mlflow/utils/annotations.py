@@ -3,9 +3,7 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Callable, Optional, TypeVar
-
-from typing_extensions import ParamSpec
+from typing import Callable, ParamSpec, TypeVar, overload
 
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
@@ -32,9 +30,23 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+@overload
 def experimental(
-    f: Optional[Callable[P, R]] = None,
-    version: Optional[str] = None,
+    f: Callable[P, R],
+    version: str | None = None,
+) -> Callable[P, R]: ...
+
+
+@overload
+def experimental(
+    f: None = None,
+    version: str | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+
+def experimental(
+    f: Callable[P, R] | None = None,
+    version: str | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
@@ -123,9 +135,7 @@ def is_marked_deprecated(func):
     return getattr(func, _DEPRECATED_MARK_ATTR_NAME, False)
 
 
-def deprecated(
-    alternative: Optional[str] = None, since: Optional[str] = None, impact: Optional[str] = None
-):
+def deprecated(alternative: str | None = None, since: str | None = None, impact: str | None = None):
     """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
 

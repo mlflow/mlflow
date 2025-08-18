@@ -5,7 +5,6 @@ import sys
 import time
 import urllib
 from os.path import join
-from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -638,7 +637,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
@@ -660,6 +659,7 @@ class FileStore(AbstractStore):
             created in the backend.
 
         """
+        from mlflow.tracking.client import MlflowClient
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)
@@ -676,8 +676,6 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                from mlflow.tracking.client import MlflowClient
-
                 if parsed_model_uri.model_id is not None:
                     # TODO: Propagate tracking URI to file store directly, rather than relying on
                     # global URI (individual MlflowClient instances may have different tracking
@@ -694,6 +692,11 @@ class FileStore(AbstractStore):
                     f"Unable to fetch model from model URI source artifact location '{source}'."
                     f"Error: {e}"
                 ) from e
+
+        if not run_id and model_id:
+            model = MlflowClient().get_logged_model(model_id)
+            run_id = model.source_run_id
+
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
             try:
                 creation_time = get_current_time_millis()

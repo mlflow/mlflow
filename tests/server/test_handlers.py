@@ -115,6 +115,7 @@ def mock_tracking_store():
 def mock_model_registry_store():
     with mock.patch("mlflow.server.handlers._get_model_registry_store") as m:
         mock_store = mock.MagicMock()
+        mock_store.list_webhooks_by_event.return_value = PagedList([], None)
         m.return_value = mock_store
         yield mock_store
 

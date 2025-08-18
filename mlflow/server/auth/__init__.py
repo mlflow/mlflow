@@ -11,7 +11,7 @@ import functools
 import importlib
 import logging
 import re
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 import sqlalchemy
 from flask import (
@@ -66,6 +66,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -402,6 +403,7 @@ BEFORE_REQUEST_HANDLERS = {
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
     SetExperimentTag: validate_can_update_experiment,
+    DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
     CreateRun: validate_can_update_experiment,
     GetRun: validate_can_read_run,
@@ -504,8 +506,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[dict[str, Any]]
-) -> Optional[Callable[[], bool]]:
+    method: str, view_args: dict[str, Any] | None
+) -> Callable[[], bool] | None:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
 
@@ -516,14 +518,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Union[Authorization, Response]:
+def authenticate_request() -> Authorization | Response:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -535,7 +537,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Union[Authorization, Response]:
+def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     if request.authorization is None:
         return make_basic_auth_response()
@@ -549,7 +551,7 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
         return make_basic_auth_response()
 
 
-def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
+def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
     """

@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import styles from './card.module.css';
 import Link from '@docusaurus/Link';
 
-export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
       isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns,
+      noGap && styles.NoGap,
     )}
   >
     {children}
@@ -65,11 +66,19 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
 );
 
 export const SmallLogoCard = ({ children, link }) => (
-  <Card link={link}>
-    <div className={styles.SmallLogoCardContent}>
-      <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
-    </div>
-  </Card>
+  <div className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}>
+    {link ? (
+      <Link className={clsx(styles.Link)} to={link}>
+        <div className={styles.SmallLogoCardContent}>
+          <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
+        </div>
+      </Link>
+    ) : (
+      <div className={styles.SmallLogoCardContent}>
+        <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
+      </div>
+    )}
+  </div>
 );
 
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';

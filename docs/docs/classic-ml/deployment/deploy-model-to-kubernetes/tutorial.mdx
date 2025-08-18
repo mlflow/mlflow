@@ -15,7 +15,7 @@ This guide demonstrates how to use MLflow end-to-end for:
 - Training a linear regression model with [MLflow Tracking](/ml/tracking).
 - Conducting hyper-parameter tuning to find the best model.
 - Packaging the model weights and dependencies as an [MLflow Model](/ml/model).
-- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command.
+- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">mlflow models serve</APILink> command.
 - Deploying the model to a Kubernetes cluster using [KServe](https://kserve.github.io/website/) with MLflow.
 
 We will cover an end-to-end model development process including model training and testing within this tutorial.
@@ -394,7 +394,7 @@ run `kubectl get inferenceservice mlflow-wine-classifier -oyaml`.
 
 Once the deployment is ready, you can send a test request to the server.
 
-First, create a JSON file with test data and save it as `test-input.json`. Ensure the request data is formatted for the [V2 Inference Protocol](https://kserve.github.io/website/latest/modelserving/inference_api/#inference-request-json-object),
+First, create a JSON file with test data and save it as `test-input.json`. Ensure the request data is formatted for the [V2 Inference Protocol](https://kserve.github.io/website/latest/reference/swagger-ui/#modelinferrequestinferinputtensor),
 because we created the model with `protocolVersion: v2`. The request should look like this:
 
 ```json

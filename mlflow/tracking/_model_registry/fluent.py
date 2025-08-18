@@ -4,7 +4,9 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
+
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
@@ -34,7 +36,7 @@ from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -61,8 +63,8 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
-    env_pack: Optional[EnvPackType] = None,
+    tags: dict[str, Any] | None = None,
+    env_pack: EnvPackType | None = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -138,9 +140,9 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
+    tags: dict[str, Any] | None = None,
     local_model_path=None,
-    env_pack: Optional[EnvPackType] = None,
+    env_pack: EnvPackType | None = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -305,9 +307,9 @@ def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[Logged
 
 
 def search_registered_models(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
@@ -410,9 +412,9 @@ def search_registered_models(
 
 
 def search_model_versions(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
@@ -508,8 +510,8 @@ def search_model_versions(
 
 def set_model_version_tag(
     name: str,
-    version: Optional[str] = None,
-    key: Optional[str] = None,
+    version: str | None = None,
+    key: str | None = None,
     value: Any = None,
 ) -> None:
     """
@@ -532,15 +534,16 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
-    commit_message: Optional[str] = None,
-    tags: Optional[dict[str, str]] = None,
+    template: str | list[dict[str, Any]],
+    commit_message: str | None = None,
+    tags: dict[str, str] | None = None,
+    response_format: BaseModel | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
     A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
-    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    template content at minimum. With MLflow Prompt Registry, you can create, manage, and
     version control prompts with the MLflow's robust model tracking framework.
 
     If there is no registered prompt with the given name, a new prompt will be created.
@@ -549,9 +552,11 @@ def register_prompt(
 
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
+        template: The template content of the prompt. Can be either:
+            - A string containing text with variables enclosed in double curly braces,
+              e.g. {{variable}}, which will be replaced with actual values by the `format` method.
+            - A list of dictionaries representing chat messages, where each message has
+              'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
 
             .. note::
 
@@ -569,6 +574,8 @@ def register_prompt(
         tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -578,15 +585,27 @@ def register_prompt(
     .. code-block:: python
 
         import mlflow
+        from pydantic import BaseModel
 
-        # Register a new prompt
+        # Register a text prompt
         mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI.",
+            response_format={"type": "string", "description": "A friendly response"},
+        )
+
+        # Register a chat prompt with multiple messages
+        mlflow.register_prompt(
+            name="assistant_prompt",
+            template=[
+                {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                {"role": "user", "content": "{{question}}"},
+            ],
+            response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
         )
 
         # Load the prompt from the registry
-        prompt = mlflow.load_prompt("my_prompt")
+        prompt = mlflow.load_prompt("greeting_prompt")
 
         # Use the prompt in your application
         import openai
@@ -602,7 +621,7 @@ def register_prompt(
 
         # Update the prompt with a new version
         prompt = mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
             tags={"author": "Bob"},
@@ -619,13 +638,14 @@ def register_prompt(
         template=template,
         commit_message=commit_message,
         tags=tags,
+        response_format=response_format,
     )
 
 
 @require_prompt_registry
 def search_prompts(
-    filter_string: Optional[str] = None,
-    max_results: Optional[int] = None,
+    filter_string: str | None = None,
+    max_results: int | None = None,
 ) -> PagedList[Prompt]:
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
@@ -648,10 +668,10 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
     link_to_model: bool = True,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -720,10 +740,11 @@ def load_prompt(
     # Note that we do this synchronously because it's unlikely that run linking occurs
     # in a latency sensitive environment, since runs aren't typically used in real-time /
     # production scenarios
-    if run := active_run():
-        client.link_prompt_version_to_run(
-            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
-        )
+    # NB: We shouldn't use `active_run()` here because it only returns the active run
+    # from the current thread. It doesn't work in multi-threaded scenarios such as
+    # MLflow GenAI evaluation.
+    if run := _get_latest_active_run():
+        client.link_prompt_version_to_run(run.info.run_id, prompt)
 
     if link_to_model:
         model_id = model_id or get_active_model_id()
@@ -767,9 +788,9 @@ def load_prompt(
 @functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
 def _load_prompt_cached(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
-) -> Optional[PromptVersion]:
+) -> PromptVersion | None:
     """
     Internal cached function to load prompts from registry.
     """
@@ -778,9 +799,9 @@ def _load_prompt_cached(
 
 def _load_prompt_not_cached(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
-) -> Optional[PromptVersion]:
+) -> PromptVersion | None:
     """
     Load prompt from client, handling URI parsing.
     """

@@ -4,7 +4,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Any
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
@@ -38,9 +38,9 @@ class ChatState:
 
     # The root span object that scopes the entire single chat session. All spans
     # such as LLM, function calls, in the chat session should be children of this span.
-    session_span: Optional[Span] = None
+    session_span: Span | None = None
     # The last message object in the chat session.
-    last_message: Optional[Any] = None
+    last_message: Any | None = None
     # The timestamp (ns) of the last message in the chat session.
     last_message_timestamp: int = 0
     # LLM/Tool Spans created after the last message in the chat session.
@@ -126,6 +126,7 @@ class MlflowAg2Logger(BaseLogger):
                     name=original.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
+                    attributes={SpanAttributeKey.MESSAGE_FORMAT: "ag2"},
                 )
                 self._chat_state.session_span = span
                 try:
@@ -173,8 +174,8 @@ class MlflowAg2Logger(BaseLogger):
         name: str,
         span_type: str,
         inputs: dict[str, Any],
-        attributes: Optional[dict[str, Any]] = None,
-        start_time_ns: Optional[int] = None,
+        attributes: dict[str, Any] | None = None,
+        start_time_ns: int | None = None,
     ) -> Span:
         """
         Start a span in the current chat session.
@@ -182,6 +183,10 @@ class MlflowAg2Logger(BaseLogger):
         if self._chat_state.session_span is None:
             _logger.warning("Failed to start span. No active chat session.")
             return NoOpSpan()
+
+        # Add MESSAGE_FORMAT attribute for AG2 spans
+        attributes = attributes or {}
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "ag2"
 
         return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we
@@ -197,7 +202,7 @@ class MlflowAg2Logger(BaseLogger):
         )
 
     @_catch_exception
-    def log_event(self, source: Union[str, Agent], name: str, **kwargs: dict[str, Any]):
+    def log_event(self, source: str | Agent, name: str, **kwargs: dict[str, Any]):
         event_end_time = time.time_ns()
         if name == "received_message":
             if (self._chat_state.last_message is not None) and (
@@ -226,9 +231,9 @@ class MlflowAg2Logger(BaseLogger):
         invocation_id: uuid.UUID,
         client_id: int,
         wrapper_id: int,
-        source: Union[str, Agent],
-        request: dict[str, Union[float, str, list[dict[str, str]]]],
-        response: Union[str, ChatCompletion],
+        source: str | Agent,
+        request: dict[str, float | str | list[dict[str, str]]],
+        response: str | ChatCompletion,
         is_cached: int,
         cost: float,
         start_time: str,
@@ -257,7 +262,7 @@ class MlflowAg2Logger(BaseLogger):
         span.end(outputs=response, end_time_ns=time.time_ns())
         self._chat_state.pending_spans.append(span)
 
-    def _parse_usage(self, output: Any) -> Optional[dict[str, int]]:
+    def _parse_usage(self, output: Any) -> dict[str, int] | None:
         usage = getattr(output, "usage", None)
         if usage is None:
             return None
