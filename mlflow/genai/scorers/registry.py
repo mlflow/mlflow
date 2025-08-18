@@ -6,6 +6,7 @@ evaluate traces in MLflow experiments.
 """
 
 import json
+import warnings
 from abc import ABCMeta, abstractmethod
 
 from mlflow.exceptions import MlflowException
@@ -46,13 +47,11 @@ class AbstractScorerStore(metaclass=ABCMeta):
 
         Args:
             experiment_id: The experiment ID.
-            name: The scorer name.
             scorer: The scorer object.
 
         Returns:
             The registered scorer version. If versioning is not supported, return None.
         """
-        raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
     def list_scorers(self, experiment_id) -> list["Scorer"]:
@@ -65,7 +64,6 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Returns:
             List of mlflow.genai.scorers.Scorer objects (latest version for each scorer name).
         """
-        raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
@@ -83,7 +81,6 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Raises:
             MlflowException: If scorer is not found.
         """
-        raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
@@ -101,7 +98,6 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Raises:
             MlflowException: If scorer is not found.
         """
-        raise NotImplementedError(self.__class__.__name__)
 
     @abstractmethod
     def delete_scorer(self, experiment_id, name, version):
@@ -116,7 +112,6 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Raises:
             MlflowException: If scorer is not found.
         """
-        raise NotImplementedError(self.__class__.__name__)
 
 
 class ScorerStoreRegistry:
@@ -148,8 +143,6 @@ class ScorerStoreRegistry:
             try:
                 self.register(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
-                import warnings
-
                 warnings.warn(
                     'Failure attempting to register scorer store for scheme "{}": {}'.format(
                         entrypoint.name, str(exc)
@@ -187,7 +180,7 @@ class ScorerStoreRegistry:
         return builder(tracking_uri=resolved_store_uri)
 
 
-class MLflowTrackingStore(AbstractScorerStore):
+class MlflowTrackingStore(AbstractScorerStore):
     """
     MLflow tracking store that provides scorer functionality through the tracking store.
     This store delegates all scorer operations to the underlying tracking store.
@@ -408,9 +401,9 @@ def _register_scorer_stores():
     """Register the default scorer store implementations"""
     from mlflow.store.db.db_types import DATABASE_ENGINES
 
-    # Register for database schemes (these will use MLflowTrackingStore)
+    # Register for database schemes (these will use MlflowTrackingStore)
     for scheme in DATABASE_ENGINES + ["http", "https"]:
-        _scorer_store_registry.register(scheme, MLflowTrackingStore)
+        _scorer_store_registry.register(scheme, MlflowTrackingStore)
 
     # Register Databricks store
     _scorer_store_registry.register("databricks", DatabricksStore)
