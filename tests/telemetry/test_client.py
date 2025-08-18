@@ -20,7 +20,7 @@ from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
-from tests.telemetry.helper_functions import TelemetryClientContext, validate_telemetry_record
+from tests.telemetry.helper_functions import validate_telemetry_record
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
@@ -179,7 +179,7 @@ def test_telemetry_retry_on_error(error_code, terminate):
 
     with (
         mock.patch("requests.post", side_effect=tracker.mock_post),
-        TelemetryClientContext() as telemetry_client,
+        TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
         start_time = time.time()
@@ -222,7 +222,7 @@ def test_telemetry_retry_on_request_error(error_type, terminate):
 
     with (
         mock.patch("requests.post", side_effect=tracker.mock_post),
-        TelemetryClientContext() as telemetry_client,
+        TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
         start_time = time.time()
@@ -335,7 +335,7 @@ def test_partition_key(mock_telemetry_client: TelemetryClient, mock_requests):
 
 def test_max_workers_setup(monkeypatch):
     monkeypatch.setattr("mlflow.telemetry.client.MAX_WORKERS", 8)
-    with TelemetryClientContext() as telemetry_client:
+    with TelemetryClient() as telemetry_client:
         assert telemetry_client._max_workers == 8
         telemetry_client.activate()
         # Test that correct number of threads are created
@@ -472,7 +472,7 @@ def test_batch_time_interval(mock_requests, monkeypatch):
 
 def test_set_telemetry_client_non_blocking():
     start_time = time.time()
-    with TelemetryClientContext() as telemetry_client:
+    with TelemetryClient() as telemetry_client:
         assert time.time() - start_time < 1
         assert telemetry_client is not None
         time.sleep(1.1)
@@ -557,7 +557,7 @@ def test_client_get_config_not_none():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
             assert telemetry_client.config.disable_events == set()
@@ -574,7 +574,7 @@ def test_client_get_config_not_none():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
             assert telemetry_client.config.disable_events == set()
@@ -597,7 +597,7 @@ def test_client_get_config_not_none():
             mock.patch(
                 "mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW_TRACING
             ),
-            TelemetryClientContext() as telemetry_client,
+            TelemetryClient() as telemetry_client,
         ):
             telemetry_client._get_config()
             assert telemetry_client.config is None
@@ -606,7 +606,7 @@ def test_client_get_config_not_none():
             mock.patch(
                 "mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW_SKINNY
             ),
-            TelemetryClientContext() as telemetry_client,
+            TelemetryClient() as telemetry_client,
         ):
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
@@ -614,7 +614,7 @@ def test_client_get_config_not_none():
 
         with (
             mock.patch("mlflow.telemetry.client.get_source_sdk", return_value=SourceSDK.MLFLOW),
-            TelemetryClientContext() as telemetry_client,
+            TelemetryClient() as telemetry_client,
         ):
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
@@ -637,7 +637,7 @@ def test_get_config_disable_non_windows():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config is None
 
@@ -654,7 +654,7 @@ def test_get_config_disable_non_windows():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
             assert telemetry_client.config.disable_events == set()
@@ -676,7 +676,7 @@ def test_get_config_windows():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config is None
 
@@ -693,7 +693,7 @@ def test_get_config_windows():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             telemetry_client._get_config()
             assert telemetry_client.config.ingestion_url == "http://localhost:9999"
             assert telemetry_client.config.disable_events == set()
@@ -711,7 +711,7 @@ def test_client_set_to_none_if_config_none():
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             assert telemetry_client is not None
             telemetry_client._config_thread.join(timeout=3)
             assert not telemetry_client._config_thread.is_alive()
@@ -740,7 +740,7 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
                 }
             ),
         )
-        with TelemetryClientContext() as telemetry_client:
+        with TelemetryClient() as telemetry_client:
             # wait for config to be fetched
             telemetry_client._config_thread.join(timeout=3)
             telemetry_client.add_record(record)
@@ -763,7 +763,7 @@ def test_config_fetch_no_retry(mock_requests, error_code):
 
     with (
         mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get),
-        TelemetryClientContext() as telemetry_client,
+        TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
         telemetry_client.flush()
@@ -792,7 +792,7 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
 
     with (
         _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
-        TelemetryClientContext() as telemetry_client,
+        TelemetryClient() as telemetry_client,
     ):
         telemetry_client.add_record(record)
         telemetry_client.flush(terminate=terminate)
@@ -817,7 +817,7 @@ def test_disable_events(mock_requests):
             ),
         )
         with (
-            TelemetryClientContext() as telemetry_client,
+            TelemetryClient() as telemetry_client,
             mock.patch(
                 "mlflow.telemetry.track.get_telemetry_client", return_value=telemetry_client
             ),

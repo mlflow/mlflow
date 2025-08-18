@@ -46,6 +46,12 @@ class TelemetryClient:
         self.config = None
         self._fetch_config()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._clean_up()
+
     def _fetch_config(self):
         def _fetch():
             try:
