@@ -11,7 +11,7 @@ import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Evaluating Agents
 
-AI Agents are emerging pattern of GenAI applications that can use tools, make decisions, and execute multi-step workflows. However, evaluating the performance of those complex agents is challenging. MLflow provides a powerful toolkit to systematically evaluate the agent behavior precisely using traces and scorers.
+AI Agents are an emerging pattern of GenAI applications that can use tools, make decisions, and execute multi-step workflows. However, evaluating the performance of those complex agents is challenging. MLflow provides a powerful toolkit to systematically evaluate the agent behavior precisely using traces and scorers.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/agent-evaluation-hero.png" alt="Agent Evaluation" width="95%"/>
 
@@ -62,7 +62,6 @@ Create a math agent that can use tools to answer questions. We use [OpenAI Agent
 
 ```python
 from agents import Agent, Runner, function_tool
-from agents.agent import StopAtTools
 
 
 @function_tool
@@ -104,7 +103,7 @@ print(result.final_output)
 ```
 
 Lastly, let's wrap it in a function that MLflow can call. Note that MLflow runs each prediction in a threadpool,
-so using synchronous function does not slow down the evaluation.
+so using a synchronous function does not slow down the evaluation.
 
 ```python
 from openai import OpenAI
@@ -214,7 +213,7 @@ export MLFLOW_GENAI_EVAL_MAX_WORKERS=10
 
 ## Evaluating MLflow Models
 
-In MLflow 2.x, you can pass the model URI directly to the `model` argument of the legacy <APILink fn="mlflow.evaluate" /> API. The new GenAI evaluation API still support evaluating MLflow Models, but the workflow is slightly different.
+In MLflow 2.x, you can pass the model URI directly to the `model` argument of the legacy <APILink fn="mlflow.evaluate" /> API (deprecated). The new GenAI evaluation API in MLflow **3.x** still support evaluating MLflow Models, but the workflow is slightly different.
 
 ```python
 import mlflow

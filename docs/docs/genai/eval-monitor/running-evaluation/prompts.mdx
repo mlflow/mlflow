@@ -69,7 +69,7 @@ Let's define a simple prompt template to evaluate. We use [MLflow Prompt Registr
 ```python
 import mlflow
 
-# Define prompt templates. MLflow support both text and chat format prompt templates.
+# Define prompt templates. MLflow supports both text and chat format prompt templates.
 PROMPT_V1 = [
     {
         "role": "system",
@@ -139,7 +139,7 @@ def predict_fn(question: str) -> str:
 
 ### Step 4: Define task-specific scorers
 
-Finally, let's define a few [scorers](/genai/eval-monitor/scorers) that decides the evaluation criteria. Here we use two types of scorers:
+Finally, let's define a few [scorers](/genai/eval-monitor/scorers) that decide the evaluation criteria. Here we use two types of scorers:
 
 - Built-in LLM scorers for evaluating the qualitative aspects of the response.
 - Custom heuristic scorer for evaluating the coverage of the key concepts.
@@ -173,7 +173,7 @@ def concept_coverage(outputs: str, expectations: dict) -> Feedback:
 
 :::tip
 
-LLM scorers uses OpenAI's GPT 4.1-mini by default. You can use different models by passing the `model` parameter to the scorer constructor.
+LLM scorers use OpenAI's GPT 4.1-mini by default. You can use different models by passing the `model` parameter to the scorer constructor.
 
 :::
 
@@ -199,7 +199,7 @@ By clicking on the each row in the result, you can open the trace and see the de
 
 ## Iterating on Prompts
 
-The prompt evaluation is a iterative process. You can register a new prompt version, run the same eval again, and compare the evaluation results. The prompt registry keep track of the version changes and lineage between the prompt versions and evaluation results.
+The prompt evaluation is an iterative process. You can register a new prompt version, run the same eval again, and compare the evaluation results. The prompt registry keep track of the version changes and lineage between the prompt versions and evaluation results.
 
 ```python
 # Define V2 prompt template
