@@ -16,6 +16,7 @@ from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
@@ -147,6 +148,7 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     assert len(run.inputs.dataset_inputs) == 1
     assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
+    assert run.data.tags[MLFLOW_RUN_IS_EVALUATION] == "true"
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
