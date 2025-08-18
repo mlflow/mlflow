@@ -5,6 +5,8 @@ import warnings
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
+import pandas as pd
+
 import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -352,6 +354,11 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
+
+    if isinstance(data, pd.DataFrame):
+        from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
+
+        data = convert_data_to_mlflow_dataset(data=data, name="evaluation_dataset")
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
