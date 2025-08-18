@@ -2152,6 +2152,7 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         assert actual_filter_string == expected_filter_string
 
 
+@skip_when_testing_trace_sdk
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:
@@ -2223,6 +2224,7 @@ def test_set_destination_in_threads(async_logging_enabled):
 
 
 @pytest.mark.asyncio
+@skip_when_testing_trace_sdk
 async def test_set_destination_in_async_contexts(async_logging_enabled):
     class TestModel:
         async def predict(self, x):
