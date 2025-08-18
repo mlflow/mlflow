@@ -61,8 +61,6 @@ jobs:
         run: |
           pre-commit install --install-hooks
       - uses: actions/checkout@v4
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - name: Run pre-commit
         id: pre-commit
         env:
@@ -78,3 +76,6 @@ jobs:
 
       - run: |
           python dev/check_function_signatures.py
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
