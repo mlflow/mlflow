@@ -60,7 +60,6 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install --install-hooks
-      - uses: actions/checkout@v4
       - name: Run pre-commit
         id: pre-commit
         env:
