@@ -7153,3 +7153,192 @@ def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
         store.link_traces_to_run(trace_ids, run.info.run_id)
+
+
+def test_scorer_operations(store: SqlAlchemyStore):
+    """
+    Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.
+
+    This test covers:
+    1. Registering multiple scorers with different names
+    2. Registering multiple versions of the same scorer
+    3. Listing scorers (should return latest version for each name)
+    4. Getting specific scorer versions
+    5. Getting latest scorer version when version is not specified
+    6. Deleting scorers and verifying they are deleted
+    """
+    # Create an experiment for testing
+    experiment_id = store.create_experiment("test_scorer_experiment")
+
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+
+    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer1")
+    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer2")
+
+    store.register_scorer(experiment_id, "relevance_scorer", "relevance_scorer_scorer1")
+
+    # Step 2: Test list_scorers - should return latest version for each scorer name
+    scorers = store.list_scorers(experiment_id)
+
+    # Should return 3 scorers (one for each unique name)
+    assert len(scorers) == 3, f"Expected 3 scorers, got {len(scorers)}"
+
+    scorer_names = [scorer.scorer_name for scorer in scorers]
+    # Verify the order is sorted by scorer_name
+    assert scorer_names == ["accuracy_scorer", "relevance_scorer", "safety_scorer"], (
+        f"Expected sorted order, got {scorer_names}"
+    )
+
+    # Verify versions are the latest and check serialized_scorer content
+    for scorer in scorers:
+        if scorer.scorer_name == "accuracy_scorer":
+            assert scorer.scorer_version == 3, (
+                f"Expected version 3 for accuracy_scorer, got {scorer.scorer_version}"
+            )
+            assert scorer._serialized_scorer == "serialized_accuracy_scorer3"
+        elif scorer.scorer_name == "safety_scorer":
+            assert scorer.scorer_version == 2, (
+                f"Expected version 2 for safety_scorer, got {scorer.scorer_version}"
+            )
+            assert scorer._serialized_scorer == "serialized_safety_scorer2"
+        elif scorer.scorer_name == "relevance_scorer":
+            assert scorer.scorer_version == 1, (
+                f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
+            )
+            assert scorer._serialized_scorer == "relevance_scorer_scorer1"
+
+    # Test list_scorer_versions
+    accuracy_scorer_versions = store.list_scorer_versions(experiment_id, "accuracy_scorer")
+    assert len(accuracy_scorer_versions) == 3, (
+        f"Expected 3 versions, got {len(accuracy_scorer_versions)}"
+    )
+
+    # Verify versions are ordered by version number
+    assert accuracy_scorer_versions[0].scorer_version == 1
+    assert accuracy_scorer_versions[0]._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_scorer_versions[1].scorer_version == 2
+    assert accuracy_scorer_versions[1]._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_scorer_versions[2].scorer_version == 3
+    assert accuracy_scorer_versions[2]._serialized_scorer == "serialized_accuracy_scorer3"
+
+    # Step 3: Test get_scorer with specific versions
+    # Get accuracy_scorer version 1
+    accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
+    assert accuracy_v1._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_v1.scorer_version == 1
+
+    # Get accuracy_scorer version 2
+    accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
+    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2.scorer_version == 2
+
+    # Get accuracy_scorer version 3 (latest)
+    accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
+    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3.scorer_version == 3
+
+    # Step 4: Test get_scorer without version (should return latest)
+    accuracy_latest = store.get_scorer(experiment_id, "accuracy_scorer")
+    assert accuracy_latest._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest.scorer_version == 3
+
+    safety_latest = store.get_scorer(experiment_id, "safety_scorer")
+    assert safety_latest._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest.scorer_version == 2
+
+    relevance_latest = store.get_scorer(experiment_id, "relevance_scorer")
+    assert relevance_latest._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest.scorer_version == 1
+
+    # Step 5: Test error cases for get_scorer
+    # Try to get non-existent scorer
+    with pytest.raises(MlflowException, match="Scorer with name 'non_existent' not found"):
+        store.get_scorer(experiment_id, "non_existent")
+
+    # Try to get non-existent version
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'accuracy_scorer' and version 999 not found"
+    ):
+        store.get_scorer(experiment_id, "accuracy_scorer", version=999)
+
+    # Step 6: Test delete_scorer - delete specific version of accuracy_scorer
+    # Delete version 1 of accuracy_scorer
+    store.delete_scorer(experiment_id, "accuracy_scorer", version=1)
+
+    # Verify version 1 is deleted but other versions still exist
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'accuracy_scorer' and version 1 not found"
+    ):
+        store.get_scorer(experiment_id, "accuracy_scorer", version=1)
+
+    # Verify versions 2 and 3 still exist
+    accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
+    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2.scorer_version == 2
+
+    accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
+    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3.scorer_version == 3
+
+    # Verify latest version still works
+    accuracy_latest_after_partial_delete = store.get_scorer(experiment_id, "accuracy_scorer")
+    assert accuracy_latest_after_partial_delete._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest_after_partial_delete.scorer_version == 3
+
+    # Step 7: Test delete_scorer - delete all versions of accuracy_scorer
+    store.delete_scorer(experiment_id, "accuracy_scorer")
+
+    # Verify accuracy_scorer is completely deleted
+    with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' not found"):
+        store.get_scorer(experiment_id, "accuracy_scorer")
+
+    # Verify other scorers still exist
+    safety_latest_after_delete = store.get_scorer(experiment_id, "safety_scorer")
+    assert safety_latest_after_delete._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest_after_delete.scorer_version == 2
+
+    relevance_latest_after_delete = store.get_scorer(experiment_id, "relevance_scorer")
+    assert relevance_latest_after_delete._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest_after_delete.scorer_version == 1
+
+    # Step 8: Test list_scorers after deletion
+    scorers_after_delete = store.list_scorers(experiment_id)
+    assert len(scorers_after_delete) == 2, (
+        f"Expected 2 scorers after deletion, got {len(scorers_after_delete)}"
+    )
+
+    scorer_names_after_delete = [scorer.scorer_name for scorer in scorers_after_delete]
+    assert "accuracy_scorer" not in scorer_names_after_delete
+    assert "safety_scorer" in scorer_names_after_delete
+    assert "relevance_scorer" in scorer_names_after_delete
+
+    # Step 9: Test delete_scorer for non-existent scorer
+    with pytest.raises(MlflowException, match="Scorer with name 'non_existent' not found"):
+        store.delete_scorer(experiment_id, "non_existent")
+
+    # Step 10: Test delete_scorer for non-existent version
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'safety_scorer' and version 999 not found"
+    ):
+        store.delete_scorer(experiment_id, "safety_scorer", version=999)
+
+    # Step 11: Test delete_scorer for remaining scorers
+    store.delete_scorer(experiment_id, "safety_scorer")
+    store.delete_scorer(experiment_id, "relevance_scorer")
+
+    # Verify all scorers are deleted
+    final_scorers = store.list_scorers(experiment_id)
+    assert len(final_scorers) == 0, (
+        f"Expected 0 scorers after all deletions, got {len(final_scorers)}"
+    )
+
+    # Step 12: Test list_scorer_versions
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
+    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+
+    # Test list_scorer_versions for non-existent scorer
+    with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
+        store.list_scorer_versions(experiment_id, "non_existent_scorer")
