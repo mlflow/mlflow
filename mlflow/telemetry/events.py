@@ -78,6 +78,60 @@ class CreateModelVersionEvent(Event):
         return {"is_prompt": _is_prompt(tags)}
 
 
+class CreateDatasetEvent(Event):
+    name: str = "create_dataset"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            from mlflow.tracking import get_tracking_uri
+            from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+
+            if is_databricks_default_tracking_uri(get_tracking_uri()):
+                return None
+            return {}
+        except Exception:
+            return None
+
+
+class MergeRecordsEvent(Event):
+    name: str = "merge_records"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            from mlflow.tracking import get_tracking_uri
+            from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+
+            if is_databricks_default_tracking_uri(get_tracking_uri()):
+                return None
+                
+            records = arguments.get("records")
+            if records is None:
+                return None
+                
+            # Simple type detection - just check the type name
+            input_type = type(records).__name__.lower()
+            if "dataframe" in input_type:
+                input_type = "pandas"
+            elif not isinstance(records, list):
+                input_type = "other"
+            else:
+                input_type = "list"
+            
+            # Simple count - just try len() once
+            try:
+                count = len(records)
+                if count > 0:
+                    return {"record_count": count, "input_type": input_type}
+            except:
+                pass
+                
+            return None
+        except Exception:
+            return None
+
+
 def _is_prompt(tags: dict[str, str]) -> bool:
     try:
         from mlflow.prompt.constants import IS_PROMPT_TAG_KEY

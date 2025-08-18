@@ -211,6 +211,23 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
         """
+        # Log telemetry event - MUST NEVER raise exceptions
+        try:
+            from mlflow.telemetry import record_usage_event
+            from mlflow.telemetry.events import MergeRecordsEvent
+            
+            # Wrap the decorator call in another try/except for extra safety
+            try:
+                decorated_fn = record_usage_event(MergeRecordsEvent)(lambda self, records: None)
+                decorated_fn(self, records)
+            except Exception:
+                # Inner exception handler - even if decorator fails
+                pass
+        except Exception:
+            # Outer exception handler - even if imports fail
+            # Telemetry must be completely transparent to users
+            pass
+
         import pandas as pd
 
         from mlflow.entities.trace import Trace
