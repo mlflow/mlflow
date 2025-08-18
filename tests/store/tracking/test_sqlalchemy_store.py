@@ -7187,24 +7187,33 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     scorer_names = [scorer.scorer_name for scorer in scorers]
     # Verify the order is sorted by scorer_name
-    assert scorer_names == ["accuracy_scorer", "relevance_scorer",
-                            "safety_scorer"], f"Expected sorted order, got {scorer_names}"
+    assert scorer_names == ["accuracy_scorer", "relevance_scorer", "safety_scorer"], (
+        f"Expected sorted order, got {scorer_names}"
+    )
 
     # Verify versions are the latest and check serialized_scorer content
     for scorer in scorers:
         if scorer.scorer_name == "accuracy_scorer":
-            assert scorer.scorer_version == 3, f"Expected version 3 for accuracy_scorer, got {scorer.scorer_version}"
+            assert scorer.scorer_version == 3, (
+                f"Expected version 3 for accuracy_scorer, got {scorer.scorer_version}"
+            )
             assert scorer._serialized_scorer == "serialized_accuracy_scorer3"
         elif scorer.scorer_name == "safety_scorer":
-            assert scorer.scorer_version == 2, f"Expected version 2 for safety_scorer, got {scorer.scorer_version}"
+            assert scorer.scorer_version == 2, (
+                f"Expected version 2 for safety_scorer, got {scorer.scorer_version}"
+            )
             assert scorer._serialized_scorer == "serialized_safety_scorer2"
         elif scorer.scorer_name == "relevance_scorer":
-            assert scorer.scorer_version == 1, f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
+            assert scorer.scorer_version == 1, (
+                f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
+            )
             assert scorer._serialized_scorer == "relevance_scorer_scorer1"
 
     # Test list_scorer_versions
     accuracy_scorer_versions = store.list_scorer_versions(experiment_id, "accuracy_scorer")
-    assert len(accuracy_scorer_versions) == 3, f"Expected 3 versions, got {len(accuracy_scorer_versions)}"
+    assert len(accuracy_scorer_versions) == 3, (
+        f"Expected 3 versions, got {len(accuracy_scorer_versions)}"
+    )
 
     # Verify versions are ordered by version number
     assert accuracy_scorer_versions[0].scorer_version == 1
@@ -7249,7 +7258,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.get_scorer(experiment_id, "non_existent")
 
     # Try to get non-existent version
-    with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' and version 999 not found"):
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'accuracy_scorer' and version 999 not found"
+    ):
         store.get_scorer(experiment_id, "accuracy_scorer", version=999)
 
     # Step 6: Test delete_scorer - delete specific version of accuracy_scorer
@@ -7257,7 +7268,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
     store.delete_scorer(experiment_id, "accuracy_scorer", version=1)
 
     # Verify version 1 is deleted but other versions still exist
-    with pytest.raises(MlflowException, match="Scorer with name 'accuracy_scorer' and version 1 not found"):
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'accuracy_scorer' and version 1 not found"
+    ):
         store.get_scorer(experiment_id, "accuracy_scorer", version=1)
 
     # Verify versions 2 and 3 still exist
@@ -7292,7 +7305,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Step 8: Test list_scorers after deletion
     scorers_after_delete = store.list_scorers(experiment_id)
-    assert len(scorers_after_delete) == 2, f"Expected 2 scorers after deletion, got {len(scorers_after_delete)}"
+    assert len(scorers_after_delete) == 2, (
+        f"Expected 2 scorers after deletion, got {len(scorers_after_delete)}"
+    )
 
     scorer_names_after_delete = [scorer.scorer_name for scorer in scorers_after_delete]
     assert "accuracy_scorer" not in scorer_names_after_delete
@@ -7304,7 +7319,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.delete_scorer(experiment_id, "non_existent")
 
     # Step 10: Test delete_scorer for non-existent version
-    with pytest.raises(MlflowException, match="Scorer with name 'safety_scorer' and version 999 not found"):
+    with pytest.raises(
+        MlflowException, match="Scorer with name 'safety_scorer' and version 999 not found"
+    ):
         store.delete_scorer(experiment_id, "safety_scorer", version=999)
 
     # Step 11: Test delete_scorer for remaining scorers
@@ -7313,7 +7330,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify all scorers are deleted
     final_scorers = store.list_scorers(experiment_id)
-    assert len(final_scorers) == 0, f"Expected 0 scorers after all deletions, got {len(final_scorers)}"
+    assert len(final_scorers) == 0, (
+        f"Expected 0 scorers after all deletions, got {len(final_scorers)}"
+    )
 
     # Step 12: Test list_scorer_versions
     # Test list_scorer_versions with accuracy_scorer (which was deleted earlier, so we need to re-register it)

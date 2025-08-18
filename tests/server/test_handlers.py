@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType, ScorerVersion
+from mlflow.entities import ScorerVersion, TraceInfo, TraceLocation, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -40,12 +40,12 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
-    SearchRuns,
-    RegisterScorer,
+    DeleteScorer,
+    GetScorer,
     ListScorers,
     ListScorerVersions,
-    GetScorer,
-    DeleteScorer,
+    RegisterScorer,
+    SearchRuns,
 )
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
@@ -64,14 +64,19 @@ from mlflow.server.handlers import (
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
+    _delete_scorer,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
     _get_registered_model,
     _get_request_message,
+    _get_scorer,
     _get_trace_artifact_repo,
+    _list_scorer_versions,
+    _list_scorers,
     _log_batch,
+    _register_scorer,
     _rename_registered_model,
     _search_model_versions,
     _search_registered_models,
@@ -85,11 +90,6 @@ from mlflow.server.handlers import (
     _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
-    _register_scorer,
-    _list_scorers,
-    _list_scorer_versions,
-    _get_scorer,
-    _delete_scorer,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -965,22 +965,20 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
     name = "accuracy_scorer"
     serialized_scorer = "serialized_scorer_data"
-    
+
     mock_get_request_message.return_value = RegisterScorer(
-        experiment_id=experiment_id,
-        name=name,
-        serialized_scorer=serialized_scorer
+        experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
     )
-    
+
     mock_tracking_store.register_scorer.return_value = 1
-    
+
     resp = _register_scorer()
-    
+
     # Verify the tracking store was called with correct arguments
     mock_tracking_store.register_scorer.assert_called_once_with(
         experiment_id, name, serialized_scorer
     )
-    
+
     # Verify the response
     response_data = json.loads(resp.get_data())
     assert response_data == {"version": 1}
@@ -989,32 +987,32 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
     """Test list_scorers handler."""
     experiment_id = "123"
-    
+
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
-    
+
     # Create mock scorers
     scorers = [
         ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=1,
-            serialized_scorer="serialized_accuracy_scorer"
+            serialized_scorer="serialized_accuracy_scorer",
         ),
         ScorerVersion(
             experiment_id=123,
             scorer_name="safety_scorer",
             scorer_version=2,
-            serialized_scorer="serialized_safety_scorer"
-        )
+            serialized_scorer="serialized_safety_scorer",
+        ),
     ]
-    
+
     mock_tracking_store.list_scorers.return_value = scorers
-    
+
     resp = _list_scorers()
-    
+
     # Verify the tracking store was called with correct arguments
     mock_tracking_store.list_scorers.assert_called_once_with(experiment_id)
-    
+
     # Verify the response
     response_data = json.loads(resp.get_data())
     assert len(response_data["scorers"]) == 2
@@ -1030,35 +1028,34 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
     """Test list_scorer_versions handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
-    
+
     mock_get_request_message.return_value = ListScorerVersions(
-        experiment_id=experiment_id,
-        name=name
+        experiment_id=experiment_id, name=name
     )
-    
+
     # Create mock scorers with multiple versions
     scorers = [
         ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=1,
-            serialized_scorer="serialized_accuracy_scorer_v1"
+            serialized_scorer="serialized_accuracy_scorer_v1",
         ),
         ScorerVersion(
             experiment_id=123,
             scorer_name="accuracy_scorer",
             scorer_version=2,
-            serialized_scorer="serialized_accuracy_scorer_v2"
-        )
+            serialized_scorer="serialized_accuracy_scorer_v2",
+        ),
     ]
-    
+
     mock_tracking_store.list_scorer_versions.return_value = scorers
-    
+
     resp = _list_scorer_versions()
-    
+
     # Verify the tracking store was called with correct arguments
     mock_tracking_store.list_scorer_versions.assert_called_once_with(experiment_id, name)
-    
+
     # Verify the response
     response_data = json.loads(resp.get_data())
     assert len(response_data["scorers"]) == 2
@@ -1073,28 +1070,26 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
-    
+
     mock_get_request_message.return_value = GetScorer(
-        experiment_id=experiment_id,
-        name=name,
-        version=version
+        experiment_id=experiment_id, name=name, version=version
     )
-    
+
     # Mock the return value as a ScorerVersion entity
     mock_scorer_version = ScorerVersion(
         experiment_id=123,
         scorer_name="accuracy_scorer",
         scorer_version=2,
         serialized_scorer="serialized_accuracy_scorer_v2",
-        creation_time=1640995200000
+        creation_time=1640995200000,
     )
     mock_tracking_store.get_scorer.return_value = mock_scorer_version
-    
+
     resp = _get_scorer()
-    
+
     # Verify the tracking store was called with correct arguments (positional)
     mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version)
-    
+
     # Verify the response
     response_data = json.loads(resp.get_data())
     assert response_data["scorer"]["experiment_id"] == 123
@@ -1108,27 +1103,24 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
     """Test get_scorer handler without version (should return latest)."""
     experiment_id = "123"
     name = "accuracy_scorer"
-    
-    mock_get_request_message.return_value = GetScorer(
-        experiment_id=experiment_id,
-        name=name
-    )
-    
+
+    mock_get_request_message.return_value = GetScorer(experiment_id=experiment_id, name=name)
+
     # Mock the return value as a ScorerVersion entity
     mock_scorer_version = ScorerVersion(
         experiment_id=123,
         scorer_name="accuracy_scorer",
         scorer_version=3,
         serialized_scorer="serialized_accuracy_scorer_latest",
-        creation_time=1640995200000
+        creation_time=1640995200000,
     )
     mock_tracking_store.get_scorer.return_value = mock_scorer_version
-    
+
     resp = _get_scorer()
-    
+
     # Verify the tracking store was called with correct arguments (positional, version=None)
     mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, None)
-    
+
     # Verify the response
     response_data = json.loads(resp.get_data())
     assert response_data["scorer"]["experiment_id"] == 123
@@ -1143,18 +1135,16 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
-    
+
     mock_get_request_message.return_value = DeleteScorer(
-        experiment_id=experiment_id,
-        name=name,
-        version=version
+        experiment_id=experiment_id, name=name, version=version
     )
-    
+
     resp = _delete_scorer()
-    
+
     # Verify the tracking store was called with correct arguments (positional)
     mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version)
-    
+
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
@@ -1164,17 +1154,14 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     """Test delete_scorer handler without version (should delete all versions)."""
     experiment_id = "123"
     name = "accuracy_scorer"
-    
-    mock_get_request_message.return_value = DeleteScorer(
-        experiment_id=experiment_id,
-        name=name
-    )
-    
+
+    mock_get_request_message.return_value = DeleteScorer(experiment_id=experiment_id, name=name)
+
     resp = _delete_scorer()
-    
+
     # Verify the tracking store was called with correct arguments (positional, version=None)
     mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, None)
-    
+
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}

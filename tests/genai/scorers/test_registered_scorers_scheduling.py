@@ -102,7 +102,9 @@ def test_scorer_start_not_registered(_):
     my_scorer = length_check
 
     # Should work fine - start doesn't require pre-registration
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer") as mock_update:
+    with patch(
+        "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
+    ) as mock_update:
         mock_update.return_value = my_scorer._create_copy()
         my_scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
         assert mock_update.called
@@ -287,7 +289,9 @@ def test_all_methods_are_immutable(_):
         assert registered is not original
         assert original.name == "original_name"  # Unchanged
 
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer") as mock_update:
+    with patch(
+        "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
+    ) as mock_update:
         # Mock return values
         mock_update.return_value = original._create_copy()
         mock_update.return_value._sampling_config = ScorerSamplingConfig(sample_rate=0.9)

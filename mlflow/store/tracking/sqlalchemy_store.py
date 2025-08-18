@@ -1953,12 +1953,12 @@ class SqlAlchemyStore(AbstractStore):
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """
         Register a scorer for an experiment.
-        
+
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
             serialized_scorer: The serialized scorer string (JSON).
-            
+
         Returns:
             The new version number for the scorer.
         """
@@ -1966,13 +1966,17 @@ class SqlAlchemyStore(AbstractStore):
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            
+
             # First, check if the scorer exists in the scorers table
-            scorer = session.query(SqlScorer).filter(
-                SqlScorer.experiment_id == experiment_id,
-                SqlScorer.scorer_name == name,
-            ).first()
-            
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
             if scorer is None:
                 # Create the scorer record with a new UUID
                 scorer_id = str(uuid.uuid4())
@@ -1983,36 +1987,36 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 session.add(scorer)
                 session.flush()  # Flush to get the scorer record
-            
+
             # Find the maximum version for this scorer
             max_version = (
                 session.query(func.max(SqlScorerVersion.scorer_version))
                 .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
                 .scalar()
             )
-            
+
             # Set new version (1 if no existing scorer, otherwise max + 1)
             new_version = 1 if max_version is None else max_version + 1
-            
+
             # Create and save the new scorer version record
             sql_scorer_version = SqlScorerVersion(
                 scorer_id=scorer.scorer_id,
                 scorer_version=new_version,
                 serialized_scorer=serialized_scorer,
             )
-            
+
             session.add(sql_scorer_version)
             session.commit()
-            
+
             return new_version
 
     def list_scorers(self, experiment_id):
         """
         List all scorers for an experiment.
-        
+
         Args:
             experiment_id: The experiment ID.
-            
+
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects (latest version for each scorer name).
         """
@@ -2020,63 +2024,63 @@ class SqlAlchemyStore(AbstractStore):
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            
+
             # First, get all scorer_ids for this experiment
             scorer_ids = [
-                scorer.scorer_id 
+                scorer.scorer_id
                 for scorer in session.query(SqlScorer.scorer_id)
                 .filter(SqlScorer.experiment_id == experiment.experiment_id)
                 .all()
             ]
-            
+
             if not scorer_ids:
                 return []
-            
+
             # Query the latest version for each scorer_id
             from sqlalchemy import func
-            
+
             latest_versions = (
                 session.query(
                     SqlScorerVersion.scorer_id,
-                    func.max(SqlScorerVersion.scorer_version).label("max_version")
+                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
                 )
                 .filter(SqlScorerVersion.scorer_id.in_(scorer_ids))
                 .group_by(SqlScorerVersion.scorer_id)
                 .subquery()
             )
-            
+
             # Query the actual scorer version records with the latest versions
             sql_scorer_versions = (
                 session.query(SqlScorerVersion)
                 .join(
                     latest_versions,
-                    (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id) &
-                    (SqlScorerVersion.scorer_version == latest_versions.c.max_version)
+                    (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
+                    & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
                 )
                 .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
                 .order_by(SqlScorer.scorer_name)
                 .all()
             )
-            
+
             # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
-            
+
             return scorers
 
     def get_scorer(self, experiment_id, name, version=None):
         """
         Get a specific scorer for an experiment.
-        
+
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
             version: The scorer version. If None, returns the scorer with maximum version.
-            
+
         Returns:
             A ScorerVersion entity object.
-            
+
         Raises:
             MlflowException: If scorer is not found.
         """
@@ -2084,27 +2088,33 @@ class SqlAlchemyStore(AbstractStore):
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            
+
             # First, get the scorer record
-            scorer = session.query(SqlScorer).filter(
-                SqlScorer.experiment_id == experiment.experiment_id,
-                SqlScorer.scorer_name == name
-            ).first()
-            
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            
+
             # Build query for scorer versions
             query = session.query(SqlScorerVersion).filter(
                 SqlScorerVersion.scorer_id == scorer.scorer_id
             )
-            
+
             if version is not None:
                 # Get specific version
-                sql_scorer_version = query.filter(SqlScorerVersion.scorer_version == version).first()
+                sql_scorer_version = query.filter(
+                    SqlScorerVersion.scorer_version == version
+                ).first()
                 if sql_scorer_version is None:
                     raise MlflowException(
                         f"Scorer with name '{name}' and version {version} not found for experiment {experiment_id}.",
@@ -2118,18 +2128,18 @@ class SqlAlchemyStore(AbstractStore):
                         f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
                     )
-            
+
             return sql_scorer_version.to_mlflow_entity()
 
     def delete_scorer(self, experiment_id, name, version=None):
         """
         Delete a scorer for an experiment.
-        
+
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
             version: The scorer version to delete. If None, deletes all versions.
-            
+
         Raises:
             MlflowException: If scorer is not found.
         """
@@ -2137,30 +2147,34 @@ class SqlAlchemyStore(AbstractStore):
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            
+
             # First, get the scorer record
-            scorer = session.query(SqlScorer).filter(
-                SqlScorer.experiment_id == experiment.experiment_id,
-                SqlScorer.scorer_name == name
-            ).first()
-            
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            
+
             # Build the query for scorer versions
             query = session.query(SqlScorerVersion).filter(
                 SqlScorerVersion.scorer_id == scorer.scorer_id
             )
-            
+
             # If version is specified, filter by version
             if version is not None:
                 query = query.filter(SqlScorerVersion.scorer_version == version)
-            
+
             sql_scorer_versions = query.all()
-            
+
             if not sql_scorer_versions:
                 if version is not None:
                     raise MlflowException(
@@ -2172,28 +2186,28 @@ class SqlAlchemyStore(AbstractStore):
                         f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
                     )
-            
+
             # Delete the scorer versions
             for sql_scorer_version in sql_scorer_versions:
                 session.delete(sql_scorer_version)
-            
+
             # If we're deleting all versions, also delete the scorer record
             if version is None:
                 session.delete(scorer)
-            
+
             session.commit()
 
     def list_scorer_versions(self, experiment_id, name):
         """
         List all versions of a specific scorer for an experiment.
-        
+
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
-            
+
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
-            
+
         Raises:
             MlflowException: If scorer is not found.
         """
@@ -2201,35 +2215,42 @@ class SqlAlchemyStore(AbstractStore):
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            
+
             # First, get the scorer record
-            scorer = session.query(SqlScorer).filter(
-                SqlScorer.experiment_id == experiment.experiment_id,
-                SqlScorer.scorer_name == name
-            ).first()
-            
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            
+
             # Query for all versions of the scorer
-            sql_scorer_versions = session.query(SqlScorerVersion).filter(
-                SqlScorerVersion.scorer_id == scorer.scorer_id
-            ).order_by(SqlScorerVersion.scorer_version.asc()).all()
-            
+            sql_scorer_versions = (
+                session.query(SqlScorerVersion)
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .order_by(SqlScorerVersion.scorer_version.asc())
+                .all()
+            )
+
             if not sql_scorer_versions:
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     RESOURCE_DOES_NOT_EXIST,
                 )
-            
+
             # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
-            
+
             return scorers
 
     def _apply_order_by_search_logged_models(

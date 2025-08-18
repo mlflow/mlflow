@@ -1,6 +1,5 @@
 import functools
 import inspect
-import json
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -509,12 +508,14 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.utils.uri import is_databricks_uri
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException("Scheduling scorers is only supported by Databricks tracking URI.")
+            raise MlflowException(
+                "Scheduling scorers is only supported by Databricks tracking URI."
+            )
 
         self._check_can_be_registered()
 
@@ -580,9 +581,9 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.utils.uri import is_databricks_uri
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException(
@@ -640,8 +641,8 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.utils.uri import is_databricks_uri
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
 
         if not is_databricks_uri(get_tracking_uri()):
             raise MlflowException(

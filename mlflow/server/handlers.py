@@ -3363,6 +3363,7 @@ def _list_logged_model_artifacts_impl(
 # Scorer Management Handlers
 # =============================================================================
 
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _register_scorer():
