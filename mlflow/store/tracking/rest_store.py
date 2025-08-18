@@ -1109,7 +1109,8 @@ class RestStore(AbstractStore):
         Args:
             experiment_id: String ID of the experiment.
             name: String name of the scorer.
-            version: Integer version of the scorer. If None, returns the scorer with maximum version.
+            version: Integer version of the scorer. If None, returns the scorer
+               with maximum version.
 
         Returns:
             A ScorerVersion entity object.

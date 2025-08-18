@@ -7335,7 +7335,6 @@ def test_scorer_operations(store: SqlAlchemyStore):
     )
 
     # Step 12: Test list_scorer_versions
-    # Test list_scorer_versions with accuracy_scorer (which was deleted earlier, so we need to re-register it)
     store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
     store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
     store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
