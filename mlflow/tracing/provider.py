@@ -81,7 +81,7 @@ def _init_trace_user_destination():
 _init_trace_user_destination()
 
 
-def start_span_in_context(name: str) -> trace.Span:
+def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
     """
     Start a new OpenTelemetry span in the current context.
 
@@ -90,11 +90,24 @@ def start_span_in_context(name: str) -> trace.Span:
 
     Args:
         name: The name of the span.
+        experiment_id: The ID of the experiment to log the span to. If not specified, the span will
+            be logged to the active experiment or explicitly set trace destination.
 
     Returns:
         The newly created OpenTelemetry span.
     """
-    return _get_tracer(__name__).start_span(name)
+    attributes = {}
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
+    span = _get_tracer(__name__).start_span(name, attributes=attributes)
+
+    if experiment_id and getattr(span, "_parent", None):
+        _logger.warning(
+            "The `experiment_id` parameter can only be used for root spans, but the span "
+            f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
+        )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
+    return span
 
 
 def start_detached_span(
@@ -128,7 +141,15 @@ def start_detached_span(
         attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+    span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+    if experiment_id and getattr(span, "_parent", None):
+        _logger.warning(
+            "The `experiment_id` parameter can only be used for root spans, but the span "
+            f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
+        )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
+    return span
 
 
 @contextmanager
