@@ -37,6 +37,7 @@ from mlflow.telemetry.events import (
     CreateModelVersionEvent,
     CreatePromptEvent,
     CreateRegisteredModelEvent,
+    CreateWebhookEvent,
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
@@ -795,6 +796,7 @@ class ModelRegistryClient:
 
     # Webhook APIs
     @experimental(version="3.3.0")
+    @record_usage_event(CreateWebhookEvent)
     def create_webhook(
         self,
         name: str,

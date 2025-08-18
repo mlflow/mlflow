@@ -84,3 +84,13 @@ def _is_prompt(tags: dict[str, str]) -> bool:
     except ImportError:
         return False
     return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
+
+class CreateWebhookEvent(Event):
+    name: str = "create_webhook"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        events = arguments.get("events") or []
+        entities = list({str(e.entity) for e in events})
+        return {"entities": entities}

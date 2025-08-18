@@ -8,6 +8,7 @@ import sklearn.neighbors as knn
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     CreateExperimentEvent,
@@ -16,6 +17,7 @@ from mlflow.telemetry.events import (
     CreatePromptEvent,
     CreateRegisteredModelEvent,
     CreateRunEvent,
+    CreateWebhookEvent,
     EvaluateEvent,
     LogAssessmentEvent,
     StartTraceEvent,
@@ -218,3 +220,17 @@ def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         extra_metrics=[mlflow.metrics.latency()],
     )
     validate_telemetry_record(mock_telemetry_client, mock_requests, EvaluateEvent.name)
+
+
+def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
+    client = MlflowClient()
+    with mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore.create_webhook"):
+        client.create_webhook(
+            name="test_webhook",
+            url="https://example.com/webhook",
+            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        )
+        expected_params = {"entities": ["model_version"]}
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
+        )
