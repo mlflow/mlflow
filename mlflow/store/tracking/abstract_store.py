@@ -939,3 +939,77 @@ class AbstractStore:
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
+
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            serialized_scorer: The serialized scorer string (JSON).
+
+        Returns:
+            The new version number for the scorer.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorers(self, experiment_id):
+        """
+        List all scorers for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects
+            (latest version for each scorer name).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_scorer(self, experiment_id, name, version=None):
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, returns the scorer with maximum version.
+
+        Returns:
+            A ScorerVersion entity object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorer_versions(self, experiment_id, name):
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_scorer(self, experiment_id, name, version=None):
+        """
+        Delete all versions of a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, delete all versions.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
