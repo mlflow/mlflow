@@ -5466,7 +5466,6 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
 
 
 @pytest.mark.asyncio
-@pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_get_trace_span(store: SqlAlchemyStore, is_async: bool):
     experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
