@@ -16,7 +16,7 @@ Typically, you can get started with evaluation using predefined scorers. However
 - You need to evaluate specific business logic or domain-specific criteria
 - You want to combine multiple evaluation aspects into a single scorer
 
-See <ins>[custom LLM scorers](/genai/eval-monitor/scorers/llm-judge/custom)</ins> guide for detailed examples.
+See <ins>[custom LLM scorers](/genai/eval-monitor/scorers/llm-judge/guidelines)</ins> guide for detailed examples.
 
 :::
 
@@ -68,10 +68,10 @@ results = mlflow.genai.evaluate(
 
 ## Available Scorers
 
-| Scorer                                                                                     | What does it evaluate?                                           | Requires ground-truth? |
+| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- |
-| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?       | No                     |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?          | Yes                    |
+| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes                    |
 | <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    |
 | <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    |
 | <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     |

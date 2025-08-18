@@ -13,7 +13,7 @@ Custom scorers offer the ultimate flexibility to define precisely how your GenAI
 
 ## Example Usage
 
-To define a custom scorer, you can define a function that takes in the [input arguments](#input-arguments) and add the <APILink fn="mlflow.genai.scorers.scorer">@scorer</APILink> decorator to the function.
+To define a custom scorer, you can define a function that takes in the [input arguments](#input-format) and add the <APILink fn="mlflow.genai.scorers.scorer">@scorer</APILink> decorator to the function.
 
 ```python
 from mlflow.genai import scorer
@@ -71,7 +71,7 @@ As input, custom scorers have access to:
 
 - The `inputs` dictionary, derived from either the input dataset or MLflow post-processing from your trace.
 - The `outputs` value, derived from either the input dataset or trace. If `predict_fn` is provided, the `outputs` value will be the return value of the `predict_fn`.
-- The `expectations` dictionary, derived from the `expectations` field in the input dataset, or [assessments](/genai/assessments) associated with the trace.
+- The `expectations` dictionary, derived from the `expectations` field in the input dataset, or associated with the trace.
 - The complete [MLflow trace](/genai/tracing/concepts/trace), including spans, attributes, and outputs.
 
 ```python
