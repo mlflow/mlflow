@@ -14,7 +14,7 @@ class ScorerVersion(_MlflowObject):
         scorer_name: str,
         scorer_version: int,
         serialized_scorer: str,
-        creation_time: int | None = None
+        creation_time: int | None = None,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
