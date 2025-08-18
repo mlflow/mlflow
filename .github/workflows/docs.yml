@@ -73,6 +73,9 @@ jobs:
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
         run: |
           npm run build-all -- --no-r --use-npm
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 120
       - name: Check API inventory
         run: |
           if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
