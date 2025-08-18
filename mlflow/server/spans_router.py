@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_tracking_store
 
 prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "")
 router = APIRouter(prefix=f"{prefix}/api/3.0")
@@ -29,7 +29,20 @@ async def get_trace_span(
     trace_id: str,
     span_id: str,
 ) -> GetTraceSpanResponse:
-    raise NotImplementedError("TODO: Implement span retrieval logic")
+    store = _get_tracking_store()
+    span = store.get_trace_span(trace_id, span_id)
+    return GetTraceSpanResponse(
+        span=SpanInfo(
+            trace_id=span.trace_id,
+            span_id=span.span_id,
+            name=span.name,
+            span_type=span.span_type,
+            start_time_ms=span.start_time_ms,
+            end_time_ms=span.end_time_ms,
+            duration_ms=span.duration_ms,
+            status=span.status,
+        )
+    )
 
 
 class GetTraceSpanContentResponse(BaseModel):
