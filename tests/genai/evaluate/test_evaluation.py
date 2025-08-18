@@ -527,7 +527,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
         with mlflow.start_run():
             with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
                 mlflow.genai.evaluate(
-                    data=data, scorers=[Safety()], dataset_name="my_custom_eval_dataset"
+                    data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
                 )
                 assert (
                     "The 'dataset_name' parameter is not used in Databricks environments"
@@ -539,7 +539,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
             with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
                 mlflow.genai.evaluate(
                     data=data,
-                    scorers=[Safety()],
+                    scorers=[RelevanceToQuery()],
                 )
                 assert (
                     "The 'dataset_name' parameter is not used in Databricks environments"
@@ -550,7 +550,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
             with caplog.at_level("WARNING"):
                 mlflow.genai.evaluate(
                     data=data,
-                    scorers=[Safety()],
+                    scorers=[RelevanceToQuery()],
                 )
                 assert "The 'dataset_name' parameter is not used" not in caplog.text
 
@@ -569,7 +569,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
         with mlflow.start_run() as run:
             with caplog.at_level("WARNING"):
                 mlflow.genai.evaluate(
-                    data=data, scorers=[Safety()], dataset_name="my_custom_eval_dataset"
+                    data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
                 )
                 assert "The 'dataset_name' parameter is not used" not in caplog.text
 
@@ -604,7 +604,7 @@ def test_evaluate_with_managed_dataset_preserves_name():
     with mlflow.start_run() as run:
         mlflow.genai.evaluate(
             data=dataset,
-            scorers=[Safety()],
+            scorers=[RelevanceToQuery()],
         )
 
         run_data = mlflow.get_run(run.info.run_id)
