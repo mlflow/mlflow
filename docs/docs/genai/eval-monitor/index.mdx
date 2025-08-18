@@ -6,7 +6,7 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Rocket, Target, MessageSquare } from "lucide-react";
+import { Rocket, Target, MessageSquare, Scale } from "lucide-react";
 
 # Evaluating LLMs/Agents with MLflow
 
@@ -238,12 +238,21 @@ If you are using cloud-based MLflow, open the experiment page in the platform. Y
     containerHeight={64}
   />
   <TileCard
-    icon={MessageSquare}
+    icon={Scale}
     iconSize={48}
-    title="Collect User Feedback"
-    description="Understand how to collect user feedback for your applications."
-    href="/genai/tracing/collect-user-feedback"
-    linkText="Learn about feedback tracking →"
+    title="Evaluate Agents"
+    description="Evaluate AI agents with specialized techniques and custom scorers."
+    href="/genai/eval-monitor/running-evaluation/agents"
+    linkText="Evaluate agents →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Building Scorers"
+    description="Get started with MLflow's powerful scorers for evaluating qualities."
+    href="/genai/eval-monitor/scorers"
+    linkText="Learn about scorers →"
     containerHeight={64}
   />
 </TilesGrid>

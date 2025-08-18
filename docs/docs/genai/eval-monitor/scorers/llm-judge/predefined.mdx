@@ -94,14 +94,14 @@ Built-in scorers for evaluating retrieval (`RetrievalGroundedness`, `RetrievalRe
 
 MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more.
 
-See [Supported Models](/genai/eval-monitor/scorers/llm-judge/index#supported-models) for more details.
+See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
 
 
 ## Output Format
 
 Predefined LLM-based scorers in MLflow return structured assessments with three key components:
 
-* **Score**: Binary output (`yes`/`no`)
+* **Score**: Binary output (`yes`/`no`) renders as <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-600">Pass</div> or <div className="inline-flex rounded-sm bg-red-100 px-2 py-1 text-sm text-red-800">Fail</div> in the UI.
 * **Rationale**: Detailed explanation of why the judge made its decision
 * **Source**: Metadata about the evaluation source
 

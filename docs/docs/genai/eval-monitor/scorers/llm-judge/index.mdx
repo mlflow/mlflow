@@ -5,7 +5,7 @@ import { APILink } from "@site/src/components/APILink";
 
 LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness, safety, which are hard to be measured by heuristic metrics. On the the hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation. See the [Evaluation Approach Comparison](/genai/eval-monitor/scorers#evaluation-approaches-comparison) for more detailed comparison and the guides of how to use other approaches in MLflow.
 
-## Approaches for using LLM
+## Approaches for Using LLM Scorers
 
 MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. We recommends starting with simpler approach and evolve to more complex ones as needed.
 
@@ -15,7 +15,7 @@ Simplicity: ⭐⭐⭐⭐⭐
 Control: ⭐
 
 - **Best for**: Quickly try MLflow's LLM evaluation capabilities with a few lines of code.
-- **How it works**: Select from a list of built-in classes such as <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>. MLflow constructs inputs for the judge using predefined prompt templates.
+- **How it works**: Select from a list of built-in classes such as Correctness, RetrievalGroundedness, etc. MLflow constructs inputs for the judge using predefined prompt templates.
 
 [Get started with predefined LLM scorers »](/genai/eval-monitor/scorers/llm-judge/predefined)
 
@@ -69,5 +69,6 @@ To use LiteLLM integrated models, you need to install LiteLLM and specify the pr
 In Databricks, the default model is set to <ins>[Databricks's research-backed LLM judges](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges/)</ins>.
 
 :::
+
 
 
