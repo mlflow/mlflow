@@ -315,7 +315,10 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
-    trace_archival_location = f"{catalog}.{schema}.{table_prefix}_{experiment_id}"
+    from databricks.sdk import WorkspaceClient
+
+    workspace_id = WorkspaceClient().get_workspace_id()
+    trace_archival_location = f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
 
     try:
         # 1. Create trace destination using client
