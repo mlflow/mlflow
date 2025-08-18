@@ -444,6 +444,7 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration information.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -514,6 +515,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated sampling configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -588,6 +590,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -650,6 +653,7 @@ class Scorer(BaseModel):
             A new Scorer instance with sample rate set to 0.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
