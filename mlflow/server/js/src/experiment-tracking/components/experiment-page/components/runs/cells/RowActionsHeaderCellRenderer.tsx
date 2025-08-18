@@ -73,6 +73,13 @@ const RowActionsHeaderCellRendererV2 = React.memo(
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS}>
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
+              <FormattedMessage
+                defaultMessage="Hide finished runs"
+                description="Menu option for hiding all finished runs in the experiment view runs compare mode"
+              />
+            </DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
