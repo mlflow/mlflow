@@ -32,6 +32,7 @@ def enable_databricks_trace_archival(
             )
     """
     from mlflow.tracking.fluent import _get_experiment_id
+
     try:
         from databricks.agents.archive import enable_trace_archival
     except ImportError:
@@ -62,6 +63,7 @@ def disable_databricks_trace_archival(*, experiment_id: str | None = None) -> No
             disable_databricks_trace_archival(experiment_id="12345")
     """
     from mlflow.tracking.fluent import _get_experiment_id
+
     try:
         from databricks.agents.archive import disable_trace_archival
     except ImportError:
