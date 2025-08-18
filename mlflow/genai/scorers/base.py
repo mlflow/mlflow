@@ -184,8 +184,9 @@ class Scorer(BaseModel):
                 )
         else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer data: expected a SerializedScorer object or dictionary, got {type(obj).__name__}. "
-                f"Scorer data must be either a SerializedScorer object or a dictionary containing serialized scorer information."
+                f"Invalid scorer data: expected a SerializedScorer object or dictionary, "
+                f"got {type(obj).__name__}. Scorer data must be either a SerializedScorer object "
+                "or a dictionary containing serialized scorer information."
             )
 
         # Log version information for debugging

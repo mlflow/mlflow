@@ -73,4 +73,8 @@ class ScorerVersion(_MlflowObject):
         return proto
 
     def __repr__(self):
-        return f"<ScorerVersion(experiment_id={self.experiment_id}, scorer_name='{self.scorer_name}', scorer_version={self.scorer_version})>"
+        return (
+            f"<ScorerVersion(experiment_id={self.experiment_id}, "
+            f"scorer_name='{self.scorer_name}', "
+            f"scorer_version={self.scorer_version})>"
+        )

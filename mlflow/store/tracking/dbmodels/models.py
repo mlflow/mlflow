@@ -1462,7 +1462,8 @@ class SqlScorer(Base):
 
 class SqlScorerVersion(Base):
     """
-    DB model for storing scorer version information. These are recorded in ``scorer_versions`` table.
+    DB model for storing scorer version information. These are recorded in
+    ``scorer_versions`` table.
     """
 
     __tablename__ = "scorer_versions"
