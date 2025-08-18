@@ -9,7 +9,12 @@ class ScorerVersion(_MlflowObject):
     """ScorerVersion object associated with an experiment."""
 
     def __init__(
-        self, experiment_id, scorer_name, scorer_version, serialized_scorer, creation_time=None
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        scorer_version: int,
+        serialized_scorer: str,
+        creation_time: int | None = None
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
@@ -18,11 +23,6 @@ class ScorerVersion(_MlflowObject):
         self._creation_time = (
             creation_time if creation_time is not None else get_current_time_millis()
         )
-
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return self.__dict__ == other.__dict__
-        return False
 
     @property
     def experiment_id(self):
