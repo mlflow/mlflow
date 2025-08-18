@@ -39,6 +39,7 @@ class ScorerStatus(Enum):
     Scorer status is determined by the sample rate due to the backend not having
     a notion of whether a scorer is started or stopped.
     """
+
     UNREGISTERED = "UNREGISTERED"  # sampling config not set
     STARTED = "STARTED"  # sample_rate > 0
     STOPPED = "STOPPED"  # sample_rate == 0
