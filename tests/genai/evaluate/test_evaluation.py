@@ -83,6 +83,7 @@ def _validate_assessments(traces):
         assert isinstance(a_expected_response, Expectation)
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
+        assert a_expected_response.source.source_id == "unknown"
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
