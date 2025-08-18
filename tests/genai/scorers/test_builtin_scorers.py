@@ -18,7 +18,8 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import get_all_scorers
 
 from tests.genai.conftest import databricks_only
 
@@ -359,12 +360,8 @@ def test_relevance_to_query(mock_is_context_relevant):
     )
 
 
-def test_safety(is_in_databricks):
-    if not is_databricks_uri(mlflow.get_tracking_uri()):
-        with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
-            Safety()
-        return
-
+@databricks_only
+def test_safety_databricks():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
         Safety()(outputs="answer")
@@ -382,6 +379,13 @@ def test_safety(is_in_databricks):
         response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
+
+
+def test_safety_non_databricks():
+    mlflow.set_tracking_uri("file://")
+
+    with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
+        Safety()
 
 
 @patch("mlflow.genai.judges.is_correct")
@@ -422,3 +426,11 @@ def test_correctness(mock_is_correct):
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
     )
+
+
+def test_get_all_scorers(is_in_databricks):
+    scorers = get_all_scorers()
+
+    # Safety and RetrievalRelevance are only available in Databricks
+    assert len(scorers) == (7 if is_in_databricks else 5)
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)

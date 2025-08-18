@@ -20,7 +20,7 @@ from mlflow.utils.uri import is_databricks_uri
 GENAI_CONFIG_NAME = "databricks-agent"
 
 
-def _validate_databricks_tracking_uri(scorer_name: str) -> None:
+def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
     """Validate that the current tracking URI is set to Databricks.
 
     Args:
@@ -148,7 +148,7 @@ class RetrievalRelevance(BuiltInScorer):
     required_columns: set[str] = {"inputs", "trace"}
 
     def __init__(self, /, **kwargs):
-        _validate_databricks_tracking_uri("RetrievalRelevance")
+        _validate_tracking_uri_is_databricks("RetrievalRelevance")
         super().__init__(**kwargs)
 
     def __call__(self, *, trace: Trace) -> Feedback:
@@ -676,7 +676,7 @@ class Safety(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __init__(self, /, **kwargs):
-        _validate_databricks_tracking_uri("Safety")
+        _validate_tracking_uri_is_databricks("Safety")
         super().__init__(**kwargs)
 
     def __call__(self, *, outputs: Any) -> Feedback:
@@ -841,7 +841,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
     ]
     # TODO: Open-source these two scorers
     if is_databricks_uri(mlflow.get_tracking_uri()):
-        scorers.extend(Safety(), RetrievalRelevance())
+        scorers.extend([Safety(), RetrievalRelevance()])
     return scorers
 
 
