@@ -1,11 +1,11 @@
 import threading
+from unittest import mock
 
 import pytest
-from unittest import mock
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.genai.evaluation.context import NoneContext, eval_context, get_context, _set_context
+from mlflow.genai.evaluation.context import NoneContext, _set_context, eval_context, get_context
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +56,7 @@ def test_context_get_run_id_explicitly_set():
 
 def test_context_get_user_name(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "test-user")
+
     @eval_context
     def _test():
         assert get_context().get_user_name() == "test-user"
