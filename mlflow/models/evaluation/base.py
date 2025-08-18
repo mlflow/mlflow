@@ -1746,12 +1746,10 @@ def evaluate(
             # Convert data to `mlflow.data.dataset.Dataset`.
             if model is None:
                 data = convert_data_to_mlflow_dataset(
-                    data=data, targets=targets, predictions=predictions, name="evaluation_dataset"
+                    data=data, targets=targets, predictions=predictions
                 )
             else:
-                data = convert_data_to_mlflow_dataset(
-                    data=data, targets=targets, name="evaluation_dataset"
-                )
+                data = convert_data_to_mlflow_dataset(data=data, targets=targets)
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
