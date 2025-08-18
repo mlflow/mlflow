@@ -3212,15 +3212,16 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 .one_or_none()
             )
-            if span in None:
+            if span is None:
                 raise MlflowException(
                     f"Span with trace ID {trace_id} and span ID {span_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            return span
+            return span.to_mlflow_entity()
 
     async def get_trace_span_async(self, trace_id: str, span_id: str) -> Span:
-        return await self.get_trace_span(trace_id, span_id)
+        # TODO: Implement proper async support
+        return self.get_trace_span(trace_id, span_id)
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.

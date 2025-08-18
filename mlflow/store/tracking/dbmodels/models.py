@@ -36,6 +36,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Span,
     TraceInfo,
     ViewType,
 )
@@ -1361,6 +1362,15 @@ class SqlSpan(Base):
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
     )
+
+    def to_mlflow_entity(self) -> Span:
+        from opentelemetry.sdk.trace import ReadableSpan
+
+        return Span(
+            otel_span=ReadableSpan(
+                # TODO
+            )
+        )
 
 
 class SqlEntityAssociation(Base):

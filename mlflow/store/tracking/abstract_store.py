@@ -485,6 +485,32 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_trace_span(self, trace_id: str, span_id: str) -> Span:
+        """
+        Get the span matching the `trace_id` and `span_id`.
+
+        Args:
+            trace_id: String id of the trace.
+            span_id: String id of the span.
+
+        Returns:
+            The fetched Span object, of type ``mlflow.entities.Span``.
+        """
+        raise NotImplementedError
+
+    async def get_trace_span_async(self, trace_id: str, span_id: str) -> Span:
+        """
+        Get the span matching the `trace_id` and `span_id` asynchronously.
+
+        Args:
+            trace_id: String id of the trace.
+            span_id: String id of the span.
+
+        Returns:
+            The fetched Span object, of type ``mlflow.entities.Span``.
+        """
+        raise NotImplementedError
+
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run

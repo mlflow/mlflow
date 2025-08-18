@@ -5465,6 +5465,48 @@ async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
         assert trace.execution_time_ms == 2_500  # 3s - 0.5s = 2.5s
 
 
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_get_trace_span(store: SqlAlchemyStore, is_async: bool):
+    experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
+    trace_id = "tr-no-end-time-test-123"
+    span1 = create_mlflow_span(
+        OTelReadableSpan(
+            name="in_progress_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={"mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder)},
+            start_time=1_000_000_000,  # 1 second in nanoseconds
+            end_time=None,  # No end time - span still in progress
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    # Log span with no end time
+    store.log_spans(experiment_id, [span1])
+    if is_async:
+        span = await store.get_trace_span_async(trace_id, span1.span_id)
+    else:
+        span = store.get_trace_span(trace_id, span1.span_id)
+
+    assert span.trace_id == trace_id
+    assert span.span_id == span1.span_id
+
+    for tid, sid in [("non-existing", span1.span_id), (span1.trace_id, "non-existing")]:
+        with pytest.raises(
+            MlflowException,
+            match=r"Span with trace ID [\w-]+ and span ID [\w-]+ not found.",
+        ):
+            store.get_trace_span(tid, sid)
+
+
 def test_log_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
