@@ -29,9 +29,7 @@ tiktoken
 ipywidgets
 tqdm
 # Required for LLM eval in `mlflow.evaluate`
-# Pin to <1.100.0 to avoid breaking litellm compatibility
-# Version 1.100.0 removed ResponseTextConfig class that litellm depends on
-openai<1.100.0
+openai
 # Required for showing pytest stats
 psutil
 # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
