@@ -59,12 +59,6 @@ def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
     stream2 = SampleStream()
     message_content = "test message"
 
-    # Set logger level to INFO if it's a logger method to ensure output
-    original_level = None
-    if hasattr(logging_fn, "__self__") and isinstance(logging_fn.__self__, logging.Logger):
-        original_level = logging_fn.__self__.level
-        logging_fn.__self__.setLevel(logging.INFO)
-
     sys.stderr = stream1
     assert stream1.content is None
     logging_fn(message_content)
@@ -78,22 +72,12 @@ def test_event_logging_apis_respect_stderr_reassignment(logging_fn):
     assert message_content in stream2.content
     assert stream1.content is None
 
-    # Restore original level
-    if original_level is not None:
-        logging_fn.__self__.setLevel(original_level)
-
 
 @pytest.mark.parametrize("logging_fn", LOGGING_FNS_TO_TEST)
 def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
     stream = SampleStream()
     sys.stderr = stream
     message_content = "test message"
-
-    # Set logger level to INFO if it's a logger method to ensure output
-    original_level = None
-    if hasattr(logging_fn, "__self__") and isinstance(logging_fn.__self__, logging.Logger):
-        original_level = logging_fn.__self__.level
-        logging_fn.__self__.setLevel(logging.INFO)
 
     assert stream.content is None
     logging_fn(message_content)
@@ -109,10 +93,6 @@ def test_event_logging_apis_respect_stream_disablement_enablement(logging_fn):
     assert stream.content is None
     logging_fn(message_content)
     assert message_content in stream.content
-
-    # Restore original level
-    if original_level is not None:
-        logging_fn.__self__.setLevel(original_level)
 
 
 def test_event_logging_stream_flushes_properly():

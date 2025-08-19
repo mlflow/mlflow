@@ -354,9 +354,6 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, mock_telemetr
 
     # Log from main thread - this should be captured
     logger = logging.getLogger("mlflow.telemetry.client")
-    # Temporarily set level to INFO to ensure messages are logged
-    original_level = logger.level
-    logger.setLevel(logging.INFO)
     logger.info("TEST LOG FROM MAIN THREAD")
 
     original_process = mock_telemetry_client._process_records
@@ -384,9 +381,6 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, mock_telemetr
     # Verify that the consumer thread log was suppressed
     assert "TEST LOG FROM CONSUMER THREAD" not in captured.err
 
-    # Restore original level
-    logger.setLevel(original_level)
-
 
 def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_client):
     """Test that consumer thread produces no stderr output at all."""
@@ -395,9 +389,6 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_
 
     # Log from main thread - this should be captured
     logger = logging.getLogger("mlflow.telemetry.client")
-    # Temporarily set level to INFO to ensure messages are logged
-    original_level = logger.level
-    logger.setLevel(logging.INFO)
     logger.info("MAIN THREAD LOG BEFORE CLIENT")
 
     # Clear output after client initialization to focus on consumer thread output
@@ -427,9 +418,6 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_
     logger.info("MAIN THREAD LOG AFTER PROCESSING")
     captured_after = capsys.readouterr()
     assert "MAIN THREAD LOG AFTER PROCESSING" in captured_after.err
-
-    # Restore original level
-    logger.setLevel(original_level)
 
 
 def test_batch_time_interval(mock_requests, monkeypatch):
