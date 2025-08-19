@@ -18,6 +18,7 @@ To define a custom scorer, you can define a function that takes in the [input ar
 ```python
 from mlflow.genai import scorer
 
+
 @scorer
 def exact_match(outputs: dict, expectations: dict) -> bool:
     return outputs == expectations["expected_response"]
@@ -27,6 +28,7 @@ To return richer information beyond primitive values, you can return a <APILink 
 
 ```python
 from mlflow.entities import Feedback
+
 
 @scorer
 def is_short(outputs: dict) -> Feedback:
@@ -54,7 +56,7 @@ eval_dataset = [
         "inputs": {"question": "What is the capital of France?"},
         "outputs": "The capital of France is Paris.",
         "expectations": {"expected_response": "Paris"},
-    }
+    },
 ]
 
 mlflow.genai.evaluate(
@@ -89,7 +91,7 @@ def my_scorer(
 
 All parameters are **optional**; declare only what your scorer needs:
 
-```python
+```
 # ✔️ All of these signatures are valid for scorers
 def my_scorer(inputs, outputs, expectations, trace) -> bool:
 def my_scorer(inputs, outputs) -> str:
@@ -125,6 +127,7 @@ Return <APILink fn="mlflow.entities.Feedback">Feedback</APILink> objects for det
 ```python
 from mlflow.entities import Feedback, AssessmentSource
 
+
 @scorer
 def content_quality(outputs):
     return Feedback(
@@ -132,14 +135,11 @@ def content_quality(outputs):
         rationale="Clear and accurate, minor grammar issues",
         # Optional: source of the assessment. Several source types are supported,
         # such as "HUMAN", "CODE", "LLM_JUDGE".
-        source=AssessmentSource(
-            source_type="CODE",
-            source_id="grammar_checker_v1"
-        ),
+        source=AssessmentSource(source_type="CODE", source_id="grammar_checker_v1"),
         # Optional: additional metadata about the assessment.
         metadata={
             "annotator": "me@example.com",
-        }
+        },
     )
 ```
 
@@ -172,6 +172,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
     from mlflow.entities import SpanType, Trace
     from mlflow.genai import scorer
 
+
     @scorer
     def retrieved_document_recall(trace: Trace, expectations: dict) -> Feedback:
         # Search for retriever spans in the trace
@@ -187,17 +188,17 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
         # Gather all retrieved document URLs from the retriever spans
         all_document_urls = []
         for span in retriever_spans:
-            all_document_urls.extend([
-                document["doc_uri"] for document in span.outputs
-            ])
+            all_document_urls.extend([document["doc_uri"] for document in span.outputs])
 
         # Compute the recall
-        true_positives = len(set(all_document_urls) & set(expectations["relevant_document_urls"]))
+        true_positives = len(
+            set(all_document_urls) & set(expectations["relevant_document_urls"])
+        )
         expected_positives = len(expectations["relevant_document_urls"])
         recall = true_positives / expected_positives
         return Feedback(
             value=recall,
-            rationale=f"Retrieved {true_positives} relevant documents out of {expected_positives} expected."
+            rationale=f"Retrieved {true_positives} relevant documents out of {expected_positives} expected.",
         )
     ```
     </TabItem>
@@ -209,6 +210,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
     from mlflow.entities import SpanType, Trace
     from mlflow.genai import scorer
 
+
     @scorer
     def tool_call_trajectory(trace: Trace, expectations: dict) -> Feedback:
         # Search for tool call spans in the trace
@@ -219,10 +221,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
         expected_trajectory = expectations["tool_call_trajectory"]
 
         if actual_trajectory == expected_trajectory:
-            return Feedback(
-                value=1,
-                rationale="The tool call trajectory is correct."
-            )
+            return Feedback(value=1, rationale="The tool call trajectory is correct.")
         else:
             return Feedback(
                 value=0,
@@ -230,7 +229,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
                     "The tool call trajectory is incorrect.\n"
                     f"Expected: {expected_trajectory}.\n"
                     f"Actual: {actual_trajectory}."
-                )
+                ),
             )
     ```
     </TabItem>
@@ -242,6 +241,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
     from mlflow.entities import SpanType, Trace
     from mlflow.genai import scorer
 
+
     @scorer
     def is_routing_correct(trace: Trace, expectations: dict) -> Feedback:
         # Search for sub-agent spans in the trace
@@ -251,10 +251,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
         expected_agents = expectations["expected_agents"]
 
         if invoked_agents == expected_agents:
-            return Feedback(
-                value=True,
-                rationale="The sub-agents routing is correct."
-            )
+            return Feedback(value=True, rationale="The sub-agents routing is correct.")
         else:
             return Feedback(
                 value=False,
@@ -262,7 +259,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
                     "The sub-agents routing is incorrect.\n"
                     f"Expected: {expected_agents}.\n"
                     f"Actual: {invoked_agents}."
-                )
+                ),
             )
     ```
     </TabItem>
@@ -284,9 +281,9 @@ import mlflow
 from mlflow.entities import Feedback
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def is_valid_response(outputs: str) -> Feedback:
-
     # Let json.JSONDecodeError propagate if response isn't valid JSON
     data = json.loads(outputs)
 
@@ -294,10 +291,8 @@ def is_valid_response(outputs: str) -> Feedback:
     summary = data["summary"]
     confidence = data["confidence"]
 
-    return Feedback(
-        value=True,
-        rationale=f"Valid JSON with confidence: {confidence}"
-    )
+    return Feedback(value=True, rationale=f"Valid JSON with confidence: {confidence}")
+
 
 # Run the scorer on invalid data that triggers exceptions
 invalid_data = [
@@ -338,6 +333,7 @@ For custom error handling or to provide specific error messages, catch exception
 import json
 from mlflow.entities import AssessmentError, Feedback
 
+
 @scorer
 def is_valid_response(outputs):
     try:
@@ -354,10 +350,7 @@ def is_valid_response(outputs):
                 ),
             )
 
-        return Feedback(
-            value=True,
-            rationale="Valid JSON with all required fields"
-        )
+        return Feedback(value=True, rationale="Valid JSON with all required fields")
 
     except json.JSONDecodeError as e:
         # Can pass exception object directly to the error parameter as well
