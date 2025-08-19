@@ -740,7 +740,9 @@ class TrackingServiceClient:
 
         # Check for a special run tag that indicates the run is triggered by evaluation.
         # MLflow already shows a link to evaluation results so no need to print it again.
-        if run.data.tags.get(MLFLOW_RUN_IS_EVALUATION).lower() == "true":
+        if (
+            is_eval_tag := run.data.tags.get(MLFLOW_RUN_IS_EVALUATION)
+        ) and is_eval_tag.lower() == "true":
             return
 
         experiment_id = run.info.experiment_id

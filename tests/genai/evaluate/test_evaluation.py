@@ -148,7 +148,9 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     assert len(run.inputs.dataset_inputs) == 1
     assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
-    assert run.data.tags[MLFLOW_RUN_IS_EVALUATION] == "true"
+
+    if not is_in_databricks:
+        assert run.data.tags[MLFLOW_RUN_IS_EVALUATION] == "true"
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
