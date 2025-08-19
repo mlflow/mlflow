@@ -437,52 +437,115 @@ _ERROR_MSG = (
 def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     """
     List all registered scorers for an experiment.
-
-    This function returns a list of Scorer instances with their current registration
-    configuration, including sampling rate and filter criteria.
-
+    
+    This function retrieves all scorers that have been registered in the specified experiment.
+    For each scorer name, only the latest version is returned. Each returned Scorer instance
+    contains the current registration configuration including sampling rate, filter criteria,
+    and other metadata needed for automatic trace evaluation.
+    
+    The function automatically determines the appropriate backend store (MLflow tracking store,
+    Databricks, etc.) based on the current MLflow configuration and experiment location.
+    
     Args:
-        experiment_id: The ID of the MLflow experiment containing the scorers.
-            If None, uses the currently active experiment.
-
+        experiment_id (str, optional): The ID of the MLflow experiment containing the scorers.
+            If None, uses the currently active experiment as determined by
+            :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
+    
     Returns:
-        A list of Scorer objects with their current registration configuration.
-
+        list[Scorer]: A list of Scorer objects, each representing the latest version of a
+            registered scorer with its current configuration. The list may be empty if no
+            scorers have been registered in the experiment.
+    
+    Raises:
+        MlflowException: If the experiment doesn't exist or if there are issues with
+            the backend store connection.
+    
     Example:
         .. code-block:: python
-
+            
             from mlflow.genai.scorers import list_scorers
-
+            
             # List all scorers in the current experiment
             scorers = list_scorers()
-
+            
             # List all scorers in a specific experiment
             scorers = list_scorers(experiment_id="123")
-
+            
+            # Process the returned scorers
             for scorer in scorers:
-                print(f"Name: {scorer.name}")
-                print(f"Sample rate: {scorer.sample_rate}")
-                print(f"Filter: {scorer.filter_string}")
+                print(f"Scorer: {scorer.name}")
+    
+    Note:
+        - Only the latest version of each scorer is returned. To get all versions of a
+          specific scorer, use :func:`list_scorer_versions`.
+        - This function works with both MLflow tracking backends and Databricks environments.
+    
+    See Also:
+        - :func:`list_scorer_versions`: List all versions of a specific scorer
+        - :func:`get_scorer`: Retrieve a specific scorer by name and version
     """
     store = _get_scorer_store()
     return store.list_scorers(experiment_id)
 
 
 @experimental(version="3.2.0")
-def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list[Scorer, int]:
+def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list[tuple[Scorer, int]]:
     """
     List all versions of a specific scorer for an experiment.
-
+    
+    This function retrieves all versions of a scorer with the specified name from the given
+    experiment. Each version represents a different iteration of the same scorer, typically
+    created when the scorer function is updated or re-registered. This is useful for tracking
+    the evolution of a scorer over time and for rollback scenarios.
+    
+    The function returns a list of tuples, where each tuple contains a Scorer instance and
+    its corresponding version number. Versions are typically ordered from oldest to newest,
+    with version 1 being the first registered version.
+    
     Args:
-        name: The scorer name.
-        experiment_id: The experiment ID. If None, uses the currently active experiment.
-
+        name (str): The name of the scorer to list versions for. This must match exactly
+            with the name used during scorer registration.
+        experiment_id (str, optional): The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment as determined by
+            :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
+    
     Returns:
-        A list of tuple, each tuple contains `mlflow.genai.scorers.Scorer` object
-        and the version number.
-
+        list[tuple[Scorer, int]]: A list of tuples, where each tuple contains:
+            - A Scorer object representing the scorer at that specific version
+            - An integer representing the version number (1, 2, 3, etc.), for Databricks backend,
+              the version number is `None`.
+            The list may be empty if no versions of the scorer exist.
+    
     Raises:
-        MlflowException: If scorer is not found.
+        MlflowException: If the scorer with the specified name is not found in the experiment,
+            if the experiment doesn't exist, or if there are issues with the backend store.
+    
+    Example:
+        .. code-block:: python
+            
+            from mlflow.genai.scorers import list_scorer_versions
+            
+            # List all versions of a scorer in the current experiment
+            versions = list_scorer_versions(name="accuracy_scorer")
+            
+            # List all versions of a scorer in a specific experiment
+            versions = list_scorer_versions(name="safety_scorer", experiment_id="123")
+            
+            # Process the returned versions
+            for scorer, version in versions:
+                print(f"Version {version}: {scorer.name}")
+                print(f"  Sample rate: {scorer.sample_rate}")
+                print(f"  Filter: {scorer.filter_string}")
+                print(f"  MLflow version: {scorer.mlflow_version}")
+    
+    Note:
+        - Version numbers start from 1 and increment sequentially with each registration
+        - Each version maintains its own configuration and sampling settings
+        - The function works with MLflow tracking backends that support versioning
+        - Databricks backend does not support versioning and will raise an exception
+    
+    See Also:
+        - :func:`list_scorers`: List all scorers (latest versions only)
     """
     store = _get_scorer_store()
     return store.list_scorer_versions(experiment_id, name)
@@ -493,33 +556,52 @@ def get_scorer(
     *, name: str, experiment_id: str | None = None, version: int | None = None
 ) -> Scorer:
     """
-    Retrieve a specific registered scorer by name.
-
-    This function returns a Scorer instance with its current registration
-    configuration, including sampling rate and filter criteria.
-
+    Retrieve a specific registered scorer by name and optional version.
+    
+    This function retrieves a single Scorer instance from the specified experiment. If no
+    version is specified, it returns the latest (highest version number) scorer with the
+    given name. The returned Scorer object contains the complete registration configuration
+    including sampling rate, filter criteria, and all metadata needed for execution.
+    
     Args:
-        name: The name of the registered scorer to retrieve.
-        experiment_id: The ID of the MLflow experiment containing the scorer.
-            If None, uses the currently active experiment.
-        version: The scorer version. If None, returns the scorer with maximum version.
-
+        name (str): The name of the registered scorer to retrieve. This must match exactly
+            with the name used during scorer registration.
+        experiment_id (str, optional): The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment as determined by
+            :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
+        version (int, optional): The specific version of the scorer to retrieve. If None,
+            returns the scorer with the highest version number (latest version).
+    
     Returns:
-        A Scorer object with its current registration configuration.
-
+        Scorer: A Scorer object representing the requested scorer with its complete
+            configuration and metadata. The object can be used for evaluation, inspection,
+            or modification.
+    
+    Raises:
+        MlflowException: If the scorer with the specified name is not found in the experiment,
+            if the specified version doesn't exist, if the experiment doesn't exist, or if
+            there are issues with the backend store connection.
+    
     Example:
         .. code-block:: python
-
+            
             from mlflow.genai.scorers import get_scorer
-
-            # Get a specific scorer
-            my_scorer = get_scorer(name="my_safety_scorer")
-
-            print(f"Sample rate: {my_scorer.sample_rate}")
-            print(f"Filter: {my_scorer.filter_string}")
-
-            # Update the scorer
-            my_scorer = my_scorer.update(sample_rate=0.5)
+            
+            # Get the latest version of a scorer
+            latest_scorer = get_scorer(name="accuracy_scorer")
+            print(f"Latest version: {latest_scorer.mlflow_version}")
+            
+            # Get a specific version of a scorer
+            v2_scorer = get_scorer(name="safety_scorer", version=2)
+            
+            # Get a scorer from a specific experiment
+            scorer = get_scorer(name="relevance_scorer", experiment_id="123")
+    
+    Note:
+        - When no version is specified, the function automatically returns the latest version
+        - This function works with both MLflow tracking backends and Databricks environments
+        - For Databricks backend, versioning is not supported, so the version parameter
+          should be None.
     """
 
     store = _get_scorer_store()
@@ -534,30 +616,62 @@ def delete_scorer(
     version: int | str | None = None,
 ) -> None:
     """
-    Delete scorer with given name from the server.
-
-    This method permanently removes the scorer registration from the MLflow server.
-    After deletion, the scorer will no longer evaluate traces automatically and
-    must be registered again if needed.
-
+    Delete a registered scorer from the MLflow experiment.
+    
+    This function permanently removes scorer registrations from the MLflow server. After
+    deletion, the scorer will no longer automatically evaluate traces in the experiment.
+    The deletion is irreversible - if you need the scorer again, you must re-register it.
+    
+    The behavior of this function varies depending on the backend store and version parameter:
+    
+    **MLflow Tracking Backend:**
+    - Supports versioning with granular deletion options
+    - Can delete specific versions or all versions of a scorer by setting `version`
+      parameter to "all"
+    
+    **Databricks Backend:**
+    - Does not support versioning
+    - Deletes the entire scorer regardless of version parameter
+    - `version` parameter must be None
+    
     Args:
-        name: Name of the scorer to delete.
-        experiment_id: The ID of the MLflow experiment containing the scorer.
-            If None, uses the currently active experiment.
-        version: The version to delete. For MLflow tracking backend, set it to 'all' to delete
-            all versions, or set it to an integer value to delete the certain version.
-            For Databricks backend, versioning is not supported, you must set it to `None`.
-
+        name (str): The name of the scorer to delete. This must match exactly with the
+            name used during scorer registration.
+        experiment_id (str, optional): The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment as determined by
+            :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
+        version (int | str | None, optional): The version(s) to delete:
+            - For MLflow tracking backend:
+                - `None`: Deletes the latest version only
+                - `int`: Deletes the specific version (e.g., 2 deletes version 2)
+                - `'all'`: Deletes all versions of the scorer
+            - For Databricks backend, must be `None` (versioning not supported)
+    
+    Returns:
+        None: This function does not return a value.
+    
+    Raises:
+        MlflowException: If the scorer with the specified name is not found in the experiment,
+            if the specified version doesn't exist, if the experiment doesn't exist, if there
+            are issues with the backend store connection, or if versioning is not supported
+            for the current backend.
+    
     Example:
         .. code-block:: python
-
+            
             from mlflow.genai.scorers import delete_scorer
-
-            # Delete a scorer from the current experiment
-            delete_scorer(name="my_safety_scorer")
-
+            
+            # Delete the latest version of a scorer from current experiment
+            delete_scorer(name="accuracy_scorer")
+            
+            # Delete a specific version of a scorer
+            delete_scorer(name="safety_scorer", version=2)
+            
+            # Delete all versions of a scorer
+            delete_scorer(name="relevance_scorer", version="all")
+            
             # Delete a scorer from a specific experiment
-            delete_scorer(name="my_safety_scorer", experiment_id="123")
+            delete_scorer(name="harmfulness_scorer", experiment_id="123", version=1)
     """
 
     store = _get_scorer_store()
