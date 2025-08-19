@@ -648,6 +648,14 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 #: (default: ``1.0``)
 MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
 
+#: When OTel export is configured and this is set to true, MLflow will write spans to BOTH
+#: MLflow Tracking Server and OpenTelemetry Collector. When false (default), OTel export
+#: replaces MLflow export.
+#: (default: ``False``)
+MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
+)
+
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
@@ -919,9 +927,3 @@ MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY
 #: Internal flag to enable telemetry in mlflow tests.
 #: (default: ``False``)
 _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
-
-#: Whether to allow setting thread local tracing destination.
-#: (default: ``False``)
-MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
-)

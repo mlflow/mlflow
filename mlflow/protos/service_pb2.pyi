@@ -1300,6 +1300,87 @@ class SearchTracesV3(_message.Message):
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class RegisterScorer(_message.Message):
+    __slots__ = ("experiment_id", "name", "serialized_scorer")
+    class Response(_message.Message):
+        __slots__ = ("version",)
+        VERSION_FIELD_NUMBER: _ClassVar[int]
+        version: int
+        def __init__(self, version: _Optional[int] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    serialized_scorer: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ...) -> None: ...
+
+class ListScorers(_message.Message):
+    __slots__ = ("experiment_id",)
+    class Response(_message.Message):
+        __slots__ = ("scorers",)
+        SCORERS_FIELD_NUMBER: _ClassVar[int]
+        scorers: _containers.RepeatedCompositeFieldContainer[Scorer]
+        def __init__(self, scorers: _Optional[_Iterable[_Union[Scorer, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+
+class ListScorerVersions(_message.Message):
+    __slots__ = ("experiment_id", "name")
+    class Response(_message.Message):
+        __slots__ = ("scorers",)
+        SCORERS_FIELD_NUMBER: _ClassVar[int]
+        scorers: _containers.RepeatedCompositeFieldContainer[Scorer]
+        def __init__(self, scorers: _Optional[_Iterable[_Union[Scorer, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetScorer(_message.Message):
+    __slots__ = ("experiment_id", "name", "version")
+    class Response(_message.Message):
+        __slots__ = ("scorer",)
+        SCORER_FIELD_NUMBER: _ClassVar[int]
+        scorer: Scorer
+        def __init__(self, scorer: _Optional[_Union[Scorer, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    version: int
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
+class DeleteScorer(_message.Message):
+    __slots__ = ("experiment_id", "name", "version")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    version: int
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
+class Scorer(_message.Message):
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
+    SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: int
+    scorer_name: str
+    scorer_version: int
+    serialized_scorer: str
+    creation_time: int
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
