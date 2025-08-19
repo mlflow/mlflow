@@ -14,7 +14,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
@@ -83,6 +83,7 @@ def _validate_assessments(traces):
         assert isinstance(a_expected_response, Expectation)
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
+        assert a_expected_response.source.source_id is not None
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
@@ -471,7 +472,7 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    mlflow.genai.evaluate(data=traces, scorers=[Safety()])
+    mlflow.genai.evaluate(data=traces, scorers=[RelevanceToQuery()])
 
 
 def test_max_workers_env_var(is_in_databricks, monkeypatch):
@@ -490,7 +491,7 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
                         "outputs": "MLflow is a tool for ML",
                     }
                 ],
-                scorers=[Safety()],
+                scorers=[RelevanceToQuery()],
             )
             # ThreadPoolExecutor is called twice in OSS (harness + scorers)
             first_call = mock_executor.call_args_list[0]

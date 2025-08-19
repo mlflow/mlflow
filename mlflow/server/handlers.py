@@ -101,6 +101,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -115,11 +116,14 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
+    GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -128,6 +132,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -161,6 +166,8 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
+from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -392,7 +399,10 @@ def _get_proxied_run_artifact_destination_path(proxied_artifact_root, relative_p
     )
 
 
-def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
+def _get_tracking_store(
+    backend_store_uri: str | None = None,
+    default_artifact_root: str | None = None,
+) -> AbstractTrackingStore:
     from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
     global _tracking_store
@@ -404,7 +414,7 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
     return _tracking_store
 
 
-def _get_model_registry_store(registry_store_uri=None):
+def _get_model_registry_store(registry_store_uri: str | None = None) -> AbstractModelRegistryStore:
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, REGISTRY_STORE_URI_ENV_VAR
 
     global _model_registry_store
@@ -420,8 +430,10 @@ def _get_model_registry_store(registry_store_uri=None):
 
 
 def initialize_backend_stores(
-    backend_store_uri=None, registry_store_uri=None, default_artifact_root=None
-):
+    backend_store_uri: str | None = None,
+    registry_store_uri: str | None = None,
+    default_artifact_root: str | None = None,
+) -> None:
     _get_tracking_store(backend_store_uri, default_artifact_root)
     try:
         _get_model_registry_store(registry_store_uri)
@@ -3354,6 +3366,114 @@ def _list_logged_model_artifacts_impl(
     return _wrap_response(response)
 
 
+# =============================================================================
+# Scorer Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _register_scorer():
+    request_message = _get_request_message(
+        RegisterScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "serialized_scorer": [_assert_required, _assert_string],
+        },
+    )
+    version = _get_tracking_store().register_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.serialized_scorer,
+    )
+    response_message = RegisterScorer.Response()
+    response_message.version = version
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorers():
+    request_message = _get_request_message(
+        ListScorers(),
+        schema={"experiment_id": [_assert_required, _assert_string]},
+    )
+    response_message = ListScorers.Response()
+    scorers = _get_tracking_store().list_scorers(request_message.experiment_id)
+    response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorer_versions():
+    request_message = _get_request_message(
+        ListScorerVersions(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    response_message = ListScorerVersions.Response()
+    scorers = _get_tracking_store().list_scorer_versions(
+        request_message.experiment_id, request_message.name
+    )
+    response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_scorer():
+    request_message = _get_request_message(
+        GetScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_intlike],
+        },
+    )
+    response_message = GetScorer.Response()
+    scorer_version = _get_tracking_store().get_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message.scorer.CopyFrom(scorer_version.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_scorer():
+    request_message = _get_request_message(
+        DeleteScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_intlike],
+        },
+    )
+    _get_tracking_store().delete_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message = DeleteScorer.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -3525,4 +3645,10 @@ HANDLERS = {
     SearchLoggedModels: _search_logged_models,
     ListLoggedModelArtifacts: _list_logged_model_artifacts,
     LogLoggedModelParamsRequest: _log_logged_model_params,
+    # Scorer APIs
+    RegisterScorer: _register_scorer,
+    ListScorers: _list_scorers,
+    ListScorerVersions: _list_scorer_versions,
+    GetScorer: _get_scorer,
+    DeleteScorer: _delete_scorer,
 }

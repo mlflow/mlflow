@@ -3617,6 +3617,10 @@
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
   },
+  "ega/Za": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
+  },
   "erqoIC": {
     "defaultMessage": "Run Name:",
     "description": "Text for run name row header in the main table in the model comparison\n                page"

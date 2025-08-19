@@ -94,6 +94,10 @@ jobs:
         run: |
           mkdir -p /tmp/docs-build/docs
           mv build/latest /tmp/docs-build/docs/latest
+
+          # Create `docs/versions.json` for the version selector in the API reference
+          VERSION="$(uv run --no-project ../dev/get_version.py)"
+          echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
       - name: Upload build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
