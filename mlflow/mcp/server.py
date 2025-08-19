@@ -1,6 +1,6 @@
 import contextlib
 import io
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import click
 from click import Parameter, ParamType
@@ -18,12 +18,27 @@ def cli():
 
 @cli.command()
 @click.argument("a")
-@click.option("--b", default=1, type=int, help="An optional integer parameter")
-def test(a: str, b: int = 1):
+@click.option(
+    "--b",
+    default=1,
+    type=int,
+    help="An optional integer parameter",
+)
+@click.option(
+    "--c",
+    default="a",
+    type=click.Choice(["a", "b", "c"]),
+    help="An optional enum parameter",
+)
+def test(
+    a: str,
+    b: int = 1,
+    c: Literal["a", "b", "c"] = "a",
+):
     """
     Test command
     """
-    click.echo(f"Test command called with a={a} and b={b}")
+    click.echo(f"Test command called with a={a!r} and b={b!r} and c={c!r}")
 
 
 def param_type_to_json_schema_type(pt: ParamType) -> str:
@@ -58,8 +73,7 @@ def get_input_schema(params: list[Parameter]) -> dict[str, Any]:
 
         res[p.name] = schema
 
-
-mcp = FastMCP("Demo 🚀")
+    return res
 
 
 def wrapper(command: click.Command) -> Callable[..., str]:
@@ -72,18 +86,27 @@ def wrapper(command: click.Command) -> Callable[..., str]:
     return wrapper
 
 
-mcp.add_tool(
-    FunctionTool(
-        fn=wrapper(test),
-        name=test.name,
-        description=test.help,
+def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
+    return FunctionTool(
+        fn=wrapper(cmd),
+        name=cmd.name,
+        description=cmd.help,
         parameters={
-            "name": test.name,
-            "description": test.help,
-            "inputSchema": get_input_schema(test.params),
+            "name": cmd.name,
+            "description": cmd.help,
+            "inputSchema": get_input_schema(cmd.params),
         },
     )
-)
+
+
+def create_mcp() -> FastMCP:
+    return FastMCP(
+        name=cli.name,
+        instructions=cli.help,
+        tools=[cmd_to_function_tool(cmd) for cmd in cli.commands.values()],
+    )
+
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp = create_mcp()
+    mcp.run(show_banner=False)

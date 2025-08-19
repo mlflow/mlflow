@@ -729,5 +729,11 @@ with contextlib.suppress(ImportError):
     cli.add_command(mlflow.gateway.cli.commands)
 
 
+with contextlib.suppress(ImportError):
+    import mlflow.mcp.cli
+
+    cli.add_command(mlflow.mcp.cli.cli)
+
+
 if __name__ == "__main__":
     cli()
