@@ -371,10 +371,17 @@ class MlflowCallback(BaseCallback):
 
     def _unpack_kwargs(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Unpacks the kwargs from the inputs dictionary"""
-        # NB: Not using pop() to avoid modifying the original inputs dictionary
+
+        def convert_signature(val):
+            # serialization of dspy.Signature is quite slow, so we should convert it to string here
+            if isinstance(val, type) and issubclass(val, dspy.Signature):
+                return repr(val)
+            return val
+
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
-        return {**inputs_wo_kwargs, **kwargs}
+        merged = {**inputs_wo_kwargs, **kwargs}
+        return {k: convert_signature(v) for k, v in merged.items()}
 
     def _generate_result_table(
         self, outputs: list[tuple[dspy.Example, dspy.Prediction, Any]]

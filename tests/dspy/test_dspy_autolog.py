@@ -125,6 +125,7 @@ def test_autolog_cot():
     for i in range(3):
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
+        assert spans[4 + i].inputs["signature"] == repr(cot.predict.signature)
 
 
 def test_mlflow_callback_exception():
