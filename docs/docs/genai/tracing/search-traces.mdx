@@ -382,11 +382,7 @@ eval_dataset = conversation_data.rename(
 )
 
 # Use with MLflow evaluate
-results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[...],
-    dataset_name="conversation_evaluation",  # Optional: Custom name for tracking
-)
+results = mlflow.genai.evaluate(data=eval_dataset, scorers=[...])
 ```
 
 ### Environment Monitoring
