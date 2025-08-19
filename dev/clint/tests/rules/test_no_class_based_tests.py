@@ -34,6 +34,9 @@ class HelperClass:
     def setup_something(self):
         pass
 
+    def test_something(self):
+        pass
+
 # Good - function-based test
 def test_valid_function():
     assert True

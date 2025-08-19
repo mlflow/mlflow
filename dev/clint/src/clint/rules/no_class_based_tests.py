@@ -15,6 +15,9 @@ class NoClassBasedTests(Rule):
         if not path_name.startswith("test_"):
             return None
 
+        if not node.name.startswith("Test"):
+            return None
+
         # Check if the class has any test methods
         has_test_methods = any(
             isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
