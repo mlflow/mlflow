@@ -10,7 +10,6 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -30,8 +29,13 @@ class OTelExportTraceServiceRequest(BaseModel):
     """
 
     resourceSpans: list[dict[str, Any]] = Field(
-        ..., description="Collection of resource spans from instrumented applications"
+        default_factory=list,
+        description="Collection of resource spans from instrumented applications",
+        alias="resource_spans",
     )
+
+    class Config:
+        populate_by_name = True  # Allow both field name and alias
 
 
 class OTelExportTraceServiceResponse(BaseModel):
@@ -47,9 +51,9 @@ class OTelExportTraceServiceResponse(BaseModel):
 
 
 @otel_router.post("", response_model=OTelExportTraceServiceResponse, status_code=200)
-async def export_traces(
+def export_traces(
     request: OTelExportTraceServiceRequest,
-    x_mlflow_experiment_id: str | None = Header(None, alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
 ) -> OTelExportTraceServiceResponse:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
@@ -70,27 +74,48 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
-    try:
-        # TODO: Implement conversion from OTel JSON format to MLflow spans
-        # This would require:
-        # 1. Getting the tracking store via _get_tracking_store()
-        # 2. Parsing the incoming OTel format and creating MLflow Span objects
-        # 3. Calling store.log_spans(experiment_id, spans) to persist them
-        #    - The experiment_id is now available from the x_mlflow_experiment_id header
+    mlflow_spans = []
+    for resource_span in request.resourceSpans:
+        for scope_span in resource_span.get("scope_spans", resource_span.get("scopeSpans", [])):
+            for span_dict in scope_span.get("spans", []):
+                from google.protobuf.json_format import ParseDict
+                from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
-        # Log the experiment ID if provided (for debugging)
-        if x_mlflow_experiment_id:
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Received spans for experiment ID: {x_mlflow_experiment_id}")
+                try:
+                    otel_proto_span = ParseDict(span_dict, OTelProtoSpan())
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid OpenTelemetry span format",
+                    )
 
-        # For now, just return success
-        return OTelExportTraceServiceResponse()
+                try:
+                    from mlflow.entities.span import Span
 
-    except Exception as e:
-        # Log the error and return an HTTP error response
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to export traces: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export traces: {e!s}",
-        )
+                    mlflow_span = Span._from_otel_proto(otel_proto_span)
+                    mlflow_spans.append(mlflow_span)
+                except Exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Cannot convert OpenTelemetry span to MLflow span",
+                    )
+
+    if mlflow_spans:
+        from mlflow.server.handlers import _get_tracking_store
+
+        store = _get_tracking_store()
+
+        try:
+            store.log_spans(x_mlflow_experiment_id, mlflow_spans)
+        except NotImplementedError:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="REST OTLP span logging is not supported by the current tracing store",
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Cannot store OpenTelemetry spans",
+            )
+
+    return OTelExportTraceServiceResponse()

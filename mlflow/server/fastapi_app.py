@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
 
 from mlflow.server import app as flask_app
+from mlflow.server.otel_api import otel_router
 from mlflow.version import VERSION
 
 
@@ -31,6 +32,10 @@ def create_fastapi_app():
         redoc_url=None,
         openapi_url=None,
     )
+
+    # Include OpenTelemetry API router before mounting Flask app
+    # This allows native FastAPI handling of OTel endpoints
+    fastapi_app.include_router(otel_router)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

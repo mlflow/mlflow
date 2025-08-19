@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     build_otel_context,
@@ -369,6 +369,7 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
+        span_request_id = f"{TRACE_REQUEST_ID_PREFIX}{encode_trace_id(trace_id)}"
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -376,8 +377,12 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: _decode_otel_proto_anyvalue(attr.value)
-                for attr in otel_proto_span.attributes
+                **{
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in otel_proto_span.attributes
+                },
+                # Set the MLflow trace request ID attribute
+                SpanAttributeKey.REQUEST_ID: span_request_id,
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[

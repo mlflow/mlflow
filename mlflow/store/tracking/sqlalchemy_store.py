@@ -2756,6 +2756,9 @@ class SqlAlchemyStore(AbstractStore):
         trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
 
         with self.ManagedSessionMaker() as session:
+            # Get experiment info for artifact location
+            experiment = self.get_experiment(experiment_id)
+
             # Try to get the trace info to check if trace exists
             sql_trace_info = (
                 session.query(SqlTraceInfo)
@@ -2774,6 +2777,8 @@ class SqlAlchemyStore(AbstractStore):
                     status=trace_status,
                     client_request_id=None,
                 )
+                # Add the artifact location tag for trace data
+                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -2847,6 +2852,25 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
                 session.merge(sql_span)
+
+            # Upload trace data as JSON artifact for trace retrieval (must be done inside session)
+            # Get the trace info for the upload
+            trace_info_for_artifact = sql_trace_info.to_mlflow_entity()
+
+            # Create TraceData object from spans
+            from mlflow.entities.trace_data import TraceData
+            from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+            trace_data = TraceData(spans=spans)
+
+            # Upload trace data to artifact store
+            artifact_repo = get_artifact_repository(
+                trace_info_for_artifact.tags[MLFLOW_ARTIFACT_LOCATION]
+            )
+            trace_data_json = json.dumps(
+                trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False
+            )
+            artifact_repo.upload_trace_data(trace_data_json)
 
         return spans
 
