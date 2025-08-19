@@ -60,7 +60,9 @@ from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils,
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
+    _REGISTERED_MODEL_ALIAS_LATEST,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -1018,6 +1020,7 @@ class FileStore(AbstractStore):
             None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
+        _validate_model_alias_name_reserved(alias)
         self._fetch_file_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))
@@ -1052,6 +1055,10 @@ class FileStore(AbstractStore):
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+        if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
+            latest_version = next(v for v in self.get_latest_versions(name) if v is not None)
+            return self.get_model_version(name, latest_version.version)
+
         alias_path = self._get_registered_model_alias_path(name, alias)
         if exists(alias_path):
             version = read_file(os.path.dirname(alias_path), os.path.basename(alias_path))
