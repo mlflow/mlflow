@@ -209,7 +209,7 @@ def autolog(
         log_fn_args_as_params(original, [], kwargs, unlogged_params)
         model_id = None
         if log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = mlflow.initialize_logged_model("model", flavor="keras").model_id
 
         if log_datasets:
             try:

@@ -365,6 +365,7 @@ def log_model(
         model_type=model_type,
         params=params,
         tags=tags,
+        flavor=FLAVOR_NAME,
     )
     mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:

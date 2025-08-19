@@ -2132,6 +2132,7 @@ def initialize_logged_model(
     params: dict[str, str] | None = None,
     model_type: str | None = None,
     experiment_id: str | None = None,
+    flavor: str | None = None,
 ) -> LoggedModel:
     """
     Initialize a LoggedModel. Creates a LoggedModel with status ``PENDING`` and no artifacts. You
@@ -2146,6 +2147,7 @@ def initialize_logged_model(
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
+        flavor: The flavor of the model.
 
     Returns:
         A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
@@ -2157,6 +2159,7 @@ def initialize_logged_model(
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
+        flavor=flavor or "initialize",
     )
     _last_logged_model_id.set(model.model_id)
     return model
@@ -2221,6 +2224,7 @@ def create_external_model(
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
+        flavor="external",
     )
 
     # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.

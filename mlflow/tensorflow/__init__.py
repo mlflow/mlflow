@@ -1328,7 +1328,7 @@ def autolog(
 
             model_id = None
             if log_models:
-                model_id = mlflow.initialize_logged_model("model").model_id
+                model_id = mlflow.initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
 
             if log_datasets:
                 try:

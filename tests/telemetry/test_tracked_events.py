@@ -48,10 +48,17 @@ def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
 def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClient):
     event_name = CreateLoggedModelEvent.name
     mlflow.create_external_model(name="model")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "external"}
+    )
 
     mlflow.initialize_logged_model(name="model", tags={"key": "value"})
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "initialize"}
+    )
+
+    mlflow.initialize_logged_model(name="model", flavor="keras")
+    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, {"flavor": "keras"})
 
     mlflow.pyfunc.log_model(
         name="model",

@@ -803,7 +803,7 @@ def autolog(
 
         model_id = None
         if _log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = mlflow.initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:

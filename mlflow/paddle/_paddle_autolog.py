@@ -101,7 +101,9 @@ def patched_fit(original, self, *args, **kwargs):
 
     model_id = None
     if log_models:
-        model_id = mlflow.initialize_logged_model("model").model_id
+        model_id = mlflow.initialize_logged_model(
+            "model", flavor=mlflow.paddle.FLAVOR_NAME
+        ).model_id
     metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
 
     early_stop_callback = None
