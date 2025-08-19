@@ -45,24 +45,23 @@ def setup_logging() -> logging.Logger:
     log_dir = Path(os.getcwd()) / ".claude" / "mlflow"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = logging.getLogger(__name__)
-    logger.handlers.clear()  # Remove any existing handlers
+    return logging.getLogger(__name__)
+    # TODO: Uncomment the following tests
+    # logger.handlers.clear()  # Remove any existing handlers
 
-    # Configure file handler with timestamp formatting
-    log_file = log_dir / "claude_tracing.log"
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    logger.addHandler(file_handler)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False  # Prevent duplicate log messages
+    # # Configure file handler with timestamp formatting
+    # log_file = log_dir / "claude_tracing.log"
+    # file_handler = logging.FileHandler(log_file)
+    # file_handler.setFormatter(
+    #     logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    # )
+    # logger.addHandler(file_handler)
+    # logger.setLevel(logging.INFO)
+    # logger.propagate = False  # Prevent duplicate log messages
 
-    # Suppress other loggers that might output to console
-    logging.getLogger("databricks.sdk").setLevel(logging.WARNING)
-    logging.getLogger("mlflow").setLevel(logging.WARNING)
-
-    return logger
+    # # Suppress other loggers that might output to console
+    # logging.getLogger("databricks.sdk").setLevel(logging.WARNING)
+    # logging.getLogger("mlflow").setLevel(logging.WARNING)
 
 
 _MODULE_LOGGER = setup_logging()
