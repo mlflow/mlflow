@@ -17,6 +17,7 @@ from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils import mlflow_tags
@@ -938,6 +939,35 @@ class AbstractStore:
 
         Raises:
             MlflowException: If more than 100 traces are provided.
+        """
+
+    @abstractmethod
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate the correlation (NPMI) between two trace filter conditions.
+        
+        This method computes the Normalized Pointwise Mutual Information (NPMI)
+        between traces matching two different filter conditions, which measures
+        how often the conditions co-occur compared to chance.
+        
+        Args:
+            experiment_ids: List of experiment IDs to search traces in.
+            filter_string1: First filter condition (e.g., "span.status = 'ERROR'").
+            filter_string2: Second filter condition (e.g., "count(span.type = 'TOOL') > 5").
+            
+        Returns:
+            TraceFilterCorrelation object containing:
+            - npmi: Correlation score from -1 to 1
+            - confidence intervals (if available)
+            - support counts for both filters and their intersection
+            
+        Raises:
+            MlflowException: If filter syntax is invalid or experiments don't exist.
         """
 
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
