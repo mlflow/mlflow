@@ -46,7 +46,7 @@ def setup_logging() -> logging.Logger:
     log_dir.mkdir(parents=True, exist_ok=True)
 
     return logging.getLogger(__name__)
-    # TODO: Uncomment the following tests
+    # TODO: Uncomment the following lines:
     # logger.handlers.clear()  # Remove any existing handlers
 
     # # Configure file handler with timestamp formatting
