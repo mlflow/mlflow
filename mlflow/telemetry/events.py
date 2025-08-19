@@ -15,10 +15,6 @@ class Event:
         return None
 
 
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
-
-
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
@@ -94,3 +90,7 @@ class CreateWebhookEvent(Event):
         events = arguments.get("events") or []
         entities = list({str(e.entity) for e in events})
         return {"entities": entities}
+
+
+class PromptOptimizationEvent(Event):
+    name: str = "prompt_optimization"
