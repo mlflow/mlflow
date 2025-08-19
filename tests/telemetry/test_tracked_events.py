@@ -8,6 +8,8 @@ import sklearn.neighbors as knn
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
+from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -20,6 +22,7 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
+    PromptOptimizationEvent,
     StartTraceEvent,
 )
 
@@ -242,3 +245,40 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
+
+
+def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
+    sample_prompt = mlflow.genai.register_prompt(
+        name="test_translation_prompt",
+        template="Translate the following text to {{language}}: {{input_text}}",
+    )
+    sample_data = pd.DataFrame(
+        {
+            "inputs": [
+                {"input_text": "Hello", "language": "Spanish"},
+                {"input_text": "World", "language": "French"},
+            ],
+            "expectations": [{"translation": "Hola"}, {"translation": "Monde"}],
+        }
+    )
+
+    @scorer
+    def sample_scorer(inputs, outputs, expectations):
+        return 1.0
+
+    with mock.patch(
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=OptimizerOutput(
+            final_eval_score=1.0,
+            initial_eval_score=0.5,
+            optimizer_name="DSPy/MIPROv2",
+            optimized_prompt="optimized",
+        ),
+    ):
+        mlflow.genai.optimize_prompt(
+            target_llm_params=LLMParams(model_name="test/model"),
+            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+    validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)

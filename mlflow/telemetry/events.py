@@ -15,10 +15,6 @@ class Event:
         return None
 
 
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
-
-
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
@@ -96,3 +92,7 @@ def _is_prompt(tags: dict[str, str]) -> bool:
     except ImportError:
         return False
     return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
+
+class PromptOptimizationEvent(Event):
+    name: str = "prompt_optimization"
