@@ -96,15 +96,12 @@ class InferenceTableSpanExporter(SpanExporter):
         # The key is Databricks request ID.
         _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
 
-        if self._should_write_to_mlflow_backend:
+        # Export to MLflow backend if experiment ID is set
+        if MLFLOW_EXPERIMENT_ID.get():
             if trace.info.experiment_id is None:
-                # NB: The experiment ID is set based on the MLFLOW_EXPERIMENT_ID env var
-                #   populated in the scoring server by Agent Framework. If the model is not
-                #   deployed via agents.deploy(), the env var will not be set and the
-                #   experiment will be empty, even if the dual write itself is enabled.
-                _logger.warning(
-                    "Dual write to MLflow backend is enabled, but experiment ID is not set "
-                    "for the trace. Skipping trace export to MLflow backend."
+                _logger.debug(
+                    f"{MLFLOW_EXPERIMENT_ID.name} is set, but trace {trace.info.trace_id} "
+                    "has no experiment ID. Skipping export."
                 )
                 return
 

@@ -37,6 +37,7 @@ from mlflow.tracing.destination import (
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -270,72 +271,6 @@ def _setup_tracer_provider(disabled=False):
     if not processors:
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
-
-    # TODO: Update this logic to pluggable registry where
-    #  1. Partners can implement span processor/exporter and destination class.
-    #  2. They can register their implementation to the registry via entry points.
-    #  3. MLflow will pick the implementation based on given destination id.
-    if (trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get()) and isinstance(
-        trace_destination, (MlflowExperiment, Databricks)
-    ):
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-
-    elif should_use_otlp_exporter():
-        # Export to OpenTelemetry Collector when configured
-        from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-        exporter = get_otlp_exporter()
-        processor = OtelSpanProcessor(exporter)
-
-    elif is_in_databricks_model_serving_environment():
-        # Export to Inference Table when running in Databricks Model Serving
-        if not is_mlflow_tracing_enabled_in_model_serving():
-            _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-            return
-
-        # Try to use the delta archiving exporter if databricks-agents is available
-        try:
-            from mlflow.genai.experimental import InferenceTableDeltaSpanExporter
-
-            exporter = InferenceTableDeltaSpanExporter()
-            _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta archiving")
-        except ImportError:
-            # databricks-agents not available, use base exporter
-            from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
-
-            exporter = InferenceTableSpanExporter()
-            _logger.debug(
-                "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
-            )
-
-        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-
-        processor = InferenceTableSpanProcessor(exporter)
-
-    else:
-        # Default to MLflow Tracking Server
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-
-    # Configure sampling based on environment variable
-    sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
-    sampler = None
-    if sampling_ratio is not None:
-        if not (0.0 <= sampling_ratio <= 1.0):
-            _logger.warning(
-                f"{MLFLOW_TRACE_SAMPLING_RATIO} must be between 0.0 and 1.0, got {sampling_ratio}. "
-                "Ignoring the invalid value and using default sampling (1.0)."
-            )
-        else:
-            sampler = TraceIdRatioBased(sampling_ratio)
-
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    # MLflow tracing does not use resource right now.
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
-    tracer_provider.add_span_processor(processor)
-    _MLFLOW_TRACER_PROVIDER = tracer_provider
-
-    from mlflow.tracing.utils.warning import suppress_warning
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
     # level so that it does not show up in the user's console. This warning may indicate

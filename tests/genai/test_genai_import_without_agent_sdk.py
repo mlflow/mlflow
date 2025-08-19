@@ -4,8 +4,12 @@ import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.experimental.databricks_trace_archival import enable_databricks_trace_archival
+from mlflow.genai.scorers import (
+    delete_scorer,
+    get_scorer,
+    list_scorers,
+)
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.utils import delete_scorer, get_scorer, list_scorers
 
 
 # Test `mlflow.genai` namespace
