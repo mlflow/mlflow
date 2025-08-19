@@ -233,6 +233,12 @@ email_scorers = [
 ]
 ```
 
+:::tip Scoring Intermediate Information in Traces
+
+Scorers have access to the complete MLflow traces, including spans, attributes, and outputs. This allows you to evaluate the agent's behavior precisely, not only the final output, such as the **tool call trajectory**, the **sub-agents routing**, the **retrieved document recall**, etc. See <ins>[Parsing Traces for Scoring](/genai/eval-monitor/scorers/custom#parsing-traces-for-scoring)</ins> for more details.
+
+:::
+
 ### Step 3: Evaluate trace quality
 
 Now we are ready to run the evaluation. One notable difference from other examples is that we don't need to specify a `predict_fn` function. The <APILink fn="mlflow.genai.evaluate" /> function will automatically extract the inputs, outputs, and other intermediate information from the trace object and use them for scoring.
