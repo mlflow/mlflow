@@ -517,11 +517,26 @@ def server(
     "experiments in the `deleted` lifecycle stage.",
 )
 @click.option(
+    "--logged-model-ids",
+    default=None,
+    help="Optional comma separated list of logged model IDs to be permanently deleted."
+    " If logged model IDs are not specified, data is removed for all logged models in the `deleted`"
+    " lifecycle stage.",
+)
+@click.option(
     "--tracking-uri",
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
 )
-def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri):
+def gc(
+    older_than,
+    backend_store_uri,
+    artifacts_destination,
+    run_ids,
+    experiment_ids,
+    logged_model_ids,
+    tracking_uri,
+):    
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -540,6 +555,7 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
     backend_store = _get_store(backend_store_uri, artifacts_destination)
     skip_experiments = False
+    skip_logged_models = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
@@ -553,6 +569,15 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
             stacklevel=2,
         )
         skip_experiments = True
+
+    if not hasattr(backend_store, "_hard_delete_logged_model"):
+        warnings.warn(
+            "The specified backend does not allow hard-deleting logged models. Logged models"
+            " will be skipped.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        skip_logged_models = True
 
     time_delta = 0
 
@@ -582,6 +607,15 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
+
+    deleted_logged_model_ids_older_than = (
+        backend_store._get_deleted_logged_models(older_than=time_delta)
+        if not skip_logged_models
+        else []
+    )
+    logged_model_ids = (
+        logged_model_ids.split(",") if logged_model_ids else deleted_logged_model_ids_older_than
+    )
 
     time_threshold = get_current_time_millis() - time_delta
     if not skip_experiments:
@@ -637,28 +671,9 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
         run_ids.extend([run.info.run_id for run in fetch_runs()])
 
-    for run_id in set(run_ids):
-        run = backend_store.get_run(run_id)
-        if run.info.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException(
-                f"Run {run_id} is not in `deleted` lifecycle stage. Only runs in"
-                " `deleted` lifecycle stage can be deleted."
-            )
-        # raise MlflowException if run_id is newer than older_than parameter
-        if older_than and run_id not in deleted_run_ids_older_than:
-            raise MlflowException(
-                f"Run {run_id} is not older than the required age. "
-                f"Only runs older than {older_than} can be deleted.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        # raise MlflowException if run_id is newer than older_than parameter
-        if older_than and run_id not in deleted_run_ids_older_than:
-            raise MlflowException(
-                f"Run {run_id} is not older than the required age. "
-                f"Only runs older than {older_than} can be deleted.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    def _delete_with_artifacts(artifact_uri, delete_fn, entity_desc):
+        artifact_repo = get_artifact_repository(artifact_uri)
+
         try:
             artifact_repo.delete_artifacts()
         except InvalidUrlException as iue:
@@ -677,8 +692,42 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
                     fg="yellow",
                 ),
             )
-        backend_store._hard_delete_run(run_id)
-        click.echo(f"Run with ID {run_id} has been permanently deleted.")
+        delete_fn()
+        click.echo(entity_desc)
+
+    for run_id in set(run_ids):
+        run = backend_store.get_run(run_id)
+        if run.info.lifecycle_stage != LifecycleStage.DELETED:
+            raise MlflowException(
+                f"Run {run_id} is not in `deleted` lifecycle stage. Only runs in"
+                " `deleted` lifecycle stage can be deleted."
+            )
+        if older_than and run_id not in deleted_run_ids_older_than:
+            raise MlflowException(
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        _delete_with_artifacts(
+            run.info.artifact_uri,
+            lambda rid=run_id: backend_store._hard_delete_run(rid),
+            f"Run with ID {run_id} has been permanently deleted.",
+        )
+
+    if not skip_logged_models:
+        for model_id in set(logged_model_ids):
+            if older_than and model_id not in deleted_logged_model_ids_older_than:
+                raise MlflowException(
+                    f"Logged model {model_id} is not older than the required age. "
+                    f"Only logged models older than {older_than} can be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            logged_model = backend_store._get_logged_model(model_id)
+            _delete_with_artifacts(
+                logged_model.artifact_location,
+                lambda mid=model_id: backend_store._hard_delete_logged_model(mid),
+                f"Logged model with ID {model_id} has been permanently deleted.",
+            )
 
     if not skip_experiments:
         for experiment_id in experiment_ids:
