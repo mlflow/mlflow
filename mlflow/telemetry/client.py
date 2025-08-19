@@ -18,8 +18,7 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
-from mlflow.telemetry.events import ImportMlflowEvent
-from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 
@@ -47,6 +46,12 @@ class TelemetryClient:
         self.config = None
         self._fetch_config()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._clean_up()
+
     def _fetch_config(self):
         def _fetch():
             try:
@@ -54,18 +59,6 @@ class TelemetryClient:
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
-                else:
-                    # send the import record immediately after config is fetched
-                    # do not add if config is None
-                    self.add_record(
-                        Record(
-                            event_name=ImportMlflowEvent.name,
-                            timestamp_ns=time.time_ns(),
-                            status=Status.SUCCESS,
-                            duration_ms=0,
-                        ),
-                        send_immediately=True,
-                    )
                 self._is_config_fetched = True
             except Exception:
                 self._is_stopped = True
@@ -114,11 +107,14 @@ class TelemetryClient:
             except Exception:
                 return
 
-    def add_record(self, record: Record, send_immediately: bool = False):
+    def add_record(self, record: Record):
         """
         Add a record to be batched and sent to the telemetry server.
         """
+        send_immediately = False
         if not self.is_active:
+            # send the first record immediately to ensure the current session is captured
+            send_immediately = True
             self.activate()
 
         if self._is_stopped:
@@ -127,8 +123,8 @@ class TelemetryClient:
         with self._batch_lock:
             self._pending_records.append(record)
 
-            # Only send immediately if we've reached the batch size,
-            # time-based sending is handled by the batch checker thread.
+            # Only send if we've reached the batch size;
+            # time-based sending is handled by the consumer thread.
             if send_immediately or len(self._pending_records) >= self._batch_size:
                 self._send_batch()
 
