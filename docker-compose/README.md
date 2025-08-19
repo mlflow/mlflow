@@ -1,17 +1,16 @@
 # MLflow with Docker Compose (PostgreSQL + MinIO)
 
-This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **MinIO** (S3-compatible) artifact storage. It’s intended for quick evaluation and local development.
+This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **MinIO** (S3-compatible) artifact storage. It's intended for quick evaluation and local development.
 
 ---
 
 ## Overview
 
 - **MLflow Tracking Server** — exposed on your host (default `http://localhost:5000`).
-- **PostgreSQL** — persists MLflow’s metadata (experiments, runs, params, metrics).
+- **PostgreSQL** — persists MLflow's metadata (experiments, runs, params, metrics).
 - **MinIO** — stores run artifacts via an S3-compatible API.
 
 Compose automatically reads configuration from a local `.env` file in this directory.
-
 
 ---
 
@@ -23,6 +22,7 @@ Compose automatically reads configuration from a local `.env` file in this direc
   - Linux: Docker Engine + the `docker compose` plugin
 
 Verify your setup:
+
 ```bash
 docker --version
 docker compose version
@@ -36,7 +36,6 @@ docker compose version
 git clone https://github.com/mlflow/mlflow.git
 cd docker-compose
 ```
-
 
 ---
 
@@ -67,7 +66,6 @@ The `.env` file defines container image tags, ports, credentials, and storage co
   - `MINIO_PORT=9000`
   - `MINIO_BUCKET=mlflow`
 
-
 ---
 
 ## 3. Launch the Stack
@@ -77,16 +75,19 @@ docker compose up -d
 ```
 
 This:
+
 - Builds/pulls images as needed
 - Creates a user-defined network
 - Starts **postgres**, **minio**, and **mlflow** containers
 
 Check status:
+
 ```bash
 docker compose ps
 ```
 
 View logs (useful on first run):
+
 ```bash
 docker compose logs -f
 ```
@@ -96,6 +97,7 @@ docker compose logs -f
 ## 4. Access MLflow
 
 Open the MLflow UI:
+
 - **URL**: `http://localhost:5000` (or the port set in `.env`)
 
 You can now create experiments, run training scripts, and log metrics, parameters, and artifacts to this local MLflow instance.
@@ -105,11 +107,13 @@ You can now create experiments, run training scripts, and log metrics, parameter
 ## 5. Shutdown
 
 To stop and remove the containers and network:
+
 ```bash
 docker compose down
 ```
 
 > Data is preserved in Docker **volumes**. To remove volumes as well (irreversible), run:
+>
 > ```bash
 > docker compose down -v
 > ```
@@ -119,18 +123,21 @@ docker compose down
 ## Tips & Troubleshooting
 
 - **Verify connectivity**  
-  If MLflow can’t write artifacts, confirm your S3 settings:
+  If MLflow can't write artifacts, confirm your S3 settings:
+
   - `MLFLOW_DEFAULT_ARTIFACT_ROOT` points to your MinIO bucket (e.g., `s3://mlflow/`)
   - `MLFLOW_S3_ENDPOINT_URL` is reachable from the MLflow container (often `http://minio:9000`)
 
 - **Resetting the environment**  
   If you want a clean slate, stop the stack and remove volumes:
+
   ```bash
   docker compose down -v
   docker compose up -d
   ```
 
-- **Logs**  
+- **Logs**
+
   - MLflow server: `docker compose logs -f mlflow`
   - PostgreSQL: `docker compose logs -f postgres`
   - MinIO: `docker compose logs -f minio`
@@ -146,8 +153,8 @@ docker compose down
 
 ## How It Works (at a Glance)
 
-- MLflow uses **PostgreSQL** as the *backend store* for experiment/run metadata.
-- MLflow uses **MinIO** as the *artifact store* via S3 APIs.
+- MLflow uses **PostgreSQL** as the _backend store_ for experiment/run metadata.
+- MLflow uses **MinIO** as the _artifact store_ via S3 APIs.
 - Docker Compose wires services on a shared network; MLflow talks to PostgreSQL and MinIO by container name (e.g., `postgres`, `minio`).
 
 ---
