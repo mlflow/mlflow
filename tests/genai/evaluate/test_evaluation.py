@@ -511,7 +511,7 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
         _validate_max_workers(30)
 
 
-def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
+def test_dataset_name_is_logged_correctly(is_in_databricks):
     data = pd.DataFrame(
         {
             "inputs": [{"question": "What is MLflow?"}],
@@ -521,34 +521,31 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
 
     if is_in_databricks:
         with mlflow.start_run():
-            with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
+            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
                 mlflow.genai.evaluate(
                     data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
                 )
+                mock_warning.assert_called_once()
                 assert (
                     "The 'dataset_name' parameter is not used in Databricks environments"
-                    in caplog.text
+                    in mock_warning.call_args[0][0]
                 )
 
-        caplog.clear()
         with mlflow.start_run():
-            with caplog.at_level("WARNING", logger="mlflow.genai.evaluation.base"):
+            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
                 mlflow.genai.evaluate(
                     data=data,
                     scorers=[RelevanceToQuery()],
                 )
-                assert (
-                    "The 'dataset_name' parameter is not used in Databricks environments"
-                    not in caplog.text
-                )
+                mock_warning.assert_not_called()
     else:
         with mlflow.start_run() as run:
-            with caplog.at_level("WARNING"):
+            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
                 mlflow.genai.evaluate(
                     data=data,
                     scorers=[RelevanceToQuery()],
                 )
-                assert "The 'dataset_name' parameter is not used" not in caplog.text
+                mock_warning.assert_not_called()
 
             run_data = mlflow.get_run(run.info.run_id)
 
@@ -561,13 +558,12 @@ def test_dataset_name_is_logged_correctly(is_in_databricks, caplog):
 
             assert dataset.name == "evaluation_dataset"
 
-        caplog.clear()
         with mlflow.start_run() as run:
-            with caplog.at_level("WARNING"):
+            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
                 mlflow.genai.evaluate(
                     data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
                 )
-                assert "The 'dataset_name' parameter is not used" not in caplog.text
+                mock_warning.assert_not_called()
 
             run_data = mlflow.get_run(run.info.run_id)
 
