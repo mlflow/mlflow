@@ -299,11 +299,6 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'eval-monitor/scorers/custom',
               label: 'Code-based Scorers',
             },
-            // {
-            //   type: 'doc',
-            //   id: 'eval-monitor/scorers/integrations',
-            //   label: 'Third-Party Integrations',
-            // },
           ],
         },
         {

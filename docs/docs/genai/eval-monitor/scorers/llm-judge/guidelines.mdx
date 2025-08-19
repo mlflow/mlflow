@@ -63,64 +63,6 @@ MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI,
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
 
-## Parsing complex inputs/outputs
-
-When the <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink> class is used with `mlflow.genai.evaluate`, MLflow assumes all values in `outputs` should be evaluated against the guidelines.
-
-If your model or app returns a structured output and you want to evaluate a specific field, you can define a custom scorer that invokes MLflow's <APILink fn="mlflow.genai.judges.meets_guidelines">meets_guidelines</APILink> API and pass the specific output field.
-
-For example, let's define a simple app that returns an answer to the user's question, but also includes reasoning and a confidence score.
-
-```python
-from mlflow.genai.judges import meets_guidelines
-
-from openai import OpenAI
-from pydantic import BaseModel
-
-client = OpenAI()
-
-
-class Response(BaseModel):
-    answer: str
-    reasoning: str
-    confidence: float
-
-
-def predict_fn(question: str) -> Response:
-    return client.responses.parse(
-        model="gpt-4o-mini",
-        input=[
-            {
-                "role": "system",
-                "content": "Answer the question concisely, with reasoning and confidence score.",
-            },
-            {
-                "role": "user",
-                "content": question,
-            },
-        ],
-        text_format=Response,
-    )
-```
-
-If you use the built-in <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink> scorer, the reasoning and confidence score will be included in the judge prompt, which is not desired.
-
-Instead, you can define a custom scorer that invokes MLflow's <APILink fn="mlflow.genai.judges.meets_guidelines">meets_guidelines</APILink> API and pass the `answer` field as the context.
-
-```python
-from mlflow.genai import scorer
-
-
-@scorer
-def is_concise(outputs):
-    answer = outputs.answer
-    return meets_guidelines(
-        name="is_concise",
-        guidelines="The response must be concise and to the point.",
-        context={"answer": answer},
-    )
-```
-
 ## Bring Your Own Prompt (full control)
 
 While `Guidelines` scorers have the distinct advantage of being easy to write and maintain, you may need more control or can't write your evaluation criteria as pass/fail guidelines.

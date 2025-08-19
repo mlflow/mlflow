@@ -62,7 +62,7 @@ def is_issue_resolved(inputs, outputs):
 The prompt template for the judge must have:
 
 - Placeholders for input values with **double curly braces**, e.g., `{{conversation}}`.
-- Choices for the judge to select from as output, enclosed in **square brackets**, e.g., `[[fully_resolved]]`.
+- Choices for the judge to select from as output, enclosed in **square brackets**, e.g., `[[fully_resolved]]`. The choice name can contain alphanumeric characters and underscores.
 
 :::tip Handling Parsing Errors
 
@@ -95,7 +95,7 @@ from mlflow.genai.judges import custom_prompt_judge
 custom_prompt_judge(
     name="is_issue_resolved",
     prompt_template=issue_resolution_prompt,
-    model="anthropic:/claude-4-opus",
+    model="anthropic:/claude-3-opus",
 )
 ```
 
