@@ -63,7 +63,7 @@ def test_message_content_validation():
     """Test the new Message content validation behavior allowing empty but not None"""
 
     # Test that None content is rejected (by Pydantic validation)
-    with pytest.raises(ValidationError, match="content must not be None"):
+    with pytest.raises(ValidationError, match="Input should be a valid"):
         Message(role="assistant", content=None, type="message")
 
     # Test that empty string content is allowed

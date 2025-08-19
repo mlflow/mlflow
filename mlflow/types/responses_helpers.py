@@ -125,6 +125,8 @@ class ResponseOutputMessage(Status):
     def check_content(self) -> "ResponseOutputMessage":
         if self.content is None:
             raise ValueError(f"content must not be None for {self.__class__.__name__}")
+        if isinstance(self.content, list) and len(self.content) == 0:
+            raise ValueError("content must not be an empty list")
         return self
 
 
