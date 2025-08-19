@@ -2132,7 +2132,6 @@ def initialize_logged_model(
     params: dict[str, str] | None = None,
     model_type: str | None = None,
     experiment_id: str | None = None,
-    flavor: str | None = None,
 ) -> LoggedModel:
     """
     Initialize a LoggedModel. Creates a LoggedModel with status ``PENDING`` and no artifacts. You
@@ -2147,11 +2146,31 @@ def initialize_logged_model(
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
-        flavor: The flavor of the model, used only for MLflow internal logging purpose.
 
     Returns:
         A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
     """
+    return _initialize_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+        flavor="initialize",
+    )
+
+
+def _initialize_logged_model(
+    name: str | None = None,
+    source_run_id: str | None = None,
+    tags: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
+    model_type: str | None = None,
+    experiment_id: str | None = None,
+    # this is only for internal logging purpose
+    flavor: str | None = None,
+) -> LoggedModel:
     model = _create_logged_model(
         name=name,
         source_run_id=source_run_id,
@@ -2159,7 +2178,7 @@ def initialize_logged_model(
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
-        flavor=flavor or "initialize",
+        flavor=flavor,
     )
     _last_logged_model_id.set(model.model_id)
     return model

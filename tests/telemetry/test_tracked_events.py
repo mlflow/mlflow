@@ -23,6 +23,7 @@ from mlflow.telemetry.events import (
     PromptOptimizationEvent,
     StartTraceEvent,
 )
+from mlflow.tracking.fluent import _initialize_logged_model
 
 from tests.telemetry.helper_functions import validate_telemetry_record
 
@@ -57,7 +58,7 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         mock_telemetry_client, mock_requests, event_name, {"flavor": "initialize"}
     )
 
-    mlflow.initialize_logged_model(name="model", flavor="keras")
+    _initialize_logged_model(name="model", flavor="keras")
     validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, {"flavor": "keras"})
 
     mlflow.pyfunc.log_model(
