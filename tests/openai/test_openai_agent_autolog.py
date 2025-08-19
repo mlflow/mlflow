@@ -1,4 +1,5 @@
 import copy
+import json
 from unittest import mock
 
 import openai
@@ -128,9 +129,14 @@ async def test_autolog_agent():
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
+    assert json.loads(trace.info.request_preview) == messages
+    assert json.loads(trace.info.response_preview) == response.final_output
     spans = trace.data.spans
     assert len(spans) == 6  # 1 root + 2 agent + 1 handoff + 2 response
-    assert spans[0].name == "Agent workflow"
+    assert spans[0].name == "AgentRunner.run"
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].inputs == messages
+    assert spans[0].outputs == response.final_output
     assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].name == "Response_1"
@@ -256,7 +262,7 @@ async def test_autolog_agent_llm_exception():
     assert trace.info.status == "ERROR"
     spans = trace.data.spans
     assert len(spans) == 3
-    assert spans[0].name == "Agent workflow"
+    assert spans[0].name == "AgentRunner.run"
     assert spans[2].status.status_code == "ERROR"
     assert spans[2].status.description == "Error getting response"
     assert spans[2].events[0].name == "exception"
@@ -312,11 +318,12 @@ async def test_autolog_agent_with_manual_trace():
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     spans = traces[0].data.spans
-    assert len(spans) == 4
+    assert len(spans) == 5
     assert spans[0].name == "Parent span"
     assert spans[1].name == "Joke workflow"
-    assert spans[2].name == "Joke agent"
-    assert spans[3].name == "Response"
+    assert spans[2].name == "AgentRunner.run"
+    assert spans[3].name == "Joke agent"
+    assert spans[4].name == "Response"
 
 
 @pytest.mark.asyncio

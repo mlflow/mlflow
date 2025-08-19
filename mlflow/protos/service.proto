@@ -868,6 +868,75 @@ service MlflowService {
       rpc_doc_title: "Delete Assessment",
     };
   }
+
+  // =============================================================================
+  // Scorer Management RPCs
+  // =============================================================================
+
+  // Register a scorer for an experiment.
+  rpc registerScorer (RegisterScorer) returns (RegisterScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/scorers/register"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Register Scorer",
+    };
+  }
+
+  // List all scorers for an experiment.
+  rpc listScorers (ListScorers) returns (ListScorers.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/list"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorers",
+    };
+  }
+
+  // List all versions of a specific scorer for an experiment.
+  rpc listScorerVersions (ListScorerVersions) returns (ListScorerVersions.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/versions"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorer Versions",
+    };
+  }
+
+  // Get a specific scorer for an experiment.
+  rpc getScorer (GetScorer) returns (GetScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/get"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Scorer",
+    };
+  }
+
+  // Delete a scorer for an experiment.
+  rpc deleteScorer (DeleteScorer) returns (DeleteScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/scorers/delete"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Scorer",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -933,7 +1002,7 @@ message Metric {
   optional int64 step = 4 [default = 0];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -1079,7 +1148,7 @@ message Experiment {
 
 // DatasetInput. Represents a dataset and input tags.
 message DatasetInput {
-  // A list of tags for the dataset input, e.g. a “context” tag with value “training”
+  // A list of tags for the dataset input, e.g. a "context" tag with value "training"
   repeated InputTag tags = 1;
 
   // The dataset being used as a Run input.
@@ -1103,14 +1172,14 @@ message InputTag {
 // Dataset. Represents a reference to data used for training, testing, or evaluation during
 // the model development process.
 message Dataset {
-  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string name = 1 [(validate_required) = true];
 
   // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
   // within datasets of the same name.
   optional string digest = 2 [(validate_required) = true];
 
-  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+  // The type of the dataset source, e.g. 'databricks-uc-table', 'DBFS', 'S3', ...
   optional string source_type = 3 [(validate_required) = true];
 
   // Source information for the dataset. Note that the source may not exactly reproduce the
@@ -1353,7 +1422,7 @@ message LogMetric {
   optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -2160,7 +2229,7 @@ message TraceInfoV3 {
 
   repeated assessments.Assessment assessments = 10;
 
-  // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
+  // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
   map<string, string> tags = 11;
 }
 
@@ -2191,7 +2260,7 @@ message DatasetSummary {
   // Unique identifier for the experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string name = 2 [(validate_required) = true];
 
   // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
@@ -2529,4 +2598,100 @@ message SearchTracesV3 {
     repeated TraceInfoV3 traces = 1;
     optional string next_page_token = 2;
   }
+}
+
+// =============================================================================
+// Scorer Management Messages
+// =============================================================================
+
+// Register a scorer for an experiment.
+message RegisterScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The serialized scorer string (JSON).
+  optional string serialized_scorer = 3;
+
+  message Response {
+    // The new version number for the scorer.
+    optional int32 version = 1;
+  }
+}
+
+// List all scorers for an experiment.
+message ListScorers {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+
+  message Response {
+    // List of scorer entities (latest version for each scorer name).
+    repeated Scorer scorers = 1;
+  }
+}
+
+// List all versions of a specific scorer for an experiment.
+message ListScorerVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+
+  message Response {
+    // List of scorer entities for all versions of the scorer.
+    repeated Scorer scorers = 1;
+  }
+}
+
+// Get a specific scorer for an experiment.
+message GetScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The scorer version. If not specified, returns the scorer with maximum version.
+  optional int32 version = 3;
+
+  message Response {
+    // The scorer entity.
+    optional Scorer scorer = 1;
+  }
+}
+
+// Delete a scorer for an experiment.
+message DeleteScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The scorer version to delete. If not specified, deletes all versions.
+  optional int32 version = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Scorer entity representing a scorer in the database.
+message Scorer {
+  // The experiment ID.
+  optional int32 experiment_id = 1;
+  // The scorer name.
+  optional string scorer_name = 2;
+  // The scorer version.
+  optional int32 scorer_version = 3;
+  // The serialized scorer string.
+  optional string serialized_scorer = 4;
+  // The creation time of the scorer version (in milliseconds since epoch).
+  optional int64 creation_time = 5;
 }

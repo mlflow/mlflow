@@ -225,11 +225,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_min_supported_version(versions_infos: list[VersionInfo]) -> str | None:
+def get_min_supported_version(versions_infos: list[VersionInfo], genai: bool = False) -> str | None:
     """
     Get the minimum version that is released within the past two years
     """
-    min_support_date = datetime.now() - timedelta(days=2 * 365)
+    years = 1 if genai else 2
+    min_support_date = datetime.now() - timedelta(days=years * 365)
     min_support_date = min_support_date.replace(tzinfo=None)
 
     # Extract versions that were released in the past two years
@@ -254,8 +255,11 @@ def update(skip_yml=False):
             if flavor_key in ["litellm"]:
                 continue
             package_name = config["package_info"]["pip_release"]
+            genai = config["package_info"].get("genai", False)
             versions_and_upload_times = get_package_version_infos(package_name)
-            min_supported_version = get_min_supported_version(versions_and_upload_times)
+            min_supported_version = get_min_supported_version(
+                versions_and_upload_times, genai=genai
+            )
 
             for category in ["autologging", "models"]:
                 print("Processing", flavor_key, category)
