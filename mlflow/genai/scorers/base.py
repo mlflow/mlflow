@@ -122,7 +122,7 @@ class Scorer(BaseModel):
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
-        if self._sampling_config is None:
+        if self.sample_rate is None:
             return ScorerStatus.UNREGISTERED
 
         return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
@@ -514,7 +514,6 @@ class Scorer(BaseModel):
             A new Scorer instance with updated sampling configuration.
 
         Example:
-
             .. code-block:: python
 
                 import mlflow
