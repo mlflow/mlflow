@@ -80,3 +80,7 @@ def _is_prompt(tags: dict[str, str]) -> bool:
     except ImportError:
         return False
     return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
+
+class PromptOptimizationEvent(Event):
+    name: str = "prompt_optimization"
