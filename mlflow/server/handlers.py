@@ -2359,7 +2359,12 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
+    # For compatibility with expected behavior in artifacts-only mode,
+    # return an empty JSON object when no path is specified.
+    if not request_message.HasField("path"):
+        return Response("{}", mimetype="application/json")
+
+    path = validate_path_is_safe(request_message.path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):

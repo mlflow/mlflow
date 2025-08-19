@@ -776,3 +776,18 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
+
+def test_mlflow_gc_logged_model(tmp_path):
+    store = FileStore(str(tmp_path), str(tmp_path))
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    artifact_repo = get_artifact_repository(model.artifact_location)
+    artifact_file = tmp_path / "artifact.txt"
+    artifact_file.write_text("content")
+    artifact_repo.log_artifact(str(artifact_file))
+    store.delete_logged_model(model.model_id)
+    subprocess.check_output(
+        [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", str(tmp_path)]
+    )
+    model_dir = store._get_model_dir(exp_id, model.model_id)
+    assert not os.path.exists(model_dir)
