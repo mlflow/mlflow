@@ -44,18 +44,19 @@ def get_input_schema(params: list[Parameter]) -> dict[str, Any]:
     """
     Converts click params to JSON schema
     """
-    return {
-        "type": "object",
-        "properties": {
-            p.name: {
-                "type": param_type_to_json_schema_type(p.type),
-                "default": p.default,
-                "required": p.required,
-                "description": p.help if hasattr(p, "help") else None,
-            }
-            for p in params
-        },
-    }
+    res: dict[str, Any] = {}
+
+    for p in params:
+        schema = {
+            "type": param_type_to_json_schema_type(p.type),
+            "default": p.default,
+            "required": p.required,
+            "description": p.help if hasattr(p, "help") else None,
+        }
+        if isinstance(p.type, click.Choice):
+            schema["enum"] = [str(choice) for choice in p.type.choices]
+
+        res[p.name] = schema
 
 
 mcp = FastMCP("Demo 🚀")
