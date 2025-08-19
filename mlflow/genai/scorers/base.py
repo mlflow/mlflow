@@ -507,8 +507,7 @@ class Scorer(BaseModel):
             experiment_id: The ID of the MLflow experiment containing the scorer.
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
-                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0).
-                    Must be greater than 0. Required.
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
 
         Returns:
