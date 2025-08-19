@@ -1156,6 +1156,7 @@ class Model:
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
 
+            flavor_name = kwargs.pop("flavor_name", None)
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -1163,6 +1164,8 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
+                if flavor_name is None:
+                    flavor_name = flavor.__name__ if hasattr(flavor, "__name__") else "custom"
                 model = _create_logged_model(
                     # TODO: Update model name
                     name=name,
@@ -1172,7 +1175,7 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
-                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
+                    flavor=flavor_name,
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
