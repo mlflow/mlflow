@@ -2147,7 +2147,7 @@ def initialize_logged_model(
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
-        flavor: The flavor of the model.
+        flavor: The flavor of the model, used only for MLflow internal logging purpose.
 
     Returns:
         A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
