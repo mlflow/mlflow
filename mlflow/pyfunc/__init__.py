@@ -3637,6 +3637,8 @@ def log_model(
 def _get_pyfunc_model_flavor_name(python_model: Any) -> str:
     if python_model is None:
         return "pyfunc"
+    if isinstance(python_model, str):
+        return "pyfunc.ModelFromCode"
     if IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         return "pyfunc.ResponsesAgent"
     if isinstance(python_model, ChatAgent):
