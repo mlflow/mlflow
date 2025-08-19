@@ -12,9 +12,13 @@ import { Rocket, Target, MessageSquare } from "lucide-react";
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" />
+<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-result-video.gif" alt="Prompt Evaluation" />
 
-The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" width="90%"/>
+
+## Key Capabilities
 
 <TabsWrapper>
   <Tabs>
@@ -29,7 +33,7 @@ The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development
 
         Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
 
-        [Learn more →](/genai/eval-monitor)
+        [Learn more →](/genai/eval-monitor/quickstart)
 
         </div>
 
@@ -217,7 +221,7 @@ Open the MLflow UI to review the evaluation results. If you are using OSS MLflow
 mlflow ui --port 5000
 ```
 
-If you are using cloud-based MLflow, open the experiment page in the platform.
+If you are using cloud-based MLflow, open the experiment page in the platform. You should see a new evaluation run is created under the "Runs" tab. Click on the run name to view the evaluation results.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-hero.png" alt="Evaluation Results" />
 
