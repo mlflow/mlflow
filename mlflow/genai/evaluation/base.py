@@ -55,7 +55,6 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-    dataset_name: str | None = None,
 ) -> EvaluationResult:
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -225,11 +224,6 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
-        dataset_name: Optional name for the dataset being evaluated. This name will be
-            logged with the evaluation results for tracking purposes. If not provided,
-            defaults to "evaluation_dataset" for DataFrames and lists, or uses the
-            table name for managed evaluation datasets.
-
     Returns:
         An :py:class:`mlflow.models.EvaluationResult~` object.
 
@@ -272,15 +266,9 @@ def evaluate(
     eval_start_time = int(time.time() * 1000)
 
     if is_databricks_uri(mlflow.get_tracking_uri()):
-        if dataset_name is not None:
-            logger.warning(
-                "The 'dataset_name' parameter is not used in Databricks environments. "
-                "For managed evaluation datasets, the name is derived from the Unity Catalog "
-                "table name. For other data types, the dataset name is automatically generated."
-            )
         result = _evaluate_dbx(data, scorers, predict_fn, model_id)
     else:
-        result = _evaluate_oss(data, scorers, predict_fn, model_id, dataset_name)
+        result = _evaluate_oss(data, scorers, predict_fn, model_id)
 
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(result.run_id, eval_start_time)
@@ -305,9 +293,8 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
                 "response": InputDatasetColumn.OUTPUTS,
             }
         )
-        # Use provided dataset name or default to a descriptive name
-        name = dataset_name or "evaluation_dataset"
-        mlflow_dataset = mlflow.data.from_pandas(df=data, name=name)
+        # Use default name for evaluation dataset when converting from DataFrame
+        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
 
     with (
@@ -357,7 +344,7 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     if isinstance(data, pd.DataFrame):
         from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
 
-        data = convert_data_to_mlflow_dataset(data=data, name="evaluation_dataset")
+        data = convert_data_to_mlflow_dataset(data=data, name="dataset")
 
     with warnings.catch_warnings():
         warnings.filterwarnings(

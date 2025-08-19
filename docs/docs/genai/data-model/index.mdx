@@ -272,10 +272,7 @@ relevance_metric = genai.relevance()
 
 # Evaluate traces with the metric
 results = mlflow.genai.evaluate(
-    predict_fn=your_model,
-    data=evaluation_data,
-    scorers=[relevance_metric],
-    dataset_name="model_relevance_eval",  # Optional: Custom name for tracking
+    predict_fn=your_model, data=evaluation_data, scorers=[relevance_metric]
 )
 ```
 
@@ -311,7 +308,6 @@ An **Evaluation Run** stores results from running a new app version against an E
 results = mlflow.genai.evaluate(
     predict_fn=your_model,
     data=evaluation_dataset,
-    dataset_name="production_eval_v2",  # Optional: Custom name for tracking
     scorers=[relevance_metric, accuracy_metric],
 )
 ```

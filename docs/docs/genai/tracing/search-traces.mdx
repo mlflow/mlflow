@@ -260,11 +260,7 @@ eval_data = traces.rename(
     }
 )
 
-results = mlflow.genai.evaluate(
-    data=eval_data,
-    scorers=[...],
-    dataset_name="extracted_span_data",  # Optional: Custom name for tracking
-)
+results = mlflow.genai.evaluate(data=eval_data, scorers=[...])
 ```
 
 :::note

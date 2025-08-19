@@ -148,7 +148,7 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     # Dataset input should be logged to the run
     run = mlflow.get_run(result.run_id)
     assert len(run.inputs.dataset_inputs) == 1
-    assert run.inputs.dataset_inputs[0].dataset.name == "evaluation_dataset"
+    assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
 
     if not is_in_databricks:
@@ -523,57 +523,69 @@ def test_dataset_name_is_logged_correctly(is_in_databricks):
         }
     )
 
-    if is_in_databricks:
-        with mlflow.start_run():
-            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
-                mlflow.genai.evaluate(
-                    data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
-                )
-                mock_warning.assert_called_once()
-                assert (
-                    "The 'dataset_name' parameter is not used in Databricks environments"
-                    in mock_warning.call_args[0][0]
-                )
+    with mlflow.start_run() as run:
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[RelevanceToQuery()],
+        )
 
-        with mlflow.start_run():
-            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
-                mlflow.genai.evaluate(
-                    data=data,
-                    scorers=[RelevanceToQuery()],
-                )
-                mock_warning.assert_not_called()
-    else:
+    if not is_in_databricks:
+        run_data = mlflow.get_run(run.info.run_id)
+        assert run_data.inputs is not None
+        assert run_data.inputs.dataset_inputs is not None
+        assert len(run_data.inputs.dataset_inputs) > 0
+
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        dataset = dataset_input.dataset
+        assert dataset.name == "dataset"
+
+
+def test_evaluate_with_dataset_preserves_name(is_in_databricks):
+    from mlflow.entities import Dataset as DatasetEntity
+
+    data = pd.DataFrame(
+        {
+            "inputs": [{"question": "What is MLflow?"}],
+            "outputs": ["MLflow is a tool for ML"],
+        }
+    )
+
+    mock_managed_dataset = MagicMock(spec=EvaluationDataset)
+    type(mock_managed_dataset).name = mock.PropertyMock(return_value="my_managed_dataset")
+    mock_managed_dataset.to_df.return_value = data
+    mock_managed_dataset.digest = "test_digest"
+    mock_managed_dataset.source = MagicMock()
+    mock_managed_dataset.source.to_json.return_value = "{}"
+    mock_managed_dataset.source._get_source_type.return_value = "test"
+    mock_managed_dataset._to_mlflow_entity.return_value = DatasetEntity(
+        name="my_managed_dataset",
+        digest="test_digest",
+        source_type="test",
+        source="{}",
+        schema=None,
+        profile=None,
+    )
+
+    if not is_in_databricks:
         with mlflow.start_run() as run:
-            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
-                mlflow.genai.evaluate(
-                    data=data,
-                    scorers=[RelevanceToQuery()],
-                )
-                mock_warning.assert_not_called()
+            mlflow.genai.evaluate(
+                data=data,
+                scorers=[RelevanceToQuery()],
+            )
 
-            run_data = mlflow.get_run(run.info.run_id)
-
-            assert run_data.inputs is not None
-            assert run_data.inputs.dataset_inputs is not None
-            assert len(run_data.inputs.dataset_inputs) > 0
-
-            dataset_input = run_data.inputs.dataset_inputs[0]
-            dataset = dataset_input.dataset
-
-            assert dataset.name == "evaluation_dataset"
+        run_data = mlflow.get_run(run.info.run_id)
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "dataset"
 
         with mlflow.start_run() as run:
-            with mock.patch("mlflow.genai.evaluation.base.logger.warning") as mock_warning:
-                mlflow.genai.evaluate(
-                    data=data, scorers=[RelevanceToQuery()], dataset_name="my_custom_eval_dataset"
-                )
-                mock_warning.assert_not_called()
+            mlflow.genai.evaluate(
+                data=mock_managed_dataset,
+                scorers=[RelevanceToQuery()],
+            )
 
-            run_data = mlflow.get_run(run.info.run_id)
-
-            dataset_input = run_data.inputs.dataset_inputs[0]
-            dataset = dataset_input.dataset
-            assert dataset.name == "my_custom_eval_dataset"
+        run_data = mlflow.get_run(run.info.run_id)
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "my_managed_dataset"
 
 
 def test_evaluate_with_managed_dataset_preserves_name():
