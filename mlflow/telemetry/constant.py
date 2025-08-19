@@ -1,3 +1,5 @@
+from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+
 # NB: Kinesis PutRecords API has a limit of 500 records per request
 BATCH_SIZE = 500
 BATCH_TIME_INTERVAL_SECONDS = 30
@@ -16,7 +18,7 @@ UNRECOVERABLE_ERRORS = [
     404,  # Not Found
 ]
 
-PACKAGES_TO_CHECK_IMPORT = [
+PACKAGES_TO_CHECK_IMPORT = {
     # Classic ML
     "catboost",
     "diviner",
@@ -77,4 +79,4 @@ PACKAGES_TO_CHECK_IMPORT = [
     "smolagents",
     "vllm",
     "weaviate",
-]
+} | set(FLAVOR_TO_MODULE_NAME.values()) - {"boto3", "pyspark"}
