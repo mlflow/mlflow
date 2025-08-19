@@ -11,6 +11,7 @@ from mlflow.entities import Feedback
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     CreateExperimentEvent,
@@ -68,7 +69,7 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         python_model=TestModel(),
     )
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc"}
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.CustomPythonModel"}
     )
 
     mlflow.sklearn.log_model(
@@ -77,6 +78,34 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
     )
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, {"flavor": "sklearn"}
+    )
+
+    class SimpleResponsesAgent(ResponsesAgent):
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            mock_response = {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "1234",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": request.input[0].content,
+                            }
+                        ],
+                    }
+                ],
+            }
+            return ResponsesAgentResponse(**mock_response)
+
+    mlflow.pyfunc.log_model(
+        name="model",
+        python_model=SimpleResponsesAgent(),
+    )
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.ResponsesAgent"}
     )
 
 
