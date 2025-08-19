@@ -96,7 +96,8 @@ def test_scorer_start(mock_update, _):
     assert call_args["filter_string"] == "trace.status = 'OK'"
 
 
-def test_scorer_start_with_zero_sample_rate_raises_error():
+@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
+def test_scorer_start_with_zero_sample_rate_raises_error(_):
     """Test that starting a scorer with sample_rate=0 raises an error."""
     my_scorer = length_check
 
