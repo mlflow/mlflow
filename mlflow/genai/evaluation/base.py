@@ -28,6 +28,8 @@ from mlflow.models.evaluation.base import (
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.telemetry.events import GenAIEvaluateEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -274,6 +276,7 @@ def evaluate(
     return result
 
 
+@record_usage_event(GenAIEvaluateEvent)
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
