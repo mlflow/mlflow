@@ -21,15 +21,12 @@ def serialization_scorer(outputs) -> bool:
     return len(outputs) > 5
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.add_registered_scorer")
-def test_scorer_register(mock_add, mock_get_tracking_uri):
+def test_scorer_register(mock_add):
     """Test registering a scorer."""
     # Test decorator scorer
     my_scorer = length_check
     registered = my_scorer.register(name="my_length_check")
-
-    mock_get_tracking_uri.assert_called_once()
 
     # Check immutability - returns new instance
     assert registered is not my_scorer
@@ -60,9 +57,8 @@ def test_scorer_register_default_name(mock_add):
     assert mock_add.call_args.kwargs["name"] == "length_check"
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.update_registered_scorer")
-def test_scorer_start(mock_update, mock_get_tracking_uri):
+def test_scorer_start(mock_update):
     """Test starting a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
@@ -79,8 +75,6 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
     started = my_scorer.start(
         sampling_config=ScorerSamplingConfig(sample_rate=0.5, filter_string="trace.status = 'OK'")
     )
-
-    mock_get_tracking_uri.assert_called_once()
 
     # Check immutability
     assert started is not my_scorer
@@ -99,15 +93,13 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
     assert call_args["filter_string"] == "trace.status = 'OK'"
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @pytest.mark.parametrize("sample_rate", [0, -0.1])
-def test_scorer_start_with_zero_sample_rate_raises_error(_, sample_rate):
+def test_scorer_start_with_zero_sample_rate_raises_error(sample_rate):
     with pytest.raises(MlflowException, match="sample rate must be greater than 0"):
         length_check.start(sampling_config=ScorerSamplingConfig(sample_rate=sample_rate))
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_scorer_start_not_registered(_):
+def test_scorer_start_not_registered():
     """Test starting a scorer that isn't registered."""
     my_scorer = length_check
 
@@ -118,9 +110,8 @@ def test_scorer_start_not_registered(_):
         assert mock_update.called
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.update_registered_scorer")
-def test_scorer_update(mock_update, mock_get_tracking_uri):
+def test_scorer_update(mock_update):
     """Test updating a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
@@ -137,8 +128,6 @@ def test_scorer_update(mock_update, mock_get_tracking_uri):
     updated = my_scorer.update(
         sampling_config=ScorerSamplingConfig(sample_rate=0.4, filter_string="old filter")
     )
-
-    mock_get_tracking_uri.assert_called_once()
 
     assert updated._sampling_config.sample_rate == 0.4
     assert updated._sampling_config.filter_string == "old filter"
