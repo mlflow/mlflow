@@ -46,7 +46,7 @@ def test_enable_databricks_trace_archival_with_default_experiment_id():
         "sys.modules",
         {"databricks.agents.archive": mock.MagicMock(enable_trace_archival=mock_enable)},
     ):
-        with mock.patch("mlflow.tracing.archival._get_experiment_id", return_value="default_exp"):
+        with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="default_exp"):
             enable_databricks_trace_archival(delta_table_fullname="catalog.schema.table")
             mock_enable.assert_called_once_with(
                 experiment_id="default_exp", table_fullname="catalog.schema.table"
@@ -69,6 +69,6 @@ def test_disable_databricks_trace_archival_with_default_experiment_id():
         "sys.modules",
         {"databricks.agents.archive": mock.MagicMock(disable_trace_archival=mock_disable)},
     ):
-        with mock.patch("mlflow.tracing.archival._get_experiment_id", return_value="default_exp"):
+        with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="default_exp"):
             disable_databricks_trace_archival()
             mock_disable.assert_called_once_with(experiment_id="default_exp")
