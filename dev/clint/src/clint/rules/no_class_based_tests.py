@@ -19,13 +19,11 @@ class NoClassBasedTests(Rule):
             return None
 
         # Check if the class has any test methods
-        has_test_methods = any(
-            isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and item.name.startswith("test_")
-            for item in node.body
-        )
-
-        if has_test_methods:
+        if any(
+            isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and stmt.name.startswith("test_")
+            for stmt in node.body
+        ):
             return cls(node.name)
 
         return None
