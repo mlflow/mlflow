@@ -6,6 +6,7 @@ import langchain
 import pytest
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
+from openai.types.chat.chat_completion import ChatCompletion
 from packaging.version import Version
 
 import mlflow
@@ -19,7 +20,7 @@ _MOCK_CHAT_RESPONSE = {
         {
             "index": 0,
             "message": {
-                "role": "user",
+                "role": "assistant",
                 "content": "What is MLflow?",
             },
             "finish_reason": "stop",
@@ -32,9 +33,19 @@ _MOCK_CHAT_RESPONSE = {
 
 @pytest.fixture(autouse=True)
 def mock_client() -> Generator:
-    client = mock.MagicMock()
-    client.predict.return_value = _MOCK_CHAT_RESPONSE
-    with mock.patch("mlflow.deployments.get_deploy_client", return_value=client):
+    # In databricks-langchain <= 0.7.0, ChatDatabricks uses MLflow deployment client
+    deploy_client = mock.MagicMock()
+    deploy_client.predict.return_value = _MOCK_CHAT_RESPONSE
+    # For newer version, ChatDatabricks uses workspace OpenAI client
+    openai_client = mock.MagicMock()
+    openai_client.chat.completions.create.return_value = ChatCompletion.validate(
+        _MOCK_CHAT_RESPONSE
+    )
+
+    with (
+        mock.patch("mlflow.deployments.get_deploy_client", return_value=deploy_client),
+        mock.patch("databricks_langchain.utils.get_openai_client", return_value=openai_client),
+    ):
         yield
 
 

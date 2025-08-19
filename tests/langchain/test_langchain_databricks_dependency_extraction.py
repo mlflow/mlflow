@@ -1,3 +1,4 @@
+import importlib
 from collections import Counter, defaultdict
 from unittest import mock
 
@@ -470,6 +471,10 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
 
+        # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
+        if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
+            monkeypatch.setattr("databricks_langchain.utils.get_openai_client", mock.MagicMock())
+
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
             from langchain_community.chat_models import ChatDatabricks
@@ -489,6 +494,10 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
 
+        # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
+        if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
+            monkeypatch.setattr("databricks_langchain.utils.get_openai_client", mock.MagicMock())
+
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
             from langchain_community.chat_models import ChatDatabricks
@@ -502,6 +511,7 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
         has_embedding_endpoint=True,
     )
     retriever = vectorstore.as_retriever()
+
     llm = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     llm2 = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
 
