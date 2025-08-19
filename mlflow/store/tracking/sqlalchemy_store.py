@@ -1891,9 +1891,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_logged_model(self, model_id: str) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
             logged_model = (
-                session.query(SqlLoggedModel)
-                .filter(SqlLoggedModel.model_id == model_id)
-                .first()
+                session.query(SqlLoggedModel).filter(SqlLoggedModel.model_id == model_id).first()
             )
             if not logged_model:
                 self._raise_model_not_found(model_id)
@@ -1928,7 +1926,7 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             return [m.model_id for m in models]
-            
+
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
             logged_model = session.query(SqlLoggedModel).get(model_id)

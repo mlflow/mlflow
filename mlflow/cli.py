@@ -536,7 +536,7 @@ def gc(
     experiment_ids,
     logged_model_ids,
     tracking_uri,
-):    
+):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.

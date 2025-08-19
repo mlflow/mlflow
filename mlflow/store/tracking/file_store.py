@@ -2429,8 +2429,7 @@ class FileStore(AbstractStore):
                     continue
                 if (
                     m_dict.get("lifecycle_stage") == LifecycleStage.DELETED
-                    and m_dict.get("last_updated_timestamp_ms", 0)
-                    <= current_time - older_than
+                    and m_dict.get("last_updated_timestamp_ms", 0) <= current_time - older_than
                 ):
                     deleted_models.append(m_dict["model_id"])
         return deleted_models
@@ -2503,7 +2502,7 @@ class FileStore(AbstractStore):
                 f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
             )
         return model
-        
+
     def _get_model_from_dir(self, model_dir: str) -> LoggedModel:
         return LoggedModel.from_dictionary(self._get_model_info_from_dir(model_dir))
 
