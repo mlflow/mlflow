@@ -81,9 +81,7 @@ def test_autolog_cot():
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
-    expected_signature = (
-        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
-    )
+
     result = cot(question="How are you?")
     assert result["answer"] == "test output"
     assert result["reasoning"] == "No more responses"
@@ -101,8 +99,11 @@ def test_autolog_cot():
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-
-    assert spans[0].attributes["signature"] == expected_signature
+    assert (
+        spans[0].attributes["signature"] == "question -> answer"
+        if _DSPY_UNDER_2_6
+        else "question -> reasoning, answer"
+    )
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].inputs["question"] == "How are you?"
@@ -127,7 +128,7 @@ def test_autolog_cot():
     for i in range(3):
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
-        assert expected_signature in spans[4 + i].inputs["signature"]
+        assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
 
 
 def test_mlflow_callback_exception():
