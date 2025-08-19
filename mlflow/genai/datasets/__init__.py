@@ -199,14 +199,17 @@ def search_datasets(
     Args:
         experiment_ids: Single experiment ID (str) or list of experiment IDs to filter by.
             If None, searches across all experiments.
-        filter_string: SQL-like filter string for dataset attributes. Supports filtering by:
+        filter_string: SQL-like filter string for dataset attributes. If not specified,
+            defaults to filtering for datasets created in the last 7 days. Supports filtering by:
             - name: Dataset name
             - created_by: User who created the dataset
             - last_updated_by: User who last updated the dataset
+            - created_time: Creation timestamp (milliseconds since epoch)
             - tags.<key>: Tag values
         max_results: Maximum number of results. If not specified, returns all datasets.
         order_by: List of columns to order by. Each entry can include an optional
-            "DESC" or "ASC" suffix (default is "ASC"). Supported columns:
+            "DESC" or "ASC" suffix (default is "ASC"). If not specified, defaults to
+            ["created_time DESC"]. Supported columns:
             - name
             - created_time
             - last_update_time
@@ -262,6 +265,17 @@ def search_datasets(
 
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
+
+    # Set default filter to return datasets created in the last 7 days if no filter provided
+    if filter_string is None:
+        import time
+
+        seven_days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)  # 7 days in milliseconds
+        filter_string = f"created_time >= {seven_days_ago}"
+
+    # Set default order by creation time DESC if no order provided
+    if order_by is None:
+        order_by = ["created_time DESC"]
 
     from mlflow.tracking.client import MlflowClient
     from mlflow.utils import get_results_from_paginated_fn

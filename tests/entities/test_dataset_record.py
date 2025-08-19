@@ -4,8 +4,8 @@ import pytest
 
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecord as ProtoDatasetRecord
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
+from mlflow.protos.datasets_pb2 import DatasetRecord as ProtoDatasetRecord
+from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
 
 def test_dataset_record_creation():

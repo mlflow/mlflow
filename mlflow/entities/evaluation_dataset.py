@@ -10,7 +10,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
@@ -308,9 +308,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         return pd.DataFrame(data)
 
-    def to_proto(self) -> ProtoEvaluationDataset:
+    def to_proto(self) -> ProtoDataset:
         """Convert to protobuf representation."""
-        proto = ProtoEvaluationDataset()
+        proto = ProtoDataset()
 
         proto.dataset_id = self.dataset_id
         proto.name = self.name
@@ -333,7 +333,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return proto
 
     @classmethod
-    def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
+    def from_proto(cls, proto: ProtoDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
         tags = None
         if proto.HasField("tags"):

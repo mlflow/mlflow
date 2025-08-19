@@ -62,7 +62,7 @@ basic_proto_files = to_paths(
     "internal.proto",
     "scalapb/scalapb.proto",
     "assessments.proto",
-    "evaluation_datasets.proto",
+    "datasets.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -117,8 +117,8 @@ python_gencode_replacements = [
         "from . import assessments_pb2 as assessments__pb2",
     ),
     (
-        "import evaluation_datasets_pb2 as evaluation__datasets__pb2",
-        "from . import evaluation_datasets_pb2 as evaluation__datasets__pb2",
+        "import datasets_pb2 as datasets__pb2",
+        "from . import datasets_pb2 as datasets__pb2",
     ),
 ]
 

@@ -8,7 +8,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
-import "evaluation_datasets.proto";
+import "datasets.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -873,11 +873,11 @@ service MlflowService {
   // Evaluation Dataset RPCs
 
   // Create an evaluation dataset
-  rpc createEvaluationDataset(CreateEvaluationDataset) returns (CreateEvaluationDataset.Response) {
+  rpc createDataset(CreateDataset) returns (CreateDataset.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/evaluation-datasets/create"
+        path: "/mlflow/datasets/create"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -892,11 +892,11 @@ service MlflowService {
   }
 
   // Get an evaluation dataset by ID
-  rpc getEvaluationDataset(GetEvaluationDataset) returns (GetEvaluationDataset.Response) {
+  rpc getDataset(GetDataset) returns (GetDataset.Response) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/evaluation-datasets/{dataset_id}"
+        path: "/mlflow/datasets/{dataset_id}"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -910,11 +910,11 @@ service MlflowService {
   }
 
   // Delete an evaluation dataset
-  rpc deleteEvaluationDataset(DeleteEvaluationDataset) returns (DeleteEvaluationDataset.Response) {
+  rpc deleteDataset(DeleteDataset) returns (DeleteDataset.Response) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/evaluation-datasets/{dataset_id}"
+        path: "/mlflow/datasets/{dataset_id}"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -932,11 +932,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/evaluation-datasets/search"
+        path: "/mlflow/datasets/search"
         since { major: 3, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/evaluation-datasets/search"
+        path: "/mlflow/datasets/search"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -950,11 +950,11 @@ service MlflowService {
 
 
   // Update evaluation dataset tags
-  rpc setEvaluationDatasetTags(SetEvaluationDatasetTags) returns (SetEvaluationDatasetTags.Response) {
+  rpc setDatasetTags(SetDatasetTags) returns (SetDatasetTags.Response) {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/tags"
+        path: "/mlflow/datasets/{dataset_id}/tags"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -968,11 +968,11 @@ service MlflowService {
   }
 
   // Delete an evaluation dataset tag
-  rpc deleteEvaluationDatasetTag(DeleteEvaluationDatasetTag) returns (DeleteEvaluationDatasetTag.Response) {
+  rpc deleteDatasetTag(DeleteDatasetTag) returns (DeleteDatasetTag.Response) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/tags/{key}"
+        path: "/mlflow/datasets/{dataset_id}/tags/{key}"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -986,11 +986,11 @@ service MlflowService {
   }
 
   // Upsert evaluation dataset records
-  rpc upsertEvaluationDatasetRecords(UpsertEvaluationDatasetRecords) returns (UpsertEvaluationDatasetRecords.Response) {
+  rpc upsertDatasetRecords(UpsertDatasetRecords) returns (UpsertDatasetRecords.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/records"
+        path: "/mlflow/datasets/{dataset_id}/records"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -1004,11 +1004,11 @@ service MlflowService {
   }
 
   // Get experiment IDs associated with an evaluation dataset
-  rpc getEvaluationDatasetExperimentIds(GetEvaluationDatasetExperimentIds) returns (GetEvaluationDatasetExperimentIds.Response) {
+  rpc getDatasetExperimentIds(GetDatasetExperimentIds) returns (GetDatasetExperimentIds.Response) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/experiment-ids"
+        path: "/mlflow/datasets/{dataset_id}/experiment-ids"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -1022,11 +1022,11 @@ service MlflowService {
   }
   
   // Get records for an evaluation dataset
-  rpc getEvaluationDatasetRecords(GetEvaluationDatasetRecords) returns (GetEvaluationDatasetRecords.Response) {
+  rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/records"
+        path: "/mlflow/datasets/{dataset_id}/records"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
@@ -2703,97 +2703,89 @@ message SearchTracesV3 {
 
 // Evaluation Dataset Messages
 
-message CreateEvaluationDataset {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset name
-    optional string name = 1 [(validate_required) = true];
-    
-    // Associated experiment IDs
-    repeated string experiment_ids = 2;
-    
-    // Source type
-    optional evaluation_datasets.DatasetRecordSource.SourceType source_type = 3;
-    
-    // Source information
-    optional string source = 4;
-    
-    // Schema information (JSON)
-    optional string schema = 5;
-    
-    // Profile information (JSON)
-    optional string profile = 6;
-    
-    // User creating the dataset
-    optional string created_by = 7;
-    
-    // Tags to set on the dataset (JSON string mapping keys to values)
-    optional string tags = 8;
-  }
-
+message CreateDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset name
+  optional string name = 1 [(validate_required) = true];
+  
+  // Associated experiment IDs
+  repeated string experiment_ids = 2;
+  
+  // Source type
+  optional datasets.DatasetRecordSource.SourceType source_type = 3;
+  
+  // Source information
+  optional string source = 4;
+  
+  // Schema information (JSON)
+  optional string schema = 5;
+  
+  // Profile information (JSON)
+  optional string profile = 6;
+  
+  // User creating the dataset
+  optional string created_by = 7;
+  
+  // Tags to set on the dataset (JSON string mapping keys to values)
+  optional string tags = 8;
+  
   message Response {
     // The created dataset
-    optional evaluation_datasets.EvaluationDataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
-message GetEvaluationDataset {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Optional page token for paginating records
-    optional string page_token = 2;
-  }
-
+message GetDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Optional page token for paginating records
+  optional string page_token = 2;
+  
   message Response {
     // The dataset (without records for lazy loading)
-    optional evaluation_datasets.EvaluationDataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
     
     // Next page token if more records exist
     optional string next_page_token = 2;
   }
 }
 
-message DeleteEvaluationDataset {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to delete
-    optional string dataset_id = 1 [(validate_required) = true];
-  }
-
+message DeleteDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to delete
+  optional string dataset_id = 1 [(validate_required) = true];
+  
   message Response {
     // Empty response
   }
 }
 
 message SearchEvaluationDatasets {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Associated experiment IDs to filter by
-    repeated string experiment_ids = 1;
-    
-    // Filter string for dataset names
-    optional string filter_string = 2;
-    
-    // Maximum number of results
-    optional int32 max_results = 3 [default = 1000];
-    
-    // Ordering criteria
-    repeated string order_by = 4;
-    
-    // Page token for pagination
-    optional string page_token = 5;
-  }
-
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Associated experiment IDs to filter by
+  repeated string experiment_ids = 1;
+  
+  // Filter string for dataset names
+  optional string filter_string = 2;
+  
+  // Maximum number of results
+  optional int32 max_results = 3 [default = 1000];
+  
+  // Ordering criteria
+  repeated string order_by = 4;
+  
+  // Page token for pagination
+  optional string page_token = 5;
+  
   message Response {
     // List of datasets (metadata only)
-    repeated evaluation_datasets.EvaluationDataset datasets = 1;
+    repeated datasets.Dataset datasets = 1;
     
     // Next page token if more results exist
     optional string next_page_token = 2;
@@ -2801,52 +2793,46 @@ message SearchEvaluationDatasets {
 }
 
 
-message SetEvaluationDatasetTags {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to update tags for
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Tags to update (JSON string).
-    optional string tags = 2 [(validate_required) = true];
-  }
-
+message SetDatasetTags {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to update tags for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Tags to update (JSON string).
+  optional string tags = 2 [(validate_required) = true];
+  
   message Response {
     // The updated dataset
-    optional evaluation_datasets.EvaluationDataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
-message DeleteEvaluationDatasetTag {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to delete tag from
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Tag key to delete
-    optional string key = 2 [(validate_required) = true];
-  }
-
+message DeleteDatasetTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to delete tag from
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Tag key to delete
+  optional string key = 2 [(validate_required) = true];
+  
   message Response {
   }
 }
 
-message UpsertEvaluationDatasetRecords {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to upsert records for
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Records to upsert (JSON serialized list of record dictionaries)
-    optional string records = 2 [(validate_required) = true];
-    
-    // User performing the update
-    optional string updated_by = 3;
-  }
-
+message UpsertDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to upsert records for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Records to upsert (JSON serialized list of record dictionaries)
+  optional string records = 2 [(validate_required) = true];
+  
+  // User performing the update
+  optional string updated_by = 3;
+  
   message Response {
     // Number of records inserted
     optional int32 inserted_count = 1;
@@ -2856,34 +2842,30 @@ message UpsertEvaluationDatasetRecords {
   }
 }
 
-message GetEvaluationDatasetExperimentIds {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to get experiment IDs for
-    optional string dataset_id = 1 [(validate_required) = true];
-  }
-
+message GetDatasetExperimentIds {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to get experiment IDs for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
   message Response {
     // List of experiment IDs associated with the dataset
     repeated string experiment_ids = 1;
   }
 }
 
-message GetEvaluationDatasetRecords {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset ID to get records for
-    optional string dataset_id = 1 [(validate_required) = true];
-    
-    // Optional pagination - maximum number of records to return
-    optional int32 max_results = 2 [default = 1000];
-    
-    // Optional pagination token for getting next page
-    optional string page_token = 3;
-  }
-
+message GetDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to get records for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Optional pagination - maximum number of records to return
+  optional int32 max_results = 2 [default = 1000];
+  
+  // Optional pagination token for getting next page
+  optional string page_token = 3;
+  
   message Response {
     // Records in the dataset (JSON serialized list)
     optional string records = 1;

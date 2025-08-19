@@ -428,7 +428,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
     _validate_assessments(traces)
 
 
-def test_evaluate_with_traces_from_search():
+def test_evaluate_with_managed_dataset_from_searched_traces():
     for i in range(3):
         with mlflow.start_span(name=f"qa_span_{i}") as span:
             question = f"What is item {i}?"

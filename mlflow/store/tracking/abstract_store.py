@@ -935,7 +935,7 @@ class AbstractStore:
         self,
         name: str,
         tags: dict[str, str] | None = None,
-        experiment_id: list[str] | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
@@ -943,7 +943,7 @@ class AbstractStore:
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_id: List of experiment IDs to associate with the dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created evaluation dataset with populated metadata.

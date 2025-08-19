@@ -208,8 +208,6 @@ select = [
   "PT023",   # pytest-incorrect-mark-parentheses-style
   "PT026",   # pytest-use-fixtures-without-parameters
   "PT027",   # pytest-unittest-raises-assertion
-  "PT030",   # pytest-warns-too-broad
-  "PT031",   # pytest-warns-with-multiple-statements
   "PYI024",  # collections-named-tuple
   "RET504",  # unnecessary-assign
   "RUF002",  # ambiguous-unicode-character-docstring
@@ -228,7 +226,6 @@ select = [
   "T20",     # flake8-print
   "TID251",  # banned-api
   "TID252",  # relative-import
-  "TRY203",  # useless-try-except
   "UP004",   # useless-object-inheritance
   "UP006",   # non-pep585-annotation
   "UP007",   # non-pep604-annotation-union
@@ -239,7 +236,6 @@ select = [
   "UP030",   # format-literals
   "UP031",   # printf-string-format
   "UP034",   # extraneous-parenthesis
-  "UP045",   # non-pep604-annotation-optional
   "W",       # warning
 ]
 ignore = [
@@ -309,9 +305,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# Ignore specific rules for evaluation dataset implementation
-"mlflow/server/__init__.py" = ["lazy-builtin-import"]
-"mlflow/store/tracking/rest_store.py" = ["unparameterized-generic-type"]
 
 # This file intentionally shows problematic code as an example of what NOT to do
 "docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]

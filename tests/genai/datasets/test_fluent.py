@@ -19,8 +19,6 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate
-from mlflow.genai.scorers import scorer
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import MlflowClient
@@ -286,14 +284,18 @@ def test_search_datasets_single_experiment_id(mock_client):
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     # When no max_results is specified, it defaults to None which means get all
-    search_datasets(experiment_ids="exp1")
+    # Mock time to have a consistent filter_string
+    with mock.patch("time.time", return_value=1234567890):
+        search_datasets(experiment_ids="exp1")
 
     # The pagination wrapper will use SEARCH_EVALUATION_DATASETS_MAX_RESULTS as the page size
+    # Now the function adds default filter (last 7 days) and order_by when not specified
+    seven_days_ago = int((1234567890 - 7 * 24 * 60 * 60) * 1000)
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1"],
-        filter_string=None,
+        filter_string=f"created_time >= {seven_days_ago}",
         max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,  # Page size
-        order_by=None,
+        order_by=["created_time DESC"],
         page_token=None,
     )
 
@@ -1393,119 +1395,5 @@ def test_deprecated_parameter_substitution(experiment):
         assert len(w) == 1
         assert issubclass(w[0].category, DeprecationWarning)
         assert "uc_table_name" in str(w[0].message)
-
-    delete_dataset(dataset_id=dataset.dataset_id)
-
-
-def test_dataset_with_genai_evaluate_integration(tracking_uri, experiments):
-    for i in range(5):
-        with mlflow.start_run(experiment_id=experiments[0]):
-            trace_tags = {
-                "environment": "test",
-                "model_version": "v1.0",
-                "test_iteration": str(i),
-                "quality": "high" if i % 2 == 0 else "medium",
-            }
-
-            with mlflow.start_span(name=f"qa_trace_{i}", attributes=trace_tags) as span:
-                inputs = {
-                    "question": f"Question {i}: What is MLflow?",
-                    "context": "MLflow is an open source platform for ML lifecycle management",
-                }
-                outputs = {"answer": f"Answer {i}: MLflow is a platform for managing ML workflows"}
-
-                span.set_inputs(inputs)
-                span.set_outputs(outputs)
-
-                mlflow.log_expectation(
-                    trace_id=span.trace_id,
-                    name="correctness",
-                    value=i % 2 == 0,
-                    span_id=span.span_id,
-                )
-                mlflow.log_expectation(
-                    trace_id=span.trace_id,
-                    name="relevance_score",
-                    value=0.7 + (i * 0.05),
-                    span_id=span.span_id,
-                )
-
-    traces_list = mlflow.search_traces(experiment_ids=[experiments[0]], return_type="list")
-
-    assert len(traces_list) == 5
-
-    dataset = create_dataset(
-        name="evaluate_integration_test",
-        experiment_id=experiments[0],
-        tags={"test": "integration", "mlflow.user": "test_user"},
-    )
-
-    dataset.merge_records(traces_list)
-
-    assert len(dataset.records) == 5
-
-    @scorer
-    def simple_length_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
-        """Score based on answer length."""
-        if outputs is None:
-            return 0.0
-        answer = outputs.get("answer", "") if isinstance(outputs, dict) else str(outputs)
-        return min(len(answer) / 100, 1.0)
-
-    @scorer
-    def expectation_based_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
-        """Score that compares with expectations."""
-        if expectations and isinstance(expectations, dict) and "relevance_score" in expectations:
-            return expectations["relevance_score"]
-        return 0.5
-
-    result = evaluate(
-        data=dataset,
-        scorers=[simple_length_scorer, expectation_based_scorer],
-    )
-
-    assert result is not None
-    assert result.run_id is not None
-
-    metrics = result.metrics
-    assert "simple_length_scorer/mean" in metrics or "simple_length_scorer/v1/mean" in metrics
-    assert (
-        "expectation_based_scorer/mean" in metrics or "expectation_based_scorer/v1/mean" in metrics
-    )
-
-    if hasattr(result, "tables"):
-        tables = result.tables
-        if tables and "eval_results_table" in tables:
-            eval_df = tables["eval_results_table"]
-            assert len(eval_df) == 5
-
-            assert (
-                "simple_length_scorer/score" in eval_df.columns
-                or "simple_length_scorer/v1/score" in eval_df.columns
-            )
-            assert (
-                "expectation_based_scorer/score" in eval_df.columns
-                or "expectation_based_scorer/v1/score" in eval_df.columns
-            )
-
-            if "expectation_based_scorer/score" in eval_df.columns:
-                score_col = "expectation_based_scorer/score"
-            else:
-                score_col = "expectation_based_scorer/v1/score"
-
-            for idx, row in eval_df.iterrows():
-                expected_relevance = 0.7 + (idx * 0.05)
-                actual_score = row[score_col]
-                error_msg = f"Row {idx}: expected {expected_relevance}, got {actual_score}"
-                assert abs(actual_score - expected_relevance) < 0.01, error_msg
-
-    run = mlflow.get_run(result.run_id)
-    assert run.inputs is not None
-    assert run.inputs.dataset_inputs is not None
-    assert len(run.inputs.dataset_inputs) > 0
-
-    dataset_input = run.inputs.dataset_inputs[0]
-    assert dataset_input.dataset.name == dataset.name
-    assert dataset_input.dataset.digest == dataset.digest
 
     delete_dataset(dataset_id=dataset.dataset_id)
