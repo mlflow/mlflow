@@ -35,6 +35,18 @@ class EvaluateEvent(Event):
     name: str = "evaluate"
 
 
+class GenAIEvaluateEvent(Event):
+    name: str = "genai_evaluate"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+        scorers = arguments.get("scorers") or []
+        builtin_scorers = {scorer.name for scorer in scorers if isinstance(scorer, BuiltInScorer)}
+        return {"builtin_scorers": list(builtin_scorers)}
+
+
 class CreateLoggedModelEvent(Event):
     name: str = "create_logged_model"
 
