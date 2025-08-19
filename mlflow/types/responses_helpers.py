@@ -123,8 +123,10 @@ class ResponseOutputMessage(Status):
 
     @model_validator(mode="after")
     def check_content(self) -> "ResponseOutputMessage":
-        if not self.content:
-            raise ValueError(f"content must not be an empty list for {self.__class__.__name__}")
+        if self.content is None:
+            raise ValueError(f"content must not be None for {self.__class__.__name__}")
+        if isinstance(self.content, list) and len(self.content) == 0:
+            raise ValueError("content must not be an empty list")
         return self
 
 
@@ -332,8 +334,8 @@ class Message(Status):
 
     @model_validator(mode="after")
     def check_content(self) -> "Message":
-        if not self.content:
-            raise ValueError("content must not be empty")
+        if self.content is None:
+            raise ValueError("content must not be None")
         if isinstance(self.content, list):
             for item in self.content:
                 if isinstance(item, dict):
