@@ -73,6 +73,7 @@ PACKAGES_TO_CHECK_IMPORT = [
     "pydantic_ai",
     "qdrant",
     "ragas",
+    "semantic_kernel",
     "smolagents",
     "vllm",
     "weaviate",
