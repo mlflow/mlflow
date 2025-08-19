@@ -1622,7 +1622,7 @@ pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 assert pyfunc_model.predict(input_example) == ["Hello", "Hi"]
 ```
 
-#### Example: Creating a custom “add n” model
+#### Example: Creating a custom "add n" model
 
 This example defines a class for a custom model that adds a specified numeric value, `n`, to all
 columns of a Pandas DataFrame input. Then, it uses the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
@@ -1809,7 +1809,7 @@ The <APILink fn="mlflow.models.predict" /> API provides a convenient way to test
 - Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
   For more details, refer to [Validating Environment for Prediction](/ml/model/dependencies/#validating-environment-for-prediction).
 - Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
-  Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
+  Ensure that the input data is a valid example that aligns with the pyfunc model's predict function requirements.
 - Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
@@ -1837,7 +1837,7 @@ mlflow.models.predict(
 )
 ```
 
-If your model dependencies (see the model artifact’s requirements.txt) include **pre-release packages** (e.g., mlflow==3.2.0rc0), set the environment variable `UV_PRERELEASE=allow` via the `extra_envs` field.
+If your model dependencies (see the model artifact's requirements.txt) include **pre-release packages** (e.g., mlflow==3.2.0rc0), set the environment variable `UV_PRERELEASE=allow` via the `extra_envs` field.
 
 ```python
 mlflow.models.predict(

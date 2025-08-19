@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -203,11 +204,37 @@ def test_prompt_associate_with_run(tmp_path):
     run_data = client.get_run(run.info.run_id)
     linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
     assert linked_prompts_tag is not None
+    assert len(json.loads(linked_prompts_tag)) == 1
+    assert json.loads(linked_prompts_tag)[0] == {
+        "name": "prompt_1",
+        "version": "1",
+    }
 
     linked_prompts = json.loads(linked_prompts_tag)
     assert len(linked_prompts) == 1
     assert linked_prompts[0]["name"] == "prompt_1"
     assert linked_prompts[0]["version"] == "1"
+
+    with mlflow.start_run() as run:
+        run_id_2 = run.info.run_id
+
+        # Prompt should be linked to the run even if it is loaded in a child thread
+        def task():
+            mlflow.load_prompt("prompt_1", version=1)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(task) for _ in range(10)]
+            for future in futures:
+                future.result()
+
+    run_data = client.get_run(run_id_2)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+    assert len(json.loads(linked_prompts_tag)) == 1
+    assert json.loads(linked_prompts_tag)[0] == {
+        "name": "prompt_1",
+        "version": "1",
+    }
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):

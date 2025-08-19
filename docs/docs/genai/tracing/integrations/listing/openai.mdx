@@ -45,7 +45,7 @@ MLflow trace automatically captures the following information about OpenAI calls
 - Prompts and completion responses
 - Latencies
 - Model name
-- Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Additional metadata such as `temperature`, `max_completion_tokens`, if specified.
 - Function calling if returned in the response
 - Built-in tools such as web search, file search, computer use, etc.
 - Any exception if raised
@@ -111,8 +111,7 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
     response = openai_client.chat.completions.create(
         model="o4-mini",
         messages=messages,
-        temperature=0.1,
-        max_tokens=100,
+        max_completion_tokens=100,
     )
     ```
 

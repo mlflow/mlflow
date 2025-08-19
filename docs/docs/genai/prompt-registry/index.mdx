@@ -313,6 +313,14 @@ To avoid accidental deletion, you can only delete one version at a time via API.
 
 A: No, prompt versions are immutable once created. To update a prompt, create a new version with the desired changes.
 
+#### Q: How to dynamically load the latest version of a prompt?
+
+A: You can load the latest version of a prompt by using the `@latest` alias. This is the reserved alias name and MLflow will automatically find the latest available version of the prompt.
+
+```python
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@latest")
+```
+
 #### Q: Can I use prompt templates with frameworks like LangChain or LlamaIndex?
 
 A: Yes, you can load prompts from MLflow and use them with any framework. For example, the following example demonstrates how to use a prompt registered in MLflow with LangChain. Also refer to [Logging Prompts with LangChain](/genai/prompt-registry/log-with-model#example-1-logging-prompts-with-langchain) for more details.

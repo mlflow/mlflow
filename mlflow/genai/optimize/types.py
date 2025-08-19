@@ -20,14 +20,16 @@ class PromptOptimizationResult:
     Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
 
     Args:
-        prompt: A prompt version entity containing the optimized template.
+        prompt: The optimized prompt. When autolog=True (default), this is a
+            PromptVersion entity containing the registered optimized template.
+            When autolog=False, this is the raw optimized template (str or dict).
         initial_prompt: A prompt version entity containing the initial template.
         optimizer_name: The name of the optimizer.
         final_eval_score: The final evaluation score of the optimized prompt.
         initial_eval_score: The initial evaluation score of the optimized prompt.
     """
 
-    prompt: PromptVersion
+    prompt: str | dict[str, Any] | PromptVersion
     initial_prompt: PromptVersion
     optimizer_name: str
     final_eval_score: float | None
@@ -41,8 +43,9 @@ class LLMParams:
     Parameters for configuring a LLM Model.
 
     Args:
-        model_name: Name of the model in the format `<provider>/<model name>`.
-            For example, "openai/gpt-4" or "anthropic/claude-4".
+        model_name: Name of the model in the format `<provider>:/<model name>` or
+            `<provider>/<model name>`. For example, "openai:/gpt-4o", "anthropic:/claude-4",
+            or "openai/gpt-4o".
         base_uri: Optional base URI for the API endpoint. If not provided,
             the default endpoint for the provider will be used.
         temperature: Optional sampling temperature for the model's outputs.
@@ -76,9 +79,11 @@ class OptimizerConfig:
             When a BasePromptOptimizer is provided, it will be used as the optimizer.
             Default: "DSPy/MIPROv2"
         verbose: Whether to show optimizer logs during optimization. Default: False
-        autolog: Whether to log the optimization parameters, datasets and metrics.
-            If set to True, a MLflow run is automatically created to store them.
-            Default: False
+        autolog: Whether to enable automatic logging and prompt registration.
+            If set to True, a MLflow run is automatically created to store optimization
+            parameters, datasets and metrics, and the optimized prompt is registered.
+            If set to False, the raw optimized template is returned without registration.
+            Default: True
         convert_to_single_text: Whether to convert the optimized prompt to a single prompt.
             Default: True
         extract_instructions: Whether to extract instructions from the initial prompt.
@@ -91,7 +96,7 @@ class OptimizerConfig:
     optimizer_llm: LLMParams | None = None
     algorithm: str | type["BasePromptOptimizer"] = "DSPy/MIPROv2"
     verbose: bool = False
-    autolog: bool = False
+    autolog: bool = True
     convert_to_single_text: bool = True
     extract_instructions: bool = True
 
