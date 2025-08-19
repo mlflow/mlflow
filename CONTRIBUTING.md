@@ -438,6 +438,10 @@ The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
 
+**Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
+which can cause network request failures. If you are encountering such issues, disable the
+process via system settings.
+
 #### Launching MLflow UI with MLflow AI Gateway for PromptLab
 
 ```sh
