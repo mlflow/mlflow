@@ -65,7 +65,7 @@ def main(use_npm, no_r):
     )
 
     package_manager = ["npm", "run"] if use_npm else ["yarn"]
-    build_command = ["build-api-docs:no-r"] if no_r else ["build-api-docs"]
+    build_command = ["build-api-docs:no-r"] #["build-api-docs:no-r"] if no_r else ["build-api-docs"]
 
     subprocess.check_call(package_manager + build_command)
     subprocess.check_call(package_manager + ["convert-notebooks"])
