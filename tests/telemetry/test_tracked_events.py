@@ -224,13 +224,12 @@ def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
 def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
     client = MlflowClient()
-    with mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore.create_webhook"):
-        client.create_webhook(
-            name="test_webhook",
-            url="https://example.com/webhook",
-            events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
-        )
-        expected_params = {"entities": ["model_version"]}
-        validate_telemetry_record(
-            mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
-        )
+    client.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+    expected_params = {"entities": ["model_version"]}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
+    )
