@@ -801,7 +801,7 @@ def test_databricks_tracking_uri_scheme(mock_requests, tracking_uri_scheme, term
 
 
 @pytest.mark.no_mock_requests_get
-def test_disable_events(mock_requests):
+def test_disable_events(mock_requests, bypass_env_check):
     with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
         mock_requests_get.return_value = mock.Mock(
             status_code=200,
@@ -822,6 +822,7 @@ def test_disable_events(mock_requests):
                 "mlflow.telemetry.track.get_telemetry_client", return_value=telemetry_client
             ),
         ):
+            telemetry_client._config_thread.join(timeout=3)
             mlflow.create_external_model(name="model")
             mlflow.initialize_logged_model(name="model", tags={"key": "value"})
             mlflow.pyfunc.log_model(name="model", python_model=lambda x: x, input_example=["a"])
