@@ -927,9 +927,3 @@ MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY
 #: Internal flag to enable telemetry in mlflow tests.
 #: (default: ``False``)
 _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
-
-#: Whether to allow setting thread local tracing destination.
-#: (default: ``False``)
-MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
-)
