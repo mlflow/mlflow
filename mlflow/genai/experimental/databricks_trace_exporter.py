@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING, Sequence
 
 from cachetools import TTLCache
@@ -199,7 +200,7 @@ class DatabricksDeltaArchivalMixin:
             delta_proto.flags = 0
             delta_proto.name = span.name
 
-            # Mlflow traces do not have `kind`, so we default to INTERNAL
+            # MLflow traces do not have `kind`, so we default to INTERNAL
             delta_proto.kind = "INTERNAL"
 
             # Set timestamps (convert to nanoseconds if needed)
@@ -223,10 +224,20 @@ class DatabricksDeltaArchivalMixin:
             # Convert events directly
             events = getattr(span, "events", []) or []
             for event in events:
+                attributes = (getattr(event, "attributes", {}) or {},)
                 event_dict = {
                     "time_unix_nano": getattr(event, "timestamp", current_time_ns),
                     "name": getattr(event, "name", "event"),
-                    "attributes": {},# getattr(event, "attributes", {}) or {},
+                    # serialize attribute values to json string
+                    # custom logic to prevent double quotes for string and datetime values
+                    "attributes": {
+                        k: v
+                        if isinstance(v, str)
+                        else v.isoformat()
+                        if isinstance(v, datetime)
+                        else json.dumps(v)
+                        for k, v in attributes.items()
+                    },
                     "dropped_attributes_count": 0,
                 }
                 delta_proto.events.append(DeltaProtoSpan.Event(**event_dict))

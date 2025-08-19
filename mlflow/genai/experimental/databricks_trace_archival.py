@@ -106,7 +106,13 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 trace_id,
                 COLLECT_LIST(
                   STRUCT(
-                    * EXCEPT(parent_span_id, start_time_unix_nano, end_time_unix_nano, status, events),
+                    * EXCEPT(
+                      parent_span_id,
+                      start_time_unix_nano,
+                      end_time_unix_nano,
+                      status,
+                      events
+                    ),
                     parent_span_id AS parent_id,
                     TIMESTAMP_MILLIS(CAST(start_time_unix_nano / 1000000 AS BIGINT)) AS start_time,
                     TIMESTAMP_MILLIS(CAST(end_time_unix_nano / 1000000 AS BIGINT)) AS end_time,
@@ -117,7 +123,9 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                         events,
                         event -> STRUCT(
                           event.name AS name,
-                          TIMESTAMP_MILLIS(CAST(event.time_unix_nano / 1000000 AS BIGINT)) AS timestamp,
+                          TIMESTAMP_MILLIS(
+                            CAST(event.time_unix_nano / 1000000 AS BIGINT)
+                          ) AS timestamp,
                           event.attributes AS attributes
                         )
                       ),
@@ -318,7 +326,9 @@ def _do_enable_databricks_archival(
     from databricks.sdk import WorkspaceClient
 
     workspace_id = WorkspaceClient().get_workspace_id()
-    trace_archival_location = f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
+    trace_archival_location = (
+        f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
+    )
 
     try:
         # 1. Create trace destination using client
