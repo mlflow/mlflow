@@ -1,5 +1,5 @@
 import logging
-from typing import Sequence
+from typing import Any, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
@@ -56,25 +56,25 @@ class MlflowV3SpanExporter(SpanExporter):
             manager = InMemoryTraceManager.get_instance()
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
-            # Get the trace to retrieve experiment_id
             with manager.get_trace(mlflow_trace_id) as internal_trace:
                 experiment_id = internal_trace.info.experiment_id
 
-                # Always export the span to MLflow backend
-                try:
-                    # Get the LiveSpan from the trace manager
-                    # Use encode_span_id to convert the integer span ID to storage format
-                    span_id = encode_span_id(span.context.span_id)
-                    mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
-                    if mlflow_span:
-                        self._client.log_spans(experiment_id, [mlflow_span])
-                except NotImplementedError:
-                    # Silently skip if the store doesn't support log_spans (e.g., FileStore).
-                    # This is expected for stores that don't implement span-level logging,
-                    # and we don't want to spam warnings for every span.
-                    pass
-                except Exception as e:
-                    _logger.warning(f"Failed to log span to MLflow backend: {e}")
+                # Get the LiveSpan from the trace manager
+                span_id = encode_span_id(span.context.span_id)
+                mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
+
+                if mlflow_span:
+                    if self._should_log_async():
+                        # Use async queue for span logging when async is enabled
+                        self._async_queue.put(
+                            task=Task(
+                                handler=self._log_spans,
+                                args=(experiment_id, [mlflow_span]),
+                                error_msg="Failed to log span to the trace server.",
+                            )
+                        )
+                    else:
+                        self._log_spans(experiment_id, [mlflow_span])
 
             # Continue with full trace export only for root spans
             if span._parent is not None:
@@ -107,6 +107,24 @@ class MlflowV3SpanExporter(SpanExporter):
                 )
             else:
                 self._log_trace(trace, prompts=manager_trace.prompts)
+
+    def _log_spans(self, experiment_id: str, spans: list[Any]):
+        """
+        Helper method to log spans with error handling.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of spans to log.
+        """
+        try:
+            self._client.log_spans(experiment_id, spans)
+        except NotImplementedError:
+            # Silently skip if the store doesn't support log_spans (e.g., FileStore).
+            # This is expected for stores that don't implement span-level logging,
+            # and we don't want to spam warnings for every span.
+            pass
+        except Exception as e:
+            _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
     def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
         """
