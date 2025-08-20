@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.2.1.dev0"
+version = "3.3.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -32,6 +32,7 @@ dependencies = [
   "cachetools<7,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
+  "cryptography<46,>=43.0.0",
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
   "fastapi<1",
@@ -42,6 +43,7 @@ dependencies = [
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
+  "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<26",
   "pandas<3",
@@ -110,7 +112,7 @@ genai = [
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.3.27"]
+langchain = ["langchain>=0.2.15,<=0.3.27"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -181,6 +183,7 @@ select = [
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
   "D411",    # no-blank-line-before-section
+  "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
   "C4",      # flake8-comprehensions
@@ -287,6 +290,7 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
+  "docs/docs/genai/eval-monitor/scorers/llm-judge/custom.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -309,10 +313,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# Ignore specific rules for evaluation dataset implementation
-"mlflow/server/__init__.py" = ["lazy-builtin-import"]
-"mlflow/store/tracking/rest_store.py" = ["unparameterized-generic-type"]
-
 # This file intentionally shows problematic code as an example of what NOT to do
 "docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 

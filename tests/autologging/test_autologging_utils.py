@@ -723,7 +723,7 @@ def test_violates_pep_440():
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),
-        ("llama_index", "0.10.56", True),
+        ("llama_index", "0.13.1", True),
         ("llama_index", "0.1.2", False),
     ],
 )

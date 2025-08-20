@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType
+from mlflow.entities import ScorerVersion, TraceInfo, TraceLocation, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -40,6 +40,11 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    DeleteScorer,
+    GetScorer,
+    ListScorers,
+    ListScorerVersions,
+    RegisterScorer,
     SearchRuns,
 )
 from mlflow.server import (
@@ -50,42 +55,47 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import (
     _convert_path_parameter_to_flask_format,
-    _create_dataset,
+    _create_dataset_handler,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
     _delete_artifact_mlflow_artifacts,
-    _delete_dataset,
-    _delete_dataset_tag,
+    _delete_dataset_handler,
+    _delete_dataset_tag_handler,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
-    _get_dataset,
-    _get_dataset_experiment_ids,
-    _get_dataset_records,
+    _delete_scorer,
+    _get_dataset_experiment_ids_handler,
+    _get_dataset_handler,
+    _get_dataset_records_handler,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
     _get_registered_model,
     _get_request_message,
+    _get_scorer,
     _get_trace_artifact_repo,
+    _list_scorer_versions,
+    _list_scorers,
     _log_batch,
+    _register_scorer,
     _rename_registered_model,
-    _search_datasets,
+    _search_evaluation_datasets_handler,
     _search_model_versions,
     _search_registered_models,
     _search_runs,
-    _set_dataset_tags,
+    _set_dataset_tags_handler,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
-    _upsert_dataset_records,
+    _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
@@ -127,6 +137,7 @@ def mock_tracking_store():
 def mock_model_registry_store():
     with mock.patch("mlflow.server.handlers._get_model_registry_store") as m:
         mock_store = mock.MagicMock()
+        mock_store.list_webhooks_by_event.return_value = PagedList([], None)
         m.return_value = mock_store
         yield mock_store
 
@@ -138,7 +149,7 @@ def enable_serve_artifacts(monkeypatch):
 
 @pytest.fixture
 def mock_evaluation_dataset():
-    from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+    from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 
     dataset = mock.MagicMock()
     dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
@@ -156,7 +167,7 @@ def mock_evaluation_dataset():
     )
     dataset.profile = json.dumps({"record_count": 0})
 
-    proto_dataset = ProtoEvaluationDataset()
+    proto_dataset = ProtoDataset()
     proto_dataset.dataset_id = dataset.dataset_id
     proto_dataset.name = dataset.name
     proto_dataset.digest = dataset.digest
@@ -1005,11 +1016,11 @@ def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset)
             "tags": json.dumps({"env": "test"}),
         },
     ):
-        _create_dataset()
+        _create_dataset_handler()
 
     mock_tracking_store.create_dataset.assert_called_once_with(
         name="test_dataset",
-        experiment_id=["0", "1"],
+        experiment_ids=["0", "1"],
         tags={"env": "test"},
     )
 
@@ -1017,31 +1028,29 @@ def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset)
 def test_get_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
     mock_tracking_store.get_dataset.return_value = mock_evaluation_dataset
 
-    with app.test_request_context(
-        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
-    ):
-        _get_dataset()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="GET"):
+        _get_dataset_handler(dataset_id)
 
-    mock_tracking_store.get_dataset.assert_called_once_with("d-1234567890abcdef1234567890abcdef")
+    mock_tracking_store.get_dataset.assert_called_once_with(dataset_id)
 
 
 def test_delete_evaluation_dataset(mock_tracking_store):
-    with app.test_request_context(
-        method="DELETE", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
-    ):
-        _delete_dataset()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="DELETE"):
+        _delete_dataset_handler(dataset_id)
 
-    mock_tracking_store.delete_dataset.assert_called_once_with("d-1234567890abcdef1234567890abcdef")
+    mock_tracking_store.delete_dataset.assert_called_once_with(dataset_id)
 
 
 def test_search_datasets(mock_tracking_store):
-    from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+    from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 
     datasets = []
     for i in range(2):
         ds = mock.MagicMock()
         ds.name = f"dataset_{i}"
-        proto = ProtoEvaluationDataset()
+        proto = ProtoDataset()
         proto.dataset_id = f"d-{i:032d}"
         proto.name = ds.name
         ds.to_proto.return_value = proto
@@ -1060,7 +1069,7 @@ def test_search_datasets(mock_tracking_store):
             "page_token": "token123",
         },
     ):
-        _search_datasets()
+        _search_evaluation_datasets_handler()
 
     mock_tracking_store.search_datasets.assert_called_once_with(
         experiment_ids=["0", "1"],
@@ -1072,34 +1081,30 @@ def test_search_datasets(mock_tracking_store):
 
 
 def test_set_dataset_tags(mock_tracking_store):
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
     with app.test_request_context(
         method="POST",
         json={
-            "dataset_id": "d-1234567890abcdef1234567890abcdef",
             "tags": json.dumps({"env": "production", "version": "2.0"}),
         },
     ):
-        _set_dataset_tags()
+        _set_dataset_tags_handler(dataset_id)
 
     mock_tracking_store.set_dataset_tags.assert_called_once_with(
-        dataset_id="d-1234567890abcdef1234567890abcdef",
+        dataset_id=dataset_id,
         tags={"env": "production", "version": "2.0"},
     )
 
 
 def test_delete_dataset_tag(mock_tracking_store):
-    with app.test_request_context(
-        method="DELETE",
-        json={
-            "dataset_id": "d-1234567890abcdef1234567890abcdef",
-            "key": "deprecated_tag",
-        },
-    ):
-        _delete_dataset_tag()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    key = "deprecated_tag"
+    with app.test_request_context(method="DELETE"):
+        _delete_dataset_tag_handler(dataset_id, key)
 
     mock_tracking_store.delete_dataset_tag.assert_called_once_with(
-        dataset_id="d-1234567890abcdef1234567890abcdef",
-        key="deprecated_tag",
+        dataset_id=dataset_id,
+        key=key,
     )
 
 
@@ -1109,6 +1114,7 @@ def test_upsert_dataset_records(mock_tracking_store):
         "updated": 0,
     }
 
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
     records = [
         {"inputs": {"q": "test1"}, "expectations": {"score": 0.9}},
         {"inputs": {"q": "test2"}, "expectations": {"score": 0.8}},
@@ -1117,14 +1123,13 @@ def test_upsert_dataset_records(mock_tracking_store):
     with app.test_request_context(
         method="POST",
         json={
-            "dataset_id": "d-1234567890abcdef1234567890abcdef",
             "records": json.dumps(records),
         },
     ):
-        resp = _upsert_dataset_records()
+        resp = _upsert_dataset_records_handler(dataset_id)
 
     mock_tracking_store.upsert_dataset_records.assert_called_once_with(
-        dataset_id="d-1234567890abcdef1234567890abcdef",
+        dataset_id=dataset_id,
         records=records,
         updated_by=None,
     )
@@ -1141,14 +1146,11 @@ def test_get_dataset_experiment_ids(mock_tracking_store):
         "exp3",
     ]
 
-    with app.test_request_context(
-        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
-    ):
-        resp = _get_dataset_experiment_ids()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="GET"):
+        resp = _get_dataset_experiment_ids_handler(dataset_id)
 
-    mock_tracking_store.get_dataset_experiment_ids.assert_called_once_with(
-        dataset_id="d-1234567890abcdef1234567890abcdef"
-    )
+    mock_tracking_store.get_dataset_experiment_ids.assert_called_once_with(dataset_id=dataset_id)
 
     response_data = json.loads(resp.get_data())
     assert response_data["experiment_ids"] == ["exp1", "exp2", "exp3"]
@@ -1176,15 +1178,14 @@ def test_get_dataset_records(mock_tracking_store):
         }
         records.append(record)
 
-    mock_tracking_store._load_dataset_records.return_value = records
+    mock_tracking_store._load_dataset_records.return_value = (records, None)
 
-    with app.test_request_context(
-        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
-    ):
-        resp = _get_dataset_records()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="GET"):
+        resp = _get_dataset_records_handler(dataset_id)
 
     mock_tracking_store._load_dataset_records.assert_called_with(
-        "d-1234567890abcdef1234567890abcdef"
+        dataset_id, max_results=1000, page_token=None
     )
 
     response_data = json.loads(resp.get_data())
@@ -1192,30 +1193,40 @@ def test_get_dataset_records(mock_tracking_store):
     assert len(records_data) == 3
     assert records_data[0]["dataset_record_id"] == "r-000"
 
+    mock_tracking_store._load_dataset_records.return_value = (records[:2], "token_page2")
+
     with app.test_request_context(
         method="GET",
         json={
-            "dataset_id": "d-1234567890abcdef1234567890abcdef",
             "max_results": 2,
-            "page_token": "0",
+            "page_token": None,
         },
     ):
-        resp = _get_dataset_records()
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=2, page_token=None
+    )
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
     assert len(records_data) == 2
-    assert response_data["next_page_token"] == "2"
+    assert response_data["next_page_token"] == "token_page2"
+
+    mock_tracking_store._load_dataset_records.return_value = (records[2:], None)
 
     with app.test_request_context(
         method="GET",
         json={
-            "dataset_id": "d-1234567890abcdef1234567890abcdef",
             "max_results": 2,
-            "page_token": "2",
+            "page_token": "token_page2",
         },
     ):
-        resp = _get_dataset_records()
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=2, page_token="token_page2"
+    )
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
@@ -1224,15 +1235,297 @@ def test_get_dataset_records(mock_tracking_store):
 
 
 def test_get_dataset_records_empty(mock_tracking_store):
-    """Test get_dataset_records with no records."""
-    mock_tracking_store._load_dataset_records.return_value = []
+    mock_tracking_store._load_dataset_records.return_value = ([], None)
 
-    with app.test_request_context(
-        method="GET", json={"dataset_id": "d-1234567890abcdef1234567890abcdef"}
-    ):
-        resp = _get_dataset_records()
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="GET"):
+        resp = _get_dataset_records_handler(dataset_id)
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
     assert len(records_data) == 0
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
+
+
+def test_get_dataset_records_pagination(mock_tracking_store):
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    all_records = []
+    for i in range(50):
+        record = mock.Mock()
+        record.dataset_record_id = f"r-{i:03d}"
+        record.inputs = {"q": f"Question {i}"}
+        record.expectations = {"a": f"Answer {i}"}
+        record.tags = {}
+        record.source_type = "TRACE"
+        record.source_id = f"trace-{i}"
+        record.created_time = 1609459200 + i
+        record.to_dict.return_value = {
+            "dataset_record_id": f"r-{i:03d}",
+            "inputs": {"q": f"Question {i}"},
+            "expectations": {"a": f"Answer {i}"},
+            "tags": {},
+            "source_type": "TRACE",
+            "source_id": f"trace-{i}",
+            "created_time": 1609459200 + i,
+        }
+        all_records.append(record)
+    mock_tracking_store._load_dataset_records.return_value = (all_records[:20], "token_20")
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=20, page_token=None
+    )
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 20
+    assert response_data["next_page_token"] == "token_20"
+    assert records_data[0]["dataset_record_id"] == "r-000"
+    assert records_data[19]["dataset_record_id"] == "r-019"
+    mock_tracking_store._load_dataset_records.return_value = (all_records[20:40], "token_40")
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20, "page_token": "token_20"},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=20, page_token="token_20"
+    )
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 20
+    assert response_data["next_page_token"] == "token_40"
+    assert records_data[0]["dataset_record_id"] == "r-020"
+    mock_tracking_store._load_dataset_records.return_value = (all_records[40:], None)
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20, "page_token": "token_40"},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 10
+    assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
+    assert records_data[0]["dataset_record_id"] == "r-040"
+    assert records_data[9]["dataset_record_id"] == "r-049"
+
+
+def test_register_scorer(mock_get_request_message, mock_tracking_store):
+    """Test register_scorer handler."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    serialized_scorer = "serialized_scorer_data"
+
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
+    )
+
+    mock_tracking_store.register_scorer.return_value = 1
+
+    resp = _register_scorer()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.register_scorer.assert_called_once_with(
+        experiment_id, name, serialized_scorer
+    )
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data == {"version": 1}
+
+
+def test_list_scorers(mock_get_request_message, mock_tracking_store):
+    """Test list_scorers handler."""
+    experiment_id = "123"
+
+    mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
+
+    # Create mock scorers
+    scorers = [
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=1,
+            serialized_scorer="serialized_accuracy_scorer",
+            creation_time=12345,
+        ),
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="safety_scorer",
+            scorer_version=2,
+            serialized_scorer="serialized_safety_scorer",
+            creation_time=12345,
+        ),
+    ]
+
+    mock_tracking_store.list_scorers.return_value = scorers
+
+    resp = _list_scorers()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.list_scorers.assert_called_once_with(experiment_id)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["scorers"]) == 2
+    assert response_data["scorers"][0]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorers"][0]["scorer_version"] == 1
+    assert response_data["scorers"][0]["serialized_scorer"] == "serialized_accuracy_scorer"
+    assert response_data["scorers"][1]["scorer_name"] == "safety_scorer"
+    assert response_data["scorers"][1]["scorer_version"] == 2
+    assert response_data["scorers"][1]["serialized_scorer"] == "serialized_safety_scorer"
+
+
+def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
+    """Test list_scorer_versions handler."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = ListScorerVersions(
+        experiment_id=experiment_id, name=name
+    )
+
+    # Create mock scorers with multiple versions
+    scorers = [
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=1,
+            serialized_scorer="serialized_accuracy_scorer_v1",
+            creation_time=12345,
+        ),
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=2,
+            serialized_scorer="serialized_accuracy_scorer_v2",
+            creation_time=12345,
+        ),
+    ]
+
+    mock_tracking_store.list_scorer_versions.return_value = scorers
+
+    resp = _list_scorer_versions()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.list_scorer_versions.assert_called_once_with(experiment_id, name)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["scorers"]) == 2
+    assert response_data["scorers"][0]["scorer_version"] == 1
+    assert response_data["scorers"][0]["serialized_scorer"] == "serialized_accuracy_scorer_v1"
+    assert response_data["scorers"][1]["scorer_version"] == 2
+    assert response_data["scorers"][1]["serialized_scorer"] == "serialized_accuracy_scorer_v2"
+
+
+def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
+    """Test get_scorer handler with specific version."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    version = 2
+
+    mock_get_request_message.return_value = GetScorer(
+        experiment_id=experiment_id, name=name, version=version
+    )
+
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=2,
+        serialized_scorer="serialized_accuracy_scorer_v2",
+        creation_time=1640995200000,
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
+
+    resp = _get_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 2
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_v2"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
+
+
+def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
+    """Test get_scorer handler without version (should return latest)."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = GetScorer(experiment_id=experiment_id, name=name)
+
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=3,
+        serialized_scorer="serialized_accuracy_scorer_latest",
+        creation_time=1640995200000,
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
+
+    resp = _get_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, None)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 3
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_latest"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
+
+
+def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
+    """Test delete_scorer handler with specific version."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    version = 2
+
+    mock_get_request_message.return_value = DeleteScorer(
+        experiment_id=experiment_id, name=name, version=version
+    )
+
+    resp = _delete_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version)
+
+    # Verify the response (should be empty for delete operations)
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
+    """Test delete_scorer handler without version (should delete all versions)."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = DeleteScorer(experiment_id=experiment_id, name=name)
+
+    resp = _delete_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, None)
+
+    # Verify the response (should be empty for delete operations)
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}

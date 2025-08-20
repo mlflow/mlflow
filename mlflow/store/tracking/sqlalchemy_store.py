@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import logging
@@ -47,8 +48,10 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -86,6 +89,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -1961,6 +1966,310 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            serialized_scorer: The serialized scorer string (JSON).
+
+        Returns:
+            The new version number for the scorer.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, check if the scorer exists in the scorers table
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                # Create the scorer record with a new UUID
+                scorer_id = str(uuid.uuid4())
+                scorer = SqlScorer(
+                    experiment_id=experiment_id,
+                    scorer_name=name,
+                    scorer_id=scorer_id,
+                )
+                session.add(scorer)
+                session.flush()  # Flush to get the scorer record
+
+            # Find the maximum version for this scorer
+            max_version = (
+                session.query(func.max(SqlScorerVersion.scorer_version))
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .scalar()
+            )
+
+            # Set new version (1 if no existing scorer, otherwise max + 1)
+            new_version = 1 if max_version is None else max_version + 1
+
+            # Create and save the new scorer version record
+            sql_scorer_version = SqlScorerVersion(
+                scorer_id=scorer.scorer_id,
+                scorer_version=new_version,
+                serialized_scorer=serialized_scorer,
+            )
+
+            session.add(sql_scorer_version)
+
+            return new_version
+
+    def list_scorers(self, experiment_id):
+        """
+        List all scorers for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects
+            (latest version for each scorer name).
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get all scorer_ids for this experiment
+            scorer_ids = [
+                scorer.scorer_id
+                for scorer in session.query(SqlScorer.scorer_id)
+                .filter(SqlScorer.experiment_id == experiment.experiment_id)
+                .all()
+            ]
+
+            if not scorer_ids:
+                return []
+
+            # Query the latest version for each scorer_id
+            from sqlalchemy import func
+
+            latest_versions = (
+                session.query(
+                    SqlScorerVersion.scorer_id,
+                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
+                )
+                .filter(SqlScorerVersion.scorer_id.in_(scorer_ids))
+                .group_by(SqlScorerVersion.scorer_id)
+                .subquery()
+            )
+
+            # Query the actual scorer version records with the latest versions
+            sql_scorer_versions = (
+                session.query(SqlScorerVersion)
+                .join(
+                    latest_versions,
+                    (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
+                    & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
+                )
+                .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
+                .order_by(SqlScorer.scorer_name)
+                .all()
+            )
+
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
+            scorers = []
+            for sql_scorer_version in sql_scorer_versions:
+                scorers.append(sql_scorer_version.to_mlflow_entity())
+
+            return scorers
+
+    def get_scorer(self, experiment_id, name, version=None):
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, returns the scorer with
+                maximum version.
+
+        Returns:
+            A ScorerVersion entity object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Build query for scorer versions
+            query = session.query(SqlScorerVersion).filter(
+                SqlScorerVersion.scorer_id == scorer.scorer_id
+            )
+
+            if version is not None:
+                # Get specific version
+                sql_scorer_version = query.filter(
+                    SqlScorerVersion.scorer_version == version
+                ).first()
+                if sql_scorer_version is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            else:
+                # Get maximum version
+                sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
+                if sql_scorer_version is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            return sql_scorer_version.to_mlflow_entity()
+
+    def delete_scorer(self, experiment_id, name, version=None):
+        """
+        Delete a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version to delete. If None, deletes all versions.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Build the query for scorer versions
+            query = session.query(SqlScorerVersion).filter(
+                SqlScorerVersion.scorer_id == scorer.scorer_id
+            )
+
+            # If version is specified, filter by version
+            if version is not None:
+                query = query.filter(SqlScorerVersion.scorer_version == version)
+
+            sql_scorer_versions = query.all()
+
+            if not sql_scorer_versions:
+                if version is not None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for"
+                        f" experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                else:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            # Delete the scorer versions
+            for sql_scorer_version in sql_scorer_versions:
+                session.delete(sql_scorer_version)
+
+            # If we're deleting all versions, also delete the scorer record
+            if version is None:
+                session.delete(scorer)
+
+    def list_scorer_versions(self, experiment_id, name):
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Query for all versions of the scorer
+            sql_scorer_versions = (
+                session.query(SqlScorerVersion)
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .order_by(SqlScorerVersion.scorer_version.asc())
+                .all()
+            )
+
+            if not sql_scorer_versions:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
+            scorers = []
+            for sql_scorer_version in sql_scorer_versions:
+                scorers.append(sql_scorer_version.to_mlflow_entity())
+
+            return scorers
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
@@ -2764,6 +3073,10 @@ class SqlAlchemyStore(AbstractStore):
         end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
         max_end_ms = (max(end_times) // 1_000_000) if end_times else None
 
+        # Determine trace status from root span if available
+        root_span_status = self._get_trace_status_from_root_span(spans)
+        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
+
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
             sql_trace_info = (
@@ -2780,9 +3093,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_ms,
                     execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
-                    # TODO: Set trace status based on root span status (span with no parent).
-                    # For now, we default to "OK" for all new traces.
-                    status="OK",
+                    status=trace_status,
                     client_request_id=None,
                 )
                 session.add(sql_trace_info)
@@ -2825,6 +3136,15 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     - timestamp_update_expr
                 )
+
+            # If trace status is IN_PROGRESS or unspecified, check for root span to update it
+            if sql_trace_info.status in (
+                TraceState.IN_PROGRESS.value,
+                TraceState.STATE_UNSPECIFIED.value,
+            ):
+                if root_span_status:
+                    update_dict[SqlTraceInfo.status] = root_span_status
+
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
@@ -2868,6 +3188,25 @@ class SqlAlchemyStore(AbstractStore):
         """
         # TODO: Implement proper async support
         return self.log_spans(experiment_id, spans)
+
+    def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
+        """
+        Infer trace status from root span if present.
+
+        Returns the mapped trace status string or None if no root span found.
+        """
+        for span in spans:
+            if span.parent_id is None:  # Found root span (no parent)
+                # Map span status to trace status
+                span_status = span.status.status_code
+                if span_status == SpanStatusCode.ERROR:
+                    return TraceState.ERROR.value
+                else:
+                    # Beyond ERROR, the only other valid span statuses are OK and UNSET.
+                    # For both OK and UNSET span statuses, return OK trace status.
+                    # UNSET is unexpected in production but we handle it gracefully.
+                    return TraceState.OK.value
+        return None
 
     #######################################################################################
     # Entity Association Methods
@@ -3296,25 +3635,80 @@ class SqlAlchemyStore(AbstractStore):
         else:
             return "unknown"
 
-    def _load_dataset_records(self, dataset_id: str) -> list[DatasetRecord]:
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
         """
-        Internal method to load dataset records for lazy loading.
+        Load dataset records with cursor-based pagination support.
+
+        Records are ordered by (created_time, dataset_record_id) to ensure deterministic
+        pagination across all database backends.
 
         Args:
             dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. Defaults to
+                LOAD_DATASET_RECORDS_MAX_RESULTS. If explicitly set to None, returns all records.
+            page_token: Cursor token for pagination in format "created_time:record_id".
+                If None, starts from the beginning.
 
         Returns:
-            List of DatasetRecord objects.
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
         """
+        from mlflow.store.tracking import LOAD_DATASET_RECORDS_MAX_RESULTS
+
+        # Use default if not explicitly set
+        if max_results is None:
+            effective_max_results = None  # Return all records for internal use
+        else:
+            effective_max_results = max_results or LOAD_DATASET_RECORDS_MAX_RESULTS
+
         with self.ManagedSessionMaker() as session:
-            sql_records = (
+            query = (
                 session.query(SqlEvaluationDatasetRecord)
                 .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
-                .order_by(SqlEvaluationDatasetRecord.created_time)
-                .all()
+                .order_by(
+                    SqlEvaluationDatasetRecord.created_time,
+                    SqlEvaluationDatasetRecord.dataset_record_id,
+                )
             )
 
-            return [record.to_mlflow_entity() for record in sql_records]
+            if page_token:
+                try:
+                    decoded = base64.b64decode(page_token.encode()).decode()
+                    last_created_time, last_record_id = decoded.split(":", 1)
+                    last_created_time = int(last_created_time)
+
+                    query = query.filter(
+                        (SqlEvaluationDatasetRecord.created_time > last_created_time)
+                        | (
+                            (SqlEvaluationDatasetRecord.created_time == last_created_time)
+                            & (SqlEvaluationDatasetRecord.dataset_record_id > last_record_id)
+                        )
+                    )
+                except (ValueError, AttributeError):
+                    offset = int(page_token)
+                    query = query.offset(offset)
+
+            if effective_max_results is not None:
+                sql_records = query.limit(effective_max_results + 1).all()
+
+                if len(sql_records) > effective_max_results:
+                    sql_records = sql_records[:effective_max_results]
+                    last_record = sql_records[-1]
+                    cursor = f"{last_record.created_time}:{last_record.dataset_record_id}"
+                    next_page_token = base64.b64encode(cursor.encode()).decode()
+                else:
+                    next_page_token = None
+            else:
+                sql_records = query.all()
+                next_page_token = None
+
+            records = [record.to_mlflow_entity() for record in sql_records]
+            return records, next_page_token
 
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -3592,6 +3986,116 @@ class SqlAlchemyStore(AbstractStore):
             for k, v in tags.items():
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
+
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Add a dataset to additional experiments.
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            for exp_id in experiment_ids:
+                if not session.query(SqlExperiment).filter_by(experiment_id=str(exp_id)).first():
+                    raise MlflowException(
+                        f"Experiment '{exp_id}' not found",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            new_associations = []
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    new_associations.append(
+                        SqlEntityAssociation(
+                            association_id=uuid.uuid4().hex,
+                            source_id=dataset_id,
+                            source_type=EntityAssociationType.EVALUATION_DATASET,
+                            destination_id=str(exp_id),
+                            destination_type=EntityAssociationType.EXPERIMENT,
+                        )
+                    )
+
+            if new_associations:
+                session.bulk_save_objects(new_associations)
+
+            dataset.last_update_time = get_current_time_millis()
+            session.commit()
+
+            return dataset.to_mlflow_entity()
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Remove a dataset from experiments (idempotent).
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    _logger.warning(
+                        f"Dataset '{dataset_id}' was not associated with experiment '{exp_id}'"
+                    )
+
+            if existing_exp_ids:
+                session.query(SqlEntityAssociation).filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(list(existing_exp_ids)),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                ).delete(synchronize_session=False)
+
+                dataset.last_update_time = get_current_time_millis()
+
+            session.commit()
+
+            return dataset.to_mlflow_entity()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

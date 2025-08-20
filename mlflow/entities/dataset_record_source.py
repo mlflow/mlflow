@@ -8,7 +8,7 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
+from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
 
 class DatasetRecordSourceType(str, Enum):

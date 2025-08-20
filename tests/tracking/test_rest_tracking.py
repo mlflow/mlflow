@@ -3359,3 +3359,190 @@ def test_graphql_nan_metric_handling(mlflow_client):
     assert nan_metric["value"] is None
     assert nan_metric["timestamp"] == "2"
     assert nan_metric["step"] == "2"
+
+
+def test_create_and_get_evaluation_dataset(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    experiment_id = mlflow_client.create_experiment("eval_dataset_test")
+
+    dataset = mlflow_client.create_dataset(
+        name="test_eval_dataset",
+        experiment_id=experiment_id,
+        tags={"environment": "test", "version": "1.0"},
+    )
+
+    assert dataset.name == "test_eval_dataset"
+    assert dataset.experiment_ids == [experiment_id]
+    assert dataset.tags["environment"] == "test"
+    assert dataset.tags["version"] == "1.0"
+    assert dataset.dataset_id is not None
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert retrieved.name == dataset.name
+    assert retrieved.dataset_id == dataset.dataset_id
+    assert retrieved.tags == dataset.tags
+
+
+def test_search_evaluation_datasets(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    exp1 = mlflow_client.create_experiment("eval_search_exp1")
+    exp2 = mlflow_client.create_experiment("eval_search_exp2")
+
+    mlflow_client.create_dataset(
+        name="search_dataset_1", experiment_id=exp1, tags={"team": "ml", "status": "active"}
+    )
+
+    mlflow_client.create_dataset(
+        name="search_dataset_2",
+        experiment_id=[exp1, exp2],
+        tags={"team": "data", "status": "active"},
+    )
+
+    mlflow_client.create_dataset(
+        name="search_dataset_3", experiment_id=exp2, tags={"team": "ml", "status": "archived"}
+    )
+
+    all_datasets = mlflow_client.search_datasets()
+    assert len(all_datasets) >= 3
+
+    exp1_datasets = mlflow_client.search_datasets(experiment_ids=exp1)
+    dataset_names = [d.name for d in exp1_datasets]
+    assert "search_dataset_1" in dataset_names
+    assert "search_dataset_2" in dataset_names
+
+    ml_datasets = mlflow_client.search_datasets(filter_string="tags.team = 'ml'")
+    ml_names = [d.name for d in ml_datasets]
+    assert "search_dataset_1" in ml_names
+    assert "search_dataset_3" in ml_names
+    assert "search_dataset_2" not in ml_names
+
+    ordered_datasets = mlflow_client.search_datasets(order_by=["name ASC"])
+    names = [d.name for d in ordered_datasets]
+    assert names == sorted(names)
+
+
+def test_evaluation_dataset_tag_operations(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    experiment_id = mlflow_client.create_experiment("eval_tags_test")
+
+    dataset = mlflow_client.create_dataset(
+        name="tag_test_dataset",
+        experiment_id=experiment_id,
+        tags={"initial": "value", "env": "dev"},
+    )
+
+    mlflow_client.set_dataset_tags(dataset.dataset_id, {"env": "staging", "new_tag": "new_value"})
+
+    updated = mlflow_client.get_dataset(dataset.dataset_id)
+    assert updated.tags["initial"] == "value"  # Original tag preserved
+    assert updated.tags["env"] == "staging"  # Updated tag
+    assert updated.tags["new_tag"] == "new_value"  # New tag added
+
+    mlflow_client.delete_dataset_tag(dataset.dataset_id, "new_tag")
+
+    final = mlflow_client.get_dataset(dataset.dataset_id)
+    assert "new_tag" not in final.tags
+    assert final.tags["env"] == "staging"  # Other tags preserved
+
+
+def test_evaluation_dataset_delete(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    experiment_id = mlflow_client.create_experiment("eval_delete_test")
+
+    dataset = mlflow_client.create_dataset(
+        name="delete_test_dataset", experiment_id=experiment_id, tags={"to_delete": "yes"}
+    )
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert retrieved.name == "delete_test_dataset"
+
+    mlflow_client.delete_dataset(dataset.dataset_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        mlflow_client.get_dataset(dataset.dataset_id)
+
+
+def test_scorer_CRUD(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("File store doesn't support scorer CRUD operations")
+
+    """Test all scorer API endpoints end-to-end through RestStore methods."""
+    experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
+
+    # Get the RestStore object directly
+    store = mlflow_client._tracking_client.store
+
+    # Test register scorer
+    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
+    serialized_scorer = json.dumps(scorer_data)
+
+    version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
+    assert version == 1
+
+    # Test list scorers
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].scorer_name == "test_scorer"
+    assert scorers[0].scorer_version == 1
+
+    # Test list scorer versions
+    versions = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions) == 1
+    assert versions[0].scorer_name == "test_scorer"
+    assert versions[0].scorer_version == 1
+
+    # Test get scorer (latest version)
+    scorer = store.get_scorer(str(experiment_id), "test_scorer")
+    assert scorer.scorer_name == "test_scorer"
+    assert scorer.scorer_version == 1
+
+    # Test get scorer (specific version)
+    scorer_v1 = store.get_scorer(str(experiment_id), "test_scorer", version=1)
+    assert scorer_v1.scorer_name == "test_scorer"
+    assert scorer_v1.scorer_version == 1
+
+    # Test register second version
+    scorer_data_v2 = {
+        "name": "test_scorer_v2",
+        "call_source": "test",
+        "original_func_name": "test_func_v2",
+    }
+    serialized_scorer_v2 = json.dumps(scorer_data_v2)
+
+    version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
+    assert version_v2 == 2
+
+    # Verify list scorers returns latest version
+    scorers_after_v2 = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_v2) == 1
+    assert scorers_after_v2[0].scorer_version == 2
+
+    # Verify list versions returns both versions
+    versions_after_v2 = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_v2) == 2
+
+    # Test delete specific version
+    store.delete_scorer(str(experiment_id), "test_scorer", version=1)
+
+    # Verify version 1 is deleted
+    versions_after_delete = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_delete) == 1
+    assert versions_after_delete[0].scorer_version == 2
+
+    # Test delete all versions
+    store.delete_scorer(str(experiment_id), "test_scorer")
+
+    # Verify all versions are deleted
+    scorers_after_delete_all = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_delete_all) == 0
+
+    # Clean up
+    mlflow_client.delete_experiment(experiment_id)

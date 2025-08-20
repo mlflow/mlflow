@@ -47,11 +47,11 @@ class _EnvironmentVariable:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
-        return f"{self.name} (default: {self.default}, type: {self.type.__name__})"
+        return f"{self.name} (default: {self.default})"
 
     def __repr__(self):
         return repr(self.name)
@@ -648,6 +648,14 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 #: (default: ``1.0``)
 MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
 
+#: When OTel export is configured and this is set to true, MLflow will write spans to BOTH
+#: MLflow Tracking Server and OpenTelemetry Collector. When false (default), OTel export
+#: replaces MLflow export.
+#: (default: ``False``)
+MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
+)
+
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
@@ -868,9 +876,48 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
 )
 
+
 #: Whether to disable schema details in error messages for MLflow schema enforcement.
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+
+def _split_strip(s: str) -> list[str]:
+    return [s.strip() for s in s.split(",")]
+
+
+# Specifies the allowed schemes for MLflow webhook URLs.
+# This environment variable is not intended for production use.
+_MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+
+#: Specifies the secret key used to encrypt webhook secrets in MLflow.
+MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
+)
+
+#: Specifies the timeout in seconds for webhook HTTP requests
+#: (default: ``30``)
+MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TIMEOUT", int, 30)
+
+#: Specifies the maximum number of threads for webhook delivery thread pool
+#: (default: ``10``)
+MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS", int, 10
+)
+
+#: Specifies the maximum number of retries for webhook HTTP requests
+#: (default: ``3``)
+MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES", int, 3
+)
+
+#: Specifies the TTL in seconds for webhook list cache
+#: (default: ``60``)
+MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int, 60)
+
 
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)
@@ -880,9 +927,3 @@ MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY
 #: Internal flag to enable telemetry in mlflow tests.
 #: (default: ``False``)
 _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
-
-#: Whether to allow setting thread local tracing destination.
-#: (default: ``False``)
-MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
-)
