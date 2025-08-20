@@ -121,13 +121,12 @@ class OtelSpanProcessor(BatchSpanProcessor):
                         safe_key = f"tag_{key.replace('.', '_').replace('-', '_')}"
                         attributes[safe_key] = str(value)
 
-                    # Add select trace metadata (prefixed with 'meta_')
+                    # Add ALL trace metadata (prefixed with 'meta_')
                     if trace.info.trace_metadata:
-                        # Only include specific metadata to avoid overwhelming the metrics
-                        for meta_key in ["source_run", "model_id"]:
-                            if meta_key in trace.info.trace_metadata:
-                                safe_key = f"meta_{meta_key}"
-                                attributes[safe_key] = str(trace.info.trace_metadata[meta_key])
+                        for meta_key, meta_value in trace.info.trace_metadata.items():
+                            # Sanitize key names for metric labels
+                            safe_key = f"meta_{meta_key.replace('.', '_').replace('-', '_')}"
+                            attributes[safe_key] = str(meta_value)
 
             # Record the histogram metric with all attributes
             self._duration_histogram.record(duration_ms, attributes=attributes)
