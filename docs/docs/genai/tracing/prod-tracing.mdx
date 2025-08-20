@@ -272,9 +272,10 @@ with mlflow.start_span(name="foo") as span:
 ```
 
 :::warning Trace Export Behavior
+
 - **Default** (`MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT=false`): Traces are sent only to OpenTelemetry Collector
 - **Dual Export** (`MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT=true`): Traces are sent to both MLflow Tracking Server and OpenTelemetry Collector
-:::
+  :::
 
 ## Managed Monitoring with Databricks
 

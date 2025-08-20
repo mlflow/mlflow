@@ -10,6 +10,7 @@ on:
     paths:
       - .github/workflows/protos.yml
       - dev/generate_protos.py
+      - dev/generate-protos.sh
       - dev/test-generate-protos.sh
       - mlflow/protos/**
       - mlflow/java/client/src/main/java/com/databricks/api/proto/**
@@ -44,10 +45,6 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
-          wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip
-          sudo unzip /tmp/protoc.zip -d /tmp/protoc
-          sudo chmod -R 777 /tmp/protoc
-          echo "/tmp/protoc/bin" >> $GITHUB_PATH
           pip install --upgrade pip
           pip install .
       - name: Run tests

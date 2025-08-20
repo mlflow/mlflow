@@ -43,7 +43,7 @@ from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_t
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
-from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
@@ -736,9 +736,17 @@ class TrackingServiceClient:
         host_url = get_workspace_url()
         if host_url is None:
             host_url = self.store.get_host_creds().host.rstrip("/")
-        run_info = self.store.get_run(run_id).info
-        experiment_id = run_info.experiment_id
-        run_name = run_info.run_name
+        run = self.store.get_run(run_id)
+
+        # Check for a special run tag that indicates the run is triggered by evaluation.
+        # MLflow already shows a link to evaluation results so no need to print it again.
+        if (
+            is_eval_tag := run.data.tags.get(MLFLOW_RUN_IS_EVALUATION)
+        ) and is_eval_tag.lower() == "true":
+            return
+
+        experiment_id = run.info.experiment_id
+        run_name = run.info.run_name
         if is_databricks_uri(self.tracking_uri):
             experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
@@ -896,3 +904,28 @@ class TrackingServiceClient:
         return self.store.search_logged_models(
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided or run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        if len(trace_ids) > 100:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot link more than 100 traces to a run in a single request. "
+                f"Provided {len(trace_ids)} traces."
+            )
+
+        return self.store.link_traces_to_run(trace_ids, run_id)

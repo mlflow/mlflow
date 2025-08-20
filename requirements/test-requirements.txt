@@ -46,3 +46,5 @@ scikit-learn<1.6
 Flask-WTF<2
 # required for testing polars dataset integration
 polars>=1
+# required for testing mlflow.genai.optimize_prompt
+dspy

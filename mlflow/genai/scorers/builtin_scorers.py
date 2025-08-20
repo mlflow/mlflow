@@ -6,16 +6,37 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges.databricks import requires_databricks_agents
+from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agents
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
-    parse_output_to_str,
+    parse_outputs_to_str,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
+from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
+
+
+def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
+    """Validate that the current tracking URI is set to Databricks.
+
+    Args:
+        scorer_name: The name of the scorer being validated (for error messages).
+
+    Raises:
+        MlflowException: If the MLflow tracking URI is not set to Databricks.
+    """
+    from mlflow.utils.uri import is_databricks_uri
+
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
+        raise MlflowException(
+            f"The {scorer_name} scorer is only available in Databricks managed "
+            "MLflow. If you have a Databricks workspace, please set MLflow tracking "
+            "URI to the workspace by calling `mlflow.set_tracking_uri('databricks')`."
+        )
 
 
 class BuiltInScorer(Scorer):
@@ -94,6 +115,11 @@ class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
 
+    .. warning::
+        This scorer is currently only available in Databricks managed MLflow. It requires
+        the `databricks-agents` package and will only work when the MLflow tracking URI
+        is set to Databricks.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
@@ -120,6 +146,10 @@ class RetrievalRelevance(BuiltInScorer):
 
     name: str = "retrieval_relevance"
     required_columns: set[str] = {"inputs", "trace"}
+
+    def __init__(self, /, **kwargs):
+        _validate_tracking_uri_is_databricks("RetrievalRelevance")
+        super().__init__(**kwargs)
 
     def __call__(self, *, trace: Trace) -> Feedback:
         """
@@ -178,6 +208,7 @@ class RetrievalRelevance(BuiltInScorer):
         return [span_level_feedback] + chunk_feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
@@ -186,6 +217,10 @@ class RetrievalSufficiency(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "retrieval_sufficiency".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -209,6 +244,7 @@ class RetrievalSufficiency(BuiltInScorer):
     """
 
     name: str = "retrieval_sufficiency"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -260,6 +296,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_response=expected_response,
                 expected_facts=expected_facts,
                 name=self.name,
+                model=self.model,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -267,6 +304,7 @@ class RetrievalSufficiency(BuiltInScorer):
         return feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
@@ -275,6 +313,10 @@ class RetrievalGroundedness(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "retrieval_groundedness".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -298,6 +340,7 @@ class RetrievalGroundedness(BuiltInScorer):
     """
 
     name: str = "retrieval_groundedness"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
 
     def __call__(self, *, trace: Trace) -> list[Feedback]:
@@ -314,18 +357,23 @@ class RetrievalGroundedness(BuiltInScorer):
             indicating the groundedness of the response.
         """
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
-        response = parse_output_to_str(trace.data.spans[0].outputs)
+        response = parse_outputs_to_str(trace.data.spans[0].outputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
-                request=request, response=response, context=context, name=self.name
+                request=request,
+                response=response,
+                context=context,
+                name=self.name,
+                model=self.model,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
         return feedbacks
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
@@ -335,8 +383,10 @@ class Guidelines(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    If you want to evaluate all the response with a single set of guidelines, you can specify
-    the guidelines in the `guidelines` parameter of this scorer.
+    Args:
+        name: The name of the scorer. Defaults to "guidelines".
+        guidelines: A single guideline text or a list of guidelines.
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -391,6 +441,7 @@ class Guidelines(BuiltInScorer):
 
     name: str = "guidelines"
     guidelines: str | list[str]
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(
@@ -414,12 +465,14 @@ class Guidelines(BuiltInScorer):
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
-                "response": parse_output_to_str(outputs),
+                "response": parse_outputs_to_str(outputs),
             },
             name=self.name,
+            model=self.model,
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
@@ -430,6 +483,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     To use this scorer, the input dataset should contain the `expectations` column with the
     `guidelines` field. Then pass this scorer to `mlflow.genai.evaluate` for running full
     evaluation on the input dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "expectations_guidelines".
+        model: {{ model }}
 
     Example:
 
@@ -462,6 +519,7 @@ class ExpectationsGuidelines(BuiltInScorer):
     """
 
     name: str = "expectations_guidelines"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -502,12 +560,14 @@ class ExpectationsGuidelines(BuiltInScorer):
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
-                "response": parse_output_to_str(outputs),
+                "response": parse_outputs_to_str(outputs),
             },
             name=self.name,
+            model=self.model,
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
@@ -516,6 +576,10 @@ class RelevanceToQuery(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "relevance_to_query".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -547,6 +611,7 @@ class RelevanceToQuery(BuiltInScorer):
     """
 
     name: str = "relevance_to_query"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
@@ -563,13 +628,20 @@ class RelevanceToQuery(BuiltInScorer):
         """
         request = parse_inputs_to_str(inputs)
         # NB: Reuse is_context_relevant judge to evaluate response
-        return judges.is_context_relevant(request=request, context=outputs, name=self.name)
+        return judges.is_context_relevant(
+            request=request, context=outputs, name=self.name, model=self.model
+        )
 
 
 @experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
+
+    .. warning::
+        This scorer is currently only available in Databricks managed MLflow. It requires
+        the `databricks-agents` package and will only work when the MLflow tracking URI
+        is set to Databricks.
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -603,6 +675,10 @@ class Safety(BuiltInScorer):
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
 
+    def __init__(self, /, **kwargs):
+        _validate_tracking_uri_is_databricks("Safety")
+        super().__init__(**kwargs)
+
     def __call__(self, *, outputs: Any) -> Feedback:
         """
         Evaluate safety of the response.
@@ -614,9 +690,10 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
+        return judges.is_safe(content=parse_outputs_to_str(outputs), name=self.name)
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
@@ -624,6 +701,10 @@ class Correctness(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "correctness".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -677,6 +758,7 @@ class Correctness(BuiltInScorer):
     """
 
     name: str = "correctness"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -708,7 +790,7 @@ class Correctness(BuiltInScorer):
             indicating the correctness of the response.
         """
         request = parse_inputs_to_str(inputs)
-        response = parse_output_to_str(outputs)
+        response = parse_outputs_to_str(outputs)
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
 
@@ -724,6 +806,7 @@ class Correctness(BuiltInScorer):
             expected_response=expected_response,
             expected_facts=expected_facts,
             name=self.name,
+            model=self.model,
         )
 
 
@@ -749,15 +832,17 @@ def get_all_scorers() -> list[BuiltInScorer]:
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
-    return [
+    scorers = [
         ExpectationsGuidelines(),
-        Safety(),
         Correctness(),
         RelevanceToQuery(),
-        RetrievalRelevance(),
         RetrievalSufficiency(),
         RetrievalGroundedness(),
     ]
+    # TODO: Open-source these two scorers
+    if is_databricks_uri(mlflow.get_tracking_uri()):
+        scorers.extend([Safety(), RetrievalRelevance()])
+    return scorers
 
 
 class MissingColumnsException(MlflowException):

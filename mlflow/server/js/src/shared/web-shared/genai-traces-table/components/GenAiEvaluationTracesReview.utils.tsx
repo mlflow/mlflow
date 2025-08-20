@@ -53,7 +53,7 @@ export const DEFAULT_ASSESSMENTS_SORT_ORDER: string[] = [
 
 export const getJudgeMetricsLink = (asessmentDocLink?: AssessmentLearnMoreLink) => {
   // return OSS docs link
-  return 'https://mlflow.org/docs/latest/genai/eval-monitor/llm-evaluation/#llm-as-a-judge-metrics';
+  return 'https://mlflow.org/docs/latest/genai/eval-monitor';
 };
 
 export interface AssessmentLearnMoreLink {

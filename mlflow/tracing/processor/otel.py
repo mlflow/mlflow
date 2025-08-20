@@ -1,6 +1,9 @@
 import json
 import os
 
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import StatusCode
@@ -10,11 +13,7 @@ from mlflow.environment_variables import (
     MLFLOW_LOG_OTLP_TRACE_STATISTICS,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
-from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
-    SpanAttributeKey,
-)
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
 
@@ -112,54 +111,46 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
     def _setup_metrics(self):
         """Set up OpenTelemetry metrics and return histogram, or None if setup fails."""
-        try:
-            from opentelemetry import metrics
-            from opentelemetry.sdk.metrics import MeterProvider
-            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+        # Get OTLP endpoint and protocol
+        endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
+            "OTEL_EXPORTER_OTLP_ENDPOINT"
+        )
+        protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+            "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+        )
 
-            # Get OTLP endpoint and protocol
-            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
-                "OTEL_EXPORTER_OTLP_ENDPOINT"
-            )
-            protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
-                "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
-            )
-
-            if not endpoint:
-                return None
-
-            # Get appropriate metric exporter based on protocol
-            # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
-            if protocol == "grpc":
-                from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-                    OTLPMetricExporter,
-                )
-            elif protocol == "http/protobuf":
-                from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-                    OTLPMetricExporter,
-                )
-            else:
-                from mlflow.exceptions import MlflowException
-
-                raise MlflowException.invalid_parameter_value(
-                    f"Unsupported OTLP metrics protocol '{protocol}'. "
-                    "Supported protocols are 'grpc' and 'http/protobuf'."
-                )
-
-            metric_exporter = OTLPMetricExporter(endpoint=endpoint)
-
-            # Set up metrics provider
-            reader = PeriodicExportingMetricReader(metric_exporter)
-            provider = MeterProvider(metric_readers=[reader])
-            metrics.set_meter_provider(provider)
-
-            # Create and return histogram
-            meter = metrics.get_meter("mlflow.tracing")
-            return meter.create_histogram(
-                name="mlflow.trace.span.duration",
-                description="Duration of spans in milliseconds",
-                unit="ms",
-            )
-        except (ImportError, Exception):
-            # Silently fail if metrics setup doesn't work
+        if not endpoint:
             return None
+
+        # Get appropriate metric exporter based on protocol
+        # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
+        if protocol == "grpc":
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        elif protocol == "http/protobuf":
+            from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        else:
+            from mlflow.exceptions import MlflowException
+
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported OTLP metrics protocol '{protocol}'. "
+                "Supported protocols are 'grpc' and 'http/protobuf'."
+            )
+
+        metric_exporter = OTLPMetricExporter(endpoint=endpoint)
+
+        # Set up metrics provider
+        reader = PeriodicExportingMetricReader(metric_exporter)
+        provider = MeterProvider(metric_readers=[reader])
+        metrics.set_meter_provider(provider)
+
+        # Create and return histogram
+        meter = metrics.get_meter("mlflow.tracing")
+        return meter.create_histogram(
+            name="mlflow.trace.span.duration",
+            description="Duration of spans in milliseconds",
+            unit="ms",
+        )

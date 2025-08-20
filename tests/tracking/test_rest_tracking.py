@@ -93,7 +93,9 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
-        yield MlflowClient(url)
+        client = MlflowClient(url)
+        client._store_type = request.param
+        yield client
 
 
 @pytest.fixture
@@ -2710,6 +2712,48 @@ def test_get_trace_artifact_handler(mlflow_client):
     assert trace_data.spans[0].to_dict() == span.to_dict()
 
 
+def test_link_traces_to_run_and_search_traces(mlflow_client):
+    """Test linking traces to runs and searching traces with run_id filter."""
+    # Skip file store because it doesn't support linking traces to runs
+    if mlflow_client._store_type == "file":
+        pytest.skip("File store doesn't support linking traces to runs")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow.set_experiment("link traces to run test").experiment_id
+
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    # 1. Trace created under a run
+    with mlflow.start_run(run_id=run_id):
+        with mlflow.start_span(name="trace1") as span1:
+            span1.set_attributes({"test": "value1"})
+        trace_id_1 = span1.trace_id
+
+    # 2. Trace associated with a run
+    with mlflow.start_span(name="trace2") as span2:
+        span2.set_attributes({"test": "value2"})
+    trace_id_2 = span2.trace_id
+    mlflow_client.link_traces_to_run(trace_ids=[trace_id_2], run_id=run_id)
+
+    # 3. Trace not associated with a run
+    with mlflow.start_span(name="trace3") as span3:
+        span3.set_attributes({"test": "value3"})
+    trace_id_3 = span3.trace_id
+
+    # Search traces without run_id filter - should return all traces in experiment
+    all_traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
+
+    # Search traces with run_id filter - should return only linked traces
+    linked_traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
+    )
+    linked_trace_ids = [t.info.trace_id for t in linked_traces]
+    assert len(linked_trace_ids) == 2
+    assert set(linked_trace_ids) == {trace_id_1, trace_id_2}
+
+
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):
     name = "GraphqlTest"
     mlflow_client.create_registered_model(name)
@@ -3315,3 +3359,81 @@ def test_graphql_nan_metric_handling(mlflow_client):
     assert nan_metric["value"] is None
     assert nan_metric["timestamp"] == "2"
     assert nan_metric["step"] == "2"
+
+
+def test_scorer_CRUD(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("File store doesn't support scorer CRUD operations")
+
+    """Test all scorer API endpoints end-to-end through RestStore methods."""
+    experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
+
+    # Get the RestStore object directly
+    store = mlflow_client._tracking_client.store
+
+    # Test register scorer
+    scorer_data = {"name": "test_scorer", "call_source": "test", "original_func_name": "test_func"}
+    serialized_scorer = json.dumps(scorer_data)
+
+    version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
+    assert version == 1
+
+    # Test list scorers
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].scorer_name == "test_scorer"
+    assert scorers[0].scorer_version == 1
+
+    # Test list scorer versions
+    versions = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions) == 1
+    assert versions[0].scorer_name == "test_scorer"
+    assert versions[0].scorer_version == 1
+
+    # Test get scorer (latest version)
+    scorer = store.get_scorer(str(experiment_id), "test_scorer")
+    assert scorer.scorer_name == "test_scorer"
+    assert scorer.scorer_version == 1
+
+    # Test get scorer (specific version)
+    scorer_v1 = store.get_scorer(str(experiment_id), "test_scorer", version=1)
+    assert scorer_v1.scorer_name == "test_scorer"
+    assert scorer_v1.scorer_version == 1
+
+    # Test register second version
+    scorer_data_v2 = {
+        "name": "test_scorer_v2",
+        "call_source": "test",
+        "original_func_name": "test_func_v2",
+    }
+    serialized_scorer_v2 = json.dumps(scorer_data_v2)
+
+    version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
+    assert version_v2 == 2
+
+    # Verify list scorers returns latest version
+    scorers_after_v2 = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_v2) == 1
+    assert scorers_after_v2[0].scorer_version == 2
+
+    # Verify list versions returns both versions
+    versions_after_v2 = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_v2) == 2
+
+    # Test delete specific version
+    store.delete_scorer(str(experiment_id), "test_scorer", version=1)
+
+    # Verify version 1 is deleted
+    versions_after_delete = store.list_scorer_versions(str(experiment_id), "test_scorer")
+    assert len(versions_after_delete) == 1
+    assert versions_after_delete[0].scorer_version == 2
+
+    # Test delete all versions
+    store.delete_scorer(str(experiment_id), "test_scorer")
+
+    # Verify all versions are deleted
+    scorers_after_delete_all = store.list_scorers(str(experiment_id))
+    assert len(scorers_after_delete_all) == 0
+
+    # Clean up
+    mlflow_client.delete_experiment(experiment_id)
