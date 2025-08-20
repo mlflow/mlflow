@@ -77,10 +77,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
 
     # Wait up to 30 seconds for search_traces() to return a trace
     traces = []
-    max_wait_time = 30
-    start_time = time.time()
-
-    while time.time() - start_time < max_wait_time:
+    for _ in range(30):
         traces = mlflow.search_traces(
             experiment_ids=[experiment_id], include_spans=False, return_type="list"
         )
