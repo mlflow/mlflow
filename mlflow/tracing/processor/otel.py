@@ -114,7 +114,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
             }
 
             # Add trace tags and metadata if trace is available
-            if is_root and self._should_register_traces:
+            if self._should_register_traces:
                 trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
                 if trace_id:
                     with self._trace_manager.get_trace(trace_id) as trace:
