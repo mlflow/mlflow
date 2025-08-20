@@ -2589,14 +2589,7 @@ class SqlAlchemyStore(AbstractStore):
 
             # Apply non-attribute filters
             for non_attr_filter in non_attribute_filters:
-                # Check if this is a span subquery and add join condition
-                if hasattr(non_attr_filter.columns, "trace_id"):
-                    stmt = stmt.join(
-                        non_attr_filter,
-                        non_attr_filter.c.trace_id == SqlTraceInfo.request_id,
-                    )
-                else:
-                    stmt = stmt.join(non_attr_filter)
+                stmt = stmt.join(non_attr_filter)
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
@@ -3624,7 +3617,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     )
                     
                     span_subquery = (
-                        session.query(SqlSpan.trace_id)
+                        session.query(SqlSpan.trace_id.label("request_id"))
                         .filter(val_filter)
                         .distinct()
                         .subquery()
