@@ -38,6 +38,13 @@ def skip_if_trace_disabled(func):
     return wrapper
 
 
+def _convert_signature(val):
+    # serialization of dspy.Signature is quite slow, so we should convert it to string
+    if isinstance(val, type) and issubclass(val, dspy.Signature):
+        return repr(val)
+    return val
+
+
 class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
@@ -374,7 +381,8 @@ class MlflowCallback(BaseCallback):
         # NB: Not using pop() to avoid modifying the original inputs dictionary
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
-        return {**inputs_wo_kwargs, **kwargs}
+        merged = {**inputs_wo_kwargs, **kwargs}
+        return {k: _convert_signature(v) for k, v in merged.items()}
 
     def _generate_result_table(
         self, outputs: list[tuple[dspy.Example, dspy.Prediction, Any]]
