@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Sequence
+from typing import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
@@ -50,33 +51,42 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. All spans (root and non-root) are exported.
         """
+        # Collect all spans to log in a single call
+        spans_to_log = []
+        experiment_id = None
+        manager = InMemoryTraceManager.get_instance()
+
         for span in spans:
             # Get trace from manager to retrieve experiment_id and trace_id
-            # Use get_mlflow_trace_id_from_otel_id to convert OTel trace ID to MLflow trace ID
-            manager = InMemoryTraceManager.get_instance()
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
             with manager.get_trace(mlflow_trace_id) as internal_trace:
-                experiment_id = internal_trace.info.experiment_id
+                if experiment_id is None:
+                    experiment_id = internal_trace.info.experiment_id
 
                 # Get the LiveSpan from the trace manager
                 span_id = encode_span_id(span.context.span_id)
                 mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
 
                 if mlflow_span:
-                    if self._should_log_async():
-                        # Use async queue for span logging when async is enabled
-                        self._async_queue.put(
-                            task=Task(
-                                handler=self._log_spans,
-                                args=(experiment_id, [mlflow_span]),
-                                error_msg="Failed to log span to the trace server.",
-                            )
-                        )
-                    else:
-                        self._log_spans(experiment_id, [mlflow_span])
+                    spans_to_log.append(mlflow_span)
 
-            # Continue with full trace export only for root spans
+        # Log all collected spans in a single call
+        if spans_to_log and experiment_id:
+            if self._should_log_async():
+                # Use async queue for span logging when async is enabled
+                self._async_queue.put(
+                    task=Task(
+                        handler=self._log_spans,
+                        args=(experiment_id, spans_to_log),
+                        error_msg="Failed to log spans to the trace server.",
+                    )
+                )
+            else:
+                self._log_spans(experiment_id, spans_to_log)
+
+        # Continue with full trace export only for root spans
+        for span in spans:
             if span._parent is not None:
                 continue
 
@@ -108,7 +118,7 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 self._log_trace(trace, prompts=manager_trace.prompts)
 
-    def _log_spans(self, experiment_id: str, spans: list[Any]):
+    def _log_spans(self, experiment_id: str, spans: list[Span]):
         """
         Helper method to log spans with error handling.
 
