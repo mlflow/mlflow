@@ -3613,8 +3613,9 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 # which have key-value structure, so we need specialized handling
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
+                span_column = getattr(SqlSpan, key_name)
                 val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                    SqlSpan.name, value
+                    span_column, value
                 )
                 
                 span_subquery = (

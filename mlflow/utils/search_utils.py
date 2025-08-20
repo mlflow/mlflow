@@ -1629,6 +1629,9 @@ class SearchTraceUtils(SearchUtils):
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
+    # Supported span attributes
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name"}
+
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
     # Some search keys are defined differently in the DB models.
@@ -1735,7 +1738,7 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_span(cls, key_type, key_name, comparator):
         if key_type == cls._SPAN_IDENTIFIER:
-            if key_name == "name":
+            if key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
                 if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                     raise MlflowException(
                         f"span.{key_name} comparator '{comparator}' not one of "
@@ -1743,9 +1746,10 @@ class SearchTraceUtils(SearchUtils):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
+                supported_attrs = ", ".join(sorted(cls._SUPPORTED_SPAN_ATTRIBUTES))
                 raise MlflowException(
                     f"Invalid span attribute '{key_name}'. "
-                    "Supported attributes: name.",
+                    f"Supported attributes: {supported_attrs}.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
