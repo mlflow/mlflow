@@ -7,6 +7,8 @@ import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
+import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
+import { COLUMN_TYPES } from '../../../../constants';
 
 /**
  * Mock all expensive utility functions
@@ -126,6 +128,16 @@ describe('ExperimentViewRunsTable', () => {
         columnApi: expect.anything(),
       }),
     );
+  });
+
+  test('should pass selected tag columns to column definitions', () => {
+    const tagKey = mockTagKeys[0];
+    createWrapper({
+      uiState: Object.assign(createExperimentPageUIState(), {
+        selectedColumns: [makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey)],
+      }),
+    });
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(expect.objectContaining({ tagKeyList: [tagKey] }));
   });
 
   test('should properly generate new column data on the new runs data', () => {
