@@ -3609,7 +3609,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
-                # Spans have direct columns (name, type, status) unlike tags/metadata
+                # Spans have specialized columns (name, type, status) unlike tags/metadata
                 # which have key-value structure, so we need specialized handling
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
@@ -3617,7 +3617,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                     span_column, value
                 )
-                
+
                 span_subquery = (
                     session.query(SqlSpan.trace_id.label("request_id"))
                     .filter(val_filter)
