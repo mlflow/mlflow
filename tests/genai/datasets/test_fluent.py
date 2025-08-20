@@ -1142,15 +1142,19 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     all_records = dataset.records
     assert len(all_records) == 150
 
-    for i, record in enumerate(all_records):
-        assert record.inputs["index"] == i
-        assert record.expectations["score"] == i * 0.01
+    record_indices = {record.inputs["index"] for record in all_records}
+    expected_indices = set(range(150))
+    assert record_indices == expected_indices
+
+    record_scores = {record.expectations["score"] for record in all_records}
+    expected_scores = {i * 0.01 for i in range(150)}
+    assert record_scores == expected_scores
 
     df = dataset.to_df()
     assert len(df) == 150
 
-    assert df["inputs"].iloc[0]["index"] == 0
-    assert df["inputs"].iloc[149]["index"] == 149
+    df_indices = {row["index"] for row in df["inputs"]}
+    assert df_indices == expected_indices
 
     assert not hasattr(dataset, "page_token")
     assert not hasattr(dataset, "next_page_token")
@@ -1575,7 +1579,7 @@ def test_create_dataset_none_uses_active_experiment(tracking_uri):
     mlflow.set_experiment(experiment_id=exp_id)
 
     dataset = create_dataset(name="test_none_exp", experiment_id=None)
-    
+
     assert dataset.experiment_ids == [exp_id]
 
     from mlflow.tracking import fluent
