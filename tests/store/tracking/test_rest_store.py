@@ -1989,12 +1989,13 @@ def test_evaluation_dataset_get_records():
         response.next_page_token = ""
         mock_call.return_value = response
 
-        result = store._load_dataset_records(dataset_id)
+        records, next_page_token = store._load_dataset_records(dataset_id)
 
-        assert len(result) == 2
-        assert result[0].dataset_record_id == "r-001"
-        assert result[0].inputs == {"question": "What is MLflow?"}
-        assert result[1].dataset_record_id == "r-002"
+        assert len(records) == 2
+        assert records[0].dataset_record_id == "r-001"
+        assert records[0].inputs == {"question": "What is MLflow?"}
+        assert records[1].dataset_record_id == "r-002"
+        assert next_page_token is None
 
         req = GetDatasetRecords(
             max_results=1000,
@@ -2039,14 +2040,14 @@ def test_evaluation_dataset_lazy_loading_records():
                     last_update_time=1234567890,
                 )
             ]
-            mock_load.return_value = mock_records
+            mock_load.return_value = (mock_records, None)
 
             records = eval_dataset.records
 
             assert len(records) == 1
             assert records[0].dataset_record_id == "r-001"
 
-            mock_load.assert_called_once_with(dataset_id)
+            mock_load.assert_called_once_with(dataset_id, max_results=None)
 
 
 def test_evaluation_dataset_pagination():

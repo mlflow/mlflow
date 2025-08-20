@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import logging
@@ -3641,13 +3642,17 @@ class SqlAlchemyStore(AbstractStore):
         page_token: str | None = None,
     ) -> tuple[list[DatasetRecord], str | None]:
         """
-        Load dataset records with pagination support.
+        Load dataset records with cursor-based pagination support.
+
+        Records are ordered by (created_time, dataset_record_id) to ensure deterministic
+        pagination across all database backends.
 
         Args:
             dataset_id: The ID of the dataset.
             max_results: Maximum number of records to return. Defaults to
                 LOAD_DATASET_RECORDS_MAX_RESULTS. If explicitly set to None, returns all records.
-            page_token: Token for pagination (offset as string). If None, starts from the beginning.
+            page_token: Cursor token for pagination in format "created_time:record_id".
+                If None, starts from the beginning.
 
         Returns:
             Tuple of (list of DatasetRecord objects, next_page_token).
@@ -3660,20 +3665,42 @@ class SqlAlchemyStore(AbstractStore):
             effective_max_results = None  # Return all records for internal use
         else:
             effective_max_results = max_results or LOAD_DATASET_RECORDS_MAX_RESULTS
+
         with self.ManagedSessionMaker() as session:
             query = (
                 session.query(SqlEvaluationDatasetRecord)
                 .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
-                .order_by(SqlEvaluationDatasetRecord.created_time)
+                .order_by(
+                    SqlEvaluationDatasetRecord.created_time,
+                    SqlEvaluationDatasetRecord.dataset_record_id,
+                )
             )
 
+            if page_token:
+                try:
+                    decoded = base64.b64decode(page_token.encode()).decode()
+                    last_created_time, last_record_id = decoded.split(":", 1)
+                    last_created_time = int(last_created_time)
+
+                    query = query.filter(
+                        (SqlEvaluationDatasetRecord.created_time > last_created_time)
+                        | (
+                            (SqlEvaluationDatasetRecord.created_time == last_created_time)
+                            & (SqlEvaluationDatasetRecord.dataset_record_id > last_record_id)
+                        )
+                    )
+                except (ValueError, AttributeError):
+                    offset = int(page_token)
+                    query = query.offset(offset)
+
             if effective_max_results is not None:
-                offset = int(page_token) if page_token else 0
-                sql_records = query.offset(offset).limit(effective_max_results + 1).all()
+                sql_records = query.limit(effective_max_results + 1).all()
 
                 if len(sql_records) > effective_max_results:
                     sql_records = sql_records[:effective_max_results]
-                    next_page_token = str(offset + effective_max_results)
+                    last_record = sql_records[-1]
+                    cursor = f"{last_record.created_time}:{last_record.dataset_record_id}"
+                    next_page_token = base64.b64encode(cursor.encode()).decode()
                 else:
                     next_page_token = None
             else:

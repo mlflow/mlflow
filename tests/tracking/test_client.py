@@ -2912,6 +2912,14 @@ def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
         client.delete_dataset_tag("dataset_123", "tag1")
     assert exc_info.value.error_code == "FEATURE_DISABLED"
 
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
 
 def test_mlflow_client_set_dataset_tags(mock_store):
     MlflowClient().set_dataset_tags(
@@ -2935,3 +2943,55 @@ def test_mlflow_client_delete_dataset_tag(mock_store):
         dataset_id="dataset_123",
         key="deprecated",
     )
+
+
+def test_mlflow_client_add_dataset_to_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.add_dataset_to_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_remove_dataset_from_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1"]
+    mock_store.remove_dataset_from_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.remove_dataset_from_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1"]
+    mock_store.remove_dataset_from_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_dataset_associations_databricks_blocking(mock_store):
+    with mock.patch("mlflow.utils.databricks_utils.is_databricks_uri") as mock_is_dbx:
+        mock_is_dbx.return_value = True
+        client = MlflowClient(tracking_uri="databricks")
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

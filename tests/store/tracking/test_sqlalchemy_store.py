@@ -6903,32 +6903,46 @@ def test_dataset_records_pagination(store):
 
     page1, next_token1 = store._load_dataset_records(dataset.dataset_id, max_results=10)
     assert len(page1) == 10
-    assert next_token1 == "10"
-    assert page1[0].inputs["id"] == 0
-    assert page1[9].inputs["id"] == 9
+    assert next_token1 is not None  # Token should exist for more pages
+
+    # Collect all IDs from page1
+    page1_ids = {r.inputs["id"] for r in page1}
+    assert len(page1_ids) == 10  # All IDs should be unique
 
     page2, next_token2 = store._load_dataset_records(
         dataset.dataset_id, max_results=10, page_token=next_token1
     )
     assert len(page2) == 10
-    assert next_token2 == "20"
-    assert page2[0].inputs["id"] == 10
-    assert page2[9].inputs["id"] == 19
+    assert next_token2 is not None  # Token should exist for more pages
+
+    # Collect all IDs from page2
+    page2_ids = {r.inputs["id"] for r in page2}
+    assert len(page2_ids) == 10  # All IDs should be unique
+    assert page1_ids.isdisjoint(page2_ids)  # No overlap between pages
 
     page3, next_token3 = store._load_dataset_records(
         dataset.dataset_id, max_results=10, page_token=next_token2
     )
     assert len(page3) == 5
-    assert next_token3 is None
-    assert page3[0].inputs["id"] == 20
-    assert page3[4].inputs["id"] == 24
+    assert next_token3 is None  # No more pages
+
+    # Collect all IDs from page3
+    page3_ids = {r.inputs["id"] for r in page3}
+    assert len(page3_ids) == 5  # All IDs should be unique
+    assert page1_ids.isdisjoint(page3_ids)  # No overlap
+    assert page2_ids.isdisjoint(page3_ids)  # No overlap
+
+    # Verify we got all 25 records across all pages
+    all_ids = page1_ids | page2_ids | page3_ids
+    assert all_ids == set(range(25))
 
     all_records, no_token = store._load_dataset_records(dataset.dataset_id, max_results=None)
     assert len(all_records) == 25
     assert no_token is None
 
-    for i, record in enumerate(all_records):
-        assert record.inputs["id"] == i
+    # Verify we have all expected records (order doesn't matter)
+    all_record_ids = {r.inputs["id"] for r in all_records}
+    assert all_record_ids == set(range(25))
 
 
 def test_dataset_search_comprehensive(store):

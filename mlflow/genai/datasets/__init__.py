@@ -418,7 +418,10 @@ def add_dataset_to_experiments(dataset_id: str, experiment_ids: list[str]) -> "E
             "Please use a database-backed tracking store."
         )
 
-    return store.add_dataset_to_experiments(dataset_id, experiment_ids)
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient()
+    return client.add_dataset_to_experiments(dataset_id, experiment_ids)
 
 
 def remove_dataset_from_experiments(
@@ -466,7 +469,10 @@ def remove_dataset_from_experiments(
             "Please use a database-backed tracking store."
         )
 
-    return store.remove_dataset_from_experiments(dataset_id, experiment_ids)
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient()
+    return client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
 
 __all__ = [
