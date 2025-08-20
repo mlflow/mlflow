@@ -617,14 +617,14 @@ def delete_scorer(
     The behavior of this function varies depending on the backend store and version parameter:
     
     **MLflow Tracking Backend:**
-    - Supports versioning with granular deletion options
-    - Can delete specific versions or all versions of a scorer by setting `version`
-      parameter to "all"
+        - Supports versioning with granular deletion options
+        - Can delete specific versions or all versions of a scorer by setting `version`
+          parameter to "all"
     
     **Databricks Backend:**
-    - Does not support versioning
-    - Deletes the entire scorer regardless of version parameter
-    - `version` parameter must be None
+        - Does not support versioning
+        - Deletes the entire scorer regardless of version parameter
+        - `version` parameter must be None
     
     Args:
         name (str): The name of the scorer to delete. This must match exactly with the
