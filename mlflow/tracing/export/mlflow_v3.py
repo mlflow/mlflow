@@ -77,8 +77,11 @@ class MlflowV3SpanExporter(SpanExporter):
                         mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
                         if mlflow_span:
                             self._client.log_spans(experiment_id, [mlflow_span])
-                        else:
-                            _logger.debug(f"Span {span_id} not found in trace manager")
+                    except NotImplementedError:
+                        # Silently skip if the store doesn't support log_spans (e.g., FileStore).
+                        # This is expected for stores that don't implement span-level logging,
+                        # and we don't want to spam warnings for every span.
+                        pass
                     except Exception as e:
                         _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
