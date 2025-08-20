@@ -1606,7 +1606,8 @@ class SearchTraceUtils(SearchUtils):
     # cause performance issues with large attributes and tags. We can revisit this
     # decision if we find a way to support them efficiently.
     VALID_TAG_COMPARATORS = {"!=", "="}
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
+    VALID_SPAN_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1739,10 +1740,10 @@ class SearchTraceUtils(SearchUtils):
     def is_span(cls, key_type, key_name, comparator):
         if key_type == cls._SPAN_IDENTIFIER:
             if key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
-                if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                if comparator not in cls.VALID_SPAN_COMPARATORS:
                     raise MlflowException(
                         f"span.{key_name} comparator '{comparator}' not one of "
-                        f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
+                        f"'{cls.VALID_SPAN_COMPARATORS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
