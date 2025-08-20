@@ -859,9 +859,9 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
 
 #: Specifies whether to enable Databricks delta archival for traces
 #: When set to True, traces will be exported to both MLflow V3 and TraceServer in parallel.
-#: (default: ``False``)
+#: (default: ``True``)
 MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL = _BooleanEnvironmentVariable(
-    "MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", False
+    "MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", True
 )
 
 #: TODO: temporary flag for local e2e testing, will remove once auth is fully migrated to
