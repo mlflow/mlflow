@@ -7,6 +7,7 @@ when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 
 import pytest
 import requests
+from opentelemetry import trace as otel_trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
@@ -17,6 +18,8 @@ from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+import mlflow
+from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 
 from tests.tracking.integration_test_utils import _init_server
@@ -40,8 +43,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     Note: This test verifies that spans are successfully accepted by the server.
     Without artifact upload, traces won't be retrievable via search_traces.
     """
-    import mlflow
-
     mlflow.set_tracking_uri(mlflow_server)
 
     experiment = mlflow.set_experiment("otel-test-experiment")
@@ -56,8 +57,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
 
     span_processor = BatchSpanProcessor(exporter)
     tracer_provider.add_span_processor(span_processor)
-
-    from opentelemetry import trace as otel_trace
 
     otel_trace.set_tracer_provider(tracer_provider)
     tracer = otel_trace.get_tracer(__name__)
@@ -76,8 +75,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     assert len(traces) > 0, "No traces found in the database after sending spans"
 
     # Verify the trace ID matches the expected format based on the OTel span
-    from mlflow.tracing.utils import encode_trace_id
-
     expected_trace_id = f"tr-{encode_trace_id(otel_trace_id)}"
     actual_trace_id = traces[0].info.trace_id
     assert actual_trace_id == expected_trace_id, (

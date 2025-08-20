@@ -5,6 +5,7 @@ import socket
 import sys
 import time
 from subprocess import Popen
+from typing import Any, Generator
 
 import mlflow
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
@@ -14,7 +15,7 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 _logger = logging.getLogger(__name__)
 
 
-def _await_server_up_or_die(port, timeout=30):
+def _await_server_up_or_die(port: int, timeout: int = 30) -> None:
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
@@ -31,7 +32,13 @@ def _await_server_up_or_die(port, timeout=30):
 
 
 @contextlib.contextmanager
-def _init_server(backend_uri, root_artifact_uri, extra_env=None, app=None, server_type="fastapi"):
+def _init_server(
+    backend_uri: str,
+    root_artifact_uri: str,
+    extra_env: dict[str, Any] | None = None,
+    app: str | None = None,
+    server_type: str = "fastapi",
+) -> Generator[str, None, None]:
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -43,9 +50,8 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app=None, serve
         app: Application module path (defaults based on server_type if None)
         server_type: Server type to use - "fastapi" (default) or "flask"
 
-    Returns:
-        A tuple (url, process) containing the string URL of the server and a handle to the
-             server process (a multiprocessing.Process object).
+    Yields:
+        The string URL of the server.
     """
     mlflow.set_tracking_uri(None)
     server_port = get_safe_port()
