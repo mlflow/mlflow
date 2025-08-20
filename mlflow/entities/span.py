@@ -370,24 +370,20 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
-        # First decode the attributes from the proto span
-        decoded_attributes = {
-            attr.key: _decode_otel_proto_anyvalue(attr.value) for attr in otel_proto_span.attributes
-        }
-
-        # Only add the REQUEST_ID if it's not already present in the attributes
-        if SpanAttributeKey.REQUEST_ID not in decoded_attributes:
-            decoded_attributes[SpanAttributeKey.REQUEST_ID] = (
-                generate_mlflow_trace_id_from_otel_trace_id(trace_id)
-            )
-
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
-            attributes=decoded_attributes,
+            attributes={
+                **{
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in otel_proto_span.attributes
+                },
+                # Include the MLflow trace request ID
+                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
+            },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
                 OTelEvent(

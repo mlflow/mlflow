@@ -321,7 +321,7 @@ def sample_otel_span_for_conversion():
         start_time=1000000000,
         end_time=2000000000,
         attributes={
-            "mlflow.traceRequestId": '{"test": "trace_id"}',
+            "mlflow.traceRequestId": "tr-12345678901234567890123456789012",
             "mlflow.spanType": "LLM",
             "mlflow.spanInputs": '{"prompt": "Hello"}',
             "mlflow.spanOutputs": '{"response": "Hi"}',
@@ -538,7 +538,7 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
 
     # Verify the trace request ID is preserved
     assert roundtrip_span.request_id == mlflow_span.request_id
-    assert roundtrip_span.request_id == {"test": "trace_id"}
+    assert roundtrip_span.request_id == "tr-12345678901234567890123456789012"
 
     # Verify events
     assert len(roundtrip_span.events) == len(mlflow_span.events)
