@@ -1,7 +1,7 @@
 """Update run status constraint with killed
 
 Revision ID: cfd24bdc0731
-Revises: 89d4b8295536
+Revises: 2b4d017a5e9b
 Create Date: 2019-10-11 15:55:10.853449
 
 """
