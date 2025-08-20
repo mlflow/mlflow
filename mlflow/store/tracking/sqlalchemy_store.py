@@ -3609,6 +3609,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
+                # Spans have direct columns (name, type, status) unlike tags/metadata
+                # which have key-value structure, so we need specialized handling
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
                 if key_name == "name":
@@ -3624,6 +3626,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     )
                     non_attribute_filters.append(span_subquery)
                     continue
+                else:
+                    raise MlflowException(
+                        f"Unsupported span attribute '{key_name}' in database filtering",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
