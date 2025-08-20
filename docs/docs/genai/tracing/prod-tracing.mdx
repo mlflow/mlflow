@@ -214,6 +214,57 @@ with mlflow.start_span(name="foo") as span:
     span.set_outputs({"b": 2})
 ```
 
+### Metrics Export
+
+MLflow can export OpenTelemetry metrics when a metrics endpoint is configured. This allows you to monitor span durations and other trace-related metrics in compatible monitoring systems.
+
+To enable metrics export:
+
+**Configure OpenTelemetry metrics endpoint**:
+```bash
+# For gRPC endpoint
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:4317"
+export OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="grpc"
+
+# OR for HTTP endpoint
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:4318/v1/metrics"
+export OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf"
+```
+
+#### Exported Metrics
+
+When enabled, MLflow exports the following OpenTelemetry histogram metric:
+
+- **`mlflow.trace.span.duration`**: A histogram measuring span execution duration in milliseconds
+  - **Unit**: `ms` (milliseconds)
+  - **Labels/Attributes**:
+    - `root`: `"true"` for root spans, `"false"` for child spans
+    - `span_type`: The type of span (e.g., "LLM", "CHAIN", "AGENT", or "unknown")
+    - `span_status`: The span status ("OK", "ERROR", or "UNSET")
+
+This histogram allows you to analyze:
+- Response time distributions across different span types
+- Performance differences between root spans and child spans
+- Error rates by monitoring spans with "ERROR" status
+- Service performance trends over time
+
+#### Complete Example
+
+```python
+import mlflow
+import os
+
+# Enable metrics collection and export
+os.environ["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = "http://localhost:4317"
+os.environ["OTEL_EXPORTER_OTLP_METRICS_PROTOCOL"] = "grpc"
+
+# Metrics will be exported to OpenTelemetry Collector
+with mlflow.start_span(name="process_request", span_type="CHAIN") as span:
+    span.set_inputs({"query": "What is MLflow?"})
+    # Your application logic here
+    span.set_outputs({"response": "MLflow is an open source platform..."})
+```
+
 ### Supported Observability Platforms
 
 Click on the following icons to learn more about how to set up OpenTelemetry Collector for your specific observability platform:

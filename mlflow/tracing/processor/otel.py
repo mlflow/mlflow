@@ -10,7 +10,6 @@ from opentelemetry.trace import StatusCode
 
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import (
-    MLFLOW_LOG_OTLP_TRACE_STATISTICS,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
@@ -26,8 +25,24 @@ class OtelSpanProcessor(BatchSpanProcessor):
     is started or ended (before exporting).
     """
 
-    def __init__(self, span_exporter: SpanExporter):
+    def __init__(
+        self, span_exporter: SpanExporter, export_spans: bool = True, export_metrics: bool = False
+    ):
+        """
+        Initialize the OtelSpanProcessor.
+
+        Args:
+            span_exporter: The OpenTelemetry span exporter to use for span export.
+            export_spans: Whether to export spans to the OTLP collector. When False,
+                super() methods are not called, so spans are not exported.
+            export_metrics: Whether to export metrics to the OTLP collector. When True,
+                metrics setup will be initialized regardless of export_spans value.
+        """
         super().__init__(span_exporter)
+
+        self._export_spans = export_spans
+        self._export_metrics = export_metrics
+
         # In opentelemetry-sdk 1.34.0, the `span_exporter` field was removed from the
         # `BatchSpanProcessor` class.
         # https://github.com/open-telemetry/opentelemetry-python/issues/4616
@@ -41,15 +56,17 @@ class OtelSpanProcessor(BatchSpanProcessor):
         except AttributeError:
             pass
 
-        # Only register traces with trace manager when NOT in dual export mode
+        # Only register traces when NOT in dual export mode AND spans are exported
         # In dual export mode, MLflow span processors handle trace registration
-        self._should_register_traces = not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
+        self._should_register_traces = (
+            self._export_spans and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
+        )
         if self._should_register_traces:
             self._trace_manager = InMemoryTraceManager.get_instance()
 
         # Initialize metrics if enabled
         self._duration_histogram = None
-        if MLFLOW_LOG_OTLP_TRACE_STATISTICS.get():
+        if self._export_metrics:
             self._duration_histogram = self._setup_metrics()
 
     def on_start(self, span: OTelReadableSpan, parent_context=None):
@@ -58,7 +75,9 @@ class OtelSpanProcessor(BatchSpanProcessor):
             span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_info.trace_id))
             self._trace_manager.register_trace(trace_info.trace_id, trace_info)
 
-        super().on_start(span, parent_context)
+        # Only call parent on_start if we're exporting spans
+        if self._export_spans:
+            super().on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan):
         # Handle metrics logging if enabled
@@ -95,7 +114,9 @@ class OtelSpanProcessor(BatchSpanProcessor):
         if self._should_register_traces and not span.parent:
             self._trace_manager.pop_trace(span.context.trace_id)
 
-        super().on_end(span)
+        # Only call parent on_end if we're exporting spans
+        if self._export_spans:
+            super().on_end(span)
 
     def _create_trace_info(self, span: OTelReadableSpan) -> TraceInfo:
         """Create a TraceInfo object from an OpenTelemetry span."""
@@ -124,21 +145,25 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
         # Get appropriate metric exporter based on protocol
         # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
-        if protocol == "grpc":
-            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-                OTLPMetricExporter,
-            )
-        elif protocol == "http/protobuf":
-            from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-                OTLPMetricExporter,
-            )
-        else:
-            from mlflow.exceptions import MlflowException
+        try:
+            if protocol == "grpc":
+                from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            elif protocol == "http/protobuf":
+                from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                    OTLPMetricExporter,
+                )
+            else:
+                from mlflow.exceptions import MlflowException
 
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported OTLP metrics protocol '{protocol}'. "
-                "Supported protocols are 'grpc' and 'http/protobuf'."
-            )
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported OTLP metrics protocol '{protocol}'. "
+                    "Supported protocols are 'grpc' and 'http/protobuf'."
+                )
+        except ImportError:
+            # Metrics exporter dependencies are not installed
+            return None
 
         metric_exporter = OTLPMetricExporter(endpoint=endpoint)
 

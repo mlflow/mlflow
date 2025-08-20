@@ -12,6 +12,17 @@ def should_use_otlp_exporter() -> bool:
     return _get_otlp_endpoint() is not None
 
 
+def should_export_otlp_metrics() -> bool:
+    """
+    Determine if OTLP metrics should be exported based on environment configuration.
+
+    Returns True if metrics endpoint is configured.
+    """
+    # Check if metrics endpoint is configured
+    metrics_endpoint = _get_otlp_metrics_endpoint()
+    return metrics_endpoint is not None
+
+
 def get_otlp_exporter() -> SpanExporter:
     """
     Get the OTLP exporter based on the configured protocol.
@@ -54,6 +65,15 @@ def _get_otlp_endpoint() -> str | None:
     """
     # Use `or` instead of default value to do lazy eval
     return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or os.environ.get(
+        "OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
+
+
+def _get_otlp_metrics_endpoint() -> str | None:
+    """
+    Get the OTLP metrics endpoint from the environment variables.
+    """
+    return os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
         "OTEL_EXPORTER_OTLP_ENDPOINT"
     )
 

@@ -656,11 +656,6 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
     "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
 )
 
-#: When set to true, MLflow will log OTLP trace statistics.
-#: (default: ``False``)
-MLFLOW_LOG_OTLP_TRACE_STATISTICS = _BooleanEnvironmentVariable(
-    "MLFLOW_LOG_OTLP_TRACE_STATISTICS", False
-)
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(

@@ -36,7 +36,11 @@ from mlflow.tracing.destination import (
 )
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+    get_otlp_exporter,
+    should_export_otlp_metrics,
+    should_use_otlp_exporter,
+)
 from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -329,14 +333,37 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
 
     processors = []
 
-    if should_use_otlp_exporter():
+    # Determine if we need OTLP span or metrics export
+    should_export_spans = should_use_otlp_exporter()
+    should_export_metrics = should_export_otlp_metrics()
+
+    # If either spans or metrics need to be exported, create OtelSpanProcessor
+    if should_export_spans or should_export_metrics:
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
-        exporter = get_otlp_exporter()
-        otel_processor = OtelSpanProcessor(exporter)
+        # Create exporter if needed for spans, or use a dummy one if only metrics are needed
+        if should_export_spans:
+            exporter = get_otlp_exporter()
+        else:
+            # Create a no-op exporter since we're not actually exporting spans
+            from opentelemetry.sdk.trace.export import SpanExporter
+
+            class NoOpSpanExporter(SpanExporter):
+                def export(self, spans):
+                    return None
+
+                def shutdown(self):
+                    return None
+
+            exporter = NoOpSpanExporter()
+
+        otel_processor = OtelSpanProcessor(
+            exporter, export_spans=should_export_spans, export_metrics=should_export_metrics
+        )
         processors.append(otel_processor)
 
-        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
+        # If only OTLP export is configured (no dual export), return early
+        if should_export_spans and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
     # TODO: Update this logic to pluggable registry where
