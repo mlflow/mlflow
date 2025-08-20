@@ -19,10 +19,10 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
 # Create FastAPI router for OTel endpoints
-otel_router = APIRouter(prefix="/v1/traces", tags=["OpenTelemetry"])
+otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
 
 class OTelExportTraceServiceResponse(BaseModel):

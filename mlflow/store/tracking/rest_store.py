@@ -1310,11 +1310,12 @@ class RestStore(AbstractStore):
         verify_rest_response(response, OTLP_TRACES_PATH)
         return spans
 
-    async def log_spans_async(self, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Async wrapper for log_spans method.
 
         Args:
+            experiment_id: The experiment ID to log spans to.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
@@ -1323,4 +1324,4 @@ class RestStore(AbstractStore):
         Raises:
             MlflowException: If spans belong to different traces or the OTel API call fails.
         """
-        return self.log_spans(spans)
+        return self.log_spans(experiment_id, spans)
