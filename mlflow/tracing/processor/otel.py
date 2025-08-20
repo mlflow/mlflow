@@ -117,16 +117,12 @@ class OtelSpanProcessor(BatchSpanProcessor):
                 if trace:
                     # Add trace tags as attributes (prefixed with 'tag_')
                     for key, value in trace.info.tags.items():
-                        # Sanitize key names for metric labels
-                        safe_key = f"tag_{key.replace('.', '_').replace('-', '_')}"
-                        attributes[safe_key] = str(value)
+                        attributes[f"tag_{key}"] = str(value)
 
                     # Add ALL trace metadata (prefixed with 'meta_')
                     if trace.info.trace_metadata:
                         for meta_key, meta_value in trace.info.trace_metadata.items():
-                            # Sanitize key names for metric labels
-                            safe_key = f"meta_{meta_key.replace('.', '_').replace('-', '_')}"
-                            attributes[safe_key] = str(meta_value)
+                            attributes[f"meta_{meta_key}"] = str(meta_value)
 
             # Record the histogram metric with all attributes
             self._duration_histogram.record(duration_ms, attributes=attributes)
