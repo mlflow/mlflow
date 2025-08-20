@@ -1,7 +1,5 @@
 import json
 import logging
-from contextlib import contextmanager
-from typing import Generator
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -20,7 +18,11 @@ from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_mlflow_span_for_otel_span, get_otel_attribute
+from mlflow.tracing.utils import (
+    _bypass_attribute_guard,
+    get_mlflow_span_for_otel_span,
+    get_otel_attribute,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -66,9 +68,8 @@ def setup_strands_tracing():
 
 def _set_span_type(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
     operation = span.attributes.get("gen_ai.operation.name")
-    if isinstance(operation, str) and (
-        operation == "invoke_agent" or operation.startswith("invoke_")
-    ):
+    # "invoke_agent" for single agent and "invoke_{agent_name}" for multi agents
+    if isinstance(operation, str) and operation.startswith("invoke_"):
         mlflow_span.set_span_type(SpanType.AGENT)
     elif operation == "execute_tool":
         mlflow_span.set_span_type(SpanType.TOOL)
@@ -88,16 +89,20 @@ def _parse_json(value):
 
 
 def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
+    inputs = []
+    outputs = []
     for event in span.events:
         if event.name in {"gen_ai.user.message", "gen_ai.tool.message"}:
             content = _parse_json(event.attributes.get("content"))
-            if event.name == "gen_ai.user.message":
-                mlflow_span.set_inputs({"content": content})
-            else:
-                mlflow_span.set_inputs(content)
+            role = "user" if event.name == "gen_ai.user.message" else "tool"
+            inputs.append({"role": role, "content": content})
         elif event.name == "gen_ai.choice":
             message = _parse_json(event.attributes.get("message"))
-            mlflow_span.set_outputs(message)
+            outputs.append(message)
+    if inputs:
+        mlflow_span.set_inputs(inputs)
+    if outputs:
+        mlflow_span.set_outputs(outputs if len(outputs) > 1 else outputs[0])
 
 
 def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
@@ -110,13 +115,3 @@ def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         usage[TokenUsageKey.TOTAL_TOKENS] = v
     if usage:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-
-
-@contextmanager
-def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
-    original_end_time = span._end_time
-    span._end_time = None
-    try:
-        yield
-    finally:
-        span._end_time = original_end_time

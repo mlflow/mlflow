@@ -1,6 +1,4 @@
 import logging
-from contextlib import contextmanager
-from typing import Generator
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -19,7 +17,11 @@ from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_mlflow_span_for_otel_span, get_otel_attribute
+from mlflow.tracing.utils import (
+    _bypass_attribute_guard,
+    get_mlflow_span_for_otel_span,
+    get_otel_attribute,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -104,22 +106,3 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # Export the span using MLflow's span processor
         tracer = _get_tracer(__name__)
         tracer.span_processor.on_end(span)
-
-
-@contextmanager
-def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
-    """
-    OpenTelemetry does not allow setting attributes if the span has end time defined.
-    https://github.com/open-telemetry/opentelemetry-python/blob/d327927d0274a320466feec6fba6d6ddb287dc5a/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L849-L851
-
-    However, we need to set some attributes within `on_end` handler of the span processor,
-    where the span is already marked as ended. This context manager is a hacky workaround
-    to bypass the attribute guard.
-    """
-    original_end_time = span._end_time
-    span._end_time = None
-    try:
-        yield
-
-    finally:
-        span._end_time = original_end_time
