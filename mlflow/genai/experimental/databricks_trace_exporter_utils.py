@@ -29,6 +29,12 @@ from mlflow.utils.rest_utils import call_endpoint
 _logger = logging.getLogger(__name__)
 
 
+def get_workspace_id():
+    from databricks.sdk import WorkspaceClient
+
+    return WorkspaceClient().get_workspace_id()
+
+
 def create_archival_ingest_sdk():
     """
     Create a configured IngestApiSdk instance for trace archival.

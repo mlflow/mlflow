@@ -6,7 +6,10 @@ import importlib.util
 import logging
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_exporter_utils import DatabricksTraceServerClient
+from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+    DatabricksTraceServerClient,
+    get_workspace_id,
+)
 from mlflow.tracking import MlflowClient
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
@@ -327,9 +330,7 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
-    from databricks.sdk import WorkspaceClient
-
-    workspace_id = WorkspaceClient().get_workspace_id()
+    workspace_id = get_workspace_id()
     trace_archival_location = (
         f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
     )
