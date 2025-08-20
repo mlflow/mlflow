@@ -62,8 +62,9 @@ class OtelSpanProcessor(BatchSpanProcessor):
         self._should_register_traces = (
             self._export_spans and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
         )
-        if self._should_register_traces:
-            self._trace_manager = InMemoryTraceManager.get_instance()
+
+        # Always initialize trace manager for metrics (we need it to get trace context)
+        self._trace_manager = InMemoryTraceManager.get_instance()
 
         # Initialize metrics if enabled
         self._duration_histogram = None
@@ -71,10 +72,12 @@ class OtelSpanProcessor(BatchSpanProcessor):
             self._duration_histogram = self._setup_metrics()
 
     def on_start(self, span: OTelReadableSpan, parent_context=None):
-        if self._should_register_traces and not span.parent:
+        # Register traces for metrics OR span export (needed for tags/metadata)
+        if (self._should_register_traces or self._export_metrics) and not span.parent:
             trace_info = self._create_trace_info(span)
             span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_info.trace_id))
-            self._trace_manager.register_trace(trace_info.trace_id, trace_info)
+            # Register the trace and map OTel trace ID to MLflow trace ID
+            self._trace_manager.register_trace(span.context.trace_id, trace_info)
 
         # Only call parent on_start if we're exporting spans
         if self._export_spans:
@@ -89,10 +92,16 @@ class OtelSpanProcessor(BatchSpanProcessor):
             # Determine if this is a root span
             is_root = span.parent is None
 
-            # Get span type from attributes if available
-            span_type = (
-                span.attributes.get("mlflow.spanType", "unknown") if span.attributes else "unknown"
-            )
+            # Get span type from attributes if available, and decode if JSON-encoded
+            span_type = "unknown"
+            if span.attributes and "mlflow.spanType" in span.attributes:
+                raw_span_type = span.attributes["mlflow.spanType"]
+                try:
+                    # Try to decode as JSON in case it's JSON-encoded
+                    span_type = json.loads(raw_span_type)
+                except (json.JSONDecodeError, TypeError):
+                    # If it's not valid JSON, use the raw value
+                    span_type = raw_span_type
 
             # Get span status
             status = "UNSET"
@@ -113,23 +122,33 @@ class OtelSpanProcessor(BatchSpanProcessor):
             }
 
             # Add trace tags and metadata if trace is available
-            with self._trace_manager.get_trace(span.context.trace_id) as trace:
-                if trace:
-                    # Add trace tags as attributes (prefixed with 'tag_')
-                    for key, value in trace.info.tags.items():
-                        attributes[f"tag_{key}"] = str(value)
+            # Get MLflow trace ID from OpenTelemetry trace ID
+            mlflow_trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
+                span.context.trace_id
+            )
+            if mlflow_trace_id:
+                with self._trace_manager.get_trace(mlflow_trace_id) as trace:
+                    if trace:
+                        # Add trace tags as attributes (prefixed with 'tags.')
+                        for key, value in trace.info.tags.items():
+                            attributes[f"tags.{key}"] = str(value)
 
-                    # Add ALL trace metadata (prefixed with 'meta_')
-                    if trace.info.trace_metadata:
-                        for meta_key, meta_value in trace.info.trace_metadata.items():
-                            attributes[f"meta_{meta_key}"] = str(meta_value)
+                        # Add ALL trace metadata (prefixed with 'metadata.')
+                        if trace.info.trace_metadata:
+                            for meta_key, meta_value in trace.info.trace_metadata.items():
+                                attributes[f"metadata.{meta_key}"] = str(meta_value)
 
             # Record the histogram metric with all attributes
             self._duration_histogram.record(duration_ms, attributes=attributes)
 
-        # Handle trace registration cleanup
-        if self._should_register_traces and not span.parent:
-            self._trace_manager.pop_trace(span.context.trace_id)
+        # Handle trace registration cleanup (same condition as registration)
+        if (self._should_register_traces or self._export_metrics) and not span.parent:
+            # Use MLflow trace ID for cleanup
+            mlflow_trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
+                span.context.trace_id
+            )
+            if mlflow_trace_id:
+                self._trace_manager.pop_trace(mlflow_trace_id)
 
         # Only call parent on_end if we're exporting spans
         if self._export_spans:
