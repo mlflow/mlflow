@@ -4775,6 +4775,72 @@ def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
     assert trace_ids == {trace1_id, trace2_id}
 
 
+def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_search")
+    
+    # Create traces with spans that have different names
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    
+    trace1 = _create_trace(store, trace1_id, exp_id)
+    trace2 = _create_trace(store, trace2_id, exp_id)  
+    trace3 = _create_trace(store, trace3_id, exp_id)
+    
+    # Create spans with different names
+    span1 = create_mlflow_span(
+        name="database_query",
+        span_type="FUNCTION", 
+        trace_id=trace1_id,
+        span_id="span1"
+    )
+    span2 = create_mlflow_span(
+        name="api_call",
+        span_type="FUNCTION",
+        trace_id=trace2_id, 
+        span_id="span2"
+    )
+    span3 = create_mlflow_span(
+        name="database_update",
+        span_type="FUNCTION",
+        trace_id=trace3_id,
+        span_id="span3"
+    )
+    
+    # Add spans to store
+    store.log_spans([span1, span2, span3])
+    
+    # Test exact match
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "database_query"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+    
+    # Test LIKE pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "database%"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+    
+    # Test NOT EQUAL
+    traces, _ = store.search_traces([exp_id], filter_string='span.name != "api_call"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+    
+    # Test no matches
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "nonexistent"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_error")
+    
+    # Test invalid span attribute should raise error
+    with pytest.raises(MlflowException, match="Invalid span attribute 'type'. Supported attributes: name."):
+        store.search_traces([exp_id], filter_string='span.type = "FUNCTION"')
+    
+    with pytest.raises(MlflowException, match="Invalid span attribute 'status'. Supported attributes: name."):
+        store.search_traces([exp_id], filter_string='span.status = "OK"')
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
