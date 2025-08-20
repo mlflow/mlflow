@@ -15,7 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.tracing.utils import generate_trace_id_v3, get_experiment_id_for_trace
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -98,6 +98,9 @@ class OtelSpanProcessor(BatchSpanProcessor):
             elif span.status and span.status.status_code == StatusCode.ERROR:
                 status = "ERROR"
 
+            # Get experiment ID for the span
+            experiment_id = get_experiment_id_for_trace(span)
+
             # Record the histogram metric with labels
             self._duration_histogram.record(
                 duration_ms,
@@ -105,6 +108,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
                     "root": str(is_root),
                     "span_type": span_type,
                     "span_status": status,
+                    "experiment_id": experiment_id,
                 },
             )
 
@@ -118,9 +122,10 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
     def _create_trace_info(self, span: OTelReadableSpan) -> TraceInfo:
         """Create a TraceInfo object from an OpenTelemetry span."""
+        experiment_id = get_experiment_id_for_trace(span)
         return TraceInfo(
             trace_id=generate_trace_id_v3(span),
-            trace_location=TraceLocation.from_experiment_id(None),
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
             request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
             state=TraceState.IN_PROGRESS,
