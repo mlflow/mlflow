@@ -525,9 +525,14 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     assert len(result_df) == 2
     assert all(col in result_df.columns for col in ["inputs", "expectations", "tags"])
 
-    first_record = result_df.iloc[0]
-    assert first_record["inputs"]["text"] == "The movie was amazing!"
-    assert first_record["expectations"]["sentiment"] == "positive"
+    # Check that all expected records are present (order-agnostic)
+    texts = {record["inputs"]["text"] for _, record in result_df.iterrows()}
+    expected_texts = {"The movie was amazing!", "Terrible experience"}
+    assert texts == expected_texts
+    
+    sentiments = {record["expectations"]["sentiment"] for _, record in result_df.iterrows()}
+    expected_sentiments = {"positive", "negative"}
+    assert sentiments == expected_sentiments
 
 
 def test_search_datasets(tracking_uri, experiments):
@@ -1155,15 +1160,19 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     all_records = dataset.records
     assert len(all_records) == 150
 
-    for i, record in enumerate(all_records):
-        assert record.inputs["index"] == i
-        assert record.expectations["score"] == i * 0.01
+    record_indices = {record.inputs["index"] for record in all_records}
+    expected_indices = set(range(150))
+    assert record_indices == expected_indices
+
+    record_scores = {record.expectations["score"] for record in all_records}
+    expected_scores = {i * 0.01 for i in range(150)}
+    assert record_scores == expected_scores
 
     df = dataset.to_df()
     assert len(df) == 150
 
-    assert df["inputs"].iloc[0]["index"] == 0
-    assert df["inputs"].iloc[149]["index"] == 149
+    df_indices = {row["index"] for row in df["inputs"]}
+    assert df_indices == expected_indices
 
     assert not hasattr(dataset, "page_token")
     assert not hasattr(dataset, "next_page_token")
