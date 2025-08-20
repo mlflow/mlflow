@@ -3,6 +3,7 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
+import asyncio
 import json
 import logging
 import math
@@ -3459,10 +3460,12 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
     if mlflow_client._store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 
-    experiment_id = mlflow_client.create_experiment("rest_store_otel_test")
-    root_span = mlflow_client.start_trace("rest_store_otel_trace", experiment_id=experiment_id)
+    experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
+    root_span = mlflow_client.start_trace(
+        f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
+    )
     otel_span = OTelReadableSpan(
-        name="test-rest-store-span",
+        name=f"test-rest-store-span-{use_async}",
         context=build_otel_context(
             trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
             span_id=0x1234567890ABCDEF,
@@ -3472,7 +3475,7 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
         end_time=2000000000,
         attributes={
             SpanAttributeKey.REQUEST_ID: root_span.trace_id,
-            "test.attribute": json.dumps("test-value"),  # JSON-encoded string value
+            "test.attribute": json.dumps(f"test-value-{use_async}"),  # JSON-encoded string value
         },
         resource=None,
     )
@@ -3480,8 +3483,11 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
 
     # Call either sync or async version based on parametrization
     if use_async:
-        result_spans = mlflow_client._tracking_client.store.log_spans_async(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        # Use asyncio.run to execute the async method
+        result_spans = asyncio.run(
+            mlflow_client._tracking_client.store.log_spans_async(
+                experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            )
         )
     else:
         result_spans = mlflow_client._tracking_client.store.log_spans(
@@ -3490,4 +3496,4 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
 
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
-    assert result_spans[0].name == "test-rest-store-span"
+    assert result_spans[0].name == f"test-rest-store-span-{use_async}"
