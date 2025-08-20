@@ -1,3 +1,4 @@
+from mlflow.genai import datasets
 from mlflow.genai import (
     judges,
     scorers,
@@ -32,6 +33,7 @@ from mlflow.genai.scheduled_scorers import (
 from mlflow.genai.scorers import Scorer, scorer
 
 __all__ = [
+    "datasets",
     "evaluate",
     "to_predict_fn",
     "Scorer",
