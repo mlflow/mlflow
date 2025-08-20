@@ -12,6 +12,7 @@ from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -142,25 +143,19 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
         # Get appropriate metric exporter based on protocol
         # Valid protocols per OpenTelemetry spec: 'grpc' and 'http/protobuf'
-        try:
-            if protocol == "grpc":
-                from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-                    OTLPMetricExporter,
-                )
-            elif protocol == "http/protobuf":
-                from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-                    OTLPMetricExporter,
-                )
-            else:
-                from mlflow.exceptions import MlflowException
-
-                raise MlflowException.invalid_parameter_value(
-                    f"Unsupported OTLP metrics protocol '{protocol}'. "
-                    "Supported protocols are 'grpc' and 'http/protobuf'."
-                )
-        except ImportError:
-            # Metrics exporter dependencies are not installed
-            return None
+        if protocol == "grpc":
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        elif protocol == "http/protobuf":
+            from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported OTLP metrics protocol '{protocol}'. "
+                "Supported protocols are 'grpc' and 'http/protobuf'."
+            )
 
         metric_exporter = OTLPMetricExporter(endpoint=endpoint)
 

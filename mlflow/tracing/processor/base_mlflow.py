@@ -28,7 +28,6 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
-    _get_experiment_id,
     _get_latest_active_run,
 )
 
@@ -99,31 +98,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
-
-    def _get_experiment_id_for_trace(self, span: OTelReadableSpan) -> str:
-        """
-        Determine the experiment ID to associate with the trace.
-
-        The experiment ID can be configured in multiple ways, in order of precedence:
-          1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
-          2. An experiment ID specified via `mlflow.tracing.set_destination`
-          3. An experiment ID of an active run.
-          4. The default experiment ID
-        """
-        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-        from mlflow.tracking.fluent import _get_latest_active_run
-
-        if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
-            return experiment_id
-
-        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-            if exp_id := getattr(destination, "experiment_id"):
-                return exp_id
-
-        if run := _get_latest_active_run():
-            return run.info.experiment_id
-
-        return _get_experiment_id()
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
         metadata = self._env_metadata.copy()
