@@ -114,26 +114,23 @@ class OtelSpanProcessor(BatchSpanProcessor):
             }
 
             # Add trace tags and metadata if trace is available
-            if self._should_register_traces:
-                trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-                if trace_id:
-                    with self._trace_manager.get_trace(trace_id) as trace:
-                        if trace:
-                            # Add trace tags as attributes (prefixed with 'tag_')
-                            for key, value in trace.info.tags.items():
-                                # Sanitize key names for metric labels
-                                safe_key = f"tag_{key.replace('.', '_').replace('-', '_')}"
-                                attributes[safe_key] = str(value)
+            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+            if trace_id:
+                with self._trace_manager.get_trace(trace_id) as trace:
+                    if trace:
+                        # Add trace tags as attributes (prefixed with 'tag_')
+                        for key, value in trace.info.tags.items():
+                            # Sanitize key names for metric labels
+                            safe_key = f"tag_{key.replace('.', '_').replace('-', '_')}"
+                            attributes[safe_key] = str(value)
 
-                            # Add select trace metadata (prefixed with 'meta_')
-                            if trace.info.trace_metadata:
-                                # Only include specific metadata to avoid overwhelming the metrics
-                                for meta_key in ["source_run", "model_id"]:
-                                    if meta_key in trace.info.trace_metadata:
-                                        safe_key = f"meta_{meta_key}"
-                                        attributes[safe_key] = str(
-                                            trace.info.trace_metadata[meta_key]
-                                        )
+                        # Add select trace metadata (prefixed with 'meta_')
+                        if trace.info.trace_metadata:
+                            # Only include specific metadata to avoid overwhelming the metrics
+                            for meta_key in ["source_run", "model_id"]:
+                                if meta_key in trace.info.trace_metadata:
+                                    safe_key = f"meta_{meta_key}"
+                                    attributes[safe_key] = str(trace.info.trace_metadata[meta_key])
 
             # Record the histogram metric with all attributes
             self._duration_histogram.record(duration_ms, attributes=attributes)
