@@ -4820,6 +4820,11 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     trace_ids = {t.trace_id for t in traces}
     assert trace_ids == {trace1_id, trace3_id}
     
+    # Test match trace2 specifically
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "api_call"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+    
     # Test NOT EQUAL
     traces, _ = store.search_traces([exp_id], filter_string='span.name != "api_call"')
     trace_ids = {t.trace_id for t in traces}
