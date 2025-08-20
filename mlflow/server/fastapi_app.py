@@ -33,12 +33,13 @@ def create_fastapi_app():
         openapi_url=None,
     )
 
-    # Include OpenTelemetry API router before mounting Flask app
-    # This allows native FastAPI handling of OTel endpoints
+    # Include OpenTelemetry API router BEFORE mounting Flask app
+    # This ensures FastAPI routes take precedence over the catch-all Flask mount
     fastapi_app.include_router(otel_router)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs
+    # NOTE: This must come AFTER include_router to avoid Flask catching all requests
     fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
     return fastapi_app
