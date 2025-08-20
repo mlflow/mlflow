@@ -89,13 +89,25 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
 
     with tracer.start_as_current_span("otel-e2e-test-span") as span:
         span.set_attribute("test.e2e.attribute", "e2e-test-value")
+        # Capture the OTel trace ID to verify it matches the MLflow trace ID
+        otel_trace_id = span.get_span_context().trace_id
 
-    # Force flush returns True if successful
-    flush_success = span_processor.force_flush(10000)  # 10 second timeout
-
-    # The test passes if the spans were successfully sent (no exceptions raised)
-    # and the processor successfully flushed
+    flush_success = span_processor.force_flush(10000)
     assert flush_success, "Failed to flush spans to the server"
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) > 0, "No traces found in the database after sending spans"
+
+    # Verify the trace ID matches the expected format based on the OTel span
+    from mlflow.tracing.utils import encode_trace_id
+
+    expected_trace_id = f"tr-{encode_trace_id(otel_trace_id)}"
+    actual_trace_id = traces[0].info.trace_id
+    assert actual_trace_id == expected_trace_id, (
+        f"Trace ID mismatch: expected {expected_trace_id}, got {actual_trace_id}"
+    )
 
 
 def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
