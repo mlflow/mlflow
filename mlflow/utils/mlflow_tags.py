@@ -31,6 +31,9 @@ MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
+# Indicates that an MLflow run was created by an evaluation
+MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
+
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"

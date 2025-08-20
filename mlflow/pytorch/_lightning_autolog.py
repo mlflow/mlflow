@@ -8,6 +8,7 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
@@ -477,7 +478,9 @@ def patched_fit(original, self, *args, **kwargs):
         log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
         model_id = None
         if log_models:
-            model_id = mlflow.initialize_logged_model(name="model").model_id
+            model_id = _initialize_logged_model(
+                name="model", flavor=mlflow.pytorch.FLAVOR_NAME
+            ).model_id
         metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
 
         log_every_n_epoch = get_autologging_config(
