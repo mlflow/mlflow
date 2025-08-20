@@ -128,9 +128,11 @@ export const ExperimentViewRunsTable = React.memo(
       );
 
       // Filter tag keys based on selected columns
-      const filteredTags = Object.fromEntries(
-        Object.entries(runsData.tagsList).filter(([key]) =>
-          selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+      const filteredTags = runsData.tagsList.map((tags) =>
+        Object.fromEntries(
+          Object.entries(tags).filter(([key]) =>
+            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+          ),
         ),
       );
 
