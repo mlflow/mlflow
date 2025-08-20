@@ -18,12 +18,9 @@ class Judge(Scorer):
     human-labeled data.
     """
     
-    # Judge-specific fields as Pydantic model fields
     instructions: str = Field(..., description="Human-readable instructions for what to evaluate")
     model: str = Field(..., description="LLM model identifier")
-    version: int = Field(default=1, description="Version number of this judge")
     
-    # Private attributes that won't be serialized by default
     _examples: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
     _prompt_template: Optional[str] = PrivateAttr(default=None)
     
@@ -32,7 +29,6 @@ class Judge(Scorer):
         name: str, 
         instructions: str, 
         model: str,
-        version: int = 1,
         examples: Optional[List[Dict[str, Any]]] = None,
         aggregations: Optional[List] = None,
         **kwargs
@@ -44,7 +40,6 @@ class Judge(Scorer):
             name: Unique identifier for the judge
             instructions: Human-readable instructions defining what the judge evaluates
             model: LLM model identifier (LiteLLM format, e.g., "openai/gpt-4o-mini")
-            version: Version number of this judge
             examples: Optional few-shot examples for alignment
             aggregations: Optional aggregation functions for the judge's output
         """
@@ -52,13 +47,11 @@ class Judge(Scorer):
             name=name, 
             instructions=instructions,
             model=model,
-            version=version,
             aggregations=aggregations,
             **kwargs
         )
-        # Set private attributes after initialization
         self._examples = examples or []
-        self._prompt_template = None  # Will be generated from instructions
+        self._prompt_template = None
         
     def align(self, traces: List[Trace]) -> "Judge":
         """
@@ -70,9 +63,7 @@ class Judge(Scorer):
         Returns:
             A new Judge instance with improved alignment
         """
-        # Phase 1: Stub implementation
-        # Future: Implement alignment logic using few-shot learning
-        # or prompt optimization techniques
+        # TODO: Implement alignment logic
         raise NotImplementedError(
             "Judge alignment is not yet implemented. This will be available in a future release."
         )
@@ -102,20 +93,16 @@ class Judge(Scorer):
         Returns:
             Assessment with the judge's evaluation
         """
-        # Import here to avoid circular dependencies
         from mlflow.genai.judges.utils import invoke_judge_model
         
-        # Prepare the prompt from instructions and inputs/outputs
         prompt = self._prepare_prompt(inputs, outputs, expectations, trace)
         
-        # Call the LLM with the prepared prompt
         result = invoke_judge_model(
             model=self.model,
             prompt=prompt,
             name=self.name,
         )
         
-        # Convert to Feedback if needed
         if isinstance(result, (str, bool, int, float)):
             result = Feedback(
                 name=self.name,
@@ -144,19 +131,16 @@ class Judge(Scorer):
         Returns:
             Formatted prompt string
         """
-        # Extract data from trace if provided
-        if trace:
+        if trace and trace.data and trace.data.spans:
             root_span = trace.data.spans[0]
             inputs = inputs or root_span.inputs
             outputs = outputs or root_span.outputs
         
-        # Build the prompt
         prompt_parts = [
             f"Instructions: {self.instructions}",
             "",
         ]
         
-        # Add few-shot examples if available
         if self._examples:
             prompt_parts.append("Examples:")
             for i, example in enumerate(self._examples, 1):
@@ -169,7 +153,6 @@ class Judge(Scorer):
                     prompt_parts.append(f"  Assessment: {example['assessment']}")
                 prompt_parts.append("")
         
-        # Add current evaluation data
         prompt_parts.append("Current evaluation:")
         if inputs:
             prompt_parts.append(f"Inputs: {inputs}")
@@ -191,9 +174,7 @@ class Judge(Scorer):
         from mlflow.genai.scorers.base import SerializedScorer, _SERIALIZATION_VERSION
         import mlflow
         
-        # Create a SerializedScorer with Judge as a builtin scorer
         judge_data = {
-            "version": self.version,
             "instructions": self.instructions,
             "model": self.model,
             "examples": self._examples,
@@ -217,22 +198,17 @@ class Judge(Scorer):
         """
         from mlflow.genai.scorers.base import SerializedScorer
         
-        # Parse the serialized data
         serialized = SerializedScorer(**obj)
         
-        # Check if this is a Judge
         if serialized.builtin_scorer_class != "mlflow.genai.judges.base.Judge":
             raise ValueError(f"Not a Judge serialization: {serialized.builtin_scorer_class}")
         
-        # Extract judge-specific data
         judge_data = serialized.builtin_scorer_pydantic_data or {}
         
-        # Create judge instance
         judge = cls(
             name=serialized.name,
             instructions=judge_data.get("instructions"),
             model=judge_data.get("model"),
-            version=judge_data.get("version", 1),
             examples=judge_data.get("examples", []),
             aggregations=serialized.aggregations,
         )

@@ -8,15 +8,12 @@ from mlflow.genai.judges.builtin import (
     meets_guidelines,
 )
 from mlflow.genai.judges.custom_prompt_judge import custom_prompt_judge
-from mlflow.genai.judges.factory import make_judge, make_judge_from_dspy
-from mlflow.genai.judges.registry import (
-    delete_judge_alias,
-    get_judge_aliases,
-    list_judge_versions,
-    list_judges,
-    load_judge,
+from mlflow.genai.judges.factory import (
+    make_judge,
+    make_judge_from_dspy,
     register_judge,
-    set_judge_alias,
+    load_judge,
+    list_judge_versions,
 )
 from mlflow.genai.judges.utils import CategoricalRating
 
@@ -26,14 +23,10 @@ __all__ = [
     # Factory functions
     "make_judge",
     "make_judge_from_dspy",
-    # Registry functions
+    # Registry functions (using scorer registry)
     "register_judge",
     "load_judge",
-    "set_judge_alias",
-    "delete_judge_alias",
-    "list_judges",
     "list_judge_versions",
-    "get_judge_aliases",
     # Existing builtin judges
     "CategoricalRating",
     "is_grounded",
