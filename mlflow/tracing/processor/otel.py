@@ -25,16 +25,13 @@ class OtelSpanProcessor(BatchSpanProcessor):
     is started or ended (before exporting).
     """
 
-    def __init__(
-        self, span_exporter: SpanExporter, export_spans: bool = True, export_metrics: bool = False
-    ):
+    def __init__(self, span_exporter: SpanExporter, export_spans: bool, export_metrics: bool):
         """
         Initialize the OtelSpanProcessor.
 
         Args:
             span_exporter: The OpenTelemetry span exporter to use for span export.
-            export_spans: Whether to export spans to the OTLP collector. When False,
-                super() methods are not called, so spans are not exported.
+            export_spans: Whether to export spans to the OTLP collector.
             export_metrics: Whether to export metrics to the OTLP collector. When True,
                 metrics setup will be initialized regardless of export_spans value.
         """
