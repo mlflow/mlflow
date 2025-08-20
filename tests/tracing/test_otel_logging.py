@@ -75,12 +75,12 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     flush_success = span_processor.force_flush(10000)
     assert flush_success, "Failed to flush spans to the server"
 
-    # Give the server a moment to process the spans after they've been sent
-    time.sleep(1)
-
-    # Retry a few times in case the server needs more time to process
+    # Wait up to 30 seconds for search_traces() to return a trace
     traces = []
-    for _ in range(3):
+    max_wait_time = 30
+    start_time = time.time()
+
+    while time.time() - start_time < max_wait_time:
         traces = mlflow.search_traces(
             experiment_ids=[experiment_id], include_spans=False, return_type="list"
         )
