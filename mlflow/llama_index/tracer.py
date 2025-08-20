@@ -2,11 +2,10 @@ import inspect
 import json
 import logging
 from functools import singledispatchmethod
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator
 
 import llama_index.core
 import pydantic
-from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker, TaskStepOutput
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.base.llms.base import BaseLLM
@@ -90,7 +89,7 @@ def remove_llama_index_tracer():
 class _LlamaSpan(BaseSpan, extra="allow"):
     _mlflow_span: LiveSpan = pydantic.PrivateAttr()
 
-    def __init__(self, id_: str, parent_id: Optional[str], mlflow_span: LiveSpan):
+    def __init__(self, id_: str, parent_id: str | None, mlflow_span: LiveSpan):
         super().__init__(id_=id_, parent_id=parent_id)
         self._mlflow_span = mlflow_span
 
@@ -147,8 +146,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self,
         id_: str,
         bound_args: inspect.BoundArguments,
-        instance: Optional[Any] = None,
-        parent_span_id: Optional[str] = None,
+        instance: Any | None = None,
+        parent_span_id: str | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         with self.lock:
@@ -187,7 +186,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def prepare_to_exit_span(
         self,
         id_: str,
-        result: Optional[Any] = None,
+        result: Any | None = None,
         **kwargs: Any,
     ) -> _LlamaSpan:
         try:
@@ -222,7 +221,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self._stream_resolver.resolve(span, event)
         self._pending_spans.pop(event.span_id, None)
 
-    def prepare_to_drop_span(self, id_: str, err: Optional[Exception], **kwargs) -> _LlamaSpan:
+    def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
         with self.lock:
             llama_span = self.open_spans.get(id_)
@@ -246,11 +245,21 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         Map LlamaIndex instance type to MLflow span type. Some span type cannot be determined
         by instance type alone, rather need event info e.g. ChatModel, ReRanker
         """
+        base_agent_types = ()
+        if _get_llama_index_version() < Version("0.13.0"):
+            from llama_index.core.base.agent.types import BaseAgent, BaseAgentWorker
+
+            base_agent_types = (BaseAgent, BaseAgentWorker)
+        else:
+            from llama_index.core.agent.workflow import BaseWorkflowAgent
+
+            base_agent_types = (BaseWorkflowAgent,)
+
         if isinstance(instance, (BaseLLM, MultiModalLLM)):
             return SpanType.LLM
         elif isinstance(instance, BaseRetriever):
             return SpanType.RETRIEVER
-        elif isinstance(instance, (BaseAgent, BaseAgentWorker)):
+        elif isinstance(instance, base_agent_types):
             return SpanType.AGENT
         elif isinstance(instance, BaseEmbedding):
             return SpanType.EMBEDDING
@@ -420,9 +429,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         """
         self._span_handler.resolve_pending_stream_span(span, event)
 
-    def _extract_token_usage(
-        self, response: Union[ChatResponse, CompletionResponse]
-    ) -> dict[str, int]:
+    def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
@@ -454,7 +461,15 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
 
 
-_StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]
+_StreamEndEvent = LLMChatEndEvent | LLMCompletionEndEvent | ExceptionEvent
+
+
+def _get_task_step_output_type():
+    if _get_llama_index_version() < Version("0.13.0"):
+        from llama_index.core.base.agent.types import TaskStepOutput
+
+        return TaskStepOutput
+    return ()
 
 
 class StreamResolver:
@@ -473,7 +488,10 @@ class StreamResolver:
             inspect.isgenerator(result)  # noqa: SIM101
             or isinstance(result, (StreamingResponse, AsyncStreamingResponse))
             or isinstance(result, StreamingAgentChatResponse)
-            or (isinstance(result, TaskStepOutput) and self.is_streaming_result(result.output))
+            or (
+                isinstance(result, _get_task_step_output_type())
+                and self.is_streaming_result(result.output)
+            )
         )
 
     def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
@@ -493,7 +511,7 @@ class StreamResolver:
             stream = result.response_gen
         elif isinstance(result, StreamingAgentChatResponse):
             stream = result.chat_stream
-        elif isinstance(result, TaskStepOutput):
+        elif isinstance(result, _get_task_step_output_type()):
             stream = result.output.chat_stream
         else:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")

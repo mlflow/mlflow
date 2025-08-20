@@ -13,7 +13,7 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas
@@ -140,7 +140,7 @@ def get_global_custom_objects():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
@@ -153,12 +153,12 @@ def log_model(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -791,7 +791,7 @@ class _TF2Wrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -850,7 +850,7 @@ class _TF2ModuleWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -889,7 +889,7 @@ class _KerasModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:

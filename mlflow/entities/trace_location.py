@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -97,8 +97,8 @@ class TraceLocation(_MlflowObject):
     """
 
     type: TraceLocationType
-    mlflow_experiment: Optional[MlflowExperimentLocation] = None
-    inference_table: Optional[InferenceTableLocation] = None
+    mlflow_experiment: MlflowExperimentLocation | None = None
+    inference_table: InferenceTableLocation | None = None
 
     def __post_init__(self) -> None:
         if self.mlflow_experiment is not None and self.inference_table is not None:

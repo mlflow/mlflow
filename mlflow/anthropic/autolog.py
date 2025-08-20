@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 import mlflow.anthropic
@@ -104,7 +104,7 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
         _logger.debug(f"Failed to set token usage for {span}. Error: {e}")
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         usage = getattr(output, "usage", None)
         if usage:

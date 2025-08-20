@@ -62,6 +62,7 @@ from mlflow.utils.logging_utils import _configure_mlflow_loggers
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 ag2 = LazyLoader("mlflow.ag2", globals(), "mlflow.ag2")
+agno = LazyLoader("mlflow.agno", globals(), "mlflow.agno")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
@@ -91,6 +92,7 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
+semantic_kernel = LazyLoader("mlflow.semantic_kernel", globals(), "mlflow.semantic_kernel")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -113,6 +115,7 @@ if TYPE_CHECKING:
     # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
     from mlflow import (  # noqa: F401
         ag2,
+        agno,
         anthropic,
         autogen,
         bedrock,
@@ -143,6 +146,7 @@ if TYPE_CHECKING:
         pyspark,
         pytorch,
         rfunc,
+        semantic_kernel,
         sentence_transformers,
         shap,
         sklearn,
@@ -408,3 +412,7 @@ with contextlib.suppress(Exception):
     from mlflow import gateway  # noqa: F401
 
     __all__.append("gateway")
+
+from mlflow.telemetry import set_telemetry_client
+
+set_telemetry_client()

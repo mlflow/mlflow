@@ -53,7 +53,7 @@ mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("PydanticAI")
 ```
 
-Next, let’s define a multi-agent workflow using PydanticAI. The example below sets up a weather agent where users can ask for the weather in multiple locations, and the agent will use the get_lat_lng tool to get the latitude and longitude of the locations, then use the get_weather tool to get the weather for those locations.
+Next, let's define a multi-agent workflow using PydanticAI. The example below sets up a weather agent where users can ask for the weather in multiple locations, and the agent will use the get_lat_lng tool to get the latitude and longitude of the locations, then use the get_weather tool to get the weather for those locations.
 
 ```python
 import os
@@ -239,6 +239,66 @@ await main()
 
 # Uncomment this is you are using an IDE or Python script.
 # asyncio.run(main())
+```
+
+## Token usage
+
+MLflow >= 3.1.0 supports token usage tracking for PydanticAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.pydantic_ai.autolog()
+
+# Run the example given in previous
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
+
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 432
+  Output tokens: 53
+  Total tokens: 485
+
+== Detailed usage for each LLM call: ==
+InstrumentedModel.request_1:
+  Input tokens: 108
+  Output tokens: 19
+  Total tokens: 127
+InstrumentedModel.request_2:
+  Input tokens: 145
+  Output tokens: 14
+  Total tokens: 159
+InstrumentedModel.request_3:
+  Input tokens: 179
+  Output tokens: 20
+  Total tokens: 199
 ```
 
 ### Disable auto-tracing

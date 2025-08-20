@@ -4,7 +4,6 @@ import tempfile
 import traceback
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Optional
 
 import optuna
 import pandas as pd
@@ -36,9 +35,9 @@ def _optimize_sequential(
     func: "optuna.study.study.ObjectiveFuncType",
     mlflow_client: MlflowClient,
     n_trials: int = 1,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
     catch: Iterable[type[Exception]] = (),
-    callbacks: Optional[Iterable[Callable[[Study, FrozenTrial], None]]] = None,
+    callbacks: Iterable[Callable[[Study, FrozenTrial], None]] | None = None,
 ) -> None:
     """
     Run optimization sequentially. It is modified from _optimize_sequential in optuna
@@ -145,9 +144,9 @@ class MlflowSparkStudy(Study):
         self,
         study_name: str,
         storage: MlflowStorage,
-        sampler: Optional[samplers.BaseSampler] = None,
-        pruner: Optional[pruners.BasePruner] = None,
-        mlflow_tracking_uri: Optional[str] = None,
+        sampler: samplers.BaseSampler | None = None,
+        pruner: pruners.BasePruner | None = None,
+        mlflow_tracking_uri: str | None = None,
     ):
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
@@ -176,11 +175,11 @@ class MlflowSparkStudy(Study):
     def optimize(
         self,
         func: "optuna.study.study.ObjectiveFuncType",
-        n_trials: Optional[int] = None,
-        timeout: Optional[float] = None,
+        n_trials: int | None = None,
+        timeout: float | None = None,
         n_jobs: int = -1,
         catch: Iterable[type[Exception]] = (),
-        callbacks: Optional[Iterable[Callable[[Study, FrozenTrial], None]]] = None,
+        callbacks: Iterable[Callable[[Study, FrozenTrial], None]] | None = None,
     ) -> None:
         experiment_id = self._storage._experiment_id
         study_name = self.study_name

@@ -3,7 +3,7 @@ import json
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from cachetools import TTLCache
 
@@ -266,7 +266,7 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
     additional Databricks Delta archiving capabilities for long-term trace storage and analysis.
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None):
+    def __init__(self, tracking_uri: str | None = None):
         super().__init__(tracking_uri)
 
         # Delta archiving functionality is now provided by the mixin

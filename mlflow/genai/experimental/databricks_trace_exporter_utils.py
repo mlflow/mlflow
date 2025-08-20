@@ -7,7 +7,6 @@ and other common archival operations.
 
 import logging
 import re
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_storage_config import (
@@ -69,7 +68,7 @@ def create_archival_ingest_sdk():
     return IngestApiSdk(ingest_url, workspace_url, token)
 
 
-def _resolve_ingest_url(workspace_id: Optional[str] = None) -> str:
+def _resolve_ingest_url(workspace_id: str | None = None) -> str:
     """
     Dynamically resolve Databricks ingest URL from workspace host pattern.
 
@@ -303,7 +302,7 @@ class DatabricksTraceServerClient:
         self._host_creds = host_creds or get_databricks_host_creds()
 
     def create_trace_destination(
-        self, experiment_id: str, catalog: str, schema: str, table_prefix: Optional[str] = None
+        self, experiment_id: str, catalog: str, schema: str, table_prefix: str | None = None
     ) -> DatabricksTraceDeltaStorageConfig:
         """
         Create a trace destination for archiving traces from an MLflow experiment.
@@ -347,9 +346,7 @@ class DatabricksTraceServerClient:
         # Convert response to config
         return self._proto_to_config(response_proto)
 
-    def get_trace_destination(
-        self, experiment_id: str
-    ) -> Optional[DatabricksTraceDeltaStorageConfig]:
+    def get_trace_destination(self, experiment_id: str) -> DatabricksTraceDeltaStorageConfig | None:
         """
         Get the trace destination configuration for an experiment.
 

@@ -1,11 +1,9 @@
 from mlflow.anthropic.autolog import async_patched_class_call, patched_class_call
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "anthropic"
 
 
-@experimental(version="2.19.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

@@ -122,6 +122,17 @@ const config: Config = {
           label: 'API Reference',
         },
         {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
+        },
+        {
+          type: 'custom-versionSelector',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',
@@ -228,6 +239,16 @@ const config: Config = {
         },
       },
     ],
+    // Community docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'community',
+        path: 'docs/community',
+        routeBasePath: 'community',
+        sidebarPath: './communitySidebar.ts',
+      },
+    ],
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -279,7 +300,7 @@ const config: Config = {
             from: ['/tracing/api/search', '/llms/tracing/search-traces'],
           },
           {
-            to: '/genai/tracing/app-instrumentation/manual-tracing/low-level-api',
+            to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/client'],
           },
           {
@@ -369,10 +390,6 @@ const config: Config = {
           {
             to: '/genai/tracing/integrations/listing/openai-agent',
             from: ['/tracing/integrations/openai-agent'],
-          },
-          {
-            to: '/genai/tracing/integrations/listing/swarm',
-            from: ['/tracing/integrations/swarm'],
           },
           {
             to: '/genai/tracing/integrations/listing/txtai',
@@ -506,11 +523,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',
