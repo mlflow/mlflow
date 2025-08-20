@@ -18,6 +18,8 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
+from mlflow.telemetry.events import PromptOptimizationEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.fluent import (
     active_run,
     log_metric,
@@ -51,15 +53,17 @@ def optimize_prompt(
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
-    The optimized prompt template is automatically registered as a new version of the
-    original prompt and included in the result.
-    Currently, this API only supports DSPy's MIPROv2 optimizer.
+    By default, the optimized prompt template is automatically registered as a new version of the
+    original prompt and optimization metrics are logged.
+    Currently, this API provides built-in support for DSPy's MIPROv2 optimizer and
+    you can also implement custom optimization algorithms by extending BasePromptOptimizer class.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
-            The model name must be specified in the format `<provider>/<model>`.
+            The model name can be specified in either format:
+            - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
+            - `<provider>/<model>` (e.g., "openai/gpt-4o")
         prompt: The URI or Prompt object of the MLflow prompt to optimize.
-            The optimized prompt is registered as a new version of the prompt.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
 
@@ -113,7 +117,7 @@ def optimize_prompt(
             )
 
             result = mlflow.genai.optimize_prompt(
-                target_llm_params=LLMParams(model_name="openai/gpt-4.1-nano"),
+                target_llm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
                 train_data=[
                     {"inputs": {"question": f"{i}+1"}, "expectations": {"answer": f"{i + 1}"}}
                     for i in range(100)
@@ -125,6 +129,28 @@ def optimize_prompt(
 
             print(result.prompt.template)
     """
+    return _optimize_prompt(
+        target_llm_params=target_llm_params,
+        prompt=prompt,
+        train_data=train_data,
+        scorers=scorers,
+        objective=objective,
+        eval_data=eval_data,
+        optimizer_config=optimizer_config,
+    )
+
+
+@record_usage_event(PromptOptimizationEvent)
+def _optimize_prompt(
+    *,
+    target_llm_params: LLMParams,
+    prompt: str | PromptVersion,
+    train_data: "EvaluationDatasetTypes",
+    scorers: list[Scorer],
+    objective: ObjectiveFn | None = None,
+    eval_data: Optional["EvaluationDatasetTypes"] = None,
+    optimizer_config: OptimizerConfig | None = None,
+) -> PromptOptimizationResult:
     if optimizer_config is None:
         optimizer_config = OptimizerConfig()
     optimzer = _select_optimizer(optimizer_config)
@@ -147,19 +173,21 @@ def optimize_prompt(
             eval_data=eval_data,
         )
 
-        optimized_prompt = register_prompt(
-            name=prompt.name,
-            template=optimizer_output.optimized_prompt,
-            tags={
-                "overall_eval_score": str(optimizer_output.final_eval_score),
-            },
-        )
-
-        if optimizer_config.autolog:
+        if not optimizer_config.autolog:
+            result_prompt = optimizer_output.optimized_prompt
+        else:
+            optimized_prompt = register_prompt(
+                name=prompt.name,
+                template=optimizer_output.optimized_prompt,
+                tags={
+                    "overall_eval_score": str(optimizer_output.final_eval_score),
+                },
+            )
+            result_prompt = optimized_prompt
             _log_optimization_result(optimizer_output.final_eval_score, optimized_prompt)
 
     return PromptOptimizationResult(
-        prompt=optimized_prompt,
+        prompt=result_prompt,
         initial_prompt=prompt,
         optimizer_name=optimizer_output.optimizer_name,
         final_eval_score=optimizer_output.final_eval_score,

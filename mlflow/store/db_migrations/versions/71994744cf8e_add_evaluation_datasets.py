@@ -1,7 +1,7 @@
 """add evaluation datasets
 
 Revision ID: 71994744cf8e
-Revises: de4033877273
+Revises: 534353b11cbc
 Create Date: 2025-08-12 14:30:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
 revision = "71994744cf8e"
-down_revision = "de4033877273"
+down_revision = "534353b11cbc"
 branch_labels = None
 depends_on = None
 
