@@ -79,7 +79,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
             A list of tuple, each tuple contains `mlflow.genai.scorers.Scorer` object.
 
         Raises:
-            MlflowException: If scorer is not found.
+            mlflow.MlflowException: If scorer is not found.
         """
 
     @abstractmethod
@@ -96,7 +96,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
             and the version number.
 
         Raises:
-            MlflowException: If scorer is not found.
+            mlflow.MlflowException: If scorer is not found.
         """
 
     @abstractmethod
@@ -110,7 +110,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
             version: The scorer version to delete.
 
         Raises:
-            MlflowException: If scorer is not found.
+            mlflow.MlflowException: If scorer is not found.
         """
 
 
@@ -457,7 +457,7 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
             scorers have been registered in the experiment.
     
     Raises:
-        MlflowException: If the experiment doesn't exist or if there are issues with
+        mlflow.MlflowException: If the experiment doesn't exist or if there are issues with
             the backend store connection.
     
     Example:
@@ -476,13 +476,8 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
                 print(f"Scorer: {scorer.name}")
     
     Note:
-        - Only the latest version of each scorer is returned. To get all versions of a
-          specific scorer, use :func:`list_scorer_versions`.
+        - Only the latest version of each scorer is returned.
         - This function works with both MLflow tracking backends and Databricks environments.
-    
-    See Also:
-        - :func:`list_scorer_versions`: List all versions of a specific scorer
-        - :func:`get_scorer`: Retrieve a specific scorer by name and version
     """
     store = _get_scorer_store()
     return store.list_scorers(experiment_id)
@@ -517,7 +512,7 @@ def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list
             The list may be empty if no versions of the scorer exist.
     
     Raises:
-        MlflowException: If the scorer with the specified name is not found in the experiment,
+        mlflow.MlflowException: If the scorer with the specified name is not found in the experiment,
             if the experiment doesn't exist, or if there are issues with the backend store.
     
     Example:
@@ -543,9 +538,6 @@ def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list
         - Each version maintains its own configuration and sampling settings
         - The function works with MLflow tracking backends that support versioning
         - Databricks backend does not support versioning and will raise an exception
-    
-    See Also:
-        - :func:`list_scorers`: List all scorers (latest versions only)
     """
     store = _get_scorer_store()
     return store.list_scorer_versions(experiment_id, name)
@@ -578,7 +570,7 @@ def get_scorer(
             or modification.
     
     Raises:
-        MlflowException: If the scorer with the specified name is not found in the experiment,
+        mlflow.MlflowException: If the scorer with the specified name is not found in the experiment,
             if the specified version doesn't exist, if the experiment doesn't exist, or if
             there are issues with the backend store connection.
     
@@ -651,7 +643,7 @@ def delete_scorer(
         None: This function does not return a value.
     
     Raises:
-        MlflowException: If the scorer with the specified name is not found in the experiment,
+        mlflow.MlflowException: If the scorer with the specified name is not found in the experiment,
             if the specified version doesn't exist, if the experiment doesn't exist, if there
             are issues with the backend store connection, or if versioning is not supported
             for the current backend.
