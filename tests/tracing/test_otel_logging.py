@@ -5,6 +5,8 @@ This test suite verifies that the experiment ID header functionality works corre
 when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
+import time
+
 import pytest
 import requests
 from opentelemetry import trace as otel_trace
@@ -73,9 +75,19 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     flush_success = span_processor.force_flush(10000)
     assert flush_success, "Failed to flush spans to the server"
 
-    traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
-    )
+    # Give the server a moment to process the spans after they've been sent
+    time.sleep(1)
+
+    # Retry a few times in case the server needs more time to process
+    traces = []
+    for _ in range(3):
+        traces = mlflow.search_traces(
+            experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        )
+        if traces:
+            break
+        time.sleep(1)
+
     assert len(traces) > 0, "No traces found in the database after sending spans"
 
     # Verify the trace ID matches the expected format based on the OTel span
