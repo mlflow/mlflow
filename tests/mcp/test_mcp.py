@@ -23,4 +23,4 @@ async def test_list_tools(client: Client):
 @pytest.mark.asyncio
 async def test_call_tool(client: Client):
     result = await client.call_tool("test", {"a": "foo", "b": 2})
-    assert result.content[0].text == "Test command called with a='foo' and b=2 and c='a'\n"
+    assert result.content[0].text == "Test command called with a='foo' and b=2 and c='a'"
