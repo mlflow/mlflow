@@ -25,7 +25,9 @@ def client(request, tmp_path):
         backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     with _init_server(
-        backend_uri=backend_uri, root_artifact_uri=tmp_path.joinpath("artifacts").as_uri()
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        server_type="fastapi",
     ) as url:
         yield MlflowClient(url)
 

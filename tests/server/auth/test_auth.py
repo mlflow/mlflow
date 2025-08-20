@@ -52,6 +52,7 @@ def client(request, tmp_path):
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         extra_env=extra_env,
         app="mlflow.server.auth:create_app",
+        server_type="flask",
     ) as url:
         yield MlflowClient(url)
 

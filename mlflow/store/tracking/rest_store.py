@@ -1267,11 +1267,12 @@ class RestStore(AbstractStore):
         )
         self._call_endpoint(LinkTracesToRun, req_body)
 
-    def log_spans(self, spans: list[Span]) -> list[Span]:
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store via the OTel API.
 
         Args:
+            experiment_id: The experiment ID to log spans to.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
@@ -1290,26 +1291,20 @@ class RestStore(AbstractStore):
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
-        # Get the trace ID and fetch trace info to get experiment ID
-        trace_id = next(iter(trace_ids))
-        trace_info = self.get_trace_info(trace_id)
-
-        # Prepare headers with experiment ID
-        headers = {MLFLOW_EXPERIMENT_ID_HEADER: trace_info.experiment_id}
-
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span._to_otel_proto() for span in spans)
 
-        # Send protobuf data directly, not JSON
-        headers["Content-Type"] = "application/x-protobuf"
         response = http_request(
             host_creds=self.get_host_creds(),
             endpoint=OTLP_TRACES_PATH,
             method="POST",
             data=request.SerializeToString(),
-            extra_headers=headers,
+            extra_headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
         )
 
         verify_rest_response(response, OTLP_TRACES_PATH)
