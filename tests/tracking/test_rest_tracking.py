@@ -3446,13 +3446,14 @@ def test_scorer_CRUD(mlflow_client):
     mlflow_client.delete_experiment(experiment_id)
 
 
-def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client):
+@pytest.mark.parametrize("use_async", [False, True])
+def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
     """
     End-to-end test that verifies RestStore can log spans to a running server via OTLP endpoint.
 
     This test:
     1. Creates spans using MLflow's span entities
-    2. Uses RestStore.log_spans to send them via OTLP protocol
+    2. Uses RestStore.log_spans or log_spans_async to send them via OTLP protocol
     3. Verifies the spans were stored and can be retrieved
     """
     if mlflow_client._store_type == "file":
@@ -3476,9 +3477,17 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client):
         resource=None,
     )
     mlflow_span_to_log = Span(otel_span)
-    result_spans = mlflow_client._tracking_client.store.log_spans(
-        experiment_id=experiment_id, spans=[mlflow_span_to_log]
-    )
+
+    # Call either sync or async version based on parametrization
+    if use_async:
+        result_spans = mlflow_client._tracking_client.store.log_spans_async(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
+    else:
+        result_spans = mlflow_client._tracking_client.store.log_spans(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
+
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
     assert result_spans[0].name == "test-rest-store-span"
