@@ -91,6 +91,40 @@ message Span {
   }
 
   optional Status status = 16;
+
+  // Resource information
+  message Resource {
+    // Set of attributes that describe the resource
+    map<string, string> attributes = 1;
+
+    // The number of attributes that were discarded
+    optional int32 dropped_attributes_count = 2;
+  }
+
+  optional Resource resource = 17;
+
+  // Schema URL for the resource
+  optional string resource_schema_url = 18;
+
+  // Instrumentation scope information
+  message InstrumentationScope {
+    // Name of the instrumentation scope
+    optional string name = 1;
+
+    // Version of the instrumentation scope
+    optional string version = 2;
+
+    // Additional attributes that describe the scope
+    map<string, string> attributes = 3;
+
+    // The number of attributes that were discarded
+    optional int32 dropped_attributes_count = 4;
+  }
+
+  optional InstrumentationScope instrumentation_scope = 19;
+
+  // Schema URL for the span
+  optional string span_schema_url = 20;
 }
 
 message Event {
@@ -126,4 +160,38 @@ message Event {
 
   // Flags, a bit field.
   optional int32 flags = 11;
+
+  // Resource information
+  message Resource {
+    // Set of attributes that describe the resource
+    map<string, string> attributes = 1;
+
+    // The number of attributes that were discarded
+    optional int32 dropped_attributes_count = 2;
+  }
+
+  optional Resource resource = 12;
+
+  // Schema URL for the resource
+  optional string resource_schema_url = 13;
+
+  // Instrumentation scope information
+  message InstrumentationScope {
+    // Name of the instrumentation scope
+    optional string name = 1;
+
+    // Version of the instrumentation scope
+    optional string version = 2;
+
+    // Additional attributes that describe the scope
+    map<string, string> attributes = 3;
+
+    // The number of attributes that were discarded
+    optional int32 dropped_attributes_count = 4;
+  }
+
+  optional InstrumentationScope instrumentation_scope = 14;
+
+  // Schema URL for the log/event
+  optional string log_schema_url = 15;
 }

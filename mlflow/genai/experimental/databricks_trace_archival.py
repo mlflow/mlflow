@@ -111,7 +111,11 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                       start_time_unix_nano,
                       end_time_unix_nano,
                       status,
-                      events
+                      events,
+                      resource, -- to remove clutter from genai view
+                      resource_schema_url, -- to remove clutter from genai view
+                      instrumentation_scope, -- to remove clutter from genai view
+                      span_schema_url -- to remove clutter from genai view
                     ),
                     parent_span_id AS parent_id,
                     TIMESTAMP_MILLIS(CAST(start_time_unix_nano / 1000000 AS BIGINT)) AS start_time,

@@ -176,7 +176,7 @@ class DatabricksDeltaArchivalMixin:
         Args:
             trace: MLflow Trace object containing spans data.
 
-        TODO: move this to Span.to_proto() once the legacy trace server span are fully repcated
+        TODO: move this to Span.to_proto() once the legacy trace server span are fully deprecated
 
         Returns:
             List of DeltaProtoSpan objects.
