@@ -254,8 +254,8 @@ When enabled, MLflow exports the following OpenTelemetry histogram metric:
     - `span_type`: The type of span (e.g., "LLM", "CHAIN", "AGENT", or "unknown")
     - `span_status`: The span status ("OK", "ERROR", or "UNSET")
     - `experiment_id`: The MLflow experiment ID associated with the trace
-    - `tags.*`: All trace tags (e.g., `tags.mlflow.traceName`, `tags.mlflow.evalRequestId`) - available for all spans
-    - `metadata.*`: All trace metadata (e.g., `metadata.source_run`, `metadata.model_id`, `metadata.token_usage`) - available for all spans
+    - `tags.*`: All trace tags (e.g., `tags.mlflow.traceName`, `tags.mlflow.evalRequestId`)
+    - `metadata.*`: All trace metadata (e.g., `metadata.mlflow.sourceRun`, `metadata.mlflow.modelId`, `metadata.mlflow.trace.tokenUsage`)
 
 This histogram allows you to analyze:
 - Response time distributions across different span types
@@ -263,7 +263,7 @@ This histogram allows you to analyze:
 - Error rates by monitoring spans with "ERROR" status
 - Performance metrics grouped by MLflow experiment
 - Metrics segmented by trace tags (e.g., tags.mlflow.traceName, tags.mlflow.evalRequestId)
-- Performance analysis by model ID or source run (e.g., metadata.model_id, metadata.source_run)
+- Performance analysis by model ID or source run (e.g., metadata.mlflow.modelId, metadata.mlflow.sourceRun)
 - Service performance trends over time
 
 #### Complete Example
