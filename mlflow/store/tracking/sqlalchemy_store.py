@@ -3616,32 +3616,24 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
-                # Handle span filtering
+                # Handle span.name filtering only
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
-                # Build the span filter
-                span_filters = []
-
-                if key_name in ("type", "name", "status"):
-                    # Direct column comparison for span.type, span.name, and span.status
-                    column = getattr(SqlSpan, key_name)
+                # Only support span.name for now
+                if key_name == "name":
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        column, value
+                        SqlSpan.name, value
                     )
-                elif key_name == "content":
-                    # JSON content search for span.content
-                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        SqlSpan.content, value
+                    
+                    # Create subquery that returns distinct trace_ids with matching span names
+                    span_subquery = (
+                        session.query(SqlSpan.trace_id)
+                        .filter(val_filter)
+                        .distinct()
+                        .subquery()
                     )
-
-                span_filters.append(val_filter)
-
-                # Create subquery that returns distinct trace_ids with matching spans
-                span_subquery = (
-                    session.query(SqlSpan.trace_id).filter(*span_filters).distinct().subquery()
-                )
-                non_attribute_filters.append(span_subquery)
-                continue
+                    non_attribute_filters.append(span_subquery)
+                    continue
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",

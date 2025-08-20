@@ -1736,26 +1736,18 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_span(cls, key_type, key_name, comparator):
         if key_type == cls._SPAN_IDENTIFIER:
-            # span.content only supports LIKE/ILIKE
-            if key_name == "content":
-                if comparator not in {"LIKE", "ILIKE"}:
-                    raise MlflowException(
-                        f"span.content only supports 'LIKE' and 'ILIKE' comparators, "
-                        f"got '{comparator}'",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-            # span.type, span.name, and span.status support all string comparators
-            elif key_name in ("type", "name", "status"):
+            # Only support span.name for now
+            if key_name == "name":
                 if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                     raise MlflowException(
-                        f"span.{key_name} comparator '{comparator}' not one of "
+                        f"span.name comparator '{comparator}' not one of "
                         f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
                 raise MlflowException(
                     f"Invalid span attribute '{key_name}'. "
-                    "Supported attributes are 'type', 'name', 'status', and 'content'.",
+                    "Only 'name' is currently supported.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
