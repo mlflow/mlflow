@@ -1178,41 +1178,55 @@ def test_get_dataset_records(mock_tracking_store):
         }
         records.append(record)
 
-    mock_tracking_store._load_dataset_records.return_value = records
+    mock_tracking_store._load_dataset_records.return_value = (records, None)
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     with app.test_request_context(method="GET"):
         resp = _get_dataset_records_handler(dataset_id)
 
-    mock_tracking_store._load_dataset_records.assert_called_with(dataset_id)
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=1000, page_token=None
+    )
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
     assert len(records_data) == 3
     assert records_data[0]["dataset_record_id"] == "r-000"
 
+    mock_tracking_store._load_dataset_records.return_value = (records[:2], "token_page2")
+
     with app.test_request_context(
         method="GET",
         json={
             "max_results": 2,
-            "page_token": "0",
+            "page_token": None,
         },
     ):
         resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=2, page_token=None
+    )
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
     assert len(records_data) == 2
-    assert response_data["next_page_token"] == "2"
+    assert response_data["next_page_token"] == "token_page2"
+
+    mock_tracking_store._load_dataset_records.return_value = (records[2:], None)
 
     with app.test_request_context(
         method="GET",
         json={
             "max_results": 2,
-            "page_token": "2",
+            "page_token": "token_page2",
         },
     ):
         resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=2, page_token="token_page2"
+    )
 
     response_data = json.loads(resp.get_data())
     records_data = json.loads(response_data["records"])
@@ -1221,8 +1235,7 @@ def test_get_dataset_records(mock_tracking_store):
 
 
 def test_get_dataset_records_empty(mock_tracking_store):
-    """Test get_dataset_records with no records."""
-    mock_tracking_store._load_dataset_records.return_value = []
+    mock_tracking_store._load_dataset_records.return_value = ([], None)
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     with app.test_request_context(method="GET"):
@@ -1232,6 +1245,79 @@ def test_get_dataset_records_empty(mock_tracking_store):
     records_data = json.loads(response_data["records"])
     assert len(records_data) == 0
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
+
+
+def test_get_dataset_records_pagination(mock_tracking_store):
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    all_records = []
+    for i in range(50):
+        record = mock.Mock()
+        record.dataset_record_id = f"r-{i:03d}"
+        record.inputs = {"q": f"Question {i}"}
+        record.expectations = {"a": f"Answer {i}"}
+        record.tags = {}
+        record.source_type = "TRACE"
+        record.source_id = f"trace-{i}"
+        record.created_time = 1609459200 + i
+        record.to_dict.return_value = {
+            "dataset_record_id": f"r-{i:03d}",
+            "inputs": {"q": f"Question {i}"},
+            "expectations": {"a": f"Answer {i}"},
+            "tags": {},
+            "source_type": "TRACE",
+            "source_id": f"trace-{i}",
+            "created_time": 1609459200 + i,
+        }
+        all_records.append(record)
+    mock_tracking_store._load_dataset_records.return_value = (all_records[:20], "token_20")
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=20, page_token=None
+    )
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 20
+    assert response_data["next_page_token"] == "token_20"
+    assert records_data[0]["dataset_record_id"] == "r-000"
+    assert records_data[19]["dataset_record_id"] == "r-019"
+    mock_tracking_store._load_dataset_records.return_value = (all_records[20:40], "token_40")
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20, "page_token": "token_20"},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    mock_tracking_store._load_dataset_records.assert_called_with(
+        dataset_id, max_results=20, page_token="token_20"
+    )
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 20
+    assert response_data["next_page_token"] == "token_40"
+    assert records_data[0]["dataset_record_id"] == "r-020"
+    mock_tracking_store._load_dataset_records.return_value = (all_records[40:], None)
+
+    with app.test_request_context(
+        method="GET",
+        json={"max_results": 20, "page_token": "token_40"},
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    response_data = json.loads(resp.get_data())
+    records_data = json.loads(response_data["records"])
+    assert len(records_data) == 10
+    assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
+    assert records_data[0]["dataset_record_id"] == "r-040"
+    assert records_data[9]["dataset_record_id"] == "r-049"
 
 
 def test_register_scorer(mock_get_request_message, mock_tracking_store):

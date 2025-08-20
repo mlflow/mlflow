@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from mlflow.entities import (
     Assessment,
     DatasetInput,
+    DatasetRecord,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -1057,6 +1058,66 @@ class AbstractStore:
 
         Returns:
             List of experiment IDs associated with the dataset.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
+        """
+        Load dataset records with pagination support.
+
+        This method is used by handlers and for lazy loading of records in the
+        EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. If None, returns all records.
+            page_token: Token for pagination. If None, starts from the beginning.
+
+        Returns:
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to associate with the dataset
+
+        Returns:
+            The updated EvaluationDataset
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to disassociate from the dataset
+
+        Returns:
+            The updated EvaluationDataset
+
+        Note:
+            This operation is idempotent - removing non-existent associations
+            will not raise an error.
         """
         raise NotImplementedError(self.__class__.__name__)
 

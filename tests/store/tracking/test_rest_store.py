@@ -1510,6 +1510,72 @@ def test_create_evaluation_dataset():
         )
 
 
+def test_create_dataset_without_experiment_ids():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        create_response = CreateDataset.Response()
+        create_response.dataset.dataset_id = "d-abcdef1234567890abcdef1234567890"
+        create_response.dataset.name = "test_dataset_no_exp"
+        create_response.dataset.created_time = 1234567890
+        create_response.dataset.last_update_time = 1234567890
+        create_response.dataset.digest = "xyz789"
+
+        mock_call.side_effect = [create_response]
+
+        store.create_dataset(
+            name="test_dataset_no_exp",
+            tags={"env": "prod"},
+        )
+
+        assert mock_call.call_count == 1
+
+        create_req = CreateDataset(
+            name="test_dataset_no_exp",
+            tags=json.dumps({"env": "prod"}),
+        )
+        mock_call.assert_called_once_with(
+            CreateDataset,
+            message_to_json(create_req),
+            endpoint="/api/3.0/mlflow/datasets/create",
+        )
+
+
+def test_create_dataset_with_empty_experiment_ids():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        create_response = CreateDataset.Response()
+        create_response.dataset.dataset_id = "d-fedcba0987654321fedcba0987654321"
+        create_response.dataset.name = "test_dataset_empty"
+        create_response.dataset.created_time = 1234567890
+        create_response.dataset.last_update_time = 1234567890
+        create_response.dataset.digest = "empty123"
+
+        mock_call.side_effect = [create_response]
+
+        store.create_dataset(
+            name="test_dataset_empty",
+            experiment_ids=[],
+            tags={"env": "staging"},
+        )
+
+        assert mock_call.call_count == 1
+
+        create_req = CreateDataset(
+            name="test_dataset_empty",
+            experiment_ids=[],
+            tags=json.dumps({"env": "staging"}),
+        )
+        mock_call.assert_called_once_with(
+            CreateDataset,
+            message_to_json(create_req),
+            endpoint="/api/3.0/mlflow/datasets/create",
+        )
+
+
 def test_get_evaluation_dataset():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)
@@ -2023,6 +2089,110 @@ def test_evaluation_dataset_pagination():
                 )
             ),
             use_v3=True,
+        )
+
+
+def test_load_dataset_records_pagination():
+    store = RestStore(lambda: None)
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        mock_response = mock.MagicMock()
+
+        mock_record1 = mock.MagicMock()
+        mock_record1.dataset_record_id = "r-001"
+        mock_record1.inputs = json.dumps({"q": "Question 1"})
+        mock_record1.expectations = json.dumps({"a": "Answer 1"})
+        mock_record1.tags = "{}"
+        mock_record1.source_type = "TRACE"
+        mock_record1.source_id = "trace-1"
+        mock_record1.created_time = 1609459200
+
+        mock_record2 = mock.MagicMock()
+        mock_record2.dataset_record_id = "r-002"
+        mock_record2.inputs = json.dumps({"q": "Question 2"})
+        mock_record2.expectations = json.dumps({"a": "Answer 2"})
+        mock_record2.tags = "{}"
+        mock_record2.source_type = "TRACE"
+        mock_record2.source_id = "trace-2"
+        mock_record2.created_time = 1609459201
+
+        mock_response.records = json.dumps(
+            [
+                {
+                    "dataset_id": dataset_id,
+                    "dataset_record_id": "r-001",
+                    "inputs": {"q": "Question 1"},
+                    "expectations": {"a": "Answer 1"},
+                    "tags": {},
+                    "source_type": "TRACE",
+                    "source_id": "trace-1",
+                    "created_time": 1609459200,
+                    "last_update_time": 1609459200,
+                },
+                {
+                    "dataset_id": dataset_id,
+                    "dataset_record_id": "r-002",
+                    "inputs": {"q": "Question 2"},
+                    "expectations": {"a": "Answer 2"},
+                    "tags": {},
+                    "source_type": "TRACE",
+                    "source_id": "trace-2",
+                    "created_time": 1609459201,
+                    "last_update_time": 1609459201,
+                },
+            ]
+        )
+        mock_response.next_page_token = "token_page2"
+        mock_call_endpoint.return_value = mock_response
+
+        records, next_token = store._load_dataset_records(
+            dataset_id, max_results=2, page_token=None
+        )
+
+        assert len(records) == 2
+        assert records[0].dataset_record_id == "r-001"
+        assert records[1].dataset_record_id == "r-002"
+        assert next_token == "token_page2"
+
+        mock_call_endpoint.assert_called_once_with(
+            GetDatasetRecords,
+            message_to_json(GetDatasetRecords(max_results=2)),
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+        mock_call_endpoint.reset_mock()
+        mock_response.records = json.dumps(
+            [
+                {
+                    "dataset_id": dataset_id,
+                    "dataset_record_id": "r-003",
+                    "inputs": {"q": "Question 3"},
+                    "expectations": {"a": "Answer 3"},
+                    "tags": {},
+                    "source_type": "TRACE",
+                    "source_id": "trace-3",
+                    "created_time": 1609459202,
+                    "last_update_time": 1609459202,
+                }
+            ]
+        )
+        mock_response.next_page_token = ""
+
+        records, next_token = store._load_dataset_records(
+            dataset_id, max_results=2, page_token="token_page2"
+        )
+
+        assert len(records) == 1
+        assert records[0].dataset_record_id == "r-003"
+        assert next_token is None
+
+        req_with_token = GetDatasetRecords(max_results=2)
+        req_with_token.page_token = "token_page2"
+        mock_call_endpoint.assert_called_once_with(
+            GetDatasetRecords,
+            message_to_json(req_with_token),
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )
 
 

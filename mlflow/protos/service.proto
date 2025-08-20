@@ -2778,7 +2778,7 @@ message CreateDataset {
   // Dataset name
   optional string name = 1 [(validate_required) = true];
   
-  // Associated experiment IDs
+  // Associated experiment IDs. If not provided, defaults to the current active experiment.
   repeated string experiment_ids = 2;
   
   // Source type
@@ -2941,6 +2941,36 @@ message GetDatasetRecords {
     
     // Pagination token for next page (if more records exist)
     optional string next_page_token = 2;
+  }
+}
+
+message AddDatasetToExperiments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to add to experiments
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Experiment IDs to associate with the dataset
+  repeated string experiment_ids = 2;
+  
+  message Response {
+    // The updated dataset with new experiment associations
+    optional Dataset dataset = 1;
+  }
+}
+
+message RemoveDatasetFromExperiments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to remove from experiments
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Experiment IDs to disassociate from the dataset
+  repeated string experiment_ids = 2;
+  
+  message Response {
+    // The updated dataset after removing experiment associations
+    optional Dataset dataset = 1;
   }
 }
 

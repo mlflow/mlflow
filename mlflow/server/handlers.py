@@ -91,6 +91,7 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -139,6 +140,7 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     MlflowService,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -3714,6 +3716,46 @@ def _get_dataset_experiment_ids_handler(dataset_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _add_dataset_to_experiments_handler():
+    request_message = _get_request_message(
+        AddDatasetToExperiments(),
+        schema={
+            "dataset_id": [_assert_string],
+            "experiment_ids": [_assert_array],
+        },
+    )
+
+    dataset = _get_tracking_store().add_dataset_to_experiments(
+        dataset_id=request_message.dataset_id,
+        experiment_ids=request_message.experiment_ids,
+    )
+
+    response_message = AddDatasetToExperiments.Response()
+    response_message.dataset.CopyFrom(dataset.to_proto())
+    return response_message
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _remove_dataset_from_experiments_handler():
+    request_message = _get_request_message(
+        RemoveDatasetFromExperiments(),
+        schema={
+            "dataset_id": [_assert_string],
+            "experiment_ids": [_assert_array],
+        },
+    )
+
+    dataset = _get_tracking_store().remove_dataset_from_experiments(
+        dataset_id=request_message.dataset_id,
+        experiment_ids=request_message.experiment_ids,
+    )
+
+    response_message = RemoveDatasetFromExperiments.Response()
+    response_message.dataset.CopyFrom(dataset.to_proto())
+    return response_message
+
+
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -3723,21 +3765,21 @@ def _get_dataset_records_handler(dataset_id):
         },
     )
 
-    records = _get_tracking_store()._load_dataset_records(dataset_id)
-
     max_results = request_message.max_results if request_message.max_results else 1000
-    page_token = request_message.page_token if request_message.page_token else "0"
-    start_index = int(page_token)
+    page_token = request_message.page_token if request_message.page_token else None
 
-    paginated_records = records[start_index : start_index + max_results]
+    # Use the pagination-aware method
+    records, next_page_token = _get_tracking_store()._load_dataset_records(
+        dataset_id, max_results=max_results, page_token=page_token
+    )
 
     response_message = GetDatasetRecords.Response()
 
-    records_dicts = [record.to_dict() for record in paginated_records]
+    records_dicts = [record.to_dict() for record in records]
     response_message.records = json.dumps(records_dicts)
 
-    if start_index + max_results < len(records):
-        response_message.next_page_token = str(start_index + max_results)
+    if next_page_token:
+        response_message.next_page_token = next_page_token
 
     return _wrap_response(response_message)
 
@@ -3780,6 +3822,8 @@ HANDLERS = {
     UpsertDatasetRecords: _upsert_dataset_records_handler,
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
+    AddDatasetToExperiments: _add_dataset_to_experiments_handler,
+    RemoveDatasetFromExperiments: _remove_dataset_from_experiments_handler,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

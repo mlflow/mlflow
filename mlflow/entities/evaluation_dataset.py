@@ -115,7 +115,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """
         if self._records is None:
             tracking_store = _get_store()
-            self._records = tracking_store._load_dataset_records(self.dataset_id)
+            # For lazy loading, we want all records (no pagination)
+            self._records, _ = tracking_store._load_dataset_records(
+                self.dataset_id, max_results=None
+            )
         return self._records or []
 
     def has_records(self) -> bool:

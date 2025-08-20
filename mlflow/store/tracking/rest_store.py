@@ -3,7 +3,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from mlflow.entities import EvaluationDataset
+    from mlflow.entities import DatasetRecord, EvaluationDataset
 
 from mlflow.entities import (
     DatasetInput,
@@ -24,9 +24,6 @@ from mlflow.entities import (
 # Constants for Databricks API disabled decorator
 _DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
 _DATABRICKS_DATASET_ALTERNATIVE = "Use the databricks-agents library for dataset operations."
-
-if TYPE_CHECKING:
-    from mlflow.entities import EvaluationDataset
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -42,6 +39,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -86,6 +84,7 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     MlflowService,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
     SearchEvaluationDatasets,
@@ -1452,37 +1451,57 @@ class RestStore(AbstractStore):
         )
         return list(response_proto.experiment_ids)
 
-    # We intentionally use an unparameterized `list` return type here to avoid circular imports.
-    # DatasetRecord is imported lazily within the method body, so we cannot use it in the
-    # type annotation without causing import cycles with the entities module.
     def _load_dataset_records(
-        self, dataset_id: str
-    ) -> list:  # clint: disable=unparameterized-generic-type
+        self, dataset_id: str, max_results: int | None = None, page_token: str | None = None
+    ) -> tuple["list[DatasetRecord]", str | None]:
         """
-        Load dataset records for lazy loading.
+        Load dataset records with pagination support.
 
         Args:
             dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. If None, returns all records.
+            page_token: Token for pagination. If None, starts from the beginning.
 
         Returns:
-            List of DatasetRecord objects.
-
-        NB: Return type is unparameterized `list` rather than `list[DatasetRecord]` because
-        DatasetRecord is imported lazily to avoid circular imports with the entities module.
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
         """
         from mlflow.entities.dataset_record import DatasetRecord
 
-        all_records = []
-        page_token = None
+        if max_results is None:
+            # No pagination requested - fetch all records
+            all_records = []
+            current_page_token = page_token
 
-        while True:
-            req = GetDatasetRecords(
-                max_results=1000,
-            )
+            while True:
+                req = GetDatasetRecords(max_results=1000)
+                if current_page_token:
+                    req.page_token = current_page_token
+
+                req_body = message_to_json(req)
+                response_proto = self._call_endpoint(
+                    GetDatasetRecords,
+                    req_body,
+                    endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+                )
+
+                if response_proto.records:
+                    records_dicts = json.loads(response_proto.records)
+                    for record_dict in records_dicts:
+                        all_records.append(DatasetRecord.from_dict(record_dict))
+
+                if response_proto.next_page_token:
+                    current_page_token = response_proto.next_page_token
+                else:
+                    break
+
+            return all_records, None
+        else:
+            # Paginated request - fetch only requested page
+            req = GetDatasetRecords(max_results=max_results)
             if page_token:
                 req.page_token = page_token
 
-            # Dataset APIs are v3.0 endpoints - dataset_id is in path, other params in query string
             req_body = message_to_json(req)
             response_proto = self._call_endpoint(
                 GetDatasetRecords,
@@ -1490,17 +1509,16 @@ class RestStore(AbstractStore):
                 endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
             )
 
+            records = []
             if response_proto.records:
                 records_dicts = json.loads(response_proto.records)
                 for record_dict in records_dicts:
-                    all_records.append(DatasetRecord.from_dict(record_dict))
+                    records.append(DatasetRecord.from_dict(record_dict))
 
-            if response_proto.next_page_token:
-                page_token = response_proto.next_page_token
-            else:
-                break
-
-        return all_records
+            next_page_token = (
+                response_proto.next_page_token if response_proto.next_page_token else None
+            )
+            return records, next_page_token
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
@@ -1520,3 +1538,33 @@ class RestStore(AbstractStore):
             )
         )
         self._call_endpoint(LinkTracesToRun, req_body)
+
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments via REST API.
+        """
+        req_body = message_to_json(
+            AddDatasetToExperiments(
+                dataset_id=dataset_id,
+                experiment_ids=experiment_ids,
+            )
+        )
+        response = self._call_endpoint(AddDatasetToExperiments, req_body)
+        return EvaluationDataset.from_proto(response.dataset)
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments via REST API.
+        """
+        req_body = message_to_json(
+            RemoveDatasetFromExperiments(
+                dataset_id=dataset_id,
+                experiment_ids=experiment_ids,
+            )
+        )
+        response = self._call_endpoint(RemoveDatasetFromExperiments, req_body)
+        return EvaluationDataset.from_proto(response.dataset)

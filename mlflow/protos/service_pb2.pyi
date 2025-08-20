@@ -1440,6 +1440,32 @@ class GetDatasetRecords(_message.Message):
     page_token: str
     def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class AddDatasetToExperiments(_message.Message):
+    __slots__ = ("dataset_id", "experiment_ids")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: Dataset
+        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RemoveDatasetFromExperiments(_message.Message):
+    __slots__ = ("dataset_id", "experiment_ids")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: Dataset
+        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class RegisterScorer(_message.Message):
     __slots__ = ("experiment_id", "name", "serialized_scorer")
     class Response(_message.Message):
