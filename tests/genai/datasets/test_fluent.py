@@ -529,7 +529,7 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     texts = {record["inputs"]["text"] for _, record in result_df.iterrows()}
     expected_texts = {"The movie was amazing!", "Terrible experience"}
     assert texts == expected_texts
-    
+
     sentiments = {record["expectations"]["sentiment"] for _, record in result_df.iterrows()}
     expected_sentiments = {"positive", "negative"}
     assert sentiments == expected_sentiments
