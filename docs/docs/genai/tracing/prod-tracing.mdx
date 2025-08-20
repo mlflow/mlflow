@@ -222,14 +222,26 @@ To enable metrics export:
 
 **Configure OpenTelemetry metrics endpoint**:
 ```bash
-# For gRPC endpoint
+# For OpenTelemetry Collector (gRPC endpoint)
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:4317"
 export OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="grpc"
 
-# OR for HTTP endpoint
+# OR for OpenTelemetry Collector (HTTP endpoint)
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:4318/v1/metrics"
 export OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf"
 ```
+
+#### Direct Prometheus Export
+
+Prometheus can directly receive OpenTelemetry metrics exported by MLflow:
+
+```bash
+# Configure MLflow to send metrics directly to Prometheus
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:9090/api/v1/otlp/v1/metrics"
+export OTEL_EXPORTER_OTLP_METRICS_PROTOCOL="http/protobuf"
+```
+
+**Prometheus configuration**: Start Prometheus with `--web.enable-otlp-receiver` and `--enable-feature=otlp-deltatocumulative` flags to accept OTLP metrics directly.
 
 #### Exported Metrics
 
