@@ -39,10 +39,6 @@ from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
-    is_mlflow_tracing_enabled_in_model_serving,
-)
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -347,19 +343,25 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
-    elif is_in_databricks_model_serving_environment():
-        if not is_mlflow_tracing_enabled_in_model_serving():
-            return processors
-
-        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
-        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-
-        exporter = InferenceTableSpanExporter()
-        processor = InferenceTableSpanProcessor(exporter)
-        processors.append(processor)
     else:
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-        processors.append(processor)
+        from mlflow.utils.databricks_utils import (
+            is_in_databricks_model_serving_environment,
+            is_mlflow_tracing_enabled_in_model_serving,
+        )
+
+        if is_in_databricks_model_serving_environment():
+            if not is_mlflow_tracing_enabled_in_model_serving():
+                return processors
+
+            from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+            from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+
+            exporter = InferenceTableSpanExporter()
+            processor = InferenceTableSpanProcessor(exporter)
+            processors.append(processor)
+        else:
+            processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+            processors.append(processor)
 
     return processors
 
