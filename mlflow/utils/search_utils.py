@@ -1671,7 +1671,6 @@ class SearchTraceUtils(SearchUtils):
         elif cls.is_attribute(type_, key, comparator):
             lhs = getattr(trace, key)
         elif cls.is_span(type_, key, comparator):
-            # TODO: Implement in-memory span filtering of traces
             raise MlflowException(
                 "Span filtering requires database support and cannot be performed "
                 "on in-memory trace data.",
@@ -1736,18 +1735,17 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_span(cls, key_type, key_name, comparator):
         if key_type == cls._SPAN_IDENTIFIER:
-            # Only support span.name for now
             if key_name == "name":
                 if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                     raise MlflowException(
-                        f"span.name comparator '{comparator}' not one of "
+                        f"span.{key_name} comparator '{comparator}' not one of "
                         f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
                 raise MlflowException(
                     f"Invalid span attribute '{key_name}'. "
-                    "Only 'name' is currently supported.",
+                    "Supported attributes: name.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1838,7 +1836,6 @@ class SearchTraceUtils(SearchUtils):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
-            # Span only supports string values
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
@@ -1893,7 +1890,6 @@ class SearchTraceUtils(SearchUtils):
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
-        # Validate span comparator based on key
         if comp.get("type") == cls._SPAN_IDENTIFIER:
             cls.is_span(comp["type"], comp["key"], comp["comparator"])
 

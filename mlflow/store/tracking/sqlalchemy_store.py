@@ -3616,16 +3616,13 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
-                # Handle span.name filtering only
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
-                # Only support span.name for now
                 if key_name == "name":
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                         SqlSpan.name, value
                     )
                     
-                    # Create subquery that returns distinct trace_ids with matching span names
                     span_subquery = (
                         session.query(SqlSpan.trace_id)
                         .filter(val_filter)
