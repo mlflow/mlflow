@@ -62,7 +62,12 @@ def _get_spark_session():
         from pyspark.sql import SparkSession
 
         return SparkSession.builder.getOrCreate()
-    except Exception:
+    except Exception as e:
+        # If databricks.connect is not installed, raise the original error
+        if importlib.util.find_spec("databricks.connect") is None:
+            raise e
+
+        # Attempt to fallback to DatabricksSession
         from databricks.connect import DatabricksSession
 
         return DatabricksSession.builder.serverless(True).getOrCreate()
