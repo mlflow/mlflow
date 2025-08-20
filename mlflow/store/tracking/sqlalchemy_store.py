@@ -3613,24 +3613,18 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 # which have key-value structure, so we need specialized handling
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
-                if key_name == "name":
-                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        SqlSpan.name, value
-                    )
-                    
-                    span_subquery = (
-                        session.query(SqlSpan.trace_id.label("request_id"))
-                        .filter(val_filter)
-                        .distinct()
-                        .subquery()
-                    )
-                    non_attribute_filters.append(span_subquery)
-                    continue
-                else:
-                    raise MlflowException(
-                        f"Unsupported span attribute '{key_name}' in database filtering",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlSpan.name, value
+                )
+                
+                span_subquery = (
+                    session.query(SqlSpan.trace_id.label("request_id"))
+                    .filter(val_filter)
+                    .distinct()
+                    .subquery()
+                )
+                non_attribute_filters.append(span_subquery)
+                continue
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
