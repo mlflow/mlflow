@@ -512,9 +512,14 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     assert len(result_df) == 2
     assert all(col in result_df.columns for col in ["inputs", "expectations", "tags"])
 
-    first_record = result_df.iloc[0]
-    assert first_record["inputs"]["text"] == "The movie was amazing!"
-    assert first_record["expectations"]["sentiment"] == "positive"
+    # Check that all expected records are present (order-agnostic)
+    texts = {record["inputs"]["text"] for _, record in result_df.iterrows()}
+    expected_texts = {"The movie was amazing!", "Terrible experience"}
+    assert texts == expected_texts
+
+    sentiments = {record["expectations"]["sentiment"] for _, record in result_df.iterrows()}
+    expected_sentiments = {"positive", "negative"}
+    assert sentiments == expected_sentiments
 
 
 def test_search_datasets(tracking_uri, experiments):

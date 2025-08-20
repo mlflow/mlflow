@@ -29,6 +29,7 @@ mlflow.catboost.log_model
 mlflow.catboost.save_model
 mlflow.clear_active_model
 mlflow.client.MlflowClient
+mlflow.client.MlflowClient.add_dataset_to_experiments
 mlflow.client.MlflowClient.copy_model_version
 mlflow.client.MlflowClient.create_dataset
 mlflow.client.MlflowClient.create_experiment
@@ -110,6 +111,7 @@ mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
 mlflow.client.MlflowClient.register_prompt
+mlflow.client.MlflowClient.remove_dataset_from_experiments
 mlflow.client.MlflowClient.rename_experiment
 mlflow.client.MlflowClient.rename_registered_model
 mlflow.client.MlflowClient.restore_experiment
@@ -705,11 +707,13 @@ mlflow.genai.datasets.EvaluationDataset.merge_records
 mlflow.genai.datasets.EvaluationDataset.set_profile
 mlflow.genai.datasets.EvaluationDataset.to_df
 mlflow.genai.datasets.EvaluationDataset.to_evaluation_dataset
+mlflow.genai.datasets.add_dataset_to_experiments
 mlflow.genai.datasets.create_dataset
 mlflow.genai.datasets.delete_dataset
 mlflow.genai.datasets.delete_dataset_tag
 mlflow.genai.datasets.evaluation_dataset.EvaluationDataset
 mlflow.genai.datasets.get_dataset
+mlflow.genai.datasets.remove_dataset_from_experiments
 mlflow.genai.datasets.search_datasets
 mlflow.genai.datasets.set_dataset_tags
 mlflow.genai.delete_dataset
