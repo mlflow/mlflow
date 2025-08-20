@@ -5,11 +5,18 @@ from mlflow.data import dataset_registry
 from mlflow.data import sources as mlflow_data_sources
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.data.dataset_source_registry import get_dataset_source_from_json, get_registered_sources
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json, get_registered_sources, _dataset_source_registry
 from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
+    DatabricksEvaluationDatasetSource,
+)
+
+_dataset_source_registry.register(DatabricksEvaluationDatasetSource)
+
 
 with suppress(ImportError):
     # Suppressing ImportError to pass mlflow-skinny testing.
