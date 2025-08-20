@@ -50,13 +50,16 @@ def test_jsonpath_extract_values_partial_path_missing():
     assert values == []
 
 
-@pytest.mark.parametrize("input_string, expected", [
-    ("info.trace_id", ["info", "trace_id"]),
-    ("info.tags.`mlflow.traceName`", ["info", "tags", "mlflow.traceName"]),
-    ("`field.one`.middle.`field.two`", ["field.one", "middle", "field.two"]),
-    ("`mlflow.traceName`.value", ["mlflow.traceName", "value"]),
-    ("info.`mlflow.traceName`", ["info", "mlflow.traceName"])
-])
+@pytest.mark.parametrize(
+    ("input_string", "expected"),
+    [
+        ("info.trace_id", ["info", "trace_id"]),
+        ("info.tags.`mlflow.traceName`", ["info", "tags", "mlflow.traceName"]),
+        ("`field.one`.middle.`field.two`", ["field.one", "middle", "field.two"]),
+        ("`mlflow.traceName`.value", ["mlflow.traceName", "value"]),
+        ("info.`mlflow.traceName`", ["info", "mlflow.traceName"]),
+    ],
+)
 def test_split_path_respecting_backticks(input_string, expected):
     """Test splitting paths with backtick-escaped segments."""
     assert split_path_respecting_backticks(input_string) == expected

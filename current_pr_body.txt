@@ -1,0 +1,434 @@
+## Summary
+
+This PR introduces a new `mlflow traces` CLI module that provides comprehensive trace management capabilities for MLflow users. The implementation adds powerful search, filtering, and management operations for traces stored in MLflow experiments.
+
+**Note**: This PR also includes the integration of Claude Code functionality into the CLI structure. The `claude_code` module has been moved from `mlflow/claude_code/` to `mlflow/cli/claude_code/` to better organize CLI-related functionality. This provides the `mlflow autolog claude` command for setting up automatic Claude Code conversation tracing.
+
+## Key Features
+
+### 🔍 **Trace Search & Discovery**
+- Search traces across experiments with advanced filtering options
+- Support for complex field selection using JSONPath-like dot notation
+- Wildcard support for exploring nested structures (`data.spans.*.name`)
+- Multiple output formats (table/JSON) with customizable field selection
+
+### 📊 **Comprehensive Schema Documentation** 
+- Detailed trace schema documentation built into CLI help
+- Examples for field selection patterns and common use cases
+- Clear documentation of trace structure (info, data, spans, assessments)
+
+### 🔍 **Field Selection for Get Command**
+- Consistent JSONPath-like field selection in both `search` and `get` commands
+- Filter specific fields from trace data using dot notation and wildcards
+- Reduces output size and focuses on relevant data for analysis
+
+### 🏷️ **Assessment Management**
+- Log feedback scores and expectations to traces
+- Get, update, and delete assessments with full metadata support
+- Support for human annotations, LLM judgments, and automated evaluations
+
+### 🏷️ **Tag Operations**
+- Set and delete custom tags on traces
+- Support for both user-defined and system tags
+
+### 🗑️ **Cleanup Operations**
+- Delete traces from multiple experiments with proper iteration
+- Bulk operations for efficient trace management
+
+### 🤖 **Claude Code Integration**
+- `mlflow autolog claude` command for setting up automatic conversation tracing
+- Hooks and configuration management for Claude Code sessions
+- Automatic trace creation for Claude conversations with detailed span data
+
+## 📋 Traces Operations
+
+### Search
+
+Search for traces across experiments with advanced filtering and field selection capabilities.
+
+**Command:**
+```bash
+mlflow traces search --experiment-ids 1 --max-results 5
+```
+
+**Output:**
+```
+info.trace_id                          info.request_time      info.state  info.execution_duration_ms  info.request_preview     info.response_preview
+-------------------------------------  ---------------------  ----------  --------------------------  -----------------------  -----------------------
+tr-68530fa07f39aa34985035f66b034b1d   2025-01-15 10:31:24   OK          29074                       How do I optimize my...  I've optimized your...
+tr-95847bc12a8df567321abc9012def456   2025-01-15 10:28:15   OK          15432                       What is machine lear...  Machine learning is...
+tr-123def45678901234567890abcdef12    2025-01-15 10:25:03   ERROR       8901                        Complex analysis req...  Processing failed d...
+tr-456abc78901234567890def123456789   2025-01-15 10:22:41   OK          12355                       Explain neural netwo...  Neural networks are...
+tr-789def01234567890abcdef456789012   2025-01-15 10:19:30   OK          6789                        How to use MLflow?       MLflow is an open s...
+```
+
+**With Field Selection:**
+```bash
+mlflow traces search --experiment-ids 1 --fields "info.trace_id,info.state,data.spans.*.name" --max-results 3
+```
+
+**Output:**
+```
+info.trace_id                          info.state  data.spans.*.name
+-------------------------------------  ----------  ---------------------------------------------------------
+tr-68530fa07f39aa34985035f66b034b1d   OK          databricks_agent, query_analysis, optimization
+tr-95847bc12a8df567321abc9012def456   OK          chat_completion, llm_call
+tr-123def45678901234567890abcdef12    ERROR       failed_request, processing
+```
+
+**JSON Output with Custom Fields:**
+```bash
+mlflow traces search --experiment-ids 1 --fields "info.trace_id,info.assessments.*.feedback.value" --output json --max-results 2
+```
+
+**Output:**
+```json
+{
+  "traces": [
+    {
+      "info": {
+        "trace_id": "tr-68530fa07f39aa34985035f66b034b1d",
+        "assessments": [
+          {"feedback": {"value": 0.85}},
+          {"feedback": {"value": 0.92}}
+        ]
+      }
+    },
+    {
+      "info": {
+        "trace_id": "tr-95847bc12a8df567321abc9012def456",
+        "assessments": [
+          {"feedback": {"value": "good"}}
+        ]
+      }
+    }
+  ],
+  "next_page_token": null
+}
+```
+
+### Get
+
+Retrieve detailed information about a specific trace including all spans, metadata, and assessments. Now supports field selection for focused data extraction.
+
+**Command:**
+```bash
+mlflow traces get --trace-id tr-68530fa07f39aa34985035f66b034b1d
+```
+
+**Output:** (Full trace JSON - same as before)
+
+**With Field Selection:**
+```bash
+mlflow traces get --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --fields "info.trace_id,info.assessments.*,data.spans.*.name"
+```
+
+**Output:**
+```json
+{
+    "info": {
+        "trace_id": "tr-68530fa07f39aa34985035f66b034b1d",
+        "assessments": [
+            {
+                "assessment_id": "a-f8e7d6c5b4a3",
+                "assessment_name": "quality_score",
+                "trace_id": "tr-68530fa07f39aa34985035f66b034b1d",
+                "feedback": {
+                    "value": 0.85
+                },
+                "source": {
+                    "source_type": "HUMAN",
+                    "source_id": "reviewer@example.com"
+                },
+                "rationale": "Accurate SQL explanation with good detail",
+                "create_time": "2025-01-15T10:45:12Z",
+                "valid": true
+            }
+        ]
+    },
+    "data": {
+        "spans": [
+            {"name": "databricks_agent"},
+            {"name": "query_analysis"},
+            {"name": "optimization"}
+        ]
+    }
+}
+```
+
+### Delete
+
+Remove traces from experiments with confirmation and iteration support.
+
+**Command:**
+```bash
+mlflow traces delete --experiment-ids 1,2,3 --max-timestamp-millis 1736937000000 --max-traces 10
+```
+
+**Output:**
+```
+Deleted 7 trace(s) from experiment 1.
+Deleted 3 trace(s) from experiment 2.
+Deleted 5 trace(s) from experiment 3.
+Total: Deleted 15 trace(s) from 3 experiment(s).
+```
+
+**Delete Specific Traces:**
+```bash
+mlflow traces delete --experiment-ids 1 --trace-ids tr-123def45678901234567890abcdef12
+```
+
+**Output:**
+```
+Deleted 1 trace(s) from experiment 1.
+```
+
+## 🎯 Assessments Operations
+
+### Log Feedback
+
+Add evaluation scores and feedback to traces for quality assessment.
+
+**Command:**
+```bash
+mlflow traces log-feedback --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --name "quality_score" --value 0.85 \
+    --source-type HUMAN --source-id reviewer@example.com \
+    --rationale "Accurate SQL explanation with good detail"
+```
+
+**Output:**
+```
+Logged feedback 'quality_score' to trace tr-68530fa07f39aa34985035f66b034b1d. Assessment ID: a-f8e7d6c5b4a394857263b9c8e7f6d5a4
+```
+
+### Log Expectation
+
+Add ground truth labels for evaluation.
+
+**Command:**
+```bash
+mlflow traces log-expectation --trace-id tr-95847bc12a8df567321abc9012def456 \
+    --name "expected_category" --value "technical" \
+    --source-type HUMAN --source-id annotator@example.com
+```
+
+**Output:**
+```
+Logged expectation 'expected_category' to trace tr-95847bc12a8df567321abc9012def456. Assessment ID: a-9c8e7f6d5a4b3a2f1e0d
+```
+
+### Get Assessment
+
+Retrieve detailed assessment information.
+
+**Command:**
+```bash
+mlflow traces get-assessment --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --assessment-id a-f8e7d6c5b4a394857263b9c8e7f6d5a4
+```
+
+**Output:**
+```json
+{
+    "assessment_id": "a-f8e7d6c5b4a394857263b9c8e7f6d5a4",
+    "trace_id": "tr-68530fa07f39aa34985035f66b034b1d",
+    "assessment_name": "quality_score",
+    "feedback": {
+        "value": 0.85
+    },
+    "source": {
+        "source_type": "HUMAN",
+        "source_id": "reviewer@example.com"
+    },
+    "rationale": "Accurate SQL explanation with good detail",
+    "metadata": {},
+    "create_time": "2025-01-15T10:45:12.123Z",
+    "last_update_time": "2025-01-15T10:45:12.123Z",
+    "valid": true
+}
+```
+
+### Update Assessment
+
+Modify existing assessment values.
+
+**Command:**
+```bash
+mlflow traces update-assessment --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --assessment-id a-f8e7d6c5b4a394857263b9c8e7f6d5a4 \
+    --value 0.92 --rationale "Updated after further review"
+```
+
+**Output:**
+```
+Updated assessment a-f8e7d6c5b4a394857263b9c8e7f6d5a4 in trace tr-68530fa07f39aa34985035f66b034b1d.
+```
+
+### Delete Assessment
+
+Remove assessments from traces.
+
+**Command:**
+```bash
+mlflow traces delete-assessment --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --assessment-id a-f8e7d6c5b4a394857263b9c8e7f6d5a4
+```
+
+**Output:**
+```
+Deleted assessment a-f8e7d6c5b4a394857263b9c8e7f6d5a4 from trace tr-68530fa07f39aa34985035f66b034b1d.
+```
+
+## 🏷️ Tags Operations
+
+### Set Tag
+
+Add custom metadata tags to traces.
+
+**Command:**
+```bash
+mlflow traces set-tag --trace-id tr-68530fa07f39aa34985035f66b034b1d \
+    --key "environment" --value "production"
+```
+
+**Output:**
+```
+Set tag 'environment' on trace tr-68530fa07f39aa34985035f66b034b1d.
+```
+
+### Delete Tag
+
+Remove tags from traces.
+
+**Command:**
+```bash
+mlflow traces delete-tag --trace-id tr-68530fa07f39aa34985035f66b034b1d --key "environment"
+```
+
+**Output:**
+```
+Deleted tag 'environment' from trace tr-68530fa07f39aa34985035f66b034b1d.
+```
+
+## 🤖 Claude Code Integration
+
+### Setup Autolog
+
+Configure automatic tracing for Claude Code conversations.
+
+**Command:**
+```bash
+mlflow autolog claude ~/my-project -u databricks -e 123456789
+```
+
+**Output:**
+```
+Configuring Claude tracing in: /Users/username/my-project
+✅ Claude Code hooks configured
+
+==================================================
+🎯 Claude Tracing Setup Complete!
+==================================================
+📁 Directory: /Users/username/my-project
+📊 Tracking URI: databricks
+🔬 Experiment ID: 123456789
+
+==============================
+🚀 Next Steps:
+==============================
+cd /Users/username/my-project
+claude -p 'your prompt here'
+
+💡 View your traces in your Databricks workspace
+
+🔧 To disable tracing later:
+   mlflow autolog claude --disable
+```
+
+**Check Status:**
+```bash
+mlflow autolog claude --status
+```
+
+**Disable:**
+```bash
+mlflow autolog claude --disable
+```
+
+## Filter String Reference
+
+The CLI now uses the correct public API field names:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `run_id` | Associated MLflow run ID | `run_id = '123abc'` |
+| `status` | Trace status | `status = 'OK'` |
+| `timestamp_ms` | Trace timestamp | `timestamp_ms > 1700000000000` |
+| `execution_time_ms` | Execution duration | `execution_time_ms < 5000` |
+| `name` | Trace name | `name = 'chat_completion'` |
+| `metadata.<key>` | Custom metadata | `metadata.user_id = 'user123'` |
+| `tags.<key>` | Custom tags | `tags.environment = 'prod'` |
+
+## Architecture Changes
+
+### CLI Structure
+- **Main traces CLI**: `mlflow/cli/traces.py` - Core trace management commands
+- **Claude Code integration**: `mlflow/cli/claude_code/` - Claude Code autolog functionality
+  - `__init__.py` - CLI commands for `mlflow autolog claude`
+  - `config.py` - Configuration management
+  - `hooks.py` - Hook handlers for Claude Code
+  - `tracing.py` - Trace processing logic
+- **Utilities**: `mlflow/utils/jsonpath_utils.py` - JSONPath field extraction
+- **String utilities**: Enhanced `mlflow/utils/string_utils.py` for table formatting
+
+### Integration Points
+- CLI registration in `mlflow/cli/__init__.py`
+- Backward compatibility maintained for existing `mlflow.db`, `mlflow.experiments`, `mlflow.runs` modules
+- Test coverage for both traces and Claude Code functionality
+
+## Validation
+
+✅ Successfully tested against live MLflow tracking server  
+✅ Field filtering and JSONPath extraction working correctly  
+✅ All CLI commands integrated and functional  
+✅ Assessment source types aligned with public API  
+✅ Filter string fields match public API documentation  
+✅ Delete command properly handles multiple experiments  
+✅ Field selection now available in both search and get commands  
+✅ Pagination token naming improved for clarity  
+✅ Claude Code autolog functionality fully tested and working  
+✅ CLI structure reorganized with proper module separation  
+
+## Testing the CLI from this Branch
+
+You can test the new traces CLI directly from this branch using `uvx`:
+
+```bash
+# Set up environment (use your own Databricks workspace)
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=<your-token>
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
+
+# Run traces CLI commands directly from this branch
+uvx --with 'mlflow @ git+https://github.com/nsthorat/mlflow.git@master' mlflow traces search --max-results 2 \
+  --output json --fields "info.trace_id,info.assessments.*"
+
+mlflow traces search --max-results 5
+mlflow traces get --trace-id tr-abc123def
+mlflow traces get --trace-id tr-abc123def --fields "info.trace_id,info.assessments.*"
+mlflow traces set-tag --trace-id tr-abc123def --key environment --value production
+
+# Test Claude Code autolog
+mlflow autolog claude --help
+mlflow autolog claude ~/test-project -n "test-experiment"
+mlflow autolog claude ~/test-project --status
+```
+
+You can tell claude to run:
+```
+uvx --with 'mlflow @ git+https://github.com/nsthorat/mlflow.git@master' mlflow traces --help
+```
+

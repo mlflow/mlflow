@@ -219,8 +219,8 @@ Available fields:
     "--extract-fields",
     type=click.STRING,
     help="Filter and select specific fields using dot notation. "
-    "Examples: \"info.trace_id\", \"info.assessments.*\", \"data.spans.*.name\". "
-    "For field names with dots, use backticks: \"info.tags.`mlflow.traceName`\". "
+    'Examples: "info.trace_id", "info.assessments.*", "data.spans.*.name". '
+    'For field names with dots, use backticks: "info.tags.`mlflow.traceName`". '
     "Comma-separated for multiple fields. "
     "Defaults to standard columns for table mode, all fields for JSON mode.",
 )

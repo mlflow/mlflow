@@ -105,8 +105,7 @@ def test_search_command_with_fields(runner):
     mock_result = PagedList([mock_trace_obj], None)
 
     # Patch the search_traces method directly
-    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
-
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result):
         result = runner.invoke(
             commands,
             ["search", "--experiment-id", "1", "--extract-fields", "info.trace_id,info.state"],
@@ -175,8 +174,7 @@ def test_field_validation_error(runner):
     mock_result = PagedList([mock_trace_obj], None)
 
     # Patch the search_traces method directly
-    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
-
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result):
         result = runner.invoke(
             commands,
             ["search", "--experiment-id", "1", "--extract-fields", "invalid.field"],
@@ -207,8 +205,7 @@ def test_field_validation_error_verbose_mode(runner):
     mock_result = PagedList([mock_trace_obj], None)
 
     # Patch the search_traces method directly
-    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
-
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result):
         # Use --verbose flag
         result = runner.invoke(
             commands,
