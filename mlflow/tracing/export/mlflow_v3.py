@@ -16,7 +16,11 @@ from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import add_size_stats_to_trace_metadata, maybe_get_request_id
+from mlflow.tracing.utils import (
+    add_size_stats_to_trace_metadata,
+    encode_span_id,
+    maybe_get_request_id,
+)
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
 
@@ -44,16 +48,48 @@ class MlflowV3SpanExporter(SpanExporter):
 
         Args:
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
-                a span processor. Only root spans for each trace should be exported.
+                a span processor. All spans (root and non-root) are exported.
         """
         for span in spans:
-            if span._parent is not None:
-                _logger.debug("Received a non-root span. Skipping export.")
+            # Get trace from manager to retrieve experiment_id and trace_id
+            # Use get_mlflow_trace_id_from_otel_id to convert OTel trace ID to MLflow trace ID
+            manager = InMemoryTraceManager.get_instance()
+            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
+
+            if not mlflow_trace_id:
+                _logger.debug(f"MLflow trace ID not found for span {span}. Skipping export.")
                 continue
 
-            manager_trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
+            # Get the trace to retrieve experiment_id
+            with manager.get_trace(mlflow_trace_id) as internal_trace:
+                if internal_trace is None:
+                    _logger.debug(f"Trace for span {span} not found. Skipping export.")
+                    continue
+
+                experiment_id = internal_trace.info.experiment_id
+
+                # Always export the span to MLflow backend
+                if experiment_id:
+                    try:
+                        # Get the LiveSpan from the trace manager
+                        # Use encode_span_id to convert the integer span ID to storage format
+                        span_id = encode_span_id(span.context.span_id)
+                        mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
+                        if mlflow_span:
+                            self._client.log_spans(experiment_id, [mlflow_span])
+                        else:
+                            _logger.debug(f"Span {span_id} not found in trace manager")
+                    except Exception as e:
+                        _logger.warning(f"Failed to log span to MLflow backend: {e}")
+
+            # Continue with full trace export only for root spans
+            if span._parent is not None:
+                continue
+
+            # Pop and export the full trace for root spans
+            manager_trace = manager.pop_trace(span.context.trace_id)
             if manager_trace is None:
-                _logger.debug(f"Trace for span {span} not found. Skipping export.")
+                _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
             trace = manager_trace.trace
