@@ -17,6 +17,9 @@ def transform(stdout: str, is_maintainer: bool) -> str:
             command = (
                 "`ruff format .` or comment `/autoformat`" if is_maintainer else "`ruff format .`"
             )
+            # Add fake line:column numbers (1:1) to match GitHub Actions problem matcher format
+            # which expects file:line:column:message pattern. Since formatting issues apply to
+            # the entire file rather than a specific line/column, we use fake coordinates.
             line = f"{path}:1:1: Unformatted file. Run {command} to format."
 
         transformed.append(line)
