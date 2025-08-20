@@ -6,6 +6,8 @@ from urllib.parse import urlencode, urljoin
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.uri import is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -93,8 +95,6 @@ def _is_jupyter():
 
 
 def is_using_tracking_server():
-    from mlflow.utils.uri import is_http_uri
-
     return is_http_uri(mlflow.get_tracking_uri())
 
 
@@ -102,8 +102,6 @@ def is_trace_ui_available():
     # the notebook display feature only works in
     # Databricks notebooks, or in Jupyter notebooks
     # with a tracking server
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
     return _is_jupyter() and (is_in_databricks_runtime() or is_using_tracking_server())
 
 
@@ -178,8 +176,6 @@ class IPythonTraceDisplayHandler:
             return traces[0]._repr_mimebundle_()
         else:
             bundle = {"text/plain": repr(traces)}
-            from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
             if is_in_databricks_runtime():
                 bundle["application/databricks.mlflow.trace"] = _serialize_trace_list(traces)
             else:
