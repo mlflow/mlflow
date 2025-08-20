@@ -6,6 +6,7 @@ from click.testing import CliRunner
 
 from mlflow.cli.traces import commands
 from mlflow.entities import AssessmentSourceType
+from mlflow.store.entities.paged_list import PagedList
 
 # Table cell formatting tests are in tests/utils/test_string_utils.py
 
@@ -13,7 +14,7 @@ from mlflow.entities import AssessmentSourceType
 @pytest.fixture
 def runner():
     """Provide a CLI runner for testing."""
-    return CliRunner()
+    return CliRunner(catch_exceptions=False)
 
 
 def test_commands_group_exists():
@@ -101,19 +102,10 @@ def test_search_command_with_fields(runner):
     mock_trace_obj = mock.Mock()
     mock_trace_obj.to_dict.return_value = mock_trace
 
-    # Create a mock result that acts like a list but also has a token attribute
-    mock_result = mock.Mock()
-    mock_result.__iter__ = lambda self: iter([mock_trace_obj])
-    mock_result.__getitem__ = lambda self, i: mock_trace_obj if i == 0 else None
-    mock_result.__len__ = lambda self: 1
-    mock_result.__bool__ = lambda self: True
-    mock_result.token = None
+    mock_result = PagedList([mock_trace_obj], None)
 
-    # Patch the TracingClient at the module level where it's imported
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
-        mock_instance = mock.Mock()
-        mock_client.return_value = mock_instance
-        mock_instance.search_traces.return_value = mock_result
+    # Patch the search_traces method directly
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
 
         result = runner.invoke(
             commands,
@@ -180,19 +172,10 @@ def test_field_validation_error(runner):
     mock_trace_obj = mock.Mock()
     mock_trace_obj.to_dict.return_value = mock_trace
 
-    # Create a mock result that acts like a list but also has a token attribute
-    mock_result = mock.Mock()
-    mock_result.__iter__ = lambda self: iter([mock_trace_obj])
-    mock_result.__getitem__ = lambda self, i: mock_trace_obj if i == 0 else None
-    mock_result.__len__ = lambda self: 1
-    mock_result.__bool__ = lambda self: True
-    mock_result.token = None
+    mock_result = PagedList([mock_trace_obj], None)
 
-    # Patch the TracingClient at the module level where it's imported
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
-        mock_instance = mock.Mock()
-        mock_client.return_value = mock_instance
-        mock_instance.search_traces.return_value = mock_result
+    # Patch the search_traces method directly
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
 
         result = runner.invoke(
             commands,
@@ -221,19 +204,10 @@ def test_field_validation_error_verbose_mode(runner):
     mock_trace_obj = mock.Mock()
     mock_trace_obj.to_dict.return_value = mock_trace
 
-    # Create a mock result that acts like a list but also has a token attribute
-    mock_result = mock.Mock()
-    mock_result.__iter__ = lambda self: iter([mock_trace_obj])
-    mock_result.__getitem__ = lambda self, i: mock_trace_obj if i == 0 else None
-    mock_result.__len__ = lambda self: 1
-    mock_result.__bool__ = lambda self: True
-    mock_result.token = None
+    mock_result = PagedList([mock_trace_obj], None)
 
-    # Patch the TracingClient at the module level where it's imported
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
-        mock_instance = mock.Mock()
-        mock_client.return_value = mock_instance
-        mock_instance.search_traces.return_value = mock_result
+    # Patch the search_traces method directly
+    with mock.patch("mlflow.cli.traces.TracingClient.search_traces", return_value=mock_result) as mock_search:
 
         # Use --verbose flag
         result = runner.invoke(

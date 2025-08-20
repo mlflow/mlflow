@@ -30,6 +30,11 @@ EXAMPLE USAGE:
         --extract-fields "info.trace_id,info.assessments.*,data.spans.*.name" \
         --output json
 
+    # Extract trace names (using backticks for dots in field names)
+    mlflow traces search --experiment-ids 1 \
+        --extract-fields "info.trace_id,info.tags.`mlflow.traceName`" \
+        --output json
+
     # Get full trace details
     mlflow traces get --trace-id tr-1234567890abcdef
 
@@ -143,7 +148,7 @@ def commands():
       info.assessments.*.source.source_type   # Assessment sources
       info.trace_metadata.mlflow.traceInputs  # Original inputs
       info.trace_metadata.mlflow.source.type  # Source type
-      info.tags.mlflow.traceName              # Trace name
+      info.tags.`mlflow.traceName`            # Trace name (backticks for dots)
       data.spans.*                            # All span data
       data.spans.*.name                       # Span operation names
       data.spans.*.attributes.mlflow.spanType # Span types
@@ -214,7 +219,8 @@ Available fields:
     "--extract-fields",
     type=click.STRING,
     help="Filter and select specific fields using dot notation. "
-    "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name'. "
+    "Examples: \"info.trace_id\", \"info.assessments.*\", \"data.spans.*.name\". "
+    "For field names with dots, use backticks: \"info.tags.`mlflow.traceName`\". "
     "Comma-separated for multiple fields. "
     "Defaults to standard columns for table mode, all fields for JSON mode.",
 )
@@ -224,19 +230,19 @@ Available fields:
     help="Show all available fields in error messages when invalid fields are specified.",
 )
 def search_traces(
-    experiment_id,
-    filter_string,
-    max_results,
-    order_by,
-    page_token,
-    run_id,
-    include_spans,
-    model_id,
-    sql_warehouse_id,
-    output,
-    extract_fields,
-    verbose,
-):
+    experiment_id: str,
+    filter_string: str,
+    max_results: int,
+    order_by: str,
+    page_token: str,
+    run_id: str,
+    include_spans: bool,
+    model_id: str,
+    sql_warehouse_id: str,
+    output: str,
+    extract_fields: str,
+    verbose: bool,
+) -> None:
     """
     Search for traces in the specified experiment.
 
@@ -360,7 +366,7 @@ def search_traces(
     is_flag=True,
     help="Show all available fields in error messages when invalid fields are specified.",
 )
-def get_trace(trace_id, extract_fields, verbose):
+def get_trace(trace_id: str, extract_fields: str, verbose: bool) -> None:
     """
     All trace details will print to stdout as JSON format.
 
@@ -387,10 +393,10 @@ def get_trace(trace_id, extract_fields, verbose):
             raise click.UsageError(str(e))
         # Filter to selected fields only
         filtered_trace = filter_json_by_fields(trace_dict, field_list)
-        json_trace = json.dumps(filtered_trace, indent=4)
+        json_trace = json.dumps(filtered_trace, indent=2)
     else:
         # Return full trace
-        json_trace = json.dumps(trace_dict, indent=4)
+        json_trace = json.dumps(trace_dict, indent=2)
 
     click.echo(json_trace)
 
@@ -404,7 +410,9 @@ def get_trace(trace_id, extract_fields, verbose):
     help="Delete traces older than this timestamp (milliseconds since epoch)",
 )
 @click.option("--max-traces", type=click.INT, help="Maximum number of traces to delete")
-def delete_traces(experiment_id, trace_ids, max_timestamp_millis, max_traces):
+def delete_traces(
+    experiment_id: str, trace_ids: str, max_timestamp_millis: int, max_traces: int
+) -> None:
     """
     Delete traces from an experiment.
 
@@ -439,7 +447,7 @@ def delete_traces(experiment_id, trace_ids, max_timestamp_millis, max_traces):
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key")
 @click.option("--value", type=click.STRING, required=True, help="Tag value")
-def set_tag(trace_id, key, value):
+def set_tag(trace_id: str, key: str, value: str) -> None:
     """
     Set a tag on a trace.
 
@@ -455,7 +463,7 @@ def set_tag(trace_id, key, value):
 @commands.command("delete-tag")
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key to delete")
-def delete_tag(trace_id, key):
+def delete_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag from a trace.
 
@@ -493,7 +501,16 @@ def delete_tag(trace_id, key):
 @click.option("--rationale", type=click.STRING, help="Explanation/justification for the feedback")
 @click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
 @click.option("--span-id", type=click.STRING, help="Associate feedback with a specific span ID")
-def log_feedback(trace_id, name, value, source_type, source_id, rationale, metadata, span_id):
+def log_feedback(
+    trace_id: str,
+    name: str,
+    value: str,
+    source_type: str,
+    source_id: str,
+    rationale: str,
+    metadata: str,
+    span_id: str,
+) -> None:
     """
     Log feedback (evaluation score) to a trace.
 
@@ -582,7 +599,15 @@ def log_feedback(trace_id, name, value, source_type, source_id, rationale, metad
 @click.option("--source-id", type=click.STRING, help="Source identifier")
 @click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
 @click.option("--span-id", type=click.STRING, help="Associate expectation with a specific span ID")
-def log_expectation(trace_id, name, value, source_type, source_id, metadata, span_id):
+def log_expectation(
+    trace_id: str,
+    name: str,
+    value: str,
+    source_type: str,
+    source_id: str,
+    metadata: str,
+    span_id: str,
+) -> None:
     """
     Log an expectation (ground truth label) to a trace.
 
@@ -641,7 +666,7 @@ def log_expectation(trace_id, name, value, source_type, source_id, metadata, spa
 @commands.command("get-assessment")
 @TRACE_ID
 @click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID")
-def get_assessment(trace_id, assessment_id):
+def get_assessment(trace_id: str, assessment_id: str) -> None:
     """
     Get assessment details as JSON.
 
@@ -651,7 +676,7 @@ def get_assessment(trace_id, assessment_id):
     """
     client = TracingClient()
     assessment = client.get_assessment(trace_id, assessment_id)
-    json_assessment = json.dumps(assessment.to_dictionary(), indent=4)
+    json_assessment = json.dumps(assessment.to_dictionary(), indent=2)
     click.echo(json_assessment)
 
 
@@ -661,7 +686,9 @@ def get_assessment(trace_id, assessment_id):
 @click.option("--value", type=click.STRING, help="Updated assessment value (JSON)")
 @click.option("--rationale", type=click.STRING, help="Updated rationale")
 @click.option("--metadata", type=click.STRING, help="Updated metadata as JSON")
-def update_assessment(trace_id, assessment_id, value, rationale, metadata):
+def update_assessment(
+    trace_id: str, assessment_id: str, value: str, rationale: str, metadata: str
+) -> None:
     """
     Update an existing assessment.
 
@@ -725,7 +752,7 @@ def update_assessment(trace_id, assessment_id, value, rationale, metadata):
 @commands.command("delete-assessment")
 @TRACE_ID
 @click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete")
-def delete_assessment(trace_id, assessment_id):
+def delete_assessment(trace_id: str, assessment_id: str) -> None:
     """
     Delete an assessment from a trace.
 

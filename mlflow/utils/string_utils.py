@@ -140,7 +140,7 @@ def _backtick_quote(s: str) -> str:
     return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
 
 
-def format_table_cell_value(field: str, cell_value, values: list[Any] | None = None):
+def format_table_cell_value(field: str, cell_value, values: list[Any] | None = None) -> str:
     """
     Format cell values for table display with field-specific formatting.
 
