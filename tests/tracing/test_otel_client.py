@@ -5,19 +5,22 @@ This test suite verifies that the experiment ID header functionality works corre
 when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
-import os
 import subprocess
 import sys
 
 import pytest
 import requests
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource
+from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import mlflow
-from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 
 from tests.helper_functions import get_safe_port
@@ -36,20 +39,17 @@ def mlflow_server(tmp_path):
         [
             sys.executable,
             "-m",
-            "uvicorn",
-            "mlflow.server.fastapi_app:app",
+            "mlflow",
+            "server",
+            "--backend-store-uri",
+            backend_store_uri,
+            "--default-artifact-root",
+            artifact_root,
             "--host",
             "127.0.0.1",
             "--port",
             str(server_port),
-            "--workers",
-            "1",
         ],
-        env={
-            **os.environ,
-            BACKEND_STORE_URI_ENV_VAR: backend_store_uri,
-            ARTIFACT_ROOT_ENV_VAR: artifact_root,
-        },
     ) as proc:
         try:
             _await_server_up_or_die(server_port)
@@ -72,7 +72,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     experiment = mlflow.set_experiment("otel-test-experiment")
     experiment_id = experiment.experiment_id
 
-    resource = Resource.create({"service.name": "test-service-e2e"})
+    resource = OTelSDKResource.create({"service.name": "test-service-e2e"})
     tracer_provider = TracerProvider(resource=resource)
 
     exporter = OTLPSpanExporter(
@@ -102,12 +102,6 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
     """
     Test that the OTel endpoint requires experiment ID header.
     """
-    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-    from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
-    from opentelemetry.proto.resource.v1.resource_pb2 import Resource
-    from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
-    from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
-
     # Create protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000002" + "0" * 16)
@@ -163,12 +157,6 @@ def test_missing_required_span_fields_returns_422(mlflow_server):
     """
     Test that spans that fail MLflow conversion return HTTP 422.
     """
-    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-    from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
-    from opentelemetry.proto.resource.v1.resource_pb2 import Resource
-    from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
-    from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
-
     # Create protobuf request with missing trace_id (this should cause MLflow conversion to fail)
     span = OTelProtoSpan()
     # Don't set trace_id - this should cause _from_otel_proto to fail
@@ -207,12 +195,6 @@ def test_missing_experiment_id_header_returns_422(mlflow_server):
     """
     Test that missing experiment ID header returns HTTP 422 (FastAPI validation error).
     """
-    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-    from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
-    from opentelemetry.proto.resource.v1.resource_pb2 import Resource
-    from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
-    from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
-
     # Create valid protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000003" + "0" * 16)

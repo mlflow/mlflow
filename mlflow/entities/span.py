@@ -370,10 +370,6 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
-        # Generate the MLflow trace request ID using the utility
-        span_request_id = generate_mlflow_trace_id_from_otel_trace_id(trace_id)
-
-        # Create OTel span with request ID included in attributes
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -386,7 +382,7 @@ class Span:
                     for attr in otel_proto_span.attributes
                 },
                 # Include the MLflow trace request ID
-                SpanAttributeKey.REQUEST_ID: span_request_id,
+                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
