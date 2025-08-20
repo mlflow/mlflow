@@ -29,6 +29,7 @@ from mlflow.tracing.utils import (
     decode_id,
     encode_span_id,
     encode_trace_id,
+    generate_mlflow_trace_id_from_otel_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -369,12 +370,8 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
-        # Generate the trace request ID using the existing trace_id
-        # The generate_trace_id_v3 utility expects a span but only uses span.context.trace_id
-        # So we can generate it directly with the format
-        from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
-
-        span_request_id = TRACE_REQUEST_ID_PREFIX + encode_trace_id(trace_id)
+        # Generate the MLflow trace request ID using the utility
+        span_request_id = generate_mlflow_trace_id_from_otel_trace_id(trace_id)
 
         # Create OTel span with request ID included in attributes
         otel_span = OTelReadableSpan(
