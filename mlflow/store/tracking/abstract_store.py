@@ -949,25 +949,29 @@ class AbstractStore:
         filter_string2: str,
     ) -> TraceFilterCorrelationResult:
         """
-        Calculate the correlation (NPMI) between two trace filter conditions.
-        
-        This method computes the Normalized Pointwise Mutual Information (NPMI)
-        between traces matching two different filter conditions, which measures
-        how often the conditions co-occur compared to chance.
-        
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        This method analyzes the correlation between traces matching two different
+        filter conditions using Normalized Pointwise Mutual Information (NPMI).
+
         Args:
-            experiment_ids: List of experiment IDs to search traces in.
-            filter_string1: First filter condition (e.g., "span.status = 'ERROR'").
-            filter_string2: Second filter condition (e.g., "count(span.type = 'TOOL') > 5").
-            
+            experiment_ids: List of experiment IDs to analyze traces from.
+            filter_string1: First filter condition (MLflow search filter syntax).
+            filter_string2: Second filter condition (MLflow search filter syntax).
+
         Returns:
-            TraceFilterCorrelation object containing:
-            - npmi: Correlation score from -1 to 1
-            - confidence intervals (if available)
-            - support counts for both filters and their intersection
-            
+            TraceFilterCorrelationResult containing:
+            - npmi: Correlation score from -1 (never co-occur) to 1 (always co-occur),
+                   or NaN if undefined (when a filter has zero matches)
+            - filter1_count: Number of traces matching filter1
+            - filter2_count: Number of traces matching filter2
+            - joint_count: Number of traces matching both filters
+            - total_count: Total number of traces in the experiments
+            - expected_joint: Expected joint count under independence
+            - lift: Ratio of observed to expected joint count
+
         Raises:
-            MlflowException: If filter syntax is invalid or experiments don't exist.
+            MlflowException: If filters are invalid or experiments don't exist.
         """
 
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:

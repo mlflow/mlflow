@@ -2724,3 +2724,47 @@ class FileStore(AbstractStore):
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return TraceInfoV2.from_v3(trace_info)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Note: This feature is not supported in FileStore.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: Always raised as this operation is not supported in FileStore.
+        """
+        raise MlflowException(
+            "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+    ):
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        Note: This feature is not supported in FileStore.
+
+        Args:
+            experiment_ids: List of experiment IDs to analyze traces from.
+            filter_string1: First filter condition (MLflow search filter syntax).
+            filter_string2: Second filter condition (MLflow search filter syntax).
+
+        Raises:
+            MlflowException: Always raised as this operation is not supported in FileStore.
+        """
+        raise MlflowException(
+            "Trace filter correlation analysis is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )

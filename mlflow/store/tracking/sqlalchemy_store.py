@@ -56,6 +56,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.analytics import trace_correlation
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -89,6 +90,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
@@ -3023,6 +3025,125 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for trace_id in trace_ids
             )
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        Args:
+            experiment_ids: List of experiment_ids to search over
+            filter_string1: First filter condition in search_traces filter syntax
+            filter_string2: Second filter condition in search_traces filter syntax
+
+        Returns:
+            TraceFilterCorrelationResult which containst the NPMI analytics data.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            filter1_subquery = self._build_trace_filter_subquery(
+                session, experiment_ids, filter_string1
+            )
+            filter2_subquery = self._build_trace_filter_subquery(
+                session, experiment_ids, filter_string2
+            )
+
+            counts = self._get_trace_correlation_counts(
+                session, experiment_ids, filter1_subquery, filter2_subquery
+            )
+
+            npmi_result = trace_correlation.calculate_npmi_from_counts(
+                counts.joint_count,
+                counts.filter1_count,
+                counts.filter2_count,
+                counts.total_count,
+            )
+
+            lift_result = trace_correlation.calculate_expected_and_lift(
+                counts.joint_count,
+                counts.filter1_count,
+                counts.filter2_count,
+                counts.total_count,
+            )
+
+            return TraceFilterCorrelationResult(
+                npmi=npmi_result.npmi,
+                npmi_smoothed=npmi_result.npmi_smoothed,
+                filter1_count=counts.filter1_count,
+                filter2_count=counts.filter2_count,
+                joint_count=counts.joint_count,
+                total_count=counts.total_count,
+                expected_joint=lift_result.expected_joint,
+                lift=lift_result.lift,
+            )
+
+    def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
+        """Build a subquery for traces that match a given filter in the specified experiments."""
+        from sqlalchemy import select
+
+        stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
+
+        if filter_string:
+            attribute_filters, non_attribute_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            )
+
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
+
+            for attr_filter in attribute_filters:
+                stmt = stmt.where(attr_filter)
+
+        return stmt
+
+    def _get_trace_correlation_counts(
+        self,
+        session,
+        experiment_ids: list[str],
+        filter1_subquery,
+        filter2_subquery,
+    ) -> trace_correlation.TraceCorrelationCounts:
+        """
+        Get trace counts for correlation analysis using a single SQL query.
+
+        This method efficiently calculates all necessary counts for NPMI calculation
+        in a single database round-trip using EXISTS subqueries.
+        """
+        from sqlalchemy import and_, case, exists, func
+
+        f1_subq = filter1_subquery.subquery()
+        f2_subq = filter2_subquery.subquery()
+
+        f1_exists = exists().where(f1_subq.c.request_id == SqlTraceInfo.request_id)
+
+        f2_exists = exists().where(f2_subq.c.request_id == SqlTraceInfo.request_id)
+
+        query = session.query(
+            func.count(SqlTraceInfo.request_id).label("total"),
+            func.sum(case((f1_exists, 1), else_=0)).label("filter1"),
+            func.sum(case((f2_exists, 1), else_=0)).label("filter2"),
+            func.sum(case((and_(f1_exists, f2_exists), 1), else_=0)).label("joint"),
+        ).filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+
+        result = query.one()
+
+        # Cast to int (some databases return Decimal)
+        # Handle None values from empty result sets
+        total_count = int(result.total or 0)
+        filter1_count = int(result.filter1 or 0)
+        filter2_count = int(result.filter2 or 0)
+        joint_count = int(result.joint or 0)
+
+        return trace_correlation.TraceCorrelationCounts(
+            total_count=total_count,
+            filter1_count=filter1_count,
+            filter2_count=filter2_count,
+            joint_count=joint_count,
+        )
 
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
