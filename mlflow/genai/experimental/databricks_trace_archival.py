@@ -398,8 +398,8 @@ def enable_databricks_trace_archival(
 
     if importlib.util.find_spec("databricks.agents") is None:
         raise ImportError(
-            "The `mlflow[databricks]` package is required to use databricks trace archival."
-            "Please install it with `pip install mlflow[databricks]`."
+            "The `databricks-agents` package is required to use databricks trace archival."
+            "Please install it with `pip install databricks-agents`."
         )
 
     return _do_enable_databricks_archival(experiment_id, catalog, schema, table_prefix)
