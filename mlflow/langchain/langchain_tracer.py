@@ -167,7 +167,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _resolve_parent_span(self, parent_mlflow_span, parent_lc_span):
         """
-        Resolve the correct parent span when both MLflow and LangChain provide different parent spans.
+        Resolve the correct parent span when both MLflow and LangChain provide different
+        parent spans.
 
         For example, the following two examples are mostly same but slightly different: where the
         mlflow.start_span() is used.
