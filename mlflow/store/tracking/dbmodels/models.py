@@ -1823,6 +1823,7 @@ class SqlEntityAssociation(Base):
         """
         return f"{SqlEntityAssociation.ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
 
+
 class SqlScorer(Base):
     """
     DB model for storing scorer information. These are recorded in ``scorers`` table.

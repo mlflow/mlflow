@@ -6172,6 +6172,7 @@ class MlflowClient:
             client.delete_dataset_tag(dataset_id="dataset123", key="deprecated")
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
+
     # Webhook APIs
     @experimental(version="3.3.0")
     def create_webhook(

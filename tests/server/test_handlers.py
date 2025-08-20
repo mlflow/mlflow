@@ -40,14 +40,11 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
-<<<<<<< HEAD
-=======
     DeleteScorer,
     GetScorer,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
->>>>>>> genai-dataset
     SearchRuns,
 )
 from mlflow.server import (
@@ -70,13 +67,10 @@ from mlflow.server.handlers import (
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
-<<<<<<< HEAD
+    _delete_scorer,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
-=======
-    _delete_scorer,
->>>>>>> genai-dataset
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,

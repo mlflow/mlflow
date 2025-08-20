@@ -3469,6 +3469,7 @@ def test_evaluation_dataset_delete(mlflow_client):
     with pytest.raises(MlflowException, match="not found"):
         mlflow_client.get_dataset(dataset.dataset_id)
 
+
 def test_scorer_CRUD(mlflow_client):
     if mlflow_client._store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")

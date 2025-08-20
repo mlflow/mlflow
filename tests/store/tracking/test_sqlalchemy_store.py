@@ -7621,6 +7621,8 @@ def test_sql_dataset_record_merge():
 
         assert record6.expectations == {"accuracy": 0.8}  # Unchanged
         assert record6.tags == {"env": "test", "version": "1.0"}
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
