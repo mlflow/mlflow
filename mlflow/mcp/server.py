@@ -81,7 +81,7 @@ def wrapper(command: click.Command) -> Callable[..., str]:
         string_io = io.StringIO()
         with contextlib.redirect_stdout(string_io), contextlib.redirect_stderr(string_io):
             command.callback(**kwargs)
-        return string_io.getvalue()
+        return string_io.getvalue().strip()
 
     return wrapper
 
