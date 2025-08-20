@@ -401,7 +401,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",
-        'delete_logged_model_tag',
+        "delete_logged_model_tag",
     ]
 
 
