@@ -2,7 +2,6 @@ import json
 import logging
 from typing import Any
 
-from google.protobuf.json_format import MessageToJson
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 from mlflow.entities import (
@@ -1303,11 +1302,13 @@ class RestStore(AbstractStore):
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span._to_otel_proto() for span in spans)
 
+        # Send protobuf data directly, not JSON
+        headers["Content-Type"] = "application/x-protobuf"
         response = http_request(
             host_creds=self.get_host_creds(),
             endpoint=OTLP_TRACES_PATH,
             method="POST",
-            json=json.loads(MessageToJson(request)),
+            data=request.SerializeToString(),
             extra_headers=headers,
         )
 

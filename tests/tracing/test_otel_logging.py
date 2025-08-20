@@ -7,6 +7,7 @@ when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 
 import subprocess
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -236,3 +237,83 @@ def test_missing_experiment_id_header_returns_422(mlflow_server):
     )
 
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
+
+
+def test_rest_store_sends_protobuf_not_json(mlflow_server):
+    """
+    Test that RestStore.log_spans sends protobuf data, not JSON.
+
+    This test creates a mock HTTP server to verify the exact content type
+    and data format sent by RestStore.
+    """
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+
+    import mlflow
+    from mlflow.entities.span import Span
+    from mlflow.store.tracking.rest_store import RestStore
+    from mlflow.tracing.utils import build_otel_context
+
+    mlflow.set_tracking_uri(mlflow_server)
+
+    # Create an experiment to get a valid experiment ID
+    experiment = mlflow.set_experiment("rest-store-protobuf-test")
+    experiment_id = experiment.experiment_id
+
+    # Create a test span
+    otel_span = OTelReadableSpan(
+        name="test-span",
+        context=build_otel_context(0x123456789ABCDEF0, 0x1234567890ABCDEF),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={"mlflow.request_id": '"tr-123456789abcdef0123456789abcdef0"'},
+        resource=None,
+    )
+    test_span = Span(otel_span)
+
+    # Create RestStore instance
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+    def get_host_creds():
+        return get_databricks_host_creds(get_tracking_uri())
+
+    store = RestStore(get_host_creds)
+
+    # Mock the get_trace_info to return our experiment ID
+    mock_trace_info = MagicMock()
+    mock_trace_info.experiment_id = experiment_id
+
+    with patch.object(store, "get_trace_info", return_value=mock_trace_info):
+        # Mock http_request to capture what's being sent
+        with patch("mlflow.store.tracking.rest_store.http_request") as mock_request:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.text = "{}"
+            mock_request.return_value = mock_response
+
+            # Call log_spans
+            store.log_spans([test_span])
+
+            # Verify the call
+            mock_request.assert_called_once()
+            call_args = mock_request.call_args
+
+            # Check that we're sending protobuf data, not JSON
+            assert "data" in call_args.kwargs, "Should send 'data' (bytes) not 'json'"
+            assert "json" not in call_args.kwargs, "Should not send 'json' parameter"
+
+            # Check Content-Type header
+            headers = call_args.kwargs.get("extra_headers", {})
+            assert headers.get("Content-Type") == "application/x-protobuf", (
+                f"Content-Type should be application/x-protobuf, got {headers.get('Content-Type')}"
+            )
+
+            # Verify it's actually protobuf bytes
+            data = call_args.kwargs["data"]
+            assert isinstance(data, bytes), f"Data should be bytes, got {type(data)}"
+
+            # Try to parse it as protobuf to ensure it's valid
+            parsed_request = ExportTraceServiceRequest()
+            parsed_request.ParseFromString(data)
+            assert len(parsed_request.resource_spans) > 0, "Should have resource spans"
