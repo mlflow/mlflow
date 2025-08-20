@@ -2589,7 +2589,14 @@ class SqlAlchemyStore(AbstractStore):
 
             # Apply non-attribute filters
             for non_attr_filter in non_attribute_filters:
-                stmt = stmt.join(non_attr_filter)
+                # Check if this is a span subquery and add join condition
+                if hasattr(non_attr_filter.columns, "trace_id"):
+                    stmt = stmt.join(
+                        non_attr_filter,
+                        non_attr_filter.c.trace_id == SqlTraceInfo.request_id,
+                    )
+                else:
+                    stmt = stmt.join(non_attr_filter)
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
@@ -3608,6 +3615,33 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
+            elif SearchTraceUtils.is_span(key_type, key_name, comparator):
+                # Handle span filtering
+                from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+                # Build the span filter
+                span_filters = []
+
+                if key_name in ("type", "name", "status"):
+                    # Direct column comparison for span.type, span.name, and span.status
+                    column = getattr(SqlSpan, key_name)
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        column, value
+                    )
+                elif key_name == "content":
+                    # JSON content search for span.content
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        SqlSpan.content, value
+                    )
+
+                span_filters.append(val_filter)
+
+                # Create subquery that returns distinct trace_ids with matching spans
+                span_subquery = (
+                    session.query(SqlSpan.trace_id).filter(*span_filters).distinct().subquery()
+                )
+                non_attribute_filters.append(span_subquery)
+                continue
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
