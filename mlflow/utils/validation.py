@@ -7,10 +7,13 @@ import logging
 import numbers
 import posixpath
 import re
+import urllib.parse
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
+from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
@@ -34,6 +37,9 @@ _REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
 
 # Regex for valid registered model alias to prevent conflict with version aliases.
 _REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^[vV]\d+$")
+
+# The reserver "latest" alias name
+_REGISTERED_MODEL_ALIAS_LATEST = "latest"
 
 _BAD_ALIAS_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), and dashes (-)."
@@ -505,6 +511,9 @@ def _validate_model_alias_name(model_alias_name):
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
         model_alias_name,
     )
+
+
+def _validate_model_alias_name_reserved(model_alias_name):
     if model_alias_name.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
@@ -658,4 +667,60 @@ def _validate_logged_model_name(name: str | None) -> None:
             f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
             f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
+        )
+
+
+_WEBHOOK_NAME_REGEX = re.compile(
+    r"^(?=.{1,63}$)"  # Total length between 1 and 63 characters
+    r"[a-z0-9]"  # Must start with letter or digit
+    r"([a-z0-9._-]*[a-z0-9])?$",  # Optional middle + end with letter/digit
+    re.IGNORECASE,
+)
+
+
+def _validate_webhook_name(name: str) -> None:
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name must be a string, got {type(name).__name__!r}"
+        )
+
+    if not _WEBHOOK_NAME_REGEX.fullmatch(name):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
+            "be less than 63 characters long, and contain only letters, digits, dots (.), "
+            "underscores (_), and hyphens (-)."
+        )
+
+
+def _validate_webhook_url(url: str) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+    schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
+    if parsed_url.scheme not in schemes:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
+            f"Allowed schemes are: {', '.join(schemes)}."
+        )
+
+
+def _validate_webhook_events(events: list[WebhookEvent]) -> None:
+    if (
+        not events
+        or not isinstance(events, list)
+        or not all(isinstance(e, WebhookEvent) for e in events)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
         )

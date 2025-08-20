@@ -353,3 +353,47 @@ def test_sampling_ratio(monkeypatch):
     assert 30 <= len(traces) <= 70, (
         f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
     )
+
+
+def test_otlp_exclusive_vs_dual_export(monkeypatch):
+    """Test OTLP exclusive mode vs dual export mode."""
+    from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+    from mlflow.tracing.processor.otel import OtelSpanProcessor
+    from mlflow.tracing.provider import _get_tracer
+
+    # Test 1: OTLP exclusive mode (dual export = false, default)
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
+        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
+            mock_get_exporter.return_value = mock.MagicMock()
+
+            mlflow.tracing.reset()
+            tracer = _get_tracer("test")
+
+            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+
+            assert _MLFLOW_TRACER_PROVIDER is not None
+            processors = tracer.span_processor._span_processors
+
+            # Should have only OTLP processor as primary
+            assert len(processors) == 1
+            assert isinstance(processors[0], OtelSpanProcessor)
+
+    # Test 2: Dual export mode (both MLflow and OTLP)
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
+        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
+            mock_get_exporter.return_value = mock.MagicMock()
+
+            mlflow.tracing.reset()
+            tracer = _get_tracer("test")
+
+            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+
+            assert _MLFLOW_TRACER_PROVIDER is not None
+            processors = tracer.span_processor._span_processors
+
+            # Should have both processors
+            assert len(processors) == 2
+            assert isinstance(processors[0], OtelSpanProcessor)
+            assert isinstance(processors[1], MlflowV3SpanProcessor)
