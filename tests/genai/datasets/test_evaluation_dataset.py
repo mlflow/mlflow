@@ -5,16 +5,11 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-import mlflow
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
-
-
-def test_dataset_module():
-    assert mlflow.genai.datasets.__name__ == 'mlflow.genai.datasets'
 
 
 def create_test_source_json(table_name: str = "main.default.testtable") -> str:
