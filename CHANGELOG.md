@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 3.3.1 (2025-08-20)
+
+MLflow 3.3.1 includes several major features and improvements
+
+Bug fixes:
+
+- [Tracking] Fix `mlflow.genai.datasets` attribute (#17307, @WeichenXu123)
+- [UI] Fix tag display as column in experiment overview (#17296, @joelrobin18)
+- [Tracing] Fix the slowness of dspy tracing (#17290, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#17295, @gunsodo; #17272, @bbqiu
+
 ## 3.3.0 (2025-08-19)
 
 MLflow 3.3.0 includes several major features and improvements
