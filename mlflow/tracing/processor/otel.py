@@ -15,7 +15,11 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import generate_trace_id_v3, get_experiment_id_for_trace
+from mlflow.tracing.utils import (
+    generate_trace_id_v3,
+    get_experiment_id_for_trace,
+    get_otel_attribute,
+)
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -101,16 +105,38 @@ class OtelSpanProcessor(BatchSpanProcessor):
             # Get experiment ID for the span
             experiment_id = get_experiment_id_for_trace(span)
 
-            # Record the histogram metric with labels
-            self._duration_histogram.record(
-                duration_ms,
-                attributes={
-                    "root": str(is_root),
-                    "span_type": span_type,
-                    "span_status": status,
-                    "experiment_id": experiment_id,
-                },
-            )
+            # Start with basic attributes
+            attributes = {
+                "root": str(is_root),
+                "span_type": span_type,
+                "span_status": status,
+                "experiment_id": experiment_id,
+            }
+
+            # Add trace tags and metadata if trace is available
+            if is_root and self._should_register_traces:
+                trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+                if trace_id:
+                    with self._trace_manager.get_trace(trace_id) as trace:
+                        if trace:
+                            # Add trace tags as attributes (prefixed with 'tag_')
+                            for key, value in trace.info.tags.items():
+                                # Sanitize key names for metric labels
+                                safe_key = f"tag_{key.replace('.', '_').replace('-', '_')}"
+                                attributes[safe_key] = str(value)
+
+                            # Add select trace metadata (prefixed with 'meta_')
+                            if trace.info.trace_metadata:
+                                # Only include specific metadata to avoid overwhelming the metrics
+                                for meta_key in ["source_run", "model_id"]:
+                                    if meta_key in trace.info.trace_metadata:
+                                        safe_key = f"meta_{meta_key}"
+                                        attributes[safe_key] = str(
+                                            trace.info.trace_metadata[meta_key]
+                                        )
+
+            # Record the histogram metric with all attributes
+            self._duration_histogram.record(duration_ms, attributes=attributes)
 
         # Handle trace registration cleanup
         if self._should_register_traces and not span.parent:
