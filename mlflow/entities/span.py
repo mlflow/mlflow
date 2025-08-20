@@ -29,7 +29,6 @@ from mlflow.tracing.utils import (
     decode_id,
     encode_span_id,
     encode_trace_id,
-    generate_trace_id_v3,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -370,7 +369,14 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
-        # Create OTel span
+        # Generate the trace request ID using the existing trace_id
+        # The generate_trace_id_v3 utility expects a span but only uses span.context.trace_id
+        # So we can generate it directly with the format
+        from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
+
+        span_request_id = TRACE_REQUEST_ID_PREFIX + encode_trace_id(trace_id)
+
+        # Create OTel span with request ID included in attributes
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -378,8 +384,12 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: _decode_otel_proto_anyvalue(attr.value)
-                for attr in otel_proto_span.attributes
+                **{
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in otel_proto_span.attributes
+                },
+                # Include the MLflow trace request ID
+                SpanAttributeKey.REQUEST_ID: span_request_id,
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -395,10 +405,6 @@ class Span:
             ],
             resource=_OTelResource.get_empty(),
         )
-
-        # Use the utility to generate the trace request ID and add it to attributes
-        span_request_id = generate_trace_id_v3(otel_span)
-        otel_span._attributes[SpanAttributeKey.REQUEST_ID] = span_request_id
 
         return cls(otel_span)
 
