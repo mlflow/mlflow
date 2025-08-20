@@ -21,8 +21,12 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 import mlflow
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracking.integration_test_utils import _init_server
+
+if IS_TRACING_SDK_ONLY:
+    pytest.skip("OTel endpoint tests require full MLflow server", allow_module_level=True)
 
 
 @pytest.fixture
