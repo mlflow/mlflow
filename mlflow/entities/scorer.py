@@ -28,14 +28,7 @@ class ScorerVersion(_MlflowObject):
         scorer_version (int): The version number of this scorer instance.
         serialized_scorer (str): JSON-serialized string containing the scorer's metadata and code.
         creation_time (int): Unix timestamp (in milliseconds) when this version was created.
-    
-    Attributes:
-        experiment_id (str): The experiment ID this scorer belongs to.
-        scorer_name (str): The name identifier for the scorer.
-        scorer_version (int): The version number of this scorer instance.
-        serialized_scorer (SerializedScorer): Serialized scorer object with metadata and function code.
-        creation_time (int): Unix timestamp when this version was created.
-    
+
     Example:
         .. code-block:: python
             

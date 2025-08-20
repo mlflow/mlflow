@@ -633,21 +633,16 @@ def delete_scorer(
             If None, uses the currently active experiment as determined by
             :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
         version (int | str | None, optional): The version(s) to delete:
-            - For MLflow tracking backend:
-                - `None`: Deletes the latest version only
-                - `int`: Deletes the specific version (e.g., 2 deletes version 2)
-                - `'all'`: Deletes all versions of the scorer
-            - For Databricks backend, must be `None` (versioning not supported)
-    
-    Returns:
-        None: This function does not return a value.
-    
+            For MLflow tracking backend: if `None`, deletes the latest version only, if version
+            is an integer, deletes the specific version, if version is the string 'all', deletes
+            all versions of the scorer
+            For Databricks backend, the version must be set to `None` (versioning not supported)
+
     Raises:
-        mlflow.MlflowException: If the scorer with the specified name is not found in the experiment,
-            if the specified version doesn't exist, if the experiment doesn't exist, if there
-            are issues with the backend store connection, or if versioning is not supported
-            for the current backend.
-    
+        mlflow.MlflowException: If the scorer with the specified name is not found in
+            the experiment, if the specified version doesn't exist, or if versioning
+            is not supported for the current backend.
+
     Example:
         .. code-block:: python
             
