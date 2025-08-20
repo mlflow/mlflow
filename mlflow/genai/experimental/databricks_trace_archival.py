@@ -5,6 +5,9 @@ Trace archival functionality for MLflow that enables archiving traces to Delta t
 import importlib.util
 import logging
 
+from mlflow.environment_variables import (
+    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_exporter_utils import DatabricksTraceServerClient
 from mlflow.tracking import MlflowClient
@@ -318,7 +321,7 @@ def _do_enable_databricks_archival(
             trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
         )
 
-        # 4 Create the logical view
+        # 4. Create the logical view
         _logger.info(f"Creating trace archival at: {trace_archival_location}")
         _create_genai_trace_view(
             trace_archival_location,
@@ -338,6 +341,10 @@ def _do_enable_databricks_archival(
             f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "
             f"with target archival available at: {trace_archival_location}"
         )
+
+        # 7. Set the environment variable to True
+        # This variable can be overridden by the user to explicitly disable delta archival
+        MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.set("true")
 
         return trace_archival_location
 
