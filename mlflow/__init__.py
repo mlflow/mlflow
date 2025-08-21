@@ -416,3 +416,8 @@ with contextlib.suppress(Exception):
 from mlflow.telemetry import set_telemetry_client
 
 set_telemetry_client()
+
+
+# test
+def _untyped_fn(a, b):
+    pass
