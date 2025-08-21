@@ -30,10 +30,24 @@ jobs:
           base_url = "https://models.github.ai/inference"
           env_key = "GITHUB_TOKEN"
           wire_api = "chat"
+
+          [mcp_servers.github]
+          command = "docker"
+          args = [
+            "run",
+            "-i",
+            "--rm",
+            "-e",
+            "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "-e",
+            "GITHUB_READ_ONLY=1",
+            "ghcr.io/github/github-mcp-server",
+          ]
+          env = { "GITHUB_PERSONAL_ACCESS_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
           EOF
 
-      - name: Run Claude Code
+      - name: Run codex
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex exec hello
+          codex exec "Can you fetch the most recent issue and summarize it?"
