@@ -13,10 +13,8 @@ from mlflow.telemetry.events import CreateLoggedModelEvent, Event
 from mlflow.telemetry.schemas import Status
 from mlflow.telemetry.track import _is_telemetry_disabled_for_event, record_usage_event
 from mlflow.telemetry.utils import is_telemetry_disabled
-from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
-
-if not IS_TRACING_SDK_ONLY:
-    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.version import VERSION
 
 
 class TestEvent(Event):

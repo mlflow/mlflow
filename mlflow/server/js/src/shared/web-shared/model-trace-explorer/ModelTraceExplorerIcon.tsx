@@ -14,6 +14,7 @@ import {
   ChainIcon,
   UserIcon,
   GearIcon,
+  SaveIcon,
 } from '@databricks/design-system';
 
 import { ModelIconType } from './ModelTrace.types';
@@ -55,6 +56,7 @@ export const ModelTraceExplorerIcon = ({
     [ModelIconType.CHAIN]: <ChainIcon color={iconColor} />,
     [ModelIconType.USER]: <UserIcon color={iconColor} />,
     [ModelIconType.SYSTEM]: <GearIcon color={iconColor} />,
+    [ModelIconType.SAVE]: <SaveIcon color={iconColor} />,
   };
 
   // custom colors depending on span type

@@ -6,11 +6,11 @@ import subprocess
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import toml
 import yaml
 from packaging.version import Version
+from pydantic import BaseModel, Field, RootModel
 
 
 class PackageType(Enum):
@@ -75,6 +75,7 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 TRACING_INCLUDE_FILES = [
     "mlflow",
     # Flavors that we support auto tracing
+    "mlflow.agno*",
     "mlflow.anthropic*",
     "mlflow.autogen*",
     "mlflow.bedrock*",
@@ -125,9 +126,54 @@ def find_duplicates(seq):
     return [item for item, count in counted.items() if count > 1]
 
 
-def read_requirements(path: Path) -> list[str]:
-    lines = (l.strip() for l in path.read_text().splitlines())
-    return [l for l in lines if l and not l.startswith("#")]
+class PackageRequirement(BaseModel):
+    pip_release: str = Field(..., description="The pip package name")
+    max_major_version: int = Field(..., description="Maximum major version allowed")
+    minimum: str | None = Field(None, description="Minimum version required")
+    unsupported: list[str] | None = Field(None, description="List of unsupported versions")
+    markers: str | None = Field(
+        None, description="Environment markers for conditional installation"
+    )
+    extras: list[str] | None = Field(None, description="Package extras to install")
+    freeze: bool | None = Field(None, description="Whether to freeze this package version")
+
+
+RequirementsYaml = RootModel[dict[str, PackageRequirement]]
+
+
+def generate_requirements_from_yaml(requirements_yaml: RequirementsYaml) -> list[str]:
+    """Generate pip requirement strings from validated YAML specification."""
+    requirement_strs: list[str] = []
+    for package_entry in requirements_yaml.root.values():
+        pip_release = package_entry.pip_release
+        version_specs: list[str] = []
+
+        extras = f"[{','.join(package_entry.extras)}]" if package_entry.extras else ""
+
+        max_major_version = package_entry.max_major_version
+        version_specs.append(f"<{max_major_version + 1}")
+
+        if package_entry.minimum:
+            version_specs.append(f">={package_entry.minimum}")
+
+        if package_entry.unsupported:
+            version_specs.extend(f"!={version}" for version in package_entry.unsupported)
+
+        markers = f"; {package_entry.markers}" if package_entry.markers else ""
+
+        requirement_str = f"{pip_release}{extras}{','.join(version_specs)}{markers}"
+        requirement_strs.append(requirement_str)
+
+    requirement_strs.sort()
+    return requirement_strs
+
+
+def read_requirements_yaml(yaml_path: Path) -> list[str]:
+    """Read and parse a YAML requirements file into pip requirement strings."""
+    with yaml_path.open() as f:
+        requirements_data = yaml.safe_load(f)
+
+    return generate_requirements_from_yaml(RequirementsYaml(requirements_data))
 
 
 def read_package_versions_yml():
@@ -136,10 +182,14 @@ def read_package_versions_yml():
 
 
 def build(package_type: PackageType) -> None:
-    tracing_requirements = read_requirements(Path("requirements", "tracing-requirements.txt"))
-    skinny_requirements = read_requirements(Path("requirements", "skinny-requirements.txt"))
-    core_requirements = read_requirements(Path("requirements", "core-requirements.txt"))
-    gateways_requirements = read_requirements(Path("requirements", "gateway-requirements.txt"))
+    requirements_dir = Path("requirements")
+    tracing_requirements = read_requirements_yaml(requirements_dir / "tracing-requirements.yaml")
+    skinny_requirements = read_requirements_yaml(requirements_dir / "skinny-requirements.yaml")
+    _check_skinny_tracing_mismatch(
+        skinny_reqs=skinny_requirements, tracing_reqs=tracing_requirements
+    )
+    core_requirements = read_requirements_yaml(requirements_dir / "core-requirements.yaml")
+    gateways_requirements = read_requirements_yaml(requirements_dir / "gateway-requirements.yaml")
     package_version = re.search(
         r'^VERSION = "([a-z0-9\.]+)"$', Path("mlflow", "version.py").read_text(), re.MULTILINE
     ).group(1)
@@ -169,9 +219,8 @@ def build(package_type: PackageType) -> None:
                 f"mlflow-tracing=={package_version}",
             ] + sorted(core_requirements)
         case PackageType.DEV:
-            _check_skinny_tracing_mismatch(skinny_requirements, tracing_requirements)
-            # The above line guarantees skinny_requirements is an exact superset of
-            # tracing_requirements, so we don't need to include both below.
+            # skinny_requirements is an exact superset of tracing_requirements
+            # (validated above), so we don't need to include both below.
             dependencies = sorted(core_requirements + skinny_requirements)
         case _:
             raise ValueError(f"Unreachable: {package_type}")
@@ -267,7 +316,6 @@ def build(package_type: PackageType) -> None:
                 "genai": gateways_requirements,
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
-                "xethub": ["mlflow-xethub"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
@@ -359,7 +407,7 @@ def build(package_type: PackageType) -> None:
         subprocess.check_call([taplo, "fmt", out_path])
 
 
-def _get_package_data(package_type: PackageType) -> Optional[dict[str, list[str]]]:
+def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
     if package_type == PackageType.TRACING:
         return None
 
@@ -380,7 +428,7 @@ def _get_package_data(package_type: PackageType) -> Optional[dict[str, list[str]
     return package_data
 
 
-def _check_skinny_tracing_mismatch(skinny_reqs: list[str], tracing_reqs: list[str]) -> None:
+def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list[str]) -> None:
     """
     Check if the tracing requirements are a subset of the skinny requirements.
     NB: We don't make mlflow-tracing as a hard dependency of mlflow-skinny because
@@ -390,8 +438,8 @@ def _check_skinny_tracing_mismatch(skinny_reqs: list[str], tracing_reqs: list[st
     if diff := set(tracing_reqs) - set(skinny_reqs):
         raise RuntimeError(
             "Tracing requirements must be a subset of skinny requirements. "
-            "Please check the requirements/skinny-requirements.txt and "
-            "requirements/tracing-requirements.txt files.\n"
+            "Please check the requirements/skinny-requirements.yaml and "
+            "requirements/tracing-requirements.yaml files.\n"
             f"Diff: {diff}"
         )
 

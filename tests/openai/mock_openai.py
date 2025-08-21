@@ -1,6 +1,6 @@
 import argparse
 import json
-from typing import Any, Optional, Union
+from typing import Any
 
 import fastapi
 from pydantic import BaseModel
@@ -291,7 +291,7 @@ _DUMMY_RESPONSES_STREAM_EVENTS = [
 
 class ResponsesPayload(BaseModel):
     input: Any
-    tools: Optional[list[Any]] = None
+    tools: list[Any] | None = None
     stream: bool = False
 
 
@@ -323,7 +323,7 @@ async def responses(payload: ResponsesPayload):
 
 
 class CompletionsPayload(BaseModel):
-    prompt: Union[str, list[str]]
+    prompt: str | list[str]
     stream: bool = False
 
 
@@ -400,7 +400,7 @@ def completions(payload: CompletionsPayload):
 
 
 class EmbeddingsPayload(BaseModel):
-    input: Union[str, list[str]]
+    input: str | list[str]
 
 
 @app.post("/embeddings")

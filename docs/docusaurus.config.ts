@@ -117,16 +117,16 @@ const config: Config = {
           ],
         },
         {
-          type: 'doc',
-          position: 'left',
-          label: 'Community',
-          docId: 'usage-tracking',
-          docsPluginId: 'community',
-        },
-        {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
+        },
+        {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'communitySidebar',
+          label: 'Community',
+          docsPluginId: 'community',
         },
         {
           type: 'custom-versionSelector',
@@ -246,7 +246,7 @@ const config: Config = {
         id: 'community',
         path: 'docs/community',
         routeBasePath: 'community',
-        sidebarPath: false,
+        sidebarPath: './communitySidebar.ts',
       },
     ],
     [
@@ -392,10 +392,6 @@ const config: Config = {
             from: ['/tracing/integrations/openai-agent'],
           },
           {
-            to: '/genai/tracing/integrations/listing/swarm',
-            from: ['/tracing/integrations/swarm'],
-          },
-          {
             to: '/genai/tracing/integrations/listing/txtai',
             from: ['/tracing/integrations/txtai'],
           },
@@ -527,11 +523,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',

@@ -2387,6 +2387,10 @@ def test_load_prompt_with_alias_uri(tracking_uri):
     ):
         client.load_prompt("prompts:/alias_prompt@production")
 
+    # Loading with the 'latest' alias
+    prompt = client.load_prompt("prompts:/alias_prompt@latest")
+    assert prompt.template == "Hello, {{name}}!"
+
 
 def test_create_prompt_chat_format_client_integration():
     """Test client-level integration with chat prompts."""

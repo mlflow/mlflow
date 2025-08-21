@@ -6,7 +6,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, TypeAlias, Union
+from typing import Any, Iterator, TypeAlias
 
 from typing_extensions import Self
 
@@ -452,6 +452,10 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(Location.from_node(node), rules.MlflowClassName())
 
+    def _no_class_based_tests(self, node: ast.ClassDef) -> None:
+        if rule := rules.NoClassBasedTests.check(node, self.path.name):
+            self._check(Location.from_node(node), rule)
+
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
             return False
@@ -494,6 +498,7 @@ class Linter(ast.NodeVisitor):
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
+        self._no_class_based_tests(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():
@@ -646,7 +651,7 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
-        self, node: Union[ast.Import, ast.ImportFrom], module: str
+        self, node: ast.Import | ast.ImportFrom, module: str
     ) -> None:
         for file_pat, libs in self.config.forbidden_top_level_imports.items():
             if fnmatch.fnmatch(str(self.path), file_pat) and any(
@@ -659,7 +664,7 @@ class Linter(ast.NodeVisitor):
 
     def _check_forbidden_set_active_model_usage(
         self,
-        node: Union[ast.Import, ast.ImportFrom],
+        node: ast.Import | ast.ImportFrom,
     ) -> None:
         self._check(
             Location.from_node(node),

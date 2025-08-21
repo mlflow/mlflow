@@ -1,7 +1,7 @@
 import json
 import posixpath
 import warnings
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -124,9 +124,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -152,9 +152,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
     ) -> Iterator[str]:
         call_kwargs = {}
         if method.lower() == "get":

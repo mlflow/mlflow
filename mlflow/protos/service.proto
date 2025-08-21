@@ -271,7 +271,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  // DEPRECATED. Use setTraceTagV3 instead.
   rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
     option (rpc) = {
       endpoints: [{
@@ -284,7 +284,20 @@ service MlflowService {
     };
   }
 
-  // Delete a tag from a trace.
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTagV3(SetTraceTagV3) returns (SetTraceTagV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{trace_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag V3",
+    };
+  }
+
+  // DEPRECATED. Use deleteTraceTagV3 instead.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
       endpoints: [{
@@ -294,6 +307,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Trace Tag",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTagV3(DeleteTraceTagV3) returns (DeleteTraceTagV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{trace_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag V3",
     };
   }
 
@@ -530,7 +556,7 @@ service MlflowService {
     };
   }
 
-  // Get metadata of a trace.
+  // DEPRECATED. Use getTraceInfoV3 instead.
   rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
     option (rpc) = {
       endpoints: [{
@@ -558,9 +584,7 @@ service MlflowService {
     };
   }
 
-  // Search for traces that satisfy specified filters
-  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
-  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
+  // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
       endpoints: [{
@@ -573,6 +597,23 @@ service MlflowService {
     };
   }
 
+  // Search for traces that satisfy specified filters
+  // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
+  // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
+  rpc searchTracesV3(SearchTracesV3) returns (SearchTracesV3.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/search"
+          since { major: 3, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces V3",
+    };
+  }
+
   // Create a trace using the V3 API format
   rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
     option (rpc) = {
@@ -582,6 +623,20 @@ service MlflowService {
         since { major: 3, minor: 0 }
       }],
       visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // Links traces to a run by creating internal trace input relationships.
+  // This API allows associating multiple traces with runs for evaluation and labeling workflows.
+  rpc linkTracesToRun (LinkTracesToRun) returns (LinkTracesToRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/link-to-run"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Traces to Run",
     };
   }
 
@@ -611,15 +666,33 @@ service MlflowService {
     };
   }
 
+  // DEPRECATED. Use deleteTracesV3 instead.
   rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/delete-traces"
+          since { major: 2, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Traces",
+    };
+  }
+
+  // Delete traces. There are two supported ways to do this:
+  // Case 1: ``max_timestamp_millis`` and ``max_traces`` may both be specified for time-based deletion.
+  // Case 2: ``trace_ids`` may be specified for trace ID-based deletion.
+  rpc deleteTracesV3(DeleteTracesV3) returns (DeleteTracesV3.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
         path: "/mlflow/traces/delete-traces"
-        since { major: 2, minor: 0 },
+        since { major: 3, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Traces",
+      rpc_doc_title: "Delete Traces V3",
     };
   }
 
@@ -796,17 +869,72 @@ service MlflowService {
     };
   }
 
-  rpc searchTracesV3(SearchTracesV3) returns (SearchTracesV3.Response) {
+  // =============================================================================
+  // Scorer Management RPCs
+  // =============================================================================
+
+  // Register a scorer for an experiment.
+  rpc registerScorer (RegisterScorer) returns (RegisterScorer.Response) {
     option (rpc) = {
-      endpoints: [
-        {
-          method: "POST",
-          path: "/mlflow/traces/search"
-          since { major: 3, minor: 0 },
-        }
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Traces V3",
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/scorers/register"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Register Scorer",
+    };
+  }
+
+  // List all scorers for an experiment.
+  rpc listScorers (ListScorers) returns (ListScorers.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/list"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorers",
+    };
+  }
+
+  // List all versions of a specific scorer for an experiment.
+  rpc listScorerVersions (ListScorerVersions) returns (ListScorerVersions.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/versions"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorer Versions",
+    };
+  }
+
+  // Get a specific scorer for an experiment.
+  rpc getScorer (GetScorer) returns (GetScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/get"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Scorer",
+    };
+  }
+
+  // Delete a scorer for an experiment.
+  rpc deleteScorer (DeleteScorer) returns (DeleteScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/scorers/delete"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Scorer",
     };
   }
 }
@@ -874,7 +1002,7 @@ message Metric {
   optional int64 step = 4 [default = 0];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -1020,7 +1148,7 @@ message Experiment {
 
 // DatasetInput. Represents a dataset and input tags.
 message DatasetInput {
-  // A list of tags for the dataset input, e.g. a “context” tag with value “training”
+  // A list of tags for the dataset input, e.g. a "context" tag with value "training"
   repeated InputTag tags = 1;
 
   // The dataset being used as a Run input.
@@ -1044,14 +1172,14 @@ message InputTag {
 // Dataset. Represents a reference to data used for training, testing, or evaluation during
 // the model development process.
 message Dataset {
-  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string name = 1 [(validate_required) = true];
 
   // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
   // within datasets of the same name.
   optional string digest = 2 [(validate_required) = true];
 
-  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+  // The type of the dataset source, e.g. 'databricks-uc-table', 'DBFS', 'S3', ...
   optional string source_type = 3 [(validate_required) = true];
 
   // Source information for the dataset. Note that the source may not exactly reproduce the
@@ -1294,7 +1422,7 @@ message LogMetric {
   optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -1916,6 +2044,28 @@ message DeleteTraces {
   }
 }
 
+message DeleteTracesV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Case 1: max_timestamp_millis and max_traces must be specified for time-based deletion
+  // The maximum timestamp in milliseconds since the UNIX epoch for deleting traces.
+  optional int64 max_timestamp_millis = 2;
+
+  // The maximum number of traces to delete.
+  optional int32 max_traces = 3;
+
+  // Case 2: request_ids must be specified for ID-based deletion
+  // A set of request IDs to delete
+  repeated string request_ids = 4;
+
+  message Response {
+    optional int32 traces_deleted = 1;
+  }
+}
+
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1934,7 +2084,44 @@ message SetTraceTag {
   }
 }
 
+message SetTraceTagV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 4;
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2;
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 3;
+
+  message Response {
+  }
+
+  // request_id has been retired
+  reserved 1;reserved "request_id";
+}
+
 message DeleteTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace from which to delete the tag.
+  optional string trace_id = 3;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {
+  }
+
+  // request_id has been retired
+  reserved 1;reserved "request_id";
+}
+
+message DeleteTraceTagV3 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace from which to delete the tag.
@@ -2042,14 +2229,12 @@ message TraceInfoV3 {
 
   repeated assessments.Assessment assessments = 10;
 
-  // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
+  // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
   map<string, string> tags = 11;
 }
 
 
 message StartTraceV3 {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   // The information for the trace being created.
   optional Trace trace = 1 [(validate_required) = true];
 
@@ -2059,12 +2244,23 @@ message StartTraceV3 {
   }
 }
 
+message LinkTracesToRun {
+  // IDs of the traces to link to the run.
+  // The maximum number of trace IDs that can be linked in a single request is 100.
+  repeated string trace_ids = 1;
+
+  // ID of the run to link the traces to.
+  optional string run_id = 2 [(validate_required) = true];
+
+  message Response {}
+}
+
 // DatasetSummary. Represents a summary of information about a dataset.
 message DatasetSummary {
   // Unique identifier for the experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // The name of the dataset. E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string name = 2 [(validate_required) = true];
 
   // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
@@ -2402,4 +2598,100 @@ message SearchTracesV3 {
     repeated TraceInfoV3 traces = 1;
     optional string next_page_token = 2;
   }
+}
+
+// =============================================================================
+// Scorer Management Messages
+// =============================================================================
+
+// Register a scorer for an experiment.
+message RegisterScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The serialized scorer string (JSON).
+  optional string serialized_scorer = 3;
+
+  message Response {
+    // The new version number for the scorer.
+    optional int32 version = 1;
+  }
+}
+
+// List all scorers for an experiment.
+message ListScorers {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+
+  message Response {
+    // List of scorer entities (latest version for each scorer name).
+    repeated Scorer scorers = 1;
+  }
+}
+
+// List all versions of a specific scorer for an experiment.
+message ListScorerVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+
+  message Response {
+    // List of scorer entities for all versions of the scorer.
+    repeated Scorer scorers = 1;
+  }
+}
+
+// Get a specific scorer for an experiment.
+message GetScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The scorer version. If not specified, returns the scorer with maximum version.
+  optional int32 version = 3;
+
+  message Response {
+    // The scorer entity.
+    optional Scorer scorer = 1;
+  }
+}
+
+// Delete a scorer for an experiment.
+message DeleteScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The scorer version to delete. If not specified, deletes all versions.
+  optional int32 version = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Scorer entity representing a scorer in the database.
+message Scorer {
+  // The experiment ID.
+  optional int32 experiment_id = 1;
+  // The scorer name.
+  optional string scorer_name = 2;
+  // The scorer version.
+  optional int32 scorer_version = 3;
+  // The serialized scorer string.
+  optional string serialized_scorer = 4;
+  // The creation time of the scorer version (in milliseconds since epoch).
+  optional int64 creation_time = 5;
 }

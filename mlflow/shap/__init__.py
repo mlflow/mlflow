@@ -3,7 +3,7 @@ import tempfile
 import types
 import warnings
 from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import yaml
@@ -291,7 +291,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_explainer(
     explainer,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     serialize_model_using_mlflow=True,
     conda_env=None,
     code_paths=None,
@@ -301,13 +301,13 @@ def log_explainer(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    name: Optional[str] = None,
+    name: str | None = None,
     metadata=None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log an SHAP explainer as an MLflow artifact for the current run.
@@ -678,7 +678,7 @@ class _SHAPWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:

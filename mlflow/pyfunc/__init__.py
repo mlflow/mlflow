@@ -415,7 +415,7 @@ import threading
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, Iterator, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -772,8 +772,8 @@ class PyFuncModel:
         model_meta: Model,
         model_impl: Any,
         predict_fn: str = "predict",
-        predict_stream_fn: Optional[str] = None,
-        model_id: Optional[str] = None,
+        predict_stream_fn: str | None = None,
+        model_id: str | None = None,
     ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
@@ -804,7 +804,7 @@ class PyFuncModel:
         return self.__model_impl
 
     @property
-    def model_id(self) -> Optional[str]:
+    def model_id(self) -> str | None:
         """
         The model ID of the model.
 
@@ -824,7 +824,7 @@ class PyFuncModel:
             )
 
     @property
-    def input_example(self) -> Optional[Any]:
+    def input_example(self) -> Any | None:
         """
         The input example provided when the model was saved.
         """
@@ -834,7 +834,7 @@ class PyFuncModel:
     def input_example(self, value: Any) -> None:
         self._input_example = value
 
-    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: dict[str, Any] | None = None) -> PyFuncOutput:
         context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
             if schema := _get_dependencies_schema_from_model(self._model_meta):
@@ -844,7 +844,7 @@ class PyFuncModel:
                 context.update(model_id=self.model_id)
             return self._predict(data, params)
 
-    def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+    def _predict(self, data: PyFuncInput, params: dict[str, Any] | None = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -898,7 +898,7 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: dict[str, Any] | None = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         context = _try_get_prediction_context() or Context()
 
@@ -918,7 +918,7 @@ class PyFuncModel:
         return _gen_with_context(data, params)
 
     def _predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: dict[str, Any] | None = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
         Generates streaming model predictions. Only LLM supports this method.
@@ -1074,8 +1074,8 @@ def _get_pip_requirements_from_model_path(model_path: str):
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
-    dst_path: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    dst_path: str | None = None,
+    model_config: str | Path | dict[str, Any] | None = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -1253,7 +1253,7 @@ class _ServedPyFuncModel(PyFuncModel):
 
 
 def _load_model_or_server(
-    model_uri: str, env_manager: str, model_config: Optional[dict[str, Any]] = None
+    model_uri: str, env_manager: str, model_config: dict[str, Any] | None = None
 ):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
@@ -1715,7 +1715,7 @@ def _check_udf_return_type(data_type):
 
 
 def _convert_struct_values(
-    result: Union[pandas.DataFrame, dict[str, Any]],
+    result: pandas.DataFrame | dict[str, Any],
     result_type,
 ):
     """
@@ -2051,10 +2051,10 @@ def spark_udf(
     model_uri,
     result_type=None,
     env_manager=None,
-    params: Optional[dict[str, Any]] = None,
-    extra_env: Optional[dict[str, str]] = None,
-    prebuilt_env_uri: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    params: dict[str, Any] | None = None,
+    extra_env: dict[str, str] | None = None,
+    prebuilt_env_uri: str | None = None,
+    model_config: str | Path | dict[str, Any] | None = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2585,7 +2585,8 @@ e.g., struct<a:int, b:array<int>>.
 
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
+        # `pandas_udf` does not support modern type annotations
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
@@ -2854,8 +2855,8 @@ def save_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
-    auth_policy: Optional[AuthPolicy] = None,
+    resources: str | list[Resource] | None = None,
+    auth_policy: AuthPolicy | None = None,
     **kwargs,
 ):
     """
@@ -3388,15 +3389,15 @@ def log_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
-    auth_policy: Optional[AuthPolicy] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    resources: str | list[Resource] | None = None,
+    auth_policy: AuthPolicy | None = None,
+    prompts: list[str | Prompt] | None = None,
     name=None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3599,6 +3600,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,
         name=name,
@@ -3627,7 +3629,25 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        # only used for checking python model type
+        flavor_name=flavor_name,
     )
+
+
+def _get_pyfunc_model_flavor_name(python_model: Any) -> str:
+    if python_model is None:
+        return "pyfunc"
+    if isinstance(python_model, str):
+        return "pyfunc.ModelFromCode"
+    if IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        return "pyfunc.ResponsesAgent"
+    if isinstance(python_model, ChatAgent):
+        return "pyfunc.ChatAgent"
+    if isinstance(python_model, ChatModel):
+        return "pyfunc.ChatModel"
+    if isinstance(python_model, PythonModel):
+        return "pyfunc.CustomPythonModel"
+    return "pyfunc"
 
 
 def _save_model_with_loader_module_and_data_path(

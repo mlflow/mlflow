@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
@@ -22,43 +20,43 @@ class ModelVersion(_ModelRegistryEntity):
         name: str,
         version: str,
         creation_timestamp: int,
-        last_updated_timestamp: Optional[int] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        current_stage: Optional[str] = None,
-        source: Optional[str] = None,
-        run_id: Optional[str] = None,
+        last_updated_timestamp: int | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
+        current_stage: str | None = None,
+        source: str | None = None,
+        run_id: str | None = None,
         status: str = ModelVersionStatus.to_string(ModelVersionStatus.READY),
-        status_message: Optional[str] = None,
-        tags: Optional[list[ModelVersionTag]] = None,
-        run_link: Optional[str] = None,
-        aliases: Optional[list[str]] = None,
+        status_message: str | None = None,
+        tags: list[ModelVersionTag] | None = None,
+        run_link: str | None = None,
+        aliases: list[str] | None = None,
         # TODO: Make model_id a required field
         # (currently optional to minimize breakages during prototype development)
-        model_id: Optional[str] = None,
-        params: Optional[list[ModelParam]] = None,
-        metrics: Optional[list[Metric]] = None,
-        deployment_job_state: Optional[ModelVersionDeploymentJobState] = None,
+        model_id: str | None = None,
+        params: list[ModelParam] | None = None,
+        metrics: list[Metric] | None = None,
+        deployment_job_state: ModelVersionDeploymentJobState | None = None,
     ):
         super().__init__()
         self._name: str = name
         self._version: str = version
         self._creation_time: int = creation_timestamp
-        self._last_updated_timestamp: Optional[int] = last_updated_timestamp
-        self._description: Optional[str] = description
-        self._user_id: Optional[str] = user_id
-        self._current_stage: Optional[str] = current_stage
-        self._source: Optional[str] = source
-        self._run_id: Optional[str] = run_id
-        self._run_link: Optional[str] = run_link
+        self._last_updated_timestamp: int | None = last_updated_timestamp
+        self._description: str | None = description
+        self._user_id: str | None = user_id
+        self._current_stage: str | None = current_stage
+        self._source: str | None = source
+        self._run_id: str | None = run_id
+        self._run_link: str | None = run_link
         self._status: str = status
-        self._status_message: Optional[str] = status_message
+        self._status_message: str | None = status_message
         self._tags: dict[str, str] = {tag.key: tag.value for tag in (tags or [])}
         self._aliases: list[str] = aliases or []
-        self._model_id: Optional[str] = model_id
-        self._params: Optional[list[ModelParam]] = params
-        self._metrics: Optional[list[Metric]] = metrics
-        self._deployment_job_state: Optional[ModelVersionDeploymentJobState] = deployment_job_state
+        self._model_id: str | None = model_id
+        self._params: list[ModelParam] | None = params
+        self._metrics: list[Metric] | None = metrics
+        self._deployment_job_state: ModelVersionDeploymentJobState | None = deployment_job_state
 
     @property
     def name(self) -> str:
@@ -80,7 +78,7 @@ class ModelVersion(_ModelRegistryEntity):
         return self._creation_time
 
     @property
-    def last_updated_timestamp(self) -> Optional[int]:
+    def last_updated_timestamp(self) -> int | None:
         """Integer. Timestamp of last update for this model version (milliseconds since the Unix
         epoch).
         """
@@ -91,7 +89,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._last_updated_timestamp = updated_timestamp
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """String. Description"""
         return self._description
 
@@ -100,12 +98,12 @@ class ModelVersion(_ModelRegistryEntity):
         self._description = description
 
     @property
-    def user_id(self) -> Optional[str]:
+    def user_id(self) -> str | None:
         """String. User ID that created this model version."""
         return self._user_id
 
     @property
-    def current_stage(self) -> Optional[str]:
+    def current_stage(self) -> str | None:
         """String. Current stage of this model version."""
         return self._current_stage
 
@@ -114,17 +112,17 @@ class ModelVersion(_ModelRegistryEntity):
         self._current_stage = stage
 
     @property
-    def source(self) -> Optional[str]:
+    def source(self) -> str | None:
         """String. Source path for the model."""
         return self._source
 
     @property
-    def run_id(self) -> Optional[str]:
+    def run_id(self) -> str | None:
         """String. MLflow run ID that generated this model."""
         return self._run_id
 
     @property
-    def run_link(self) -> Optional[str]:
+    def run_link(self) -> str | None:
         """String. MLflow run link referring to the exact run that generated this model version."""
         return self._run_link
 
@@ -134,7 +132,7 @@ class ModelVersion(_ModelRegistryEntity):
         return self._status
 
     @property
-    def status_message(self) -> Optional[str]:
+    def status_message(self) -> str | None:
         """String. Descriptive message for error status conditions."""
         return self._status_message
 
@@ -153,22 +151,22 @@ class ModelVersion(_ModelRegistryEntity):
         self._aliases = aliases
 
     @property
-    def model_id(self) -> Optional[str]:
+    def model_id(self) -> str | None:
         """String. ID of the model associated with this version."""
         return self._model_id
 
     @property
-    def params(self) -> Optional[list[ModelParam]]:
+    def params(self) -> list[ModelParam] | None:
         """List of parameters associated with this model version."""
         return self._params
 
     @property
-    def metrics(self) -> Optional[list[Metric]]:
+    def metrics(self) -> list[Metric] | None:
         """List of metrics associated with this model version."""
         return self._metrics
 
     @property
-    def deployment_job_state(self) -> Optional[ModelVersionDeploymentJobState]:
+    def deployment_job_state(self) -> ModelVersionDeploymentJobState | None:
         """Deployment job state for the current model version."""
         return self._deployment_job_state
 

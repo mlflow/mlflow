@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities import (
     DatasetInput,
@@ -14,6 +14,7 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
+    ScorerVersion,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -41,6 +42,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
@@ -53,8 +55,12 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetOnlineTraceDetails,
     GetRun,
+    GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkTracesToRun,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -63,6 +69,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
@@ -330,9 +337,9 @@ class RestStore(AbstractStore):
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         req_body = message_to_json(
             DeleteTraces(
@@ -393,12 +400,12 @@ class RestStore(AbstractStore):
     def search_traces(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
     ):
         if sql_warehouse_id is None:
             # Create trace_locations from experiment_ids for the V3 API
@@ -456,10 +463,10 @@ class RestStore(AbstractStore):
         model_id: str,
         sql_warehouse_id: str,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ):
         request = SearchUnifiedTraces(
             model_id=model_id,
@@ -534,11 +541,11 @@ class RestStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        name: str | None = None,
+        expectation: Expectation | None = None,
+        feedback: Feedback | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Assessment:
         """
         Update an existing assessment entity in the backend store.
@@ -781,11 +788,11 @@ class RestStore(AbstractStore):
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[list[LoggedModelTag]] = None,
-        params: Optional[list[LoggedModelParameter]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
     ) -> LoggedModel:
         """
         Create a new logged model.
@@ -880,11 +887,11 @@ class RestStore(AbstractStore):
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
@@ -997,8 +1004,8 @@ class RestStore(AbstractStore):
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -1037,6 +1044,99 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
+
+    ############################################################################################
+    # Scorer Management APIs
+    ############################################################################################
+
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            serialized_scorer: String containing the serialized scorer data.
+
+        Returns:
+            The new version number for the scorer.
+        """
+        req_body = message_to_json(
+            RegisterScorer(
+                experiment_id=experiment_id,
+                name=name,
+                serialized_scorer=serialized_scorer,
+            )
+        )
+        response_proto = self._call_endpoint(RegisterScorer, req_body)
+        return response_proto.version
+
+    def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
+        """
+        List all scorers for an experiment (latest version for each scorer name).
+
+        Args:
+            experiment_id: String ID of the experiment.
+
+        Returns:
+            List of Scorer entities.
+        """
+        req_body = message_to_json(ListScorers(experiment_id=experiment_id))
+        response_proto = self._call_endpoint(ListScorers, req_body)
+        return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+
+        Returns:
+            List of Scorer entities for all versions.
+        """
+        req_body = message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name))
+        response_proto = self._call_endpoint(ListScorerVersions, req_body)
+        return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def get_scorer(
+        self, experiment_id: str, name: str, version: int | None = None
+    ) -> ScorerVersion:
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            version: Integer version of the scorer. If None, returns the scorer
+               with maximum version.
+
+        Returns:
+            A ScorerVersion entity object.
+        """
+        req_body = message_to_json(
+            GetScorer(experiment_id=experiment_id, name=name, version=version)
+        )
+        response_proto = self._call_endpoint(GetScorer, req_body)
+        return ScorerVersion.from_proto(response_proto.scorer)
+
+    def delete_scorer(self, experiment_id: str, name: str, version: int | None = None) -> None:
+        """
+        Delete a scorer for an experiment.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            version: Integer version of the scorer to delete. If None, deletes all versions.
+
+        Returns:
+            None.
+        """
+        req_body = message_to_json(
+            DeleteScorer(experiment_id=experiment_id, name=name, version=version)
+        )
+        self._call_endpoint(DeleteScorer, req_body)
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
@@ -1141,3 +1241,22 @@ class RestStore(AbstractStore):
         endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        req_body = message_to_json(
+            LinkTracesToRun(
+                trace_ids=trace_ids,
+                run_id=run_id,
+            )
+        )
+        self._call_endpoint(LinkTracesToRun, req_body)

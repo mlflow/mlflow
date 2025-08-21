@@ -7,11 +7,9 @@ import {
   TextBoxIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Link, matchPath, useLocation, Location, useNavigate } from '../../common/utils/RoutingUtils';
+import { Link, matchPath, useLocation, Location, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
-import { Interpolation } from '@emotion/react';
-import { Theme } from '@databricks/design-system/dist/theme';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
 import { useState } from 'react';
 import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';

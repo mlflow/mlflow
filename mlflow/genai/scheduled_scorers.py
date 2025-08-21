@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
@@ -82,4 +81,4 @@ class ScorerScheduleConfig:
     scorer: Scorer
     scheduled_scorer_name: str
     sample_rate: float
-    filter_string: Optional[str] = None
+    filter_string: str | None = None
