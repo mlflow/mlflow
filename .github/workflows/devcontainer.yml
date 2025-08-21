@@ -19,7 +19,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash --noprofile --norc -euo pipefail {0}
 
 jobs:
   devcontainer:
