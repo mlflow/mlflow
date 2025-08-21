@@ -12,6 +12,7 @@ from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     get_workspace_id,
 )
 from mlflow.tracking import MlflowClient
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import (
@@ -420,7 +421,7 @@ def _do_enable_databricks_archival(
 
 @experimental(version="3.2.0")
 def enable_databricks_trace_archival(
-    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
+    experiment_id: str | None, catalog: str, schema: str, table_prefix: str = "trace_logs"
 ) -> str:
     """
     Enable trace archival for an MLflow experiment by creating Delta tables and views.
@@ -466,5 +467,8 @@ def enable_databricks_trace_archival(
             "The `databricks-agents` package is required to use databricks trace archival."
             "Please install it with `pip install databricks-agents`."
         )
+
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
 
     return _do_enable_databricks_archival(experiment_id, catalog, schema, table_prefix)

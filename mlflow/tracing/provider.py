@@ -39,7 +39,6 @@ from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.tracing.utils.warning import suppress_warning
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -243,9 +242,6 @@ def set_destination(destination: TraceDestination, *, context_local: bool = Fals
                 "because the tracing destination is set to Unity Catalog "
                 "and will dual write to Databricks."
             )
-
-        if destination.experiment_id is None:
-            destination.experiment_id = _get_experiment_id()
 
         from mlflow.genai.experimental import enable_databricks_trace_archival
 
