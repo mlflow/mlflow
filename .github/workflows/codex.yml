@@ -1,10 +1,10 @@
-name: Claude
+name: codex
 
 on:
   pull_request:
 
 jobs:
-  claude-code-action:
+  codex:
     runs-on: ubuntu-latest
     permissions:
       contents: read
