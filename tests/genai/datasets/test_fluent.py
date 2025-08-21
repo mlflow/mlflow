@@ -1766,7 +1766,6 @@ def test_create_dataset_none_uses_active_experiment(tracking_uri):
     from mlflow.tracking import fluent
 
     fluent._active_experiment_id = None
->>>>>>> genai-dataset
 
 
 def test_create_dataset_empty_list_stays_empty(tracking_uri):
