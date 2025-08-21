@@ -32,12 +32,14 @@ from mlflow.tracing.destination import (
     Databricks,
     MlflowExperiment,
     TraceDestination,
+    UnityCatalog,
     UserTraceDestinationRegistry,
 )
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.tracing.utils.warning import suppress_warning
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
@@ -230,6 +232,30 @@ def set_destination(destination: TraceDestination, *, context_local: bool = Fals
             "because the tracing destination is set to Databricks."
         )
 
+    if isinstance(destination, UnityCatalog):
+        # TODO: remove tracking uri setup once we no longer dual write to Databricks
+        if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith(
+            "databricks"
+        ):
+            mlflow.set_tracking_uri("databricks")
+            _logger.info(
+                "Automatically setting the tracking URI to `databricks` "
+                "because the tracing destination is set to Unity Catalog "
+                "and will dual write to Databricks."
+            )
+
+        if destination.experiment_id is None:
+            destination.experiment_id = _get_experiment_id()
+
+        from mlflow.genai.experimental import enable_databricks_trace_archival
+
+        enable_databricks_trace_archival(
+            destination.experiment_id,
+            destination.catalog,
+            destination.schema,
+            destination.table_prefix,
+        )
+
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _setup_tracer_provider()
 
@@ -351,24 +377,22 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors
 
-        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-
-        # Try to use the delta archiving exporter if databricks-agents is available
-        try:
+        if trace_destination and isinstance(trace_destination, UnityCatalog):
             from mlflow.genai.experimental import InferenceTableDeltaSpanExporter
 
             exporter = InferenceTableDeltaSpanExporter()
-            _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta archiving")
-        except ImportError:
-            # databricks-agents not available, use base exporter
+            _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta ingestion")
+        else:
             from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
 
             exporter = InferenceTableSpanExporter()
-            _logger.debug(
-                "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
-            )
+
+        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 
         processor = InferenceTableSpanProcessor(exporter)
+        processors.append(processor)
+    elif trace_destination and isinstance(trace_destination, UnityCatalog):
+        processor = _get_mlflow_delta_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
     else:
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
@@ -382,21 +406,23 @@ def _get_mlflow_span_processor(tracking_uri: str):
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
     # Databricks and SQL backends support V3 traces
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    # Try to use the delta archiving exporter if databricks-agents is available
-    try:
-        from mlflow.genai.experimental import MlflowV3DeltaSpanExporter
+    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    return MlflowV3SpanProcessor(exporter)
 
-        exporter = MlflowV3DeltaSpanExporter(tracking_uri=tracking_uri)
-        _logger.debug("Using MlflowV3DeltaSpanExporter with Databricks Delta archiving")
-    except ImportError:
-        # databricks-agents not available, use base exporter
-        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 
-        exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-        _logger.debug("Defaulting to MlflowV3SpanExporter (databricks-agents not available)")
+def _get_mlflow_delta_span_processor(tracking_uri: str):
+    """
+    Get the MLflow delta span processor instance that ingests to delta tables
+    and dual writes to the current tracer provider.
+    """
+    from mlflow.genai.experimental import MlflowV3DeltaSpanExporter
+    from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
+    exporter = MlflowV3DeltaSpanExporter(tracking_uri=tracking_uri)
+    _logger.debug("Using MlflowV3DeltaSpanExporter with Databricks Delta ingestion")
     return MlflowV3SpanProcessor(exporter)
 
 
