@@ -420,7 +420,11 @@ set_telemetry_client()
 
 # test
 def _untyped_fn(a, b):
-    pass
+    return a + b
+
+
+def _partially_typed_fn(a: int, b: int):
+    return a + b
 
 
 def _typed_fn(a: int, b: int) -> int:
