@@ -42,13 +42,16 @@ def mlflow_server(tmp_path):
         yield url
 
 
-def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str):
+def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
     """
     Test end-to-end: OpenTelemetry client sends spans via experiment ID header to MLflow.
 
     Note: This test verifies that spans are successfully accepted by the server.
     Without artifact upload, traces won't be retrievable via search_traces.
     """
+    # Enable synchronous trace logging to ensure traces are immediately available
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
+
     mlflow.set_tracking_uri(mlflow_server)
 
     experiment = mlflow.set_experiment("otel-test-experiment")
@@ -72,8 +75,15 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str):
         # Capture the OTel trace ID to verify it matches the MLflow trace ID
         otel_trace_id = span.get_span_context().trace_id
 
+    # Force flush the span processor to ensure spans are sent
     flush_success = span_processor.force_flush(10000)
     assert flush_success, "Failed to flush spans to the server"
+
+    # Properly shutdown the span processor and exporter to ensure all data is sent
+    span_processor.shutdown()
+
+    # Add a small delay to ensure the server has processed the spans
+    time.sleep(0.5)
 
     # Wait up to 30 seconds for search_traces() to return a trace
     traces = []
