@@ -40,6 +40,15 @@ class Parameter:
 
 
 @dataclass
+class Function:
+    is_private: bool
+    name: str
+    args: ast.arguments
+    lineno: int
+    col_offset: int
+
+
+@dataclass
 class Signature:
     positional: list[Parameter]  # Includes positional-only and regular positional
     keyword_only: list[Parameter]
@@ -114,9 +123,7 @@ def parse_signature(args: ast.arguments) -> Signature:
     )
 
 
-def check_function_type_hints(
-    fn: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> SignatureWarning | None:
+def check_function_type_hints(fn: Function) -> SignatureWarning | None:
     """
     Check if a function has proper type hints for all parameters and return type.
     Returns a single error if any type hints are missing, None otherwise.
@@ -151,10 +158,7 @@ def check_function_type_hints(
     return None
 
 
-def check_signature_compatibility(
-    old_fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    new_fn: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> list[SignatureWarning]:
+def check_signature_compatibility(old_fn: Function, new_fn: Function) -> list[SignatureWarning]:
     """
     Return list of error messages when *new_fn* is not backward-compatible with *old_fn*,
     or None if compatible.
@@ -289,7 +293,7 @@ def _is_private(n: str) -> bool:
 
 class FunctionSignatureExtractor(ast.NodeVisitor):
     def __init__(self):
-        self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        self.functions: dict[str, Function] = {}
         self.stack: list[ast.ClassDef] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -300,18 +304,30 @@ class FunctionSignatureExtractor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         # Is this a private function or a function in a private class?
         # If so, skip it.
-        if _is_private(node.name) or (self.stack and _is_private(self.stack[-1].name)):
-            return
-
+        is_private = _is_private(node.name) or (
+            len(self.stack) > 0 and _is_private(self.stack[-1].name)
+        )
         names = [*(c.name for c in self.stack), node.name]
-        self.functions[".".join(names)] = node
+        self.functions[".".join(names)] = Function(
+            is_private=is_private,
+            name=node.name,
+            args=node.args,
+            lineno=node.lineno,
+            col_offset=node.col_offset,
+        )
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        if _is_private(node.name) or (self.stack and _is_private(self.stack[-1].name)):
-            return
-
+        is_private = _is_private(node.name) or (
+            len(self.stack) > 0 and _is_private(self.stack[-1].name)
+        )
         names = [*(c.name for c in self.stack), node.name]
-        self.functions[".".join(names)] = node
+        self.functions[".".join(names)] = Function(
+            is_private=is_private,
+            name=node.name,
+            args=node.args,
+            lineno=node.lineno,
+            col_offset=node.col_offset,
+        )
 
 
 def get_changed_python_files(base_branch: str = "master") -> list[Path]:
@@ -329,7 +345,7 @@ def get_changed_python_files(base_branch: str = "master") -> list[Path]:
     return [Path(f) for f in files if f]
 
 
-def parse_functions(content: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+def parse_functions(content: str) -> dict[str, Function]:
     tree = ast.parse(content)
     extractor = FunctionSignatureExtractor()
     extractor.visit(tree)
@@ -393,6 +409,8 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
             for func_name in set(base_functions.keys()) & set(current_functions.keys()):
                 base_func = base_functions[func_name]
                 current_func = current_functions[func_name]
+                if base_func.is_private or current_func.is_private:
+                    continue
                 if param_errors := check_signature_compatibility(base_func, current_func):
                     # Create individual errors for each problematic parameter
                     for param_error in param_errors:
