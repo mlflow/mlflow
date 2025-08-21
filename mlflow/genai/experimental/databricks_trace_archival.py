@@ -5,6 +5,7 @@ Trace archival functionality for MLflow that enables archiving traces to Delta t
 import importlib.util
 import logging
 
+from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_exporter_utils import DatabricksTraceServerClient
 from mlflow.tracking import MlflowClient
@@ -54,6 +55,22 @@ def _validate_schema_versions(spans_version: str, events_version: str) -> None:
     )
 
 
+def _get_spark_session():
+    try:
+        from pyspark.sql import SparkSession
+
+        return SparkSession.builder.getOrCreate()
+    except Exception as e:
+        # If databricks.connect is not installed, raise the original error
+        if importlib.util.find_spec("databricks.connect") is None:
+            raise e
+
+        # Attempt to fallback to DatabricksSession
+        from databricks.connect import DatabricksSession
+
+        return DatabricksSession.builder.serverless(True).getOrCreate()
+
+
 def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str) -> None:
     """
     Create a logical view for GenAI trace data that combines spans and events tables.
@@ -69,9 +86,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
     try:
         spark = _get_active_spark_session()
         if spark is None:
-            from pyspark.sql import SparkSession
-
-            spark = SparkSession.builder.getOrCreate()
+            spark = _get_spark_session()
 
         query = f"""
             CREATE OR REPLACE VIEW {view_name} AS
@@ -309,7 +324,7 @@ def _do_enable_databricks_archival(
             trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
         )
 
-        # 4 Create the logical view
+        # 4. Create the logical view
         _logger.info(f"Creating trace archival at: {trace_archival_location}")
         _create_genai_trace_view(
             trace_archival_location,
@@ -329,6 +344,8 @@ def _do_enable_databricks_archival(
             f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "
             f"with target archival available at: {trace_archival_location}"
         )
+
+        MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.set(True)
 
         return trace_archival_location
 
@@ -384,8 +401,8 @@ def enable_databricks_trace_archival(
 
     if importlib.util.find_spec("databricks.agents") is None:
         raise ImportError(
-            "The `mlflow[databricks]` package is required to use databricks trace archival."
-            "Please install it with `pip install mlflow[databricks]`."
+            "The `databricks-agents` package is required to use databricks trace archival."
+            "Please install it with `pip install databricks-agents`."
         )
 
     return _do_enable_databricks_archival(experiment_id, catalog, schema, table_prefix)

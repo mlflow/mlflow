@@ -56,7 +56,7 @@ def test_trace_archival_raises_when_agents_not_installed():
     """Test that ImportError is raised when databricks-agents package is not available."""
     with pytest.raises(
         ImportError,
-        match=r"The `mlflow\[databricks\]` package is required to use databricks trace archival",
+        match=r"The `databricks-agents` package is required to use databricks trace archival",
     ):
         enable_databricks_trace_archival("12345", "catalog", "schema")
 
@@ -86,12 +86,3 @@ def test_get_scorer_raises_when_agents_not_installed(_):
 def test_delete_scorer_raises_when_agents_not_installed(_):
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
         delete_scorer(experiment_id="test_experiment", name="test_scorer")
-
-
-def test_trace_archival_raises_when_agents_not_installed():
-    """Test that ImportError is raised when databricks-agents package is not available."""
-    with pytest.raises(
-        ImportError,
-        match=r"The `mlflow\[databricks\]` package is required to use databricks trace archival",
-    ):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
