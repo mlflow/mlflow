@@ -307,49 +307,83 @@ def test_evaluate_with_traces(pass_full_dataframe):
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS genai evaluator doesn't support managed dataset input yet")
+    """Test evaluation with both managed (Databricks) and OSS datasets."""
+    if is_in_databricks:
+        # Databricks path: Use managed dataset with mocks
+        class MockDatasetClient:
+            def __init__(self):
+                # dataset_id -> list of records
+                self.records = {}
 
-    class MockDatasetClient:
-        def __init__(self):
-            # dataset_id -> list of records
-            self.records = {}
+            def create_dataset(self, uc_table_name: str, experiment_ids: list[str]):
+                from databricks.agents.datasets import Dataset
 
-        def create_dataset(self, uc_table_name: str, experiment_ids: list[str]):
-            from databricks.agents.datasets import Dataset
+                dataset = Dataset(
+                    dataset_id=str(uuid.uuid4()),
+                    name=uc_table_name,
+                    digest=None,
+                    source_type="databricks-uc-table",
+                )
+                self.records[dataset.dataset_id] = []
+                return dataset
 
-            dataset = Dataset(
-                dataset_id=str(uuid.uuid4()),
-                name=uc_table_name,
-                digest=None,
-                source_type="databricks-uc-table",
-            )
-            self.records[dataset.dataset_id] = []
-            return dataset
+            def list_dataset_records(self, dataset_id: str):
+                return self.records[dataset_id]
 
-        def list_dataset_records(self, dataset_id: str):
-            return self.records[dataset_id]
+            def batch_create_dataset_records(self, name: str, dataset_id: str, records):
+                self.records[dataset_id].extend(records)
 
-        def batch_create_dataset_records(self, name: str, dataset_id: str, records):
-            self.records[dataset_id].extend(records)
+            def upsert_dataset_record_expectations(
+                self, name: str, dataset_id: str, record_id: str, expectations: list[dict[str, Any]]
+            ):
+                for record in self.records[dataset_id]:
+                    if record.id == record_id:
+                        record.expectations.update(expectations)
 
-        def upsert_dataset_record_expectations(
-            self, name: str, dataset_id: str, record_id: str, expectations: list[dict[str, Any]]
+            def sync_dataset_to_uc(self, dataset_id: str, uc_table_name: str):
+                pass
+
+        mock_client = MockDatasetClient()
+        with (
+            mock.patch("databricks.rag_eval.datasets.api._get_client", return_value=mock_client),
+            mock.patch(
+                "databricks.rag_eval.datasets.entities._get_client", return_value=mock_client
+            ),
+            mock.patch(
+                "mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True
+            ),
         ):
-            for record in self.records[dataset_id]:
-                if record.id == record_id:
-                    record.expectations.update(expectations)
+            dataset = create_dataset(
+                uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
+            )
+            dataset.merge_records(
+                [
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "expectations": {
+                            "expected_response": "MLflow is a tool for ML",
+                            "max_length": 100,
+                        },
+                    },
+                    {
+                        "inputs": {"question": "What is Spark?"},
+                        "expectations": {
+                            "expected_response": "Spark is a fast data processing engine",
+                            "max_length": 1,
+                        },
+                    },
+                ]
+            )
 
-        def sync_dataset_to_uc(self, dataset_id: str, uc_table_name: str):
-            pass
-
-    mock_client = MockDatasetClient()
-    with (
-        mock.patch("databricks.rag_eval.datasets.api._get_client", return_value=mock_client),
-        mock.patch("databricks.rag_eval.datasets.entities._get_client", return_value=mock_client),
-        mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True),
-    ):
-        dataset = create_dataset(uc_table_name="mlflow.managed.dataset", experiment_id="exp-123")
+            result = mlflow.genai.evaluate(
+                data=dataset,
+                predict_fn=TestModel().predict,
+                scorers=[exact_match, is_concise, relevance, has_trace],
+            )
+    else:
+        dataset = create_dataset(
+            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
+        )
         dataset.merge_records(
             [
                 {
@@ -386,13 +420,55 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
     assert len(run.inputs.dataset_inputs) == 1
     assert run.inputs.dataset_inputs[0].dataset.name == dataset.name
     assert run.inputs.dataset_inputs[0].dataset.digest == dataset.digest
-    assert run.inputs.dataset_inputs[0].dataset.source_type == "databricks-uc-table"
+    # Check for the correct source_type based on whether we're in Databricks or OSS
+    expected_source_type = (
+        "databricks-uc-table" if is_in_databricks else "mlflow_evaluation_dataset"
+    )
+    assert run.inputs.dataset_inputs[0].dataset.source_type == expected_source_type
 
     # Traces are associated with the eval run
     traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
     assert len(traces) == 2
 
     _validate_assessments(traces)
+
+
+def test_evaluate_with_managed_dataset_from_searched_traces():
+    for i in range(3):
+        with mlflow.start_span(name=f"qa_span_{i}") as span:
+            question = f"What is item {i}?"
+            span.set_inputs({"question": question})
+            span.set_outputs({"answer": f"Item {i} is something"})
+
+            mlflow.log_expectation(
+                trace_id=span.trace_id,
+                name="expected_response",
+                value=f"Item {i} is a detailed answer",
+            )
+            mlflow.log_expectation(
+                trace_id=span.trace_id,
+                name="max_length",
+                value=50 if i % 2 == 0 else 10,
+            )
+
+    traces_df = mlflow.search_traces()
+
+    dataset = create_dataset(
+        name="traces_eval_dataset", tags={"source": "traces", "evaluation": "test"}
+    )
+    dataset.merge_records(traces_df)
+
+    result = mlflow.genai.evaluate(
+        data=dataset,
+        predict_fn=TestModel().predict,
+        scorers=[exact_match, is_concise, has_trace],
+    )
+
+    metrics = result.metrics
+    assert "exact_match/mean" in metrics
+    assert "is_concise/mean" in metrics
+    assert "has_trace/mean" in metrics
+    assert metrics["has_trace/mean"] == 1.0
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")

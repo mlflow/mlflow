@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from mlflow.entities import (
     Assessment,
     DatasetInput,
+    DatasetRecord,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -931,11 +932,11 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def create_evaluation_dataset(
+    def create_dataset(
         self,
         name: str,
         tags: dict[str, str] | None = None,
-        experiment_id: list[str] | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> "EvaluationDataset":
         """
         Create a new evaluation dataset.
@@ -943,7 +944,7 @@ class AbstractStore:
         Args:
             name: The name of the evaluation dataset.
             tags: Optional tags to associate with the dataset.
-            experiment_id: List of experiment IDs to associate with the dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset.
 
         Returns:
             The created evaluation dataset with populated metadata.
@@ -951,7 +952,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_evaluation_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
@@ -964,9 +965,9 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def delete_evaluation_dataset(self, dataset_id: str) -> None:
+    def delete_dataset(self, dataset_id: str) -> None:
         """
-        Delete an evaluation dataset and all its records.
+        Delete a dataset and all its records.
 
         Args:
             dataset_id: The ID of the dataset to delete.
@@ -974,7 +975,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def search_evaluation_datasets(
+    def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
@@ -998,7 +999,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def upsert_evaluation_dataset_records(
+    def upsert_dataset_records(
         self,
         dataset_id: str,
         records: list[dict[str, Any]],
@@ -1016,7 +1017,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def set_evaluation_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
 
@@ -1032,7 +1033,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def delete_evaluation_dataset_tag(self, dataset_id: str, key: str) -> None:
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
         Delete a tag from an evaluation dataset.
 
@@ -1046,7 +1047,7 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_evaluation_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.
 
@@ -1057,6 +1058,66 @@ class AbstractStore:
 
         Returns:
             List of experiment IDs associated with the dataset.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
+        """
+        Load dataset records with pagination support.
+
+        This method is used by handlers and for lazy loading of records in the
+        EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. If None, returns all records.
+            page_token: Token for pagination. If None, starts from the beginning.
+
+        Returns:
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to associate with the dataset
+
+        Returns:
+            The updated EvaluationDataset
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to disassociate from the dataset
+
+        Returns:
+            The updated EvaluationDataset
+
+        Note:
+            This operation is idempotent - removing non-existent associations
+            will not raise an error.
         """
         raise NotImplementedError(self.__class__.__name__)
 

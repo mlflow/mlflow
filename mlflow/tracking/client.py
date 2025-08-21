@@ -6172,6 +6172,69 @@ class MlflowClient:
             client.delete_dataset_tag(dataset_id="dataset123", key="deprecated")
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Add a dataset to additional experiments.
+
+        This allows reusing datasets across multiple experiments for evaluation purposes.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The updated EvaluationDataset with new experiment associations.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Add dataset to new experiments
+            dataset = client.add_dataset_to_experiments(
+                dataset_id="d-abc123", experiment_ids=["1", "2", "3"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+        """
+        return self._tracking_client.add_dataset_to_experiments(dataset_id, experiment_ids)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Remove a dataset from experiments.
+
+        This operation is idempotent - removing non-existent associations will not raise errors.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to remove association from.
+
+        Returns:
+            The updated EvaluationDataset with removed experiment associations.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Remove dataset from experiments
+            dataset = client.remove_dataset_from_experiments(
+                dataset_id="d-abc123", experiment_ids=["2", "3"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+        """
+        return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
+
     # Webhook APIs
     @experimental(version="3.3.0")
     def create_webhook(

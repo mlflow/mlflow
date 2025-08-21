@@ -6882,6 +6882,69 @@ def test_dataset_crud_operations(store):
         store.delete_dataset("d-nonexistent")
 
 
+def test_dataset_records_pagination(store):
+    exp_id = _create_experiments(store, ["pagination_test_exp"])[0]
+
+    dataset = store.create_dataset(
+        name="pagination_test_dataset", experiment_ids=[exp_id], tags={"test": "pagination"}
+    )
+
+    records = []
+    for i in range(25):
+        records.append(
+            {
+                "inputs": {"id": i, "question": f"Question {i}"},
+                "expectations": {"answer": f"Answer {i}"},
+                "tags": {"index": str(i)},
+            }
+        )
+
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    page1, next_token1 = store._load_dataset_records(dataset.dataset_id, max_results=10)
+    assert len(page1) == 10
+    assert next_token1 is not None  # Token should exist for more pages
+
+    # Collect all IDs from page1
+    page1_ids = {r.inputs["id"] for r in page1}
+    assert len(page1_ids) == 10  # All IDs should be unique
+
+    page2, next_token2 = store._load_dataset_records(
+        dataset.dataset_id, max_results=10, page_token=next_token1
+    )
+    assert len(page2) == 10
+    assert next_token2 is not None  # Token should exist for more pages
+
+    # Collect all IDs from page2
+    page2_ids = {r.inputs["id"] for r in page2}
+    assert len(page2_ids) == 10  # All IDs should be unique
+    assert page1_ids.isdisjoint(page2_ids)  # No overlap between pages
+
+    page3, next_token3 = store._load_dataset_records(
+        dataset.dataset_id, max_results=10, page_token=next_token2
+    )
+    assert len(page3) == 5
+    assert next_token3 is None  # No more pages
+
+    # Collect all IDs from page3
+    page3_ids = {r.inputs["id"] for r in page3}
+    assert len(page3_ids) == 5  # All IDs should be unique
+    assert page1_ids.isdisjoint(page3_ids)  # No overlap
+    assert page2_ids.isdisjoint(page3_ids)  # No overlap
+
+    # Verify we got all 25 records across all pages
+    all_ids = page1_ids | page2_ids | page3_ids
+    assert all_ids == set(range(25))
+
+    all_records, no_token = store._load_dataset_records(dataset.dataset_id, max_results=None)
+    assert len(all_records) == 25
+    assert no_token is None
+
+    # Verify we have all expected records (order doesn't matter)
+    all_record_ids = {r.inputs["id"] for r in all_records}
+    assert all_record_ids == set(range(25))
+
+
 def test_dataset_search_comprehensive(store):
     test_prefix = "test_search_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp_{i}" for i in range(1, 4)])
@@ -7264,8 +7327,9 @@ def test_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 2
     assert result["updated"] == 1
 
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
+    loaded_records, next_token = store._load_dataset_records(created_dataset.dataset_id)
     assert len(loaded_records) == 2
+    assert next_token is None
 
     mlflow_record = next(r for r in loaded_records if r.inputs["question"] == "What is MLflow?")
     assert mlflow_record.expectations == {
@@ -7298,8 +7362,9 @@ def test_dataset_upsert_comprehensive(store):
     assert result["inserted"] == 1
     assert result["updated"] == 1
 
-    loaded_records = store._load_dataset_records(created_dataset.dataset_id)
+    loaded_records, next_token = store._load_dataset_records(created_dataset.dataset_id)
     assert len(loaded_records) == 3
+    assert next_token is None
 
     updated_mlflow_record = next(
         r for r in loaded_records if r.inputs["question"] == "What is MLflow?"
@@ -7621,6 +7686,8 @@ def test_sql_dataset_record_merge():
 
         assert record6.expectations == {"accuracy": 0.8}  # Unchanged
         assert record6.tags == {"env": "test", "version": "1.0"}
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
@@ -8147,3 +8214,52 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Test list_scorer_versions for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
+
+
+def test_dataset_experiment_associations(store):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+        exp_ids = _create_experiments(
+            store, ["exp_assoc_1", "exp_assoc_2", "exp_assoc_3", "exp_assoc_4"]
+        )
+        exp1, exp2, exp3, exp4 = exp_ids
+
+        dataset = store.create_dataset(
+            name="test_dataset_associations", experiment_ids=[exp1], tags={"test": "associations"}
+        )
+
+        assert dataset.experiment_ids == [exp1]
+
+        updated = store.add_dataset_to_experiments(
+            dataset_id=dataset.dataset_id, experiment_ids=[exp2, exp3]
+        )
+        assert set(updated.experiment_ids) == {exp1, exp2, exp3}
+
+        result = store.add_dataset_to_experiments(
+            dataset_id=dataset.dataset_id, experiment_ids=[exp2, exp4]
+        )
+        assert set(result.experiment_ids) == {exp1, exp2, exp3, exp4}
+
+        removed = store.remove_dataset_from_experiments(
+            dataset_id=dataset.dataset_id, experiment_ids=[exp2, exp3]
+        )
+        assert set(removed.experiment_ids) == {exp1, exp4}
+
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store._logger.warning") as mock_warning:
+            idempotent = store.remove_dataset_from_experiments(
+                dataset_id=dataset.dataset_id, experiment_ids=[exp2, exp3]
+            )
+            assert mock_warning.call_count == 2
+            assert "was not associated" in mock_warning.call_args_list[0][0][0]
+
+        assert set(idempotent.experiment_ids) == {exp1, exp4}
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.add_dataset_to_experiments(dataset_id="d-nonexistent", experiment_ids=[exp1])
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.add_dataset_to_experiments(
+                dataset_id=dataset.dataset_id, experiment_ids=["999999"]
+            )
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.remove_dataset_from_experiments(dataset_id="d-nonexistent", experiment_ids=[exp1])

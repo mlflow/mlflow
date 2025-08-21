@@ -1022,6 +1022,42 @@ class TrackingServiceClient:
         """
         self.store.delete_dataset_tag(dataset_id=dataset_id, key=key)
 
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The updated EvaluationDataset with new experiment associations.
+
+        Raises:
+            MlflowException: If dataset or experiments not found.
+        """
+        return self.store.add_dataset_to_experiments(dataset_id, experiment_ids)
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to remove association from.
+
+        Returns:
+            The updated EvaluationDataset with removed experiment associations.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        return self.store.remove_dataset_from_experiments(dataset_id, experiment_ids)
+
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating entity associations.

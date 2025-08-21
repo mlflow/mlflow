@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import logging
@@ -3634,25 +3635,80 @@ class SqlAlchemyStore(AbstractStore):
         else:
             return "unknown"
 
-    def _load_dataset_records(self, dataset_id: str) -> list[DatasetRecord]:
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
         """
-        Internal method to load dataset records for lazy loading.
+        Load dataset records with cursor-based pagination support.
+
+        Records are ordered by (created_time, dataset_record_id) to ensure deterministic
+        pagination across all database backends.
 
         Args:
             dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. Defaults to
+                LOAD_DATASET_RECORDS_MAX_RESULTS. If explicitly set to None, returns all records.
+            page_token: Cursor token for pagination in format "created_time:record_id".
+                If None, starts from the beginning.
 
         Returns:
-            List of DatasetRecord objects.
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
         """
+        from mlflow.store.tracking import LOAD_DATASET_RECORDS_MAX_RESULTS
+
+        # Use default if not explicitly set
+        if max_results is None:
+            effective_max_results = None  # Return all records for internal use
+        else:
+            effective_max_results = max_results or LOAD_DATASET_RECORDS_MAX_RESULTS
+
         with self.ManagedSessionMaker() as session:
-            sql_records = (
+            query = (
                 session.query(SqlEvaluationDatasetRecord)
                 .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
-                .order_by(SqlEvaluationDatasetRecord.created_time)
-                .all()
+                .order_by(
+                    SqlEvaluationDatasetRecord.created_time,
+                    SqlEvaluationDatasetRecord.dataset_record_id,
+                )
             )
 
-            return [record.to_mlflow_entity() for record in sql_records]
+            if page_token:
+                try:
+                    decoded = base64.b64decode(page_token.encode()).decode()
+                    last_created_time, last_record_id = decoded.split(":", 1)
+                    last_created_time = int(last_created_time)
+
+                    query = query.filter(
+                        (SqlEvaluationDatasetRecord.created_time > last_created_time)
+                        | (
+                            (SqlEvaluationDatasetRecord.created_time == last_created_time)
+                            & (SqlEvaluationDatasetRecord.dataset_record_id > last_record_id)
+                        )
+                    )
+                except (ValueError, AttributeError):
+                    offset = int(page_token)
+                    query = query.offset(offset)
+
+            if effective_max_results is not None:
+                sql_records = query.limit(effective_max_results + 1).all()
+
+                if len(sql_records) > effective_max_results:
+                    sql_records = sql_records[:effective_max_results]
+                    last_record = sql_records[-1]
+                    cursor = f"{last_record.created_time}:{last_record.dataset_record_id}"
+                    next_page_token = base64.b64encode(cursor.encode()).decode()
+                else:
+                    next_page_token = None
+            else:
+                sql_records = query.all()
+                next_page_token = None
+
+            records = [record.to_mlflow_entity() for record in sql_records]
+            return records, next_page_token
 
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -3930,6 +3986,116 @@ class SqlAlchemyStore(AbstractStore):
             for k, v in tags.items():
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
+
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Add a dataset to additional experiments.
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            for exp_id in experiment_ids:
+                if not session.query(SqlExperiment).filter_by(experiment_id=str(exp_id)).first():
+                    raise MlflowException(
+                        f"Experiment '{exp_id}' not found",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            new_associations = []
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    new_associations.append(
+                        SqlEntityAssociation(
+                            association_id=uuid.uuid4().hex,
+                            source_id=dataset_id,
+                            source_type=EntityAssociationType.EVALUATION_DATASET,
+                            destination_id=str(exp_id),
+                            destination_type=EntityAssociationType.EXPERIMENT,
+                        )
+                    )
+
+            if new_associations:
+                session.bulk_save_objects(new_associations)
+
+            dataset.last_update_time = get_current_time_millis()
+            session.commit()
+
+            return dataset.to_mlflow_entity()
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Remove a dataset from experiments (idempotent).
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    _logger.warning(
+                        f"Dataset '{dataset_id}' was not associated with experiment '{exp_id}'"
+                    )
+
+            if existing_exp_ids:
+                session.query(SqlEntityAssociation).filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(list(existing_exp_ids)),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                ).delete(synchronize_session=False)
+
+                dataset.last_update_time = get_current_time_millis()
+
+            session.commit()
+
+            return dataset.to_mlflow_entity()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
