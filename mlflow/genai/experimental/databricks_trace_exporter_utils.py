@@ -8,7 +8,7 @@ and other common archival operations.
 import logging
 import re
 
-from google.protobuf import Empty
+from google.protobuf.empty_pb2 import Empty
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_storage_config import (
