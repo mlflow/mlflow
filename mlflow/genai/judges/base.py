@@ -5,7 +5,7 @@ from mlflow.utils.annotations import experimental
 @experimental(version="3.4.0")
 class Judge(Scorer):
     """
-    Base class for LLM-based scorers that can be aligned with human feedback.
+    Base class for LLM-as-a-judge scorers that can be aligned with human feedback.
 
     Judges are specialized scorers that use LLMs to evaluate outputs based on
     configurable criteria and the results of human-provided feedback alignment.
