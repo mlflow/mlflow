@@ -149,6 +149,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     logoPath: '/images/logos/txtai-logo.png',
     link: '/genai/tracing/integrations/listing/txtai',
   },
+  {
+    id: 'haystack',
+    name: 'Haystack',
+    logoPath: '/images/logos/haystack-logo.png',
+    link: '/genai/tracing/integrations/listing/haystack',
+  },
 ];
 
 interface TracingIntegrationsProps {
