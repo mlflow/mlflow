@@ -224,7 +224,7 @@ class DatabricksDeltaArchivalMixin:
             # Convert events directly
             events = getattr(span, "events", []) or []
             for event in events:
-                attributes = (getattr(event, "attributes", {}) or {},)
+                attributes = getattr(event, "attributes", {}) or {}
                 event_dict = {
                     "time_unix_nano": getattr(event, "timestamp", current_time_ns),
                     "name": getattr(event, "name", "event"),

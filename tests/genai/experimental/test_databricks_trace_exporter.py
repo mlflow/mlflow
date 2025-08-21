@@ -1,6 +1,5 @@
 """Tests for MlflowV3DeltaSpanExporter functionality."""
 
-import json
 import threading
 import time
 from unittest import mock
@@ -875,7 +874,7 @@ def test_convert_trace_to_proto_spans_with_complex_data():
     assert proto_span.trace_state == ""
     assert proto_span.flags == 0
     assert proto_span.name == "complex_span"
-    assert proto_span.kind == "SPAN_KIND_INTERNAL"  # Default kind
+    assert proto_span.kind == "INTERNAL"  # Default kind
 
     # Verify timestamps
     assert proto_span.start_time_unix_nano == 1000
@@ -889,32 +888,31 @@ def test_convert_trace_to_proto_spans_with_complex_data():
     assert proto_span.attributes["db.statement"] == "SELECT * FROM users"
     assert proto_span.dropped_attributes_count == 0
 
-    # Verify events are JSON-encoded with correct structure
+    # Verify events are proper proto message structs
     assert len(proto_span.events) == 2
 
-    # Parse and verify first event
-    event1 = json.loads(proto_span.events[0])
-    assert event1["name"] == "query_start"
+    # Verify first event
+    event1 = proto_span.events[0]
+    assert event1.name == "query_start"
     # Note: timestamp conversion may use current time fallback instead of event timestamp
-    assert "time_unix_nano" in event1
-    assert event1["attributes"]["query_id"] == "12345"
-    assert event1["dropped_attributes_count"] == 0
+    assert event1.time_unix_nano > 0
+    assert event1.attributes["query_id"] == "12345"
+    assert event1.dropped_attributes_count == 0
 
-    # Parse and verify second event
-    event2 = json.loads(proto_span.events[1])
-    assert event2["name"] == "query_end"
+    # Verify second event
+    event2 = proto_span.events[1]
+    assert event2.name == "query_end"
     # Note: timestamp conversion may use current time fallback instead of event timestamp
-    assert "time_unix_nano" in event2
-    assert event2["attributes"]["rows_returned"] == 42
-    assert event2["dropped_attributes_count"] == 0
+    assert event2.time_unix_nano > 0
+    assert event2.attributes["rows_returned"] == "42"  # Attributes are stored as strings
+    assert event2.dropped_attributes_count == 0
 
     assert proto_span.dropped_events_count == 0
     assert proto_span.dropped_links_count == 0
 
-    # Verify status is JSON-encoded with correct error status
-    status = json.loads(proto_span.status)
-    assert status["code"] == "ERROR"  # Maps from OTel StatusCode.ERROR
-    assert status["message"] == "Test error"
+    # Verify status is a proper proto message struct with correct error status
+    assert proto_span.status.code == "ERROR"  # Maps from OTel StatusCode.ERROR
+    assert proto_span.status.message == "Test error"
 
 
 def test_convert_trace_to_proto_spans_empty_trace(sample_trace_without_spans):
@@ -1023,7 +1021,9 @@ def test_convert_trace_to_proto_spans_filters_spans_without_id():
                 delta_proto.dropped_attributes_count = 0
                 delta_proto.dropped_events_count = 0
                 delta_proto.dropped_links_count = 0
-                delta_proto.status = json.dumps({"code": "STATUS_CODE_UNSET", "message": ""})
+                # Set status using the proper proto message structure
+                delta_proto.status.code = "UNSET"
+                delta_proto.status.message = ""
 
                 delta_proto_spans.append(delta_proto)
 

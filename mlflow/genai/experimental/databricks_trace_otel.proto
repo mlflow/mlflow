@@ -39,7 +39,7 @@ message Span {
   message Event {
     // The time the event occurred in nanoseconds since epoch.
     optional int64 time_unix_nano = 1;
-    
+
     // The name of the event.
     optional string name = 2;
 
