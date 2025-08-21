@@ -130,7 +130,7 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
     assert response.status_code == 422
 
 
-def test_invalid_otel_span_format_returns_400(mlflow_server):
+def test_invalid_otel_span_format_returns_400(mlflow_server: str):
     """
     Test that invalid OpenTelemetry protobuf format returns HTTP 400.
     """
@@ -185,7 +185,7 @@ def test_missing_required_span_fields_returns_422(mlflow_server):
         timeout=10,
     )
 
-    assert response.status_code == 422, f"Expected 422, got {response.status_code}"
+    assert response.status_code == 422
 
 
 def test_missing_experiment_id_header_returns_422(mlflow_server):
@@ -220,4 +220,46 @@ def test_missing_experiment_id_header_returns_422(mlflow_server):
         timeout=10,
     )
 
-    assert response.status_code == 422, f"Expected 422, got {response.status_code}"
+    assert response.status_code == 422
+
+
+def test_invalid_content_type_returns_400(mlflow_server: str):
+    """
+    Test that invalid Content-Type header returns HTTP 400.
+    """
+    # Create a valid OTLP request
+    span = OTelProtoSpan()
+    span.trace_id = b"1234567890123456"
+    span.span_id = b"12345678"
+    span.name = "test-span"
+    span.start_time_unix_nano = 1000000000
+    span.end_time_unix_nano = 2000000000
+
+    scope = InstrumentationScope()
+    scope.name = "test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.append(span)
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(resource_spans)
+
+    # Send request with incorrect Content-Type
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/json",  # Wrong content type
+            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400
+    assert "Invalid Content-Type" in response.text

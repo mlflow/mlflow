@@ -12,7 +12,7 @@ to MLflow spans, which requires more complex conversion logic.
 
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel, Field
@@ -30,6 +30,7 @@ class OTelExportTraceServiceResponse(BaseModel):
     Pydantic model for the OTLP/HTTP ExportTraceServiceResponse.
 
     This matches the OpenTelemetry protocol specification for trace export responses.
+    Reference: https://opentelemetry.io/docs/specs/otlp/
     """
 
     partialSuccess: dict[str, Any] | None = Field(
@@ -40,16 +41,21 @@ class OTelExportTraceServiceResponse(BaseModel):
 @otel_router.post("", response_model=OTelExportTraceServiceResponse, status_code=200)
 async def export_traces(
     request: Request,
+    response: Response,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    content_type: str = Header(None),
 ) -> OTelExportTraceServiceResponse:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
 
     This endpoint accepts OTLP/HTTP protobuf trace export requests.
+    Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
+        response: FastAPI Response object for setting headers
         x_mlflow_experiment_id: Required header containing the experiment ID
+        content_type: Content-Type header from the request
 
     Returns:
         OTel ExportTraceServiceResponse indicating success
@@ -57,6 +63,16 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
+    # Validate Content-Type header
+    if content_type != "application/x-protobuf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf",
+        )
+
+    # Set response Content-Type header
+    response.headers["Content-Type"] = "application/x-protobuf"
+
     body = await request.body()
     parsed_request = ExportTraceServiceRequest()
 
@@ -89,7 +105,7 @@ async def export_traces(
         except NotImplementedError:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="REST OTLP span logging is not supported by the current tracing store",
+                detail=f"REST OTLP span logging is not supported by {store.__class__.__name__}",
             )
         except Exception as e:
             raise HTTPException(

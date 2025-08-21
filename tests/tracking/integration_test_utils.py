@@ -5,7 +5,7 @@ import socket
 import sys
 import time
 from subprocess import Popen
-from typing import Any, Generator
+from typing import Any, Generator, Literal
 
 import mlflow
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
@@ -37,7 +37,7 @@ def _init_server(
     root_artifact_uri: str,
     extra_env: dict[str, Any] | None = None,
     app: str | None = None,
-    server_type: str = "fastapi",
+    server_type: Literal["flask", "fastapi"] = "fastapi",
 ) -> Generator[str, None, None]:
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
