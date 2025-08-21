@@ -48,7 +48,7 @@ class Signature:
 
 
 @dataclass
-class ParameterError:
+class SignatureWarning:
     message: str
     param_name: str
     lineno: int
@@ -114,10 +114,47 @@ def parse_signature(args: ast.arguments) -> Signature:
     )
 
 
+def check_function_type_hints(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> SignatureWarning | None:
+    """
+    Check if a function has proper type hints for all parameters and return type.
+    Returns a single error if any type hints are missing, None otherwise.
+    """
+    # Check return type
+    if fn.returns is None:
+        return SignatureWarning(
+            message=f"Function '{fn.name}' is missing type hints.",
+            param_name=fn.name,
+            lineno=fn.lineno,
+            col_offset=fn.col_offset,
+        )
+
+    args = fn.args
+    all_args = (
+        args.posonlyargs
+        + args.args
+        + args.kwonlyargs
+        + ([args.vararg] if args.vararg else [])
+        + ([args.kwarg] if args.kwarg else [])
+    )
+
+    for arg in all_args:
+        if arg.annotation is None:
+            return SignatureWarning(
+                message=f"Function '{fn.name}' is missing type hints.",
+                param_name=fn.name,
+                lineno=fn.lineno,
+                col_offset=fn.col_offset,
+            )
+
+    return None
+
+
 def check_signature_compatibility(
     old_fn: ast.FunctionDef | ast.AsyncFunctionDef,
     new_fn: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> list[ParameterError]:
+) -> list[SignatureWarning]:
     """
     Return list of error messages when *new_fn* is not backward-compatible with *old_fn*,
     or None if compatible.
@@ -137,7 +174,7 @@ def check_signature_compatibility(
     """
     old_sig = parse_signature(old_fn.args)
     new_sig = parse_signature(new_fn.args)
-    errors: list[ParameterError] = []
+    errors: list[SignatureWarning] = []
 
     # ------------------------------------------------------------------ #
     # 1. Positional / pos-only parameters
@@ -147,7 +184,7 @@ def check_signature_compatibility(
     for idx, old_param in enumerate(old_sig.positional):
         if idx >= len(new_sig.positional):
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Positional param '{old_param.name}' was removed.",
                     param_name=old_param.name,
                     lineno=old_param.lineno,
@@ -159,7 +196,7 @@ def check_signature_compatibility(
         new_param = new_sig.positional[idx]
         if old_param.name != new_param.name:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=(
                         f"Positional param order/name changed: "
                         f"'{old_param.name}' -> '{new_param.name}'."
@@ -174,7 +211,7 @@ def check_signature_compatibility(
 
         if (not old_param.is_required) and new_param.is_required:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Optional positional param '{old_param.name}' became required.",
                     param_name=new_param.name,
                     lineno=new_param.lineno,
@@ -188,7 +225,7 @@ def check_signature_compatibility(
             new_param = new_sig.positional[idx]
             if new_param.is_required:
                 errors.append(
-                    ParameterError(
+                    SignatureWarning(
                         message=f"New required positional param '{new_param.name}' added.",
                         param_name=new_param.name,
                         lineno=new_param.lineno,
@@ -210,7 +247,7 @@ def check_signature_compatibility(
     for name in old_kw_names - new_kw_names:
         old_param = old_kw_by_name[name]
         errors.append(
-            ParameterError(
+            SignatureWarning(
                 message=f"Keyword-only param '{name}' was removed.",
                 param_name=name,
                 lineno=old_param.lineno,
@@ -223,7 +260,7 @@ def check_signature_compatibility(
         if not old_kw_by_name[name].is_required and new_kw_by_name[name].is_required:
             new_param = new_kw_by_name[name]
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Keyword-only param '{name}' became required.",
                     param_name=name,
                     lineno=new_param.lineno,
@@ -235,7 +272,7 @@ def check_signature_compatibility(
     for param in new_sig.keyword_only:
         if param.is_required and param.name not in old_kw_names:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"New required keyword-only param '{param.name}' added.",
                     param_name=param.name,
                     lineno=param.lineno,
@@ -323,33 +360,69 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
             continue
 
         base_content = get_file_content_at_revision(file_path, base_branch)
-        if base_content is None:
-            # Find not found in the base branch, likely added in the current branch
-            continue
 
         if not file_path.exists():
             # File not found, likely deleted in the current branch
             continue
 
         current_content = file_path.read_text()
-        base_functions = parse_functions(base_content)
-        current_functions = parse_functions(current_content)
-        for func_name in set(base_functions.keys()) & set(current_functions.keys()):
-            base_func = base_functions[func_name]
-            current_func = current_functions[func_name]
-            if param_errors := check_signature_compatibility(base_func, current_func):
-                # Create individual errors for each problematic parameter
-                for param_error in param_errors:
+
+        if base_content is None:
+            # File not found in the base branch, likely added in the current branch
+            # Check all functions in the new file for type hints
+            current_functions = parse_functions(current_content)
+            for func_name, current_func in current_functions.items():
+                if type_error := check_function_type_hints(current_func):
                     errors.append(
                         Error(
                             file_path=file_path,
-                            line=param_error.lineno,
-                            column=param_error.col_offset + 1,
+                            line=type_error.lineno,
+                            column=type_error.col_offset + 1,
                             lines=[
-                                "[Non-blocking | Ignore if not public API]",
-                                param_error.message,
-                                f"This change will break existing `{func_name}` calls.",
-                                "If this is not intended, please fix it.",
+                                "[Non-blocking]",
+                                type_error.message,
+                            ],
+                        )
+                    )
+        else:
+            # File exists in both base and current branch
+            base_functions = parse_functions(base_content)
+            current_functions = parse_functions(current_content)
+
+            # Check existing functions for signature compatibility
+            for func_name in set(base_functions.keys()) & set(current_functions.keys()):
+                base_func = base_functions[func_name]
+                current_func = current_functions[func_name]
+                if param_errors := check_signature_compatibility(base_func, current_func):
+                    # Create individual errors for each problematic parameter
+                    for param_error in param_errors:
+                        errors.append(
+                            Error(
+                                file_path=file_path,
+                                line=param_error.lineno,
+                                column=param_error.col_offset + 1,
+                                lines=[
+                                    "[Non-blocking | Ignore if not public API]",
+                                    param_error.message,
+                                    f"This change will break existing `{func_name}` calls.",
+                                    "If this is not intended, please fix it.",
+                                ],
+                            )
+                        )
+
+            # Check newly added functions for type hints
+            new_function_names = set(current_functions.keys()) - set(base_functions.keys())
+            for func_name in new_function_names:
+                current_func = current_functions[func_name]
+                if type_error := check_function_type_hints(current_func):
+                    errors.append(
+                        Error(
+                            file_path=file_path,
+                            line=type_error.lineno,
+                            column=type_error.col_offset + 1,
+                            lines=[
+                                "[Non-blocking]",
+                                type_error.message,
                             ],
                         )
                     )
