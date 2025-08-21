@@ -2,9 +2,15 @@ import json
 import logging
 
 from opentelemetry.context import Context
-from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.sdk.trace import Span as OTelSpan
-from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import (
+    ReadableSpan as OTelReadableSpan,
+)
+from opentelemetry.sdk.trace import (
+    Span as OTelSpan,
+)
+from opentelemetry.sdk.trace import (
+    TracerProvider as SDKTracerProvider,
+)
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import (
     NoOpTracerProvider,
@@ -64,6 +70,15 @@ def setup_strands_tracing():
             for p in provider._active_span_processor._span_processors
         ):
             provider.add_span_processor(processor)
+
+
+def teardown_strands_tracing():
+    provider = get_tracer_provider()
+    if isinstance(provider, SDKTracerProvider):
+        span_processors = getattr(provider._active_span_processor, "_span_processors", ())
+        provider._active_span_processor._span_processors = tuple(
+            p for p in span_processors if not isinstance(p, StrandsSpanProcessor)
+        )
 
 
 def _set_span_type(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:

@@ -1,15 +1,35 @@
 import json
 
 import opentelemetry.trace as trace_api
+from strands import Agent
 from strands.agent.agent_result import AgentResult
+from strands.models.model import Model
 from strands.telemetry.metrics import EventLoopMetrics
-from strands.telemetry.tracer import get_tracer
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
+
+
+class _DummyModel(Model):
+    def __init__(self):
+        self.config = {}
+
+    def update_config(self, **model_config):
+        self.config.update(model_config)
+
+    def get_config(self):
+        return self.config
+
+    async def structured_output(self, output_model, prompt, system_prompt=None, **kwargs):
+        if False:
+            yield {}
+
+    async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+        if False:
+            yield {}
 
 
 def _build_agent_result(text: str, in_tokens: int = 1, out_tokens: int = 1):
@@ -24,11 +44,11 @@ def _build_agent_result(text: str, in_tokens: int = 1, out_tokens: int = 1):
 def test_strands_autolog_single_trace():
     mlflow.strands.autolog()
 
-    tracer = get_tracer()
+    agent = Agent(model=_DummyModel(), name="agent")
     user_msg = {"role": "user", "content": [{"text": "hello"}]}
     _, result = _build_agent_result("hi", 1, 2)
-    span = tracer.start_agent_span(message=user_msg, agent_name="agent")
-    tracer.end_agent_span(span, response=result)
+    agent.trace_span = agent._start_agent_trace_span(message=user_msg)
+    agent._end_agent_trace_span(response=result)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -46,16 +66,15 @@ def test_strands_autolog_single_trace():
 def test_function_calling_creates_single_trace():
     mlflow.strands.autolog()
 
-    tracer = get_tracer()
+    agent = Agent(model=_DummyModel(), name="agent")
     user_msg = {"role": "user", "content": [{"text": "add numbers"}]}
     _, result = _build_agent_result("3", 1, 1)
-
-    agent_span = tracer.start_agent_span(message=user_msg, agent_name="agent")
+    agent.trace_span = agent._start_agent_trace_span(message=user_msg)
     tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-    tool_span = tracer.start_tool_call_span(tool_use, parent_span=agent_span)
+    tool_span = agent.tracer.start_tool_call_span(tool_use, parent_span=agent.trace_span)
     tool_result = {"toolUseId": "tool-1", "status": "success", "content": [{"json": 3}]}
-    tracer.end_tool_call_span(tool_span, tool_result=tool_result)
-    tracer.end_agent_span(agent_span, response=result)
+    agent.tracer.end_tool_call_span(tool_span, tool_result=tool_result)
+    agent._end_agent_trace_span(response=result)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -71,22 +90,23 @@ def test_function_calling_creates_single_trace():
 def test_multiple_agents_single_trace():
     mlflow.strands.autolog()
 
-    tracer = get_tracer()
+    agent1 = Agent(model=_DummyModel(), name="agent1")
     msg1 = {"role": "user", "content": [{"text": "add numbers"}]}
     _, res1 = _build_agent_result("3", 1, 1)
-    agent1_span = tracer.start_agent_span(message=msg1, agent_name="agent1")
+    agent1.trace_span = agent1._start_agent_trace_span(message=msg1)
     tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-    tool_span = tracer.start_tool_call_span(tool_use, parent_span=agent1_span)
+    tool_span = agent1.tracer.start_tool_call_span(tool_use, parent_span=agent1.trace_span)
     tool_result = {"toolUseId": "tool-1", "status": "success", "content": [{"json": 3}]}
-    tracer.end_tool_call_span(tool_span, tool_result=tool_result)
+    agent1.tracer.end_tool_call_span(tool_span, tool_result=tool_result)
 
+    agent2 = Agent(model=_DummyModel(), name="agent2")
     msg2 = {"role": "user", "content": [{"text": "hello"}]}
     _, res2 = _build_agent_result("hi", 1, 1)
-    with trace_api.use_span(agent1_span, end_on_exit=False):
-        agent2_span = tracer.start_agent_span(message=msg2, agent_name="agent2")
-        tracer.end_agent_span(agent2_span, response=res2)
+    with trace_api.use_span(agent1.trace_span, end_on_exit=False):
+        agent2.trace_span = agent2._start_agent_trace_span(message=msg2)
+        agent2._end_agent_trace_span(response=res2)
 
-    tracer.end_agent_span(agent1_span, response=res1)
+    agent1._end_agent_trace_span(response=res1)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -105,13 +125,13 @@ def test_multiple_agents_single_trace():
 def test_span_records_multiple_messages():
     mlflow.strands.autolog()
 
-    tracer = get_tracer()
+    agent = Agent(model=_DummyModel(), name="agent")
     user_msg = {"role": "user", "content": [{"text": "hello"}]}
     second_msg = [{"text": "hi again"}]
     _, result = _build_agent_result("hi", 1, 2)
-    span = tracer.start_agent_span(message=user_msg, agent_name="agent")
-    span.add_event("gen_ai.user.message", {"content": json.dumps(second_msg)})
-    tracer.end_agent_span(span, response=result)
+    agent.trace_span = agent._start_agent_trace_span(message=user_msg)
+    agent.trace_span.add_event("gen_ai.user.message", {"content": json.dumps(second_msg)})
+    agent._end_agent_trace_span(response=result)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -120,3 +140,35 @@ def test_span_records_multiple_messages():
         {"role": "user", "content": [{"text": "hello"}]},
         {"role": "user", "content": second_msg},
     ]
+
+
+def test_autolog_disable():
+    from strands.telemetry.tracer import get_tracer
+
+    mlflow.strands.autolog(disable=True)
+
+    tracer = get_tracer()
+    assert not hasattr(tracer, "span_processor")
+
+
+def test_autolog_disable_autolog():
+    mlflow.strands.autolog()
+
+    agent = Agent(model=_DummyModel(), name="agent")
+    user_msg = {"role": "user", "content": [{"text": "hello"}]}
+    _, result = _build_agent_result("hi", 1, 1)
+    agent.trace_span = agent._start_agent_trace_span(message=user_msg)
+    agent._end_agent_trace_span(response=result)
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    mlflow.strands.autolog(disable=True)
+
+    agent2 = Agent(model=_DummyModel(), name="agent2")
+    msg2 = {"role": "user", "content": [{"text": "bye"}]}
+    _, result2 = _build_agent_result("cya", 1, 1)
+    agent2.trace_span = agent2._start_agent_trace_span(message=msg2)
+    agent2._end_agent_trace_span(response=result2)
+
+    assert len(get_traces()) == 1
