@@ -1713,6 +1713,10 @@ class SearchTraceUtils(SearchUtils):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """
+        # Don't replace keys for span filters - they have their own namespace
+        if parsed.get("type") == cls._SPAN_IDENTIFIER:
+            return parsed
+
         key = parsed.get("key").lower()
         if key in cls.SEARCH_KEY_TO_TAG:
             parsed["type"] = cls._TAG_IDENTIFIER
