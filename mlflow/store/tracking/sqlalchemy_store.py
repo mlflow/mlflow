@@ -2583,22 +2583,17 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters, run_id_filter = (
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
-            # Apply non-attribute filters
+            # Apply non-attribute filters (tags and metadata)
             for non_attr_filter in non_attribute_filters:
-                # Check if this is a span subquery (has only 'request_id' column)
-                # Span subqueries have request_id only, tag/metadata have key, value, request_id
-                if len(non_attr_filter.c) == 1 and hasattr(non_attr_filter.c, "request_id"):
-                    # Explicit join condition for span subqueries
-                    stmt = stmt.join(
-                        non_attr_filter, SqlTraceInfo.request_id == non_attr_filter.c.request_id
-                    )
-                else:
-                    # Regular join for tag/metadata subqueries
-                    stmt = stmt.join(non_attr_filter)
+                stmt = stmt.join(non_attr_filter)
+
+            # Apply span filters with explicit join condition
+            for span_filter in span_filters:
+                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
@@ -3584,9 +3579,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
     Also extracts run_id filter if present for special handling.
+
+    Returns:
+        attribute_filters: Direct filters on SqlTraceInfo attributes
+        non_attribute_filters: Subqueries for tags and metadata
+        span_filters: Subqueries for span filters
+        run_id_filter: Special run_id value for linked trace handling
     """
     attribute_filters = []
     non_attribute_filters = []
+    span_filters = []
     run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -3633,7 +3635,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .distinct()
                     .subquery()
                 )
-                non_attribute_filters.append(span_subquery)
+                span_filters.append(span_subquery)
                 continue
             else:
                 raise MlflowException(
@@ -3651,4 +3653,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters, run_id_filter
+    return attribute_filters, non_attribute_filters, span_filters, run_id_filter
