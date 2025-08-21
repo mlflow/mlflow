@@ -381,6 +381,10 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if file_path.parts[0] != "mlflow":
             continue
 
+        # Ignore files in mlflow/protos directory
+        if file_path.is_relative_to("mlflow/protos"):
+            continue
+
         base_content = get_file_content_at_revision(file_path, base_branch)
 
         if not file_path.exists():
