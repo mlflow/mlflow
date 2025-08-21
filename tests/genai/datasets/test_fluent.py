@@ -1740,6 +1740,35 @@ def test_trace_source_type_detection():
     delete_dataset(dataset_id=dataset3.dataset_id)
 
 
+def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+    active_exp = mlflow.create_experiment("active_exp")
+    explicit_exp = mlflow.create_experiment("explicit_exp")
+
+    mlflow.set_experiment(experiment_id=active_exp)
+
+    dataset = create_dataset(name="test_explicit_override", experiment_id=explicit_exp)
+
+    assert dataset.experiment_ids == [explicit_exp]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_create_dataset_none_uses_active_experiment(tracking_uri):
+    exp_id = mlflow.create_experiment("test_none_experiment")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    dataset = create_dataset(name="test_none_exp", experiment_id=None)
+
+    assert dataset.experiment_ids == [exp_id]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+>>>>>>> genai-dataset
+
+
 def test_create_dataset_empty_list_stays_empty(tracking_uri):
     exp_id = mlflow.create_experiment("test_empty_list")
     mlflow.set_experiment(experiment_id=exp_id)
