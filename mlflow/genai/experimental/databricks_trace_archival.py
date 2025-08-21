@@ -372,7 +372,8 @@ def _do_enable_databricks_archival(
                     schema=schema,
                     table_prefix=table_prefix,
                 )
-            raise e
+            else:
+                raise e
 
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
