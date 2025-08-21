@@ -19,6 +19,7 @@ jobs:
       - name: Set up config
         run: |
           # https://github.com/openai/codex/blob/main/codex-rs/config.md
+          mkdir -p ~/.codex
           cat <<EOF > ~/.codex/config.toml
           model = "openai/gpt-4.1"
           model_provider = "github-models"
