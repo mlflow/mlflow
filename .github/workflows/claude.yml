@@ -24,5 +24,7 @@ jobs:
           npm install -g @anthropic-ai/claude-code
 
       - name: Run Claude Code
+        env:
+          ANTHROPIC_BASE_URL: http://localhost:3000
         run: |
           claude -p "Hello"
