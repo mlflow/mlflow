@@ -95,72 +95,6 @@ uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
 cd docs && yarn serve --port 8080
 ```
 
-## Architecture Overview
-
-### Core Components
-
-1. **MLflow Tracking** (`mlflow/tracking/`): Records and queries experiments, runs, parameters, metrics, and artifacts
-2. **MLflow Models** (`mlflow/models/`): General format for packaging models that can be deployed to various serving environments
-3. **MLflow Projects** (`mlflow/projects/`): Packaging format for reproducible runs with dependency management
-4. **MLflow Server** (`mlflow/server/`): REST API server with FastAPI backend and React frontend
-5. **MLflow Tracing** (`mlflow/tracing/`): LLM observability and debugging tools
-
-### Key Directories
-
-- `mlflow/`: Core Python package
-  - `entities/`: Data model definitions
-  - `store/`: Backend storage implementations (file, database)
-  - `pyfunc/`: Python function flavor for models
-  - `server/`: REST API and web UI
-    - `js/`: React-based frontend application
-  - `protos/`: Protocol buffer definitions
-  - `gateway/`: MLflow AI Gateway for LLMs
-
-- `tests/`: Test suite
-- `examples/`: Usage examples for various ML frameworks
-- `docs/`: Documentation source files
-
-### Frontend Architecture
-
-The UI is a React application located in `mlflow/server/js/` using:
-
-- TypeScript for type safety
-- Redux for state management
-- Apollo Client for GraphQL
-- Ant Design components
-- AG-Grid for data tables
-
-### Database Schema
-
-MLflow uses SQLAlchemy with Alembic for migrations. Schema changes require:
-
-1. Modifying models in `mlflow/store/db/`
-2. Creating migration with Alembic
-3. Testing against supported databases (SQLite, MySQL, PostgreSQL)
-
-## Code Review Guidelines
-
-### Python Standards
-
-- Use type hints for all new functions
-- Specify concrete types (e.g., `list[str]` not `list`)
-- Handle specific exceptions, not generic `Exception`
-- Functions returning >2 elements should use dataclasses
-- Follow Google-style docstrings
-
-### Testing Requirements
-
-- Write tests for all new features
-- Use pytest fixtures for test setup
-- Mock external dependencies
-- Test both success and error cases
-
-### Backwards Compatibility
-
-- Maintain API compatibility in minor releases
-- Deprecate features before removal
-- Document breaking changes in CHANGELOG.md
-
 ## Important Files
 
 - `pyproject.toml`: Package configuration and tool settings
@@ -241,5 +175,20 @@ uv run pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.
+
+**Note about external tools**: Some pre-commit hooks require external tools that aren't Python packages:
+
+- `taplo` - TOML formatter
+- `typos` - Spell checker  
+- `conftest` - Policy testing tool
+
+If you want to run these hooks, **ASK THE USER FIRST** before installing:
+
+```bash
+# Install external tools (requires user permission)
+brew install taplo typos-cli conftest
+```
+
+These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
 
 **Note**: If the typos hook fails, you only need to fix typos in code that was changed by your PR, not pre-existing typos in the codebase.
