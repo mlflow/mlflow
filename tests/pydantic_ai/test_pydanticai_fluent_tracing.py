@@ -6,7 +6,7 @@ from packaging.version import Version
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.instrumented import InstrumentedModel
-from pydantic_ai.usage import RequestUsage, Usage
+from pydantic_ai.usage import Usage
 
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
@@ -21,6 +21,10 @@ PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 
 
 def _make_dummy_response_without_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if PYDANTIC_AI_VERSION < Version("0.7.3"):
+        from pydantic_ai.usage import RequestUsage
+
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
     resp = ModelResponse(parts=parts)
     if PYDANTIC_AI_VERSION < Version("0.7.3"):
@@ -34,6 +38,10 @@ def _make_dummy_response_without_tool():
 
 
 def _make_dummy_response_with_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if PYDANTIC_AI_VERSION < Version("0.7.3"):
+        from pydantic_ai.usage import RequestUsage
+
     call_parts = [ToolCallPart(tool_name="roulette_wheel", args={"square": 18})]
     final_parts = [TextPart(content=_FINAL_ANSWER_WITH_TOOL)]
 
