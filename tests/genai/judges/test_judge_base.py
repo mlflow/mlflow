@@ -9,10 +9,15 @@ from mlflow.genai.scorers.base import Scorer
 
 
 class MockJudgeImplementation(Judge):
-    def __init__(self, name: str, model: str, examples: list[dict[str, Any]] | None = None):
-        super().__init__(name=name, model=model)
-        if examples:
-            self._examples = examples
+    def __init__(self, name: str, custom_description: str | None = None, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self._custom_description = custom_description
+
+    @property
+    def description(self) -> str:
+        if self._custom_description:
+            return self._custom_description
+        return f"Mock judge implementation: {self.name}"
 
     def __call__(
         self,
@@ -22,7 +27,6 @@ class MockJudgeImplementation(Judge):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        """Simple implementation for testing."""
         return Feedback(
             name=self.name,
             value=True,
@@ -30,56 +34,62 @@ class MockJudgeImplementation(Judge):
         )
 
 
-def test_judge_call_is_abstract():
-    judge = Judge(name="test", model="test-model")
+def test_judge_base_class_abstract_behavior():
+    judge = Judge(name="test")
 
     with pytest.raises(NotImplementedError, match="Implementation of __call__ is required"):
         judge(outputs="test")
 
+    with pytest.raises(NotImplementedError, match="Judge.description must be implemented"):
+        _ = judge.description
 
-def test_judge_implementation_inherits_from_scorer():
-    judge = MockJudgeImplementation(name="test_judge", model="test-model")
+    assert judge.name == "test"
+
+
+def test_judge_implementation():
+    judge = MockJudgeImplementation(name="test_judge")
+
     assert isinstance(judge, Scorer)
     assert isinstance(judge, Judge)
-
-
-def test_judge_implementation_has_model_field():
-    judge = MockJudgeImplementation(name="test_judge", model="openai/gpt-4")
-    assert judge.model == "openai/gpt-4"
-    assert judge.name == "test_judge"
-
-
-def test_judge_implementation_with_examples():
-    examples = [
-        {"inputs": {"q": "test"}, "outputs": "answer", "assessment": True},
-        {"inputs": {"q": "test2"}, "outputs": "answer2", "assessment": False},
-    ]
-
-    judge = MockJudgeImplementation(
-        name="test_judge",
-        model="openai/gpt-4",
-        examples=examples,
-    )
-
-    assert judge._examples == examples
-
-
-def test_judge_implementation_call_method():
-    judge = MockJudgeImplementation(name="test_judge", model="test-model")
+    assert judge.description == "Mock judge implementation: test_judge"
 
     result = judge(
         inputs={"question": "What is 2+2?"},
         outputs="4",
     )
-
     assert isinstance(result, Feedback)
     assert result.name == "test_judge"
     assert result.value is True
     assert "Test evaluation by test_judge" in result.rationale
 
+    judge_custom = MockJudgeImplementation(
+        name="custom_judge", custom_description="Custom description for testing"
+    )
+    assert judge_custom.description == "Custom description for testing"
 
-def test_judge_base_class_is_minimal():
-    assert "model" in Judge.model_fields
 
-    judge = Judge(name="test", model="test-model")
-    assert judge.model == "test-model"
+def test_judge_factory_pattern():
+    def make_simple_judge(name: str, description: str) -> Judge:
+        class DynamicJudge(Judge):
+            @property
+            def description(self) -> str:
+                return description
+
+            def __call__(self, **kwargs):
+                return Feedback(name=self.name, value="pass", rationale=f"Evaluated by {self.name}")
+
+        return DynamicJudge(name=name)
+
+    judge = make_simple_judge(
+        name="factory_judge", description="A judge created by factory function"
+    )
+
+    assert isinstance(judge, Judge)
+    assert isinstance(judge, Scorer)
+    assert judge.name == "factory_judge"
+    assert judge.description == "A judge created by factory function"
+
+    result = judge(outputs="test output")
+    assert isinstance(result, Feedback)
+    assert result.value == "pass"
+    assert "Evaluated by factory_judge" in result.rationale
