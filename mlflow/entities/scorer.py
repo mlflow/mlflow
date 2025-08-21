@@ -43,7 +43,6 @@ class ScorerVersion(_MlflowObject):
             # Access scorer metadata
             print(f"Scorer: {scorer_version.scorer_name} v{scorer_version.scorer_version}")
             print(f"Created: {scorer_version.creation_time}")
-            scorer = scorer_version.serialized_scorer
     """
 
     def __init__(
@@ -66,7 +65,7 @@ class ScorerVersion(_MlflowObject):
         The ID of the experiment this scorer belongs to.
 
         Returns:
-            str: The experiment identifier that groups this scorer with other MLflow artifacts.
+            str: The id of the experiment that this scorer version belongs to.
         """
         return self._experiment_id
 
@@ -87,7 +86,7 @@ class ScorerVersion(_MlflowObject):
 
         Returns:
             int: The sequential version number, starting from 1. Higher versions represent
-                 more recent iterations of the same scorer.
+                 newer saved scorers with the same name.
         """
         return self._scorer_version
 
