@@ -69,9 +69,9 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects to export.
             manager: The trace manager instance.
         """
-        spans_to_log, experiment_id = self._collect_spans_for_export(spans, manager)
+        spans_by_experiment = self._collect_spans_for_export(spans, manager)
 
-        if spans_to_log and experiment_id:
+        for experiment_id, spans_to_log in spans_by_experiment.items():
             if self._should_log_async():
                 # Use async queue for span logging when async is enabled
                 self._async_queue.put(
@@ -86,36 +86,36 @@ class MlflowV3SpanExporter(SpanExporter):
 
     def _collect_spans_for_export(
         self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
-    ) -> tuple[list[Span], str | None]:
+    ) -> dict[str, list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export.
+        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
 
         Args:
             spans: Sequence of ReadableSpan objects.
             manager: The trace manager instance.
 
         Returns:
-            Tuple of (list of MLflow Span objects, experiment_id).
+            Dictionary mapping experiment_id to list of MLflow Span objects.
         """
-        spans_to_log = []
-        experiment_id = None
+        spans_by_experiment = {}
 
         for span in spans:
             # Get trace from manager to retrieve experiment_id and trace_id
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
             with manager.get_trace(mlflow_trace_id) as internal_trace:
-                if experiment_id is None:
-                    experiment_id = internal_trace.info.experiment_id
+                experiment_id = internal_trace.info.experiment_id
 
                 # Get the LiveSpan from the trace manager
                 span_id = encode_span_id(span.context.span_id)
                 mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
 
                 if mlflow_span:
-                    spans_to_log.append(mlflow_span)
+                    if experiment_id not in spans_by_experiment:
+                        spans_by_experiment[experiment_id] = []
+                    spans_by_experiment[experiment_id].append(mlflow_span)
 
-        return spans_to_log, experiment_id
+        return spans_by_experiment
 
     def _export_traces(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
         """
