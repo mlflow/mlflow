@@ -226,7 +226,7 @@ class DatabricksDeltaArchivalMixin:
             for event in events:
                 attributes = getattr(event, "attributes", {}) or {}
                 if event_timestamp := getattr(event, "timestamp", None):
-                    timestamp_ns = event_timestamp * 1e3
+                    timestamp_ns = int(event_timestamp * 1e3)
                 else:
                     timestamp_ns = current_time_ns
                 event_dict = {
