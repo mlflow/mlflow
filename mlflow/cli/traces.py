@@ -231,16 +231,16 @@ Available fields:
 )
 def search_traces(
     experiment_id: str,
-    filter_string: str,
+    filter_string: str | None,
     max_results: int,
-    order_by: str,
-    page_token: str,
-    run_id: str,
+    order_by: str | None,
+    page_token: str | None,
+    run_id: str | None,
     include_spans: bool,
-    model_id: str,
-    sql_warehouse_id: str,
+    model_id: str | None,
+    sql_warehouse_id: str | None,
     output: str,
-    extract_fields: str,
+    extract_fields: str | None,
     verbose: bool,
 ) -> None:
     """
@@ -366,7 +366,7 @@ def search_traces(
     is_flag=True,
     help="Show all available fields in error messages when invalid fields are specified.",
 )
-def get_trace(trace_id: str, extract_fields: str, verbose: bool) -> None:
+def get_trace(trace_id: str, extract_fields: str | None, verbose: bool) -> None:
     """
     All trace details will print to stdout as JSON format.
 
@@ -411,7 +411,10 @@ def get_trace(trace_id: str, extract_fields: str, verbose: bool) -> None:
 )
 @click.option("--max-traces", type=click.INT, help="Maximum number of traces to delete")
 def delete_traces(
-    experiment_id: str, trace_ids: str, max_timestamp_millis: int, max_traces: int
+    experiment_id: str,
+    trace_ids: str | None,
+    max_timestamp_millis: int | None,
+    max_traces: int | None,
 ) -> None:
     """
     Delete traces from an experiment.
@@ -504,12 +507,12 @@ def delete_tag(trace_id: str, key: str) -> None:
 def log_feedback(
     trace_id: str,
     name: str,
-    value: str,
-    source_type: str,
-    source_id: str,
-    rationale: str,
-    metadata: str,
-    span_id: str,
+    value: str | None,
+    source_type: str | None,
+    source_id: str | None,
+    rationale: str | None,
+    metadata: str | None,
+    span_id: str | None,
 ) -> None:
     """
     Log feedback (evaluation score) to a trace.
@@ -603,10 +606,10 @@ def log_expectation(
     trace_id: str,
     name: str,
     value: str,
-    source_type: str,
-    source_id: str,
-    metadata: str,
-    span_id: str,
+    source_type: str | None,
+    source_id: str | None,
+    metadata: str | None,
+    span_id: str | None,
 ) -> None:
     """
     Log an expectation (ground truth label) to a trace.
@@ -687,7 +690,11 @@ def get_assessment(trace_id: str, assessment_id: str) -> None:
 @click.option("--rationale", type=click.STRING, help="Updated rationale")
 @click.option("--metadata", type=click.STRING, help="Updated metadata as JSON")
 def update_assessment(
-    trace_id: str, assessment_id: str, value: str, rationale: str, metadata: str
+    trace_id: str,
+    assessment_id: str,
+    value: str | None,
+    rationale: str | None,
+    metadata: str | None,
 ) -> None:
     """
     Update an existing assessment.

@@ -183,7 +183,7 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
     return find_paths(data, parts)
 
 
-def get_nested_value_safe(data: dict[str, Any], parts: list[str]):
+def get_nested_value_safe(data: dict[str, Any], parts: list[str]) -> Any | None:
     """Safely get nested value, returning None if path doesn't exist."""
     current = data
     for part in parts:
@@ -196,7 +196,7 @@ def get_nested_value_safe(data: dict[str, Any], parts: list[str]):
     return current
 
 
-def set_nested_value(data: dict[str, Any], parts: list[str], value):
+def set_nested_value(data: dict[str, Any], parts: list[str], value: Any) -> None:
     """Set a nested value in a dictionary, creating intermediate dicts/lists as needed."""
     if value is None:
         return
@@ -236,7 +236,7 @@ def set_nested_value(data: dict[str, Any], parts: list[str], value):
 
 def validate_field_paths(
     field_paths: list[str], sample_data: dict[str, Any], verbose: bool = False
-):
+) -> None:
     """Validate that field paths exist in the data structure.
 
     Args:
