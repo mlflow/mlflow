@@ -37,7 +37,7 @@ class ScorerVersion(_MlflowObject):
                 scorer_name="accuracy_scorer",
                 scorer_version=2,
                 serialized_scorer='{"name": "accuracy_scorer", "call_source": "..."}',
-                creation_time=1640995200000
+                creation_time=1640995200000,
             )
 
             # Access scorer metadata
