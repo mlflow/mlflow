@@ -9,6 +9,7 @@ jobs:
     permissions:
       contents: read
       models: read
+      pull-requests: write
     timeout-minutes: 10
     steps:
       - name: Install codex
@@ -37,8 +38,6 @@ jobs:
             "--rm",
             "-e",
             "GITHUB_PERSONAL_ACCESS_TOKEN",
-            "-e",
-            "GITHUB_READ_ONLY=1",
             "ghcr.io/github/github-mcp-server",
           ]
           env = { "GITHUB_PERSONAL_ACCESS_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
@@ -48,4 +47,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --full-auto exec "Can you fetch the most recent issue and summarize it?"
+          codex --full-auto exec "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments?"
