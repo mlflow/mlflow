@@ -12,9 +12,10 @@ from typing import Any, TypedDict
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, func, sql, text
+from sqlalchemy import and_, case, exists, func, or_, sql, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
+from sqlalchemy.orm import aliased
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -2039,8 +2040,6 @@ class SqlAlchemyStore(AbstractStore):
                 return []
 
             # Query the latest version for each scorer_id
-            from sqlalchemy import func
-
             latest_versions = (
                 session.query(
                     SqlScorerVersion.scorer_id,
@@ -2595,8 +2594,6 @@ class SqlAlchemyStore(AbstractStore):
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
-                from sqlalchemy import exists, or_
-
                 # Create a subquery to check if a trace is linked to the run via entity associations
                 linked_trace_exists = exists().where(
                     (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
@@ -3084,8 +3081,6 @@ class SqlAlchemyStore(AbstractStore):
 
     def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
         """Build a subquery for traces that match a given filter in the specified experiments."""
-        from sqlalchemy import select
-
         stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
         if filter_string:
@@ -3113,29 +3108,44 @@ class SqlAlchemyStore(AbstractStore):
         Get trace counts for correlation analysis using a single SQL query.
 
         This method efficiently calculates all necessary counts for NPMI calculation
-        in a single database round-trip using EXISTS subqueries.
+        in a single database round-trip using LEFT JOINs instead of EXISTS subqueries
+        for MSSQL compatibility.
         """
-        from sqlalchemy import and_, case, exists, func
-
         f1_subq = filter1_subquery.subquery()
         f2_subq = filter2_subquery.subquery()
 
-        f1_exists = exists().where(f1_subq.c.request_id == SqlTraceInfo.request_id)
+        filter1_alias = aliased(f1_subq)
+        filter2_alias = aliased(f2_subq)
 
-        f2_exists = exists().where(f2_subq.c.request_id == SqlTraceInfo.request_id)
-
-        query = session.query(
-            func.count(SqlTraceInfo.request_id).label("total"),
-            func.sum(case((f1_exists, 1), else_=0)).label("filter1"),
-            func.sum(case((f2_exists, 1), else_=0)).label("filter2"),
-            func.sum(case((and_(f1_exists, f2_exists), 1), else_=0)).label("joint"),
-        ).filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+        # NB: MSSQL does not support exists queries within subjoins so a slightly
+        # less efficient subquery LEFT JOIN is used to support all backends.
+        query = (
+            session.query(
+                func.count(SqlTraceInfo.request_id).label("total"),
+                func.count(filter1_alias.c.request_id).label("filter1"),
+                func.count(filter2_alias.c.request_id).label("filter2"),
+                func.count(
+                    case(
+                        (
+                            (filter1_alias.c.request_id.isnot(None))
+                            & (filter2_alias.c.request_id.isnot(None)),
+                            SqlTraceInfo.request_id,
+                        ),
+                        else_=None,
+                    )
+                ).label("joint"),
+            )
+            .select_from(SqlTraceInfo)
+            .outerjoin(filter1_alias, SqlTraceInfo.request_id == filter1_alias.c.request_id)
+            .outerjoin(filter2_alias, SqlTraceInfo.request_id == filter2_alias.c.request_id)
+            .filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+        )
 
         if base_filter:
             base_subquery = self._build_trace_filter_subquery(session, experiment_ids, base_filter)
             base_subq = base_subquery.subquery()
-            base_exists = exists().where(base_subq.c.request_id == SqlTraceInfo.request_id)
-            query = query.filter(base_exists)
+            base_alias = aliased(base_subq)
+            query = query.join(base_alias, SqlTraceInfo.request_id == base_alias.c.request_id)
 
         result = query.one()
 
