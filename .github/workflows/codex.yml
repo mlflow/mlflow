@@ -27,6 +27,7 @@ jobs:
           model_provider = "github-models"
 
           [model_providers.github-models]
+          # https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models#rate-limits
           name = "GitHub Models"
           base_url = "https://models.github.ai/inference"
           env_key = "GITHUB_TOKEN"
