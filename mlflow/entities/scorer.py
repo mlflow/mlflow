@@ -7,21 +7,22 @@ from mlflow.protos.service_pb2 import Scorer as ProtoScorer
 
 class ScorerVersion(_MlflowObject):
     """
-    A versioned scorer entity that represents a specific version of a scorer within an MLflow experiment.
-    
+    A versioned scorer entity that represents a specific version of a scorer within an MLflow
+    experiment.
+
     ScorerVersion is the core entity class for managing versioned scorers in MLflow. It encapsulates
     all the metadata and serialized data needed to reconstruct and execute a scorer function at
     a specific point in time. This enables reproducibility and tracking of scorer evolution over time.
-    
+
     Each ScorerVersion instance is uniquely identified by the combination of:
     - experiment_id: The experiment containing the scorer
     - scorer_name: The name of the scorer
     - scorer_version: The version number of the scorer
-    
+
     The class provides access to both the metadata (name, version, creation time) and the actual
     scorer implementation through the serialized_scorer property, which deserializes the stored
     scorer data into a usable SerializedScorer object.
-    
+
     Args:
         experiment_id (str): The ID of the experiment this scorer belongs to.
         scorer_name (str): The name identifier for the scorer.
@@ -31,9 +32,9 @@ class ScorerVersion(_MlflowObject):
 
     Example:
         .. code-block:: python
-            
+
             from mlflow.entities.scorer import ScorerVersion
-            
+
             # Create a ScorerVersion instance
             scorer_version = ScorerVersion(
                 experiment_id="123",
@@ -42,7 +43,7 @@ class ScorerVersion(_MlflowObject):
                 serialized_scorer='{"name": "accuracy_scorer", "call_source": "..."}',
                 creation_time=1640995200000
             )
-            
+
             # Access scorer metadata
             print(f"Scorer: {scorer_version.scorer_name} v{scorer_version.scorer_version}")
             print(f"Created: {scorer_version.creation_time}")
@@ -67,7 +68,7 @@ class ScorerVersion(_MlflowObject):
     def experiment_id(self):
         """
         The ID of the experiment this scorer belongs to.
-        
+
         Returns:
             str: The experiment identifier that groups this scorer with other MLflow artifacts.
         """
@@ -77,7 +78,7 @@ class ScorerVersion(_MlflowObject):
     def scorer_name(self):
         """
         The name identifier for the scorer.
-        
+
         Returns:
             str: The human-readable name used to identify and reference this scorer.
         """
@@ -87,7 +88,7 @@ class ScorerVersion(_MlflowObject):
     def scorer_version(self):
         """
         The version number of this scorer instance.
-        
+
         Returns:
             int: The sequential version number, starting from 1. Higher versions represent
                  more recent iterations of the same scorer.
@@ -99,18 +100,18 @@ class ScorerVersion(_MlflowObject):
     def serialized_scorer(self):
         """
         The deserialized scorer object containing metadata and function code.
-        
+
         This property automatically deserializes the stored JSON string into a
         SerializedScorer object that contains all the information needed to
         reconstruct and execute the scorer function.
-        
+
         The result is cached using LRU caching to avoid repeated deserialization
         when the same ScorerVersion instance is accessed multiple times.
-        
+
         Returns:
             SerializedScorer: A `SerializedScorer` object with metadata, function code,
-                             and configuration information.
-        
+                              and configuration information.
+
         Note:
             The `SerializedScorer` object construction is lazy,
             it only happens when this property is first accessed.
@@ -123,7 +124,7 @@ class ScorerVersion(_MlflowObject):
     def creation_time(self):
         """
         The timestamp when this scorer version was created.
-        
+
         Returns:
             int: Unix timestamp in milliseconds representing when this specific
                  version of the scorer was registered in MLflow.
@@ -134,17 +135,17 @@ class ScorerVersion(_MlflowObject):
     def from_proto(cls, proto):
         """
         Create a ScorerVersion instance from a protobuf message.
-        
+
         This class method is used internally by MLflow to reconstruct ScorerVersion
         objects from serialized protobuf data, typically when retrieving scorers
         from remote tracking servers or deserializing stored data.
-        
+
         Args:
             proto: A protobuf message containing scorer version data.
         
         Returns:
             ScorerVersion: A new ScorerVersion instance populated with data from the protobuf.
-        
+
         Note:
             This method is primarily used internally by MLflow's tracking infrastructure
             and should not typically be called directly by users.
@@ -160,14 +161,14 @@ class ScorerVersion(_MlflowObject):
     def to_proto(self):
         """
         Convert this ScorerVersion instance to a protobuf message.
-        
+
         This method serializes the ScorerVersion data into a protobuf format
         for transmission over the network or storage in binary format. It's
         primarily used internally by MLflow's tracking infrastructure.
-        
+
         Returns:
             ProtoScorer: A protobuf message containing the serialized scorer version data.
-        
+
         Note:
             This method is primarily used internally by MLflow's tracking infrastructure
             and should not typically be called directly by users.
@@ -183,7 +184,7 @@ class ScorerVersion(_MlflowObject):
     def __repr__(self):
         """
         Return a string representation of the ScorerVersion instance.
-        
+
         Returns:
             str: A human-readable string showing the key identifying information
                  of this scorer version (experiment_id, scorer_name, and scorer_version).
