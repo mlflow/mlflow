@@ -7,6 +7,7 @@ package mlflow.traceserver;
 import "databricks.proto";
 import "assessments.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
@@ -329,11 +330,9 @@ message GetTraceDestinationRequest {
 // Request message for DeleteTraceDestination RPC
 message DeleteTraceDestinationRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[com.google.protobuf.empty.Empty]";
-  
+
   // The location of the source of traces. Uniquely identifies a TraceDestination
-  optional TraceLocation trace_location = 1 [
-    (google.api.field_behavior) = REQUIRED
-  ];
+  optional TraceLocation trace_location = 1;
 }
 
 // A TraceDestination contains metadata about where traces for a given trace location are stored/archived
