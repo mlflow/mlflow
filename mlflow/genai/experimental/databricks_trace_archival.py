@@ -7,7 +7,10 @@ import logging
 
 from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
 from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_exporter_utils import DatabricksTraceServerClient
+from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+    DatabricksTraceServerClient,
+    get_workspace_id,
+)
 from mlflow.tracking import MlflowClient
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
@@ -105,7 +108,39 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
             spans_agg AS (
               SELECT
                 trace_id,
-                COLLECT_LIST(STRUCT(*)) AS spans -- keep the original span record in tact
+                COLLECT_LIST(
+                  STRUCT(
+                    * EXCEPT(
+                      parent_span_id,
+                      start_time_unix_nano,
+                      end_time_unix_nano,
+                      status,
+                      events,
+                      resource, -- to remove clutter from genai view
+                      resource_schema_url, -- to remove clutter from genai view
+                      instrumentation_scope, -- to remove clutter from genai view
+                      span_schema_url -- to remove clutter from genai view
+                    ),
+                    parent_span_id AS parent_id,
+                    TIMESTAMP_MILLIS(CAST(start_time_unix_nano / 1000000 AS BIGINT)) AS start_time,
+                    TIMESTAMP_MILLIS(CAST(end_time_unix_nano / 1000000 AS BIGINT)) AS end_time,
+                    status.code AS status_code,
+                    status.message AS status_message,
+                    COALESCE(
+                      TRANSFORM(
+                        events,
+                        event -> STRUCT(
+                          event.name AS name,
+                          TIMESTAMP_MILLIS(
+                            CAST(event.time_unix_nano / 1000000 AS BIGINT)
+                          ) AS timestamp,
+                          event.attributes AS attributes
+                        )
+                      ),
+                      ARRAY()
+                    ) AS events
+                  )
+                ) AS spans -- rename some fields for backwards compatibility
               FROM
                 {spans_table}
               GROUP BY
@@ -175,7 +210,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
               ts.trace_data:client_request_id::STRING AS client_request_id,
               TIMESTAMP_MILLIS(CAST(ts.trace_data:request_time::DOUBLE AS BIGINT)) AS request_time,
               ts.trace_data:state::STRING AS state,
-              ts.trace_data:execution_duration::DOUBLE AS execution_duration_ms,
+              CAST(ts.trace_data:execution_duration::DOUBLE AS BIGINT) AS execution_duration_ms,
               ts.trace_data:request_preview::STRING AS request_preview,
               ts.trace_data:response_preview::STRING AS response_preview,
               rs.request AS request,
@@ -203,7 +238,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                   body -> STRUCT(
                     body:assessment_id::STRING AS assessment_id,
                     body:trace_id::STRING AS trace_id,
-                    body:assessment_name::STRING AS assessment_name,
+                    body:assessment_name::STRING AS name,
                     FROM_JSON(
                         body:source::STRING,
                         'STRUCT<source_id: STRING, source_type: STRING>'
@@ -296,7 +331,10 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
-    trace_archival_location = f"{catalog}.{schema}.{table_prefix}_{experiment_id}"
+    workspace_id = get_workspace_id()
+    trace_archival_location = (
+        f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
+    )
 
     try:
         # 1. Create trace destination using client

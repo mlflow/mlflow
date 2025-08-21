@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING, Sequence
 
 from cachetools import TTLCache
@@ -175,7 +176,7 @@ class DatabricksDeltaArchivalMixin:
         Args:
             trace: MLflow Trace object containing spans data.
 
-        TODO: move this to Span.to_proto() once the legacy trace server span are fully repcated
+        TODO: move this to Span.to_proto() once the legacy trace server span are fully deprecated
 
         Returns:
             List of DeltaProtoSpan objects.
@@ -199,17 +200,8 @@ class DatabricksDeltaArchivalMixin:
             delta_proto.flags = 0
             delta_proto.name = span.name
 
-            # Map span kind to string
-            kind_mapping = {
-                "internal": "SPAN_KIND_INTERNAL",
-                "server": "SPAN_KIND_SERVER",
-                "client": "SPAN_KIND_CLIENT",
-                "producer": "SPAN_KIND_PRODUCER",
-                "consumer": "SPAN_KIND_CONSUMER",
-            }
-            delta_proto.kind = kind_mapping.get(
-                getattr(span, "kind", "internal").lower(), "SPAN_KIND_INTERNAL"
-            )
+            # MLflow traces do not have `kind`, so we default to INTERNAL
+            delta_proto.kind = "INTERNAL"
 
             # Set timestamps (convert to nanoseconds if needed)
             current_time_ns = int(time.time() * 1e9)
@@ -232,13 +224,27 @@ class DatabricksDeltaArchivalMixin:
             # Convert events directly
             events = getattr(span, "events", []) or []
             for event in events:
+                attributes = getattr(event, "attributes", {}) or {}
+                if event_timestamp := getattr(event, "timestamp", None):
+                    timestamp_ns = int(event_timestamp * 1e3)
+                else:
+                    timestamp_ns = current_time_ns
                 event_dict = {
-                    "time_unix_nano": getattr(event, "timestamp_ns", current_time_ns),
+                    "time_unix_nano": timestamp_ns,
                     "name": getattr(event, "name", "event"),
-                    "attributes": getattr(event, "attributes", {}) or {},
+                    # serialize attribute values to json string
+                    # custom logic to prevent double quotes for string and datetime values
+                    "attributes": {
+                        k: v
+                        if isinstance(v, str)
+                        else v.isoformat()
+                        if isinstance(v, datetime)
+                        else json.dumps(v)
+                        for k, v in attributes.items()
+                    },
                     "dropped_attributes_count": 0,
                 }
-                delta_proto.events.append(json.dumps(event_dict))
+                delta_proto.events.append(DeltaProtoSpan.Event(**event_dict))
             delta_proto.dropped_events_count = 0
 
             # Links are rarely used in MLflow, set to empty
@@ -246,10 +252,10 @@ class DatabricksDeltaArchivalMixin:
 
             # Convert status directly
             status_dict = {
-                "code": getattr(span.status, "status_code", "STATUS_CODE_UNSET"),
                 "message": getattr(span.status, "description", "") or "",
+                "code": getattr(span.status, "status_code", "UNSET"),
             }
-            delta_proto.status = json.dumps(status_dict)
+            delta_proto.status.CopyFrom(DeltaProtoSpan.Status(**status_dict))
 
             delta_proto_spans.append(delta_proto)
 

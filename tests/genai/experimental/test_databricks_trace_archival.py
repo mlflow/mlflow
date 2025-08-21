@@ -28,6 +28,20 @@ from mlflow.utils.mlflow_tags import (
 )
 
 
+@pytest.fixture
+def mock_workspace_id():
+    """Mock workspace ID for testing."""
+    return "123"
+
+
+@pytest.fixture
+def mock_workspace_client(mock_workspace_id):
+    """Mock WorkspaceClient for testing."""
+    client = Mock()
+    client.get_workspace_id.return_value = mock_workspace_id
+    return client
+
+
 def _create_mock_databricks_agents():
     """Helper function to create a mock databricks.agents module with proper __spec__."""
     mock_module = Mock()
@@ -67,12 +81,20 @@ def _create_trace_destination_proto(
         ("Network error", "Failed to enable trace archival"),
     ],
 )
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.tracking.MlflowClient")
 def test_create_trace_destination_api_failures(
-    mock_mlflow_client, mock_trace_client, error_type, expected_match
+    mock_mlflow_client,
+    mock_trace_client,
+    mock_workspace_client_class,
+    error_type,
+    expected_match,
+    mock_workspace_client,
 ):
     """Test various API failure scenarios."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Mock trace client to raise exception
     mock_trace_client_instance = Mock()
     mock_trace_client_instance.create_trace_destination.side_effect = Exception(error_type)
@@ -87,10 +109,15 @@ def test_create_trace_destination_api_failures(
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.tracking.MlflowClient")
-def test_malformed_api_response(mock_mlflow_client, mock_trace_client):
+def test_malformed_api_response(
+    mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
+):
     """Test handling of malformed API responses."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Mock trace client to return malformed config (missing events_table_name)
     mock_config = Mock()
     mock_config.spans_table_name = "catalog.schema.spans"
@@ -208,13 +235,21 @@ def test_both_unsupported_schema_versions():
 
 
 @patch("importlib.util.find_spec", return_value=Mock())
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_spans_schema(
-    mock_mlflow_client, mock_create_view, mock_trace_client, mock_find_spec
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_find_spec,
+    mock_workspace_client,
 ):
     """Test end-to-end failure when backend returns unsupported spans schema version."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create config with unsupported spans schema version
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -242,13 +277,21 @@ def test_backend_returns_unsupported_spans_schema(
 
 
 @patch("importlib.util.find_spec", return_value=Mock())
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_events_schema(
-    mock_mlflow_client, mock_create_view, mock_trace_client, mock_find_spec
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_find_spec,
+    mock_workspace_client,
 ):
     """Test end-to-end failure when backend returns unsupported events schema version."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create config with unsupported events schema version
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -278,11 +321,20 @@ def test_backend_returns_unsupported_events_schema(
 # Experiment tag setting tests
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
-def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mock_trace_client):
+def test_experiment_tag_setting_failure(
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
+):
     """Test experiment tag setting failure."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -314,11 +366,20 @@ def test_experiment_tag_setting_failure(mock_mlflow_client, mock_create_view, mo
             enable_databricks_trace_archival("12345", "catalog", "schema")
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view, mock_trace_client):
+def test_successful_experiment_tag_setting(
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
+):
     """Test successful experiment tag setting."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -365,7 +426,7 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
     mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
-        "catalog.schema.trace_logs_12345",  # tag value (the archival view name)
+        "catalog.schema.trace_logs_experiment_123_12345_genai_view",  # tag value (the view name)
     )
 
     # Verify rolling deletion tag
@@ -374,7 +435,7 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
         MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,  # tag key
         "true",  # tag value
     )
-    assert result == "catalog.schema.trace_logs_12345"
+    assert result == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
 
 
 # Successful archival integration tests
@@ -385,18 +446,19 @@ def test_successful_experiment_tag_setting(mock_mlflow_client, mock_create_view,
     [
         (
             None,  # no prefix means falling back to default "trace_logs" prefix
-            "catalog.schema.trace_logs_12345",
+            "catalog.schema.trace_logs_experiment_123_12345_genai_view",
             "catalog.schema.experiment_12345_spans",
             "catalog.schema.experiment_12345_events",
         ),
         (
             "custom",  # custom prefix
-            "catalog.schema.custom_12345",
+            "catalog.schema.custom_experiment_123_12345_genai_view",
             "catalog.schema.custom_12345_spans",
             "catalog.schema.custom_12345_events",
         ),
     ],
 )
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
@@ -404,12 +466,16 @@ def test_successful_archival_with_prefix(
     mock_mlflow_client,
     mock_create_view,
     mock_trace_client,
+    mock_workspace_client_class,
     table_prefix,
     expected_view_name,
     expected_spans_table,
     expected_events_table,
+    mock_workspace_client,
 ):
     """Test successful end-to-end archival with different table prefixes."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
     from mlflow.genai.experimental.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
@@ -480,11 +546,20 @@ def test_successful_archival_with_prefix(
 # Idempotency tests
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_client):
+def test_idempotent_enablement(
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
+):
     """Test that enable_databricks_trace_archival is idempotent when called multiple times."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.experiment_12345_spans",
@@ -512,9 +587,9 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
         result3 = enable_databricks_trace_archival("12345", "catalog", "schema")
 
     # All calls should return the same archival location
-    assert result1 == "catalog.schema.trace_logs_12345"
-    assert result2 == "catalog.schema.trace_logs_12345"
-    assert result3 == "catalog.schema.trace_logs_12345"
+    assert result1 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
+    assert result2 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
+    assert result3 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
 
     # Verify trace client was called 3 times (once per call)
     assert mock_trace_client_instance.create_trace_destination.call_count == 3
@@ -537,7 +612,7 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
         assert call[0] == (
             "12345",
             MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
-            "catalog.schema.trace_logs_12345",
+            "catalog.schema.trace_logs_experiment_123_12345_genai_view",
         )
 
     # Rolling deletion tag should be set 3 times
@@ -551,13 +626,20 @@ def test_idempotent_enablement(mock_mlflow_client, mock_create_view, mock_trace_
         assert call[0] == ("12345", MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED, "true")
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_enablement_failure_due_to_storage_config_conflict(
-    mock_mlflow_client, mock_create_view, mock_trace_client
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
 ):
     """Test that ALREADY_EXISTS error is propagated when table schema versions change."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Mock trace client to raise ALREADY_EXISTS exception
     mock_trace_client_instance = Mock()
     mock_trace_client_instance.create_trace_destination.side_effect = MlflowException(
@@ -581,11 +663,20 @@ def test_enablement_failure_due_to_storage_config_conflict(
 # Rolling deletion failure tests
 
 
+@patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_rolling_deletion_tag_failure(mock_mlflow_client, mock_create_view, mock_trace_client):
+def test_rolling_deletion_tag_failure(
+    mock_mlflow_client,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
+):
     """Test handling when setting the rolling deletion tag fails."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
@@ -627,5 +718,5 @@ def test_rolling_deletion_tag_failure(mock_mlflow_client, mock_create_view, mock
     mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
-        "catalog.schema.trace_logs_12345",
+        "catalog.schema.trace_logs_experiment_123_12345_genai_view",
     )
