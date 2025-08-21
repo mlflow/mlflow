@@ -20,7 +20,7 @@ _MOCK_CHAT_RESPONSE = {
         {
             "index": 0,
             "message": {
-                "role": "assistant",
+                "role": "user",
                 "content": "What is MLflow?",
             },
             "finish_reason": "stop",
