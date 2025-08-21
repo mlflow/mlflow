@@ -16,8 +16,8 @@ jobs:
           - 3000:3000
         env:
           CLAUDE_CODE_PROXY_API_KEY: ${{ secrets.GITHUB_TOKEN }}
-          REASONING_MODEL: openai/gpt-4o
-          COMPLETION_MODEL: openai/gpt-4o
+          REASONING_MODEL: openai/gpt-4.1
+          COMPLETION_MODEL: openai/gpt-4.1
           DEBUG: "true"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
