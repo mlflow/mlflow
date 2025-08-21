@@ -8,7 +8,7 @@ FLAVOR_NAME = "strands"
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.4.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
