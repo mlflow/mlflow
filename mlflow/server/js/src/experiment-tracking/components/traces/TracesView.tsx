@@ -50,7 +50,6 @@ export const TracesView = ({
   const [rowSelection, setRowSelection] = useState<{ [id: string]: boolean }>({});
 
   const [selectedTraceId, setSelectedTraceId] = useActiveExperimentTrace();
-  const [selectedSpanId, setSelectedSpanId] = useActiveExperimentSpan();
 
   const { traces, loading, error, hasNextPage, hasPreviousPage, fetchNextPage, fetchPrevPage, refreshCurrentPage } =
     useExperimentTraces({
@@ -210,8 +209,6 @@ export const TracesView = ({
           loadingTraceInfo={loading}
           requestId={selectedTraceId}
           onClose={() => setSelectedTraceId(undefined)}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={setSelectedSpanId}
         />
       )}
       {EditTagsModal}
