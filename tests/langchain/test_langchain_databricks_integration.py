@@ -32,7 +32,7 @@ _MOCK_CHAT_RESPONSE = {
 
 
 @pytest.fixture(autouse=True)
-def mock_client() -> Generator:
+def mock_client(monkeypatch) -> Generator:
     # In databricks-langchain <= 0.7.0, ChatDatabricks uses MLflow deployment client
     deploy_client = mock.MagicMock()
     deploy_client.predict.return_value = _MOCK_CHAT_RESPONSE
@@ -44,7 +44,9 @@ def mock_client() -> Generator:
 
     with (
         mock.patch("mlflow.deployments.get_deploy_client", return_value=deploy_client),
-        mock.patch("databricks_langchain.utils.get_openai_client", return_value=openai_client),
+        mock.patch(
+            "databricks_langchain.chat_models.get_openai_client", return_value=openai_client
+        ),
     ):
         yield
 
