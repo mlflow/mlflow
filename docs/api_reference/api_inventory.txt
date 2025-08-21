@@ -696,7 +696,6 @@ mlflow.genai.get_labeling_sessions
 mlflow.genai.get_review_app
 mlflow.genai.judges.CategoricalRating
 mlflow.genai.judges.Judge
-mlflow.genai.judges.Judge.align
 mlflow.genai.judges.Judge.model_post_init
 mlflow.genai.judges.base.Judge
 mlflow.genai.judges.custom_prompt_judge
