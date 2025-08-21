@@ -10,10 +10,6 @@ class ScorerVersion(_MlflowObject):
     A versioned scorer entity that represents a specific version of a scorer within an MLflow
     experiment.
 
-    ScorerVersion is the core entity class for managing versioned scorers in MLflow. It encapsulates
-    all the metadata and serialized data needed to reconstruct and execute a scorer function at
-    a specific point in time. This enables reproducibility and tracking of scorer evolution over time.
-
     Each ScorerVersion instance is uniquely identified by the combination of:
     - experiment_id: The experiment containing the scorer
     - scorer_name: The name of the scorer
@@ -142,7 +138,7 @@ class ScorerVersion(_MlflowObject):
 
         Args:
             proto: A protobuf message containing scorer version data.
-        
+
         Returns:
             ScorerVersion: A new ScorerVersion instance populated with data from the protobuf.
 
