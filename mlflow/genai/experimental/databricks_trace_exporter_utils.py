@@ -416,16 +416,13 @@ class DatabricksTraceServerClient:
         # Call the trace server API
         request_body = message_to_json(proto_request)
 
-        response_proto = call_endpoint(
+        call_endpoint(
             host_creds=self._host_creds,
             endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
             method="DELETE",
             json_body=request_body,
             response_proto=Empty(),
         )
-
-        # Convert response to config
-        return self._proto_to_config(response_proto)
 
     def _proto_to_config(self, proto: ProtoTraceDestination) -> DatabricksTraceDeltaStorageConfig:
         """Convert a TraceDestination proto to DatabricksTraceDeltaStorageConfig."""
