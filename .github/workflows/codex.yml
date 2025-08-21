@@ -47,4 +47,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --ask-for-approval=never exec --skip-git-repo-check --sandbox=workspace-write "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using create_pending_pull_request_review, add_comment_to_pending_review, and submit_pending_pull_request_review tools provided by the GitHub MCP server? When using add_comment_to_pending_review, the subjectType parameter can be omitted if the line parameter is specified."
+          codex --ask-for-approval=never exec --skip-git-repo-check --sandbox=workspace-write "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using create_pending_pull_request_review, add_comment_to_pending_review, and submit_pending_pull_request_review tools provided by the GitHub MCP server? When using add_comment_to_pending_review, make sure to set the subjectType parameter to 'LINE'"
