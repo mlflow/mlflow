@@ -31,7 +31,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     }
 
     try:
-        from pydantic_ai.Tool import Tool
+        from pydantic_ai import Tool
 
         # Tool.run method is removed in recent versions
         if hasattr(Tool, "run"):

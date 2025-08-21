@@ -6,7 +6,7 @@ from packaging.version import Version
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.instrumented import InstrumentedModel
-from pydantic_ai.usage import Usage
+from pydantic_ai.usage import RequestUsage, Usage
 
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
@@ -23,7 +23,10 @@ PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 def _make_dummy_response_without_tool():
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
     resp = ModelResponse(parts=parts)
-    usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
+    if PYDANTIC_AI_VERSION < Version("0.7.3"):
+        usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
+    else:
+        usage = RequestUsage(input_tokens=1, output_tokens=1)
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         return ModelResponse(parts=parts, usage=usage)
     else:
@@ -33,8 +36,13 @@ def _make_dummy_response_without_tool():
 def _make_dummy_response_with_tool():
     call_parts = [ToolCallPart(tool_name="roulette_wheel", args={"square": 18})]
     final_parts = [TextPart(content=_FINAL_ANSWER_WITH_TOOL)]
-    usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
-    usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
+
+    if PYDANTIC_AI_VERSION < Version("0.7.3"):
+        usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
+        usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
+    else:
+        usage_call = RequestUsage(input_tokens=10, output_tokens=20)
+        usage_final = RequestUsage(input_tokens=100, output_tokens=200)
 
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)
