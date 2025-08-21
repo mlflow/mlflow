@@ -18,7 +18,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -euo pipefail {0}
+    shell: bash
 
 jobs:
   deployments:
