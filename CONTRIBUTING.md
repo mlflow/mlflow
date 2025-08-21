@@ -439,11 +439,13 @@ MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
 
 **Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
-which can cause network request failures. If you are encountering such issues, disable the
+which can cause [network request failures](https://stackoverflow.com/questions/72369320/why-always-something-is-running-at-port-5000-on-my-mac).
+If you are encountering such issues, disable the
 process via system settings, or specify another port (e.g. `mlflow server --port 8000`).
 
 If specifying a different port, please set the following environment variables before running `yarn start`:
-- `MLFLOW_PROXY=<tracking_server_uri>` 
+
+- `MLFLOW_PROXY=<tracking_server_uri>`
 - `MLFLOW_DEV_PROXY_MODE=false`
 
 For example:
