@@ -46,6 +46,7 @@ class Function:
     args: ast.arguments
     lineno: int
     col_offset: int
+    returns: ast.expr | None
 
 
 @dataclass
@@ -292,41 +293,50 @@ def _is_private(n: str) -> bool:
 
 
 class FunctionSignatureExtractor(ast.NodeVisitor):
-    def __init__(self):
+    def __init__(self, path: Path):
         self.functions: dict[str, Function] = {}
         self.stack: list[ast.ClassDef] = []
+        self.path = path
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self.generic_visit(node)
         self.stack.pop()
 
+    def is_private(self, name: str) -> bool:
+        if _is_private(name):
+            return True
+
+        # Check if the function is in a private class
+        if self.stack and _is_private(self.stack[-1].name):
+            return True
+
+        # Check if the function is in a private module
+        if any(_is_private(p) for p in self.path.parts if p != "__init__"):
+            return True
+
+        return False
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        # Is this a private function or a function in a private class?
-        # If so, skip it.
-        is_private = _is_private(node.name) or (
-            len(self.stack) > 0 and _is_private(self.stack[-1].name)
-        )
         names = [*(c.name for c in self.stack), node.name]
         self.functions[".".join(names)] = Function(
-            is_private=is_private,
+            is_private=self.is_private(node.name),
             name=node.name,
             args=node.args,
             lineno=node.lineno,
             col_offset=node.col_offset,
+            returns=node.returns,
         )
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        is_private = _is_private(node.name) or (
-            len(self.stack) > 0 and _is_private(self.stack[-1].name)
-        )
         names = [*(c.name for c in self.stack), node.name]
         self.functions[".".join(names)] = Function(
-            is_private=is_private,
+            is_private=self.is_private(node.name),
             name=node.name,
             args=node.args,
             lineno=node.lineno,
             col_offset=node.col_offset,
+            returns=node.returns,
         )
 
 
@@ -345,9 +355,9 @@ def get_changed_python_files(base_branch: str = "master") -> list[Path]:
     return [Path(f) for f in files if f]
 
 
-def parse_functions(content: str) -> dict[str, Function]:
+def parse_functions(content: str, path: Path) -> dict[str, Function]:
     tree = ast.parse(content)
-    extractor = FunctionSignatureExtractor()
+    extractor = FunctionSignatureExtractor(path)
     extractor.visit(tree)
     return extractor.functions
 
@@ -371,10 +381,6 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if file_path.parts[0] != "mlflow":
             continue
 
-        # Ignore private modules
-        if any(part.startswith("_") for part in file_path.parts):
-            continue
-
         base_content = get_file_content_at_revision(file_path, base_branch)
 
         if not file_path.exists():
@@ -386,7 +392,7 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if base_content is None:
             # File not found in the base branch, likely added in the current branch
             # Check all functions in the new file for type hints
-            current_functions = parse_functions(current_content)
+            current_functions = parse_functions(current_content, file_path)
             for func_name, current_func in current_functions.items():
                 if type_error := check_function_type_hints(current_func):
                     errors.append(
@@ -402,8 +408,8 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
                     )
         else:
             # File exists in both base and current branch
-            base_functions = parse_functions(base_content)
-            current_functions = parse_functions(current_content)
+            base_functions = parse_functions(base_content, file_path)
+            current_functions = parse_functions(current_content, file_path)
 
             # Check existing functions for signature compatibility
             for func_name in set(base_functions.keys()) & set(current_functions.keys()):
