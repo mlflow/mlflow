@@ -46,6 +46,16 @@ service DatabricksTracingServerService {
       }],
     };
   }
+
+  rpc DeleteTraceDestination(DeleteTraceDestinationRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      visibility: PUBLIC_UNDOCUMENTED
+      endpoints: [{
+        method: "DELETE",
+        path: "/2.0/tracing/trace-destinations/mlflow-experiments/{trace_location.mlflow_experiment.experiment_id}",
+      }]
+    };
+  }
 }
 
 
@@ -314,6 +324,16 @@ message GetTraceDestinationRequest {
   
   // The location of the source of traces. Uniquely identifies a TraceDestination
   optional TraceLocation trace_location = 1;
+}
+
+// Request message for DeleteTraceDestination RPC
+message DeleteTraceDestinationRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[com.google.protobuf.empty.Empty]";
+  
+  // The location of the source of traces. Uniquely identifies a TraceDestination
+  optional TraceLocation trace_location = 1 [
+    (google.api.field_behavior) = REQUIRED
+  ];
 }
 
 // A TraceDestination contains metadata about where traces for a given trace location are stored/archived
