@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
 
@@ -12,10 +14,8 @@ class Judge(Scorer):
     """
 
     @property
+    @abstractmethod
     def description(self) -> str:
         """
         Plain text description of what this judge evaluates.
         """
-        raise NotImplementedError(
-            "Judge.description must be implemented by subclasses or set via factory functions"
-        )

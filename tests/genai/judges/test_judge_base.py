@@ -35,15 +35,8 @@ class MockJudgeImplementation(Judge):
 
 
 def test_judge_base_class_abstract_behavior():
-    judge = Judge(name="test")
-
-    with pytest.raises(NotImplementedError, match="Implementation of __call__ is required"):
-        judge(outputs="test")
-
-    with pytest.raises(NotImplementedError, match="Judge.description must be implemented"):
-        _ = judge.description
-
-    assert judge.name == "test"
+    with pytest.raises(TypeError, match="Can't instantiate abstract class Judge"):
+        Judge(name="test")
 
 
 def test_judge_implementation():
