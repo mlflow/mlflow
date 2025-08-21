@@ -4803,6 +4803,7 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span2]) 
     store.log_spans(exp_id, [span3])
     
+    
     # Test exact match
     traces, _ = store.search_traces(
         [exp_id], filter_string='span.name = "database_query"'
