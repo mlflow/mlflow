@@ -679,3 +679,30 @@ def test_get_n_trials(setup_storage):
     study_id_to_frozen_studies, _ = _setup_studies(storage, n_study=2, n_trial=7, seed=50)
     for study_id in study_id_to_frozen_studies:
         assert storage.get_n_trials(study_id) == 7
+
+
+def test_study_exists_method(setup_storage):
+    storage = setup_storage
+
+    # Test non-existent study
+    assert not storage.get_study_id_by_name_if_exists("non-existent-study")
+
+    # Create a study
+    storage.create_new_study([StudyDirection.MINIMIZE], "test-study")
+
+    # Test existing study
+    assert storage.get_study_id_by_name_if_exists("test-study")
+
+
+def test_get_study_id_by_name_if_exists(setup_storage):
+    storage = setup_storage
+
+    # Test non-existent study
+    assert storage.get_study_id_by_name_if_exists("non-existent") is None
+
+    # Create a study
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE], "test-study")
+
+    # Test existing study
+    result = storage.get_study_id_by_name_if_exists("test-study")
+    assert result == study_id
