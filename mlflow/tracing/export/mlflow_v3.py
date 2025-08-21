@@ -51,10 +51,54 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. All spans (root and non-root) are exported.
         """
-        # Collect all spans to log in a single call
+        manager = InMemoryTraceManager.get_instance()
+
+        # Export all spans incrementally
+        self._export_spans_incrementally(spans, manager)
+
+        # Export full traces for root spans
+        self._export_root_spans(spans, manager)
+
+    def _export_spans_incrementally(
+        self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
+    ):
+        """
+        Export spans incrementally as they complete.
+
+        Args:
+            spans: Sequence of ReadableSpan objects to export.
+            manager: The trace manager instance.
+        """
+        spans_to_log, experiment_id = self._collect_spans_for_export(spans, manager)
+
+        if spans_to_log and experiment_id:
+            if self._should_log_async():
+                # Use async queue for span logging when async is enabled
+                self._async_queue.put(
+                    task=Task(
+                        handler=self._log_spans,
+                        args=(experiment_id, spans_to_log),
+                        error_msg="Failed to log spans to the trace server.",
+                    )
+                )
+            else:
+                self._log_spans(experiment_id, spans_to_log)
+
+    def _collect_spans_for_export(
+        self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
+    ) -> tuple[list[Span], str | None]:
+        """
+        Collect MLflow spans from ReadableSpans for export.
+
+        Args:
+            spans: Sequence of ReadableSpan objects.
+            manager: The trace manager instance.
+
+        Returns:
+            Tuple of (list of MLflow Span objects, experiment_id).
+        """
         spans_to_log = []
         experiment_id = None
-        manager = InMemoryTraceManager.get_instance()
 
         for span in spans:
             # Get trace from manager to retrieve experiment_id and trace_id
@@ -71,21 +115,16 @@ class MlflowV3SpanExporter(SpanExporter):
                 if mlflow_span:
                     spans_to_log.append(mlflow_span)
 
-        # Log all collected spans in a single call
-        if spans_to_log and experiment_id:
-            if self._should_log_async():
-                # Use async queue for span logging when async is enabled
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_spans,
-                        args=(experiment_id, spans_to_log),
-                        error_msg="Failed to log spans to the trace server.",
-                    )
-                )
-            else:
-                self._log_spans(experiment_id, spans_to_log)
+        return spans_to_log, experiment_id
 
-        # Continue with full trace export only for root spans
+    def _export_root_spans(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
+        """
+        Export full traces for root spans.
+
+        Args:
+            spans: Sequence of ReadableSpan objects.
+            manager: The trace manager instance.
+        """
         for span in spans:
             if span._parent is not None:
                 continue
@@ -96,27 +135,36 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
-            trace = manager_trace.trace
-            _set_last_active_trace_id(trace.info.request_id)
+            self._process_and_export_trace(manager_trace)
 
-            # Store mapping from eval request ID to trace ID so that the evaluation
-            # harness can access to the trace using mlflow.get_trace(eval_request_id)
-            if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
+    def _process_and_export_trace(self, manager_trace):
+        """
+        Process and export a complete trace.
 
-            if not maybe_get_request_id(is_evaluate=True):
-                self._display_handler.display_traces([trace])
+        Args:
+            manager_trace: The ManagerTrace object containing trace and prompts.
+        """
+        trace = manager_trace.trace
+        _set_last_active_trace_id(trace.info.request_id)
 
-            if self._should_log_async():
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_trace,
-                        args=(trace, manager_trace.prompts),
-                        error_msg="Failed to log trace to the trace server.",
-                    )
+        # Store mapping from eval request ID to trace ID so that the evaluation
+        # harness can access to the trace using mlflow.get_trace(eval_request_id)
+        if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
+            _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
+
+        if not maybe_get_request_id(is_evaluate=True):
+            self._display_handler.display_traces([trace])
+
+        if self._should_log_async():
+            self._async_queue.put(
+                task=Task(
+                    handler=self._log_trace,
+                    args=(trace, manager_trace.prompts),
+                    error_msg="Failed to log trace to the trace server.",
                 )
-            else:
-                self._log_trace(trace, prompts=manager_trace.prompts)
+            )
+        else:
+            self._log_trace(trace, prompts=manager_trace.prompts)
 
     def _log_spans(self, experiment_id: str, spans: list[Span]):
         """
