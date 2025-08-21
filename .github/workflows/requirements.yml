@@ -83,8 +83,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install '.[gateway]'
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
