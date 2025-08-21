@@ -50,4 +50,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex exec "Can you fetch the most recent issue and summarize it?"
+          codex --full-auto exec "Can you fetch the most recent issue and summarize it?"
