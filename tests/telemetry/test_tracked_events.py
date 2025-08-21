@@ -271,7 +271,7 @@ def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
         url="https://example.com/webhook",
         events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
     )
-    expected_params = {"entities": ["model_version"]}
+    expected_params = {"events": ["model_version.created"]}
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
     )

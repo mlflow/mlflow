@@ -100,8 +100,7 @@ class CreateWebhookEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         events = arguments.get("events") or []
-        entities = list({str(e.entity) for e in events})
-        return {"entities": entities}
+        return {"events": [str(event) for event in events]}
 
 
 class PromptOptimizationEvent(Event):
