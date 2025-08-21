@@ -47,4 +47,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --dangerously-bypass-approvals-and-sandbox exec --skip-git-repo-check "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using the GitHub MCP server?"
+          codex exec --full-auto --skip-git-repo-check --sandbox=workspace-write "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using the GitHub MCP server?"
