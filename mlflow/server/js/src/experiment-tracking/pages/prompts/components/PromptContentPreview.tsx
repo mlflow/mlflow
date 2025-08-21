@@ -74,7 +74,7 @@ export const PromptContentPreview = ({
     while ((match = PROMPT_VARIABLE_REGEX.exec(source)) !== null) {
       variables.push(match[1]);
     }
-    
+
     // Sanity check for tricky cases like nested brackets. If the variable name contains
     // a bracket, we consider it as a parsing error and render a placeholder instead.
     if (variables.some((variable) => variable.includes('{') || variable.includes('}'))) {
