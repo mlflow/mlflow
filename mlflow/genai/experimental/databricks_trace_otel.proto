@@ -93,6 +93,7 @@ message Span {
   optional Status status = 16;
 
   // Resource information
+  // Due to Zerobus limitations, nested struct messages must be defined within the message itself
   message Resource {
     // Set of attributes that describe the resource
     map<string, string> attributes = 1;
@@ -107,6 +108,7 @@ message Span {
   optional string resource_schema_url = 18;
 
   // Instrumentation scope information
+  // Due to Zerobus limitations, nested struct messages must be defined within the message itself
   message InstrumentationScope {
     // Name of the instrumentation scope
     optional string name = 1;
@@ -162,6 +164,7 @@ message Event {
   optional int32 flags = 11;
 
   // Resource information
+  // Due to Zerobus limitations, nested struct messages must be defined within the message itself
   message Resource {
     // Set of attributes that describe the resource
     map<string, string> attributes = 1;
@@ -176,6 +179,7 @@ message Event {
   optional string resource_schema_url = 13;
 
   // Instrumentation scope information
+  // Due to Zerobus limitations, nested struct messages must be defined within the message itself
   message InstrumentationScope {
     // Name of the instrumentation scope
     optional string name = 1;

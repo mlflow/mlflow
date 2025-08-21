@@ -120,10 +120,7 @@ def _resolve_ingest_url() -> str:
     host_creds = get_databricks_host_creds()
 
     try:
-        # Get workspace ID if not provided
-        from databricks.sdk import WorkspaceClient
-
-        workspace_id = WorkspaceClient().get_workspace_id()
+        workspace_id = get_workspace_id()
 
         if not workspace_id:
             raise MlflowException(
