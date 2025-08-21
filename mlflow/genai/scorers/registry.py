@@ -484,7 +484,9 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
 
 
 @experimental(version="3.2.0")
-def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list[tuple[Scorer, int]]:
+def list_scorer_versions(
+    *, name: str, experiment_id: str | None = None
+) -> list[tuple[Scorer, int | None]]:
     """
     List all versions of a specific scorer for an experiment.
     
@@ -505,7 +507,7 @@ def list_scorer_versions(*, name: str, experiment_id: str | None = None) -> list
             :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
     
     Returns:
-        list[tuple[Scorer, int]]: A list of tuples, where each tuple contains:
+        list[tuple[Scorer, int | None]]: A list of tuples, where each tuple contains:
             - A Scorer object representing the scorer at that specific version
             - An integer representing the version number (1, 2, 3, etc.), for Databricks backend,
               the version number is `None`.
