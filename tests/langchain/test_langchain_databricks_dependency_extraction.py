@@ -470,7 +470,8 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
 
-        # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
         monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
         monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
