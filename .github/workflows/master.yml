@@ -324,7 +324,11 @@ jobs:
         run: |
           pip install databricks-agents
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
-            --ignore tests/genai/optimize --ignore tests/genai/prompts
+            --ignore tests/genai/optimize --ignore tests/genai/prompts --ignore tests/genai/experimental
+
+      - name: Run GenAI Tests (Databricks) with Delta Archival
+        run: |
+          pytest tests/genai/experimental
 
       - name: Run Tests with Local Spark Session
         run: |
@@ -333,7 +337,7 @@ jobs:
           # uninstalling databricks-connect.
           pip uninstall -y databricks-connect pyspark
           pip install pyspark
-          pytest tests/genai/evaluate/test_utils.py
+          pytest tests/genai/evaluate/test_utils.py tests/genai/experimental
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
