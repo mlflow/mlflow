@@ -6,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.genai import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.git_versioning import _get_active_git_context
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_DIFF
 
 
 @pytest.fixture(autouse=True)
@@ -36,12 +37,14 @@ def test_enable_git_model_versioning(monkeypatch: pytest.MonkeyPatch, tmp_git_re
     assert context.info.commit is not None
     assert context.info.branch is not None
     assert context.info.dirty is False
+    assert context.info.diff is None  # Clean repo has no diff
 
     # Create a dummy file to make the repo dirty
     Path(tmp_git_repo / "dummy.txt").touch()
     context = enable_git_model_versioning()
     # Untracked files should not be considered dirty
     assert context.info.dirty is False
+    assert context.info.diff is None  # No diff for untracked files
 
     # Checkout a new branch
     subprocess.check_call(["git", "checkout", "-b", "new-branch"], cwd=tmp_git_repo)
@@ -194,3 +197,53 @@ def test_enable_git_model_versioning_no_remote(tmp_git_repo: Path):
     # No remote - repo_url should be None
     context = enable_git_model_versioning()
     assert context.info.repo_url is None
+
+
+def test_git_diff_collected_when_dirty(tmp_git_repo: Path):
+    # Initially clean repo
+    context = enable_git_model_versioning()
+    assert context.info.dirty is False
+    assert context.info.diff is None
+    disable_git_model_versioning()
+
+    # Modify a tracked file
+    test_file = tmp_git_repo / TEST_FILENAME
+    test_file.write_text("Modified content")
+
+    # Should have diff now
+    context = enable_git_model_versioning()
+    assert context.info.dirty is True
+    assert context.info.diff is not None
+    assert "Modified content" in context.info.diff
+    assert MLFLOW_GIT_DIFF in context.info.to_mlflow_tags()
+
+    # Make another change
+    with open(test_file, "a") as f:
+        f.write("\nAnother change")
+
+    # Both changes should be in the diff
+    context = enable_git_model_versioning()
+    model = mlflow.get_logged_model(context.active_model.model_id)
+    assert "Modified content" in model.tags[MLFLOW_GIT_DIFF]
+    assert "Another change" in model.tags[MLFLOW_GIT_DIFF]
+
+
+def test_git_diff_includes_staged_changes(tmp_git_repo: Path):
+    # Create two files
+    file1 = tmp_git_repo / "file1.txt"
+    file2 = tmp_git_repo / "file2.txt"
+    file1.write_text("file1 content")
+    file2.write_text("file2 content")
+
+    # Stage file1
+    subprocess.check_call(["git", "add", "file1.txt"], cwd=tmp_git_repo)
+
+    # file2 remains unstaged (but untracked files don't show in diff)
+    # So let's modify an existing tracked file instead
+    (tmp_git_repo / TEST_FILENAME).write_text("modified content")
+
+    context = enable_git_model_versioning()
+    assert context.info.dirty is True
+    assert context.info.diff is not None
+    assert "file1 content" in context.info.diff  # Staged changes
+    assert "modified content" in context.info.diff  # Unstaged changes
