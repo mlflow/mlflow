@@ -45,7 +45,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
@@ -148,13 +148,8 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
         run: |
-          if [ "${{ matrix.package }}" = "pyspark" ]; then
-            # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
-            sed -i '/^pyspark/d' requirements/constraints.txt
-          elif [ "${{ matrix.package }}" = "transformers" ]; then
-            # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
-            sed -i '/^transformers</d' requirements/constraints.txt
-          fi
+          # Remove any constraints for the current package to prevent installation conflicts
+          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
 
           if ! git diff --exit-code requirements/constraints.txt; then
             git diff
@@ -219,13 +214,8 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
         run: |
-          if [ "${{ matrix.package }}" = "pyspark" ]; then
-            # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
-            sed -i '/^pyspark/d' requirements/constraints.txt
-          elif [ "${{ matrix.package }}" = "transformers" ]; then
-            # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
-            sed -i '/^transformers</d' requirements/constraints.txt
-          fi
+          # Remove any constraints for the current package to prevent installation conflicts
+          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
 
           if ! git diff --exit-code requirements/constraints.txt; then
             git diff
