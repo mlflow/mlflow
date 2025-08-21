@@ -312,7 +312,7 @@ class FunctionSignatureExtractor(ast.NodeVisitor):
             return True
 
         # Check if the function is in a private module
-        if any(_is_private(p) for p in self.path.parts if p != "__init__"):
+        if any(_is_private(p) for p in self.path.parts):
             return True
 
         return False
