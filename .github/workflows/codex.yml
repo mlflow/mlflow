@@ -47,4 +47,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --full-auto exec "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments?"
+          codex --full-auto --skip-git-repo-check exec "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments?"
