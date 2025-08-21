@@ -1,4 +1,3 @@
-import importlib
 from collections import Counter, defaultdict
 from unittest import mock
 
@@ -472,10 +471,8 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
         from databricks_langchain import ChatDatabricks
 
         # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
-        if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
-            monkeypatch.setattr(
-                "databricks_langchain.chat_models.get_openai_client", mock.MagicMock()
-            )
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -496,11 +493,10 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
 
-        # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
-        if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
-            monkeypatch.setattr(
-                "databricks_langchain.chat_models.get_openai_client", mock.MagicMock()
-            )
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -515,7 +511,6 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
         has_embedding_endpoint=True,
     )
     retriever = vectorstore.as_retriever()
-
     llm = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     llm2 = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
 
