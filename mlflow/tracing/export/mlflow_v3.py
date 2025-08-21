@@ -57,7 +57,7 @@ class MlflowV3SpanExporter(SpanExporter):
         self._export_spans_incrementally(spans, manager)
 
         # Export full traces for root spans
-        self._export_root_spans(spans, manager)
+        self._export_traces(spans, manager)
 
     def _export_spans_incrementally(
         self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
@@ -117,7 +117,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
         return spans_to_log, experiment_id
 
-    def _export_root_spans(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
+    def _export_traces(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
         """
         Export full traces for root spans.
 
@@ -135,36 +135,27 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
-            self._process_and_export_trace(manager_trace)
+            trace = manager_trace.trace
+            _set_last_active_trace_id(trace.info.request_id)
 
-    def _process_and_export_trace(self, manager_trace):
-        """
-        Process and export a complete trace.
+            # Store mapping from eval request ID to trace ID so that the evaluation
+            # harness can access to the trace using mlflow.get_trace(eval_request_id)
+            if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
+                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
-        Args:
-            manager_trace: The ManagerTrace object containing trace and prompts.
-        """
-        trace = manager_trace.trace
-        _set_last_active_trace_id(trace.info.request_id)
+            if not maybe_get_request_id(is_evaluate=True):
+                self._display_handler.display_traces([trace])
 
-        # Store mapping from eval request ID to trace ID so that the evaluation
-        # harness can access to the trace using mlflow.get_trace(eval_request_id)
-        if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-            _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
-
-        if not maybe_get_request_id(is_evaluate=True):
-            self._display_handler.display_traces([trace])
-
-        if self._should_log_async():
-            self._async_queue.put(
-                task=Task(
-                    handler=self._log_trace,
-                    args=(trace, manager_trace.prompts),
-                    error_msg="Failed to log trace to the trace server.",
+            if self._should_log_async():
+                self._async_queue.put(
+                    task=Task(
+                        handler=self._log_trace,
+                        args=(trace, manager_trace.prompts),
+                        error_msg="Failed to log trace to the trace server.",
+                    )
                 )
-            )
-        else:
-            self._log_trace(trace, prompts=manager_trace.prompts)
+            else:
+                self._log_trace(trace, prompts=manager_trace.prompts)
 
     def _log_spans(self, experiment_id: str, spans: list[Span]):
         """
