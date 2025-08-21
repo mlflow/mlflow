@@ -21,7 +21,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
