@@ -29,4 +29,4 @@ jobs:
           ANTHROPIC_BASE_URL: http://localhost:3000
           ANTHROPIC_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          claude -p "Hello"
+          claude -p "what is the capital of France?"
