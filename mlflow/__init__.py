@@ -421,3 +421,7 @@ set_telemetry_client()
 # test
 def _untyped_fn(a, b):
     pass
+
+
+def _typed_fn(a: int, b: int) -> int:
+    return a + b
