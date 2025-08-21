@@ -18,39 +18,7 @@ UNRECOVERABLE_ERRORS = [
     404,  # Not Found
 ]
 
-PACKAGES_TO_CHECK_IMPORT = {
-    # Classic ML
-    "catboost",
-    "diviner",
-    "h2o",
-    "lightgbm",
-    "optuna",
-    "prophet",
-    "pyspark.ml",
-    "sklearn",
-    "spacy",
-    "statsmodels",
-    "xgboost",
-    # Deep Learning
-    "accelerate",
-    "bitsandbytes",
-    "deepspeed",
-    "diffusers",
-    "fastai",
-    "flash_attn",
-    "flax",
-    "jax",
-    "keras",
-    "lightning",
-    "mxnet",
-    "paddle",
-    "peft",
-    "sentence_transformers",
-    "tensorflow",
-    "timm",
-    "torch",
-    "transformers",
-    # GenAI
+GENAI_MODULES = {
     "agno",
     "anthropic",
     "autogen",
@@ -79,4 +47,42 @@ PACKAGES_TO_CHECK_IMPORT = {
     "smolagents",
     "vllm",
     "weaviate",
-} | set(FLAVOR_TO_MODULE_NAME.values()) - {"boto3", "pyspark"}
+}
+
+PACKAGES_TO_CHECK_IMPORT = (
+    {
+        # Classic ML
+        "catboost",
+        "diviner",
+        "h2o",
+        "lightgbm",
+        "optuna",
+        "prophet",
+        "pyspark.ml",
+        "sklearn",
+        "spacy",
+        "statsmodels",
+        "xgboost",
+        # Deep Learning
+        "accelerate",
+        "bitsandbytes",
+        "deepspeed",
+        "diffusers",
+        "fastai",
+        "flash_attn",
+        "flax",
+        "jax",
+        "keras",
+        "lightning",
+        "mxnet",
+        "paddle",
+        "peft",
+        "sentence_transformers",
+        "tensorflow",
+        "timm",
+        "torch",
+        "transformers",
+    }
+    | GENAI_MODULES
+    | set(FLAVOR_TO_MODULE_NAME.values()) - {"boto3", "pyspark"}
+)
