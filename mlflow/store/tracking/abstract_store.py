@@ -941,12 +941,12 @@ class AbstractStore:
             MlflowException: If more than 100 traces are provided.
         """
 
-    @abstractmethod
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
         filter_string1: str,
         filter_string2: str,
+        base_filter: str | None = None,
     ) -> TraceFilterCorrelationResult:
         """
         Calculate correlation between two trace filter conditions using NPMI.
@@ -958,6 +958,8 @@ class AbstractStore:
             experiment_ids: List of experiment IDs to analyze traces from.
             filter_string1: First filter condition (MLflow search filter syntax).
             filter_string2: Second filter condition (MLflow search filter syntax).
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows).
 
         Returns:
             TraceFilterCorrelationResult containing:
@@ -967,12 +969,11 @@ class AbstractStore:
             - filter2_count: Number of traces matching filter2
             - joint_count: Number of traces matching both filters
             - total_count: Total number of traces in the experiments
-            - expected_joint: Expected joint count under independence
-            - lift: Ratio of observed to expected joint count
 
         Raises:
             MlflowException: If filters are invalid or experiments don't exist.
         """
+        raise NotImplementedError(self.__class__.__name__)
 
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """

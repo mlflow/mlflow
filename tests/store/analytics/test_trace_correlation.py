@@ -1,9 +1,6 @@
 import math
 
-from mlflow.store.analytics.trace_correlation import (
-    calculate_expected_and_lift,
-    calculate_npmi_from_counts,
-)
+from mlflow.store.analytics.trace_correlation import calculate_npmi_from_counts
 
 
 def test_npmi_perfect_positive_correlation():
@@ -106,56 +103,6 @@ def test_npmi_clamping():
         result = calculate_npmi_from_counts(joint, f1, f2, total)
         if not math.isnan(result.npmi):
             assert -1.0 <= result.npmi <= 1.0
-
-
-def test_expected_joint_independence():
-    lift_result = calculate_expected_and_lift(
-        joint_count=12, filter1_count=20, filter2_count=60, total_count=100
-    )
-    assert lift_result.expected_joint == 12.0
-    assert lift_result.lift == 1.0
-
-
-def test_lift_positive_association():
-    lift_result = calculate_expected_and_lift(
-        joint_count=20, filter1_count=30, filter2_count=40, total_count=100
-    )
-    assert lift_result.expected_joint == 12.0
-    assert lift_result.lift > 1.0
-    assert abs(lift_result.lift - 20 / 12) < 0.01
-
-
-def test_lift_negative_association():
-    lift_result = calculate_expected_and_lift(
-        joint_count=5, filter1_count=30, filter2_count=40, total_count=100
-    )
-    assert lift_result.expected_joint == 12.0
-    assert lift_result.lift < 1.0
-    assert abs(lift_result.lift - 5 / 12) < 0.01
-
-
-def test_lift_zero_joint():
-    lift_result = calculate_expected_and_lift(
-        joint_count=0, filter1_count=30, filter2_count=40, total_count=100
-    )
-    assert lift_result.expected_joint == 12.0
-    assert lift_result.lift == 0.0
-
-
-def test_lift_zero_expected():
-    lift_result = calculate_expected_and_lift(
-        joint_count=0, filter1_count=0, filter2_count=40, total_count=100
-    )
-    assert lift_result.expected_joint == 0.0
-    assert lift_result.lift is None
-
-
-def test_empty_dataset():
-    lift_result = calculate_expected_and_lift(
-        joint_count=0, filter1_count=0, filter2_count=0, total_count=0
-    )
-    assert lift_result.expected_joint is None
-    assert lift_result.lift is None
 
 
 def test_both_npmi_values_returned():

@@ -29,9 +29,6 @@ class TraceFilterCorrelationResult:
         total_count: Total number of traces in the experiment(s).
         confidence_lower: Lower bound of the confidence interval for NPMI (optional).
         confidence_upper: Upper bound of the confidence interval for NPMI (optional).
-        expected_joint: Expected joint count if filters were independent (n1*n2/N).
-        lift: Ratio of observed to expected joint count (joint_count/expected_joint).
-              Values > 1 indicate positive association, < 1 indicate negative association.
     """
 
     npmi: float
@@ -42,5 +39,3 @@ class TraceFilterCorrelationResult:
     npmi_smoothed: float | None = None
     confidence_lower: float | None = None
     confidence_upper: float | None = None
-    expected_joint: float | None = None
-    lift: float | None = None

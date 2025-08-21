@@ -43,23 +43,6 @@ class NPMIResult:
     npmi_smoothed: float | None
 
 
-@dataclass
-class LiftResult:
-    """
-    Result of lift calculation for trace correlation analysis.
-
-    Attributes:
-        expected_joint: Expected joint count if filters were independent (n1*n2/N).
-                       None if total_count is 0.
-        lift: Ratio of observed to expected joint count (joint_count/expected_joint).
-              Values > 1 indicate positive association, < 1 indicate negative association.
-              None if expected_joint is 0, inf if joint_count > 0 but expected_joint = 0.
-    """
-
-    expected_joint: float | None
-    lift: float | None
-
-
 def calculate_npmi_from_counts(
     joint_count: int,
     filter1_count: int,
@@ -155,12 +138,18 @@ def _calculate_npmi_core(
     n1 = n11_s + n10_s  # Total event 1 count
     n2 = n11_s + n01_s  # Total event 2 count
 
-    # Check for zero marginals (shouldn't happen with positive smoothing)
+    # NB: When marginals are zero (degenerate cases where no events occur), we return NaN
+    # rather than forcing a sentinel value like -1. This is mathematically correct since
+    # PMI is undefined when P(x)=0 or P(y)=0 (division by zero). NaN properly represents
+    # this undefined state and can be handled by our RPC layer, providing a more accurate
+    # signal than an arbitrary sentinel value.
     if n1 <= 0 or n2 <= 0 or n11_s <= 0:
         return float("nan")
 
-    # Handle perfect co-occurrence edge case
-    if math.isclose(n11_s, N):
+    # Handle perfect co-occurrence - check pre-smoothing values
+    # With smoothing, n11_s == N is never true since smoothing adds mass to other cells
+    if n10 == 0 and n01 == 0 and n00 == 0:
+        # Perfect co-occurrence: both events always occur together
         return 1.0
 
     # Calculate PMI using log-space arithmetic for numerical stability
@@ -216,34 +205,3 @@ def calculate_smoothed_npmi(
         return float("nan")
 
     return _calculate_npmi_core(n11, n10, n01, n00, smoothing)
-
-
-def calculate_expected_and_lift(
-    joint_count: int,
-    filter1_count: int,
-    filter2_count: int,
-    total_count: int,
-) -> LiftResult:
-    """
-    Calculate expected joint count and lift ratio.
-
-    Args:
-        joint_count: Observed joint occurrence count
-        filter1_count: Count of filter 1 matches
-        filter2_count: Count of filter 2 matches
-        total_count: Total number of traces
-
-    Returns:
-        LiftResult containing expected joint count and lift ratio.
-    """
-    if total_count <= 0:
-        return LiftResult(expected_joint=None, lift=None)
-
-    expected_joint = (filter1_count * filter2_count) / total_count
-
-    if expected_joint > 0:
-        lift = joint_count / expected_joint
-    else:
-        lift = None if joint_count == 0 else float("inf")
-
-    return LiftResult(expected_joint=expected_joint, lift=lift)

@@ -3031,6 +3031,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment_ids: list[str],
         filter_string1: str,
         filter_string2: str,
+        base_filter: str | None = None,
     ) -> TraceFilterCorrelationResult:
         """
         Calculate correlation between two trace filter conditions using NPMI.
@@ -3039,31 +3040,33 @@ class SqlAlchemyStore(AbstractStore):
             experiment_ids: List of experiment_ids to search over
             filter_string1: First filter condition in search_traces filter syntax
             filter_string2: Second filter condition in search_traces filter syntax
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows)
 
         Returns:
             TraceFilterCorrelationResult which containst the NPMI analytics data.
         """
 
         with self.ManagedSessionMaker() as session:
+            if base_filter:
+                filter1_combined = f"({base_filter}) and ({filter_string1})"
+                filter2_combined = f"({base_filter}) and ({filter_string2})"
+            else:
+                filter1_combined = filter_string1
+                filter2_combined = filter_string2
+
             filter1_subquery = self._build_trace_filter_subquery(
-                session, experiment_ids, filter_string1
+                session, experiment_ids, filter1_combined
             )
             filter2_subquery = self._build_trace_filter_subquery(
-                session, experiment_ids, filter_string2
+                session, experiment_ids, filter2_combined
             )
 
             counts = self._get_trace_correlation_counts(
-                session, experiment_ids, filter1_subquery, filter2_subquery
+                session, experiment_ids, filter1_subquery, filter2_subquery, base_filter
             )
 
             npmi_result = trace_correlation.calculate_npmi_from_counts(
-                counts.joint_count,
-                counts.filter1_count,
-                counts.filter2_count,
-                counts.total_count,
-            )
-
-            lift_result = trace_correlation.calculate_expected_and_lift(
                 counts.joint_count,
                 counts.filter1_count,
                 counts.filter2_count,
@@ -3077,8 +3080,6 @@ class SqlAlchemyStore(AbstractStore):
                 filter2_count=counts.filter2_count,
                 joint_count=counts.joint_count,
                 total_count=counts.total_count,
-                expected_joint=lift_result.expected_joint,
-                lift=lift_result.lift,
             )
 
     def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
@@ -3106,6 +3107,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment_ids: list[str],
         filter1_subquery,
         filter2_subquery,
+        base_filter: str | None = None,
     ) -> trace_correlation.TraceCorrelationCounts:
         """
         Get trace counts for correlation analysis using a single SQL query.
@@ -3128,6 +3130,12 @@ class SqlAlchemyStore(AbstractStore):
             func.sum(case((f2_exists, 1), else_=0)).label("filter2"),
             func.sum(case((and_(f1_exists, f2_exists), 1), else_=0)).label("joint"),
         ).filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+
+        if base_filter:
+            base_subquery = self._build_trace_filter_subquery(session, experiment_ids, base_filter)
+            base_subq = base_subquery.subquery()
+            base_exists = exists().where(base_subq.c.request_id == SqlTraceInfo.request_id)
+            query = query.filter(base_exists)
 
         result = query.one()
 
