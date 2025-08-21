@@ -12,6 +12,8 @@ jobs:
       pull-requests: write
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       - name: Install codex
         run: |
           npm install -g @openai/codex
@@ -47,4 +49,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --ask-for-approval=never exec --skip-git-repo-check --sandbox=workspace-write "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using create_pending_pull_request_review, add_comment_to_pending_review, and submit_pending_pull_request_review tools provided by the GitHub MCP server? When using add_comment_to_pending_review, make sure to set the subjectType parameter to 'LINE'"
+          codex --ask-for-approval=never exec --skip-git-repo-check --sandbox=workspace-write "Can you review https://github.com/mlflow/mlflow/pull/17335 and leave comments using create_pending_pull_request_review, add_comment_to_pending_review, and submit_pending_pull_request_review tools provided by the GitHub MCP server? When using add_comment_to_pending_review, make sure to set the subjectType parameter to 'LINE'. To get the PR diff, use dev/better_diff.py."
