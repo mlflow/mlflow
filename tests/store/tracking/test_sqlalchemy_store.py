@@ -4788,27 +4788,14 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     trace3 = _create_trace(store, trace3_id, exp_id)
     
     # Create spans with different names
-    span1 = create_mlflow_span(
-        name="database_query",
-        span_type="FUNCTION", 
-        trace_id=trace1_id,
-        span_id="span1"
-    )
-    span2 = create_mlflow_span(
-        name="api_call",
-        span_type="FUNCTION",
-        trace_id=trace2_id, 
-        span_id="span2"
-    )
-    span3 = create_mlflow_span(
-        name="database_update",
-        span_type="FUNCTION",
-        trace_id=trace3_id,
-        span_id="span3"
-    )
+    span1 = create_test_span(trace1_id, name="database_query", span_id=111, span_type="FUNCTION")
+    span2 = create_test_span(trace2_id, name="api_call", span_id=222, span_type="FUNCTION")
+    span3 = create_test_span(trace3_id, name="database_update", span_id=333, span_type="FUNCTION")
     
     # Add spans to store
-    store.log_spans([span1, span2, span3])
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2]) 
+    store.log_spans(exp_id, [span3])
     
     # Test exact match
     traces, _ = store.search_traces([exp_id], filter_string='span.name = "database_query"')
