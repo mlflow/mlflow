@@ -8,12 +8,15 @@ and other common archival operations.
 import logging
 import re
 
+from google.protobuf import Empty
+
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
+    DeleteTraceDestinationRequest,
     GetTraceDestinationRequest,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
@@ -387,6 +390,42 @@ class DatabricksTraceServerClient:
                 return None
             else:
                 raise
+
+    def delete_trace_destination(self, experiment_id: str) -> None:
+        """
+        Delete the trace destination configuration for an experiment.
+
+        Args:
+            experiment_id: The MLflow experiment ID
+
+        Returns:
+            None
+
+        Raises:
+            MlflowException: If deletion fails
+        """
+        # Create proto request
+        proto_trace_location = ProtoTraceLocation()
+        proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto_trace_location.mlflow_experiment.experiment_id = experiment_id
+
+        proto_request = DeleteTraceDestinationRequest(
+            trace_location=proto_trace_location,
+        )
+
+        # Call the trace server API
+        request_body = message_to_json(proto_request)
+
+        response_proto = call_endpoint(
+            host_creds=self._host_creds,
+            endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
+            method="DELETE",
+            json_body=request_body,
+            response_proto=Empty(),
+        )
+
+        # Convert response to config
+        return self._proto_to_config(response_proto)
 
     def _proto_to_config(self, proto: ProtoTraceDestination) -> DatabricksTraceDeltaStorageConfig:
         """Convert a TraceDestination proto to DatabricksTraceDeltaStorageConfig."""

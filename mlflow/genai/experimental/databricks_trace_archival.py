@@ -319,6 +319,9 @@ def _do_enable_databricks_archival(
     Note that this operation is idempotent such that if the archival is already enabled,
     it will return the existing view name without making any changes.
 
+    If archival is already enabled with different configuration, it will create
+    new tables and views. The existing tables and views will not be deleted.
+
     Args:
         experiment_id: The MLflow experiment ID to enable archival for
         catalog: The Unity Catalog catalog name where tables will be created
@@ -344,12 +347,32 @@ def _do_enable_databricks_archival(
             f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}"
         )
 
-        trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
-            experiment_id=experiment_id,
-            catalog=catalog,
-            schema=schema,
-            table_prefix=table_prefix,
-        )
+        # The backend API is idempotent if the same configuration already exists
+        # and does not recreate existing tables.
+        # It will throw ALREADY_EXISTS error if a different configuration already exists
+        # or if the table schema versions have changed
+        try:
+            trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
+                experiment_id=experiment_id,
+                catalog=catalog,
+                schema=schema,
+                table_prefix=table_prefix,
+            )
+        except Exception as e:
+            if e.error_code == "ALREADY_EXISTS":
+                _logger.debug(
+                    f"Trace archival already enabled for experiment {experiment_id}. "
+                    "Deleting existing configuration and trying again."
+                )
+                DatabricksTraceServerClient().delete_trace_destination(experiment_id)
+                trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
+                    experiment_id=experiment_id,
+                    catalog=catalog,
+                    schema=schema,
+                    table_prefix=table_prefix,
+                )
+            raise e
+
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
             f"Events table: {trace_archive_config.events_table_name}, "
@@ -357,7 +380,7 @@ def _do_enable_databricks_archival(
             f"Events schema version: {trace_archive_config.events_schema_version}"
         )
 
-        # 3. Validate schema versions before proceeding
+        # 2. Validate schema versions before proceeding
         _validate_schema_versions(
             trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
         )
@@ -370,12 +393,12 @@ def _do_enable_databricks_archival(
             trace_archive_config.events_table_name,
         )
 
-        # 5. Set experiment tag to track the archival location
+        # 4. Set experiment tag to track the archival location
         MlflowClient().set_experiment_tag(
             experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location
         )
 
-        # 6. Enable rolling deletion for the experiment
+        # 5. Enable rolling deletion for the experiment
         _enable_trace_rolling_deletion(experiment_id)
 
         _logger.info(
@@ -383,6 +406,7 @@ def _do_enable_databricks_archival(
             f"with target archival available at: {trace_archival_location}"
         )
 
+        # 6. Set the environment variable to enable delta archival by default
         MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.set(True)
 
         return trace_archival_location
