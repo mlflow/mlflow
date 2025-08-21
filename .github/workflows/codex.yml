@@ -49,7 +49,6 @@ jobs:
       - name: Prompt
         run: |
           cat <<EOF > AGENTS.md
-
           You're a helpful assistant to review PRs.
 
           # Instructions
@@ -68,7 +67,6 @@ jobs:
           - Before starting your review, please remember to read the `.python-version` file
             and check what python version is used in the project.
           - It's perfectly fine to leave no comments. Do not feel obligated to provide feedback on every change.
-
           EOF
 
       - name: Run codex
