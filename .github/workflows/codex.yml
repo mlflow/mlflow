@@ -16,7 +16,7 @@ jobs:
         run: |
           npm install -g @openai/codex
 
-      - name: Set up config
+      - name: Set up confgi
         run: |
           # https://github.com/openai/codex/blob/main/codex-rs/config.md
           mkdir -p ~/.codex
