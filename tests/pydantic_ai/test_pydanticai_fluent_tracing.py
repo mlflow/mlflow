@@ -40,7 +40,6 @@ def _make_dummy_response_without_tool():
 
 
 def _make_dummy_response_with_tool():
-    # Usage was deprecated in favor of RequestUsage in 0.7.3
     if IS_USAGE_DEPRECATED:
         from pydantic_ai.usage import RequestUsage
 
