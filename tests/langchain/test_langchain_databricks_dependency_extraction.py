@@ -473,7 +473,9 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
 
         # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
         if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
-            monkeypatch.setattr("databricks_langchain.utils.get_openai_client", mock.MagicMock())
+            monkeypatch.setattr(
+                "databricks_langchain.chat_models.get_openai_client", mock.MagicMock()
+            )
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -496,7 +498,9 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
 
         # ChatDatabricks instantiate workspace client in __init__ which requires Databricks creds
         if Version(importlib.metadata.version("databricks-langchain")) >= Version("0.7.0"):
-            monkeypatch.setattr("databricks_langchain.utils.get_openai_client", mock.MagicMock())
+            monkeypatch.setattr(
+                "databricks_langchain.chat_models.get_openai_client", mock.MagicMock()
+            )
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
