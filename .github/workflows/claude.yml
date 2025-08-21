@@ -1,0 +1,28 @@
+name: Claude
+
+on:
+  pull_request:
+
+jobs:
+  claude-code-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    services:
+      claude-code-proxy:
+        image: ghcr.io/kiyo-e/claude-code-proxy:latest
+        ports:
+          - 3000:3000
+        env:
+          CLAUDE_CODE_PROXY_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude Code
+        run: |
+          claude -p "Hello"
