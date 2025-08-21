@@ -54,8 +54,6 @@ def test_search_command_params():
     search_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "search"), None)
     assert search_cmd is not None
     param_names = [p.name for p in search_cmd.params]
-
-    # Check for required params
     assert "experiment_id" in param_names
     assert "filter_string" in param_names
     assert "max_results" in param_names
@@ -69,8 +67,6 @@ def test_get_command_params():
     get_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "get"), None)
     assert get_cmd is not None
     param_names = [p.name for p in get_cmd.params]
-
-    # Check for required params
     assert "trace_id" in param_names
     assert "extract_fields" in param_names
 
@@ -81,20 +77,16 @@ def test_assessment_source_type_choices():
     )
     assert log_feedback_cmd is not None
 
-    # Find source_type param
     source_type_param = next(
         (param for param in log_feedback_cmd.params if param.name == "source_type"), None
     )
     assert source_type_param is not None
-
-    # Check that choices include the enum values
     assert AssessmentSourceType.HUMAN in source_type_param.type.choices
     assert AssessmentSourceType.LLM_JUDGE in source_type_param.type.choices
     assert AssessmentSourceType.CODE in source_type_param.type.choices
 
 
 def test_search_command_with_fields(runner):
-    # Create a real Trace object
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
         mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
@@ -114,7 +106,6 @@ def test_search_command_with_fields(runner):
 
     mock_result = PagedList([trace], None)
 
-    # Mock TracingClient to prevent DB init, then mock the search_traces method
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.search_traces.return_value = mock_result
         result = runner.invoke(
@@ -123,13 +114,11 @@ def test_search_command_with_fields(runner):
         )
 
         assert result.exit_code == 0
-        # Check that either the table output or the values appear in output
         assert "tr-123" in result.output
         assert "OK" in result.output
 
 
 def test_get_command_with_fields(runner):
-    # Create a real Trace object
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
         mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
@@ -145,7 +134,6 @@ def test_get_command_with_fields(runner):
         data=TraceData(spans=[]),
     )
 
-    # Mock TracingClient to prevent DB init, then mock the get_trace method
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = trace
         result = runner.invoke(
@@ -154,14 +142,11 @@ def test_get_command_with_fields(runner):
         )
 
         assert result.exit_code == 0
-
-        # Parse JSON output
         output_json = json.loads(result.output)
         assert output_json == {"info": {"trace_id": "tr-123"}}
 
 
 def test_delete_command(runner):
-    # Mock TracingClient to prevent DB init, then mock the delete_traces method
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.delete_traces.return_value = 5
         result = runner.invoke(
@@ -174,7 +159,6 @@ def test_delete_command(runner):
 
 
 def test_field_validation_error(runner):
-    # Create a real Trace object
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
         mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
@@ -192,7 +176,6 @@ def test_field_validation_error(runner):
 
     mock_result = PagedList([trace], None)
 
-    # Mock TracingClient to prevent DB init, then mock the search_traces method
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.search_traces.return_value = mock_result
         result = runner.invoke(
@@ -202,12 +185,10 @@ def test_field_validation_error(runner):
 
         assert result.exit_code != 0
         assert "Invalid field path" in result.output
-        # Check for the tip about verbose mode
         assert "--verbose" in result.output
 
 
 def test_field_validation_error_verbose_mode(runner):
-    # Create a real Trace object
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
         mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
@@ -225,10 +206,8 @@ def test_field_validation_error_verbose_mode(runner):
 
     mock_result = PagedList([trace], None)
 
-    # Mock TracingClient to prevent DB init, then mock the search_traces method
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.search_traces.return_value = mock_result
-        # Use --verbose flag
         result = runner.invoke(
             commands,
             [
@@ -243,9 +222,7 @@ def test_field_validation_error_verbose_mode(runner):
 
         assert result.exit_code != 0
         assert "Invalid field path" in result.output
-        # In verbose mode, we should see ALL the fields listed
         assert "info.trace_id" in result.output
         assert "info.state" in result.output
         assert "info.request_time" in result.output
-        # Should NOT show the tip about --verbose since we're already using it
         assert "Tip: Use --verbose" not in result.output
