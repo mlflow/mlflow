@@ -2,6 +2,7 @@
 
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,17 @@ ENVIRONMENT_FIELD = "environment"
 # MLflow environment variable constants
 MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
 MLFLOW_TRACING_ENABLED = "MLFLOW_CLAUDE_TRACING_ENABLED"
+
+
+@dataclass
+class TracingStatus:
+    """Dataclass for tracing status information."""
+
+    enabled: bool
+    tracking_uri: str | None = None
+    experiment_id: str | None = None
+    experiment_name: str | None = None
+    reason: str | None = None
 
 
 def load_claude_config(settings_path: Path) -> dict[str, Any]:
@@ -51,33 +63,28 @@ def save_claude_config(settings_path: Path, config: dict[str, Any]) -> None:
         json.dump(config, f, indent=2)
 
 
-def get_tracing_status(settings_path: Path) -> dict[str, Any]:
+def get_tracing_status(settings_path: Path) -> TracingStatus:
     """Get current tracing status from Claude settings.
 
     Args:
         settings_path: Path to Claude settings file
 
     Returns:
-        Dictionary with tracing status information:
-        - enabled: bool indicating if tracing is active
-        - tracking_uri: MLflow tracking URI or "Not set"
-        - experiment_id: Experiment ID if set
-        - experiment_name: Experiment name if set
-        - reason: Reason if not enabled
+        TracingStatus with tracing status information
     """
     if not settings_path.exists():
-        return {"enabled": False, "reason": "No configuration found"}
+        return TracingStatus(enabled=False, reason="No configuration found")
 
     config = load_claude_config(settings_path)
     env_vars = config.get(ENVIRONMENT_FIELD, {})
     enabled = env_vars.get(MLFLOW_TRACING_ENABLED) == "true"
 
-    return {
-        "enabled": enabled,
-        "tracking_uri": env_vars.get(MLFLOW_TRACKING_URI.name, "Not set"),
-        "experiment_id": env_vars.get(MLFLOW_EXPERIMENT_ID.name),
-        "experiment_name": env_vars.get(MLFLOW_EXPERIMENT_NAME.name),
-    }
+    return TracingStatus(
+        enabled=enabled,
+        tracking_uri=env_vars.get(MLFLOW_TRACKING_URI.name),
+        experiment_id=env_vars.get(MLFLOW_EXPERIMENT_ID.name),
+        experiment_name=env_vars.get(MLFLOW_EXPERIMENT_NAME.name),
+    )
 
 
 def get_env_var(var_name: str, default: str = "") -> str:
@@ -92,7 +99,7 @@ def get_env_var(var_name: str, default: str = "") -> str:
     """
     # First check OS environment
     value = os.getenv(var_name)
-    if value:
+    if value is not None:
         return value
 
     # Fallback to Claude settings

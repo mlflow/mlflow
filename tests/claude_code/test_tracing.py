@@ -1,7 +1,5 @@
 """Simplified tests for mlflow.claude_code.tracing module."""
 
-import os
-
 # Test only the functions we can easily test without external dependencies
 from mlflow.claude_code.tracing import (
     parse_timestamp_to_ns,
@@ -40,22 +38,16 @@ def test_parse_timestamp_to_ns_large_number():
     assert result > 0
 
 
-def test_setup_logging_creates_logger(tmp_path):
+def test_setup_logging_creates_logger(monkeypatch, tmp_path):
     """Test that setup_logging returns a logger."""
-    # Change to temp directory
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(str(tmp_path))
-        logger = setup_logging()
+    monkeypatch.chdir(tmp_path)
+    logger = setup_logging()
 
-        # Verify logger was created
-        assert logger is not None
-        assert logger.name == "mlflow.claude_code.tracing"
+    # Verify logger was created
+    assert logger is not None
+    assert logger.name == "mlflow.claude_code.tracing"
 
-        # Verify log directory was created
-        log_dir = tmp_path / ".claude" / "mlflow"
-        assert log_dir.exists()
-        assert log_dir.is_dir()
-
-    finally:
-        os.chdir(original_cwd)
+    # Verify log directory was created
+    log_dir = tmp_path / ".claude" / "mlflow"
+    assert log_dir.exists()
+    assert log_dir.is_dir()

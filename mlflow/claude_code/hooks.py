@@ -89,30 +89,29 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
     env_removed = False
 
     # Remove MLflow hooks
-    for hook_type in ["Stop"]:
-        if hook_type in config.get(HOOK_FIELD_HOOKS, {}):
-            hook_groups = config[HOOK_FIELD_HOOKS][hook_type]
-            filtered_groups = []
+    if "Stop" in config.get(HOOK_FIELD_HOOKS, {}):
+        hook_groups = config[HOOK_FIELD_HOOKS]["Stop"]
+        filtered_groups = []
 
-            for group in hook_groups:
-                if HOOK_FIELD_HOOKS in group:
-                    filtered_hooks = []
-                    for hook in group[HOOK_FIELD_HOOKS]:
-                        if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, ""):
-                            filtered_hooks.append(hook)
+        for group in hook_groups:
+            if HOOK_FIELD_HOOKS in group:
+                filtered_hooks = []
+                for hook in group[HOOK_FIELD_HOOKS]:
+                    if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, ""):
+                        filtered_hooks.append(hook)
 
-                    if filtered_hooks:
-                        filtered_groups.append({HOOK_FIELD_HOOKS: filtered_hooks})
-                    else:
-                        hooks_removed = True
+                if filtered_hooks:
+                    filtered_groups.append({HOOK_FIELD_HOOKS: filtered_hooks})
                 else:
-                    filtered_groups.append(group)
-
-            if filtered_groups:
-                config[HOOK_FIELD_HOOKS][hook_type] = filtered_groups
+                    hooks_removed = True
             else:
-                del config[HOOK_FIELD_HOOKS][hook_type]
-                hooks_removed = True
+                filtered_groups.append(group)
+
+        if filtered_groups:
+            config[HOOK_FIELD_HOOKS]["Stop"] = filtered_groups
+        else:
+            del config[HOOK_FIELD_HOOKS]["Stop"]
+            hooks_removed = True
 
     # Remove config variables
     from mlflow.claude_code.config import (

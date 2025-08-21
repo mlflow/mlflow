@@ -95,19 +95,19 @@ def _show_status(target_dir: Path, settings_file: Path) -> None:
 
     status = get_tracing_status(settings_file)
 
-    if not status["enabled"]:
+    if not status.enabled:
         click.echo("❌ Claude tracing is not enabled")
-        if "reason" in status:
-            click.echo(f"   Reason: {status['reason']}")
+        if status.reason:
+            click.echo(f"   Reason: {status.reason}")
         return
 
     click.echo("✅ Claude tracing is ENABLED")
-    click.echo(f"📊 Tracking URI: {status['tracking_uri']}")
+    click.echo(f"📊 Tracking URI: {status.tracking_uri}")
 
-    if status["experiment_id"]:
-        click.echo(f"🔬 Experiment ID: {status['experiment_id']}")
-    elif status["experiment_name"]:
-        click.echo(f"🔬 Experiment Name: {status['experiment_name']}")
+    if status.experiment_id:
+        click.echo(f"🔬 Experiment ID: {status.experiment_id}")
+    elif status.experiment_name:
+        click.echo(f"🔬 Experiment Name: {status.experiment_name}")
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
 

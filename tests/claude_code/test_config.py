@@ -53,8 +53,7 @@ def test_save_claude_config_creates_file(temp_settings_path):
     save_claude_config(temp_settings_path, config_data)
 
     assert temp_settings_path.exists()
-    with open(temp_settings_path) as f:
-        saved_data = json.load(f)
+    saved_data = json.loads(temp_settings_path.read_text())
     assert saved_data == config_data
 
 
@@ -66,8 +65,7 @@ def test_save_claude_config_creates_directory(tmp_path):
     save_claude_config(nested_path, config_data)
 
     assert nested_path.exists()
-    with open(nested_path) as f:
-        saved_data = json.load(f)
+    saved_data = json.loads(nested_path.read_text())
     assert saved_data == config_data
 
 
@@ -131,8 +129,8 @@ def test_get_tracing_status_enabled(temp_settings_path):
         json.dump(config_data, f)
 
     status = get_tracing_status(temp_settings_path)
-    assert status["enabled"] is True
-    assert "tracking_uri" in status
+    assert status.enabled is True
+    assert hasattr(status, "tracking_uri")
 
 
 def test_get_tracing_status_disabled(temp_settings_path):
@@ -143,15 +141,15 @@ def test_get_tracing_status_disabled(temp_settings_path):
         json.dump(config_data, f)
 
     status = get_tracing_status(temp_settings_path)
-    assert status["enabled"] is False
+    assert status.enabled is False
 
 
 def test_get_tracing_status_no_config(tmp_path):
     """Test get_tracing_status returns disabled when no configuration exists."""
     non_existent_path = tmp_path / "missing.json"
     status = get_tracing_status(non_existent_path)
-    assert status["enabled"] is False
-    assert status["reason"] == "No configuration found"
+    assert status.enabled is False
+    assert status.reason == "No configuration found"
 
 
 def test_setup_environment_config_new_file(temp_settings_path):
@@ -165,8 +163,7 @@ def test_setup_environment_config_new_file(temp_settings_path):
     assert temp_settings_path.exists()
 
     # Verify configuration contents
-    with open(temp_settings_path) as f:
-        config = json.load(f)
+    config = json.loads(temp_settings_path.read_text())
 
     env_vars = config["environment"]
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
@@ -193,8 +190,7 @@ def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
     setup_environment_config(temp_settings_path, new_tracking_uri, new_experiment_id)
 
     # Verify configuration was updated
-    with open(temp_settings_path) as f:
-        config = json.load(f)
+    config = json.loads(temp_settings_path.read_text())
 
     env_vars = config["environment"]
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
