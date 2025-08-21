@@ -1,6 +1,5 @@
 import {
   Button,
-  CopyIcon,
   Modal,
   PlayIcon,
   Spacer,
@@ -10,7 +9,7 @@ import {
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
-import { getPromptContentTagValue } from '../utils';
+import { getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TAG_KEY } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
@@ -37,6 +36,22 @@ export const PromptContentPreview = ({
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
+  const promptType = useMemo(
+    () => promptVersion?.tags?.find((tag) => tag.key === PROMPT_TYPE_TAG_KEY)?.value,
+    [promptVersion],
+  );
+
+  const parsedMessages = useMemo(() => {
+    if (promptType === PROMPT_TYPE_CHAT && value) {
+      try {
+        const result = JSON.parse(value);
+        return Array.isArray(result) ? result : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  }, [promptType, value]);
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptVersionModal({
     promptVersion,
@@ -52,21 +67,21 @@ export const PromptContentPreview = ({
     }
 
     const variables: string[] = [];
-    let match;
+    const source =
+      promptType === PROMPT_TYPE_CHAT ? parsedMessages?.map((m: any) => m.content).join('\n') || '' : value;
 
-    while ((match = PROMPT_VARIABLE_REGEX.exec(value)) !== null) {
+    let match;
+    while ((match = PROMPT_VARIABLE_REGEX.exec(source)) !== null) {
       variables.push(match[1]);
     }
 
-    // Sanity check for tricky cases like nested brackets. If the variable name contains
-    // a bracket, we consider it as a parsing error and render a placeholder instead.
     if (variables.some((variable) => variable.includes('{') || variable.includes('}'))) {
       return null;
     }
 
     return uniq(variables);
-  }, [value]);
-  const codeSnippetContent = buildCodeSnippetContent(promptVersion, variableNames);
+  }, [value, promptType, parsedMessages]);
+  const codeSnippetContent = buildCodeSnippetContent(promptVersion, variableNames, promptType);
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -124,13 +139,22 @@ export const PromptContentPreview = ({
           overflow: 'auto',
         }}
       >
-        <Typography.Text
-          css={{
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {value || 'Empty'}
-        </Typography.Text>
+        {promptType === PROMPT_TYPE_CHAT && parsedMessages ? (
+          parsedMessages.map((msg: any, index: number) => (
+            <div key={index} css={{ marginBottom: theme.spacing.sm }}>
+              <Typography.Text>{msg.role}:</Typography.Text>{' '}
+              <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{msg.content}</Typography.Text>
+            </div>
+          ))
+        ) : (
+          <Typography.Text
+            css={{
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {value || 'Empty'}
+          </Typography.Text>
+        )}
       </div>
       <Modal
         componentId="mlflow.prompts.details.preview.usage_example_modal"
@@ -149,14 +173,18 @@ export const PromptContentPreview = ({
           />
         }
       >
-        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)} />
+        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames, promptType)} />
       </Modal>
       {DeletePromptModal}
     </div>
   );
 };
 
-const buildCodeSnippetContent = (promptVersion: RegisteredPromptVersion | undefined, variables: string[] | null) => {
+const buildCodeSnippetContent = (
+  promptVersion: RegisteredPromptVersion | undefined,
+  variables: string[] | null,
+  promptType?: string,
+) => {
   let codeSnippetContent = `from openai import OpenAI
 import mlflow
 client = OpenAI(api_key="<YOUR_API_KEY>")
@@ -169,7 +197,22 @@ prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersi
 
   // Null variables mean that there was a parsing error
   if (variables === null) {
-    codeSnippetContent += `
+    if (promptType === PROMPT_TYPE_CHAT) {
+      codeSnippetContent += `
+
+# Replace the variables with the actual values
+variables = {
+   "key": "value",
+   ...
+}
+
+messages = prompt.format_messages(**variables)
+response = client.chat.completions.create(
+    messages=messages,
+    model="gpt-4o-mini",
+)`;
+    } else {
+      codeSnippetContent += `
 
 # Replace the variables with the actual values
 variables = {
@@ -182,6 +225,14 @@ response = client.chat.completions.create(
         "role": "user",
         "content": prompt.format(**variables),
     }],
+    model="gpt-4o-mini",
+)`;
+    }
+  } else if (promptType === PROMPT_TYPE_CHAT) {
+    codeSnippetContent += `
+messages = prompt.format_messages(${variables.map((name) => `${name}="<${name}>"`).join(', ')})
+response = client.chat.completions.create(
+    messages=messages,
     model="gpt-4o-mini",
 )`;
   } else {

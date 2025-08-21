@@ -10,6 +10,9 @@ export const IS_PROMPT_TAG_NAME = 'mlflow.prompt.is_prompt';
 export const IS_PROMPT_TAG_VALUE = 'true';
 // Key used to store a list of prompt versions associated with a run
 export const LINKED_PROMPTS_TAG_KEY = 'mlflow.linkedPrompts';
+export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
+export const PROMPT_TYPE_TEXT = 'text';
+export const PROMPT_TYPE_CHAT = 'chat';
 
 export type PromptsTableMetadata = { onEditTags: (editedEntity: RegisteredPrompt) => void };
 export type PromptsVersionsTableMetadata = {

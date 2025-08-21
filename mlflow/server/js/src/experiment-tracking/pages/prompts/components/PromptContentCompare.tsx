@@ -1,7 +1,7 @@
 import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
-import { getPromptContentTagValue } from '../utils';
+import { getPromptContentTagValue, PROMPT_TYPE_TAG_KEY, PROMPT_TYPE_CHAT } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { diffWords } from '../diff';
@@ -35,7 +35,35 @@ export const PromptContentCompare = ({
     [comparedVersion],
   );
 
-  const diff = useMemo(() => diffWords(baselineValue ?? '', comparedValue ?? '') ?? [], [baselineValue, comparedValue]);
+  const baselineType = useMemo(
+    () => baselineVersion?.tags?.find((t) => t.key === PROMPT_TYPE_TAG_KEY)?.value,
+    [baselineVersion],
+  );
+  const comparedType = useMemo(
+    () => comparedVersion?.tags?.find((t) => t.key === PROMPT_TYPE_TAG_KEY)?.value,
+    [comparedVersion],
+  );
+
+  const stringifyChat = (value: string | undefined) => {
+    if (!value) {
+      return '';
+    }
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((m: any) => `${m.role}: ${m.content}`).join('\n');
+      }
+    } catch {}
+    return value;
+  };
+
+  const baselineDisplay = baselineType === PROMPT_TYPE_CHAT ? stringifyChat(baselineValue) : baselineValue;
+  const comparedDisplay = comparedType === PROMPT_TYPE_CHAT ? stringifyChat(comparedValue) : comparedValue;
+
+  const diff = useMemo(
+    () => diffWords(baselineDisplay ?? '', comparedDisplay ?? '') ?? [],
+    [baselineDisplay, comparedDisplay],
+  );
 
   const colors = useMemo(
     () => ({
@@ -108,7 +136,7 @@ export const PromptContentCompare = ({
               whiteSpace: 'pre-wrap',
             }}
           >
-            {baselineValue || 'Empty'}
+            {baselineDisplay || 'Empty'}
           </Typography.Text>
         </div>
         <div css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }}>
