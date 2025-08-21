@@ -138,6 +138,11 @@ class DatabricksDeltaArchivalMixin:
             spans_table_name: Name of the spans table for logging.
         """
         try:
+            from ingest_api_sdk.shared import IngestApiException
+        except ImportError:
+            IngestApiException = RuntimeError
+
+        try:
             # Convert MLflow trace to OTel proto spans
             proto_spans = self._convert_trace_to_proto_spans(trace)
 
@@ -149,7 +154,16 @@ class DatabricksDeltaArchivalMixin:
             factory = IngestStreamFactory.get_instance(self._spans_table_properties)
 
             # Get stream from factory
-            stream = factory.get_or_create_stream()
+            try:
+                stream = factory.get_or_create_stream()
+            except IngestApiException as e:
+                if "cannot schedule new futures after" in str(e):
+                    _logger.warning(
+                        f"Failed to send trace {trace.info.request_id} to Databricks Delta "
+                        "table due to program termination."
+                    )
+                    return
+                raise
 
             # Ingest all spans for the trace
             _logger.debug(
@@ -379,15 +393,6 @@ class IngestStreamFactory:
         # Check if we have a cached stream
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
-
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
-
-            _, StreamState = import_ingest_sdk_classes()
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
 
             _, StreamState = import_ingest_sdk_classes()
 
