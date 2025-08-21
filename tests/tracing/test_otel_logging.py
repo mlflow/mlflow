@@ -42,7 +42,7 @@ def mlflow_server(tmp_path):
         yield url
 
 
-def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
+def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str):
     """
     Test end-to-end: OpenTelemetry client sends spans via experiment ID header to MLflow.
 
@@ -95,7 +95,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     )
 
 
-def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
+def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
     """
     Test that the OTel endpoint requires experiment ID header.
     """
@@ -150,7 +150,7 @@ def test_invalid_otel_span_format_returns_400(mlflow_server: str):
     assert response.status_code == 400, f"Expected 400, got {response.status_code}"
 
 
-def test_missing_required_span_fields_returns_422(mlflow_server):
+def test_missing_required_span_fields_returns_422(mlflow_server: str):
     """
     Test that spans that fail MLflow conversion return HTTP 422.
     """
@@ -188,7 +188,7 @@ def test_missing_required_span_fields_returns_422(mlflow_server):
     assert response.status_code == 422
 
 
-def test_missing_experiment_id_header_returns_422(mlflow_server):
+def test_missing_experiment_id_header_returns_422(mlflow_server: str):
     """
     Test that missing experiment ID header returns HTTP 422 (FastAPI validation error).
     """
