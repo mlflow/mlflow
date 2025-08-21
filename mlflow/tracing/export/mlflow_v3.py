@@ -87,6 +87,7 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         try:
             if trace:
+                _logger.debug("Logging trace to MLflow backend")
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
                 self._client._upload_trace_data(returned_trace_info, trace.data)

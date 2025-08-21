@@ -163,6 +163,13 @@ class DatabricksDeltaArchivalMixin:
             # For async mode, the flush will be handled by the async queue
             # which runs in the background.
             stream.flush()
+            _logger.debug("Flushed stream")
+
+            # Shut down the factory to prevent the program from hanging,
+            # caused by non-daemon receiver threads in the stream
+            # TODO: this may slows down a bit for sync logging, update if we find a better solution
+            factory.shutdown()
+            _logger.debug("Shut down stream")
 
         except Exception as e:
             _logger.warning(f"Failed to send trace to Databricks Delta: {e}")
@@ -281,6 +288,7 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
 
         # Archive trace to Delta table using mixin functionality
         try:
+            _logger.debug("Archiving trace to Databricks Delta")
             self.archive_trace(trace)
         except Exception as e:
             _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
