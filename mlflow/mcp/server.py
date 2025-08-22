@@ -76,8 +76,7 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
 
 def create_mcp() -> FastMCP:
     return FastMCP(
-        name=traces_cli.name,
-        instructions=traces_cli.help,
+        name="Mlflow MCP",
         tools=[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
     )
 

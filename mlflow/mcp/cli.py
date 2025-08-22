@@ -12,5 +12,6 @@ def cli():
 
 @cli.command(help="Run the MCP server")
 def run():
+    # TODO: Add telemetry here
     mcp = create_mcp()
     mcp.run(show_banner=False)
