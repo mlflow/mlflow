@@ -49,6 +49,9 @@ def set_experiment_storage_location(
 
     if location is None:
         DatabricksTraceServerClient().delete_trace_destination(experiment_id)
+        MlflowClient().set_experiment_tag(
+            experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, None
+        )
         _logger.info(f"Unset storage location for experiment {experiment_id}.")
     else:
         enable_databricks_trace_archival(
