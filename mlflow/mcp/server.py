@@ -86,6 +86,10 @@ def create_mcp() -> FastMCP:
     )
 
 
-if __name__ == "__main__":
+def run_server() -> None:
     mcp = create_mcp()
     mcp.run(show_banner=False)
+
+
+if __name__ == "__main__":
+    run_server()

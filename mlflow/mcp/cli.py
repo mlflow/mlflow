@@ -1,6 +1,6 @@
 import click
 
-from mlflow.mcp.server import create_mcp
+from mlflow.mcp.server import run_server
 
 
 @click.group("mcp", help="Command Line Interface for the MLflow MCP server")
@@ -12,6 +12,4 @@ def cli():
 
 @cli.command(help="Run the MLflow MCP server")
 def run():
-    # TODO: Add telemetry here
-    mcp = create_mcp()
-    mcp.run(show_banner=False)
+    run_server()
