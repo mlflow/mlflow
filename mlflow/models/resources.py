@@ -21,6 +21,7 @@ class ResourceType(Enum):
     GENIE_SPACE = "genie_space"
     TABLE = "table"
     APP = "app"
+    LAKEBASE = "lakebase"
 
 
 class Resource(ABC):
@@ -254,6 +255,24 @@ class DatabricksApp(DatabricksResource):
     def __init__(self, app_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(app_name, on_behalf_of_user)
 
+class DatabricksLakebase(DatabricksResource):
+    """
+    Defines a Databricks Lakebase Database Instance dependency for Model Serving
+
+     Args:
+         database_instance_name (str): The name of the lakebase/database instance used by the model
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resource is accessed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.LAKEBASE
+
+    def __init__(self, database_instance_name: str, on_behalf_of_user: bool | None = None):
+        super().__init__(database_instance_name, on_behalf_of_user)
+
 
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
@@ -266,6 +285,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
             ResourceType.TABLE.value: DatabricksTable,
             ResourceType.APP.value: DatabricksApp,
+            ResourceType.LAKEBASE.value: DatabricksLakebase,
         }
     }
     resource = resource_classes.get(target_uri)
