@@ -255,6 +255,7 @@ class DatabricksApp(DatabricksResource):
     def __init__(self, app_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(app_name, on_behalf_of_user)
 
+
 class DatabricksLakebase(DatabricksResource):
     """
     Defines a Databricks Lakebase Database Instance dependency for Model Serving

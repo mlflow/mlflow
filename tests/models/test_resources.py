@@ -145,7 +145,9 @@ def test_app(on_behalf_of_user):
 
 @pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
 def test_lakebase(on_behalf_of_user):
-    lakebase = DatabricksLakebase(database_instance_name="lakebase_name", on_behalf_of_user=on_behalf_of_user)
+    lakebase = DatabricksLakebase(
+        database_instance_name="lakebase_name", on_behalf_of_user=on_behalf_of_user
+    )
     expected = (
         {"lakebase": [{"name": "lakebase_name"}]}
         if on_behalf_of_user is None
