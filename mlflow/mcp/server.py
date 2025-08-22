@@ -36,8 +36,9 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     for p in params:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
-            "default": p.default,
         }
+        if p.default is not None:
+            schema["default"] = p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
         if isinstance(p.type, click.Choice):
