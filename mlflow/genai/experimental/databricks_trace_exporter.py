@@ -246,6 +246,7 @@ class DatabricksDeltaArchivalMixin:
         return delta_proto_spans
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMixin):
     """
@@ -276,6 +277,7 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
             _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDeltaArchivalMixin):
     """
