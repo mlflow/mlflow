@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
@@ -249,7 +250,6 @@ def test_search_datasets_with_mock(mock_client):
             last_update_time=123456789,
         ),
     ]
-    # Mock the paginated response - first page returns 2 datasets with no continuation token
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     result = search_datasets(
@@ -261,12 +261,11 @@ def test_search_datasets_with_mock(mock_client):
 
     assert len(result) == 2
     assert isinstance(result, list)
-    # The pagination wrapper will request up to SEARCH_EVALUATION_DATASETS_MAX_RESULTS (50) per page
-    # even though we requested max_results=100
+
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1", "exp2"],
         filter_string="name LIKE 'test%'",
-        max_results=50,  # This is the page size (SEARCH_EVALUATION_DATASETS_MAX_RESULTS)
+        max_results=50,
         order_by=["created_time DESC"],
         page_token=None,
     )
@@ -302,8 +301,6 @@ def test_search_datasets_single_experiment_id(mock_client):
 
 
 def test_search_datasets_pagination_handling(mock_client):
-    """Test that search_datasets handles pagination automatically."""
-    # Create datasets for multiple pages
     page1_datasets = [
         EntityEvaluationDataset(
             dataset_id=f"id{i}",
@@ -326,33 +323,26 @@ def test_search_datasets_pagination_handling(mock_client):
         for i in range(3, 5)
     ]
 
-    # Mock paginated responses
     mock_client.search_datasets.side_effect = [
-        PagedList(page1_datasets, "token1"),  # First page with token
-        PagedList(page2_datasets, None),  # Second page without token (last page)
+        PagedList(page1_datasets, "token1"),
+        PagedList(page2_datasets, None),
     ]
 
-    # Call search_datasets without page_token
     result = search_datasets(experiment_ids=["exp1"], max_results=10)
 
-    # Verify all datasets are returned
     assert len(result) == 5
     assert isinstance(result, list)
 
-    # Verify pagination was handled automatically
     assert mock_client.search_datasets.call_count == 2
 
-    # Check first call - should request with page_token=None
     first_call = mock_client.search_datasets.call_args_list[0]
     assert first_call[1]["page_token"] is None
 
-    # Check second call - should request with page_token="token1"
     second_call = mock_client.search_datasets.call_args_list[1]
     assert second_call[1]["page_token"] == "token1"
 
 
 def test_search_datasets_single_page(mock_client):
-    """Test that search_datasets handles single page results correctly."""
     datasets = [
         EntityEvaluationDataset(
             dataset_id="id1",
@@ -363,16 +353,13 @@ def test_search_datasets_single_page(mock_client):
         )
     ]
 
-    # Mock single page response with no token
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     result = search_datasets(max_results=10)
 
-    # Verify single page is handled correctly
     assert len(result) == 1
     assert isinstance(result, list)
 
-    # Should only be called once
     assert mock_client.search_datasets.call_count == 1
 
 
@@ -1575,6 +1562,182 @@ def test_create_dataset_with_no_active_experiment(tracking_uri):
     dataset = create_dataset(name="test_no_active_exp")
 
     assert dataset.experiment_ids == ["0"]
+
+
+def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+    active_exp = mlflow.create_experiment("active_exp")
+    explicit_exp = mlflow.create_experiment("explicit_exp")
+
+    mlflow.set_experiment(experiment_id=active_exp)
+
+    dataset = create_dataset(name="test_explicit_override", experiment_id=explicit_exp)
+
+    assert dataset.experiment_ids == [explicit_exp]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_create_dataset_none_uses_active_experiment(tracking_uri):
+    exp_id = mlflow.create_experiment("test_none_experiment")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    dataset = create_dataset(name="test_none_exp", experiment_id=None)
+
+    assert dataset.experiment_ids == [exp_id]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_source_type_inference():
+    exp = mlflow.create_experiment("test_source_inference")
+    dataset = create_dataset(
+        name="test_source_inference", experiment_id=exp, tags={"test": "source_inference"}
+    )
+
+    human_records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an ML platform", "quality": 0.9},
+        },
+        {
+            "inputs": {"question": "How to track experiments?"},
+            "expectations": {"answer": "Use mlflow.start_run()", "quality": 0.85},
+        },
+    ]
+    dataset.merge_records(human_records)
+
+    df = dataset.to_df()
+    human_sources = df[df["source_type"] == DatasetRecordSourceType.HUMAN.value]
+    assert len(human_sources) == 2
+
+    code_records = [{"inputs": {"question": f"Generated question {i}"}} for i in range(3)]
+    dataset.merge_records(code_records)
+
+    df = dataset.to_df()
+    code_sources = df[df["source_type"] == DatasetRecordSourceType.CODE.value]
+    assert len(code_sources) == 3
+
+    explicit_records = [
+        {
+            "inputs": {"question": "Document-based question"},
+            "expectations": {"answer": "From document"},
+            "source": {
+                "source_type": DatasetRecordSourceType.DOCUMENT.value,
+                "source_data": {"source_id": "doc123", "page": 5},
+            },
+        }
+    ]
+    dataset.merge_records(explicit_records)
+
+    df = dataset.to_df()
+    doc_sources = df[df["source_type"] == DatasetRecordSourceType.DOCUMENT.value]
+    assert len(doc_sources) == 1
+    assert doc_sources.iloc[0]["source_id"] == "doc123"
+
+    empty_exp_records = [{"inputs": {"question": "Has empty expectations"}, "expectations": {}}]
+    dataset.merge_records(empty_exp_records)
+
+    df = dataset.to_df()
+    last_record = df.iloc[-1]
+    assert last_record["source_type"] not in [
+        DatasetRecordSourceType.HUMAN.value,
+        DatasetRecordSourceType.CODE.value,
+    ]
+
+    explicit_trace = [
+        {
+            "inputs": {"question": "From trace"},
+            "source": {
+                "source_type": DatasetRecordSourceType.TRACE.value,
+                "source_data": {"trace_id": "trace123"},
+            },
+        }
+    ]
+    dataset.merge_records(explicit_trace)
+
+    df = dataset.to_df()
+    trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources) == 1, f"Expected 1 TRACE source, got {len(trace_sources)}"
+    assert trace_sources.iloc[0]["source_id"] == "trace123"
+
+    source_counts = df["source_type"].value_counts()
+    assert source_counts.get(DatasetRecordSourceType.HUMAN.value, 0) == 2
+    assert source_counts.get(DatasetRecordSourceType.CODE.value, 0) == 3
+    assert source_counts.get(DatasetRecordSourceType.DOCUMENT.value, 0) == 1
+    assert source_counts.get(DatasetRecordSourceType.TRACE.value, 0) == 1
+
+    delete_dataset(dataset_id=dataset.dataset_id)
+
+
+def test_trace_source_type_detection():
+    exp = mlflow.create_experiment("test_trace_source_detection")
+
+    trace_ids = []
+    for i in range(3):
+        with mlflow.start_run(experiment_id=exp):
+            with mlflow.start_span(name=f"test_span_{i}") as span:
+                span.set_inputs({"question": f"Question {i}", "context": f"Context {i}"})
+                span.set_outputs({"answer": f"Answer {i}"})
+                trace_ids.append(span.trace_id)
+
+                if i < 2:
+                    mlflow.log_expectation(
+                        trace_id=span.trace_id,
+                        name="quality",
+                        value=0.8 + i * 0.05,
+                        span_id=span.span_id,
+                    )
+
+    dataset = create_dataset(
+        name="test_trace_sources", experiment_id=exp, tags={"test": "trace_source_detection"}
+    )
+
+    client = mlflow.MlflowClient()
+    traces = [client.get_trace(tid) for tid in trace_ids]
+    dataset.merge_records(traces)
+
+    df = dataset.to_df()
+    trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources) == 3
+
+    for idx, trace_id in enumerate(trace_ids):
+        matching_records = df[df["source_id"] == trace_id]
+        assert len(matching_records) == 1
+
+    dataset2 = create_dataset(
+        name="test_trace_sources_df", experiment_id=exp, tags={"test": "trace_source_df"}
+    )
+
+    traces_df = mlflow.search_traces(experiment_ids=[exp])
+    assert not traces_df.empty
+    dataset2.merge_records(traces_df)
+
+    df2 = dataset2.to_df()
+    trace_sources2 = df2[df2["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources2) == len(traces_df)
+
+    dataset3 = create_dataset(
+        name="test_trace_sources_list", experiment_id=exp, tags={"test": "trace_source_list"}
+    )
+
+    traces_list = mlflow.search_traces(experiment_ids=[exp], return_type="list")
+    assert len(traces_list) > 0
+    dataset3.merge_records(traces_list)
+
+    df3 = dataset3.to_df()
+    trace_sources3 = df3[df3["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources3) == len(traces_list)
+
+    df_with_expectations = df[df["expectations"].apply(lambda x: bool(x) and len(x) > 0)]
+    assert len(df_with_expectations) == 2
+
+    delete_dataset(dataset_id=dataset.dataset_id)
+    delete_dataset(dataset_id=dataset2.dataset_id)
+    delete_dataset(dataset_id=dataset3.dataset_id)
 
 
 def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):

@@ -11,6 +11,8 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
+from mlflow.telemetry.events import MergeRecordsEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
@@ -187,6 +189,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return df.to_dict("records")
 
+    @record_usage_event(MergeRecordsEvent)
     def merge_records(
         self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
@@ -226,6 +229,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             record_dicts = records
 
         self._validate_record_dicts(record_dicts)
+
+        self._infer_source_types(record_dicts)
 
         tracking_store = _get_store()
 
@@ -269,6 +274,36 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 raise MlflowException.invalid_parameter_value(
                     "Each record must have an 'inputs' field"
                 )
+
+    def _infer_source_types(self, record_dicts: list[dict[str, Any]]) -> None:
+        """Infer source types for records without explicit source information.
+
+        Simple inference rules:
+        - Records with expectations -> HUMAN (manual test cases/ground truth)
+        - Records with inputs but no expectations -> CODE (programmatically generated)
+
+        Inference can be overridden by providing explicit source information.
+
+        Note that trace inputs (from List[Trace] or pd.DataFrame of Trace data) will
+        always be inferred as a trace source type when processing trace records.
+
+        Args:
+            record_dicts: List of record dictionaries to process (modified in place)
+        """
+        for record in record_dicts:
+            if "source" in record:
+                continue
+
+            if "expectations" in record and record["expectations"]:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.HUMAN.value,
+                    "source_data": {},
+                }
+            elif "inputs" in record and "expectations" not in record:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.CODE.value,
+                    "source_data": {},
+                }
 
     def to_df(self) -> "pd.DataFrame":
         """
