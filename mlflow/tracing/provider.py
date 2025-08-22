@@ -341,11 +341,10 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if should_export_spans or should_export_metrics:
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
-        # Create exporter if needed for spans, or use a dummy one if only metrics are needed
+        # Create exporter: real one for spans, no-op for metrics-only
         if should_export_spans:
             exporter = get_otlp_exporter()
         else:
-            # Create a no-op exporter since we're not actually exporting spans
             from opentelemetry.sdk.trace.export import SpanExporter
 
             class NoOpSpanExporter(SpanExporter):
