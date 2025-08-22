@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -541,3 +541,21 @@ def generate_assessment_id() -> str:
     """
     id = uuid.uuid4().hex
     return f"{ASSESSMENT_ID_PREFIX}{id}"
+
+
+@contextmanager
+def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
+    """
+    OpenTelemetry does not allow setting attributes if the span has end time defined.
+    https://github.com/open-telemetry/opentelemetry-python/blob/d327927d0274a320466feec6fba6d6ddb287dc5a/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L849-L851
+
+    However, we need to set some attributes within `on_end` handler of the span processor,
+    where the span is already marked as ended. This context manager is a hacky workaround
+    to bypass the attribute guard.
+    """
+    original_end_time = span._end_time
+    span._end_time = None
+    try:
+        yield
+    finally:
+        span._end_time = original_end_time
