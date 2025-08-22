@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pytest
@@ -55,6 +56,75 @@ def test_deduplicate_span_names():
     ]
     # Check if the span order is preserved
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
+
+
+def test_deduplicate_span_names_incrementally():
+    """Test incremental span name deduplication with trace manager."""
+    from mlflow.entities import Span
+    from mlflow.entities.trace_info import TraceInfo
+    from mlflow.entities.trace_location import TraceLocation
+    from mlflow.entities.trace_state import TraceState
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Reset and get trace manager
+    InMemoryTraceManager.reset()
+    manager = InMemoryTraceManager.get_instance()
+
+    trace_id = "tr-test-incremental"
+
+    # Create and register initial spans
+    initial_spans = [
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=i, name=name, start_time=i * 1000),
+            trace_id=trace_id,
+        )
+        for i, name in enumerate(["red", "blue", "red"])
+    ]
+
+    # Register trace
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=0,
+        execution_duration=None,
+        state=TraceState.IN_PROGRESS,
+        trace_metadata={},
+        tags={},
+    )
+    manager.register_trace(123456, trace_info)
+
+    # Register initial spans
+    for span in initial_spans:
+        # Set the internal _request_id attribute
+        span._request_id = trace_id
+        manager.register_span(span)
+
+    # Create new spans to add incrementally
+    # We need to create the OTel spans with the REQUEST_ID attribute set
+    new_otel_spans = []
+    for i, name in enumerate(["green", "red", "blue"]):
+        otel_span = create_mock_otel_span(
+            "trace_id",
+            span_id=3 + i,
+            name=name,
+            start_time=(3 + i) * 1000,
+            end_time=(3 + i) * 1000 + 500,
+        )
+        # Set the REQUEST_ID attribute so the span has the correct trace_id
+        otel_span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
+        new_otel_spans.append(otel_span)
+
+    new_spans = [Span(otel_span) for otel_span in new_otel_spans]
+
+    # Apply incremental deduplication
+    deduplicate_span_names_in_place(new_spans, trace_id=trace_id)
+
+    # Check the deduplicated names
+    # Order by start time: red(0), blue(1000), red(2000), green(3000), red(4000), blue(5000)
+    # Expected: red_1, blue_1, red_2, green, red_3, blue_2
+    assert new_spans[0].name == "green"  # unique, no deduplication
+    assert new_spans[1].name == "red_3"  # third red
+    assert new_spans[2].name == "blue_2"  # second blue
 
 
 def test_aggregate_usage_from_spans():
