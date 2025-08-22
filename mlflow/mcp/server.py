@@ -1,47 +1,19 @@
 import contextlib
 import io
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 import click
-from click import Parameter, ParamType
 from click.types import BOOL, FLOAT, INT, STRING, UUID
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
+from mlflow.cli.traces import commands as traces_cli
 
-@click.group()
-def cli():
+
+def param_type_to_json_schema_type(pt: click.ParamType) -> str:
     """
-    Test CLI
+    Converts a Click ParamType to a JSON schema type.
     """
-
-
-@cli.command()
-@click.argument("a")
-@click.option(
-    "--b",
-    default=1,
-    type=int,
-    help="An optional integer parameter",
-)
-@click.option(
-    "--c",
-    default="a",
-    type=click.Choice(["a", "b", "c"]),
-    help="An optional enum parameter",
-)
-def test(
-    a: str,
-    b: int = 1,
-    c: Literal["a", "b", "c"] = "a",
-):
-    """
-    Test command
-    """
-    click.echo(f"Test command called with a={a!r} and b={b!r} and c={c!r}")
-
-
-def param_type_to_json_schema_type(pt: ParamType) -> str:
     if pt is STRING:
         return "string"
     if pt is BOOL:
@@ -55,19 +27,19 @@ def param_type_to_json_schema_type(pt: ParamType) -> str:
     return "string"
 
 
-def get_input_schema(params: list[Parameter]) -> dict[str, Any]:
+def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     """
     Converts click params to JSON schema
     """
     res: dict[str, Any] = {}
-
     for p in params:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
             "default": p.default,
             "required": p.required,
-            "description": p.help if hasattr(p, "help") else None,
         }
+        if description := getattr(p, "help", None):
+            schema["description"] = description
         if isinstance(p.type, click.Choice):
             schema["enum"] = [str(choice) for choice in p.type.choices]
 
@@ -87,9 +59,12 @@ def wrapper(command: click.Command) -> Callable[..., str]:
 
 
 def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
+    """
+    Converts a Click command to a FunctionTool.
+    """
     return FunctionTool(
         fn=wrapper(cmd),
-        name=cmd.name,
+        name=cmd.callback.__name__,
         description=cmd.help,
         parameters={
             "name": cmd.name,
@@ -101,9 +76,9 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
 
 def create_mcp() -> FastMCP:
     return FastMCP(
-        name=cli.name,
-        instructions=cli.help,
-        tools=[cmd_to_function_tool(cmd) for cmd in cli.commands.values()],
+        name=traces_cli.name,
+        instructions=traces_cli.help,
+        tools=[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
     )
 
 

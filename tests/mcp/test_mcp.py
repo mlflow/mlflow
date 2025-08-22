@@ -1,26 +1,66 @@
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 
+import mlflow
 from mlflow.mcp import server
 
 
 @pytest_asyncio.fixture()
 async def client() -> AsyncIterator[Client]:
-    async with Client(Path(server.__file__)) as client:
+    transport = StdioTransport(
+        command="python",
+        args=[server.__file__],
+        env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+    )
+    async with Client(transport) as client:
         yield client
 
 
 @pytest.mark.asyncio
 async def test_list_tools(client: Client):
     tools = await client.list_tools()
-    assert len(tools) > 0
+    assert sorted(t.name for t in tools) == [
+        "delete_assessment",
+        "delete_tag",
+        "delete_traces",
+        "get_assessment",
+        "get_trace",
+        "log_expectation",
+        "log_feedback",
+        "search_traces",
+        "set_tag",
+        "update_assessment",
+    ]
 
 
 @pytest.mark.asyncio
 async def test_call_tool(client: Client):
-    result = await client.call_tool("test", {"a": "foo", "b": 2})
-    assert result.content[0].text == "Test command called with a='foo' and b=2 and c='a'"
+    with mlflow.start_span() as span:
+        pass
+
+    result = await client.call_tool(
+        "get_trace",
+        {"trace_id": span.trace_id},
+        timeout=5,
+    )
+    assert span.trace_id in result.content[0].text
+
+    experiment = mlflow.search_experiments(max_results=1)[0]
+    result = await client.call_tool(
+        "search_traces",
+        {"experiment_id": experiment.experiment_id},
+        timeout=5,
+    )
+    assert span.trace_id in result.content[0].text
+
+    experiment = mlflow.search_experiments(max_results=1)[0]
+    result = await client.call_tool(
+        "search_traces",
+        {"experiment_id": "1234"},
+        timeout=5,
+    )
+    assert span.trace_id not in result.content[0].text
