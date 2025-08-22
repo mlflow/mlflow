@@ -1,12 +1,32 @@
+import functools
 import os
+from typing import Callable, ParamSpec, TypeVar
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+from mlflow.exceptions import MlflowException
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_tracking_store
 
 prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "")
 router = APIRouter(prefix=f"{prefix}/api/3.0")
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def catch_mlflow_exception(func: Callable[P, R]) -> Callable[P, R]:
+    @functools.wraps(func)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return await func(*args, **kwargs)
+        except MlflowException as e:
+            raise HTTPException(
+                status_code=e.get_http_status_code(), detail=e.serialize_as_json()
+            ) from e
+
+    return wrapper
 
 
 class SpanInfo(BaseModel):
@@ -25,11 +45,14 @@ class GetTraceSpanResponse(BaseModel):
 
 
 @router.get("/traces/{trace_id}/spans/{span_id}")
+@catch_mlflow_exception
 async def get_trace_span(
     trace_id: str,
     span_id: str,
 ) -> GetTraceSpanResponse:
-    raise NotImplementedError("TODO: Implement span retrieval logic")
+    store = _get_tracking_store()
+    span = await store.get_trace_span_async(trace_id, span_id)
+    return GetTraceSpanResponse(span=span.to_dict())
 
 
 class GetTraceSpanContentResponse(BaseModel):
@@ -38,6 +61,7 @@ class GetTraceSpanContentResponse(BaseModel):
 
 
 @router.get("/traces/{trace_id}/spans/{span_id}/content")
+@catch_mlflow_exception
 async def get_trace_span_content(
     trace_id: str,
     span_id: str,
@@ -53,6 +77,7 @@ class ListTraceSpansResponse(BaseModel):
 
 
 @router.get("/traces/{trace_id}/spans")
+@catch_mlflow_exception
 async def list_trace_spans(
     trace_id: str,
     span_type: str | None = None,

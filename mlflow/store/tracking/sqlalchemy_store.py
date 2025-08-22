@@ -3196,6 +3196,53 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
+    def get_trace_span(self, trace_id: str, span_id: str) -> Span:
+        """
+        Get a specific span from a trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            span_id: The ID of the span.
+
+        Returns:
+            The requested span.
+
+        Raises:
+            MlflowException: If the span is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            span = (
+                session.query(SqlSpan)
+                .filter(
+                    SqlSpan.trace_id == trace_id,
+                    SqlSpan.span_id == span_id,
+                )
+                .one_or_none()
+            )
+            if span is None:
+                raise MlflowException(
+                    f"Span with trace ID {trace_id} and span ID {span_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return span.to_mlflow_entity()
+
+    async def get_trace_span_async(self, trace_id: str, span_id: str) -> Span:
+        """
+        Get a specific span from a trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            span_id: The ID of the span.
+
+        Returns:
+            The requested span.
+
+        Raises:
+            MlflowException: If the span is not found.
+        """
+        # TODO: Implement proper async support
+        return self.get_trace_span(trace_id, span_id)
+
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
     #######################################################################################
