@@ -14,6 +14,7 @@ from mlflow.genai.experimental.databricks_trace_archival import (
     enable_databricks_trace_archival,
     set_experiment_storage_location,
 )
+from mlflow.genai.experimental.databricks_trace_exporter import DatabricksDeltaArchivalMixin
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
@@ -54,7 +55,7 @@ def _create_mock_databricks_agents():
 
 @pytest.fixture
 def mock_delta_archival_mixin():
-    """Fixture that provides a properly mocked DatabricksDeltaArchivalMixin with cache setup."""
+    """Fixture that provides a mocked DatabricksDeltaArchivalMixin cache."""
     with patch(
         "mlflow.genai.experimental.databricks_trace_archival.DatabricksDeltaArchivalMixin"
     ) as mock_mixin:
@@ -62,8 +63,20 @@ def mock_delta_archival_mixin():
         mock_mixin._config_cache_lock = Mock()
         mock_mixin._config_cache_lock.__enter__ = Mock()
         mock_mixin._config_cache_lock.__exit__ = Mock()
-        mock_mixin._config_cache = {}  # Start with empty cache, tests can populate as needed
+        mock_mixin._config_cache = {}
         yield mock_mixin
+
+
+@pytest.fixture
+def mock_trace_storage():
+    """Fixture that mocks DatabricksTraceServerClient for _get_trace_storage_config verification."""
+    with patch(
+        "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+    ) as mock_client:
+        mock_client_instance = Mock()
+        mock_client_instance.get_trace_destination.return_value = None
+        mock_client.return_value = mock_client_instance
+        yield
 
 
 def _create_trace_destination_proto(
@@ -731,18 +744,25 @@ def test_rolling_deletion_tag_failure(
 # Tests for set_experiment_storage_location function
 
 
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._get_experiment_id")
 def test_set_experiment_storage_location_unset_with_default_experiment(
-    mock_get_experiment_id, mock_trace_client, mock_delta_archival_mixin
+    mock_get_experiment_id,
+    mock_trace_client,
+    mock_mlflow_client,
+    mock_delta_archival_mixin,
+    mock_trace_storage,
 ):
     """Test unsetting storage location with default experiment ID."""
     # Mock default experiment ID
     mock_get_experiment_id.return_value = "12345"
 
-    # Mock trace client
+    # Mock clients
     mock_trace_client_instance = Mock()
     mock_trace_client.return_value = mock_trace_client_instance
+    mock_mlflow_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_mlflow_client_instance
 
     # Setup initial cache state
     mock_delta_archival_mixin._config_cache["12345"] = "some_config"
@@ -753,18 +773,31 @@ def test_set_experiment_storage_location_unset_with_default_experiment(
     # Verify delete was called with correct experiment ID
     mock_trace_client_instance.delete_trace_destination.assert_called_once_with("12345")
 
+    # Verify experiment tag was set to None
+    mock_mlflow_client_instance.set_experiment_tag.assert_called_once_with(
+        "12345", "mlflow.experiment.databricksTraceStorageTable", None
+    )
+
     # Verify cache was cleared
     assert "12345" not in mock_delta_archival_mixin._config_cache
 
+    # Verify _get_trace_storage_config returns None after archival is disabled
+    mixin_instance = DatabricksDeltaArchivalMixin()
+    result = mixin_instance._get_trace_storage_config("12345")
+    assert result is None
 
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 def test_set_experiment_storage_location_unset_with_explicit_experiment(
-    mock_trace_client, mock_delta_archival_mixin
+    mock_trace_client, mock_mlflow_client, mock_delta_archival_mixin, mock_trace_storage
 ):
     """Test unsetting storage location with explicit experiment ID."""
-    # Mock trace client
+    # Mock clients
     mock_trace_client_instance = Mock()
     mock_trace_client.return_value = mock_trace_client_instance
+    mock_mlflow_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_mlflow_client_instance
 
     # Setup initial cache state
     mock_delta_archival_mixin._config_cache["67890"] = "some_config"
@@ -775,8 +808,18 @@ def test_set_experiment_storage_location_unset_with_explicit_experiment(
     # Verify delete was called with correct experiment ID
     mock_trace_client_instance.delete_trace_destination.assert_called_once_with("67890")
 
+    # Verify experiment tag was set to None
+    mock_mlflow_client_instance.set_experiment_tag.assert_called_once_with(
+        "67890", "mlflow.experiment.databricksTraceStorageTable", None
+    )
+
     # Verify cache was cleared
     assert "67890" not in mock_delta_archival_mixin._config_cache
+
+    # Verify _get_trace_storage_config returns None after archival is disabled
+    mixin_instance = DatabricksDeltaArchivalMixin()
+    result = mixin_instance._get_trace_storage_config("67890")
+    assert result is None
 
 
 @patch("mlflow.genai.experimental.databricks_trace_archival.enable_databricks_trace_archival")
