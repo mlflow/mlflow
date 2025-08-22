@@ -18,7 +18,8 @@ from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.util._once import Once
 
 import mlflow
 from mlflow.tracing.utils import encode_trace_id
@@ -42,13 +43,16 @@ def mlflow_server(tmp_path):
         yield url
 
 
-def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
+def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
     """
     Test end-to-end: OpenTelemetry client sends spans via experiment ID header to MLflow.
 
     Note: This test verifies that spans are successfully accepted by the server.
     Without artifact upload, traces won't be retrievable via search_traces.
     """
+    # Enable synchronous trace logging to ensure traces are immediately available
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
+
     mlflow.set_tracking_uri(mlflow_server)
 
     experiment = mlflow.set_experiment("otel-test-experiment")
@@ -57,13 +61,35 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     resource = OTelSDKResource.create({"service.name": "test-service-e2e"})
     tracer_provider = TracerProvider(resource=resource)
 
-    exporter = OTLPSpanExporter(
-        endpoint=f"{mlflow_server}/v1/traces", headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+    # First, verify the endpoint is reachable
+    test_response = requests.get(f"{mlflow_server}/health", timeout=5)
+    assert test_response.status_code == 200, (
+        f"Server health check failed: {test_response.status_code}"
     )
 
-    span_processor = BatchSpanProcessor(exporter)
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,  # Explicit timeout
+    )
+
+    # Use SimpleSpanProcessor for immediate span export in tests
+    # This ensures spans are sent immediately rather than batched
+    span_processor = SimpleSpanProcessor(exporter)
     tracer_provider.add_span_processor(span_processor)
 
+    # Reset the global tracer provider to avoid conflicts with other tests.
+    # This is necessary because OpenTelemetry doesn't allow overriding an already-set provider.
+    #
+    # NOTE: We're using internal APIs here (_TRACER_PROVIDER_SET_ONCE and _TRACER_PROVIDER)
+    # because OpenTelemetry doesn't provide a public API to reset the global tracer provider.
+    # The library is designed to set the provider once at application startup, which doesn't
+    # work well for testing scenarios where different tests need different configurations.
+    # This pattern is also used in tests/semantic_kernel/conftest.py for the same reason.
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+
+    # Set the tracer provider
     otel_trace.set_tracer_provider(tracer_provider)
     tracer = otel_trace.get_tracer(__name__)
 
@@ -71,9 +97,16 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
         span.set_attribute("test.e2e.attribute", "e2e-test-value")
         # Capture the OTel trace ID to verify it matches the MLflow trace ID
         otel_trace_id = span.get_span_context().trace_id
+        # Verify the span was actually created and has valid context
+        assert span.get_span_context().is_valid, "Span context is not valid"
+        assert otel_trace_id != 0, "Trace ID is zero"
 
-    flush_success = span_processor.force_flush(10000)
-    assert flush_success, "Failed to flush spans to the server"
+    # SimpleSpanProcessor sends spans immediately, so no need to flush
+    # But we still shutdown to ensure cleanup
+    span_processor.shutdown()
+
+    # Add a small delay to ensure the server has processed the spans
+    time.sleep(0.5)
 
     # Wait up to 30 seconds for search_traces() to return a trace
     traces = []
@@ -95,7 +128,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server):
     )
 
 
-def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
+def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
     """
     Test that the OTel endpoint requires experiment ID header.
     """
@@ -130,7 +163,7 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server):
     assert response.status_code == 422
 
 
-def test_invalid_otel_span_format_returns_400(mlflow_server):
+def test_invalid_otel_span_format_returns_400(mlflow_server: str):
     """
     Test that invalid OpenTelemetry protobuf format returns HTTP 400.
     """
@@ -150,7 +183,7 @@ def test_invalid_otel_span_format_returns_400(mlflow_server):
     assert response.status_code == 400, f"Expected 400, got {response.status_code}"
 
 
-def test_missing_required_span_fields_returns_422(mlflow_server):
+def test_missing_required_span_fields_returns_422(mlflow_server: str):
     """
     Test that spans that fail MLflow conversion return HTTP 422.
     """
@@ -185,10 +218,10 @@ def test_missing_required_span_fields_returns_422(mlflow_server):
         timeout=10,
     )
 
-    assert response.status_code == 422, f"Expected 422, got {response.status_code}"
+    assert response.status_code == 422
 
 
-def test_missing_experiment_id_header_returns_422(mlflow_server):
+def test_missing_experiment_id_header_returns_422(mlflow_server: str):
     """
     Test that missing experiment ID header returns HTTP 422 (FastAPI validation error).
     """
@@ -220,4 +253,46 @@ def test_missing_experiment_id_header_returns_422(mlflow_server):
         timeout=10,
     )
 
-    assert response.status_code == 422, f"Expected 422, got {response.status_code}"
+    assert response.status_code == 422
+
+
+def test_invalid_content_type_returns_400(mlflow_server: str):
+    """
+    Test that invalid Content-Type header returns HTTP 400.
+    """
+    # Create a valid OTLP request
+    span = OTelProtoSpan()
+    span.trace_id = b"1234567890123456"
+    span.span_id = b"12345678"
+    span.name = "test-span"
+    span.start_time_unix_nano = 1000000000
+    span.end_time_unix_nano = 2000000000
+
+    scope = InstrumentationScope()
+    scope.name = "test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.append(span)
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.append(resource_spans)
+
+    # Send request with incorrect Content-Type
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/json",  # Wrong content type
+            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400
+    assert "Invalid Content-Type" in response.text

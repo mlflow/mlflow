@@ -130,9 +130,9 @@ For events with None in the `Tracked Parameters` column, only the event name is 
 <Table>
   <thead>
     <tr>
-      <th>Event Name</th>
-      <th>Tracked Parameters</th>
-      <th>Example</th>
+      <th style={{ width: "20%" }}>Event Name</th>
+      <th style={{ width: "40%" }}>Tracked Parameters</th>
+      <th style={{ width: "40%" }}>Example</th>
     </tr>
   </thead>
   <tbody>
@@ -150,6 +150,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>create_logged_model</td>
       <td>Flavor of the model (e.g. langchain, sklearn)</td>
       <td>`{"flavor": "langchain"}`</td>
+    </tr>
+    <tr>
+      <td>get_logged_model</td>
+      <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>create_registered_model</td>
@@ -180,6 +185,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>evaluate</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>create_webhook</td>
+      <td>Entities of the webhook</td>
+      <td>`{"events": ["model_version.created"]}`</td>
     </tr>
     <tr>
       <td>genai_evaluate</td>
