@@ -52,7 +52,10 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
     def wrapper(**kwargs: Any) -> str:
         # Capture stdout and stderr
         string_io = io.StringIO()
-        with contextlib.redirect_stdout(string_io), contextlib.redirect_stderr(string_io):
+        with (
+            contextlib.redirect_stdout(string_io),
+            contextlib.redirect_stderr(string_io),
+        ):
             command.callback(**kwargs)
         return string_io.getvalue().strip()
 
