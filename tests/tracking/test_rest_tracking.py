@@ -3,6 +3,7 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
+import asyncio
 import json
 import logging
 import math
@@ -21,6 +22,7 @@ import flask
 import pandas as pd
 import pytest
 import requests
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow.experiments
 import mlflow.pyfunc
@@ -35,11 +37,13 @@ from mlflow.entities import (
     Param,
     RunInputs,
     RunTag,
+    Span,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
@@ -57,6 +61,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -93,7 +98,9 @@ def mlflow_client(request, tmp_path):
             len("file://") :
         ]
 
-    with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+    with _init_server(
+        backend_uri, root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
+    ) as url:
         client = MlflowClient(url)
         client._store_type = request.param
         yield client
@@ -2186,6 +2193,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
         backend_uri=mlflow_client.tracking_uri,
         root_artifact_uri=mlflow_client.tracking_uri,
         extra_env={"MLFLOW_DEPLOYMENTS_TARGET": "http://localhost:5001"},
+        server_type="flask",
     ) as url:
         patched_client = MlflowClient(url)
 
@@ -3447,3 +3455,55 @@ def test_scorer_CRUD(mlflow_client):
 
     # Clean up
     mlflow_client.delete_experiment(experiment_id)
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
+    """
+    End-to-end test that verifies RestStore can log spans to a running server via OTLP endpoint.
+
+    This test:
+    1. Creates spans using MLflow's span entities
+    2. Uses RestStore.log_spans or log_spans_async to send them via OTLP protocol
+    3. Verifies the spans were stored and can be retrieved
+    """
+    if mlflow_client._store_type == "file":
+        pytest.skip("FileStore does not support OTLP span logging")
+
+    experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
+    root_span = mlflow_client.start_trace(
+        f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
+    )
+    otel_span = OTelReadableSpan(
+        name=f"test-rest-store-span-{use_async}",
+        context=build_otel_context(
+            trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
+            span_id=0x1234567890ABCDEF,
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: root_span.trace_id,
+            "test.attribute": json.dumps(f"test-value-{use_async}"),  # JSON-encoded string value
+        },
+        resource=None,
+    )
+    mlflow_span_to_log = Span(otel_span)
+
+    # Call either sync or async version based on parametrization
+    if use_async:
+        # Use asyncio.run to execute the async method
+        result_spans = asyncio.run(
+            mlflow_client._tracking_client.store.log_spans_async(
+                experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            )
+        )
+    else:
+        result_spans = mlflow_client._tracking_client.store.log_spans(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
+
+    # Verify the spans were returned (indicates successful logging)
+    assert len(result_spans) == 1
+    assert result_spans[0].name == f"test-rest-store-span-{use_async}"

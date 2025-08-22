@@ -3074,6 +3074,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             # If trace doesn't exist, create it
             if sql_trace_info is None:
+                # Get experiment to add artifact location tag
+                experiment = self.get_experiment(experiment_id)
+
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
@@ -3084,6 +3087,8 @@ class SqlAlchemyStore(AbstractStore):
                     status=trace_status,
                     client_request_id=None,
                 )
+                # Add the artifact location tag that's required for search_traces to work
+                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 session.add(sql_trace_info)
                 try:
                     session.flush()
