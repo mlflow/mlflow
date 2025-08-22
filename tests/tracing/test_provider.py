@@ -279,8 +279,8 @@ def test_get_mlflow_span_processor_with_databricks_agents_available():
             MlflowV3DeltaSpanExporter,
         )
     except ImportError as e:
-        if "ingest_api_sdk" in str(e):
-            pytest.skip("ingest_api_sdk is not available")
+        if "zerobus_sdk" in str(e):
+            pytest.skip("zerobus_sdk is not available")
         raise
 
     # Mock databricks-agents as available
@@ -364,8 +364,8 @@ def test_span_processor_model_serving_with_databricks_agents_available():
             InferenceTableDeltaSpanExporter,
         )
     except ImportError as e:
-        if "ingest_api_sdk" in str(e):
-            pytest.skip("ingest_api_sdk is not available")
+        if "zerobus_sdk" in str(e):
+            pytest.skip("zerobus_sdk is not available")
         raise
 
     # Set up model serving environment

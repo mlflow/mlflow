@@ -15,8 +15,8 @@ from mlflow.environment_variables import (
 )
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
-    create_archival_ingest_sdk,
-    import_ingest_sdk_classes,
+    create_archival_zerobus_sdk,
+    import_zerobus_sdk_classes,
 )
 from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -36,9 +36,9 @@ TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 m
 
 if TYPE_CHECKING:
     try:
-        TableProperties, _ = import_ingest_sdk_classes()
+        TableProperties, _ = import_zerobus_sdk_classes()
     except ImportError:
-        # When ingest_api_sdk is not available, create a placeholder for type annotations
+        # When zerobus_sdk is not available, create a placeholder for type annotations
         from typing import Any
 
         TableProperties = Any
@@ -92,16 +92,8 @@ class DatabricksDeltaArchivalMixin:
 
             # Store configuration for this export
             self._spans_table_name = config.spans_table_name
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
 
-            TableProperties, _ = import_ingest_sdk_classes()
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
-
-            TableProperties, _ = import_ingest_sdk_classes()
+            TableProperties, _ = import_zerobus_sdk_classes()
             self._spans_table_properties = TableProperties(
                 config.spans_table_name, DeltaProtoSpan.DESCRIPTOR
             )
@@ -131,7 +123,7 @@ class DatabricksDeltaArchivalMixin:
 
     def _archive_trace(self, trace: Trace, experiment_id: str, spans_table_name: str):
         """
-        Handles exporting a trace to Databricks Delta using the IngestApi.
+        Handles exporting a trace to Databricks Delta using the Zerobus.
 
         Args:
             trace: MLflow Trace object containing spans data.
@@ -147,7 +139,7 @@ class DatabricksDeltaArchivalMixin:
                 return
 
             # Get stream factory singleton for this table
-            factory = IngestStreamFactory.get_instance(self._spans_table_properties)
+            factory = ZerobusStreamFactory.get_instance(self._spans_table_properties)
 
             # Get stream from factory
             stream = factory.get_or_create_stream()
@@ -323,19 +315,19 @@ class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDelt
             _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
-class IngestStreamFactory:
+class ZerobusStreamFactory:
     """
-    Factory for creating and managing IngestApi streams with caching and automatic recovery.
+    Factory for creating and managing Zerobus streams with caching and automatic recovery.
     Simplified approach that flushes on each trace ingestion.
     """
 
     # Class-level singleton registry: table_name -> factory instance
-    _instances: dict[str, "IngestStreamFactory"] = {}
+    _instances: dict[str, "ZerobusStreamFactory"] = {}
     _instances_lock = threading.Lock()
     _atexit_registered = False
 
     @classmethod
-    def get_instance(cls, table_properties: "TableProperties") -> "IngestStreamFactory":
+    def get_instance(cls, table_properties: "TableProperties") -> "ZerobusStreamFactory":
         """
         Get or create a singleton factory instance for the given table.
 
@@ -343,7 +335,7 @@ class IngestStreamFactory:
             table_properties: TableProperties for the target table
 
         Returns:
-            IngestStreamFactory instance for the table
+            ZerobusStreamFactory instance for the table
         """
         table_name = table_properties.table_name
         if table_name not in cls._instances:
@@ -356,7 +348,7 @@ class IngestStreamFactory:
                     if not cls._atexit_registered:
                         atexit.register(cls.reset)
                         cls._atexit_registered = True
-                        _logger.debug("Registered atexit handler for IngestStreamFactory cleanup")
+                        _logger.debug("Registered atexit handler for ZerobusStreamFactory cleanup")
         return cls._instances[table_name]
 
     def __init__(self, table_properties: "TableProperties"):
@@ -377,7 +369,7 @@ class IngestStreamFactory:
         Factory method: Get or create a cached stream for current thread.
 
         Returns:
-            An IngestApiStream instance ready for use
+            A ZerobusStream instance ready for use
         """
         current_time = time.time()
         stream_cache = getattr(self._thread_local, "stream_cache", None)
@@ -386,16 +378,7 @@ class IngestStreamFactory:
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
 
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
-
-            _, StreamState = import_ingest_sdk_classes()
-            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
-                import_ingest_sdk_classes,
-            )
-
-            _, StreamState = import_ingest_sdk_classes()
+            _, StreamState = import_zerobus_sdk_classes()
 
             # Invalidate the bad stream from the cache if stream is in a valid state
             if stream.get_state() not in [StreamState.OPENED, StreamState.FLUSHING]:
@@ -407,8 +390,8 @@ class IngestStreamFactory:
             return stream
         else:
             _logger.debug("Creating new thread-local stream for Databricks Delta export")
-            ingest_sdk = create_archival_ingest_sdk()
-            new_stream = ingest_sdk.create_stream(self.table_properties)
+            zerobus_sdk = create_archival_zerobus_sdk()
+            new_stream = zerobus_sdk.create_stream(self.table_properties)
 
             # Store with metadata
             self._thread_local.stream_cache = {"stream": new_stream, "created_at": current_time}
@@ -433,7 +416,7 @@ class IngestStreamFactory:
                         self._thread_local.stream_cache = None
 
         except Exception as e:
-            _logger.warning(f"Error shutting down IngestStreamFactory: {e}")
+            _logger.warning(f"Error shutting down ZerobusStreamFactory: {e}")
 
     @classmethod
     def reset(cls):
@@ -444,4 +427,4 @@ class IngestStreamFactory:
             for factory in cls._instances.values():
                 factory.shutdown()
             cls._instances.clear()
-            _logger.debug("Reset all IngestStreamFactory instances")
+            _logger.debug("Reset all ZerobusStreamFactory instances")

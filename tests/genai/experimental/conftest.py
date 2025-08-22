@@ -20,10 +20,10 @@ from unittest import mock
 import pytest
 
 
-def _is_ingest_api_sdk_available():
-    """Check if the real ingest_api_sdk package is available."""
+def _is_zerobus_sdk_available():
+    """Check if the real zerobus_sdk package is available."""
     try:
-        import ingest_api_sdk  # noqa: F401
+        import zerobus_sdk  # noqa: F401
 
         return True
     except ImportError:
@@ -44,8 +44,8 @@ class MockStreamState(Enum):
         return f"StreamState.{self.name}"
 
 
-def _create_mock_ingest_api_context():
-    """Create a mock context for ingest_api_sdk when it's not available."""
+def _create_mock_zerobus_context():
+    """Create a mock context for zerobus_sdk when it's not available."""
     # Create a mock stream with the methods we need
     mock_stream = mock.MagicMock()
     mock_stream.get_state.return_value = MockStreamState.OPENED
@@ -60,22 +60,22 @@ def _create_mock_ingest_api_context():
     return mock.patch.dict(
         "sys.modules",
         {
-            "ingest_api_sdk": mock.MagicMock(
-                IngestApiSdk=mock.MagicMock(return_value=mock_sdk),
+            "zerobus_sdk": mock.MagicMock(
+                ZerobusSdk=mock.MagicMock(return_value=mock_sdk),
                 TableProperties=mock.MagicMock(side_effect=lambda *args: mock.MagicMock()),
             ),
-            "ingest_api_sdk.shared": mock.MagicMock(),
-            "ingest_api_sdk.shared.definitions": mock.MagicMock(StreamState=MockStreamState),
+            "zerobus_sdk.shared": mock.MagicMock(),
+            "zerobus_sdk.shared.definitions": mock.MagicMock(StreamState=MockStreamState),
         },
     )
 
 
 @pytest.fixture(autouse=True)
-def mock_ingest_api_sdk():
+def mock_zerobus_sdk():
     """
-    Conditionally mock the ingest_api_sdk module when it's not available.
+    Conditionally mock the zerobus_sdk module when it's not available.
 
-    This fixture checks if the real ingest_api_sdk package is available:
+    This fixture checks if the real zerobus_sdk package is available:
     - If available, use the real package
     - If not available, use enum-compatible mocks
 
@@ -83,11 +83,11 @@ def mock_ingest_api_sdk():
     maintaining compatibility when it's not installed.
     """
     # If real package is available, let tests use the real package
-    if _is_ingest_api_sdk_available():
+    if _is_zerobus_sdk_available():
         # Real package is available - no mocking needed
         yield
         return
 
     # Real package not available - apply enum-compatible mocks
-    with _create_mock_ingest_api_context():
+    with _create_mock_zerobus_context():
         yield

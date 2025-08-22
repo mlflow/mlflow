@@ -35,27 +35,27 @@ def get_workspace_id():
     return WorkspaceClient().get_workspace_id()
 
 
-def create_archival_ingest_sdk():
+def create_archival_zerobus_sdk():
     """
-    Create a configured IngestApiSdk instance for trace archival.
+    Create a configured ZerobusSdk instance for trace archival.
 
     This function handles all the configuration resolution (ingest URL, workspace URL,
-    and authentication token) and returns a ready-to-use IngestApiSdk instance.
+    and authentication token) and returns a ready-to-use ZerobusSdk instance.
     Environment variables can be used to override any of the resolved values.
 
     Returns:
-        IngestApiSdk: Configured SDK instance ready for trace archival operations
+        ZerobusSdk: Configured SDK instance ready for trace archival operations
 
     Raises:
-        ImportError: If the ingest_api_sdk package is not available
+        ImportError: If the zerobus_sdk package is not available
         MlflowException: If configuration or authentication resolution fails
 
     Example:
-        >>> sdk = create_archival_ingest_sdk()
+        >>> sdk = create_archival_zerobus_sdk()
         >>> # SDK is ready for creating streams and ingesting data
     """
     try:
-        from ingest_api_sdk import IngestApiSdk  # type: ignore[import-untyped]
+        from zerobus_sdk import ZerobusSdk  # type: ignore[import-untyped]
     except ImportError:
         raise ImportError(
             "The `databricks_ingest` package is required for trace archival. "
@@ -69,9 +69,9 @@ def create_archival_ingest_sdk():
 
     # Create and return configured SDK instance
     _logger.debug(
-        f"Creating IngestApiSdk with ingest URL: {ingest_url}, workspace URL: {workspace_url} "
+        f"Creating ZerobusSdk with ingest URL: {ingest_url}, workspace URL: {workspace_url} "
     )
-    return IngestApiSdk(ingest_url, workspace_url, token)
+    return ZerobusSdk(ingest_url, workspace_url, token)
 
 
 def _resolve_ingest_url() -> str:
@@ -84,7 +84,7 @@ def _resolve_ingest_url() -> str:
     If MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL environment variable is set,
     it will be used as an override and returned immediately.
 
-    TODO: This resolution logic should be part of the ingest_api_sdk and not in the client code here
+    TODO: This resolution logic should be part of the zerobus_sdk and not in the client code here
 
     AWS Patterns:
     - Dev: *.dev.databricks.com → <workspace_id>.ingest.dev.cloud.databricks.com
@@ -413,21 +413,21 @@ class DatabricksTraceServerClient:
 
 
 # TODO: Remove this once the ingest SDK is made public
-def import_ingest_sdk_classes():
+def import_zerobus_sdk_classes():
     """
-    Import ingest_api_sdk classes needed for trace archival.
+    Import zerobus_sdk classes needed for trace archival.
 
-    This helper function centralizes all ingest_api_sdk imports to make it easy
-    to mock in tests when the package is not available. Eventually, the ingest_api_sdk
+    This helper function centralizes all zerobus_sdk imports to make it easy
+    to mock in tests when the package is not available. Eventually, the zerobus_sdk
     package will be released and this function can be removed.
 
     Returns:
-        tuple: (TableProperties, StreamState) classes from ingest_api_sdk
+        tuple: (TableProperties, StreamState) classes from zerobus_sdk
 
     Raises:
-        ImportError: If ingest_api_sdk package is not available
+        ImportError: If zerobus_sdk package is not available
     """
-    from ingest_api_sdk import TableProperties
-    from ingest_api_sdk.shared.definitions import StreamState
+    from zerobus_sdk import TableProperties
+    from zerobus_sdk.shared.definitions import StreamState
 
     return TableProperties, StreamState

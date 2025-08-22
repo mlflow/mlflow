@@ -16,8 +16,8 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.genai.experimental.databricks_trace_exporter import (
     DatabricksDeltaArchivalMixin,
     InferenceTableDeltaSpanExporter,
-    IngestStreamFactory,
     MlflowV3DeltaSpanExporter,
+    ZerobusStreamFactory,
 )
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
@@ -25,8 +25,8 @@ from mlflow.genai.experimental.databricks_trace_storage_config import (
 
 # Import ingest SDK classes - these will be mocked by conftest.py when not available
 try:
-    from ingest_api_sdk import TableProperties
-    from ingest_api_sdk.shared.definitions import StreamState
+    from zerobus_sdk import TableProperties
+    from zerobus_sdk.shared.definitions import StreamState
 except ImportError:
     # Will be mocked by conftest.py during pytest execution
     TableProperties = None
@@ -450,7 +450,7 @@ def test_delta_mixin_archive_with_valid_archival_config(
 
 
 def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, monkeypatch):
-    """Test the complete _archive_trace integration flow with IngestStreamFactory."""
+    """Test the complete _archive_trace integration flow with ZerobusStreamFactory."""
     monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
@@ -465,7 +465,7 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.IngestStreamFactory.get_instance"
+            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
     ):
         # Setup mocks
@@ -504,7 +504,7 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.IngestStreamFactory.get_instance"
+            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
@@ -548,7 +548,7 @@ def test_archive_trace_ingest_stream_error_handling(
             "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.IngestStreamFactory.get_instance"
+            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
@@ -567,13 +567,13 @@ def test_archive_trace_ingest_stream_error_handling(
 
 
 # =============================================================================
-# IngestStreamFactory Tests
+# ZerobusStreamFactory Tests
 # =============================================================================
 
 
 def test_ingest_stream_factory_singleton_behavior():
-    """Test that IngestStreamFactory maintains singleton behavior per table."""
-    from ingest_api_sdk import TableProperties
+    """Test that ZerobusStreamFactory maintains singleton behavior per table."""
+    from zerobus_sdk import TableProperties
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
@@ -582,21 +582,21 @@ def test_ingest_stream_factory_singleton_behavior():
     table_props2 = TableProperties("table2", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._instances.clear()
 
     # Get instances for same table should return same object
-    factory1a = IngestStreamFactory.get_instance(table_props1)
-    factory1b = IngestStreamFactory.get_instance(table_props1)
+    factory1a = ZerobusStreamFactory.get_instance(table_props1)
+    factory1b = ZerobusStreamFactory.get_instance(table_props1)
     assert factory1a is factory1b
 
     # Get instance for different table should return different object
-    factory2 = IngestStreamFactory.get_instance(table_props2)
+    factory2 = ZerobusStreamFactory.get_instance(table_props2)
     assert factory1a is not factory2
 
 
 def test_ingest_stream_factory_get_or_create_stream():
     """Test stream creation and caching behavior."""
-    from ingest_api_sdk import TableProperties
+    from zerobus_sdk import TableProperties
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
@@ -604,15 +604,15 @@ def test_ingest_stream_factory_get_or_create_stream():
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._instances.clear()
 
-    factory = IngestStreamFactory.get_instance(table_props)
+    factory = ZerobusStreamFactory.get_instance(table_props)
 
-    # Mock the create_archival_ingest_sdk function to avoid actual API calls
+    # Mock the create_archival_zerobus_sdk function to avoid actual API calls
     mock_stream = mock.Mock()
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter.create_archival_ingest_sdk"
+        "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
     ) as mock_create_sdk:
         mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
@@ -629,8 +629,8 @@ def test_ingest_stream_factory_get_or_create_stream():
 @pytest.mark.parametrize("invalid_state", ["UNINITIALIZED", "CLOSED", "RECOVERING", "FAILED"])
 def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     """Test that factory recreates streams when cached streams are in invalid states."""
-    from ingest_api_sdk import TableProperties
-    from ingest_api_sdk.shared.definitions import StreamState
+    from zerobus_sdk import TableProperties
+    from zerobus_sdk.shared.definitions import StreamState
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
@@ -638,9 +638,9 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._instances.clear()
 
-    factory = IngestStreamFactory.get_instance(table_props)
+    factory = ZerobusStreamFactory.get_instance(table_props)
 
     # Mock streams with configurable state
     old_mock_stream = mock.Mock()
@@ -652,7 +652,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_ingest_sdk"
+            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
@@ -685,8 +685,8 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 @pytest.mark.parametrize("valid_state", ["OPENED", "FLUSHING"])
 def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     """Test that factory reuses cached streams when they are in valid states."""
-    from ingest_api_sdk import TableProperties
-    from ingest_api_sdk.shared.definitions import StreamState
+    from zerobus_sdk import TableProperties
+    from zerobus_sdk.shared.definitions import StreamState
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
@@ -694,9 +694,9 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     # Clear existing instances
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._instances.clear()
 
-    factory = IngestStreamFactory.get_instance(table_props)
+    factory = ZerobusStreamFactory.get_instance(table_props)
 
     # Mock stream with configurable state - use actual enum value
     # Mock stream with configurable state - use actual enum value
@@ -706,7 +706,7 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_ingest_sdk"
+            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
         mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
     ):
@@ -740,42 +740,42 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
 def test_ingest_stream_factory_atexit_registration():
     """Test that atexit handler is registered once."""
-    from ingest_api_sdk import TableProperties
+    from zerobus_sdk import TableProperties
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Reset atexit registration flag
-    IngestStreamFactory._atexit_registered = False
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._atexit_registered = False
+    ZerobusStreamFactory._instances.clear()
 
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
 
     with mock.patch("atexit.register") as mock_atexit:
         # First instance should register atexit
-        IngestStreamFactory.get_instance(table_props)
+        ZerobusStreamFactory.get_instance(table_props)
         mock_atexit.assert_called_once()
 
         # Second instance should not register again
         mock_atexit.reset_mock()
-        IngestStreamFactory.get_instance(table_props)
+        ZerobusStreamFactory.get_instance(table_props)
         mock_atexit.assert_not_called()
 
 
 def test_ingest_stream_factory_thread_safety():
     """Test concurrent access to factory instances."""
-    from ingest_api_sdk import TableProperties
+    from zerobus_sdk import TableProperties
 
     from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Clear existing instances
-    IngestStreamFactory._instances.clear()
+    ZerobusStreamFactory._instances.clear()
 
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
     instances = []
 
     def get_factory():
         time.sleep(0.01)  # Small delay to increase chance of race condition
-        factory = IngestStreamFactory.get_instance(table_props)
+        factory = ZerobusStreamFactory.get_instance(table_props)
         instances.append(factory)
 
     # Create multiple threads trying to get the same factory

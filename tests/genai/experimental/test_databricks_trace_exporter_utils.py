@@ -10,7 +10,7 @@ from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     _resolve_archival_token,
     _resolve_archival_workspace_url,
     _resolve_ingest_url,
-    create_archival_ingest_sdk,
+    create_archival_zerobus_sdk,
 )
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
@@ -47,14 +47,14 @@ def mock_workspace_client(mock_workspace_id):
 
 
 # =============================================================================
-# create_archival_ingest_sdk Tests
+# create_archival_zerobus_sdk Tests
 # =============================================================================
 
 
-def test_create_archival_ingest_sdk_success(
+def test_create_archival_zerobus_sdk_success(
     mock_host_creds, mock_workspace_id, mock_workspace_client, monkeypatch
 ):
-    """Test successful creation of IngestApiSdk."""
+    """Test successful creation of ZerobusSdk."""
     # Clear any environment overrides
     monkeypatch.delenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", raising=False)
     monkeypatch.delenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", raising=False)
@@ -69,10 +69,10 @@ def test_create_archival_ingest_sdk_success(
             "databricks.sdk.WorkspaceClient",
             return_value=mock_workspace_client,
         ),
-        mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
+        mock.patch("zerobus_sdk.ZerobusSdk") as mock_sdk_class,
     ):
         # Call the function
-        result = create_archival_ingest_sdk()
+        result = create_archival_zerobus_sdk()
 
         # Verify SDK was created with correct parameters (URLs without protocol)
         expected_ingest_url = f"{mock_workspace_id}.ingest.cloud.databricks.com"
@@ -85,19 +85,19 @@ def test_create_archival_ingest_sdk_success(
         assert result == mock_sdk_class.return_value
 
 
-def test_create_archival_ingest_sdk_import_error():
-    """Test ImportError when ingest_api_sdk package is not available."""
+def test_create_archival_zerobus_sdk_import_error():
+    """Test ImportError when zerobus_sdk package is not available."""
     with mock.patch(
         "builtins.__import__",
-        side_effect=ImportError("No module named 'ingest_api_sdk'"),
+        side_effect=ImportError("No module named 'zerobus_sdk'"),
     ):
         with pytest.raises(
             ImportError, match=r"The `databricks_ingest` package is required for trace archival"
         ):
-            create_archival_ingest_sdk()
+            create_archival_zerobus_sdk()
 
 
-def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
+def test_create_archival_zerobus_sdk_with_env_overrides(monkeypatch):
     """Test SDK creation with environment variable overrides."""
     # Set environment overrides - these are returned as-is when env vars are set
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", "custom.ingest.url")
@@ -105,10 +105,10 @@ def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", "custom-token")
 
     with (
-        mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
+        mock.patch("zerobus_sdk.ZerobusSdk") as mock_sdk_class,
     ):
         # Call the function
-        result = create_archival_ingest_sdk()
+        result = create_archival_zerobus_sdk()
 
         # Verify SDK was created with overridden values
         # Note: env override values are used as-is
@@ -119,7 +119,7 @@ def test_create_archival_ingest_sdk_with_env_overrides(monkeypatch):
         assert result == mock_sdk_class.return_value
 
 
-def test_create_archival_ingest_sdk_resolution_error(mock_host_creds):
+def test_create_archival_zerobus_sdk_resolution_error(mock_host_creds):
     """Test error handling when resolution functions fail."""
     # Create a mock WorkspaceClient that returns None for workspace_id
     mock_workspace_client_none = mock.MagicMock()
@@ -134,10 +134,10 @@ def test_create_archival_ingest_sdk_resolution_error(mock_host_creds):
             "databricks.sdk.WorkspaceClient",
             return_value=mock_workspace_client_none,
         ),
-        mock.patch("ingest_api_sdk.IngestApiSdk") as mock_sdk_class,
+        mock.patch("zerobus_sdk.ZerobusSdk") as mock_sdk_class,
     ):
         with pytest.raises(MlflowException, match=r"No workspace ID available"):
-            create_archival_ingest_sdk()
+            create_archival_zerobus_sdk()
         mock_sdk_class.assert_not_called()
 
 
