@@ -36,7 +36,12 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import (
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateRunEvent,
+    LogMetricEvent,
+)
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -310,6 +315,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
+    @record_usage_event(LogMetricEvent)
     def log_metric(
         self,
         run_id,
