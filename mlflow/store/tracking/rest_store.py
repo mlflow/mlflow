@@ -2,6 +2,8 @@ import json
 import logging
 from typing import Any
 
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -18,6 +20,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -95,6 +98,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -105,6 +109,8 @@ from mlflow.utils.rest_utils import (
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
     get_trace_tag_endpoint,
+    http_request,
+    verify_rest_response,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -1293,3 +1299,62 @@ class RestStore(AbstractStore):
             )
         )
         self._call_endpoint(LinkTracesToRun, req_body)
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store via the OTel API.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces or the OTel API call fails.
+        """
+        if not spans:
+            return []
+
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise MlflowException(
+                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+
+        request = ExportTraceServiceRequest()
+        resource_spans = request.resource_spans.add()
+        scope_spans = resource_spans.scope_spans.add()
+        scope_spans.spans.extend(span._to_otel_proto() for span in spans)
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=OTLP_TRACES_PATH,
+            method="POST",
+            data=request.SerializeToString(),
+            extra_headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
+        )
+
+        verify_rest_response(response, OTLP_TRACES_PATH)
+        return spans
+
+    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Async wrapper for log_spans method.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces or the OTel API call fails.
+        """
+        return self.log_spans(experiment_id, spans)

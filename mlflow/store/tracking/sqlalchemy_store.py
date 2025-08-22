@@ -2584,13 +2584,17 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters, run_id_filter = (
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
-            # Apply non-attribute filters
+            # Apply non-attribute filters (tags and metadata)
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            # Apply span filters with explicit join condition
+            for span_filter in span_filters:
+                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
@@ -3209,6 +3213,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             # If trace doesn't exist, create it
             if sql_trace_info is None:
+                # Get experiment to add artifact location tag
+                experiment = self.get_experiment(experiment_id)
+
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
@@ -3219,6 +3226,8 @@ class SqlAlchemyStore(AbstractStore):
                     status=trace_status,
                     client_request_id=None,
                 )
+                # Add the artifact location tag that's required for search_traces to work
+                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -3714,9 +3723,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
     Also extracts run_id filter if present for special handling.
+
+    Returns:
+        attribute_filters: Direct filters on SqlTraceInfo attributes
+        non_attribute_filters: Subqueries for tags and metadata
+        span_filters: Subqueries for span filters
+        run_id_filter: Special run_id value for linked trace handling
     """
     attribute_filters = []
     non_attribute_filters = []
+    span_filters = []
     run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -3747,6 +3763,24 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
+            elif SearchTraceUtils.is_span(key_type, key_name, comparator):
+                # Spans have specialized columns (name, type, status) unlike tags/metadata
+                # which have key-value structure, so we need specialized handling
+                from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+                span_column = getattr(SqlSpan, key_name)
+                val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                    span_column, value
+                )
+
+                span_subquery = (
+                    session.query(SqlSpan.trace_id.label("request_id"))
+                    .filter(val_filter)
+                    .distinct()
+                    .subquery()
+                )
+                span_filters.append(span_subquery)
+                continue
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
@@ -3763,4 +3797,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters, run_id_filter
+    return attribute_filters, non_attribute_filters, span_filters, run_id_filter

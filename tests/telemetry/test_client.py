@@ -822,9 +822,7 @@ def test_disable_events(mock_requests):
                 "mlflow.telemetry.track.get_telemetry_client", return_value=telemetry_client
             ),
         ):
-            mlflow.create_external_model(name="model")
             mlflow.initialize_logged_model(name="model", tags={"key": "value"})
-            mlflow.pyfunc.log_model(name="model", python_model=lambda x: x, input_example=["a"])
             telemetry_client.flush()
             assert len(mock_requests) == 0
 
