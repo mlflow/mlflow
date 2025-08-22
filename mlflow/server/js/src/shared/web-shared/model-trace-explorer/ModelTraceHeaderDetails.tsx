@@ -1,17 +1,21 @@
-import { Overflow, Tag, TagColors, Typography, useDesignSystemTheme, Tooltip } from '@databricks/design-system';
+import {
+  Overflow,
+  Tag,
+  TagColors,
+  Typography,
+  useDesignSystemTheme,
+  Tooltip,
+  ClockIcon,
+} from '@databricks/design-system';
 import { Notification } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
 
-import { isUserFacingTag, parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { useIntl } from 'react-intl';
-import { truncateToFirstLineWithMaxLength } from '@mlflow/mlflow/src/common/utils/StringUtils';
+import { FormattedMessage, useIntl } from 'react-intl';
 import type { ModelTrace, ModelTraceInfoV3 } from './ModelTrace.types';
-import {
-  getModelTraceId,
-  getModelTraceSpanStartTime,
-  getModelTraceSpanEndTime,
-  getModelTraceSpanParentId,
-} from './ModelTraceExplorer.utils';
+import { getModelTraceId } from './ModelTraceExplorer.utils';
+import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
+import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
+import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 
 const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
@@ -19,14 +23,16 @@ const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_detai
 const ModelTraceHeaderMetricSection = ({
   label,
   value,
+  icon,
   tagKey,
   color = 'teal',
   getTruncatedLabel,
   getComponentId,
   onCopy,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
+  icon?: React.ReactNode;
   tagKey: string;
   color?: TagColors;
   getTruncatedLabel: (label: string) => string;
@@ -55,7 +61,10 @@ const ModelTraceHeaderMetricSection = ({
       </Typography.Text>
       <Tooltip componentId={getComponentId(tagKey)} content={value} maxWidth={400}>
         <Tag componentId={getComponentId(tagKey)} color={color} onClick={handleClick} css={{ cursor: 'pointer' }}>
-          {getTruncatedLabel(value)}
+          <span css={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
+            {icon && <span>{icon}</span>}
+            <span>{getTruncatedLabel(value)}</span>
+          </span>
         </Tag>
       </Tooltip>
     </div>
@@ -66,57 +75,29 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
+  const { rootNode } = useModelTraceExplorerViewState();
 
   const tags = Object.entries(modelTrace.info.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
   const modelTraceId = getModelTraceId(modelTrace);
 
-  const tokenUsage = parseJSONSafe(
-    (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.['mlflow.trace.tokenUsage'] ?? '{}',
-  );
+  const tokenUsage = useMemo(() => {
+    const tokenUsage = parseJSONSafe(
+      (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.['mlflow.trace.tokenUsage'] ?? '{}',
+    );
+
+    return tokenUsage;
+  }, [modelTrace.info]);
 
   const totalTokens = useMemo(() => tokenUsage?.total_tokens, [tokenUsage]);
 
-  const spans = modelTrace?.trace_data?.spans ?? modelTrace?.data?.spans;
-
-  const calculateLatency = useCallback((): string | undefined => {
-    const rootSpan = spans?.find((span) => !getModelTraceSpanParentId(span));
-
-    if (rootSpan) {
-      const startTime = getModelTraceSpanStartTime(rootSpan);
-      const endTime = getModelTraceSpanEndTime(rootSpan);
-
-      if (startTime && endTime && endTime > startTime) {
-        return `${((endTime - startTime) / 1000000).toFixed(1)}s`;
-      }
+  const latency = useMemo((): string | undefined => {
+    if (rootNode) {
+      return spanTimeFormatter(rootNode.end - rootNode.start);
     }
 
     return undefined;
-  }, [spans]);
-
-  const latency = calculateLatency();
-
-  const idLabel = intl.formatMessage({
-    defaultMessage: 'ID',
-    description: 'Label for the ID section',
-  });
-
-  const tokenCountLabel = intl.formatMessage({
-    defaultMessage: 'Token count',
-    description: 'Label for the token count section',
-  });
-
-  const latencyLabel = intl.formatMessage({
-    defaultMessage: 'Latency',
-    description: 'Label for the latency section',
-  });
-
-  const tagsLabel = intl.formatMessage({ defaultMessage: 'Tags', description: 'Label for the tags section' });
-
-  const notificationSuccessMessage = intl.formatMessage({
-    defaultMessage: 'Copied to clipboard',
-    description: 'Success message for the notification',
-  });
+  }, [rootNode]);
 
   const getComponentId = useCallback((key: string) => `${BASE_TAG_COMPONENT_ID}.tag-${key}`, []);
 
@@ -136,7 +117,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
       <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' }}>
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
-            label={idLabel}
+            label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
             value={modelTraceId}
             tagKey={modelTraceId}
             color="pink"
@@ -147,7 +128,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
         )}
         {totalTokens && (
           <ModelTraceHeaderMetricSection
-            label={tokenCountLabel}
+            label={<FormattedMessage defaultMessage="Token count" description="Label for the token count section" />}
             value={totalTokens.toString()}
             tagKey="token-count"
             color="default"
@@ -158,7 +139,8 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
         )}
         {latency && (
           <ModelTraceHeaderMetricSection
-            label={latencyLabel}
+            label={<FormattedMessage defaultMessage="Latency" description="Label for the latency section" />}
+            icon={<ClockIcon css={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}
             value={latency}
             tagKey="latency"
             color="default"
@@ -177,7 +159,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
           }}
         >
           <Typography.Text size="md" color="secondary">
-            {tagsLabel}
+            <FormattedMessage defaultMessage="Tags" description="Label for the tags section" />
           </Typography.Text>
           <Overflow noMargin>
             {tags.map(([key, value]) => {
@@ -207,7 +189,12 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
       {showNotification && (
         <Notification.Provider>
           <Notification.Root severity="success" componentId={BASE_NOTIFICATION_COMPONENT_ID}>
-            <Notification.Title>{notificationSuccessMessage}</Notification.Title>
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message for the notification"
+              />
+            </Notification.Title>
           </Notification.Root>
           <Notification.Viewport />
         </Notification.Provider>
