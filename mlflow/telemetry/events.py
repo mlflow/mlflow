@@ -45,6 +45,10 @@ class CreateLoggedModelEvent(Event):
         return None
 
 
+class GetLoggedModelEvent(Event):
+    name: str = "get_logged_model"
+
+
 class CreateRegisteredModelEvent(Event):
     name: str = "create_registered_model"
 
