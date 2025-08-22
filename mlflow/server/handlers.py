@@ -2859,6 +2859,24 @@ def _set_trace_tag(request_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _set_trace_tag_v3(trace_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{trace_id}/tags` to set tags on a TraceInfo record.
+    Identical to `_set_trace_tag`, but with request_id renamed to with trace_id.
+    """
+    request_message = _get_request_message(
+        SetTraceTagV3(),
+        schema={
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string],
+        },
+    )
+    _get_tracking_store().set_trace_tag(trace_id, request_message.key, request_message.value)
+    return _wrap_response(SetTraceTagV3.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _delete_trace_tag(request_id):
     """
     A request handler for `DELETE /mlflow/traces/{request_id}/tags` to delete tags from a TraceInfo
@@ -3499,7 +3517,7 @@ HANDLERS = {
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
     DeleteTracesV3: _delete_traces,
-    SetTraceTagV3: _set_trace_tag,
+    SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
     # Assessment APIs
