@@ -35,3 +35,18 @@ export async function getTraceArtifact(requestId: string): Promise<ModelTrace | 
     return 'Unknown error occurred';
   }
 }
+
+export async function getTraceAttachment(
+  requestId: string,
+  path: string,
+): Promise<Uint8Array<ArrayBufferLike> | undefined> {
+  try {
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+    const result = await fetch(`/ajax-api/2.0/mlflow/get-trace-artifact?request_id=${requestId}&path=${path}`);
+    const bytes = await result.bytes();
+    return bytes;
+  } catch (e) {
+    console.error(e);
+    return undefined;
+  }
+}

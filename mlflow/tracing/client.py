@@ -501,6 +501,21 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
+    from mlflow.tracing.attachments import Attachment
+
+    def _upload_attachments(self, trace_info: TraceInfo, attachments: list[Attachment]) -> None:
+        """
+        Upload an attachment to the trace.
+
+        Args:
+            trace_info: The TraceInfo object containing trace metadata.
+            attachment: The Attachment object to upload.
+        """
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        for attachment in attachments:
+            print(f"Uploading {attachment}")
+            artifact_repo.upload_attachment(attachment)
+
     # TODO: Migrate this to the new association table
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]

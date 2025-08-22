@@ -2910,6 +2910,7 @@ def _link_traces_to_run():
 @_disable_if_artifacts_only
 def get_trace_artifact_handler():
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -2918,11 +2919,15 @@ def get_trace_artifact_handler():
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
-
-    # Write data to a BytesIO buffer instead of needing to save a temp file
+    repo = _get_trace_artifact_repo(trace_info)
+    if path:
+        bytes_ = repo.download_trace_attachment(path)
+    else:
+        trace_data = repo.download_trace_data()
+        # Write data to a BytesIO buffer instead of needing to save a temp file
+        bytes_ = json.dumps(trace_data).encode()
     buf = io.BytesIO()
-    buf.write(json.dumps(trace_data).encode())
+    buf.write(bytes_)
     buf.seek(0)
 
     file_sender_response = send_file(
