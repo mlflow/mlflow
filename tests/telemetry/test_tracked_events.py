@@ -25,10 +25,11 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
+    LogDatasetEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
-from mlflow.tracking.fluent import _initialize_logged_model
+from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
 
 from tests.telemetry.helper_functions import validate_telemetry_record
 
@@ -334,3 +335,17 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_log_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run() as run:
+        dataset = mlflow.data.from_pandas(pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}))
+        mlflow.log_input(dataset)
+        validate_telemetry_record(mock_telemetry_client, mock_requests, LogDatasetEvent.name)
+
+        mlflow.log_inputs(datasets=[dataset], contexts=["training"], tags_list=[None])
+        validate_telemetry_record(mock_telemetry_client, mock_requests, LogDatasetEvent.name)
+
+        client = MlflowClient()
+        client.log_inputs(run_id=run.info.run_id, datasets=[_create_dataset_input(dataset)])
+        validate_telemetry_record(mock_telemetry_client, mock_requests, LogDatasetEvent.name)

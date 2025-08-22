@@ -36,7 +36,12 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import (
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateRunEvent,
+    LogDatasetEvent,
+)
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -568,6 +573,7 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
+    @record_usage_event(LogDatasetEvent)
     def log_inputs(
         self,
         run_id: str,
