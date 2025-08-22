@@ -33,6 +33,18 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
@@ -104,6 +116,16 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self.sample_rate is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -422,6 +444,7 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration information.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -520,6 +543,11 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
+
         scorer_name = name or self.name
 
         # Update the scorer on the server
@@ -560,6 +588,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -622,6 +651,7 @@ class Scorer(BaseModel):
             A new Scorer instance with sample rate set to 0.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
