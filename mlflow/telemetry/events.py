@@ -89,65 +89,43 @@ class CreateModelVersionEvent(Event):
 class CreateDatasetEvent(Event):
     name: str = "create_dataset"
 
-    @classmethod
-    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        try:
-            from mlflow.tracking import get_tracking_uri
-            from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
-
-            if is_databricks_default_tracking_uri(get_tracking_uri()):
-                return None
-            return {}
-        except Exception:
-            return None
-
 
 class MergeRecordsEvent(Event):
     name: str = "merge_records"
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        try:
-            from mlflow.tracking import get_tracking_uri
-            from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+        if not isinstance(arguments, dict):
+            return None
 
-            if is_databricks_default_tracking_uri(get_tracking_uri()):
-                return None
+        records = arguments.get("records")
+        if records is None:
+            return None
 
-            records = arguments.get("records")
-            if records is None:
-                return None
-
-            # Detect input type
-            input_type = type(records).__name__.lower()
-            if "dataframe" in input_type:
-                input_type = "pandas"
-            elif isinstance(records, list) and records:
-                # Check the first element to determine list type
-                first_elem = records[0]
-                if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
-                    input_type = "trace"
-                elif isinstance(first_elem, dict):
-                    input_type = "dict"
-                else:
-                    input_type = "list"
-            elif isinstance(records, list):
-                # Empty list
-                input_type = "list"
+        input_type = type(records).__name__.lower()
+        if "dataframe" in input_type:
+            input_type = "pandas"
+        elif isinstance(records, list) and records:
+            first_elem = records[0]
+            if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
+                input_type = "trace"
+            elif isinstance(first_elem, dict):
+                input_type = "dict"
             else:
-                input_type = "other"
+                input_type = "list"
+        elif isinstance(records, list):
+            input_type = "list"
+        else:
+            input_type = "other"
 
-            # Simple count - just try len() once
-            try:
-                count = len(records)
-                if count > 0:
-                    return {"record_count": count, "input_type": input_type}
-            except (TypeError, AttributeError):
-                pass
+        try:
+            count = len(records)
+            if count > 0:
+                return {"record_count": count, "input_type": input_type}
+        except (TypeError, AttributeError):
+            pass
 
-            return None
-        except Exception:
-            return None
+        return None
 
 
 def _is_prompt(tags: dict[str, str]) -> bool:

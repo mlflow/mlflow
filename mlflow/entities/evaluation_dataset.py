@@ -11,8 +11,8 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
-from mlflow.telemetry import record_usage_event
 from mlflow.telemetry.events import MergeRecordsEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER

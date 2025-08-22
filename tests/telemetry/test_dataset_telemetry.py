@@ -153,13 +153,13 @@ def test_merge_records_with_traces(
 
 
 def test_telemetry_exception_handling():
-    with mock.patch("mlflow.tracking.get_tracking_uri", side_effect=Exception("Error")):
-        result = CreateDatasetEvent.parse({})
-        assert result is None
+    # CreateDatasetEvent has no parse method, returns None (default from base Event class)
+    result = CreateDatasetEvent.parse({})
+    assert result is None
 
-    with mock.patch("mlflow.tracking.get_tracking_uri", side_effect=Exception("Error")):
-        result = MergeRecordsEvent.parse({"records": [{"test": "data"}]})
-        assert result is None
+    # MergeRecordsEvent returns None when records have no length
+    result = MergeRecordsEvent.parse({"records": object()})
+    assert result is None
 
 
 @pytest.mark.parametrize(
@@ -178,14 +178,10 @@ def test_telemetry_exception_handling():
     ],
 )
 def test_telemetry_never_raises(test_input):
-    try:
-        result = CreateDatasetEvent.parse(test_input)
-        assert result is None or isinstance(result, dict)
-    except Exception as e:
-        pytest.fail(f"CreateDatasetEvent raised exception with {test_input}: {e}")
+    # CreateDatasetEvent should handle all inputs without raising
+    result = CreateDatasetEvent.parse(test_input)
+    assert result is None or isinstance(result, dict)
 
-    try:
-        result = MergeRecordsEvent.parse(test_input)
-        assert result is None or isinstance(result, dict)
-    except Exception as e:
-        pytest.fail(f"MergeRecordsEvent raised exception with {test_input}: {e}")
+    # MergeRecordsEvent should handle all inputs without raising
+    result = MergeRecordsEvent.parse(test_input)
+    assert result is None or isinstance(result, dict)
