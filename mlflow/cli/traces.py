@@ -454,7 +454,7 @@ def delete_traces(
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key")
 @click.option("--value", type=click.STRING, required=True, help="Tag value")
-def set_tag(trace_id: str, key: str, value: str) -> None:
+def set_trace_tag(trace_id: str, key: str, value: str) -> None:
     """
     Set a tag on a trace.
 
@@ -470,7 +470,7 @@ def set_tag(trace_id: str, key: str, value: str) -> None:
 @commands.command("delete-tag")
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key to delete")
-def delete_tag(trace_id: str, key: str) -> None:
+def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag from a trace.
 
