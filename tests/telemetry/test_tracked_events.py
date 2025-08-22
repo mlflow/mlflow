@@ -8,6 +8,7 @@ import sklearn.neighbors as knn
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -20,8 +21,10 @@ from mlflow.telemetry.events import (
     CreatePromptEvent,
     CreateRegisteredModelEvent,
     CreateRunEvent,
+    CreateWebhookEvent,
     EvaluateEvent,
     GenAIEvaluateEvent,
+    GetLoggedModelEvent,
     LogAssessmentEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
@@ -262,6 +265,19 @@ def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(mock_telemetry_client, mock_requests, EvaluateEvent.name)
 
 
+def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
+    client = MlflowClient()
+    client.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+    expected_params = {"events": ["model_version.created"]}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
+    )
+
+
 def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
     @mlflow.genai.scorer
     def sample_scorer(inputs, outputs, expectations):
@@ -319,3 +335,45 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
+    model_info = mlflow.sklearn.log_model(
+        knn.KNeighborsClassifier(),
+        name="model",
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.sklearn.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    model_def = """
+import mlflow
+from mlflow.models import set_model
+
+class TestModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: list[str], params=None) -> list[str]:
+        return model_input
+
+set_model(TestModel())
+"""
+    model_path = tmp_path / "model.py"
+    model_path.write_text(model_def)
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=model_path,
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    # test load model after registry
+    mlflow.register_model(model_info.model_uri, name="test")
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model("models:/test/1")
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
