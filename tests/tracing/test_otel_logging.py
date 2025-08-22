@@ -19,6 +19,7 @@ from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.util._once import Once
 
 import mlflow
 from mlflow.tracing.utils import encode_trace_id
@@ -60,14 +61,27 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     resource = OTelSDKResource.create({"service.name": "test-service-e2e"})
     tracer_provider = TracerProvider(resource=resource)
 
+    # First, verify the endpoint is reachable
+    test_response = requests.get(f"{mlflow_server}/health", timeout=5)
+    assert test_response.status_code == 200, (
+        f"Server health check failed: {test_response.status_code}"
+    )
+
     exporter = OTLPSpanExporter(
-        endpoint=f"{mlflow_server}/v1/traces", headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,  # Explicit timeout
     )
 
     # Use SimpleSpanProcessor for immediate span export in tests
     # This ensures spans are sent immediately rather than batched
     span_processor = SimpleSpanProcessor(exporter)
     tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider to avoid conflicts with other tests
+    # This is necessary because OpenTelemetry doesn't allow overriding an already-set provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
 
     # Set the tracer provider
     otel_trace.set_tracer_provider(tracer_provider)
