@@ -7,6 +7,7 @@ import logging
 
 from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
 from mlflow.exceptions import MlflowException
+from mlflow.genai.experimental.databricks_trace_exporter import DatabricksDeltaArchivalMixin
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
     _get_workspace_id,
@@ -49,11 +50,15 @@ def set_experiment_storage_location(
 
     if location is None:
         DatabricksTraceServerClient().delete_trace_destination(experiment_id)
-        _logger.info(f"Unset storage location for experiment {experiment_id}")
+        _logger.info(f"Unset storage location for experiment {experiment_id}.")
     else:
         enable_databricks_trace_archival(
             experiment_id, location.catalog, location.schema, location.table_prefix
         )
+
+    # Clear cached storage config
+    with DatabricksDeltaArchivalMixin._config_cache_lock:
+        DatabricksDeltaArchivalMixin._config_cache.pop(experiment_id, None)
 
 
 def _validate_schema_versions(spans_version: str, events_version: str) -> None:
@@ -387,7 +392,7 @@ def _do_enable_databricks_archival(
         except Exception as e:
             if e.error_code == "ALREADY_EXISTS":
                 # TODO: replace this with an atomic UPDATE operation when backend supports it
-                _logger.debug(
+                _logger.info(
                     f"Trace archival already enabled for experiment {experiment_id}. "
                     "Deleting existing configuration and trying again. If enablement fails "
                     "with the new configuration, the old configuration will NOT be restored."
