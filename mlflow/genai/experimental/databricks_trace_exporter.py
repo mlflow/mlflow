@@ -10,9 +10,6 @@ from cachetools import TTLCache
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import (
-    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
-)
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
     create_archival_zerobus_sdk,
@@ -63,13 +60,6 @@ class DatabricksDeltaArchivalMixin:
         Args:
             trace: MLflow Trace object containing spans data.
         """
-        # Check if delta archival is globally enabled
-        # TODO: remove when set_experiment_storage_location
-        # allows client to unset the storage location
-        if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
-            _logger.debug("Trace archival to databricks is disabled")
-            return
-
         try:
             # Extract experiment ID from trace location
             experiment_id = None
