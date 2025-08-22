@@ -31,7 +31,7 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     """
     Converts click params to JSON schema
     """
-    res: dict[str, Any] = {}
+    properties: dict[str, Any] = {}
     required: list[str] = []
     for p in params:
         schema = {
@@ -44,12 +44,13 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
             schema["enum"] = [str(choice) for choice in p.type.choices]
         if p.required:
             required.append(p.name)
-        res[p.name] = schema
+        properties[p.name] = schema
 
-    if required:
-        res["required"] = required
-
-    return res
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+    }
 
 
 def fn_wrapper(command: click.Command) -> Callable[..., str]:
@@ -70,17 +71,11 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
     """
     Converts a Click command to a FunctionTool.
     """
-    description = (cmd.help or "").strip()
-    name = cmd.callback.__name__
     return FunctionTool(
         fn=fn_wrapper(cmd),
-        name=name,
-        description=description,
-        parameters={
-            "name": name,
-            "description": description,
-            "inputSchema": get_input_schema(cmd.params),
-        },
+        name=cmd.callback.__name__,
+        description=(cmd.help or "").strip(),
+        parameters=get_input_schema(cmd.params),
     )
 
 
