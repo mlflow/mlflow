@@ -9,7 +9,7 @@ from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
-    get_workspace_id,
+    _get_workspace_id,
 )
 from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.tracking import MlflowClient
@@ -31,9 +31,6 @@ TRACE_SNAPSHOT_OTEL_EVENT_NAME = "genai.trace.snapshot"
 ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME = "genai.assessments.snapshot"
 TAGS_SNAPSHOT_OTEL_EVENT_NAME = "genai.tags.snapshot"
 
-# The storage location for experiment traces in Unity Catalog
-_experiment_storage_location_map: dict[str, DatabricksUnityCatalog] = {}
-
 
 def set_experiment_storage_location(
     location: DatabricksUnityCatalog | None, experiment_id: str | None = None
@@ -49,13 +46,14 @@ def set_experiment_storage_location(
     """
     if experiment_id is None:
         experiment_id = _get_experiment_id()
+
     if location is None:
-        _experiment_storage_location_map.pop(experiment_id, None)
+        DatabricksTraceServerClient().delete_trace_destination(experiment_id)
+        _logger.info(f"Unset storage location for experiment {experiment_id}")
     else:
         enable_databricks_trace_archival(
             experiment_id, location.catalog, location.schema, location.table_prefix
         )
-        _experiment_storage_location_map[experiment_id] = location
 
 
 def _validate_schema_versions(spans_version: str, events_version: str) -> None:
@@ -340,7 +338,7 @@ def _enable_trace_rolling_deletion(experiment_id: str) -> None:
 
 
 def _do_enable_databricks_archival(
-    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
+    experiment_id: str, catalog: str, schema: str, table_prefix: str
 ) -> str:
     """
     Enable trace archival by orchestrating the full archival enablement process.
@@ -362,7 +360,7 @@ def _do_enable_databricks_archival(
     Raises:
         MlflowException: If any step of the archival process fails
     """
-    workspace_id = get_workspace_id()
+    workspace_id = _get_workspace_id()
     trace_archival_location = (
         f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
     )
@@ -378,7 +376,7 @@ def _do_enable_databricks_archival(
         # The backend API is idempotent if the same configuration already exists
         # and does not recreate existing tables.
         # It will throw ALREADY_EXISTS error if a different configuration already exists
-        # or if the table schema versions have changed
+        # or if the table schema versions have changed. In this case, we create new tables.
         try:
             trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
                 experiment_id=experiment_id,
@@ -388,9 +386,11 @@ def _do_enable_databricks_archival(
             )
         except Exception as e:
             if e.error_code == "ALREADY_EXISTS":
+                # TODO: replace this with an atomic UPDATE operation when backend supports it
                 _logger.debug(
                     f"Trace archival already enabled for experiment {experiment_id}. "
-                    "Deleting existing configuration and trying again."
+                    "Deleting existing configuration and trying again. If enablement fails "
+                    "with the new configuration, the old configuration will NOT be restored."
                 )
                 DatabricksTraceServerClient().delete_trace_destination(experiment_id)
                 trace_archive_config = DatabricksTraceServerClient().create_trace_destination(

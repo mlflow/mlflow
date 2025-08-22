@@ -110,7 +110,13 @@ class DatabricksUnityCatalog(TraceDestination):
 
     By setting this destination in the
     :py:func:`mlflow.genai.experimental.set_experiment_storage_location` function,
-    MLflow will dual write traces to the specified delta table along with the active experiment.
+    MLflow will dual write traces to the specified delta table in addition to the
+    currently set destination.
+
+    Attributes:
+        catalog: The Unity Catalog catalog to log traces to
+        schema: The Unity Catalog schema to log traces to
+        table_prefix: Prefix for the storage tables and view
     """
 
     catalog: str

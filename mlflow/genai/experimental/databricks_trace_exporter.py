@@ -56,13 +56,16 @@ class DatabricksDeltaArchivalMixin:
 
     def archive_trace(self, trace: Trace):
         """
-        Try to export a trace to Databricks Delta if archival is configured for the experiment.
+        Try to export a trace to Databricks Unity Catalog if a storage location is set
+        for the experiment.
         This method handles all enablement checking, configuration resolution, and authentication.
 
         Args:
             trace: MLflow Trace object containing spans data.
         """
         # Check if delta archival is globally enabled
+        # TODO: remove when set_experiment_storage_location
+        # allows client to unset the storage location
         if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
             _logger.debug("Trace archival to databricks is disabled")
             return
@@ -85,8 +88,7 @@ class DatabricksDeltaArchivalMixin:
             config = self._get_trace_storage_config(experiment_id)
             if config is None:
                 _logger.debug(
-                    f"Databricks trace archival is not enabled for experiment {experiment_id}, "
-                    "skipping."
+                    f"No storage location configured for experiment {experiment_id}, skipping."
                 )
                 return
 
