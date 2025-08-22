@@ -281,7 +281,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
             """
 
         spark.sql(query)
-        _logger.info(f"Successfully created trace archival view: {view_name}")
+        _logger.debug(f"Successfully created trace archival view: {view_name}")
 
     except Exception as e:
         raise MlflowException(f"Failed to create trace archival view {view_name}") from e
@@ -340,7 +340,7 @@ def _do_enable_databricks_archival(
         # 1. Create trace destination using client
         # The backend API is idempotent and will return existing configuration if it already exists
         # It will only throw ALREADY_EXISTS error if the table schema versions have changed
-        _logger.info(
+        _logger.debug(
             f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}"
         )
 
@@ -363,7 +363,7 @@ def _do_enable_databricks_archival(
         )
 
         # 4. Create the logical view
-        _logger.info(f"Creating trace archival at: {trace_archival_location}")
+        _logger.debug(f"Creating trace archival at: {trace_archival_location}")
         _create_genai_trace_view(
             trace_archival_location,
             trace_archive_config.spans_table_name,
