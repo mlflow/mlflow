@@ -8,7 +8,6 @@ import pytest
 import mlflow
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 
-# OTLP exporters are not installed in some CI jobs
 try:
     from opentelemetry.sdk.metrics.export import InMemoryMetricReader
     from opentelemetry.trace import StatusCode
@@ -31,7 +30,7 @@ def create_mock_span(
     mock_span.start_time = start_time
     mock_span.end_time = end_time
     mock_span.status.status_code = status
-    mock_span.attributes = {"mlflow.spanType": f'"{span_type}"'}  # JSON-encoded
+    mock_span.attributes = {"mlflow.spanType": f'"{span_type}"'}
     return mock_span
 
 
@@ -44,15 +43,12 @@ def mock_metric_reader():
 @pytest.fixture
 def otel_metrics_env(monkeypatch, mock_metric_reader):
     """Set up environment for OTEL metrics export testing."""
-    # Set up fake OTLP metrics endpoint
     monkeypatch.setenv(
         "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090/api/v1/otlp/v1/metrics"
     )
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", "http/protobuf")
 
     yield
-
-    # Clean up
     if "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" in os.environ:
         del os.environ["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"]
     if "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL" in os.environ:
