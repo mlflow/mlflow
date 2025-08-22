@@ -373,7 +373,7 @@ def test_archive_with_missing_archival_config(sample_trace_without_spans, monkey
         # Should have logged debug message about skipping archival
         mock_logger.debug.assert_called()
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-        assert any("not enabled for experiment" in msg for msg in debug_calls)
+        assert any("No storage location configured for experiment" in msg for msg in debug_calls)
 
 
 def test_delta_mixin_archive_archival_config_error_handling(

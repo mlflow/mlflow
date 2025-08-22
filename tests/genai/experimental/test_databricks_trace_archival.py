@@ -12,6 +12,7 @@ from mlflow.genai.experimental.databricks_trace_archival import (
     _create_genai_trace_view,
     _validate_schema_versions,
     enable_databricks_trace_archival,
+    set_experiment_storage_location,
 )
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
@@ -22,6 +23,7 @@ from mlflow.protos.databricks_trace_server_pb2 import (
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
 )
+from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,
     MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
@@ -48,6 +50,20 @@ def _create_mock_databricks_agents():
     mock_module.__spec__ = Mock()
     mock_module.__spec__.name = "databricks.agents"
     return mock_module
+
+
+@pytest.fixture
+def mock_delta_archival_mixin():
+    """Fixture that provides a properly mocked DatabricksDeltaArchivalMixin with cache setup."""
+    with patch(
+        "mlflow.genai.experimental.databricks_trace_archival.DatabricksDeltaArchivalMixin"
+    ) as mock_mixin:
+        # Setup cache mocking for testing cache clearing behavior
+        mock_mixin._config_cache_lock = Mock()
+        mock_mixin._config_cache_lock.__enter__ = Mock()
+        mock_mixin._config_cache_lock.__exit__ = Mock()
+        mock_mixin._config_cache = {}  # Start with empty cache, tests can populate as needed
+        yield mock_mixin
 
 
 def _create_trace_destination_proto(
@@ -83,7 +99,7 @@ def _create_trace_destination_proto(
 )
 @patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.tracking.MlflowClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_create_trace_destination_api_failures(
     mock_mlflow_client,
     mock_trace_client,
@@ -106,12 +122,12 @@ def test_create_trace_destination_api_failures(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match=expected_match):
-            enable_databricks_trace_archival("12345", "catalog", "schema")
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 @patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.tracking.MlflowClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
 def test_malformed_api_response(
     mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
 ):
@@ -134,7 +150,7 @@ def test_malformed_api_response(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
-            enable_databricks_trace_archival("12345", "catalog", "schema")
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 # Spark view creation tests
@@ -273,7 +289,7 @@ def test_backend_returns_unsupported_spans_schema(
     mock_mlflow_client.return_value = mock_client_instance
 
     with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
+        enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 @patch("importlib.util.find_spec", return_value=Mock())
@@ -315,7 +331,7 @@ def test_backend_returns_unsupported_events_schema(
     mock_mlflow_client.return_value = mock_client_instance
 
     with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
+        enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 # Experiment tag setting tests
@@ -363,7 +379,7 @@ def test_experiment_tag_setting_failure(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
-            enable_databricks_trace_archival("12345", "catalog", "schema")
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 @patch("databricks.sdk.WorkspaceClient")
@@ -409,14 +425,14 @@ def test_successful_experiment_tag_setting(
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):
-        result = enable_databricks_trace_archival("12345", "catalog", "schema")
+        result = enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
     # Verify trace client was called with correct arguments
     mock_trace_client_instance.create_trace_destination.assert_called_once_with(
         experiment_id="12345",
         catalog="catalog",
         schema="schema",
-        table_prefix="trace_logs",
+        table_prefix="prefix",
     )
 
     # Validate set_experiment_tag was called twice with correct parameters
@@ -426,7 +442,7 @@ def test_successful_experiment_tag_setting(
     mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",  # experiment_id
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,  # tag key
-        "catalog.schema.trace_logs_experiment_123_12345_genai_view",  # tag value (the view name)
+        "catalog.schema.prefix_experiment_123_12345_genai_view",  # tag value (the view name)
     )
 
     # Verify rolling deletion tag
@@ -435,7 +451,7 @@ def test_successful_experiment_tag_setting(
         MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,  # tag key
         "true",  # tag value
     )
-    assert result == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
+    assert result == "catalog.schema.prefix_experiment_123_12345_genai_view"
 
 
 # Successful archival integration tests
@@ -444,12 +460,6 @@ def test_successful_experiment_tag_setting(
 @pytest.mark.parametrize(
     ("table_prefix", "expected_view_name", "expected_spans_table", "expected_events_table"),
     [
-        (
-            None,  # no prefix means falling back to default "trace_logs" prefix
-            "catalog.schema.trace_logs_experiment_123_12345_genai_view",
-            "catalog.schema.experiment_12345_spans",
-            "catalog.schema.experiment_12345_events",
-        ),
         (
             "custom",  # custom prefix
             "catalog.schema.custom_experiment_123_12345_genai_view",
@@ -502,20 +512,16 @@ def test_successful_archival_with_prefix(
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):
-        # Call with appropriate prefix (default vs custom)
-        if not table_prefix:
-            result = enable_databricks_trace_archival("12345", "catalog", "schema")
-        else:
-            result = enable_databricks_trace_archival(
-                "12345", "catalog", "schema", table_prefix=table_prefix
-            )
+        result = enable_databricks_trace_archival(
+            "12345", "catalog", "schema", table_prefix=table_prefix
+        )
 
     # Verify trace client was called with correct arguments
     mock_trace_client_instance.create_trace_destination.assert_called_once_with(
         experiment_id="12345",
         catalog="catalog",
         schema="schema",
-        table_prefix=table_prefix or "trace_logs",
+        table_prefix=table_prefix,
     )
 
     mock_create_view.assert_called_once_with(
@@ -582,14 +588,14 @@ def test_idempotent_enablement(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         # Call enable_databricks_trace_archival multiple times
-        result1 = enable_databricks_trace_archival("12345", "catalog", "schema")
-        result2 = enable_databricks_trace_archival("12345", "catalog", "schema")
-        result3 = enable_databricks_trace_archival("12345", "catalog", "schema")
+        result1 = enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+        result2 = enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+        result3 = enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
     # All calls should return the same archival location
-    assert result1 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
-    assert result2 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
-    assert result3 == "catalog.schema.trace_logs_experiment_123_12345_genai_view"
+    assert result1 == "catalog.schema.prefix_experiment_123_12345_genai_view"
+    assert result2 == "catalog.schema.prefix_experiment_123_12345_genai_view"
+    assert result3 == "catalog.schema.prefix_experiment_123_12345_genai_view"
 
     # Verify trace client was called 3 times (once per call)
     assert mock_trace_client_instance.create_trace_destination.call_count == 3
@@ -612,7 +618,7 @@ def test_idempotent_enablement(
         assert call[0] == (
             "12345",
             MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
-            "catalog.schema.trace_logs_experiment_123_12345_genai_view",
+            "catalog.schema.prefix_experiment_123_12345_genai_view",
         )
 
     # Rolling deletion tag should be set 3 times
@@ -653,7 +659,7 @@ def test_enablement_failure_due_to_storage_config_conflict(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="ALREADY_EXISTS: Table schema version mismatch"):
-            enable_databricks_trace_archival("12345", "catalog", "schema")
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
     # Verify view creation and tag setting were not called
     mock_create_view.assert_not_called()
@@ -711,12 +717,273 @@ def test_rolling_deletion_tag_failure(
 
     with patch("importlib.util.find_spec", return_value=Mock()):
         with pytest.raises(MlflowException, match="Failed to enable trace rolling deletion"):
-            enable_databricks_trace_archival("12345", "catalog", "schema")
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
     # Verify that storage tag was attempted before failure
     assert mock_client_instance.set_experiment_tag.call_count == 2
     mock_client_instance.set_experiment_tag.assert_any_call(
         "12345",
         MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
-        "catalog.schema.trace_logs_experiment_123_12345_genai_view",
+        "catalog.schema.prefix_experiment_123_12345_genai_view",
     )
+
+
+# Tests for set_experiment_storage_location function
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._get_experiment_id")
+def test_set_experiment_storage_location_unset_with_default_experiment(
+    mock_get_experiment_id, mock_trace_client, mock_delta_archival_mixin
+):
+    """Test unsetting storage location with default experiment ID."""
+    # Mock default experiment ID
+    mock_get_experiment_id.return_value = "12345"
+
+    # Mock trace client
+    mock_trace_client_instance = Mock()
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Setup initial cache state
+    mock_delta_archival_mixin._config_cache["12345"] = "some_config"
+
+    # Call with None location (unset)
+    set_experiment_storage_location(None)
+
+    # Verify delete was called with correct experiment ID
+    mock_trace_client_instance.delete_trace_destination.assert_called_once_with("12345")
+
+    # Verify cache was cleared
+    assert "12345" not in mock_delta_archival_mixin._config_cache
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+def test_set_experiment_storage_location_unset_with_explicit_experiment(
+    mock_trace_client, mock_delta_archival_mixin
+):
+    """Test unsetting storage location with explicit experiment ID."""
+    # Mock trace client
+    mock_trace_client_instance = Mock()
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Setup initial cache state
+    mock_delta_archival_mixin._config_cache["67890"] = "some_config"
+
+    # Call with None location and explicit experiment ID
+    set_experiment_storage_location(None, experiment_id="67890")
+
+    # Verify delete was called with correct experiment ID
+    mock_trace_client_instance.delete_trace_destination.assert_called_once_with("67890")
+
+    # Verify cache was cleared
+    assert "67890" not in mock_delta_archival_mixin._config_cache
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.enable_databricks_trace_archival")
+@patch("mlflow.genai.experimental.databricks_trace_archival._get_experiment_id")
+def test_set_experiment_storage_location_set_with_default_experiment(
+    mock_get_experiment_id, mock_enable_archival, mock_delta_archival_mixin
+):
+    """Test setting storage location with DatabricksUnityCatalog using default experiment ID."""
+    # Mock default experiment ID
+    mock_get_experiment_id.return_value = "67890"
+
+    # Create a mock DatabricksUnityCatalog location
+    location = DatabricksUnityCatalog(
+        catalog="test_catalog", schema="test_schema", table_prefix="test_prefix"
+    )
+
+    # Setup initial cache state
+    mock_delta_archival_mixin._config_cache["67890"] = "some_config"
+
+    # Call with Unity Catalog location (no explicit experiment_id)
+    set_experiment_storage_location(location)
+
+    # Verify enable_databricks_trace_archival was called with default experiment ID
+    mock_enable_archival.assert_called_once_with(
+        "67890", "test_catalog", "test_schema", "test_prefix"
+    )
+
+    # Verify cache was cleared
+    assert "67890" not in mock_delta_archival_mixin._config_cache
+
+
+@patch("mlflow.genai.experimental.databricks_trace_archival.enable_databricks_trace_archival")
+def test_set_experiment_storage_location_set_with_explicit_experiment(
+    mock_enable_archival, mock_delta_archival_mixin
+):
+    """Test setting storage location with DatabricksUnityCatalog using explicit experiment ID."""
+    # Create a mock DatabricksUnityCatalog location
+    location = DatabricksUnityCatalog(
+        catalog="test_catalog", schema="test_schema", table_prefix="test_prefix"
+    )
+
+    # Setup initial cache state
+    mock_delta_archival_mixin._config_cache["12345"] = "some_config"
+
+    # Call with Unity Catalog location and explicit experiment ID
+    set_experiment_storage_location(location, experiment_id="12345")
+
+    # Verify enable_databricks_trace_archival was called with explicit experiment ID
+    mock_enable_archival.assert_called_once_with(
+        "12345", "test_catalog", "test_schema", "test_prefix"
+    )
+
+    # Verify cache was cleared
+    assert "12345" not in mock_delta_archival_mixin._config_cache
+
+
+# Tests for re-create logic in enable_databricks_trace_archival
+
+
+@patch("databricks.sdk.WorkspaceClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.genai.experimental.databricks_trace_archival._enable_trace_rolling_deletion")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_enable_archival_delete_on_already_exists_error(
+    mock_mlflow_client,
+    mock_rolling_deletion,
+    mock_create_view,
+    mock_trace_client,
+    mock_workspace_client_class,
+    mock_workspace_client,
+):
+    """Test that ALREADY_EXISTS error triggers delete and retry logic."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
+
+    # Create a valid config for the retry
+    from mlflow.genai.experimental.databricks_trace_storage_config import (
+        DatabricksTraceDeltaStorageConfig,
+    )
+
+    mock_config = DatabricksTraceDeltaStorageConfig(
+        experiment_id="12345",
+        spans_table_name="catalog.schema.prefix_12345_spans",
+        events_table_name="catalog.schema.prefix_12345_events",
+        spans_schema_version=SUPPORTED_SCHEMA_VERSION,
+        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+    )
+
+    # Mock trace client instance
+    mock_trace_client_instance = Mock()
+
+    # First call raises ALREADY_EXISTS, second call succeeds
+    mock_error = Exception("Already exists")
+    mock_error.error_code = "ALREADY_EXISTS"
+    mock_trace_client_instance.create_trace_destination.side_effect = [
+        mock_error,  # First call fails
+        mock_config,  # Second call succeeds
+    ]
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock successful client operations
+    mock_client_instance = Mock()
+    mock_experiment = Mock()
+    mock_experiment.tags = {}  # No existing archival tag
+    mock_client_instance.get_experiment.return_value = mock_experiment
+    mock_client_instance.set_experiment_tag = Mock()  # Explicitly mock this
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        result = enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+
+    # Verify delete was called after first failure
+    mock_trace_client_instance.delete_trace_destination.assert_called_once_with("12345")
+
+    # Verify create was called twice (first failed, second succeeded)
+    assert mock_trace_client_instance.create_trace_destination.call_count == 2
+
+    # Verify both calls had the same parameters
+    expected_call_args = {
+        "experiment_id": "12345",
+        "catalog": "catalog",
+        "schema": "schema",
+        "table_prefix": "prefix",
+    }
+
+    for call in mock_trace_client_instance.create_trace_destination.call_args_list:
+        assert call.kwargs == expected_call_args
+
+    # Verify the rest of the flow completed successfully
+    mock_create_view.assert_called_once()
+    mock_client_instance.set_experiment_tag.assert_called()
+
+    # Verify return value
+    assert result == "catalog.schema.prefix_experiment_123_12345_genai_view"
+
+
+@patch("databricks.sdk.WorkspaceClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_enable_archival_non_already_exists_error_propagates(
+    mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
+):
+    """Test that non-ALREADY_EXISTS errors are propagated without delete/retry."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
+
+    # Mock trace client instance
+    mock_trace_client_instance = Mock()
+
+    # Create a non-ALREADY_EXISTS error
+    mock_error = Exception("Permission denied")
+    mock_error.error_code = "PERMISSION_DENIED"
+    mock_trace_client_instance.create_trace_destination.side_effect = mock_error
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock MLflow client
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        with pytest.raises(Exception, match="Permission denied"):
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+
+    # Verify delete was NOT called
+    mock_trace_client_instance.delete_trace_destination.assert_not_called()
+
+    # Verify create was only called once
+    assert mock_trace_client_instance.create_trace_destination.call_count == 1
+
+
+@patch("databricks.sdk.WorkspaceClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+def test_enable_archival_delete_retry_also_fails(
+    mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
+):
+    """Test that if the retry after delete also fails, the new error is propagated."""
+    # Use the fixture's mock workspace client
+    mock_workspace_client_class.return_value = mock_workspace_client
+
+    # Mock trace client instance
+    mock_trace_client_instance = Mock()
+
+    # First call raises ALREADY_EXISTS, second call raises different error
+    mock_already_exists_error = Exception("Already exists")
+    mock_already_exists_error.error_code = "ALREADY_EXISTS"
+
+    mock_retry_error = Exception("Invalid schema")
+    mock_retry_error.error_code = "INVALID_PARAMETER_VALUE"
+
+    mock_trace_client_instance.create_trace_destination.side_effect = [
+        mock_already_exists_error,  # First call fails with ALREADY_EXISTS
+        mock_retry_error,  # Second call fails with different error
+    ]
+    mock_trace_client.return_value = mock_trace_client_instance
+
+    # Mock MLflow client
+    mock_client_instance = Mock()
+    mock_mlflow_client.return_value = mock_client_instance
+
+    with patch("importlib.util.find_spec", return_value=Mock()):
+        with pytest.raises(Exception, match="Invalid schema"):
+            enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+
+    # Verify delete was called after first failure
+    mock_trace_client_instance.delete_trace_destination.assert_called_once_with("12345")
+
+    # Verify create was called twice
+    assert mock_trace_client_instance.create_trace_destination.call_count == 2

@@ -51,6 +51,15 @@ def test_delete_dataset_raises_when_agents_not_installed():
         delete_dataset("test_dataset")
 
 
+def test_trace_archival_raises_when_agents_not_installed():
+    """Test that ImportError is raised when databricks-agents package is not available."""
+    with pytest.raises(
+        ImportError,
+        match=r"The `databricks-agents` package is required to use databricks trace archival",
+    ):
+        enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+
+
 class MockScorer(Scorer):
     """Mock scorer for testing purposes."""
 
