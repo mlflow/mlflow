@@ -32,7 +32,7 @@ from mlflow.utils.rest_utils import call_endpoint
 _logger = logging.getLogger(__name__)
 
 
-def get_workspace_id():
+def _get_workspace_id():
     from databricks.sdk import WorkspaceClient
 
     return WorkspaceClient().get_workspace_id()
@@ -123,7 +123,7 @@ def _resolve_ingest_url() -> str:
     host_creds = get_databricks_host_creds()
 
     try:
-        workspace_id = get_workspace_id()
+        workspace_id = _get_workspace_id()
 
         if not workspace_id:
             raise MlflowException(
