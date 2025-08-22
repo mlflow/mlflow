@@ -12,8 +12,28 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 # OTLP exporters are not installed in some CI jobs
 try:
     from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+    from opentelemetry.trace import StatusCode
 except ImportError:
     pytest.skip("OTLP metric exporters are not installed", allow_module_level=True)
+
+
+def create_mock_span(
+    trace_id="test-trace-id",
+    start_time=1000000000,
+    end_time=1100000000,
+    span_type="LLM",
+    status=StatusCode.OK,
+    is_root=True,
+):
+    """Create a mock span with common test properties."""
+    mock_span = mock.MagicMock()
+    mock_span.parent = None if is_root else mock.MagicMock()
+    mock_span.context.trace_id = trace_id
+    mock_span.start_time = start_time
+    mock_span.end_time = end_time
+    mock_span.status.status_code = status
+    mock_span.attributes = {"mlflow.spanType": f'"{span_type}"'}  # JSON-encoded
+    return mock_span
 
 
 @pytest.fixture
@@ -42,28 +62,38 @@ def otel_metrics_env(monkeypatch, mock_metric_reader):
 
 def test_otel_metrics_processor_initialization(otel_metrics_env):
     """Test that OtelSpanProcessor can be initialized with metrics export enabled."""
+    mock_histogram = mock.MagicMock()
+
     # Mock the metric exporter module import to avoid network calls
     with mock.patch(
         "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter"
     ) as mock_exporter:
         mock_exporter.return_value = mock.MagicMock()
 
-        # Create processor with metrics export enabled
-        processor = OtelSpanProcessor(
-            span_exporter=mock.MagicMock(),
-            export_spans=False,  # Only export metrics
-            export_metrics=True,
-        )
+        with mock.patch("opentelemetry.sdk.metrics.MeterProvider"):
+            with mock.patch("opentelemetry.metrics.get_meter") as mock_get_meter:
+                mock_meter = mock.MagicMock()
+                mock_meter.create_histogram.return_value = mock_histogram
+                mock_get_meter.return_value = mock_meter
 
-        # Verify metrics setup was called
-        assert processor._export_metrics is True
-        assert processor._export_spans is False
-        assert processor._duration_histogram is not None
+                # Create processor with metrics export enabled
+                OtelSpanProcessor(
+                    span_exporter=mock.MagicMock(),
+                    export_spans=False,  # Only export metrics
+                    export_metrics=True,
+                )
 
-        # Verify OTLP metric exporter was created
-        mock_exporter.assert_called_once_with(
-            endpoint="http://localhost:9090/api/v1/otlp/v1/metrics"
-        )
+                # Verify OTLP metric exporter was created (behavior test)
+                mock_exporter.assert_called_once_with(
+                    endpoint="http://localhost:9090/api/v1/otlp/v1/metrics"
+                )
+
+                # Verify histogram was created (behavior test)
+                mock_meter.create_histogram.assert_called_once_with(
+                    name="mlflow.trace.span.duration",
+                    description="Duration of spans in milliseconds",
+                    unit="ms",
+                )
 
 
 def test_metrics_collection_from_spans(otel_metrics_env):
@@ -139,47 +169,45 @@ def test_metrics_only_no_trace_cleanup(otel_metrics_env):
 
     # Mock trace manager to verify trace cleanup behavior
     mock_trace_manager = mock.MagicMock()
+    mock_histogram = mock.MagicMock()
 
     with mock.patch(
         "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter"
     ) as mock_exporter:
         mock_exporter.return_value = mock.MagicMock()
 
-        with mock.patch(
-            "mlflow.tracing.processor.otel.InMemoryTraceManager.get_instance"
-        ) as mock_get_instance:
-            mock_get_instance.return_value = mock_trace_manager
+        with mock.patch("opentelemetry.sdk.metrics.MeterProvider"):
+            with mock.patch("opentelemetry.metrics.get_meter") as mock_get_meter:
+                mock_meter = mock.MagicMock()
+                mock_meter.create_histogram.return_value = mock_histogram
+                mock_get_meter.return_value = mock_meter
 
-            # Create processor with only metrics export (no span export)
-            processor = OtelSpanProcessor(
-                span_exporter=mock.MagicMock(), export_spans=False, export_metrics=True
-            )
+                with mock.patch(
+                    "mlflow.tracing.processor.otel.InMemoryTraceManager.get_instance"
+                ) as mock_get_instance:
+                    mock_get_instance.return_value = mock_trace_manager
 
-            # Verify that _should_register_traces is False when only exporting metrics
-            assert processor._should_register_traces is False
-            assert processor._export_metrics is True
+                    # Create processor with only metrics export (no span export)
+                    processor = OtelSpanProcessor(
+                        span_exporter=mock.MagicMock(), export_spans=False, export_metrics=True
+                    )
 
-            # Mock a span
-            mock_span = mock.MagicMock()
-            mock_span.parent = None  # Root span
-            mock_span.context.trace_id = "test-trace-id"
-            mock_span.start_time = 1000000000  # nanoseconds
-            mock_span.end_time = 1100000000  # 100ms later
+                    # Create a mock span using the utility
+                    mock_span = create_mock_span(trace_id="test-trace-id")
 
-            # Properly mock the status
-            from opentelemetry.trace import StatusCode
+                    # Call on_end to trigger metrics collection
+                    processor.on_end(mock_span)
 
-            mock_span.status.status_code = StatusCode.OK
-            mock_span.attributes = {"mlflow.spanType": '"LLM"'}
+                    # Verify that pop_trace was NOT called (behavior test for the critical bug fix)
+                    mock_trace_manager.pop_trace.assert_not_called()
 
-            # Call on_end to trigger metrics collection
-            processor.on_end(mock_span)
+                    # Verify that trace registration mapping was used for metrics context
+                    mock_trace_manager.get_mlflow_trace_id_from_otel_id.assert_called_with(
+                        "test-trace-id"
+                    )
 
-            # Verify that pop_trace was NOT called (since we're only exporting metrics)
-            mock_trace_manager.pop_trace.assert_not_called()
-
-            # Verify that trace registration mapping was used for metrics context
-            mock_trace_manager.get_mlflow_trace_id_from_otel_id.assert_called_with("test-trace-id")
+                    # Verify metrics were recorded
+                    mock_histogram.record.assert_called_once()
 
 
 def test_span_type_json_decoding(otel_metrics_env):
@@ -202,18 +230,8 @@ def test_span_type_json_decoding(otel_metrics_env):
                     span_exporter=mock.MagicMock(), export_spans=False, export_metrics=True
                 )
 
-                # Mock a span with JSON-encoded span type
-                mock_span = mock.MagicMock()
-                mock_span.parent = None
-                mock_span.context.trace_id = "test-trace-id"
-                mock_span.start_time = 1000000000
-                mock_span.end_time = 1100000000
-
-                # Properly mock the status
-                from opentelemetry.trace import StatusCode
-
-                mock_span.status.status_code = StatusCode.OK
-                mock_span.attributes = {"mlflow.spanType": '"LLM"'}  # JSON-encoded
+                # Create a mock span using the utility
+                mock_span = create_mock_span(span_type="LLM")
 
                 processor.on_end(mock_span)
 
@@ -268,18 +286,13 @@ def test_metrics_with_comprehensive_attributes(otel_metrics_env):
                         span_exporter=mock.MagicMock(), export_spans=False, export_metrics=True
                     )
 
-                    # Mock a span
-                    mock_span = mock.MagicMock()
-                    mock_span.parent = None
-                    mock_span.context.trace_id = "otel-trace-id"
-                    mock_span.start_time = 1000000000
-                    mock_span.end_time = 1200000000  # 200ms
-
-                    # Properly mock the status
-                    from opentelemetry.trace import StatusCode
-
-                    mock_span.status.status_code = StatusCode.OK
-                    mock_span.attributes = {"mlflow.spanType": '"CHAIN"'}
+                    # Create a mock span using the utility (200ms duration)
+                    mock_span = create_mock_span(
+                        trace_id="otel-trace-id",
+                        start_time=1000000000,
+                        end_time=1200000000,
+                        span_type="CHAIN",
+                    )
 
                     processor.on_end(mock_span)
 
@@ -310,23 +323,26 @@ def test_metrics_with_comprehensive_attributes(otel_metrics_env):
 
 def test_no_metrics_when_disabled(otel_metrics_env):
     """Test that no metrics are collected when metrics export is disabled."""
+    mock_histogram = mock.MagicMock()
 
-    # Create processor with metrics export disabled
-    processor = OtelSpanProcessor(
-        span_exporter=mock.MagicMock(),
-        export_spans=True,  # Only export spans
-        export_metrics=False,  # No metrics
-    )
+    with mock.patch("opentelemetry.sdk.metrics.MeterProvider"):
+        with mock.patch("opentelemetry.metrics.get_meter") as mock_get_meter:
+            mock_meter = mock.MagicMock()
+            mock_meter.create_histogram.return_value = mock_histogram
+            mock_get_meter.return_value = mock_meter
 
-    # Verify no metrics setup
-    assert processor._export_metrics is False
-    assert processor._duration_histogram is None
+            # Create processor with metrics export disabled
+            processor = OtelSpanProcessor(
+                span_exporter=mock.MagicMock(),
+                export_spans=True,  # Only export spans
+                export_metrics=False,  # No metrics
+            )
 
-    # Mock a span
-    mock_span = mock.MagicMock()
-    mock_span.parent = None
-    mock_span.start_time = 1000000000
-    mock_span.end_time = 1100000000
+            # Create a mock span using the utility
+            mock_span = create_mock_span()
 
-    # Should not raise any errors when processing span
-    processor.on_end(mock_span)  # Should work without metrics recording
+            # Should not raise any errors when processing span
+            processor.on_end(mock_span)  # Should work without metrics recording
+
+            # Verify no metrics were recorded (behavior test)
+            mock_histogram.record.assert_not_called()
