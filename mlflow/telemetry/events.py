@@ -121,8 +121,8 @@ class LogBatchEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
-            "metrics": len(arguments.get("metrics", [])) > 0,
-            "params": len(arguments.get("params", [])) > 0,
-            "tags": len(arguments.get("tags", [])) > 0,
+            "metrics": bool(arguments.get("metrics")),
+            "params": bool(arguments.get("params")),
+            "tags": bool(arguments.get("tags")),
             "synchronous": arguments.get("synchronous"),
         }
