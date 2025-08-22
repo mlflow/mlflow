@@ -58,7 +58,7 @@ def test_trace_archival_raises_when_agents_not_installed():
         ImportError,
         match=r"The `databricks-agents` package is required to use databricks trace archival",
     ):
-        enable_databricks_trace_archival("12345", "catalog", "schema")
+        enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
 
 class MockScorer(Scorer):
