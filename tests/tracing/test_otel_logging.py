@@ -78,8 +78,14 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     span_processor = SimpleSpanProcessor(exporter)
     tracer_provider.add_span_processor(span_processor)
 
-    # Reset the global tracer provider to avoid conflicts with other tests
-    # This is necessary because OpenTelemetry doesn't allow overriding an already-set provider
+    # Reset the global tracer provider to avoid conflicts with other tests.
+    # This is necessary because OpenTelemetry doesn't allow overriding an already-set provider.
+    #
+    # NOTE: We're using internal APIs here (_TRACER_PROVIDER_SET_ONCE and _TRACER_PROVIDER)
+    # because OpenTelemetry doesn't provide a public API to reset the global tracer provider.
+    # The library is designed to set the provider once at application startup, which doesn't
+    # work well for testing scenarios where different tests need different configurations.
+    # This pattern is also used in tests/semantic_kernel/conftest.py for the same reason.
     otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
     otel_trace._TRACER_PROVIDER = None
 
