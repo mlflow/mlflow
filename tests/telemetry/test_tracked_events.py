@@ -8,6 +8,10 @@ import sklearn.neighbors as knn
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
+from mlflow.genai.scorers import scorer
+from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     CreateExperimentEvent,
@@ -17,16 +21,19 @@ from mlflow.telemetry.events import (
     CreateRegisteredModelEvent,
     CreateRunEvent,
     EvaluateEvent,
+    GenAIEvaluateEvent,
     LogAssessmentEvent,
+    PromptOptimizationEvent,
     StartTraceEvent,
 )
+from mlflow.tracking.fluent import _initialize_logged_model
 
 from tests.telemetry.helper_functions import validate_telemetry_record
 
 
 class TestModel(mlflow.pyfunc.PythonModel):
-    def predict(self, model_input: list[str]) -> list[str]:
-        return model_input
+    def predict(self, model_input: list[str]) -> str:
+        return "test"
 
 
 @pytest.fixture
@@ -45,17 +52,24 @@ def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
 def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClient):
     event_name = CreateLoggedModelEvent.name
     mlflow.create_external_model(name="model")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "external"}
+    )
 
     mlflow.initialize_logged_model(name="model", tags={"key": "value"})
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "initialize"}
+    )
+
+    _initialize_logged_model(name="model", flavor="keras")
+    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, {"flavor": "keras"})
 
     mlflow.pyfunc.log_model(
         name="model",
         python_model=TestModel(),
     )
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc"}
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.CustomPythonModel"}
     )
 
     mlflow.sklearn.log_model(
@@ -64,6 +78,34 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
     )
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, {"flavor": "sklearn"}
+    )
+
+    class SimpleResponsesAgent(ResponsesAgent):
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            mock_response = {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "1234",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": request.input[0].content,
+                            }
+                        ],
+                    }
+                ],
+            }
+            return ResponsesAgentResponse(**mock_response)
+
+    mlflow.pyfunc.log_model(
+        name="model",
+        python_model=SimpleResponsesAgent(),
+    )
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.ResponsesAgent"}
     )
 
 
@@ -218,3 +260,62 @@ def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         extra_metrics=[mlflow.metrics.latency()],
     )
     validate_telemetry_record(mock_telemetry_client, mock_requests, EvaluateEvent.name)
+
+
+def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
+    @mlflow.genai.scorer
+    def sample_scorer(inputs, outputs, expectations):
+        return 1.0
+
+    model = TestModel()
+    data = [
+        {
+            "inputs": {"model_input": ["What is the capital of France?"]},
+            "outputs": "The capital of France is Paris.",
+        }
+    ]
+    with mock.patch("mlflow.genai.judges.is_context_relevant"):
+        mlflow.genai.evaluate(
+            data=data, scorers=[sample_scorer, RelevanceToQuery()], predict_fn=model.predict
+        )
+        expected_params = {"builtin_scorers": ["relevance_to_query"]}
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+        )
+
+
+def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
+    sample_prompt = mlflow.genai.register_prompt(
+        name="test_translation_prompt",
+        template="Translate the following text to {{language}}: {{input_text}}",
+    )
+    sample_data = pd.DataFrame(
+        {
+            "inputs": [
+                {"input_text": "Hello", "language": "Spanish"},
+                {"input_text": "World", "language": "French"},
+            ],
+            "expectations": [{"translation": "Hola"}, {"translation": "Monde"}],
+        }
+    )
+
+    @scorer
+    def sample_scorer(inputs, outputs, expectations):
+        return 1.0
+
+    with mock.patch(
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=OptimizerOutput(
+            final_eval_score=1.0,
+            initial_eval_score=0.5,
+            optimizer_name="DSPy/MIPROv2",
+            optimized_prompt="optimized",
+        ),
+    ):
+        mlflow.genai.optimize_prompt(
+            target_llm_params=LLMParams(model_name="test/model"),
+            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+    validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)

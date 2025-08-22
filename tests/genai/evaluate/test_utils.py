@@ -15,7 +15,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
 )
-from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -320,7 +320,7 @@ def test_input_is_required_if_trace_is_not_provided(is_in_databricks):
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
-                scorers=[Safety()],
+                scorers=[RelevanceToQuery()],
             )
 
         mock_evaluate.assert_not_called()
@@ -329,7 +329,7 @@ def test_input_is_required_if_trace_is_not_provided(is_in_databricks):
             data=pd.DataFrame(
                 {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
             ),
-            scorers=[Safety()],
+            scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()
 
@@ -348,7 +348,7 @@ def test_input_is_optional_if_trace_is_provided(is_in_databricks):
     with patch(mock_module) as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
-            scorers=[Safety()],
+            scorers=[RelevanceToQuery()],
         )
 
         mock_evaluate.assert_called_once()
@@ -419,7 +419,7 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
 def test_convert_scorer_to_legacy_metric():
     """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
     # Test with a built-in scorer
-    builtin_scorer = Safety()
+    builtin_scorer = RelevanceToQuery()
     legacy_metric = _convert_scorer_to_legacy_metric(builtin_scorer)
 
     # Verify the metric has the _is_builtin_scorer attribute set to True
@@ -459,7 +459,7 @@ def test_scorer_pass_through_aggregations(aggregations):
     assert legacy_metric_custom.name == "custom_scorer"
     assert legacy_metric_custom.aggregations == aggregations
 
-    builtin_scorer = Safety(aggregations=aggregations)
+    builtin_scorer = RelevanceToQuery(aggregations=aggregations)
     legacy_metric_builtin = _convert_scorer_to_legacy_metric(builtin_scorer)
-    assert legacy_metric_builtin.name == "safety"
+    assert legacy_metric_builtin.name == "relevance_to_query"
     assert legacy_metric_builtin.aggregations == builtin_scorer.aggregations
