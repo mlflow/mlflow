@@ -104,23 +104,18 @@ class Databricks(TraceDestination):
 
 @experimental(version="3.2.0")
 @dataclass
-class UnityCatalog(TraceDestination):
+class DatabricksUnityCatalog(TraceDestination):
     """
     A destination representing a Unity Catalog delta table.
 
-    By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
-    MLflow will log traces to the delta table for the specified experiment.
-    Currently, traces are also dual written to the specified experiment.
+    By setting this destination in the
+    :py:func:`mlflow.genai.experimental.set_experiment_storage_location` function,
+    MLflow will dual write traces to the specified delta table along with the active experiment.
     """
 
     catalog: str
     schema: str
-    table_prefix: str | None = None
-    experiment_id: str | None = None
-
-    def __post_init__(self):
-        if self.table_prefix is None:
-            self.table_prefix = "trace_logs"
+    table_prefix: str = "trace_logs"
 
     @property
     def type(self) -> str:
