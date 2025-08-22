@@ -8,6 +8,7 @@ import sklearn.neighbors as knn
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Feedback
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -20,6 +21,7 @@ from mlflow.telemetry.events import (
     CreatePromptEvent,
     CreateRegisteredModelEvent,
     CreateRunEvent,
+    CreateWebhookEvent,
     EvaluateEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
@@ -260,6 +262,19 @@ def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         extra_metrics=[mlflow.metrics.latency()],
     )
     validate_telemetry_record(mock_telemetry_client, mock_requests, EvaluateEvent.name)
+
+
+def test_create_webhook(mock_requests, mock_telemetry_client: TelemetryClient):
+    client = MlflowClient()
+    client.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+    )
+    expected_params = {"events": ["model_version.created"]}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CreateWebhookEvent.name, expected_params
+    )
 
 
 def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
