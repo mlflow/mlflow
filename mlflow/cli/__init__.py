@@ -706,6 +706,11 @@ cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 
+# Add traces CLI commands
+from mlflow.cli import traces
+
+cli.add_command(traces.commands)
+
 # Add Claude Code integration commands
 try:
     import mlflow.claude_code.cli
