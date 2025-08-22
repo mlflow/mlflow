@@ -1,22 +1,39 @@
-import subprocess
 import sys
 
+import pytest
+from fastmcp import Client
+from fastmcp.client.transports import ClientTransport, StdioTransport
 
-def test_cli():
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "mcp",
-            "run",
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as proc:
-        try:
-            stdout, stderr = proc.communicate()
-            assert "Starting MCP server" in stdout + stderr
-        finally:
-            proc.terminate()
+import mlflow
+
+
+@pytest.mark.parametrize(
+    "transport",
+    [
+        StdioTransport(
+            command=sys.executable,
+            args=[
+                "-m",
+                "mlflow",
+                "mcp",
+                "run",
+            ],
+            env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+        ),
+        StdioTransport(
+            command="uv",
+            args=[
+                "run",
+                "mlflow",
+                "mcp",
+                "run",
+            ],
+            env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_cli(transport: ClientTransport):
+    async with Client(transport) as client:
+        tools = await client.list_tools()
+        assert len(tools) > 0
