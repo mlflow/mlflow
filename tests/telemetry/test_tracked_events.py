@@ -221,13 +221,13 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     mlflow_client.end_trace(trace_id=trace_id)
     validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
 
-    import langchain  # noqa: F401
+    import openai  # noqa: F401
 
     test_func()
     data = validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, check_params=False
     )
-    assert "langchain" in json.loads(data["params"])["imports"]
+    assert "openai" in json.loads(data["params"])["imports"]
 
 
 def test_create_prompt(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):

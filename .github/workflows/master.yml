@@ -115,7 +115,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           # test telemetry events
-          pip install langchain
+          pip install openai
           pip install .
       - uses: ./.github/actions/show-versions
       - name: Run tests
@@ -454,7 +454,7 @@ jobs:
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
           # test telemetry events
-          pip install langchain
+          pip install openai
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark

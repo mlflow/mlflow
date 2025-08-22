@@ -49,7 +49,7 @@ GENAI_MODULES = {
     "weaviate",
 }
 
-PACKAGES_TO_CHECK_IMPORT = (
+MODULES_TO_CHECK_IMPORT = (
     {
         # Classic ML
         "catboost",
