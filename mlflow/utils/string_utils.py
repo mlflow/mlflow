@@ -1,5 +1,7 @@
 import re
 import shlex
+from datetime import datetime
+from typing import Any
 
 from mlflow.utils.os import is_windows
 
@@ -136,3 +138,54 @@ def _backtick_quote(s: str) -> str:
     Quotes the given string with backticks if it is not already quoted with backticks.
     """
     return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
+
+
+def format_table_cell_value(field: str, cell_value, values: list[Any] | None = None) -> str:
+    """
+    Format cell values for table display with field-specific formatting.
+
+    Args:
+        field: The field name (e.g., "info.request_time")
+        cell_value: The value to format
+        values: List of extracted values (for multiple values handling)
+
+    Returns:
+        Formatted string value suitable for table display
+    """
+    if values is None:
+        values = [cell_value] if cell_value is not None else []
+
+    # Handle empty/missing values
+    if not values:
+        return "N/A"
+    elif len(values) == 1:
+        cell_value = values[0]
+    else:
+        # Multiple values - join them
+        cell_value = ", ".join(str(v) for v in values[:3])  # Limit to first 3
+        if len(values) > 3:
+            cell_value += f", ... (+{len(values) - 3} more)"
+
+    # Format specific fields
+    if field == "info.request_time" and cell_value != "N/A":
+        # Convert ISO timestamp to readable format
+        try:
+            dt = datetime.fromisoformat(str(cell_value).replace("Z", "+00:00"))
+            cell_value = dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+        except Exception:
+            pass  # Keep original if conversion fails
+    elif field == "info.execution_duration_ms" and cell_value != "N/A" and cell_value is not None:
+        try:
+            duration_ms = float(cell_value)
+            if duration_ms < 1000:
+                cell_value = f"{int(duration_ms)}ms"
+            else:
+                cell_value = f"{duration_ms / 1000:.1f}s"
+        except (ValueError, TypeError):
+            pass  # Keep original if conversion fails
+    elif field in ["info.request_preview", "info.response_preview"]:
+        # Truncate previews to keep table readable
+        if len(str(cell_value)) > 20:
+            cell_value = str(cell_value)[:17] + "..."
+
+    return str(cell_value)
