@@ -66,13 +66,15 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
     """
     Converts a Click command to a FunctionTool.
     """
+    description = (cmd.help or "").strip()
+    name = cmd.callback.__name__
     return FunctionTool(
         fn=fn_wrapper(cmd),
-        name=cmd.callback.__name__,
-        description=cmd.help,
+        name=name,
+        description=description,
         parameters={
-            "name": cmd.name,
-            "description": cmd.help,
+            "name": name,
+            "description": description,
             "inputSchema": get_input_schema(cmd.params),
         },
     )
