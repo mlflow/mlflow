@@ -40,6 +40,10 @@ This uses `uv` (fast Python package manager) to automatically manage dependencie
 ### Testing
 
 ```bash
+# First-time setup: Install test dependencies
+uv sync
+uv pip install -r requirements/test-requirements.txt
+
 # Run Python tests
 uv run pytest tests/
 
@@ -133,7 +137,7 @@ pushd mlflow/server/js && yarn check-all; popd
 
 ### Creating Pull Requests
 
-Follow the PR template when creating pull requests. The template will automatically appear when you create a PR on GitHub.
+Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. The template will automatically appear when you create a PR on GitHub.
 
 ### Checking CI Status
 
@@ -155,7 +159,7 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run pre-commit install
+uv run pre-commit install --install-hooks
 ```
 
 Run pre-commit manually:
@@ -185,7 +189,17 @@ This runs Ruff, typos checker, and other tools automatically before commits.
 If you want to run these hooks, **ASK THE USER FIRST** before installing:
 
 ```bash
-# Install external tools (requires user permission)
+# On Linux/CI: Use the provided install scripts
+bash dev/install-taplo.sh
+bash dev/install-typos.sh
+bash dev/install-conftest.sh
+
+# On macOS: Use cargo or download directly (scripts don't support macOS)
+cargo install taplo-cli@0.9.3 --locked
+cargo install typos-cli@1.28.0 --locked
+# For conftest, download from: https://github.com/open-policy-agent/conftest/releases
+
+# Alternative for macOS (homebrew - may have different versions):
 brew install taplo typos-cli conftest
 ```
 
