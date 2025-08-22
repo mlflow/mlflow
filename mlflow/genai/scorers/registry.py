@@ -512,24 +512,6 @@ def list_scorer_versions(
         mlflow.MlflowException: If the scorer with the specified name is not found in
             the experiment, if the experiment doesn't exist, or if there are issues with the backend
             store.
-
-    Example:
-        .. code-block:: python
-
-            from mlflow.genai.scorers import list_scorer_versions
-
-            # List all versions of a scorer in the current experiment
-            versions = list_scorer_versions(name="accuracy_scorer")
-
-            # List all versions of a scorer in a specific experiment
-            versions = list_scorer_versions(name="safety_scorer", experiment_id="123")
-
-            # Process the returned versions
-            for scorer, version in versions:
-                print(f"Scorer name: {scorer.name}, Version: {version}")
-
-    Note:
-        Databricks backend does not support versioning and will raise an exception
     """
     store = _get_scorer_store()
     return store.list_scorer_versions(experiment_id, name)
