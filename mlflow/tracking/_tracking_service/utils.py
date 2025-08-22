@@ -138,15 +138,27 @@ def _get_file_store(store_uri, **_):
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     
-    # Check if this is a PostgreSQL URI that should use Managed Identity
-    if store_uri.startswith("postgresql://") and (
-        "auth_method=managed_identity" in store_uri or
-        os.getenv("MLFLOW_POSTGRES_USE_MANAGED_IDENTITY", "").lower() == "true"
-    ):
+    # Check if Azure authentication is explicitly enabled
+    azure_auth_enabled = os.getenv("MLFLOW_AZURE_AUTH_ENABLED", "false").lower() == "true"
+    
+    # Only use Managed Identity if explicitly enabled through configuration
+    # This prevents automatic authentication attempts based on URI parameters alone
+    if store_uri.startswith("postgresql://") and azure_auth_enabled:
+        _logger.info(
+            "Azure authentication is enabled for PostgreSQL. Using Managed Identity store."
+        )
         from mlflow.store.tracking.postgres_managed_identity import get_postgres_store_with_managed_identity
         if artifact_uri is None:
             artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
         return get_postgres_store_with_managed_identity(store_uri, artifact_uri)
+    
+    # Log if auth_method is in URI but Azure auth is not enabled
+    if store_uri.startswith("postgresql://") and "auth_method=managed_identity" in store_uri:
+        if not azure_auth_enabled:
+            _logger.warning(
+                "URI contains 'auth_method=managed_identity' but MLFLOW_AZURE_AUTH_ENABLED is not 'true'. "
+                "Using standard SQL authentication. To use Managed Identity, enable it in your Helm configuration."
+            )
 
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH

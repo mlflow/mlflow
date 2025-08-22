@@ -84,13 +84,19 @@ class AzureAuthConfig:
             or os.getenv("MLFLOW_AZURE_DEBUG", "false").lower() == "true"
         )
 
-        # Additional environment variable checks
-        # Only override auth method if not explicitly set
-        if (os.getenv("MLFLOW_POSTGRES_USE_MANAGED_IDENTITY", "false").lower() == "true" and 
-            auth_method is None and 
-            os.getenv("MLFLOW_AZURE_AUTH_METHOD") is None):
-            self.auth_enabled = True
-            self.auth_method = AuthMethod.MANAGED_IDENTITY
+        # IMPORTANT: Do not automatically enable Managed Identity based on other env vars
+        # The auth_enabled flag should be the single source of truth
+        # This prevents unintended authentication attempts when Helm hasn't enabled it
+        
+        # Log configuration decision for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(
+            "AzureAuthConfig initialized: auth_enabled=%s, auth_method=%s, source=%s",
+            self.auth_enabled,
+            self.auth_method.value,
+            "explicit" if auth_enabled is not None else "env_var"
+        )
 
         # Validate configuration
         self._validate()

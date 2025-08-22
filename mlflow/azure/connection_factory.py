@@ -33,9 +33,10 @@ class ConnectionFactory:
         )
 
         logger.info(
-            "Initialized connection factory: azure_auth_enabled=%s, auth_method=%s",
+            "Initialized connection factory: azure_auth_enabled=%s, auth_method=%s, auth_flag=%s",
             self.config.should_use_azure_auth,
             self.config.auth_method.value if self.config.should_use_azure_auth else "sql_auth",
+            self.config.auth_enabled,
         )
 
     def create_engine(
@@ -56,11 +57,23 @@ class ConnectionFactory:
             ConnectionError: If connection configuration fails
             ConfigurationError: If the URI is invalid
         """
+        # Check if auth_method is in URI
+        has_auth_method_param = "auth_method=" in database_uri
+        
         logger.info(
-            "Creating database engine: connection_info=%s, azure_auth=%s",
+            "Creating database engine: connection_info=%s, azure_auth=%s, has_auth_param=%s, auth_enabled_env=%s",
             sanitize_connection_string_for_logging(database_uri),
             self.config.should_use_azure_auth,
+            has_auth_method_param,
+            self.config.auth_enabled,
         )
+        
+        # Warn if there's a mismatch between URI parameter and configuration
+        if has_auth_method_param and not self.config.should_use_azure_auth:
+            logger.warning(
+                "Database URI contains auth_method parameter but Azure authentication is not enabled. "
+                "The auth_method parameter will be ignored. Enable Azure authentication in Helm values to use Managed Identity."
+            )
 
         try:
             # Parse and validate the URI
