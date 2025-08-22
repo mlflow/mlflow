@@ -42,7 +42,7 @@ def set_experiment_storage_location(
         location: The storage location for experiment traces in Unity Catalog.
             If None, the storage location will be unset.
         experiment_id: The MLflow experiment ID to set the storage location for.
-            If not specified, the current active experiment will be used.
+            If not specified, the default experiment will be used.
     """
     if experiment_id is None:
         experiment_id = _get_experiment_id()
@@ -448,6 +448,7 @@ def _do_enable_databricks_archival(
         ) from e
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 def enable_databricks_trace_archival(
     experiment_id: str, catalog: str, schema: str, table_prefix: str

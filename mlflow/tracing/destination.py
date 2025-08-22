@@ -102,6 +102,7 @@ class Databricks(TraceDestination):
         return "databricks"
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 @dataclass
 class DatabricksUnityCatalog(TraceDestination):
@@ -116,7 +117,7 @@ class DatabricksUnityCatalog(TraceDestination):
     Attributes:
         catalog: The Unity Catalog catalog to log traces to
         schema: The Unity Catalog schema to log traces to
-        table_prefix: Prefix for the storage tables and view
+        table_prefix: Prefix for the storage tables and view. Default to `trace_logs`
     """
 
     catalog: str
