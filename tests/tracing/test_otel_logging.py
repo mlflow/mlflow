@@ -18,7 +18,7 @@ from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import mlflow
 from mlflow.tracing.utils import encode_trace_id
@@ -64,9 +64,12 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
         endpoint=f"{mlflow_server}/v1/traces", headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
     )
 
-    span_processor = BatchSpanProcessor(exporter)
+    # Use SimpleSpanProcessor for immediate span export in tests
+    # This ensures spans are sent immediately rather than batched
+    span_processor = SimpleSpanProcessor(exporter)
     tracer_provider.add_span_processor(span_processor)
 
+    # Set the tracer provider
     otel_trace.set_tracer_provider(tracer_provider)
     tracer = otel_trace.get_tracer(__name__)
 
@@ -74,12 +77,12 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
         span.set_attribute("test.e2e.attribute", "e2e-test-value")
         # Capture the OTel trace ID to verify it matches the MLflow trace ID
         otel_trace_id = span.get_span_context().trace_id
+        # Verify the span was actually created and has valid context
+        assert span.get_span_context().is_valid, "Span context is not valid"
+        assert otel_trace_id != 0, "Trace ID is zero"
 
-    # Force flush the span processor to ensure spans are sent
-    flush_success = span_processor.force_flush(10000)
-    assert flush_success, "Failed to flush spans to the server"
-
-    # Properly shutdown the span processor and exporter to ensure all data is sent
+    # SimpleSpanProcessor sends spans immediately, so no need to flush
+    # But we still shutdown to ensure cleanup
     span_processor.shutdown()
 
     # Add a small delay to ensure the server has processed the spans
@@ -87,13 +90,43 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
 
     # Wait up to 30 seconds for search_traces() to return a trace
     traces = []
-    for _ in range(30):
+    for attempt in range(30):
         traces = mlflow.search_traces(
             experiment_ids=[experiment_id], include_spans=False, return_type="list"
         )
         if traces:
             break
         time.sleep(1)
+
+    # If no traces found, try to provide more debugging info
+    if not traces:
+        # Try searching without any filters to see if traces exist at all
+        all_experiments = mlflow.search_experiments()
+        all_exp_ids = [exp.experiment_id for exp in all_experiments]
+        all_traces = (
+            mlflow.search_traces(
+                experiment_ids=all_exp_ids, include_spans=False, return_type="list"
+            )
+            if all_exp_ids
+            else []
+        )
+
+        # Also check if we can access the trace directly via the API
+        # The trace_id should have the format tr-<hex_encoded_trace_id>
+        expected_trace_id = f"tr-{encode_trace_id(otel_trace_id)}"
+
+        error_msg = (
+            f"No traces found in experiment {experiment_id} after sending spans. "
+            f"Expected trace ID: {expected_trace_id}. "
+            f"Total experiments: {len(all_experiments)}, "
+            f"Total traces across all experiments: {len(all_traces)}"
+        )
+        if all_traces:
+            error_msg += (
+                f"\nFound traces in experiments: {[t.info.experiment_id for t in all_traces]}"
+            )
+            error_msg += f"\nFound trace IDs: {[t.info.trace_id for t in all_traces]}"
+        assert False, error_msg
 
     assert len(traces) > 0, "No traces found in the database after sending spans"
 
