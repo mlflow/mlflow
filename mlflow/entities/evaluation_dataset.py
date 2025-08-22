@@ -10,7 +10,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.telemetry import record_usage_event
 from mlflow.telemetry.events import MergeRecordsEvent
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
@@ -117,7 +117,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """
         if self._records is None:
             tracking_store = _get_store()
-            self._records = tracking_store._load_dataset_records(self.dataset_id)
+            # For lazy loading, we want all records (no pagination)
+            self._records, _ = tracking_store._load_dataset_records(
+                self.dataset_id, max_results=None
+            )
         return self._records or []
 
     def has_records(self) -> bool:
@@ -343,9 +346,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         return pd.DataFrame(data)
 
-    def to_proto(self) -> ProtoEvaluationDataset:
+    def to_proto(self) -> ProtoDataset:
         """Convert to protobuf representation."""
-        proto = ProtoEvaluationDataset()
+        proto = ProtoDataset()
 
         proto.dataset_id = self.dataset_id
         proto.name = self.name
@@ -368,7 +371,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return proto
 
     @classmethod
-    def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
+    def from_proto(cls, proto: ProtoDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
         tags = None
         if proto.HasField("tags"):

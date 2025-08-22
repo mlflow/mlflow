@@ -2771,3 +2771,11 @@ class FileStore(AbstractStore):
     @filestore_not_supported
     def delete_dataset_tag(self, dataset_id, key):
         pass
+
+    @filestore_not_supported
+    def add_dataset_to_experiments(self, dataset_id, experiment_ids):
+        pass
+
+    @filestore_not_supported
+    def remove_dataset_from_experiments(self, dataset_id, experiment_ids):
+        pass

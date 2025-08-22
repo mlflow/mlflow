@@ -56,7 +56,7 @@ from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_t
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
-from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
@@ -749,9 +749,17 @@ class TrackingServiceClient:
         host_url = get_workspace_url()
         if host_url is None:
             host_url = self.store.get_host_creds().host.rstrip("/")
-        run_info = self.store.get_run(run_id).info
-        experiment_id = run_info.experiment_id
-        run_name = run_info.run_name
+        run = self.store.get_run(run_id)
+
+        # Check for a special run tag that indicates the run is triggered by evaluation.
+        # MLflow already shows a link to evaluation results so no need to print it again.
+        if (
+            is_eval_tag := run.data.tags.get(MLFLOW_RUN_IS_EVALUATION)
+        ) and is_eval_tag.lower() == "true":
+            return
+
+        experiment_id = run.info.experiment_id
+        run_name = run.info.run_name
         if is_databricks_uri(self.tracking_uri):
             experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
@@ -1019,6 +1027,42 @@ class TrackingServiceClient:
             MlflowException: If dataset not found.
         """
         self.store.delete_dataset_tag(dataset_id=dataset_id, key=key)
+
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The updated EvaluationDataset with new experiment associations.
+
+        Raises:
+            MlflowException: If dataset or experiments not found.
+        """
+        return self.store.add_dataset_to_experiments(dataset_id, experiment_ids)
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to remove association from.
+
+        Returns:
+            The updated EvaluationDataset with removed experiment associations.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        return self.store.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """

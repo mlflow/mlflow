@@ -7,6 +7,7 @@ The API docs can be found here:
 """
 
 import logging
+import time
 from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
@@ -110,6 +111,13 @@ def create_dataset(
     else:
         from mlflow.tracking.client import MlflowClient
 
+        if experiment_ids is None:
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            current_exp_id = _get_experiment_id()
+            if current_exp_id:
+                experiment_ids = [current_exp_id]
+
         return MlflowClient().create_dataset(
             name=name,
             experiment_id=experiment_ids,
@@ -199,14 +207,17 @@ def search_datasets(
     Args:
         experiment_ids: Single experiment ID (str) or list of experiment IDs to filter by.
             If None, searches across all experiments.
-        filter_string: SQL-like filter string for dataset attributes. Supports filtering by:
+        filter_string: SQL-like filter string for dataset attributes. If not specified,
+            defaults to filtering for datasets created in the last 7 days. Supports filtering by:
             - name: Dataset name
             - created_by: User who created the dataset
             - last_updated_by: User who last updated the dataset
+            - created_time: Creation timestamp (milliseconds since epoch)
             - tags.<key>: Tag values
         max_results: Maximum number of results. If not specified, returns all datasets.
         order_by: List of columns to order by. Each entry can include an optional
-            "DESC" or "ASC" suffix (default is "ASC"). Supported columns:
+            "DESC" or "ASC" suffix (default is "ASC"). If not specified, defaults to
+            ["created_time DESC"]. Supported columns:
             - name
             - created_time
             - last_update_time
@@ -262,6 +273,17 @@ def search_datasets(
 
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
+
+    # Set default filter to return datasets created in the last 7 days if no filter provided
+    # Also handle empty list/string cases where user might pass [] or ""
+    if not filter_string:
+        # 7 days ago in milliseconds
+        seven_days_ago = int((time.time() - 7 * 24 * 60 * 60) * 1000)
+        filter_string = f"created_time >= {seven_days_ago}"
+
+    # Set default order by creation time DESC if no order provided
+    if order_by is None:
+        order_by = ["created_time DESC"]
 
     from mlflow.tracking.client import MlflowClient
     from mlflow.utils import get_results_from_paginated_fn
@@ -354,12 +376,113 @@ def delete_dataset_tag(
     MlflowClient().delete_dataset_tag(dataset_id, key)
 
 
+def add_dataset_to_experiments(dataset_id: str, experiment_ids: list[str]) -> "EvaluationDataset":
+    """
+    Add a dataset to additional experiments.
+
+    This allows reusing datasets across multiple experiments for evaluation purposes.
+
+    Args:
+        dataset_id: The ID of the dataset to update.
+        experiment_ids: List of experiment IDs to associate with the dataset.
+
+    Returns:
+        The updated EvaluationDataset with new experiment associations.
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.datasets import add_dataset_to_experiments
+
+            # Add dataset to new experiments
+            dataset = add_dataset_to_experiments(
+                dataset_id="d-abc123", experiment_ids=["1", "2", "3"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+    """
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
+        raise NotImplementedError(
+            "Dataset association operations are not available in Databricks yet. "
+            "Associations are managed through Unity Catalog."
+        )
+
+    store = _get_store()
+    if isinstance(store, FileStore):
+        raise NotImplementedError(
+            "Dataset association operations are not supported with FileStore backend. "
+            "Please use a database-backed tracking store."
+        )
+
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient()
+    return client.add_dataset_to_experiments(dataset_id, experiment_ids)
+
+
+def remove_dataset_from_experiments(
+    dataset_id: str, experiment_ids: list[str]
+) -> "EvaluationDataset":
+    """
+    Remove a dataset from experiments.
+
+    This operation is idempotent - removing non-existent associations will not raise an error
+    but will issue a warning.
+
+    Args:
+        dataset_id: The ID of the dataset to update.
+        experiment_ids: List of experiment IDs to disassociate from the dataset.
+
+    Returns:
+        The updated EvaluationDataset after removing experiment associations.
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.datasets import remove_dataset_from_experiments
+
+            # Remove dataset from experiments
+            dataset = remove_dataset_from_experiments(
+                dataset_id="d-abc123", experiment_ids=["1", "2"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+    """
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
+        raise NotImplementedError(
+            "Dataset association operations are not available in Databricks yet. "
+            "Associations are managed through Unity Catalog."
+        )
+
+    store = _get_store()
+    if isinstance(store, FileStore):
+        raise NotImplementedError(
+            "Dataset association operations are not supported with FileStore backend. "
+            "Please use a database-backed tracking store."
+        )
+
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient()
+    return client.remove_dataset_from_experiments(dataset_id, experiment_ids)
+
+
 __all__ = [
     "EvaluationDataset",
+    "add_dataset_to_experiments",
     "create_dataset",
     "delete_dataset",
     "delete_dataset_tag",
     "get_dataset",
+    "remove_dataset_from_experiments",
     "search_datasets",
     "set_dataset_tags",
 ]

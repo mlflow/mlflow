@@ -10,9 +10,10 @@ RUN apt-get update && apt-get install -y \
     curl apt-transport-https debconf-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# adding custom MS repository (using modern approach without deprecated apt-key)
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
-RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sed 's|\[arch=|\[signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg arch=|' > /etc/apt/sources.list.d/mssql-release.list
+# adding custom MS repository
+# https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver17&tabs=ubuntu2004#install-the-sql-server-command-line-tools
+RUN curl https://packages.microsoft.com/keys/microsoft.asc > /etc/apt/trusted.gpg.d/microsoft.asc
+RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev

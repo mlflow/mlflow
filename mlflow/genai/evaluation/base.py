@@ -21,12 +21,16 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+from mlflow.genai.utils.display_utils import display_evaluation_output
 from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.telemetry.events import GenAIEvaluateEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -36,6 +40,7 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -273,6 +278,7 @@ def evaluate(
     return result
 
 
+@record_usage_event(GenAIEvaluateEvent)
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
@@ -295,15 +301,27 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
     with (
         _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
+        # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
+        configure_autologging_for_evaluation(enable_tracing=True),
     ):
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
-        return harness.run(
+        # NB: Set this tag before run finishes to suppress the generic run URL printing.
+        MlflowClient().set_tag(run_id, MLFLOW_RUN_IS_EVALUATION, "true")
+
+        result = harness.run(
             predict_fn=predict_fn,
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
         )
+
+    try:
+        display_evaluation_output(run_id)
+    except Exception:
+        logger.debug("Failed to display summary and usage instructions", exc_info=True)
+
+    return result
 
 
 def _evaluate_dbx(data, scorers, predict_fn, model_id):

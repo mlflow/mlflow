@@ -7,7 +7,7 @@ to FastAPI endpoints.
 """
 
 from fastapi import FastAPI
-from starlette.middleware.wsgi import WSGIMiddleware
+from fastapi.middleware.wsgi import WSGIMiddleware
 
 from mlflow.server import app as flask_app
 from mlflow.version import VERSION

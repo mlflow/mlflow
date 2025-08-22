@@ -2175,6 +2175,10 @@
     "defaultMessage": "View model",
     "description": "Run page > Header > Register model dropdown > View model button label"
   },
+  "NqqMPs": {
+    "defaultMessage": "No evaluation tables logged",
+    "description": "Run page > Evaluations tab > No evaluation tables logged"
+  },
   "NtaCJN": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
@@ -2286,6 +2290,9 @@
   "PSFpHG": {
     "defaultMessage": "You don't have permissions to open requested experiment.",
     "description": "A message shown on the experiment page if user has no permissions to open the experiment"
+  },
+  "PUQxu5": {
+    "defaultMessage": "Select baseline run"
   },
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
@@ -2902,6 +2909,9 @@
   "XcKgD5": {
     "defaultMessage": "Details",
     "description": "Title for the details section on the logged model details page"
+  },
+  "XkpMf+": {
+    "defaultMessage": "baseline run"
   },
   "Xm5xxu": {
     "defaultMessage": "Request error",
@@ -3607,6 +3617,10 @@
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
   },
+  "ega/Za": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
+  },
   "erqoIC": {
     "defaultMessage": "Run Name:",
     "description": "Text for run name row header in the main table in the model comparison\n                page"
@@ -3982,6 +3996,10 @@
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
+  },
+  "iYmFCZ": {
+    "defaultMessage": "compare to",
+    "description": "Label for \"to\" in compare to, which is split between two dropdowns of two runs to compare"
   },
   "iZ0M1Y": {
     "defaultMessage": "Apply filters",

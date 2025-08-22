@@ -452,6 +452,10 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(Location.from_node(node), rules.MlflowClassName())
 
+    def _no_class_based_tests(self, node: ast.ClassDef) -> None:
+        if rule := rules.NoClassBasedTests.check(node, self.path.name):
+            self._check(Location.from_node(node), rule)
+
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
             return False
@@ -494,6 +498,7 @@ class Linter(ast.NodeVisitor):
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
+        self._no_class_based_tests(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():

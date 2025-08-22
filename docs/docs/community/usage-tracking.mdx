@@ -12,7 +12,7 @@ in the official policy. See the [`Data Explanation section`](#data-explanation) 
 :::
 
 :::note
-Telemetry is only enabled in **Open Source MLflow**. If you’re using MLflow through a managed service or distribution,
+Telemetry is only enabled in **Open Source MLflow**. If you're using MLflow through a managed service or distribution,
 please consult your vendor to determine whether telemetry is enabled in your environment.
 In all cases, you can choose to opt out by following the guidance provided in our documentation.
 :::
@@ -137,11 +137,6 @@ For events with None in the `Tracked Parameters` column, only the event name is 
   </thead>
   <tbody>
     <tr>
-      <td>import_mlflow</td>
-      <td>None</td>
-      <td>None</td>
-    </tr>
-    <tr>
       <td>create_experiment</td>
       <td>None</td>
       <td>None</td>
@@ -186,6 +181,16 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>None</td>
       <td>None</td>
     </tr>
+    <tr>
+      <td>genai_evaluate</td>
+      <td>Builtin scorers used during GenAI Evaluate</td>
+      <td>`{"builtin_scorers": ["relevance_to_query"]}`</td>
+    </tr>
+    <tr>
+      <td>prompt_optimization</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
   </tbody>
 </Table>
 
@@ -213,7 +218,7 @@ Setting either of these will **immediately disable telemetry**, no need to re-im
 
 :::note
 MLflow automatically disables telemetry in the following CI environments.
-If you’d like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
+If you'd like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
 
 - CI
 - Github Actions
@@ -230,12 +235,12 @@ If you’d like support for additional CI environments, please [open an issue on
 ### Scope of the setting
 
 - The environment variable only takes effect in processes where it is explicitly set or inherited.
-- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell’s environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
+- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell's environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
 
 Recommendations to ensure telemetry is consistently disabled across all environments:
 
 - Add the variable to your shell startup file (~/.bashrc, ~/.zshrc, etc.): `export MLFLOW_DISABLE_TELEMETRY=true`
-- If you’re using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
+- If you're using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
 
 ### How to validate telemetry is disabled?
 
@@ -253,4 +258,4 @@ Organizations can disable telemetry by blocking network access to `https://confi
 
 ## What are we doing with this data?
 
-We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You’ll be able to see how MLflow features are used and help improve them by contributing.
+We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You'll be able to see how MLflow features are used and help improve them by contributing.

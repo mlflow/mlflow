@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { mergeMetricsAndAssessmentsWithEvaluations, parseRawTableArtifact } from '../utils/EvaluationDataParseUtils';
 import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 type UseGetTraceEvaluationArtifactQueryKey = [
   'GET_TRACE_EVALUATION_ARTIFACT',
@@ -27,7 +28,7 @@ const queryFn = async ({
   queryKey: [, { runUuid, artifactFile }],
 }: QueryFunctionContext<UseGetTraceEvaluationArtifactQueryKey>): Promise<RawGenaiEvaluationArtifactResponse> => {
   const queryParams = new URLSearchParams({ run_uuid: runUuid, path: artifactFile });
-  const url = ['/ajax-api/2.0/mlflow/get-artifact', queryParams].join('?');
+  const url = [getAjaxUrl('ajax-api/2.0/mlflow/get-artifact'), queryParams].join('?');
   return makeRequest(url, 'GET').then((data) => ({
     ...data,
     filename: artifactFile,
