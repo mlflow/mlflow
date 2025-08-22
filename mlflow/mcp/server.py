@@ -32,18 +32,22 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     Converts click params to JSON schema
     """
     res: dict[str, Any] = {}
+    required: list[str] = []
     for p in params:
         schema = {
             "type": param_type_to_json_schema_type(p.type),
             "default": p.default,
-            "required": p.required,
         }
-        if description := getattr(p, "help", None):
-            schema["description"] = description
+        if isinstance(p, click.Option):
+            schema["description"] = (p.help or "").strip()
         if isinstance(p.type, click.Choice):
             schema["enum"] = [str(choice) for choice in p.type.choices]
-
+        if p.required:
+            required.append(p.name)
         res[p.name] = schema
+
+    if required:
+        res["required"] = required
 
     return res
 
