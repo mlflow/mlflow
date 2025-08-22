@@ -141,8 +141,8 @@ class OtelSpanProcessor(BatchSpanProcessor):
             # Record the histogram metric with all attributes
             self._duration_histogram.record(duration_ms, attributes=attributes)
 
-        # Handle trace registration cleanup (same condition as registration)
-        if (self._should_register_traces or self._export_metrics) and not span.parent:
+        # Handle trace registration cleanup (ONLY when we actually registered traces)
+        if self._should_register_traces and not span.parent:
             # Use MLflow trace ID for cleanup
             mlflow_trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
                 span.context.trace_id
