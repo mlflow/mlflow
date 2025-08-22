@@ -96,3 +96,24 @@ def _is_prompt(tags: dict[str, str]) -> bool:
 
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
+
+
+class LogParamEvent(Event):
+    name: str = "log_param"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {"synchronous": arguments.get("synchronous")}
+
+
+class LogBatchEvent(Event):
+    name: str = "log_batch"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "metrics": len(arguments.get("metrics", [])) > 0,
+            "params": len(arguments.get("params", [])) > 0,
+            "tags": len(arguments.get("tags", [])) > 0,
+            "synchronous": arguments.get("synchronous"),
+        }

@@ -36,7 +36,13 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import (
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateRunEvent,
+    LogBatchEvent,
+    LogParamEvent,
+)
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
@@ -366,6 +372,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
+    @record_usage_event(LogParamEvent)
     def log_param(self, run_id, key, value, synchronous=True):
         """Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -480,6 +487,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
+    @record_usage_event(LogBatchEvent)
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
     ) -> RunOperations | None:
