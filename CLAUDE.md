@@ -51,7 +51,7 @@ uv run pytest tests/
 uv run pytest tests/test_version.py
 
 # Run JavaScript tests
-pushd mlflow/server/js && yarn test; popd
+yarn --cwd mlflow/server/js test
 ```
 
 ### Code Quality
@@ -65,15 +65,15 @@ uv run ruff format .              # Format code
 uv run bash dev/mlflow-typo.sh .
 
 # JavaScript linting and formatting
-pushd mlflow/server/js && yarn lint; popd
-pushd mlflow/server/js && yarn prettier:check; popd
-pushd mlflow/server/js && yarn prettier:fix; popd
+yarn --cwd mlflow/server/js lint
+yarn --cwd mlflow/server/js prettier:check
+yarn --cwd mlflow/server/js prettier:fix
 
 # Type checking
-pushd mlflow/server/js && yarn type-check; popd
+yarn --cwd mlflow/server/js type-check
 
 # Run all checks
-pushd mlflow/server/js && yarn check-all; popd
+yarn --cwd mlflow/server/js check-all
 ```
 
 ### Special Testing
@@ -132,7 +132,7 @@ Commits without DCO sign-off will be rejected by CI.
 **Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
 
 ```bash
-pushd mlflow/server/js && yarn check-all; popd
+yarn --cwd mlflow/server/js check-all
 ```
 
 ### Creating Pull Requests
