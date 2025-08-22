@@ -25,14 +25,14 @@ async def test_list_tools(client: Client):
     tools = await client.list_tools()
     assert sorted(t.name for t in tools) == [
         "delete_assessment",
-        "delete_tag",
+        "delete_trace_tag",
         "delete_traces",
         "get_assessment",
         "get_trace",
         "log_expectation",
         "log_feedback",
         "search_traces",
-        "set_tag",
+        "set_trace_tag",
         "update_assessment",
     ]
 
@@ -57,10 +57,18 @@ async def test_call_tool(client: Client):
     )
     assert span.trace_id in result.content[0].text
 
-    experiment = mlflow.search_experiments(max_results=1)[0]
     result = await client.call_tool(
-        "search_traces",
-        {"experiment_id": "1234"},
+        "delete_traces",
+        {
+            "experiment_id": experiment.experiment_id,
+            "trace_ids": span.trace_id,
+        },
         timeout=5,
     )
-    assert span.trace_id not in result.content[0].text
+    result = await client.call_tool(
+        "get_trace",
+        {"trace_id": span.trace_id},
+        timeout=5,
+        raise_on_error=False,
+    )
+    assert result.is_error is True
