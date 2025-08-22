@@ -48,8 +48,9 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     return res
 
 
-def wrapper(command: click.Command) -> Callable[..., str]:
+def fn_wrapper(command: click.Command) -> Callable[..., str]:
     def wrapper(**kwargs: Any) -> str:
+        # Capture stdout and stderr
         string_io = io.StringIO()
         with contextlib.redirect_stdout(string_io), contextlib.redirect_stderr(string_io):
             command.callback(**kwargs)
@@ -63,7 +64,7 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
     Converts a Click command to a FunctionTool.
     """
     return FunctionTool(
-        fn=wrapper(cmd),
+        fn=fn_wrapper(cmd),
         name=cmd.callback.__name__,
         description=cmd.help,
         parameters={
