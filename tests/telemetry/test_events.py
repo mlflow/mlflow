@@ -83,3 +83,19 @@ def test_event_name():
     assert EvaluateEvent.name == "evaluate"
     assert CreateDatasetEvent.name == "create_dataset"
     assert MergeRecordsEvent.name == "merge_records"
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"records": [{"test": "data"}]}, {"record_count": 1, "input_type": "dict"}),
+        ({"records": [{"a": 1}, {"b": 2}]}, {"record_count": 2, "input_type": "dict"}),
+        ({"records": []}, None),
+        ({"records": None}, None),
+        ({}, None),
+        (None, None),
+        ({"records": object()}, None),
+    ],
+)
+def test_merge_records_parse_params(arguments, expected_params):
+    assert MergeRecordsEvent.parse(arguments) == expected_params

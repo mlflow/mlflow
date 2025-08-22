@@ -7,13 +7,15 @@ import sklearn.neighbors as knn
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import Feedback
+from mlflow.entities import EvaluationDataset, Feedback
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
     CreateModelVersionEvent,
@@ -23,6 +25,7 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
+    MergeRecordsEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -319,3 +322,42 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.create_dataset.return_value = mock.MagicMock(
+            dataset_id="test-dataset-id", name="test_dataset", tags={"test": "value"}
+        )
+
+        create_dataset(name="test_dataset", tags={"test": "value"})
+        validate_telemetry_record(mock_telemetry_client, mock_requests, CreateDatasetEvent.name)
+
+
+def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
+        mock_store_instance.upsert_dataset_records.return_value = {"inserted": 2, "updated": 0}
+
+        evaluation_dataset = EvaluationDataset(
+            dataset_id="test-id",
+            name="test",
+            digest="digest",
+            created_time=123,
+            last_update_time=456,
+        )
+
+        records = [
+            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
+            {"inputs": {"q": "Q2"}, "expectations": {"a": "A2"}},
+        ]
+        evaluation_dataset.merge_records(records)
+
+        expected_params = {"record_count": 2, "input_type": "dict"}
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, MergeRecordsEvent.name, expected_params
+        )
