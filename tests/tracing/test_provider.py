@@ -404,27 +404,34 @@ def test_otlp_metrics_only_export(monkeypatch):
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
 
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=False):
-        with mock.patch("mlflow.tracing.provider.should_export_otlp_metrics", return_value=True):
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+    # Set up environment for metrics-only export (no span endpoint)
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090/api/v1/otlp/v1/metrics"
+    )
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", "http/protobuf")
+    # Ensure no span export by not setting OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+    mlflow.tracing.reset()
+    tracer = _get_tracer("test")
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
+    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
 
-            # Should have OtelSpanProcessor with metrics-only + MLflow processor
-            assert len(processors) == 2
-            otel_processor = processors[0]
-            mlflow_processor = processors[1]
+    assert _MLFLOW_TRACER_PROVIDER is not None
+    processors = tracer.span_processor._span_processors
 
-            assert isinstance(otel_processor, OtelSpanProcessor)
-            assert isinstance(mlflow_processor, MlflowV3SpanProcessor)
+    # Should have OtelSpanProcessor with metrics-only + MLflow processor
+    assert len(processors) == 2
+    otel_processor = processors[0]
+    mlflow_processor = processors[1]
 
-            # Verify NoOpSpanExporter is used (behavior: no real OTLP span export)
-            assert hasattr(otel_processor.span_exporter, "export")
-            assert otel_processor.span_exporter.__class__.__name__ == "NoOpSpanExporter"
+    assert isinstance(otel_processor, OtelSpanProcessor)
+    assert isinstance(mlflow_processor, MlflowV3SpanProcessor)
+
+    # Verify NoOpSpanExporter is used (behavior: no real OTLP span export)
+    assert hasattr(otel_processor.span_exporter, "export")
+    assert otel_processor.span_exporter.__class__.__name__ == "NoOpSpanExporter"
 
 
 def test_otlp_spans_and_metrics_export(monkeypatch):
@@ -433,47 +440,54 @@ def test_otlp_spans_and_metrics_export(monkeypatch):
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
 
+    # Set up environment for both spans and metrics export
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
-        with mock.patch("mlflow.tracing.provider.should_export_otlp_metrics", return_value=True):
-            with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
-                mock_get_exporter.return_value = mock.MagicMock()
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "grpc")
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090/api/v1/otlp/v1/metrics"
+    )
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", "http/protobuf")
 
-                mlflow.tracing.reset()
-                tracer = _get_tracer("test")
+    mlflow.tracing.reset()
+    tracer = _get_tracer("test")
 
-                from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
 
-                assert _MLFLOW_TRACER_PROVIDER is not None
-                processors = tracer.span_processor._span_processors
+    assert _MLFLOW_TRACER_PROVIDER is not None
+    processors = tracer.span_processor._span_processors
 
-                # Should have OtelSpanProcessor + MLflow processor
-                assert len(processors) == 2
-                otel_processor = processors[0]
-                mlflow_processor = processors[1]
+    # Should have OtelSpanProcessor + MLflow processor
+    assert len(processors) == 2
+    otel_processor = processors[0]
+    mlflow_processor = processors[1]
 
-                assert isinstance(otel_processor, OtelSpanProcessor)
-                assert isinstance(mlflow_processor, MlflowV3SpanProcessor)
+    assert isinstance(otel_processor, OtelSpanProcessor)
+    assert isinstance(mlflow_processor, MlflowV3SpanProcessor)
 
-                # Verify real OTLP exporter is used (not NoOp)
-                assert otel_processor.span_exporter is not None
-                assert otel_processor.span_exporter.__class__.__name__ != "NoOpSpanExporter"
+    # Verify real OTLP exporter is used (not NoOp)
+    assert otel_processor.span_exporter is not None
+    assert otel_processor.span_exporter.__class__.__name__ != "NoOpSpanExporter"
 
 
-def test_otlp_no_export():
+def test_otlp_no_export(monkeypatch):
     """Test that no OtelSpanProcessor is created when neither export is enabled."""
     from mlflow.tracing.provider import _get_tracer
 
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=False):
-        with mock.patch("mlflow.tracing.provider.should_export_otlp_metrics", return_value=False):
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+    # Ensure no OTLP environment variables are set
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", raising=False)
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+    mlflow.tracing.reset()
+    tracer = _get_tracer("test")
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
+    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
 
-            # Should have only MLflow processor, no OtelSpanProcessor
-            assert len(processors) == 1
-            assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert _MLFLOW_TRACER_PROVIDER is not None
+    processors = tracer.span_processor._span_processors
+
+    # Should have only MLflow processor, no OtelSpanProcessor
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
