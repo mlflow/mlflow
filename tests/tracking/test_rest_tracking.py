@@ -46,6 +46,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
@@ -1159,7 +1160,10 @@ def test_get_metric_history_respects_max_results(mlflow_client):
     for i, metric in enumerate(returned_metrics):
         assert metric["key"] == "test_metric"
         assert metric["value"] == float(i)
-        assert metric["step"] == i
+        if _MLFLOW_GO_STORE_TESTING.get():
+            assert int(metric["step"]) == i
+        else:
+            assert metric["step"] == i
 
 
 def test_get_metric_history_with_page_token(mlflow_client):
@@ -1232,8 +1236,14 @@ def test_get_metric_history_with_page_token(mlflow_client):
     for i, metric in enumerate(all_paginated_metrics):
         assert metric["key"] == "test_metric"
         assert metric["value"] == float(i)
-        assert metric["step"] == i
-        assert metric["timestamp"] == 1000 + i
+        if _MLFLOW_GO_STORE_TESTING.get():
+            assert int(metric["step"]) == i
+        else:
+            assert metric["step"] == i
+        if _MLFLOW_GO_STORE_TESTING.get():
+            assert int(metric["timestamp"]) == 1000 + i
+        else:
+            assert metric["timestamp"] == 1000 + i
 
     # Test with invalid page_token
     response = requests.get(
