@@ -81,10 +81,10 @@ def _infer_span_type_from_haystack(
     if any(k in s for k in ("embed", "embedding", "vectorize", "documentembedder", "textembedder")):
         return SpanType.EMBEDDING
 
-    if "retriev" in s or "bm25" in s or "densepassage" in s or "faiss" in s:
+    if any(k in s for k in ("retriev", "bm25", "densepassage", "faiss")):
         return SpanType.RETRIEVER
 
-    if "rerank" in s or "re-rank" in s or "ranker" in s:
+    if any(k in s for k in ("rerank", "re-rank", "ranker")):
         return SpanType.RERANKER
 
     if "agent" in s:
