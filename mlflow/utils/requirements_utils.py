@@ -338,6 +338,7 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
         tracking_uri = mlflow.get_tracking_uri()
         if is_in_databricks_runtime() or tracking_uri in ("databricks", "databricks-uc"):
             main_env.update(get_databricks_env_vars(tracking_uri))
+            main_env.update({"PYSPARK_GATEWAY_PORT": "-1"})
 
         record_full_module_args = ["--record-full-module"] if record_full_module else []
 
