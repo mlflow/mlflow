@@ -142,7 +142,6 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
                 mlflow_span.set_outputs(outputs)
 
         if usage := _parse_token_usage(mlflow_span.outputs):
-            _logger.info(f"Usage: {usage}")
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
         parent_id = mlflow_span.parent_id

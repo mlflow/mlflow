@@ -204,7 +204,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pytorch",
             "tests/sagemaker",
             "tests/strands",
-            # "tests/haystack",
+            "tests/haystack",
             "tests/semantic_kernel",
             "tests/sentence_transformers",
             "tests/shap",
