@@ -380,6 +380,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.4.0"
         }
     },
+    "haystack": {
+        "package_info": {
+            "pip_release": "haystack-ai",
+            "module_name": "haystack"
+        },
+        "autologging": {
+            "minimum": "2.0.0",
+            "maximum": "2.10.0"
+        }
+    },
     "mistral": {
         "package_info": {
             "pip_release": "mistralai",
@@ -476,6 +486,7 @@ FLAVOR_TO_MODULE_NAME = {
     "pydantic_ai": "pydantic_ai",
     "smolagents": "smolagents",
     "strands": "strands",
+    "haystack": "haystack",
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",

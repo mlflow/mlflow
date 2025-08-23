@@ -1,6 +1,8 @@
 from unittest.mock import patch
 
-from haystack import Pipeline, component
+from haystack import Document, Pipeline, component
+from haystack.components.retrievers import InMemoryBM25Retriever
+from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 import mlflow
 from mlflow.entities import SpanType
@@ -64,6 +66,7 @@ def test_pipeline_with_multiple_components_single_trace():
     assert spans[2].outputs == {"product": 12}
 
     mlflow.haystack.autolog(disable=True)
+    pipe.run({"adder": {"a": 1, "b": 2}, "multiplier": {"value": 3, "factor": 4}})
 
     traces = get_traces()
     assert len(traces) == 1
@@ -105,6 +108,9 @@ def test_token_usage_parsed_for_llm_component():
     mlflow.haystack.autolog(disable=True)
 
     traces = get_traces()
+    with patch.object(MyLLM, "run", return_value=output):
+        pipe.run({"my_llm": {"prompt": "hello"}})
+
     assert len(traces) == 1
 
 
@@ -121,3 +127,20 @@ def test_autolog_disable():
     pipe2.add_component("adder", Add())
     pipe2.run({"adder": {"a": 2, "b": 3}})
     assert len(get_traces()) == 1
+
+
+def test_in_memory_retriever_component_traced():
+    mlflow.set_experiment("haystack_retriever")
+    mlflow.haystack.autolog()
+
+    store = InMemoryDocumentStore()
+    store.write_documents([Document(content="foo")])
+    pipe = Pipeline()
+    pipe.add_component("retriever", InMemoryBM25Retriever(document_store=store))
+    pipe.run({"retriever": {"query": "foo"}})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[1]
+    assert span.span_type == SpanType.RETRIEVER
+    assert span.outputs["documents"][0]["content"] == "foo"
