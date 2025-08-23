@@ -113,9 +113,9 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
             return
 
         with _bypass_attribute_guard(mlflow_span._span):
-            if span.name == "haystack.pipeline.run":
+            if span.name in ("haystack.pipeline.run", "haystack.async_pipeline.run"):
                 self.parse_pipeline_info(mlflow_span, span)
-            elif span.name == "haystack.component.run":
+            elif span.name in ("haystack.component.run"):
                 self.parse_component_info(mlflow_span, span)
 
         tracer = _get_tracer(__name__)
