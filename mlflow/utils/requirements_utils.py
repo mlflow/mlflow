@@ -389,6 +389,11 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
         # Lazily import `_capture_module` here to avoid circular imports.
         from mlflow.utils import _capture_modules
 
+        print("@@@ ENVS", {**main_env,
+                            **transformer_env,
+                            _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
+                            **extra_env_vars})
+
         error_file = os.path.join(tmpdir, "error.txt")
         _run_command(
             [
