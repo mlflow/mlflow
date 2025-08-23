@@ -186,7 +186,7 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def deduplicate_span_names_in_place(spans: list[LiveSpan], trace_id: str | None = None):
+def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     """
     Deduplicate span names in the trace data by appending an index number to the span name.
 
@@ -198,58 +198,16 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan], trace_id: str | None 
         ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
 
     Args:
-        spans: A list of spans to deduplicate. Can be either LiveSpan or Span objects.
-        trace_id: Optional trace ID. If provided, will fetch existing spans from trace manager
-                  to ensure consistent deduplication across incremental span batches.
+        spans: A list of spans to deduplicate.
     """
-    from mlflow.entities import LiveSpan
-    from mlflow.entities import Span as MLflowSpan
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-    # If trace_id is provided, get existing spans for incremental deduplication
-    all_spans = []
-    if trace_id:
-        manager = InMemoryTraceManager.get_instance()
-        with manager.get_trace(trace_id) as trace:
-            if trace:
-                # Get existing spans from trace manager
-                all_spans = list(trace.span_dict.values())
-
-    # Add the new spans to the list
-    all_spans.extend(spans)
-
-    # Sort all spans by start time for deterministic ordering
-    all_spans.sort(
-        key=lambda s: (s.start_time if hasattr(s, "start_time") else s.start_time_ns, s.span_id)
-    )
-
-    # Count span names
-    span_name_counter = Counter(s.name if isinstance(s, LiveSpan) else s.name for s in all_spans)
-
+    span_name_counter = Counter(span.name for span in spans)
     # Apply renaming only for duplicated spans
-    span_name_indices = {name: 1 for name, count in span_name_counter.items() if count > 1}
-
-    # Build a map of span_id to deduplicated name
-    span_id_to_name = {}
-    for span in all_spans:
-        span_name = span.name if isinstance(span, LiveSpan) else span.name
-        if span_name in span_name_indices:
-            deduplicated_name = f"{span_name}_{span_name_indices[span_name]}"
-            span_name_indices[span_name] += 1
-            span_id_to_name[span.span_id] = deduplicated_name
-
-    # Apply deduplication only to the spans passed in (not the existing ones)
+    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
+    # Add index to the duplicated span names
     for span in spans:
-        if new_name := span_id_to_name.get(span.span_id):
-            if isinstance(span, LiveSpan):
-                span._span._name = new_name
-            elif isinstance(span, MLflowSpan):
-                # For immutable Span objects, we need to modify the underlying OTel span
-                # Check if it's a mock span (from tests) which has _name attribute
-                if hasattr(span._span, "_name"):
-                    span._span._name = new_name
-                # For real OTel spans, they are immutable, so we can't change the name
-                # This is a limitation of the current approach for spans logged via REST API
+        if count := span_name_counter.get(span.name):
+            span_name_counter[span.name] += 1
+            span._span._name = f"{span.name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:

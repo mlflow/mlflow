@@ -3055,12 +3055,6 @@ class SqlAlchemyStore(AbstractStore):
 
         trace_id = next(iter(trace_ids))
 
-        # Apply span name deduplication incrementally
-        # The deduplicate function uses the trace manager's lock internally for thread safety
-        from mlflow.tracing.utils import deduplicate_span_names_in_place
-
-        deduplicate_span_names_in_place(spans, trace_id=trace_id)
-
         # Calculate trace time bounds from spans
         min_start_ms = min(span.start_time_ns for span in spans) // 1_000_000
         # If no spans have ended, max_end_time should be None (trace still in progress)
