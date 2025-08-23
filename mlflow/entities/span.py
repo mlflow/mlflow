@@ -485,6 +485,17 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
+        # Track the original span name for deduplication purposes.
+        #
+        # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
+        # or "query" spans), it's difficult for users to distinguish between them in the UI
+        # and logs. We add numeric suffixes (_1, _2, etc.) to make each span uniquely identifiable.
+        #
+        # How: When a span is deduplicated (e.g., "query" -> "query_1"), we store the original
+        # name here. This allows incremental deduplication to work correctly - if another "query"
+        # span is added later, we can identify it as the third occurrence and name it "query_3"
+        # rather than treating it as unrelated to the already-renamed spans.
+        self._original_name = None
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""

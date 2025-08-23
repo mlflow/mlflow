@@ -87,6 +87,137 @@ def test_on_start_during_run(monkeypatch):
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
+def test_incremental_span_name_deduplication():
+    """Test that span names are deduplicated incrementally as spans end."""
+    # Reset trace manager to ensure clean state
+    InMemoryTraceManager.reset()
+    trace_manager = InMemoryTraceManager.get_instance()
+
+    # Create a trace with trace_id=12345
+    trace_id = 12345
+    request_id = "tr-" + encode_trace_id(trace_id)
+
+    # Create root span and start the trace
+    root_span = create_mock_otel_span(
+        name="process",
+        trace_id=trace_id,
+        span_id=1,
+        parent_id=None,
+        start_time=1_000_000,
+        end_time=10_000_000,
+    )
+
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
+
+    # Start root span - this creates the trace
+    processor.on_start(root_span)
+
+    # Register root span with trace manager
+    live_root = LiveSpan(root_span, request_id)
+    live_root._request_id = request_id
+    trace_manager.register_span(live_root)
+
+    # Create first child span (duplicate "process")
+    child1 = create_mock_otel_span(
+        name="process",
+        trace_id=trace_id,
+        span_id=2,
+        parent_id=1,
+        start_time=2_000_000,
+        end_time=3_000_000,
+    )
+    processor.on_start(child1)
+    live_child1 = LiveSpan(child1, request_id)
+    live_child1._request_id = request_id
+    trace_manager.register_span(live_child1)
+
+    # End first child - should trigger deduplication of the two "process" spans
+    processor.on_end(child1)
+
+    with trace_manager.get_trace(request_id) as trace:
+        span_names = [span.name for span in trace.span_dict.values()]
+        # The two "process" spans should be deduplicated
+        assert "process_1" in span_names  # root renamed
+        assert "process_2" in span_names  # first child renamed
+
+    # Create and register second child (first "query")
+    child2 = create_mock_otel_span(
+        name="query",
+        trace_id=trace_id,
+        span_id=3,
+        parent_id=1,
+        start_time=4_000_000,
+        end_time=5_000_000,
+    )
+    processor.on_start(child2)
+    live_child2 = LiveSpan(child2, request_id)
+    live_child2._request_id = request_id
+    trace_manager.register_span(live_child2)
+
+    # End second child - no duplicate queries yet
+    processor.on_end(child2)
+
+    with trace_manager.get_trace(request_id) as trace:
+        span_names = [span.name for span in trace.span_dict.values()]
+        assert "query" in span_names  # First query not renamed (no duplicate)
+
+    # Create and register third child (third "process")
+    child3 = create_mock_otel_span(
+        name="process",
+        trace_id=trace_id,
+        span_id=4,
+        parent_id=1,
+        start_time=6_000_000,
+        end_time=7_000_000,
+    )
+    processor.on_start(child3)
+    live_child3 = LiveSpan(child3, request_id)
+    live_child3._request_id = request_id
+    trace_manager.register_span(live_child3)
+
+    # End third child - should update process deduplication
+    processor.on_end(child3)
+
+    with trace_manager.get_trace(request_id) as trace:
+        span_names = [span.name for span in trace.span_dict.values()]
+        # With _original_name tracking, the third process is correctly numbered
+        assert "process_1" in span_names  # root still renamed
+        assert "process_2" in span_names  # first child still renamed
+        assert "process_3" in span_names  # third process correctly renamed
+
+    # Create and register fourth child (second "query")
+    child4 = create_mock_otel_span(
+        name="query",
+        trace_id=trace_id,
+        span_id=5,
+        parent_id=1,
+        start_time=8_000_000,
+        end_time=9_000_000,
+    )
+    processor.on_start(child4)
+    live_child4 = LiveSpan(child4, request_id)
+    live_child4._request_id = request_id
+    trace_manager.register_span(live_child4)
+
+    # End fourth child - should trigger query deduplication
+    processor.on_end(child4)
+
+    with trace_manager.get_trace(request_id) as trace:
+        span_names = [span.name for span in trace.span_dict.values()]
+        # Both queries should now be deduplicated
+        assert "query_1" in span_names  # First query renamed
+        assert "query_2" in span_names  # Second query renamed
+
+    # Finally end the root span
+    processor.on_end(root_span)
+
+    # Final check - with the new _original_name tracking, all spans are correctly deduplicated
+    with trace_manager.get_trace(request_id) as trace:
+        span_names = sorted([span.name for span in trace.span_dict.values()])
+        # All three "process" spans and both "query" spans are correctly numbered
+        assert span_names == ["process_1", "process_2", "process_3", "query_1", "query_2"]
+
+
 def test_on_end():
     trace_info = create_test_trace_info("request_id", 0)
     trace_manager = InMemoryTraceManager.get_instance()
@@ -113,15 +244,18 @@ def test_on_end():
     processor.on_end(otel_span)
 
     mock_exporter.export.assert_called_once_with((otel_span,))
+
+    # Child spans should also be exported
+    mock_exporter.reset_mock()
+    child_span = create_mock_otel_span(trace_id="trace_id", span_id=2, parent_id=1)
+    # Set the REQUEST_ID attribute so the processor can find the trace
+    child_span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps("request_id"))
+    processor.on_end(child_span)
+    mock_exporter.export.assert_called_once_with((child_span,))
+
     # Trace info should be updated according to the span attributes
     manager_trace = trace_manager.pop_trace("trace_id")
     trace_info = manager_trace.trace.info
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}
-
-    # Non-root span should not be exported
-    mock_exporter.reset_mock()
-    child_span = create_mock_otel_span(trace_id="trace_id", span_id=2, parent_id=1)
-    processor.on_end(child_span)
-    mock_exporter.export.assert_not_called()

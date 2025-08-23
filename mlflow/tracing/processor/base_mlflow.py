@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from typing import Any
 
 from opentelemetry.context import Context
@@ -48,6 +49,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._env_metadata = resolve_env_metadata()
+        # Lock to prevent race conditions during concurrent span name deduplication
+        # This ensures that when multiple spans end simultaneously, their names are
+        # deduplicated atomically without interference
+        self._deduplication_lock = threading.Lock()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
@@ -85,17 +90,20 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
-        # Update trace info only for root spans
-        if span._parent is None:
-            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-            with self._trace_manager.get_trace(trace_id) as trace:
-                if trace is None:
-                    _logger.debug(f"Trace data with request ID {trace_id} not found.")
-                else:
-                    self._update_trace_info(trace, span)
-                    deduplicate_span_names_in_place(list(trace.span_dict.values()))
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
 
-        # Always export the span (both root and non-root)
+        # Acquire lock before accessing and modifying trace data to prevent race conditions
+        # during concurrent span endings. This ensures span name deduplication happens
+        # atomically without interference from other threads
+        with self._deduplication_lock:
+            with self._trace_manager.get_trace(trace_id) as trace:
+                if trace is not None:
+                    if span._parent is None:
+                        self._update_trace_info(trace, span)
+                    deduplicate_span_names_in_place(list(trace.span_dict.values()))
+                else:
+                    _logger.debug(f"Trace data with request ID {trace_id} not found.")
+
         super().on_end(span)
 
     def _get_experiment_id_for_trace(self, span: OTelReadableSpan) -> str:
