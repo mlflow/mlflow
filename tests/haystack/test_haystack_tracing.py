@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from haystack import Document, Pipeline, component
+from haystack.components.rankers import LostInTheMiddleRanker
 from haystack.components.retrievers import InMemoryBM25Retriever
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 
@@ -144,3 +145,31 @@ def test_in_memory_retriever_component_traced():
     span = traces[0].data.spans[1]
     assert span.span_type == SpanType.RETRIEVER
     assert span.outputs["documents"][0]["content"] == "foo"
+
+
+def test_multiple_components_in_pipeline_reranker():
+    mlflow.haystack.autolog()
+
+    pipe = Pipeline()
+    store = InMemoryDocumentStore()
+    store.write_documents([Document(content="foo")])
+
+    pipe.add_component("retriever", InMemoryBM25Retriever(document_store=store))
+    pipe.add_component("reranker", LostInTheMiddleRanker())
+
+    pipe.connect("retriever.documents", "reranker.documents")
+
+    pipe.run({"retriever": {"query": "foo"}})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[1].span_type == SpanType.RETRIEVER
+    assert spans[2].span_type == SpanType.RERANKER
+    assert spans[1].inputs["query"] == "foo"
+    assert spans[2].inputs["documents"][0]["content"] == "foo"
+
+    mlflow.haystack.autolog(disable=True)
+    pipe.run({"retriever": {"query": "foo"}})
+    assert len(get_traces()) == 1
