@@ -188,53 +188,27 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
 
 def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     """
-    Deduplicate span names by appending numeric suffixes to distinguish identical names.
+    Deduplicate span names in the trace data by appending an index number to the span name.
 
-    Purpose:
-        When multiple spans have the same name (e.g., multiple "LLM" or "query" spans),
-        it becomes difficult to distinguish them in the UI, logs, and trace visualizations.
-        This function ensures each span has a unique, readable name by adding suffixes
-        like "_1", "_2", etc. to duplicates, making it easier for users to identify
-        specific spans when debugging or analyzing traces.
+    This is only applied when there are multiple spans with the same name. The span names
+    are modified in place to avoid unnecessary copying.
 
-    How it works:
-        - Counts occurrences of each span name based on their original names
-        - For names that appear multiple times, appends "_N" where N is the occurrence number
-        - Tracks original names to handle incremental deduplication correctly
-        - Modifies span names in place for efficiency
-
-    Examples:
-        Basic deduplication:
-            ["query", "query", "process"] -> ["query_1", "query_2", "process"]
-
-        Incremental deduplication (when called multiple times as spans are added):
-            Call 1: ["LLM", "LLM"] -> ["LLM_1", "LLM_2"]
-            Call 2: Add "LLM" -> ["LLM_1", "LLM_2", "LLM_3"]
-
-        Preserves user-defined names:
-            ["process", "process_1"] -> ["process", "process_1"] (no change)
+    E.g.
+        ["red", "red"] -> ["red_1", "red_2"]
+        ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
 
     Args:
-        spans: A list of LiveSpan objects to deduplicate.
+        spans: A list of spans to deduplicate.
     """
-
-    # Count how many times each original name appears in the trace.
-    # We use the original name captured at span construction time to ensure
-    # that all spans with the same original name are grouped together for deduplication,
-    # even if some have already been renamed in previous passes.
-    original_name_counter = Counter(span._original_name for span in spans)
-
-    # Build a dict of names that need deduplication (appear more than once)
-    # Initialize each counter to 1 (will become the suffix for the first occurrence)
-    names_to_deduplicate = {name: 1 for name, count in original_name_counter.items() if count > 1}
-
-    # Rename duplicate spans by appending numeric suffixes
+    # Use _original_name to handle incremental deduplication correctly
+    span_name_counter = Counter(span._original_name for span in spans)
+    # Apply renaming only for duplicated spans
+    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
+    # Add index to the duplicated span names
     for span in spans:
-        if count := names_to_deduplicate.get(span._original_name):
-            # This span needs deduplication - append the counter as suffix
-            names_to_deduplicate[span._original_name] += 1
+        if count := span_name_counter.get(span._original_name):
+            span_name_counter[span._original_name] += 1
             span._span._name = f"{span._original_name}_{count}"
-            # Note: _original_name is already set at span construction, no need to update it
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:

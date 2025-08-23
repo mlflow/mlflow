@@ -52,7 +52,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # Lock to prevent race conditions during concurrent span name deduplication
         # This ensures that when multiple spans end simultaneously, their names are
         # deduplicated atomically without interference
-        self._deduplication_lock = threading.Lock()
+        self._deduplication_lock = threading.RLock()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """

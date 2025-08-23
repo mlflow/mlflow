@@ -245,7 +245,7 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
 
-    # Child spans should also be exported
+    # Child spans should be exported
     mock_exporter.reset_mock()
     child_span = create_mock_otel_span(trace_id="trace_id", span_id=2, parent_id=1)
     # Set the REQUEST_ID attribute so the processor can find the trace

@@ -168,9 +168,8 @@ class MlflowV3SpanExporter(SpanExporter):
         try:
             self._client.log_spans(experiment_id, spans)
         except NotImplementedError:
-            # Silently skip if the store doesn't support log_spans (e.g., FileStore).
-            # This is expected for stores that don't implement span-level logging,
-            # and we don't want to spam warnings for every span.
+            # Silently skip if the store doesn't support log_spans. This is expected for stores that
+            # don't implement span-level logging, and we don't want to spam warnings for every span.
             pass
         except Exception as e:
             _logger.warning(f"Failed to log span to MLflow backend: {e}")
