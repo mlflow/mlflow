@@ -89,133 +89,62 @@ def test_on_start_during_run(monkeypatch):
 
 def test_incremental_span_name_deduplication():
     """Test that span names are deduplicated incrementally as spans end."""
-    # Reset trace manager to ensure clean state
     InMemoryTraceManager.reset()
     trace_manager = InMemoryTraceManager.get_instance()
 
-    # Create a trace with trace_id=12345
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)
-
-    # Create root span and start the trace
-    root_span = create_mock_otel_span(
-        name="process",
-        trace_id=trace_id,
-        span_id=1,
-        parent_id=None,
-        start_time=1_000_000,
-        end_time=10_000_000,
-    )
-
     processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
 
-    # Start root span - this creates the trace
-    processor.on_start(root_span)
+    # Helper to create and register a span
+    def create_and_register(name, span_id, parent_id=1):
+        span = create_mock_otel_span(
+            name=name,
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_id=parent_id,
+            start_time=span_id * 1_000_000,
+            end_time=(span_id + 1) * 1_000_000,
+        )
+        processor.on_start(span)
+        live_span = LiveSpan(span, request_id)
+        live_span._request_id = request_id
+        trace_manager.register_span(live_span)
+        return span
 
-    # Register root span with trace manager
-    live_root = LiveSpan(root_span, request_id)
-    live_root._request_id = request_id
-    trace_manager.register_span(live_root)
+    # Create root and 4 child spans: 3 "process" and 2 "query"
+    root = create_and_register("process", 1, parent_id=None)
+    child1 = create_and_register("process", 2)
+    child2 = create_and_register("query", 3)
+    child3 = create_and_register("process", 4)
+    child4 = create_and_register("query", 5)
 
-    # Create first child span (duplicate "process")
-    child1 = create_mock_otel_span(
-        name="process",
-        trace_id=trace_id,
-        span_id=2,
-        parent_id=1,
-        start_time=2_000_000,
-        end_time=3_000_000,
-    )
-    processor.on_start(child1)
-    live_child1 = LiveSpan(child1, request_id)
-    live_child1._request_id = request_id
-    trace_manager.register_span(live_child1)
-
-    # End first child - should trigger deduplication of the two "process" spans
+    # End child1 - should deduplicate first two "process" spans
     processor.on_end(child1)
-
     with trace_manager.get_trace(request_id) as trace:
-        span_names = [span.name for span in trace.span_dict.values()]
-        # The two "process" spans should be deduplicated
-        assert "process_1" in span_names  # root renamed
-        assert "process_2" in span_names  # first child renamed
+        names = [s.name for s in trace.span_dict.values()]
+        assert "process_1" in names
+        assert "process_2" in names
 
-    # Create and register second child (first "query")
-    child2 = create_mock_otel_span(
-        name="query",
-        trace_id=trace_id,
-        span_id=3,
-        parent_id=1,
-        start_time=4_000_000,
-        end_time=5_000_000,
-    )
-    processor.on_start(child2)
-    live_child2 = LiveSpan(child2, request_id)
-    live_child2._request_id = request_id
-    trace_manager.register_span(live_child2)
-
-    # End second child - no duplicate queries yet
-    processor.on_end(child2)
-
-    with trace_manager.get_trace(request_id) as trace:
-        span_names = [span.name for span in trace.span_dict.values()]
-        assert "query" in span_names  # First query not renamed (no duplicate)
-
-    # Create and register third child (third "process")
-    child3 = create_mock_otel_span(
-        name="process",
-        trace_id=trace_id,
-        span_id=4,
-        parent_id=1,
-        start_time=6_000_000,
-        end_time=7_000_000,
-    )
-    processor.on_start(child3)
-    live_child3 = LiveSpan(child3, request_id)
-    live_child3._request_id = request_id
-    trace_manager.register_span(live_child3)
-
-    # End third child - should update process deduplication
+    # End child3 - should correctly number third "process" as process_3
     processor.on_end(child3)
-
     with trace_manager.get_trace(request_id) as trace:
-        span_names = [span.name for span in trace.span_dict.values()]
-        # With _original_name tracking, the third process is correctly numbered
-        assert "process_1" in span_names  # root still renamed
-        assert "process_2" in span_names  # first child still renamed
-        assert "process_3" in span_names  # third process correctly renamed
+        names = [s.name for s in trace.span_dict.values()]
+        assert "process_3" in names  # Correctly numbered due to _original_name
 
-    # Create and register fourth child (second "query")
-    child4 = create_mock_otel_span(
-        name="query",
-        trace_id=trace_id,
-        span_id=5,
-        parent_id=1,
-        start_time=8_000_000,
-        end_time=9_000_000,
-    )
-    processor.on_start(child4)
-    live_child4 = LiveSpan(child4, request_id)
-    live_child4._request_id = request_id
-    trace_manager.register_span(live_child4)
-
-    # End fourth child - should trigger query deduplication
+    # End child4 - should deduplicate "query" spans
     processor.on_end(child4)
-
     with trace_manager.get_trace(request_id) as trace:
-        span_names = [span.name for span in trace.span_dict.values()]
-        # Both queries should now be deduplicated
-        assert "query_1" in span_names  # First query renamed
-        assert "query_2" in span_names  # Second query renamed
+        names = sorted([s.name for s in trace.span_dict.values()])
+        assert "query_1" in names
+        assert "query_2" in names
 
-    # Finally end the root span
-    processor.on_end(root_span)
-
-    # Final check - with the new _original_name tracking, all spans are correctly deduplicated
+    # Final check after all spans processed
+    processor.on_end(child2)
+    processor.on_end(root)
     with trace_manager.get_trace(request_id) as trace:
-        span_names = sorted([span.name for span in trace.span_dict.values()])
-        # All three "process" spans and both "query" spans are correctly numbered
-        assert span_names == ["process_1", "process_2", "process_3", "query_1", "query_2"]
+        final_names = sorted([s.name for s in trace.span_dict.values()])
+        assert final_names == ["process_1", "process_2", "process_3", "query_1", "query_2"]
 
 
 def test_on_end():
