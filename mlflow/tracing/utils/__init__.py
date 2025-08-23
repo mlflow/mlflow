@@ -218,18 +218,11 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
         spans: A list of LiveSpan objects to deduplicate.
     """
 
-    # Helper to get the original name for each span.
-    # For spans that have already been deduplicated, we use their stored original name.
-    # For new spans, their current name IS their original name.
-    # This ensures that "query", "query_1", and "query_2" all map back to "query"
-    # if the latter two were created by deduplication.
-    def get_original_name(span):
-        if span._original_name is not None:
-            return span._original_name
-        return span.name
-
-    # Count how many times each original name appears in the trace
-    original_name_counter = Counter(get_original_name(span) for span in spans)
+    # Count how many times each original name appears in the trace.
+    # We use the original name captured at span construction time to ensure
+    # that all spans with the same original name are grouped together for deduplication,
+    # even if some have already been renamed in previous passes.
+    original_name_counter = Counter(span._original_name for span in spans)
 
     # Build a dict of names that need deduplication (appear more than once)
     # Initialize each counter to 1 (will become the suffix for the first occurrence)
@@ -237,13 +230,11 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
 
     # Rename duplicate spans by appending numeric suffixes
     for span in spans:
-        original_name = get_original_name(span)
-        if count := names_to_deduplicate.get(original_name):
+        if count := names_to_deduplicate.get(span._original_name):
             # This span needs deduplication - append the counter as suffix
-            names_to_deduplicate[original_name] += 1
-            span._span._name = f"{original_name}_{count}"
-            # Remember the original name for future incremental deduplication passes
-            span._original_name = original_name
+            names_to_deduplicate[span._original_name] += 1
+            span._span._name = f"{span._original_name}_{count}"
+            # Note: _original_name is already set at span construction, no need to update it
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
