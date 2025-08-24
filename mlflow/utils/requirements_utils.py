@@ -32,6 +32,7 @@ from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import (
     get_databricks_env_vars,
     is_in_databricks_runtime,
+    is_in_databricks_serverless_runtime,
 )
 
 _logger = logging.getLogger(__name__)
@@ -338,7 +339,6 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
         tracking_uri = mlflow.get_tracking_uri()
         if is_in_databricks_runtime() or tracking_uri in ("databricks", "databricks-uc"):
             main_env.update(get_databricks_env_vars(tracking_uri))
-            main_env.update({"PYSPARK_GATEWAY_PORT": "-1"})
 
         record_full_module_args = ["--record-full-module"] if record_full_module else []
 
@@ -388,10 +388,6 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
 
         # Lazily import `_capture_module` here to avoid circular imports.
         from mlflow.utils import _capture_modules
-        test_log = {**main_env,
-                    _MLFLOW_IN_CAPTURE_MODULE_PROCESS.name: "true",
-                    **extra_env_vars}
-        _logger.debug(f"@@@ ENVS: {test_log}")
 
         error_file = os.path.join(tmpdir, "error.txt")
         _run_command(
