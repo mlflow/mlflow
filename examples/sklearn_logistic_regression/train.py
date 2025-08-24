@@ -1,9 +1,13 @@
+import os
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.sklearn
 from mlflow.models import infer_signature
+
+os.environ["MLFLOW_TRACKING_URI"] = "http://localhost:5000"
 
 if __name__ == "__main__":
     X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
