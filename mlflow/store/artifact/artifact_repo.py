@@ -378,6 +378,22 @@ class ArtifactRepository:
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
+    def download_trace_attachment(self, path: str) -> bytes:
+        """
+        Download the trace data.
+
+        Returns:
+            The trace data as a dictionary.
+
+        Raises:
+            - `MlflowTraceDataNotFound`: The trace data is not found.
+            - `MlflowTraceDataCorrupted`: The trace data is corrupted.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, path)
+            self._download_file(posixpath.join("attachments", path), temp_file)
+            return temp_file.read_bytes()
+
     def upload_trace_data(self, trace_data: str) -> None:
         """
         Upload the trace data.
@@ -387,6 +403,19 @@ class ArtifactRepository:
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
+
+    from mlflow.tracing.attachments import Attachment
+
+    def upload_attachment(self, attachment: Attachment) -> None:
+        """
+        Upload an attachment to the trace.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, attachment.id)
+            temp_file.write_bytes(attachment.content_bytes)
+            print(temp_file)
+
+            self.log_artifact(temp_file, artifact_path="attachments")
 
 
 @contextmanager

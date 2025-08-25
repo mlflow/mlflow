@@ -90,6 +90,18 @@ class MlflowV3SpanExporter(SpanExporter):
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
+                from mlflow.tracing.attachments import Attachment
+
+                print("Uploading attachments")
+                attachments: list[Attachment] = []
+                for span in trace.data.spans:
+                    print(span)
+                    print(span._attachments)
+                    if span._attachments:
+                        attachments.extend(span._attachments.values())
+                if attachments:
+                    print(attachments)
+                    self._client._upload_attachments(returned_trace_info, attachments)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
