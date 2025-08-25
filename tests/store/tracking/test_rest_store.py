@@ -1775,3 +1775,67 @@ def test_log_spans_with_version_check():
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
         assert mock_http.call_count == 2
+
+
+def test_log_spans_version_caching():
+    """Test that server version is cached and not fetched multiple times."""
+    from mlflow.entities.span import LiveSpan
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    from tests.tracing.helper import create_mock_otel_span
+
+    # Create test spans
+    otel_span = create_mock_otel_span(
+        trace_id=123,
+        span_id=1,
+        name="test_span",
+        start_time=1000000,
+        end_time=2000000,
+    )
+    span = LiveSpan(otel_span, trace_id="tr-123")
+    spans = [span]
+    experiment_id = "exp-123"
+
+    # Use the same host credentials for all stores to test caching
+    creds = MlflowHostCreds("https://cached-host")
+    store1 = RestStore(lambda: creds)
+    store2 = RestStore(lambda: creds)  # Different store instance, same creds
+
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
+        # Setup mock responses
+        version_response = mock.MagicMock()
+        version_response.status_code = 200
+        version_response.text = "3.5.0"
+
+        otlp_response = mock.MagicMock()
+        otlp_response.status_code = 200
+        otlp_response.text = "{}"
+
+        # Mock will return version, then OTLP response for each call
+        mock_http.side_effect = [
+            version_response,  # First version check
+            otlp_response,  # First OTLP call
+            otlp_response,  # Second OTLP call (no version check due to cache)
+            otlp_response,  # Third OTLP call (no version check due to cache)
+        ]
+
+        # First call - should fetch version and call OTLP
+        result1 = store1.log_spans(experiment_id, spans)
+        assert result1 == spans
+        assert mock_http.call_count == 2  # version + OTLP
+
+        # Second call with same store - should use cached version
+        result2 = store1.log_spans(experiment_id, spans)
+        assert result2 == spans
+        assert mock_http.call_count == 3  # only OTLP, no version check
+
+        # Third call with different store but same creds - should still use cached version
+        result3 = store2.log_spans(experiment_id, spans)
+        assert result3 == spans
+        assert mock_http.call_count == 4  # only OTLP, no version check
+
+        # Verify that version endpoint was only called once
+        version_calls = [
+            call for call in mock_http.call_args_list if call[1].get("endpoint") == "/version"
+        ]
+        assert len(version_calls) == 1, "Version endpoint should only be called once"

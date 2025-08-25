@@ -150,9 +150,8 @@ class RestStore(AbstractStore):
                 method="GET",
                 timeout=3,  # 3 second timeout per request
                 max_retries=0,  # No retries for version check
-                raise_on_status=False,
+                raise_on_status=True,
             )
-            response.raise_for_status()
             return Version(response.text)
         except Exception as e:
             _logger.debug(f"Failed to retrieve server version: {e}")
