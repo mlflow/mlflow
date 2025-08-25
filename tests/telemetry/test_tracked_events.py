@@ -1,4 +1,5 @@
 import json
+import time
 from unittest import mock
 
 import pandas as pd
@@ -7,7 +8,7 @@ import sklearn.neighbors as knn
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import Feedback
+from mlflow.entities import Feedback, Metric, Param, RunTag
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
@@ -26,6 +27,8 @@ from mlflow.telemetry.events import (
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
     LogAssessmentEvent,
+    LogBatchEvent,
+    LogParamEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -335,6 +338,98 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_log_param(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run():
+        mlflow.log_param("test_param", "test_value")
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": True}
+        )
+
+        mlflow.log_param("test_param", "test_value", synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": False}
+        )
+
+        client = mlflow.MlflowClient()
+        client.log_param(
+            run_id=mlflow.active_run().info.run_id,
+            key="test_param",
+            value="test_value",
+        )
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogParamEvent.name,
+            {"synchronous": True},
+        )
+
+
+def test_log_batch(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run():
+        mlflow.log_params(params={"test_param": "test_value"})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": True, "tags": False, "synchronous": True},
+        )
+
+        mlflow.log_params(params={"test_param": "test_value"}, synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": True, "tags": False, "synchronous": False},
+        )
+
+        mlflow.log_metrics(metrics={"test_metric": 1.0})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": False, "tags": False, "synchronous": True},
+        )
+
+        mlflow.log_metrics(metrics={"test_metric": 1.0}, synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": False, "tags": False, "synchronous": False},
+        )
+
+        mlflow.set_tags(tags={"test_tag": "test_value"})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": False, "tags": True, "synchronous": True},
+        )
+
+        mlflow.set_tags(tags={"test_tag": "test_value"}, synchronous=False)
+
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": False, "tags": True, "synchronous": False},
+        )
+
+        client = mlflow.MlflowClient()
+        client.log_batch(
+            run_id=mlflow.active_run().info.run_id,
+            metrics=[Metric(key="test_metric", value=1.0, timestamp=int(time.time()), step=0)],
+            params=[Param(key="test_param", value="test_value")],
+            tags=[RunTag(key="test_tag", value="test_value")],
+        )
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": True, "tags": True, "synchronous": True},
+        )
 
 
 def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
