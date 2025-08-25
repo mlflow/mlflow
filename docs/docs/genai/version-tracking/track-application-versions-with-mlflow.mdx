@@ -1,6 +1,6 @@
 ---
 title: Track versions of Git-based applications with MLflow
-description: Learn how to track versions of your GenAI application when your app's code resides in Git, using MLflow LoggedModel as a metadata hub.
+description: Learn how to track versions of your GenAI application when your app's code resides in Git, using MLflow's automatic Git versioning capabilities.
 ---
 
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
@@ -12,9 +12,14 @@ import { GitBranch, GitCommit, Tag, Clock, Shield, Code2, Database, Settings, Ey
 
 # Track versions of Git-based applications with MLflow
 
-This guide demonstrates how to track versions of your GenAI application when your app's code resides in Git or a similar version control system. In this workflow, an MLflow **LoggedModel** acts as a metadata hub, linking each conceptual application version to its specific external code (such as a Git commit) and configurations. This LoggedModel can then be associated with MLflow entities like traces and evaluation runs.
+This guide demonstrates how to track versions of your GenAI application when your app's code resides in Git or a similar version control system. MLflow provides automatic Git-based versioning through the <APILink fn="mlflow.genai.enable_git_model_versioning" /> API, which seamlessly tracks your application versions based on Git state.
 
-The `mlflow.set_active_model(name=...)` is key to version tracking: calling this function links your application's traces to a LoggedModel. If the name does not exist, a new LoggedModel is automatically created.
+When enabled, MLflow automatically:
+
+- Creates or reuses a LoggedModel based on your current Git branch, commit, and dirty state
+- Links all traces to this LoggedModel version
+- Captures Git metadata including diffs for uncommitted changes
+- Manages version transitions as your code evolves
 
 ## Why Git-Based Versioning Works for GenAI
 
@@ -45,23 +50,23 @@ Git-based versioning transforms your version control system into a powerful appl
 
 ## How MLflow Captures Git Context
 
-MLflow automatically captures Git metadata whenever you log models or start runs within a Git repository. This happens transparently—no additional configuration needed.
+With <APILink fn="mlflow.genai.enable_git_model_versioning" />, MLflow automatically manages version tracking based on your Git state. Each unique combination of branch, commit, and dirty state creates or reuses a LoggedModel version.
 
 <ConceptOverview concepts={[
   {
     icon: Code2,
     title: "Automatic Git Detection",
-    description: "MLflow detects Git repositories and automatically captures commit hash, branch name, and repository URL during runs."
+    description: "MLflow detects Git repositories and automatically captures commit hash, branch name, repository URL, and uncommitted changes."
   },
   {
     icon: Settings,
-    title: "Version Context Linking",
-    description: "Use mlflow.set_active_model() to establish version context, then all subsequent traces automatically link to that Git-based version."
+    title: "Zero-Configuration Versioning",
+    description: "Simply call enable_git_model_versioning() once—MLflow handles all version management and trace linking automatically."
   },
   {
     icon: Database,
-    title: "Unified Metadata Hub",
-    description: "Each version becomes a central reference linking Git commits, configurations, traces, and evaluation results in one versioned entity."
+    title: "Smart Version Deduplication",
+    description: "MLflow intelligently reuses existing LoggedModels when Git state matches, avoiding version proliferation."
   }
 ]} />
 
@@ -70,7 +75,7 @@ MLflow automatically captures Git metadata whenever you log models or start runs
 Install MLflow and required packages:
 
 ```bash
-pip install --upgrade "mlflow>=3.1" openai
+pip install --upgrade "mlflow>=3.4" openai
 ```
 
 Set your OpenAI API key:
@@ -81,13 +86,47 @@ export OPENAI_API_KEY="your-api-key-here"
 
 Create an MLflow experiment by following the [getting started guide](/ml/getting-started).
 
-## Step 1: Create a sample application
+## Step 1: Enable Git-based version tracking
 
-The following code creates a simple application that prompts an LLM for a response:
+The simplest way to enable Git-based version tracking is to call <APILink fn="mlflow.genai.enable_git_model_versioning" /> at the start of your application:
 
 ```python
 import mlflow
+import mlflow.genai
+
+# Enable Git-based version tracking
+# This automatically creates/reuses a LoggedModel based on your Git state
+context = mlflow.genai.enable_git_model_versioning()
+
+# Check what version is active
+print(
+    f"Active version - Branch: {context.info.branch}, Commit: {context.info.commit[:8]}"
+)
+print(f"Repository dirty: {context.info.dirty}")
+```
+
+You can also use it as a context manager for scoped versioning:
+
+```python
+with mlflow.genai.enable_git_model_versioning() as context:
+    # All traces within this block are linked to the Git-based version
+    # Your application code here
+    ...
+
+# Version tracking is automatically disabled when exiting the context
+```
+
+## Step 2: Create your application
+
+Now let's create a simple application that will be automatically versioned:
+
+```python
+import mlflow
+import mlflow.genai
 import openai
+
+# Enable Git-based version tracking
+context = mlflow.genai.enable_git_model_versioning()
 
 # Enable MLflow's autologging to instrument your application with Tracing
 mlflow.openai.autolog()
@@ -113,102 +152,80 @@ def my_app(input: str):
     return response.choices[0].message.content
 
 
-# Test the application
+# Test the application - traces are automatically linked to the Git version
 result = my_app(input="What is MLflow?")
 print(result)
 ```
 
-## Step 2: Add version tracking to your app's code
-
-A LoggedModel version serves as a central record (metadata hub) for a specific version of your application. It doesn't need to store the application code itself. Instead, it points to where your code is managed (such as a Git commit hash).
-
-Use `mlflow.set_active_model()` to declare the LoggedModel that you are currently working with, or to create a new one. This function returns an ActiveModel object containing the model_id which is useful for subsequent operations.
-
 :::note
-The following code uses the current Git commit hash as the model's name, so your model version only increments when you commit. To create a new LoggedModel for every change in your code base, see the [helper function](#helper-function-to-compute-a-unique-hash-for-any-file-change) that creates a unique LoggedModel for any change in your code base, even if not committed to Git.
+
+When you run this code, MLflow automatically:
+
+1. Detects your Git repository state (branch, commit, dirty status)
+2. Creates or reuses a LoggedModel matching this state
+3. Links all traces to this version
+4. Captures uncommitted changes as diffs if the repository is dirty
+
 :::
-
-Insert the following code at the top of your application from step 1. In your application, you must call `set_active_model()` BEFORE you execute your app's code:
-
-```python
-# Keep original imports
-import subprocess
-
-# Define your application and its version identifier
-app_name = "customer_support_agent"
-
-# Get current git commit hash for versioning
-try:
-    git_commit = (
-        subprocess.check_output(["git", "rev-parse", "HEAD"])
-        .decode("ascii")
-        .strip()[:8]
-    )
-    version_identifier = f"git-{git_commit}"
-except subprocess.CalledProcessError:
-    version_identifier = "local-dev"  # Fallback if not in a git repo
-
-logged_model_name = f"{app_name}-{version_identifier}"
-
-# Set the active model context
-active_model_info = mlflow.set_active_model(name=logged_model_name)
-print(
-    f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
-)
-```
 
 ## Step 3: (Optional) Record parameters
 
 You can log key configuration parameters that define this version of your application directly to the LoggedModel using `mlflow.log_model_params()`. This is useful for recording things like LLM names, temperature settings, or retrieval strategies that are tied to this code version.
 
-Add the following code below the code from step 2:
-
 ```python
+# After enabling Git versioning
+context = mlflow.genai.enable_git_model_versioning()
+
+# Define your application parameters
 app_params = {
     "llm": "gpt-4o-mini",
     "temperature": 0.7,
     "retrieval_strategy": "vector_search_v3",
 }
 
-# Log params
-mlflow.log_model_params(model_id=active_model_info.model_id, params=app_params)
+# Log params to the active Git-based version
+mlflow.log_model_params(model_id=context.active_model.model_id, params=app_params)
 ```
 
-## Step 4: Run the application
+## Step 4: Test version tracking with code changes
 
-Call the application to see how the LoggedModel is created and tracked:
+Run your application and observe how versions are tracked:
 
 ```python
-# These 2 invocations will be linked to the same LoggedModel
+# Initial run - creates a LoggedModel for current Git state
 result = my_app(input="What is MLflow?")
 print(result)
 
 result = my_app(input="What is Databricks?")
 print(result)
+# Both traces are linked to the same version since Git state hasn't changed
 ```
 
-To simulate a change without committing, add the following lines to manually create a new logged model:
+To see how MLflow tracks changes, modify your code (without committing) and run again:
 
 ```python
-# Set the active model context
-active_model_info = mlflow.set_active_model(name="new-name-set-manually")
-print(
-    f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
-)
+# Make a change to your application code (e.g., modify temperature)
+# The repository is now "dirty" with uncommitted changes
 
-app_params = {
-    "llm": "gpt-4o",
-    "temperature": 0.7,
-    "retrieval_strategy": "vector_search_v4",
-}
+# Re-enable versioning - MLflow will detect the dirty state
+context = mlflow.genai.enable_git_model_versioning()
+print(f"Repository dirty: {context.info.dirty}")  # Will show True
 
-# Log params
-mlflow.log_model_params(model_id=active_model_info.model_id, params=app_params)
-
-# This will create a new LoggedModel
+# This trace will be linked to a different version (same commit but dirty=True)
 result = my_app(input="What is GenAI?")
 print(result)
 ```
+
+:::tip
+MLflow creates distinct versions for:
+
+- Different Git branches
+- Different commits
+- Clean vs. dirty repository states
+- Different uncommitted changes (captured as diffs)
+
+This ensures complete reproducibility of your application versions.
+:::
 
 ## Step 5: View traces linked to the LoggedModel
 
@@ -223,20 +240,26 @@ You can use `search_traces()` to query for traces from a LoggedModel:
 ```python
 import mlflow
 
+# Using the context from enable_git_model_versioning()
+context = mlflow.genai.enable_git_model_versioning()
+
 traces = mlflow.search_traces(
-    filter_string=f"metadata.`mlflow.modelId` = '{active_model_info.model_id}'"
+    filter_string=f"metadata.`mlflow.modelId` = '{context.active_model.model_id}'"
 )
 print(traces)
 ```
 
-You can use `get_logged_model()` to get details of the LoggedModel:
+You can use `get_logged_model()` to get details of the LoggedModel including Git metadata:
 
 ```python
 import mlflow
 import datetime
 
+# Get the active Git-based version
+context = mlflow.genai.enable_git_model_versioning()
+
 # Get LoggedModel metadata
-logged_model = mlflow.get_logged_model(model_id=active_model_info.model_id)
+logged_model = mlflow.get_logged_model(model_id=context.active_model.model_id)
 
 # Inspect basic properties
 print(f"\n=== LoggedModel Information ===")
@@ -248,140 +271,20 @@ print(f"Model Type: {logged_model.model_type}")
 creation_time = datetime.datetime.fromtimestamp(logged_model.creation_timestamp / 1000)
 print(f"Created at: {creation_time}")
 
-# Access the parameters
-print(f"\n=== Model Parameters ===")
-for param_name, param_value in logged_model.params.items():
-    print(f"{param_name}: {param_value}")
-
-# Access tags if any were set
-if logged_model.tags:
-    print(f"\n=== Model Tags ===")
-    for tag_key, tag_value in logged_model.tags.items():
+# Access Git metadata from tags
+print(f"\n=== Git Information ===")
+git_tags = {k: v for k, v in logged_model.tags.items() if k.startswith("mlflow.git")}
+for tag_key, tag_value in git_tags.items():
+    if tag_key == "mlflow.git.diff" and len(tag_value) > 100:
+        print(f"{tag_key}: <diff with {len(tag_value)} characters>")
+    else:
         print(f"{tag_key}: {tag_value}")
-```
 
-## Helper function to compute a unique hash for any file change
-
-The below helper function automatically generates a name for each LoggedModel based on the status of your repo. To use this function, call `set_active_model(name=get_current_git_hash())`.
-
-`get_current_git_hash()` generates a unique, deterministic identifier for the current state of a Git repository by returning either the HEAD commit hash (for clean repos) or a combination of the HEAD hash and a hash of uncommitted changes (for dirty repos). It ensures that different states of the repository always produce different identifiers, so every code change results in a new LoggedModel.
-
-```python
-import subprocess
-import hashlib
-import os
-
-
-def get_current_git_hash():
-    """
-    Get a deterministic hash representing the current git state.
-    For clean repositories, returns the HEAD commit hash.
-    For dirty repositories, returns a combination of HEAD + hash of changes.
-    """
-    try:
-        # Get the git repository root
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        git_root = result.stdout.strip()
-
-        # Get the current HEAD commit hash
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-        )
-        head_hash = result.stdout.strip()
-
-        # Check if repository is dirty
-        result = subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
-        )
-
-        if not result.stdout.strip():
-            # Repository is clean, return HEAD hash
-            return head_hash
-
-        # Repository is dirty, create deterministic hash of changes
-        # Collect all types of changes
-        changes_parts = []
-
-        # 1. Get staged changes
-        result = subprocess.run(
-            ["git", "diff", "--cached"], capture_output=True, text=True, check=True
-        )
-        if result.stdout:
-            changes_parts.append(("STAGED", result.stdout))
-
-        # 2. Get unstaged changes to tracked files
-        result = subprocess.run(
-            ["git", "diff"], capture_output=True, text=True, check=True
-        )
-        if result.stdout:
-            changes_parts.append(("UNSTAGED", result.stdout))
-
-        # 3. Get all untracked/modified files from status
-        result = subprocess.run(
-            ["git", "status", "--porcelain", "-uall"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        # Parse status output to handle all file states
-        status_lines = (
-            result.stdout.strip().split("\n") if result.stdout.strip() else []
-        )
-        file_contents = []
-
-        for line in status_lines:
-            if len(line) >= 3:
-                status_code = line[:2]
-                filepath = line[
-                    3:
-                ]  # Don't strip - filepath starts exactly at position 3
-
-                # For any modified or untracked file, include its current content
-                if "?" in status_code or "M" in status_code or "A" in status_code:
-                    try:
-                        # Use absolute path relative to git root
-                        abs_filepath = os.path.join(git_root, filepath)
-                        with open(abs_filepath, "rb") as f:
-                            # Read as binary to avoid encoding issues
-                            content = f.read()
-                            # Create a hash of the file content
-                            file_hash = hashlib.sha256(content).hexdigest()
-                            file_contents.append(f"{filepath}:{file_hash}")
-                    except (IOError, OSError):
-                        file_contents.append(f"{filepath}:unreadable")
-
-        # Sort file contents for deterministic ordering
-        file_contents.sort()
-
-        # Combine all changes
-        all_changes_parts = []
-
-        # Add diff outputs
-        for change_type, content in changes_parts:
-            all_changes_parts.append(f"{change_type}:\n{content}")
-
-        # Add file content hashes
-        if file_contents:
-            all_changes_parts.append("FILES:\n" + "\n".join(file_contents))
-
-        # Create final hash
-        all_changes = "\n".join(all_changes_parts)
-        content_to_hash = f"{head_hash}\n{all_changes}"
-        changes_hash = hashlib.sha256(content_to_hash.encode()).hexdigest()
-
-        # Return HEAD hash + first 8 chars of changes hash
-        return f"{head_hash[:32]}-dirty-{changes_hash[:8]}"
-
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Git command failed: {e}")
-    except FileNotFoundError:
-        raise RuntimeError("Git is not installed or not in PATH")
+# Access the parameters if any were logged
+if logged_model.params:
+    print(f"\n=== Model Parameters ===")
+    for param_name, param_value in logged_model.params.items():
+        print(f"{param_name}: {param_value}")
 ```
 
 ## Next Steps
