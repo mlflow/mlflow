@@ -42,6 +42,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     GetLoggedModelEvent,
     LogBatchEvent,
+    LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
 )
@@ -579,6 +580,7 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
+    @record_usage_event(LogDatasetEvent)
     def log_inputs(
         self,
         run_id: str,
