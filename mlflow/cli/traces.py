@@ -207,7 +207,10 @@ Available fields:
 @click.option(
     "--sql-warehouse-id",
     type=click.STRING,
-    help="SQL warehouse ID for searching inference tables (Databricks only)",
+    help=(
+        "SQL warehouse ID (only needed when searching for traces by model "
+        "stored in Databricks Unity Catalog)"
+    ),
 )
 @click.option(
     "--output",
