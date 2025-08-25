@@ -60,6 +60,8 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
@@ -2676,6 +2678,72 @@ def test_delete_traces(mlflow_client):
     assert deleted_count == 1
     assert not _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
+
+
+def test_calculate_trace_filter_correlation(mlflow_client):
+    if mlflow_client._store_type == "file":
+        pytest.skip("File store doesn't support calculate_trace_filter_correlation")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("correlation test")
+
+    def _create_trace(name, tags):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id, tags=tags)
+        mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
+        return span.request_id
+
+    for i in range(6):
+        _create_trace(f"trace-prod-tool-{i}", {"env": "prod", "span_type": "TOOL"})
+
+    for i in range(4):
+        _create_trace(f"trace-dev-{i}", {"env": "dev", "span_type": "LLM" if i >= 1 else "TOOL"})
+
+    client = TracingClient(tracking_uri=mlflow_client.tracking_uri)
+
+    result = client.calculate_trace_filter_correlation(
+        experiment_ids=[experiment_id],
+        filter_string1="tags.env = 'prod'",
+        filter_string2="tags.span_type = 'TOOL'",
+    )
+
+    assert isinstance(result, TraceFilterCorrelationResult)
+    assert result.total_count == 10
+    assert result.filter1_count == 6
+    assert result.filter2_count == 7
+    assert result.joint_count == 6
+    assert 0.6 < result.npmi < 0.8
+    assert result.npmi_smoothed is not None
+
+    result2 = client.calculate_trace_filter_correlation(
+        experiment_ids=[experiment_id],
+        filter_string1="tags.env = 'dev'",
+        filter_string2="tags.span_type = 'LLM'",
+    )
+
+    assert result2.total_count == 10
+    assert result2.filter1_count == 4
+    assert result2.filter2_count == 3
+    assert result2.joint_count == 3
+    assert result2.npmi > 0.5
+
+    result3 = client.calculate_trace_filter_correlation(
+        experiment_ids=[experiment_id],
+        filter_string1="tags.env = 'staging'",
+        filter_string2="tags.span_type = 'TOOL'",
+    )
+
+    assert result3.total_count == 10
+    assert result3.filter1_count == 0
+    assert result3.filter2_count == 7
+    assert result3.joint_count == 0
+    assert math.isnan(result3.npmi)
+
+    with pytest.raises(MlflowException, match="Invalid"):
+        client.calculate_trace_filter_correlation(
+            experiment_ids=[experiment_id],
+            filter_string1="invalid.filter = 'test'",
+            filter_string2="tags.span_type = 'TOOL'",
+        )
 
 
 def test_set_and_delete_trace_tag(mlflow_client):
