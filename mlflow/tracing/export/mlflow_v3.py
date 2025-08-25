@@ -5,7 +5,6 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
@@ -17,11 +16,7 @@ from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import (
-    add_size_stats_to_trace_metadata,
-    encode_span_id,
-    maybe_get_request_id,
-)
+from mlflow.tracing.utils import add_size_stats_to_trace_metadata, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
 
@@ -49,90 +44,16 @@ class MlflowV3SpanExporter(SpanExporter):
 
         Args:
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
-                a span processor. All spans (root and non-root) are exported.
-        """
-        manager = InMemoryTraceManager.get_instance()
-
-        # Export all spans incrementally
-        self._export_spans_incrementally(spans, manager)
-
-        # Export full traces for root spans
-        self._export_traces(spans, manager)
-
-    def _export_spans_incrementally(
-        self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
-    ):
-        """
-        Export spans incrementally as they complete.
-
-        Args:
-            spans: Sequence of ReadableSpan objects to export.
-            manager: The trace manager instance.
-        """
-        spans_by_experiment = self._collect_spans_for_export(spans, manager)
-
-        for experiment_id, spans_to_log in spans_by_experiment.items():
-            if self._should_log_async():
-                # Use async queue for span logging when async is enabled
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_spans,
-                        args=(experiment_id, spans_to_log),
-                        error_msg="Failed to log spans to the trace server.",
-                    )
-                )
-            else:
-                self._log_spans(experiment_id, spans_to_log)
-
-    def _collect_spans_for_export(
-        self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
-    ) -> dict[str, list[Span]]:
-        """
-        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
-
-        Args:
-            spans: Sequence of ReadableSpan objects.
-            manager: The trace manager instance.
-
-        Returns:
-            Dictionary mapping experiment_id to list of MLflow Span objects.
-        """
-        spans_by_experiment = {}
-
-        for span in spans:
-            # Get trace from manager to retrieve experiment_id and trace_id
-            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
-
-            with manager.get_trace(mlflow_trace_id) as internal_trace:
-                experiment_id = internal_trace.info.experiment_id
-
-                # Get the LiveSpan from the trace manager
-                span_id = encode_span_id(span.context.span_id)
-                mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
-
-                if mlflow_span:
-                    if experiment_id not in spans_by_experiment:
-                        spans_by_experiment[experiment_id] = []
-                    spans_by_experiment[experiment_id].append(mlflow_span)
-
-        return spans_by_experiment
-
-    def _export_traces(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
-        """
-        Export full traces for root spans.
-
-        Args:
-            spans: Sequence of ReadableSpan objects.
-            manager: The trace manager instance.
+                a span processor. Only root spans for each trace should be exported.
         """
         for span in spans:
             if span._parent is not None:
+                _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            # Pop and export the full trace for root spans
-            manager_trace = manager.pop_trace(span.context.trace_id)
+            manager_trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
             if manager_trace is None:
-                _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+                _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
             trace = manager_trace.trace
@@ -156,23 +77,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 )
             else:
                 self._log_trace(trace, prompts=manager_trace.prompts)
-
-    def _log_spans(self, experiment_id: str, spans: list[Span]):
-        """
-        Helper method to log spans with error handling.
-
-        Args:
-            experiment_id: The experiment ID to log spans to.
-            spans: List of spans to log.
-        """
-        try:
-            self._client.log_spans(experiment_id, spans)
-        except NotImplementedError:
-            # Silently skip if the store doesn't support log_spans. This is expected for stores that
-            # don't implement span-level logging, and we don't want to spam warnings for every span.
-            pass
-        except Exception as e:
-            _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
     def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
         """
