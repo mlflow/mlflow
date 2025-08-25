@@ -29,7 +29,7 @@ class GitContext:
             return
 
         git_tags = self.info.to_mlflow_tags()
-        filter_string = " AND ".join(f"tags.`{k}` = '{v}'" for k, v in git_tags.items())
+        filter_string = self.info.to_search_filter_string()
         models = mlflow.search_logged_models(
             filter_string=filter_string,
             max_results=1,
@@ -42,6 +42,8 @@ class GitContext:
                     f"commit '{self.info.commit}', dirty state '{self.info.dirty}'."
                 )
                 model = m
+                # Update tags to ensure they're current (especially git diff)
+                mlflow.set_logged_model_tags(model_id=model.model_id, tags=git_tags)
             case _:
                 _logger.info(
                     "No existing model found with the current git information. "
