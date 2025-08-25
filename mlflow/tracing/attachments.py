@@ -16,9 +16,9 @@ class Attachment:
         self.content_type = content_type
 
     @classmethod
-    def from_file(cls, file: str | Path) -> "Attachment":
+    def from_file(cls, file: str | Path, content_type: str | None = None) -> "Attachment":
         return cls(
-            content_type=cls._infer_content_type(file),
+            content_type=content_type or cls._infer_content_type(file),
             content_bytes=Path(file).read_bytes(),
         )
 
@@ -57,6 +57,5 @@ class Attachment:
         )
 
     @classmethod
-    def from_str(cls, s: str) -> "Attachment":
-        content_type, content_bytes = s.split(",", 1)
-        return cls(content_type=content_type, content_bytes=content_bytes.encode())
+    def from_ref(cls) -> "Attachment":
+        raise NotImplementedError("TODO")
