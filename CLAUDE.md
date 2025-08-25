@@ -132,6 +132,9 @@ git commit --amend -s
 
 # Re-run pre-commit to verify fixes
 uv run pre-commit run --from-ref origin/master --to-ref HEAD
+
+# Only push once all checks pass
+git push origin <your-branch>
 ```
 
 This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
