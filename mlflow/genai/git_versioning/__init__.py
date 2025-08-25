@@ -67,13 +67,50 @@ _active_context: GitContext | None = None
 @experimental(version="3.4.0")
 def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
-    Enable git model versioning and set the active context.
+    Enable automatic Git-based model versioning for MLflow traces.
+
+    This function enables automatic version tracking based on your Git repository state.
+    When enabled, MLflow will:
+    - Detect the current Git branch, commit hash, and dirty state
+    - Create or reuse a LoggedModel matching this exact Git state
+    - Link all subsequent traces to this LoggedModel version
+    - Capture uncommitted changes as diffs when the repository is dirty
 
     Args:
-        remote_name: The name of the git remote to use. Defaults to "origin".
+        remote_name: The name of the git remote to use for repository URL detection.
+                    Defaults to "origin".
 
     Returns:
-        A GitContext instance containing the git information and active model.
+        A GitContext instance containing:
+        - info: GitInfo object with branch, commit, dirty state, and diff information
+        - active_model: The active LoggedModel linked to current Git state
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow.genai
+
+        # Enable Git-based versioning
+        context = mlflow.genai.enable_git_model_versioning()
+        print(f"Branch: {context.info.branch}, Commit: {context.info.commit[:8]}")
+        # Output: Branch: main, Commit: abc12345
+
+
+        # All traces are now automatically linked to this Git version
+        @mlflow.trace
+        def my_app():
+            return "result"
+
+
+        # Can also use as a context manager
+        with mlflow.genai.enable_git_model_versioning() as context:
+            # Traces within this block are linked to the Git version
+            result = my_app()
+
+    Note:
+        If Git is not available or the current directory is not a Git repository,
+        a warning is issued and versioning is disabled (context.info will be None).
     """
     global _active_context
     context = GitContext(remote_name=remote_name)
@@ -84,7 +121,28 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
 @experimental(version="3.4.0")
 def disable_git_model_versioning() -> None:
     """
-    Disable git model versioning and reset the active context.
+    Disable Git-based model versioning and clear the active model context.
+
+    This function stops automatic Git-based version tracking and clears any active
+    LoggedModel context. After calling this, traces will no longer be automatically
+    linked to Git-based versions.
+
+    This is automatically called when exiting a context manager created with
+    enable_git_model_versioning().
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow.genai
+
+        # Enable versioning
+        context = mlflow.genai.enable_git_model_versioning()
+        # ... do work with versioning enabled ...
+
+        # Disable versioning
+        mlflow.genai.disable_git_model_versioning()
+        # Traces are no longer linked to Git versions
     """
     global _active_context
     _active_context = None
