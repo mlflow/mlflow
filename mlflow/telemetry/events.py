@@ -109,3 +109,7 @@ class CreateWebhookEvent(Event):
 
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
+
+
+class EnableGitModelVersioning(Event):
+    name: str = "enable_git_model_versioning"
