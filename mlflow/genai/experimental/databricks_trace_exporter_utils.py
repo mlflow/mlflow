@@ -8,12 +8,15 @@ and other common archival operations.
 import logging
 import re
 
+from google.protobuf.empty_pb2 import Empty
+
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
+    DeleteTraceDestinationRequest,
     GetTraceDestinationRequest,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
@@ -29,7 +32,7 @@ from mlflow.utils.rest_utils import call_endpoint
 _logger = logging.getLogger(__name__)
 
 
-def get_workspace_id():
+def _get_workspace_id():
     from databricks.sdk import WorkspaceClient
 
     return WorkspaceClient().get_workspace_id()
@@ -120,7 +123,7 @@ def _resolve_ingest_url() -> str:
     host_creds = get_databricks_host_creds()
 
     try:
-        workspace_id = get_workspace_id()
+        workspace_id = _get_workspace_id()
 
         if not workspace_id:
             raise MlflowException(
@@ -387,6 +390,39 @@ class DatabricksTraceServerClient:
                 return None
             else:
                 raise
+
+    def delete_trace_destination(self, experiment_id: str) -> None:
+        """
+        Delete the trace destination configuration for an experiment.
+
+        Args:
+            experiment_id: The MLflow experiment ID
+
+        Returns:
+            None
+
+        Raises:
+            MlflowException: If deletion fails
+        """
+        # Create proto request
+        proto_trace_location = ProtoTraceLocation()
+        proto_trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        proto_trace_location.mlflow_experiment.experiment_id = experiment_id
+
+        proto_request = DeleteTraceDestinationRequest(
+            trace_location=proto_trace_location,
+        )
+
+        # Call the trace server API
+        request_body = message_to_json(proto_request)
+
+        call_endpoint(
+            host_creds=self._host_creds,
+            endpoint=f"/api/2.0/tracing/trace-destinations/mlflow-experiments/{experiment_id}",
+            method="DELETE",
+            json_body=request_body,
+            response_proto=Empty(),
+        )
 
     def _proto_to_config(self, proto: ProtoTraceDestination) -> DatabricksTraceDeltaStorageConfig:
         """Convert a TraceDestination proto to DatabricksTraceDeltaStorageConfig."""

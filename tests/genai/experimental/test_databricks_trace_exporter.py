@@ -323,23 +323,8 @@ def test_inference_table_delta_span_exporter_handles_missing_trace():
 # =============================================================================
 
 
-def test_archive_with_delta_disabled(sample_trace_without_spans, monkeypatch):
-    """Test archive_trace method when delta archiving is disabled."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "false")
-
-    mixin = DatabricksDeltaArchivalMixin()
-
-    with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
-    ) as mock_client_class:
-        # Archive should return early without calling the client
-        mixin.archive_trace(sample_trace_without_spans)
-        mock_client_class.assert_not_called()
-
-
 def test_archive_with_no_experiment_id(monkeypatch):
     """Test archive_trace method when trace has no experiment ID."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -366,7 +351,6 @@ def test_archive_with_no_experiment_id(monkeypatch):
 
 def test_archive_with_missing_archival_config(sample_trace_without_spans, monkeypatch):
     """Test that mixin handles gracefully when no configuration is available."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -389,14 +373,13 @@ def test_archive_with_missing_archival_config(sample_trace_without_spans, monkey
         # Should have logged debug message about skipping archival
         mock_logger.debug.assert_called()
         debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
-        assert any("not enabled for experiment" in msg for msg in debug_calls)
+        assert any("No storage location configured for experiment" in msg for msg in debug_calls)
 
 
 def test_delta_mixin_archive_archival_config_error_handling(
     sample_trace_without_spans, monkeypatch
 ):
     """Test that DatabricksDeltaArchivalMixin handles errors gracefully."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -423,7 +406,6 @@ def test_delta_mixin_archive_with_valid_archival_config(
     sample_trace_without_spans, sample_config, monkeypatch
 ):
     """Test successful archival when valid configuration is available."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -451,7 +433,6 @@ def test_delta_mixin_archive_with_valid_archival_config(
 
 def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, monkeypatch):
     """Test the complete _archive_trace integration flow with ZerobusStreamFactory."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -490,7 +471,6 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
 
 def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_config, monkeypatch):
     """Test _archive_trace with a trace containing no spans."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
@@ -533,7 +513,6 @@ def test_archive_trace_ingest_stream_error_handling(
     sample_trace_with_spans, sample_config, monkeypatch
 ):
     """Test error handling when stream operations fail."""
-    monkeypatch.setenv("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", "true")
 
     mixin = DatabricksDeltaArchivalMixin()
 
