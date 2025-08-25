@@ -150,7 +150,7 @@ class RestStore(AbstractStore):
                 endpoint="/version",
                 method="GET",
                 timeout=3,  # Short timeout to fail fast if server version API isn't available
-                max_retries=0,  # No retries - default retry policy takes minutes, too long
+                max_retries=0,  # No retries - default retry policy takes minutes, whci is too long
                 raise_on_status=True,
             )
             return Version(response.text)
