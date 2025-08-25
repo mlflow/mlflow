@@ -1812,6 +1812,7 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+        assert mock_http.call_count == 2
 
     # Second call with same store - should use cached version, only call OTLP
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
