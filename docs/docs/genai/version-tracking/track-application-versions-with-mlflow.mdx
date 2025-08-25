@@ -227,7 +227,6 @@ MLflow creates distinct versions for:
 - Different Git branches
 - Different commits
 - Clean vs. dirty repository states
-- Different uncommitted changes (captured as diffs)
 
 This ensures complete reproducibility of your application versions.
 :::
@@ -248,9 +247,7 @@ import mlflow
 # Using the context from enable_git_model_versioning()
 context = mlflow.genai.enable_git_model_versioning()
 
-traces = mlflow.search_traces(
-    filter_string=f"metadata.`mlflow.modelId` = '{context.active_model.model_id}'"
-)
+traces = mlflow.search_traces(model_id=context.active_model.model_id)
 print(traces)
 ```
 
