@@ -12,7 +12,7 @@ module.exports = async ({ context, github }) => {
   const unfinishedRuns = prRuns.filter(
     ({ status, name }) =>
       // `post-merge` job in `release-note` workflow should not be cancelled
-      status !== "completed" && name !== "release-note"
+      status !== "completed" && name !== "release-note",
   );
   for (const run of unfinishedRuns) {
     try {

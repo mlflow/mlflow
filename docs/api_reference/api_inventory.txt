@@ -1208,7 +1208,7 @@ mlflow.tracking.fluent.ActiveModel
 mlflow.tracking.fluent.ActiveRun
 mlflow.tracking.multimedia.Image
 mlflow.transformers.autolog
-mlflow.transformers.generate_signature_output
+mlflow.transformers.generate_signature_output (deprecated, use input_example instead)
 mlflow.transformers.get_default_conda_env
 mlflow.transformers.get_default_pip_requirements
 mlflow.transformers.is_gpu_available

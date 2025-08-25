@@ -1,7 +1,7 @@
 minimum_pre_commit_version: 4.0.1
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         files: \.mdx
@@ -12,7 +12,7 @@ repos:
         files: \.py$
         require_serial: true
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v2.7.1"
+    rev: "v4.0.0-alpha.8"
     hooks:
       - id: prettier
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
