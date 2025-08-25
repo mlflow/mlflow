@@ -82,7 +82,7 @@ With <APILink fn="mlflow.genai.enable_git_model_versioning" />, MLflow automatic
 Install MLflow and required packages:
 
 ```bash
-pip install --upgrade "mlflow>=3.4" openai
+pip install "mlflow>=3.4" openai
 ```
 
 Set your OpenAI API key:
@@ -216,11 +216,11 @@ This ensures complete reproducibility of your application versions.
 
 ### Use the UI
 
-Go to the MLflow Experiment UI. In the **Traces** tab, you can see the version of the app that generated each trace. In the **Versions** tab, you can see each LoggedModel alongside its parameters and linked traces.
+Go to the MLflow Experiment UI. In the **Traces** tab, you can see the version of the app that generated each trace. In the **Models** tab, you can see each LoggedModel alongside its parameters and linked traces.
 
 ### Use the SDK
 
-You can use `search_traces()` to query for traces from a LoggedModel:
+You can use <APILink fn="mlflow.search_traces" /> to query for traces from a LoggedModel:
 
 ```python
 import mlflow
@@ -232,7 +232,7 @@ traces = mlflow.search_traces(model_id=context.active_model.model_id)
 print(traces)
 ```
 
-You can use `get_logged_model()` to get details of the LoggedModel including Git metadata:
+You can use <APILink fn="mlflow.get_logged_model" /> to get details of the LoggedModel including Git metadata:
 
 ```python
 import mlflow
@@ -246,11 +246,7 @@ logged_model = mlflow.get_logged_model(model_id=context.active_model.model_id)
 
 # Inspect basic properties
 print(f"\n=== LoggedModel Information ===")
-print(f"Model ID: {logged_model.model_id}")
-print(f"Name: {logged_model.name}")
-print(f"Experiment ID: {logged_model.experiment_id}")
-print(f"Status: {logged_model.status}")
-print(f"Model Type: {logged_model.model_type}")
+print(logged_model)
 
 # Access Git metadata from tags
 print(f"\n=== Git Information ===")
