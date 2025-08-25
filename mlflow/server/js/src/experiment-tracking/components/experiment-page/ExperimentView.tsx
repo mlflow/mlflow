@@ -48,7 +48,6 @@ import { canModifyExperiment } from './utils/experimentPage.common-utils';
 import { useInferExperimentKind } from './hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from './components/header/ExperimentViewInferredKindModal';
 
-// END-EDGE
 export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const { theme } = useDesignSystemTheme();

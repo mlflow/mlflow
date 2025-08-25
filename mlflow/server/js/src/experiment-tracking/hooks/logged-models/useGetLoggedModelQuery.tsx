@@ -1,6 +1,7 @@
 import { type QueryFunctionContext, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 type UseGetLoggedModelQueryResponseType = {
   model: LoggedModelProto;
@@ -13,7 +14,7 @@ const getQueryKey = (loggedModelId: string): UseGetLoggedModelQueryKey => ['GET_
 const queryFn = async ({
   queryKey: [, loggedModelId],
 }: QueryFunctionContext<UseGetLoggedModelQueryKey>): Promise<UseGetLoggedModelQueryResponseType> =>
-  loggedModelsDataRequest(`/ajax-api/2.0/mlflow/logged-models/${loggedModelId}`, 'GET');
+  loggedModelsDataRequest(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
 
 /**
  * Retrieve logged model from API based on its ID
@@ -57,7 +58,7 @@ export const asyncGetLoggedModel = async (
   failSilently = false,
 ): Promise<UseGetLoggedModelQueryResponseType | undefined> => {
   try {
-    const data = await loggedModelsDataRequest(`/ajax-api/2.0/mlflow/logged-models/${loggedModelId}`, 'GET');
+    const data = await loggedModelsDataRequest(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
     return data;
   } catch (error) {
     if (failSilently) {

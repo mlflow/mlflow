@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional
+from typing import Any
 
 from _utils import parse_chat
 from openai import OpenAI
@@ -32,10 +32,10 @@ def my_python_tool(
     temperature: float = 1.0,
     top_p: float = 1.0,
     n: int = 1,
-    stop: Optional[list[str]] = None,
+    stop: list[str] | None = None,
     presence_penalty: float = 0,
     frequency_penalty: float = 0,
-    logit_bias: Optional[dict[str, Any]] = None,
+    logit_bias: dict[str, Any] | None = None,
     user: str = "",
     **kwargs,
 ) -> str:

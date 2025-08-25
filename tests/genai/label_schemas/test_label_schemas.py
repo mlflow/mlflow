@@ -22,6 +22,10 @@ from mlflow.genai.label_schemas import (
 from mlflow.genai.label_schemas.label_schemas import (
     InputType,
 )
+from mlflow.genai.scorers.validation import IS_DBX_AGENTS_INSTALLED
+
+if not IS_DBX_AGENTS_INSTALLED:
+    pytest.skip("Skipping Databricks only test.", allow_module_level=True)
 
 
 # InputCategorical tests
@@ -447,6 +451,9 @@ def test_label_schema_frozen_dataclass():
 
 def test_label_schema_from_databricks_label_schema():
     """Test creation from Databricks label schema."""
+    # Create a mock databricks input object
+    mock_databricks_input = MagicMock()
+
     # Mock Databricks schema
     mock_databricks_schema = MagicMock()
     mock_databricks_schema.name = "test_schema"
@@ -454,21 +461,76 @@ def test_label_schema_from_databricks_label_schema():
     mock_databricks_schema.title = "Test Schema"
     mock_databricks_schema.instruction = "Test instruction"
     mock_databricks_schema.enable_comment = True
+    mock_databricks_schema.input = mock_databricks_input
 
-    # Mock input with _from_databricks_input method
-    mock_input = MagicMock()
-    mock_input._from_databricks_input.return_value = InputText(max_length=100)
-    mock_databricks_schema.input = mock_input
+    expected_input = InputText(max_length=100)
 
-    result = LabelSchema._from_databricks_label_schema(mock_databricks_schema)
+    with patch("databricks.agents.review_app.label_schemas") as mock_label_schemas:
+        mock_label_schemas.InputText = type(mock_databricks_input)
 
-    assert isinstance(result, LabelSchema)
-    assert result.name == "test_schema"
-    assert result.type == LabelSchemaType.FEEDBACK
-    assert result.title == "Test Schema"
-    assert result.instruction == "Test instruction"
-    assert result.enable_comment is True
-    assert isinstance(result.input, InputText)
+        # Mock the _from_databricks_input method
+        with patch.object(
+            InputText, "_from_databricks_input", return_value=expected_input
+        ) as mock_from_db:
+            result = LabelSchema._from_databricks_label_schema(mock_databricks_schema)
+
+            assert isinstance(result, LabelSchema)
+            assert result.name == "test_schema"
+            assert result.type == LabelSchemaType.FEEDBACK
+            assert result.title == "Test Schema"
+            assert result.instruction == "Test instruction"
+            assert result.enable_comment is True
+            assert result.input == expected_input
+            mock_from_db.assert_called_once_with(mock_databricks_input)
+
+
+def test_convert_databricks_input():
+    """Test _convert_databricks_input converts Databricks input types to MLflow types."""
+
+    # Create a simple mock that can be used as dict key
+    class MockInputTextList:
+        pass
+
+    mock_input = MockInputTextList()
+    expected = InputTextList(max_count=5)
+
+    # Patch the import and the method
+    with patch("databricks.agents.review_app.label_schemas") as mock_schemas:
+        mock_schemas.InputTextList = MockInputTextList
+
+        with patch.object(
+            InputTextList, "_from_databricks_input", return_value=expected
+        ) as mock_from_db:
+            result = LabelSchema._convert_databricks_input(mock_input)
+            assert result == expected
+            mock_from_db.assert_called_once_with(mock_input)
+
+
+def test_convert_databricks_input_unknown_type():
+    """Test _convert_databricks_input raises ValueError for unknown types."""
+    with patch("databricks.agents.review_app.label_schemas"):
+        unknown_input = MagicMock()
+        unknown_input.__class__ = MagicMock()  # Unknown type
+
+        with pytest.raises(ValueError, match="Unknown input type"):
+            LabelSchema._convert_databricks_input(unknown_input)
+
+
+def test_from_databricks_label_schema_uses_convert_input():
+    """Test _from_databricks_label_schema properly converts input via _convert_databricks_input."""
+    mock_schema = MagicMock()
+    mock_schema.name = "test"
+    mock_schema.type = LabelSchemaType.FEEDBACK
+    mock_schema.title = "Test"
+
+    expected_input = InputTextList(max_count=3)
+    with patch.object(
+        LabelSchema, "_convert_databricks_input", return_value=expected_input
+    ) as mock_convert:
+        result = LabelSchema._from_databricks_label_schema(mock_schema)
+
+        assert result.input == expected_input
+        mock_convert.assert_called_once_with(mock_schema.input)
 
 
 # Integration tests

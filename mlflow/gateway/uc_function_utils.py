@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _UC_FUNCTION = "uc_function"
 
 
-def uc_type_to_json_schema_type(uc_type_json: Union[str, dict[str, Any]]) -> dict[str, Any]:
+def uc_type_to_json_schema_type(uc_type_json: str | dict[str, Any]) -> dict[str, Any]:
     """
     Converts the JSON representation of a Unity Catalog data type to the corresponding JSON schema
     type. The conversion is lossy because we do not need to convert it back.
@@ -107,10 +107,10 @@ class FunctionExecutionResult:
     We always use a string to present the result value for AI model to consume.
     """
 
-    error: Optional[str] = None
-    format: Optional[Literal["SCALAR", "CSV"]] = None
-    value: Optional[str] = None
-    truncated: Optional[bool] = None
+    error: str | None = None
+    format: Literal["SCALAR", "CSV"] | None = None
+    value: str | None = None
+    truncated: bool | None = None
 
     def to_json(self) -> str:
         data = {k: v for (k, v) in self.__dict__.items() if v is not None}
@@ -286,7 +286,7 @@ _UC_REGEX = re.compile(
 )
 
 
-def parse_uc_functions(content) -> Optional[ParseResult]:
+def parse_uc_functions(content) -> ParseResult | None:
     tool_calls = []
     tool_messages = []
     for m in _UC_REGEX.finditer(content):

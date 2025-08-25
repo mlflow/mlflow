@@ -161,7 +161,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       />
     );
     return (
-      <PageContainer data-test-id="ModelListView-container" usesFullHeight>
+      <PageContainer data-testid="ModelListView-container" usesFullHeight>
         <div>
           <PageHeader title={title} spacerSize="xs">
             <CreateModelButton />

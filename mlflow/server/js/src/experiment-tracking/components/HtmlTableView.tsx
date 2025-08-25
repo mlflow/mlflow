@@ -20,7 +20,7 @@ export function HtmlTableView({ columns, values, styles = {}, testId, scroll }: 
   return (
     <LegacyTable
       className="mlflow-html-table-view"
-      data-test-id={testId}
+      data-testid={testId}
       dataSource={values}
       columns={columns}
       scroll={scroll}

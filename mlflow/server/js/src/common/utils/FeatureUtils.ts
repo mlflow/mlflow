@@ -2,11 +2,6 @@
  * This file aggregates utility functions for enabling features configured by flags.
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
-/**
- * Disable legacy charts on "compare runs" page in favor of a new chart view
- */
-export const shouldDisableLegacyRunCompareCharts = () => false;
-
 export const shouldEnableExperimentPageAutoRefresh = () => true;
 
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
@@ -48,16 +43,12 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 export const isLoggedModelsFilteringAndSortingEnabled = () => false;
 export const isRunPageLoggedModelsTableEnabled = () => true;
 
-/**
- * Determines if evaluation results online monitoring UI is enabled
- */
-export const isExperimentEvalResultsMonitoringUIEnabled = () => false;
 export const shouldUseRenamedUnifiedTracesTab = () => true;
 
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => true;
+export const shouldEnableGraphQLRunDetailsPage = () => false;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
@@ -113,5 +104,27 @@ export const shouldEnableExperimentPageChildRoutes = () => {
  * A flag determining if we should display the new models UI.
  */
 export const shouldShowModelsNextUI = () => {
+  return true;
+};
+
+export const shouldEnableTracesV3View = () => {
+  return true;
+};
+
+export const shouldEnableTraceInsights = () => {
+  return false;
+};
+
+/**
+ * Total number of traces that will be fetched via mlflow traces 3.0 search api in eval tab
+ */
+export const getEvalTabTotalTracesLimit = () => {
+  return 10000;
+};
+
+/**
+ * Determines if evaluation results online monitoring UI is enabled
+ */
+export const isExperimentEvalResultsMonitoringUIEnabled = () => {
   return true;
 };

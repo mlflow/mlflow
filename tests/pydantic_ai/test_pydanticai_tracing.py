@@ -15,14 +15,23 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from tests.tracing.helper import get_traces
 
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
+# Usage was deprecated in favor of RequestUsage in 0.7.3
+IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
 
 
 def _make_dummy_response_without_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
-    usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
+    if IS_USAGE_DEPRECATED:
+        usage = RequestUsage(input_tokens=1, output_tokens=1)
+    else:
+        usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         return ModelResponse(parts=parts, usage=usage)
     else:
@@ -31,10 +40,18 @@ def _make_dummy_response_without_tool():
 
 
 def _make_dummy_response_with_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     call_parts = [ToolCallPart(tool_name="roulette_wheel", args={"square": 18})]
     final_parts = [TextPart(content=_FINAL_ANSWER_WITH_TOOL)]
-    usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
-    usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
+    if IS_USAGE_DEPRECATED:
+        usage_call = RequestUsage(input_tokens=10, output_tokens=20)
+        usage_final = RequestUsage(input_tokens=100, output_tokens=200)
+    else:
+        usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
+        usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
 
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)

@@ -1,6 +1,5 @@
 import logging
 
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 _logger = logging.getLogger(__name__)
@@ -8,7 +7,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "bedrock"
 
 
-@experimental(version="2.20.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

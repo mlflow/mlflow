@@ -6,7 +6,6 @@ import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -14,7 +13,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 
-@experimental(version="2.18.0")
 def autolog(
     log_traces: bool = True,
     log_traces_from_compile: bool = False,

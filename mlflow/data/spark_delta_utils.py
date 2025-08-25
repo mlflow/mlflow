@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Optional
 
 from mlflow.utils.string_utils import _backtick_quote
 
@@ -46,7 +45,7 @@ def _is_delta_table_path(path: str) -> bool:
         return False
 
 
-def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
+def _try_get_delta_table_latest_version_from_path(path: str) -> int | None:
     """Gets the latest version of the Delta table located at the specified path.
 
     Args:
@@ -73,7 +72,7 @@ def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
         )
 
 
-def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Optional[int]:
+def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> int | None:
     """Gets the latest version of the Delta table with the specified name.
 
     Args:

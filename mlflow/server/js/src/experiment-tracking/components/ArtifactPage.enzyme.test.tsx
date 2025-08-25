@@ -104,6 +104,7 @@ describe('ArtifactPage', () => {
     );
     expect(wrapper.find('ArtifactViewBrowserSkeleton').length).toBe(1);
   });
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should make correct number of API requests if artifact path specified in url', (done) => {
     const mock = jest.fn();
     const props = {

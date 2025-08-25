@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
@@ -13,7 +13,7 @@ from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMe
 _logger = logging.getLogger(__name__)
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     context, chat_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
@@ -63,7 +63,7 @@ class _ChatModelPyfuncWrapper:
         return messages, params
 
     def predict(
-        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """
         Args:
@@ -102,7 +102,7 @@ class _ChatModelPyfuncWrapper:
         return response.to_dict()
 
     def predict_stream(
-        self, model_input: dict[str, Any], params: Optional[dict[str, Any]] = None
+        self, model_input: dict[str, Any], params: dict[str, Any] | None = None
     ) -> Generator[dict[str, Any], None, None]:
         """
         Args:

@@ -7,13 +7,11 @@ from mlflow.gemini.autolog import (
     patched_class_call,
     patched_module_call,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "gemini"
 
 
-@experimental(version="2.19.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

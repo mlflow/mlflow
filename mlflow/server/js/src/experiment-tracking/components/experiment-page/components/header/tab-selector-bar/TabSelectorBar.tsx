@@ -103,7 +103,7 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
             <Link
               css={{ display: 'none' }}
               className="tab-icon-text"
-              key={tabName}
+              key={`${tabName}-text`}
               to={tabConfig.getRoute(experimentId ?? '')}
             >
               <SegmentedControlButton
@@ -115,7 +115,11 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
                 <span>{tabConfig.label}</span>
               </SegmentedControlButton>
             </Link>
-            <Link className="tab-icon-with-tooltip" key={tabName} to={tabConfig.getRoute(experimentId ?? '')}>
+            <Link
+              className="tab-icon-with-tooltip"
+              key={`${tabName}-tooltip`}
+              to={tabConfig.getRoute(experimentId ?? '')}
+            >
               <SegmentedControlButton
                 data-testid={`tab-selector-button-icon-${tabName}-${isActive ? 'active' : 'inactive'}`}
                 className="tab-icon-with-tooltip"

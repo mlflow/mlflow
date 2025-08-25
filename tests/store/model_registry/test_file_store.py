@@ -1814,3 +1814,31 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store):
+    name = "test_model_with_model_id"
+    store.create_registered_model(name)
+
+    mock_run_id = "mock-run-id-123"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+
+    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+
+        mv = store.create_model_version(
+            name=name,
+            source="/absolute/path/to/source",
+            run_id=None,
+            model_id="test-model-id-456",
+        )
+
+        mock_client.get_logged_model.assert_any_call("test-model-id-456")
+
+        assert mv.run_id == mock_run_id
+
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id

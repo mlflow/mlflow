@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -7,6 +8,7 @@ import { shouldEnableSummaryView } from './FeatureUtils';
 import type { ModelTrace } from './ModelTrace.types';
 import { getModelTraceId } from './ModelTraceExplorer.utils';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
+import { ModelTraceExplorerErrorState } from './ModelTraceExplorerErrorState';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import {
   ModelTraceExplorerViewStateProvider,
@@ -14,8 +16,7 @@ import {
 } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
-import type { ModelTraceInfoRefetchContextType } from './trace-context/ModelTraceInfoRefetchContext';
-import { ModelTraceInfoRefetchContext } from './trace-context/ModelTraceInfoRefetchContext';
+import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 
 const ModelTraceExplorerImpl = ({
   modelTrace,
@@ -61,6 +62,9 @@ const ModelTraceExplorerImpl = ({
         overflow: 'hidden',
       }}
     >
+      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+        <ModelTraceHeaderDetails modelTrace={modelTrace} />
+      </div>
       <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
         <Tabs.Trigger value="summary">
           <FormattedMessage
@@ -106,19 +110,8 @@ const ModelTraceExplorerImpl = ({
   );
 };
 
-const ContextProviders = ({
-  refetchContextValue,
-  children,
-}: {
-  traceId: string;
-  refetchContextValue: ModelTraceInfoRefetchContextType;
-  children: React.ReactNode;
-}) => {
-  return (
-    <ModelTraceInfoRefetchContext.Provider value={refetchContextValue}>
-      {children}
-    </ModelTraceInfoRefetchContext.Provider>
-  );
+const ContextProviders = ({ children }: { traceId: string; children: React.ReactNode }) => {
+  return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
 };
 
 export const ModelTraceExplorer = ({
@@ -137,22 +130,21 @@ export const ModelTraceExplorer = ({
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(true);
   const traceId = getModelTraceId(initialModelTrace);
-  const { refetch } = useGetModelTraceInfoV3({
+
+  useGetModelTraceInfoV3({
     traceId,
     setModelTrace,
     setAssessmentsPaneEnabled,
   });
-  const refetchContextValue = useMemo(() => ({ refetchTraceInfo: refetch }), [refetch]);
 
   useEffect(() => {
     setModelTrace(initialModelTrace);
-    refetch();
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [traceId]);
 
   return (
-    <ContextProviders traceId={traceId} refetchContextValue={refetchContextValue}>
+    <ContextProviders traceId={traceId}>
       <ModelTraceExplorerViewStateProvider
         modelTrace={modelTrace}
         initialActiveView={initialActiveView}

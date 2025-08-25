@@ -2,12 +2,11 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
-from clint.index import SymbolIndex
 from clint.linter import Location, lint_file
 from clint.rules.lazy_module import LazyModule
 
 
-def test_lazy_module(index: SymbolIndex, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lazy_module(index_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Create a file that looks like mlflow/__init__.py for the rule to apply
 
     monkeypatch.chdir(tmp_path)
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
 """
     )
     config = Config(select={LazyModule.name})
-    violations = lint_file(tmp_file.relative_to(tmp_path), config, index)
+    violations = lint_file(tmp_file.relative_to(tmp_path), config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, LazyModule) for v in violations)
     assert violations[0].loc == Location(5, 12)  # anthropic LazyLoader

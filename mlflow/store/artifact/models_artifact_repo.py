@@ -2,7 +2,6 @@ import logging
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Optional, Union
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -42,7 +41,7 @@ class ModelsArtifactRepository(ArtifactRepository):
     and uses the artifact repository for that URI.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri, tracking_uri)
@@ -103,7 +102,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         return uri, ""
 
     @staticmethod
-    def _is_logged_model_uri(uri: Union[str, Path]) -> bool:
+    def _is_logged_model_uri(uri: str | Path) -> bool:
         """
         Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
         """

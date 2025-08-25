@@ -1,7 +1,7 @@
 import io
 import json
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 from botocore.client import BaseClient
 from botocore.response import StreamingBody
@@ -61,8 +61,8 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
 
 
 def _parse_usage_from_response(
-    response_data: Union[dict[str, Any], str],
-) -> Optional[dict[str, int]]:
+    response_data: dict[str, Any] | str,
+) -> dict[str, int] | None:
     """Parse token usage from Bedrock API response body.
 
     Args:
@@ -143,7 +143,7 @@ def _buffer_stream(raw_stream: StreamingBody) -> StreamingBody:
     return StreamingBody(buffered_response, raw_stream._content_length)
 
 
-def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dict[str, Any], str]:
+def _parse_invoke_model_response_body(response_body: StreamingBody) -> dict[str, Any] | str:
     content = response_body.read()
     try:
         return json.loads(content)
@@ -167,7 +167,7 @@ def _patched_converse(original, self, *args, **kwargs):
     ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
-        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "bedrock.converse")
+        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "bedrock")
         _set_tool_attributes(span, kwargs)
 
         result = original(self, *args, **kwargs)
@@ -189,7 +189,7 @@ def _patched_converse_stream(original, self, *args, **kwargs):
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
-        attributes={SpanAttributeKey.MESSAGE_FORMAT: "bedrock.converse"},
+        attributes={SpanAttributeKey.MESSAGE_FORMAT: "bedrock"},
     )
     _set_tool_attributes(span, kwargs)
 

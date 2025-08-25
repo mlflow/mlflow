@@ -53,8 +53,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         addressing_style=None,
         s3_endpoint_url=None,
         s3_upload_extra_args=None,
+        tracking_uri=None,
     ):
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri=tracking_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token

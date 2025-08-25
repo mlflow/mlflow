@@ -1,7 +1,6 @@
 import logging
 import re
 from pathlib import Path
-from typing import Union
 
 import click
 from packaging.version import Version
@@ -57,7 +56,7 @@ def replace_dev_or_rc_suffix_with(version, repl):
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: list[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str | re.Pattern, repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:
@@ -82,10 +81,16 @@ def replace_pyproject_toml(new_py_version: str, paths: list[Path]) -> None:
         pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
         repl=f'version = "{new_py_version}"',
     )
+    # Update mlflow-skinny and mlflow-tracing versions to match the new mlflow version.
     replace_occurrences(
         files=paths,
         pattern=re.compile(r"^\s*\"mlflow-skinny==.+\",$", re.MULTILINE),
         repl=f'  "mlflow-skinny=={new_py_version}",',
+    )
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^\s*\"mlflow-tracing==.+\",$", re.MULTILINE),
+        repl=f'  "mlflow-tracing=={new_py_version}",',
     )
 
 

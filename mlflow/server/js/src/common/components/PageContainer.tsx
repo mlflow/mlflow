@@ -34,7 +34,7 @@ PageContainer.defaultProps = {
 
 const styles = {
   useFullHeightLayout: {
-    height: '100%',
+    height: 'calc(100% - 60px)', // 60px comes from header height
     display: 'flex',
     flexDirection: 'column',
     '&:last-child': {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -29,9 +29,9 @@ def traces_to_df(traces: list[Trace]) -> "pandas.DataFrame":
 
 
 def extract_span_inputs_outputs(
-    traces: Union[list["mlflow.entities.Trace"], "pandas.DataFrame"],
+    traces: list["mlflow.entities.Trace"] | "pandas.DataFrame",
     fields: list[str],
-    col_name: Optional[str] = None,
+    col_name: str | None = None,
 ) -> "pandas.DataFrame":
     """
     Extracts the specified input and output fields from the spans contained in the specified traces.
@@ -113,7 +113,7 @@ class _ParsedField(NamedTuple):
 
     span_name: str
     field_type: Literal["inputs", "outputs"]
-    field_name: Optional[str]
+    field_name: str | None
 
     def __str__(self) -> str:
         return (
@@ -140,7 +140,7 @@ class _FieldParser:
     def has_next(self) -> bool:
         return self.peek() is not None
 
-    def consume_until_char_or_end(self, stop_char: Optional[str] = None) -> str:
+    def consume_until_char_or_end(self, stop_char: str | None = None) -> str:
         """
         Consume characters until the specified character is encountered or the end of the
         string. If char is None, consume until the end of the string.
@@ -253,7 +253,7 @@ def _extract_from_traces_pandas_df(
     return df_with_new_fields
 
 
-def _find_matching_value(field: _ParsedField, spans: list["mlflow.entities.Span"]) -> Optional[Any]:
+def _find_matching_value(field: _ParsedField, spans: list["mlflow.entities.Span"]) -> Any | None:
     """
     Find the value of the field in the list of spans. If the field is not found, return None.
     """
@@ -270,7 +270,7 @@ def _find_matching_value(field: _ParsedField, spans: list["mlflow.entities.Span"
 
 
 def _extract_spans_from_row(
-    row_content: Optional[list[dict[str, Any]]],
+    row_content: list[dict[str, Any]] | None,
 ) -> list["mlflow.entities.Span"]:
     """
     Parses and extracts MLflow Spans from the row content of a traces pandas DataFrame.

@@ -39,7 +39,7 @@ export const JsonPreview: React.FC<JsonPreviewProps> = ({ json, wrapperStyle, ov
           <CodeSnippet language="json" style={{ ...defaultCodeSnippetStyle, ...codeSnippetStyle }}>
             {formattedJson}
           </CodeSnippet>
-          <div css={{ ...defaultOverlayStyle, ...overlayStyle }}></div>
+          <div css={{ ...defaultOverlayStyle, ...overlayStyle }} />
         </>
       ) : (
         <>{json}</>

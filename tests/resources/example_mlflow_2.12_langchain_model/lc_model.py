@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -27,8 +27,8 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
         def _generate(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> ChatResult:
             response = {

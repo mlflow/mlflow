@@ -23,8 +23,8 @@ def create_test_source_json(table_name: str = "main.default.testtable") -> str:
 def create_mock_managed_dataset(source_value: Any) -> Mock:
     """Create a mock Databricks Agent Evaluation ManagedDataset for testing"""
     mock_dataset = Mock()
-    mock_dataset.dataset_id = "test-dataset-id"
-    mock_dataset.name = "catalog.schema.table"
+    mock_dataset.dataset_id = getattr(source_value, "dataset_id", "test-dataset-id")
+    mock_dataset.name = getattr(source_value, "_table_name", "catalog.schema.table")
     mock_dataset.digest = "test-digest"
     mock_dataset.schema = "test-schema"
     mock_dataset.profile = "test-profile"
@@ -89,20 +89,22 @@ def test_evaluation_dataset_source_with_none():
     assert dataset.source.dataset_id == "test-dataset-id"
 
 
-def test_evaluation_dataset_source_with_existing_dataset_source():
+def test_evaluation_dataset_source_always_returns_databricks_evaluation_dataset_source():
     existing_source = DatabricksEvaluationDatasetSource(
         table_name="existing.table", dataset_id="existing-id"
     )
     dataset = create_dataset_with_source(existing_source)
 
-    assert dataset.source is existing_source
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "existing.table"
+    assert dataset.source.dataset_id == "existing-id"
 
-
-def test_evaluation_dataset_source_with_spark_dataset_source():
     spark_source = SparkDatasetSource(table_name="spark.table")
     dataset = create_dataset_with_source(spark_source)
 
-    assert dataset.source is spark_source
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "spark.table"
+    assert dataset.source.dataset_id == "test-dataset-id"
 
 
 def test_evaluation_dataset_to_df(mock_managed_dataset):
@@ -136,7 +138,7 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     dataset = create_dataset_with_source(existing_source)
 
     entity = dataset._to_mlflow_entity()
-    assert entity.name == "catalog.schema.table"
+    assert entity.name == "existing.table"
     assert entity.digest == "test-digest"
     assert entity.source_type == "databricks-uc-table"
 

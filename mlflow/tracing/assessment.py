@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.entities.assessment import (
     DEFAULT_FEEDBACK_NAME,
@@ -135,9 +135,9 @@ def log_expectation(
     trace_id: str,
     name: str,
     value: Any,
-    source: Optional[AssessmentSource] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    span_id: Optional[str] = None,
+    source: AssessmentSource | None = None,
+    metadata: dict[str, Any] | None = None,
+    span_id: str | None = None,
 ) -> Assessment:
     """
     Logs an expectation (e.g. ground truth label) to a Trace. This API only takes keyword arguments.
@@ -259,12 +259,12 @@ def log_feedback(
     *,
     trace_id: str,
     name: str = DEFAULT_FEEDBACK_NAME,
-    value: Optional[FeedbackValueType] = None,
-    source: Optional[AssessmentSource] = None,
-    error: Optional[Union[Exception, AssessmentError]] = None,
-    rationale: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    span_id: Optional[str] = None,
+    value: FeedbackValueType | None = None,
+    source: AssessmentSource | None = None,
+    error: Exception | AssessmentError | None = None,
+    rationale: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    span_id: str | None = None,
 ) -> Assessment:
     """
     Logs feedback to a Trace. This API only takes keyword arguments.
@@ -339,9 +339,9 @@ def override_feedback(
     trace_id: str,
     assessment_id: str,
     value: FeedbackValueType,
-    rationale: Optional[str] = None,
-    source: Optional[AssessmentSource] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    rationale: str | None = None,
+    source: AssessmentSource | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> Assessment:
     """
     Overrides an existing feedback assessment with a new assessment. This API

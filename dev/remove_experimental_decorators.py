@@ -10,7 +10,6 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 from urllib.request import urlopen
 
 
@@ -93,7 +92,7 @@ def find_experimental_decorators(
     return decorators
 
 
-def _extract_version_from_ast_decorator(decorator: ast.Call) -> Optional[str]:
+def _extract_version_from_ast_decorator(decorator: ast.Call) -> str | None:
     """Extract version string from AST decorator node."""
     for keyword in decorator.keywords:
         if keyword.arg == "version" and isinstance(keyword.value, ast.Constant):

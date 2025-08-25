@@ -15,11 +15,21 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
+
   - repo: local
     hooks:
+      - id: normalize-chars
+        name: normalize-chars
+        entry: python dev/normalize_chars.py
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: '^mlflow/server/js/|^docs/api_reference/source/R-api\.rst$'
+        require_serial: true
+
       - id: ruff
         name: ruff
         entry: python dev/ruff.py
@@ -34,6 +44,13 @@ repos:
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
+        require_serial: true
+
+      - id: mypy
+        name: mypy
+        language: system
+        files: '^dev/clint/.*\.py$'
+        entry: mypy
         require_serial: true
 
       - id: taplo
@@ -73,42 +90,6 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
-
-      - id: generate-skinny-requirements
-        name: generate-skinny-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/skinny-requirements.yaml
-            --requirements-txt-output-location requirements/skinny-requirements.txt
-        files: "^requirements/skinny-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: generate-core-requirements
-        name: generate-core-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/core-requirements.yaml
-            --requirements-txt-output-location requirements/core-requirements.txt
-        files: "^requirements/core-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: generate-gateway-requirements
-        name: generate-gateway-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/gateway-requirements.yaml
-            --requirements-txt-output-location requirements/gateway-requirements.txt
-        files: "^requirements/gateway-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
 
       - id: pyproject
         name: pyproject

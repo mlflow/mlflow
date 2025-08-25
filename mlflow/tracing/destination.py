@@ -1,8 +1,32 @@
+from __future__ import annotations
+
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
+
+
+class UserTraceDestinationRegistry:
+    def __init__(self):
+        self._global_value = None
+        self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
+
+    def get(self) -> TraceDestination | None:
+        """First check the context-local value, then the global value."""
+        if local_destination := self._context_local_value.get():
+            return local_destination
+        return self._global_value
+
+    def set(self, value, context_local: bool = False):
+        if context_local:
+            self._context_local_value.set(value)
+        else:
+            self._global_value = value
+
+    def reset(self):
+        self._global_value = None
+        self._context_local_value.set(None)
 
 
 @experimental(version="2.21.0")
@@ -28,12 +52,9 @@ class MlflowExperiment(TraceDestination):
     Attributes:
         experiment_id: The ID of the experiment to log traces to. If not specified,
             the current active experiment will be used.
-        tracking_uri: The tracking URI of the MLflow server to log traces to.
-            If not specified, the current tracking URI will be used.
     """
 
-    experiment_id: Optional[str] = None
-    tracking_uri: Optional[str] = None
+    experiment_id: str | None = None
 
     @property
     def type(self) -> str:
@@ -58,8 +79,8 @@ class Databricks(TraceDestination):
         experiment_name: The name of the experiment to log traces to.
     """
 
-    experiment_id: Optional[str] = None
-    experiment_name: Optional[str] = None
+    experiment_id: str | None = None
+    experiment_name: str | None = None
 
     def __post_init__(self):
         if self.experiment_id is not None:

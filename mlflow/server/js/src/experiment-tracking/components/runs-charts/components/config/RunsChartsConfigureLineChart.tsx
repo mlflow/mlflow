@@ -8,7 +8,7 @@ import {
   ThemeType,
   SegmentedControlGroup,
   SegmentedControlButton,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   FormUI,
   Typography,
@@ -759,7 +759,7 @@ export const RunsChartsConfigureLineChart = ({
                 />
               }
             >
-              <InfoIcon />
+              <InfoSmallIcon />
             </LegacyTooltip>
           </SegmentedControlButton>
           <SegmentedControlButton

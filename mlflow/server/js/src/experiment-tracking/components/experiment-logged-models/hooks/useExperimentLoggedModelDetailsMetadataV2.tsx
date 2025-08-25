@@ -6,7 +6,7 @@ import { ExperimentLoggedModelStatusIndicator } from '../ExperimentLoggedModelSt
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { KeyValueProperty, NoneCell, SecondarySections } from '@databricks/web-shared/utils';
+import { KeyValueProperty, NoneCell, AsideSections } from '@databricks/web-shared/utils';
 import { ExperimentLoggedModelSourceBox } from '../ExperimentLoggedModelSourceBox';
 import { ExperimentLoggedModelAllDatasetsList } from '../ExperimentLoggedModelAllDatasetsList';
 import { ExperimentLoggedModelDetailsModelVersionsList } from '../ExperimentLoggedModelDetailsModelVersionsList';
@@ -26,7 +26,7 @@ export const useExperimentLoggedModelDetailsMetadataV2 = ({
   loggedModel?: LoggedModelProto;
   relatedRunsLoading?: boolean;
   relatedSourceRun?: RunEntity;
-}): SecondarySections => {
+}): AsideSections => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 

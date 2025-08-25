@@ -19,7 +19,7 @@ class ImplicitOptional(Rule):
         )
 
     @staticmethod
-    def _is_optional(ann: ast.AST) -> bool:
+    def _is_optional(ann: ast.expr) -> bool:
         """
         Returns True if `ann` looks like `Optional[...]`.
         """
@@ -30,7 +30,7 @@ class ImplicitOptional(Rule):
         )
 
     @staticmethod
-    def _is_bitor_none(ann: ast.AST) -> bool:
+    def _is_bitor_none(ann: ast.expr) -> bool:
         """
         Returns True if `ann` looks like `... | None`.
         """
@@ -41,7 +41,7 @@ class ImplicitOptional(Rule):
         )
 
     @staticmethod
-    def _is_none(value: ast.AnnAssign) -> bool:
+    def _is_none(value: ast.expr | None) -> bool:
         """
         Returns True if `value` represents `None`.
         """

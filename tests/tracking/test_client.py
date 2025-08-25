@@ -386,7 +386,7 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, monkeypatch):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2386,6 +2386,10 @@ def test_load_prompt_with_alias_uri(tracking_uri):
         MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
     ):
         client.load_prompt("prompts:/alias_prompt@production")
+
+    # Loading with the 'latest' alias
+    prompt = client.load_prompt("prompts:/alias_prompt@latest")
+    assert prompt.template == "Hello, {{name}}!"
 
 
 def test_create_prompt_chat_format_client_integration():

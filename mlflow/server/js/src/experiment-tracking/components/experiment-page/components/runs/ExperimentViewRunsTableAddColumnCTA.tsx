@@ -224,11 +224,8 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
             <PlusCircleIcon css={styles.buttonIcon} />
             <div css={styles.caption}>
               <FormattedMessage
-                defaultMessage="Show more columns {count, select, 0 {} other {({count} total)}}"
+                defaultMessage="Show more columns"
                 description="Label for a CTA button in experiment runs table which invokes column management dropdown"
-                values={{
-                  count: moreAvailableRunsTableColumnCount,
-                }}
               />
             </div>
           </Button>

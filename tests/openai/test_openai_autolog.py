@@ -126,7 +126,7 @@ async def test_chat_completions_autolog(client):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai.chat.completions"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -378,7 +378,7 @@ async def test_completions_autolog(client):
     assert span.span_type == SpanType.LLM
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai.completions"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 

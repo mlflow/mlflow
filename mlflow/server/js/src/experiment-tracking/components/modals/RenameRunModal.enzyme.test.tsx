@@ -33,7 +33,8 @@ describe('RenameRunModal', () => {
     expect(wrapper.find(GenericInputModal).length).toBe(1);
   });
 
-  test('test handleRenameRun closes modal in both success & failure cases', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameRun closes modal in both success & failure cases', (done) => {
     const values = { newName: 'renamed' };
     const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
     promise.finally(() => {

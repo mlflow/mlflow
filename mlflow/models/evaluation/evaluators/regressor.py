@@ -30,7 +30,7 @@ class RegressorEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         self.y_true = self.dataset.labels_data
         self.sample_weights = self.evaluator_config.get("sample_weights", None)
 

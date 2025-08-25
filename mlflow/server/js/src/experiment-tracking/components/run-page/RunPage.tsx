@@ -32,6 +32,7 @@ import { RunViewTracesTab } from './RunViewTracesTab';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
+import { RunViewEvaluationsTab } from '../evaluations/RunViewEvaluationsTab';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -158,7 +159,14 @@ export const RunPage = () => {
           />
         );
       case RunPageTabName.TRACES:
-        return <RunViewTracesTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
+        return (
+          <RunViewEvaluationsTab
+            runUuid={runUuid}
+            runTags={tags}
+            experimentId={experimentId}
+            runDisplayName={Utils.getRunDisplayName(runInfo, runUuid)}
+          />
+        );
     }
 
     return (

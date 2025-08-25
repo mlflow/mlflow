@@ -129,7 +129,7 @@ class ShowArtifactMapView extends Component<Props, State> {
             ref={(ref) => {
               this.mapRef = ref;
             }}
-          ></div>
+          />
         </div>
       );
     }

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { LucideIcon } from 'lucide-react';
 import styles from './styles.module.css';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import ThemedImage from '@theme/ThemedImage';
 
 export interface TileCardProps {
   /**
@@ -14,6 +15,18 @@ export interface TileCardProps {
    * The image source to display at the top of the card (optional if icon is provided)
    */
   image?: string;
+  /**
+   * The dark mode image source (optional, defaults to image if not provided)
+   */
+  imageDark?: string;
+  /**
+   * The width of the image in pixels (optional)
+   */
+  imageWidth?: number;
+  /**
+   * The height of the image in pixels (optional)
+   */
+  imageHeight?: number;
   /**
    * The size of the icon (default: 32) - only used when icon is provided
    */
@@ -50,6 +63,9 @@ export interface TileCardProps {
 export default function TileCard({
   icon: Icon,
   image,
+  imageDark,
+  imageWidth,
+  imageHeight,
   iconSize = 32,
   containerHeight,
   title,
@@ -64,11 +80,28 @@ export default function TileCard({
   }
 
   const containerStyle = containerHeight ? { height: `${containerHeight}px` } : {};
+  const imageStyle: React.CSSProperties = {};
+  if (imageWidth) imageStyle.width = `${imageWidth}px`;
+  if (imageHeight) imageStyle.height = `${imageHeight}px`;
 
   return (
     <Link href={href} className={clsx(styles.tileCard, className)}>
       <div className={styles.tileIcon} style={containerStyle}>
-        {Icon ? <Icon size={iconSize} /> : <img src={useBaseUrl(image)} alt={title} className={styles.tileImage} />}
+        {Icon ? (
+          <Icon size={iconSize} />
+        ) : imageDark ? (
+          <ThemedImage
+            sources={{
+              light: useBaseUrl(image),
+              dark: useBaseUrl(imageDark),
+            }}
+            alt={title}
+            className={styles.tileImage}
+            style={imageStyle}
+          />
+        ) : (
+          <img src={useBaseUrl(image)} alt={title} className={styles.tileImage} style={imageStyle} />
+        )}
       </div>
       <h3>{title}</h3>
       <p>{description}</p>

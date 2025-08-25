@@ -155,7 +155,7 @@ export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
           bottom: 0,
           backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
         }}
-      ></div>
+      />
     </div>
   );
 });

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.gateway.base_models import ResponseModel
 from mlflow.gateway.config import Limit, RouteModelInfo
 
@@ -9,7 +7,7 @@ class Endpoint(ResponseModel):
     endpoint_type: str
     model: RouteModelInfo
     endpoint_url: str
-    limit: Optional[Limit]
+    limit: Limit | None
 
     class Config:
         schema_extra = {

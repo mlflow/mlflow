@@ -232,6 +232,7 @@ def main(prev_version, release_version, remote):
     )
 
     unknown_labels = set(label_to_prs.keys()) - {
+        "rn/highlight",
         "rn/feature",
         "rn/breaking-change",
         "rn/bug-fix",
@@ -241,6 +242,7 @@ def main(prev_version, release_version, remote):
     assert len(unknown_labels) == 0, f"Unknown labels: {unknown_labels}"
 
     breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking-change", []))
+    highlights = Section("Major new features:", label_to_prs.get("rn/highlight", []))
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))
@@ -257,6 +259,7 @@ def main(prev_version, release_version, remote):
                 get_header_for_version(release_version),
                 f"MLflow {release_version} includes several major features and improvements",
                 breaking_changes,
+                highlights,
                 features,
                 bug_fixes,
                 doc_updates,

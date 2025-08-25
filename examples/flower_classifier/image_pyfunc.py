@@ -7,7 +7,7 @@ import base64
 import importlib.metadata
 import os
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 
 import keras
 import numpy as np
@@ -62,7 +62,7 @@ class KerasImageClassifierPyfunc:
     def predict(
         self,
         input,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Generate predictions for the data.

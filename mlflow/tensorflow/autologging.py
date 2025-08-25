@@ -1,5 +1,3 @@
-from typing import Union
-
 import numpy as np
 import tensorflow
 from tensorflow.keras.callbacks import TensorBoard
@@ -15,7 +13,7 @@ class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
 
 
 def _extract_input_example_from_tensor_or_ndarray(
-    input_features: Union[tensorflow.Tensor, np.ndarray],
+    input_features: tensorflow.Tensor | np.ndarray,
 ) -> np.ndarray:
     """
     Extracts first `INPUT_EXAMPLE_SAMPLE_ROWS` from the next_input, which can either be of
@@ -52,7 +50,7 @@ def _extract_input_example_from_tensor_or_ndarray(
 
 def _extract_sample_numpy_dict(
     input_numpy_features_dict: dict[str, np.ndarray],
-) -> Union[dict[str, np.ndarray], np.ndarray]:
+) -> dict[str, np.ndarray] | np.ndarray:
     """
     Extracts `INPUT_EXAMPLE_SAMPLE_ROWS` sample from next_input
     as numpy array of dict(str -> ndarray) type.
@@ -83,7 +81,7 @@ def _extract_sample_numpy_dict(
 
 def _extract_input_example_from_batched_tf_dataset(
     dataset: tensorflow.data.Dataset,
-) -> Union[np.ndarray, dict[str, np.ndarray]]:
+) -> np.ndarray | dict[str, np.ndarray]:
     """
     Extracts sample feature tensors from the input dataset as numpy array.
     Input Dataset's tensors must contain tuple of (features, labels) that are

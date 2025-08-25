@@ -26,13 +26,13 @@ export const ExperimentViewDatasetSchemaTable = ({
     return (
       <FormattedMessage
         defaultMessage="Name"
-        description={'Header for "name" column in the experiment run dataset schema'}
+        description='Header for "name" column in the experiment run dataset schema'
       />
     );
   };
 
   const getTypeHeader = () => {
-    return <FormattedMessage defaultMessage="Type" description={'Header for "type" column in the UC table schema'} />;
+    return <FormattedMessage defaultMessage="Type" description='Header for "type" column in the UC table schema' />;
   };
 
   return (

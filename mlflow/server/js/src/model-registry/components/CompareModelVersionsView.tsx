@@ -153,12 +153,14 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     const breadcrumbs = [
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 

@@ -5,7 +5,7 @@ import {
   Operation,
   createHttpLink,
 } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-import { RetryLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { RetryLink, DefaultHeadersLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];
@@ -46,10 +46,16 @@ export function createApolloClient() {
     attempts: { retryIf: (_, op) => !containsMutation(op) },
   });
 
+  const defaultHeadersLink = new DefaultHeadersLink({
+    cookieStr: document.cookie,
+  });
+
   // eslint-disable-next-line prefer-const
   let combinedLinks = ApolloLink.from([
     // This link retries queries that fail due to network errors
     retryLink,
+    // This link adds application-specific headers to HTTP requests (e.g., CSRF tokens)
+    defaultHeadersLink,
     httpLink,
   ]);
 

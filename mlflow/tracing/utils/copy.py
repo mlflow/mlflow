@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.span import LiveSpan, Span
 from mlflow.exceptions import MlflowException
@@ -6,9 +6,7 @@ from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
-def copy_trace_to_experiment(
-    trace_dict: dict[str, Any], experiment_id: Optional[str] = None
-) -> str:
+def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | None = None) -> str:
     """
     Copy the given trace to the current experiment.
     The copied trace will have a new trace ID and location metadata.

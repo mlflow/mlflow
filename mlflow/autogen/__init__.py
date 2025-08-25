@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -8,7 +8,6 @@ from mlflow.autogen.chat import log_tools
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -19,7 +18,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "autogen"
 
 
-@experimental(version="2.16.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -123,7 +121,7 @@ def _get_all_subclasses(cls):
     return all_subclasses
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         usage = getattr(output, "usage", None)
         if usage:

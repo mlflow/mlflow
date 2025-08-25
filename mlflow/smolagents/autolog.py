@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
@@ -138,7 +138,7 @@ def _get_model_attributes(instance):
     return model
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if isinstance(output, dict) and "raw" in output:
             output = output["raw"]

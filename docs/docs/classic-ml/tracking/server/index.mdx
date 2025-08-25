@@ -27,14 +27,10 @@ mlflow server --host 127.0.0.1 --port 8080
 Once the server starts running, you should see the following output:
 
 ```
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Starting gunicorn 20.1.0
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Listening at: http://127.0.0.1:8080 (28550)
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Using worker: sync
-[2023-11-01 10:28:12 +0900] [28552] [INFO] Booting worker with pid: 28552
-[2023-11-01 10:28:12 +0900] [28553] [INFO] Booting worker with pid: 28553
-[2023-11-01 10:28:12 +0900] [28555] [INFO] Booting worker with pid: 28555
-[2023-11-01 10:28:12 +0900] [28558] [INFO] Booting worker with pid: 28558
-...
+INFO:     Started server process [28550]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
 ```
 
 There are many options to configure the server, refer to [Configure Server](#configure-server) for more details.
@@ -343,7 +339,7 @@ But reject sources like:
 
 ## Handling timeout when uploading/downloading large artifacts
 
-When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit (30 seconds by default), the server will restart the worker process, resulting in a request failure on the client side.
+When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit, the server will terminate the request, resulting in a request failure on the client side.
 
 Example client code:
 
@@ -375,19 +371,25 @@ During handling of the above exception, another exception occurred:
 Tracking server logs:
 
 ```bash
-[2025-01-10 11:59:00 +0000] [82] [INFO] Starting gunicorn 20.1.0
-[2025-01-10 11:59:00 +0000] [82] [DEBUG] Arbiter booted
-[2025-01-10 11:59:00 +0000] [82] [INFO] Listening at: http://0.0.0.0:5000 (82)
+INFO:     Started server process [82]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
 ...
-[2025-01-10 11:59:01 +0000] [82] [CRITICAL] WORKER TIMEOUT (pid:86)
-[2025-01-10 11:59:01 +0000] [86] [INFO] Worker exiting (pid: 86)
-[2025-01-10 11:59:01 +0000] [179] [INFO] Booting worker with pid: 179
+WARNING:  Request timeout exceeded
+ERROR:    Exception in ASGI application
 ```
 
-To mitigate this issue, the timeout length can be increased by using the `--gunicorn-opts` option when starting the server as shown below:
+To mitigate this issue, the timeout length can be increased by using the `--uvicorn-opts` option when starting the server as shown below:
 
 ```bash
-mlflow server --gunicorn-opts "--timeout=60" ...
+mlflow server --uvicorn-opts "--timeout-keep-alive=120" ...
 ```
 
-See [timeout](https://docs.gunicorn.org/en/stable/settings.html#timeout) in the Gunicorn documentation.
+For users still using gunicorn (via `--gunicorn-opts`), the equivalent command would be:
+
+```bash
+mlflow server --gunicorn-opts "--timeout=120" ...
+```
+
+See the [uvicorn settings documentation](https://www.uvicorn.org/settings/) for more configuration options.

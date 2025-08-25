@@ -319,8 +319,7 @@ def test_log_batch_with_many_elements():
 
 
 def test_log_metric():
-    with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+    with start_run() as active_run, mock.patch("time.time", return_value=123):
         run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)

@@ -2,7 +2,6 @@
 
 import logging
 import threading
-from typing import Optional
 
 from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_NODE_ID,
@@ -181,7 +180,7 @@ class SystemMetricsMonitor:
             _logger.error(f"Error terminating system metrics monitoring process: {e}.")
         self._process = None
 
-    def _initialize_gpu_monitor(self) -> Optional[BaseMetricsMonitor]:
+    def _initialize_gpu_monitor(self) -> BaseMetricsMonitor | None:
         # NVIDIA GPU
         try:
             return GPUMonitor()

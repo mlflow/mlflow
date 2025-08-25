@@ -3320,7 +3320,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -4085,17 +4085,18 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
             {
                 "inputs": ["words random", "This is a sentence."],
                 "ground_truth": ["words random", "This is a sentence."],
+                "custom_column": ["test", "test"],
             }
         )
         custom_metric = make_genai_metric_from_prompt(
             name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
+            judge_prompt="This is a custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.0},
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
-            judge_prompt="This is another custom judge prompt.",
+            judge_prompt="This is another custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.7},
         )

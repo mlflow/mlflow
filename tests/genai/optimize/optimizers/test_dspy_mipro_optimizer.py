@@ -1,6 +1,6 @@
 import sys
 from contextlib import nullcontext
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -9,11 +9,9 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 import mlflow
 from mlflow import register_prompt
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
-from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
+from mlflow.genai.optimize.types import LLMParams, OptimizerConfig, OptimizerOutput
 from mlflow.genai.scorers import scorer
 
 
@@ -100,25 +98,25 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
             ),
             False,
             {"lm": True},
-            {1: {"full_eval_score": 0.0}},
+            {1: {"full_eval_score": 0.5}},
         ),
         (
             OptimizerConfig(num_instruction_candidates=4),
             False,
             {},
-            {1: {"full_eval_score": 0.0}},
+            {1: {"full_eval_score": 0.5}},
         ),
         (
             OptimizerConfig(),
             True,
             {},
-            {1: {"full_eval_score": 0.0}},
+            {1: {"full_eval_score": 0.5}},
         ),
         (
             OptimizerConfig(),
             True,
             {},
-            {-1: {"full_eval_score": 0.0}},
+            {-1: {"full_eval_score": 0.5}},
         ),
         (
             OptimizerConfig(),
@@ -172,9 +170,10 @@ def test_optimize_scenarios(
         assert kwargs["teacher_settings"] == {}
 
     # Verify optimization result
-    assert isinstance(result, PromptVersion)
-    assert result.version == 2
-    assert result.tags["overall_eval_score"] == "1.0"
+    assert isinstance(result, OptimizerOutput)
+    assert result.final_eval_score == optimized_program.score
+    assert result.initial_eval_score == initial_score
+    assert result.optimizer_name == "DSPy/MIPROv2"
 
     # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]
@@ -191,95 +190,7 @@ def test_optimize_scenarios(
     if initial_score == 1.0 == optimized_program.score:
         assert "Optimization complete! Score remained stable at: 1.0" in captured.err
     else:
-        assert "Optimization complete! Initial score: 0.0. Final score: 1.0" in captured.err
-
-
-def test_convert_to_dspy_metric():
-    import dspy
-
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-    def objective(scores):
-        return 2 * scores["sample_scorer"]
-
-    metric = optimizer._convert_to_dspy_metric(
-        input_fields={"input_text": str, "language": str},
-        output_fields={"translation": str},
-        scorers=[sample_scorer],
-        objective=objective,
-    )
-
-    pred = dspy.Example(translation="Hola")
-    gold = dspy.Example(translation="Hola")
-    state = None
-
-    assert metric(pred, gold, state) == 2.0
-
-
-def test_convert_to_dspy_metric_raises_on_non_numeric_score():
-    import dspy
-
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-    @scorer
-    def non_numeric_scorer(inputs, outputs, expectations):
-        return "good"
-
-    metric = optimizer._convert_to_dspy_metric(
-        input_fields={"input_text": str, "language": str},
-        output_fields={"translation": str},
-        scorers=[non_numeric_scorer],
-        objective=None,
-    )
-
-    with pytest.raises(
-        MlflowException,
-        match=r"Scorer \[non_numeric_scorer\] return a string, Assessment or a list of Assessment.",
-    ):
-        metric(
-            dspy.Example(input_text="Hello", language="Spanish"),
-            dspy.Example(translation="Hola"),
-            None,
-        )
-
-
-def test_optimize_prompt_with_old_dspy_version():
-    with patch("importlib.metadata.version", return_value="2.5.0"):
-        with pytest.raises(MlflowException, match="Current dspy version 2.5.0 is unsupported"):
-            _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-
-def test_validate_input_fields_with_missing_variables():
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-    prompt = PromptVersion(
-        name="test_prompt",
-        template="Translate {{text}} to {{language}} and explain in {{style}}",
-        version=1,
-    )
-    input_fields = {"text": str, "language": str}  # Missing 'style' variable
-
-    with pytest.raises(
-        MlflowException,
-        match=r"Validation failed. Missing prompt variables in dataset: {'style'}",
-    ):
-        optimizer._validate_input_fields(input_fields, prompt)
-
-
-def test_extract_instructions():
-    import dspy
-
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-    mock_lm = MagicMock(spec=dspy.LM)
-    template = "Translate {{text}} to {{language}}"
-
-    with patch(
-        "dspy.Predict.forward", return_value=dspy.Prediction(instruction="extracted system message")
-    ) as mock_forward:
-        result = optimizer._extract_instructions(template, mock_lm)
-
-    mock_forward.assert_called_once_with(prompt=template)
-
-    assert result == "extracted system message"
+        assert "Optimization complete! Initial score: 0.5. Final score: 1.0" in captured.err
 
 
 @pytest.mark.parametrize(
@@ -363,33 +274,5 @@ def test_optimize_with_autolog(
     if autolog:
         assert len(callbacks) == 1
         assert isinstance(callbacks[0], _DSPyMIPROv2Callback)
-        run = mlflow.last_active_run()
-        assert run is not None
-        assert run.data.metrics["final_eval_score"] == 1.0
-        assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
     else:
         assert len(callbacks) == 0
-
-
-def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_extractor):
-    import dspy
-
-    optimized_program = dspy.Predict("input_text, language -> translation")
-    optimized_program.score = 1.0
-    mock_mipro.return_value.compile.return_value = optimized_program
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-    with patch(
-        "mlflow.genai.optimize.optimizers.dspy_mipro_optimizer.register_prompt",
-        wraps=register_prompt,
-    ) as spy_register:
-        optimizer.optimize(
-            prompt=sample_prompt,
-            target_llm_params=LLMParams(model_name="agent/model"),
-            train_data=sample_data,
-            scorers=[sample_scorer],
-        )
-    assert spy_register.called
-    _, kwargs = spy_register.call_args
-    assert kwargs["tags"]["overall_eval_score"] == "1.0"
-    assert kwargs["name"] == "test_prompt"

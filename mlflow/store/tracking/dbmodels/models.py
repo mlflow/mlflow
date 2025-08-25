@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -1271,3 +1272,248 @@ class SqlLoggedModelTag(Base):
 
     def to_mlflow_entity(self) -> LoggedModelTag:
         return LoggedModelTag(key=self.tag_key, value=self.tag_value)
+
+
+class SqlSpan(Base):
+    __tablename__ = "spans"
+
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite primary key.
+    Foreign key to trace_info table.
+    """
+
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. Foreign key to experiments table.
+    """
+
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite primary key.
+    """
+
+    parent_span_id = Column(String(50), nullable=True)
+    """
+    Parent span ID: `String` (limit 50 characters). Can be null for root spans.
+    """
+
+    name = Column(Text, nullable=True)
+    """
+    Span name: `Text`. Can be null.
+    """
+
+    type = Column(String(500), nullable=True)
+    """
+    Span type: `String` (limit 500 characters). Can be null.
+    Uses String instead of Text to support MSSQL indexes.
+    Limited to 500 chars to stay within MySQL's max index key length.
+    """
+
+    status = Column(String(50), nullable=False)
+    """
+    Span status: `String` (limit 50 characters).
+    """
+
+    start_time_unix_nano = Column(BigInteger, nullable=False)
+    """
+    Start time in nanoseconds since Unix epoch: `BigInteger`.
+    """
+
+    end_time_unix_nano = Column(BigInteger, nullable=True)
+    """
+    End time in nanoseconds since Unix epoch: `BigInteger`. Can be null if span is in progress.
+    """
+
+    duration_ns = Column(
+        BigInteger,
+        Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
+        nullable=True,
+    )
+    """
+    Duration in nanoseconds: `BigInteger`. Computed from end_time - start_time.
+    Stored as a persisted/stored generated column for efficient filtering.
+    Will be NULL for in-progress spans (where end_time is NULL).
+    """
+
+    content = Column(Text, nullable=False)
+    """
+    Full span content as JSON: `Text`.
+    Uses LONGTEXT in MySQL to support large spans (up to 4GB).
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        Index("index_spans_experiment_id", "experiment_id"),
+        # Two indexes needed to support both filter patterns efficiently:
+        Index(
+            "index_spans_experiment_id_status_type", "experiment_id", "status", "type"
+        ),  # For status-only and status+type filters
+        Index(
+            "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
+        ),  # For type-only and type+status filters
+        Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
+    )
+
+
+class SqlEntityAssociation(Base):
+    """
+    DB model for entity associations.
+    """
+
+    __tablename__ = "entity_associations"
+
+    association_id = Column(String(36), nullable=False)
+    """
+    Association ID: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(36), nullable=False)
+    """
+    Source entity type: `String` (limit 36 characters).
+    """
+
+    source_id = Column(String(36), nullable=False)
+    """
+    Source entity ID: `String` (limit 36 characters).
+    """
+
+    destination_type = Column(String(36), nullable=False)
+    """
+    Destination entity type: `String` (limit 36 characters).
+    """
+
+    destination_id = Column(String(36), nullable=False)
+    """
+    Destination entity ID: `String` (limit 36 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_type",
+            "source_id",
+            "destination_type",
+            "destination_id",
+            name="entity_associations_pk",
+        ),
+        Index("index_entity_associations_association_id", "association_id"),
+        Index(
+            "index_entity_associations_reverse_lookup",
+            "destination_type",
+            "destination_id",
+            "source_type",
+            "source_id",
+        ),
+    )
+
+
+class SqlScorer(Base):
+    """
+    DB model for storing scorer information. These are recorded in ``scorers`` table.
+    """
+
+    __tablename__ = "scorers"
+
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID to which this scorer belongs: *Foreign Key* into ``experiments`` table.
+    """
+    scorer_name = Column(String(256), nullable=False)
+    """
+    Scorer name: `String` (limit 256 characters). Part of *Primary Key* for ``scorers`` table.
+    """
+    scorer_id = Column(String(36), nullable=False)
+    """
+    Scorer ID: `String` (limit 36 characters). Unique identifier for the scorer.
+    """
+
+    experiment = relationship("SqlExperiment", backref=backref("scorers", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
+        Index(
+            f"index_{__tablename__}_experiment_id_scorer_name",
+            "experiment_id",
+            "scorer_name",
+            unique=True,
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_id})>"
+
+
+class SqlScorerVersion(Base):
+    """
+    DB model for storing scorer version information. These are recorded in
+    ``scorer_versions`` table.
+    """
+
+    __tablename__ = "scorer_versions"
+
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`. Part of *Primary Key* for ``scorer_versions`` table.
+    """
+    serialized_scorer = Column(Text, nullable=False)
+    """
+    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis)
+    """
+    Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", "scorer_version", name="scorer_version_pk"),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerVersion ({self.scorer_id}, {self.scorer_version})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.ScorerVersion.
+        """
+        from mlflow.entities.scorer import ScorerVersion
+
+        return ScorerVersion(
+            experiment_id=self.scorer.experiment_id,
+            scorer_name=self.scorer.scorer_name,
+            scorer_version=self.scorer_version,
+            serialized_scorer=self.serialized_scorer,
+            creation_time=self.creation_time,
+        )

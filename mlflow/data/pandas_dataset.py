@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -27,10 +27,10 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pd.DataFrame,
         source: DatasetSource,
-        targets: Optional[str] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
-        predictions: Optional[str] = None,
+        targets: str | None = None,
+        name: str | None = None,
+        digest: str | None = None,
+        predictions: str | None = None,
     ):
         """
         Args:
@@ -100,21 +100,21 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def targets(self) -> Optional[str]:
+    def targets(self) -> str | None:
         """
         The name of the target column. May be ``None`` if no target column is available.
         """
         return self._targets
 
     @property
-    def predictions(self) -> Optional[str]:
+    def predictions(self) -> str | None:
         """
         The name of the predictions column. May be ``None`` if no predictions column is available.
         """
         return self._predictions
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         A profile of the dataset. May be ``None`` if a profile cannot be computed.
         """
@@ -124,7 +124,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Schema | None:
         """
         An instance of :py:class:`mlflow.types.Schema` representing the tabular dataset. May be
         ``None`` if the schema cannot be inferred from the dataset.
@@ -165,11 +165,11 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_pandas(
     df: pd.DataFrame,
-    source: Union[str, DatasetSource] = None,
-    targets: Optional[str] = None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
-    predictions: Optional[str] = None,
+    source: str | DatasetSource = None,
+    targets: str | None = None,
+    name: str | None = None,
+    digest: str | None = None,
+    predictions: str | None = None,
 ) -> PandasDataset:
     """
     Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from

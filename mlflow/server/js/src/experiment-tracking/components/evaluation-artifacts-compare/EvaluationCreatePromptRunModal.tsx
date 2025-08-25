@@ -8,7 +8,7 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   FormUI,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   Modal,
   PlusIcon,

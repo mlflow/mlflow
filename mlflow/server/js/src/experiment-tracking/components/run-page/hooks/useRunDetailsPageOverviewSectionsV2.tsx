@@ -1,5 +1,5 @@
 import { Button, FileIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { KeyValueProperty, NoneCell, SecondarySections } from '@databricks/web-shared/utils';
+import { KeyValueProperty, NoneCell, AsideSections } from '@databricks/web-shared/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
 import { KeyValueEntity } from '../../../../common/types';
@@ -45,7 +45,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
   shouldRenderLoggedModelsBox?: boolean;
   loggedModelsV3: LoggedModelProto[];
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
-}): SecondarySections => {
+}): AsideSections => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();

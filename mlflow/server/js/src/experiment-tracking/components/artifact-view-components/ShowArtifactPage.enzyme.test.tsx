@@ -55,10 +55,6 @@ describe('ShowArtifactPage', () => {
     wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
     expect(wrapper.text().includes('Select a file to preview')).toBe(true);
   });
-  test('should render "select to preview" view when path is unspecified', () => {
-    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
-    expect(wrapper.text().includes('Select a file to preview')).toBe(true);
-  });
   test('should render "too large to preview" view when size is too large', () => {
     wrapper.setProps({ path: 'file_without_extension', runUuid: 'runId', size: 100000000 });
     expect(wrapper.text().includes('Select a file to preview')).toBe(false);

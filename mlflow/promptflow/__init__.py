@@ -15,7 +15,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -96,7 +96,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -106,14 +106,14 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    model_config: Optional[dict[str, Any]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    model_config: dict[str, Any] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -223,7 +223,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    model_config: Optional[dict[str, Any]] = None,
+    model_config: dict[str, Any] | None = None,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -395,7 +395,7 @@ def _resolve_env_from_flow(flow_dag_path):
 
 
 class _PromptflowModelWrapper:
-    def __init__(self, model, model_config: Optional[dict[str, Any]] = None):
+    def __init__(self, model, model_config: dict[str, Any] | None = None):
         from promptflow._sdk._mlflow import FlowInvoker
 
         self.model = model
@@ -419,9 +419,9 @@ class _PromptflowModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]]],
-        params: Optional[dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ) -> Union[dict[str, Any], list[Any]]:
+        data: pd.DataFrame | list[str | dict[str, Any]],
+        params: dict[str, Any] | None = None,  # pylint: disable=unused-argument
+    ) -> dict[str, Any] | list[Any]:
         """
         Args:
             data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
@@ -450,7 +450,7 @@ class _PromptflowModelWrapper:
         raise mlflow.MlflowException.invalid_parameter_value(_INVALID_PREDICT_INPUT_ERROR_MESSAGE)
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
 

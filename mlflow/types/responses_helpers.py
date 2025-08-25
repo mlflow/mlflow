@@ -1,4 +1,4 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 if not IS_PYDANTIC_V2_OR_NEWER:
     raise ImportError(
@@ -7,9 +7,9 @@ if not IS_PYDANTIC_V2_OR_NEWER:
     )
 
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 
 from mlflow.types.chat import BaseModel
 
@@ -25,7 +25,7 @@ https://github.com/openai/openai-python/blob/ed53107e10e6c86754866b48f8bd8626591
 # Response helper classes
 #########################
 class Status(BaseModel):
-    status: Optional[str] = None
+    status: str | None = None
 
     @model_validator(mode="after")
     def check_status(self) -> "Status":
@@ -42,7 +42,7 @@ class Status(BaseModel):
 
 
 class ResponseError(BaseModel):
-    code: Optional[str] = None
+    code: str | None = None
     message: str
 
 
@@ -53,8 +53,8 @@ class AnnotationFileCitation(BaseModel):
 
 
 class AnnotationURLCitation(BaseModel):
-    end_index: Optional[int] = None
-    start_index: Optional[int] = None
+    end_index: int | None = None
+    start_index: int | None = None
     title: str
     type: str = "url_citation"
     url: str
@@ -84,7 +84,7 @@ class Annotation(BaseModel):
 
 
 class ResponseOutputText(BaseModel):
-    annotations: Optional[list[Annotation]] = None
+    annotations: list[Annotation] | None = None
     text: str
     type: str = "output_text"
 
@@ -123,8 +123,10 @@ class ResponseOutputMessage(Status):
 
     @model_validator(mode="after")
     def check_content(self) -> "ResponseOutputMessage":
-        if not self.content:
-            raise ValueError(f"content must not be an empty list for {self.__class__.__name__}")
+        if self.content is None:
+            raise ValueError(f"content must not be None for {self.__class__.__name__}")
+        if isinstance(self.content, list) and len(self.content) == 0:
+            raise ValueError("content must not be an empty list")
         return self
 
 
@@ -133,7 +135,7 @@ class ResponseFunctionToolCall(Status):
     call_id: str
     name: str
     type: str = "function_call"
-    id: Optional[str] = None
+    id: str | None = None
 
 
 class Summary(BaseModel):
@@ -171,7 +173,7 @@ class OutputItem(BaseModel):
 
 
 class IncompleteDetails(BaseModel):
-    reason: Optional[str] = None
+    reason: str | None = None
 
     @model_validator(mode="after")
     def check_reason(self) -> "IncompleteDetails":
@@ -188,9 +190,9 @@ class ToolChoiceFunction(BaseModel):
 class FunctionTool(BaseModel):
     name: str
     parameters: dict[str, Any]
-    strict: Optional[bool] = None
+    strict: bool | None = None
     type: str = "function"
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class Tool(BaseModel):
@@ -207,7 +209,7 @@ class Tool(BaseModel):
 
 
 class ToolChoice(BaseModel):
-    tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
+    tool_choice: str | ToolChoiceFunction | None = None
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
@@ -221,8 +223,8 @@ class ToolChoice(BaseModel):
 
 
 class ReasoningParams(BaseModel):
-    effort: Optional[str] = None
-    generate_summary: Optional[str] = None
+    effort: str | None = None
+    generate_summary: str | None = None
 
     @model_validator(mode="after")
     def check_generate_summary(self) -> "ReasoningParams":
@@ -254,7 +256,7 @@ class ResponseUsage(BaseModel):
 
 
 class Truncation(BaseModel):
-    truncation: Optional[str] = None
+    truncation: str | None = None
 
     @model_validator(mode="after")
     def check_truncation(self) -> "Truncation":
@@ -264,26 +266,26 @@ class Truncation(BaseModel):
 
 
 class Response(Truncation, ToolChoice):
-    id: Optional[str] = None
-    created_at: Optional[float] = None
-    error: Optional[ResponseError] = None
-    incomplete_details: Optional[IncompleteDetails] = None
-    instructions: Optional[str] = None
-    metadata: Optional[dict[str, str]] = None
-    model: Optional[str] = None
+    id: str | None = None
+    created_at: float | None = None
+    error: ResponseError | None = None
+    incomplete_details: IncompleteDetails | None = None
+    instructions: str | None = None
+    metadata: dict[str, str] | None = None
+    model: str | None = None
     object: str = "response"
     output: list[OutputItem]
-    parallel_tool_calls: Optional[bool] = None
-    temperature: Optional[float] = None
-    tools: Optional[list[Tool]] = None
-    top_p: Optional[float] = None
-    max_output_tokens: Optional[int] = None
-    previous_response_id: Optional[str] = None
-    reasoning: Optional[ReasoningParams] = None
-    status: Optional[str] = None
-    text: Optional[Any] = None
-    usage: Optional[ResponseUsage] = None
-    user: Optional[str] = None
+    parallel_tool_calls: bool | None = None
+    temperature: float | None = None
+    tools: list[Tool] | None = None
+    top_p: float | None = None
+    max_output_tokens: int | None = None
+    previous_response_id: str | None = None
+    reasoning: ReasoningParams | None = None
+    status: str | None = None
+    text: Any | None = None
+    usage: ResponseUsage | None = None
+    user: str | None = None
 
     @property
     def output_text(self) -> str:
@@ -325,15 +327,15 @@ class ResponseInputTextParam(BaseModel):
 
 
 class Message(Status):
-    content: Union[str, list[Union[ResponseInputTextParam, dict[str, Any]]]]
+    content: str | list[ResponseInputTextParam | dict[str, Any]]
     role: str
-    status: Optional[str] = None
+    status: str | None = None
     type: str = "message"
 
     @model_validator(mode="after")
     def check_content(self) -> "Message":
-        if not self.content:
-            raise ValueError("content must not be empty")
+        if self.content is None:
+            raise ValueError("content must not be None")
         if isinstance(self.content, list):
             for item in self.content:
                 if isinstance(item, dict):
@@ -363,17 +365,17 @@ class FunctionCallOutput(Status):
 
 
 class BaseRequestPayload(Truncation, ToolChoice):
-    max_output_tokens: Optional[int] = None
-    metadata: Optional[dict[str, str]] = None
-    parallel_tool_calls: Optional[bool] = None
-    tools: Optional[list[Tool]] = None
-    reasoning: Optional[ReasoningParams] = None
-    store: Optional[bool] = None
-    stream: Optional[bool] = None
-    temperature: Optional[float] = None
-    text: Optional[Any] = None
-    top_p: Optional[float] = None
-    user: Optional[str] = None
+    max_output_tokens: int | None = None
+    metadata: dict[str, str] | None = None
+    parallel_tool_calls: bool | None = None
+    tools: list[Tool] | None = None
+    reasoning: ReasoningParams | None = None
+    store: bool | None = None
+    stream: bool | None = None
+    temperature: float | None = None
+    text: Any | None = None
+    top_p: float | None = None
+    user: str | None = None
 
 
 #####################################
@@ -382,32 +384,32 @@ class BaseRequestPayload(Truncation, ToolChoice):
 
 
 class ResponseTextDeltaEvent(BaseModel):
-    content_index: Optional[int] = None
+    content_index: int | None = None
     delta: str
     item_id: str
-    output_index: Optional[int] = None
+    output_index: int | None = None
     type: str = "response.output_text.delta"
 
 
 class ResponseTextAnnotationDeltaEvent(BaseModel):
     annotation: Annotation
     annotation_index: int
-    content_index: Optional[int] = None
+    content_index: int | None = None
     item_id: str
-    output_index: Optional[int] = None
+    output_index: int | None = None
     type: str = "response.output_text.annotation.added"
 
 
 class ResponseOutputItemDoneEvent(BaseModel):
     item: OutputItem
-    output_index: Optional[int] = None
+    output_index: int | None = None
     type: str = "response.output_item.done"
 
 
 class ResponseErrorEvent(BaseModel):
-    code: Optional[str] = None
+    code: str | None = None
     message: str
-    param: Optional[str] = None
+    param: str | None = None
     type: str = "error"
 
 

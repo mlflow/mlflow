@@ -19,6 +19,7 @@ def commands():
     pass
 
 
+# TODO: add telemetry decorator
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",

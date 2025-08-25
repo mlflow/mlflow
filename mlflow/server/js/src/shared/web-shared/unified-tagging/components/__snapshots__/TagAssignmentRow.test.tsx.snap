@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`TagAssignmentRow should render children 1`] = `
+<div>
+  <div
+    css="[object Object]"
+  >
+    <div />
+    <div />
+    <div />
+  </div>
+</div>
+`;

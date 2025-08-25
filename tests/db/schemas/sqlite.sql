@@ -5,6 +5,17 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE entity_associations (
+	association_id VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	created_time BIGINT,
+	CONSTRAINT entity_associations_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -44,6 +55,20 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000),
 	CONSTRAINT registered_model_pk PRIMARY KEY (name),
 	UNIQUE (name)
+)
+
+
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	description VARCHAR(1000),
+	url VARCHAR(500) NOT NULL,
+	status VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL,
+	secret VARCHAR(1000),
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
 )
 
 
@@ -148,6 +173,15 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -159,6 +193,15 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) NOT NULL,
+	entity VARCHAR(50) NOT NULL,
+	action VARCHAR(50) NOT NULL,
+	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
+	FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -266,6 +309,34 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer TEXT NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE spans (
+	trace_id VARCHAR(50) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	span_id VARCHAR(50) NOT NULL,
+	parent_span_id VARCHAR(50),
+	name TEXT,
+	type VARCHAR(500),
+	status VARCHAR(50) NOT NULL,
+	start_time_unix_nano BIGINT NOT NULL,
+	end_time_unix_nano BIGINT,
+	duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano - start_time_unix_nano) STORED,
+	content TEXT NOT NULL,
+	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
+	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE,
+	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 

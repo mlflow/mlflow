@@ -60,7 +60,7 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -282,7 +282,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -292,12 +292,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -478,15 +478,12 @@ def load_model(model_uri, dst_path=None):
 
             # Log model
             input_example = input_sample.head()
-            mlflow.pmdarima.log_model(
+            model_info = mlflow.pmdarima.log_model(
                 model, name=ARTIFACT_PATH, signature=signature, input_example=input_example
             )
 
-            # Get the model URI for loading
-            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-
         # Load the model
-        loaded_model = mlflow.pmdarima.load_model(model_uri)
+        loaded_model = mlflow.pmdarima.load_model(model_info.model_uri)
         # Forecast for the next 60 days
         forecast = loaded_model.predict(n_periods=60)
         print(f"forecast: {forecast}")
@@ -538,7 +535,7 @@ class _PmdarimaModelWrapper:
         """
         return self.pmdarima_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: dict[str, Any] | None = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.

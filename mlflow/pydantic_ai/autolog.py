@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
@@ -186,7 +186,7 @@ def _parse_tools(tools):
     return result
 
 
-def _parse_usage(result: Any) -> Optional[dict[str, int]]:
+def _parse_usage(result: Any) -> dict[str, int] | None:
     try:
         if isinstance(result, tuple) and len(result) == 2:
             usage = result[1]

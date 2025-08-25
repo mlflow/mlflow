@@ -110,7 +110,6 @@ export const ExperimentViewRunsControls = React.memo(
           display: 'flex',
           gap: theme.spacing.sm,
           flexDirection: 'column' as const,
-          marginTop: uiState.viewMaximized ? undefined : theme.spacing.sm,
           marginBottom: theme.spacing.sm,
         }}
       >

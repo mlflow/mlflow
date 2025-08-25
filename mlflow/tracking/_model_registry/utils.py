@@ -1,5 +1,4 @@
 from functools import partial
-from typing import Optional
 
 from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -119,7 +118,7 @@ def _get_registry_uri_from_context():
     return _registry_uri
 
 
-def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> Optional[str]:
+def _get_default_registry_uri_for_tracking_uri(tracking_uri: str | None) -> str | None:
     """
     Get the default registry URI for a given tracking URI.
 
@@ -181,8 +180,8 @@ def get_registry_uri() -> str:
 
 
 def _resolve_registry_uri(
-    registry_uri: Optional[str] = None, tracking_uri: Optional[str] = None
-) -> Optional[str]:
+    registry_uri: str | None = None, tracking_uri: str | None = None
+) -> str | None:
     """
     Resolve the registry URI following the same logic as get_registry_uri().
     """

@@ -1,8 +1,8 @@
 import { useIntl } from '@databricks/i18n';
-import { useMutation } from '@databricks/web-shared/query-client';
+import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
 import type { Assessment } from '../ModelTrace.types';
-import { displayErrorNotification } from '../ModelTraceExplorer.utils';
+import { displayErrorNotification, FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import type { UpdateAssessmentPayload } from '../api';
 import { updateAssessment } from '../api';
 
@@ -11,18 +11,18 @@ import { updateAssessment } from '../api';
 // use `useOverrideAssessment` instead
 export const useUpdateAssessment = ({
   assessment,
-  refetchTraceInfo,
   onSuccess,
   onError,
   onSettled,
 }: {
   assessment: Assessment;
-  refetchTraceInfo: (() => Promise<any>) | null;
   onSuccess?: () => void;
   onError?: (error: any) => void;
   onSettled?: () => void;
 }) => {
   const intl = useIntl();
+  const queryClient = useQueryClient();
+
   const { mutate: updateAssessmentMutation, isLoading } = useMutation({
     mutationFn: (payload: UpdateAssessmentPayload) =>
       updateAssessment({ traceId: assessment.trace_id, assessmentId: assessment.assessment_id, payload }),
@@ -41,7 +41,7 @@ export const useUpdateAssessment = ({
       onError?.(error);
     },
     onSuccess: () => {
-      refetchTraceInfo?.();
+      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, assessment.trace_id] });
       onSuccess?.();
     },
     onSettled: () => {

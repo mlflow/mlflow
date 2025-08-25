@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -15,8 +15,8 @@ class DummyDataset(Dataset):
         self,
         data_list: list[int],
         source: DummyDatasetSource,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         self._data_list = data_list
         super().__init__(source=source, name=name, digest=digest)
@@ -54,7 +54,7 @@ class DummyDataset(Dataset):
         return self._source
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         return {
             "length": len(self._data_list),
         }
@@ -65,7 +65,7 @@ class DummyDataset(Dataset):
 
 
 def from_dummy(
-    data_list: list[int], source: str, name: Optional[str] = None, digest: Optional[str] = None
+    data_list: list[int], source: str, name: str | None = None, digest: str | None = None
 ) -> DummyDataset:
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 

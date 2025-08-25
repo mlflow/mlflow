@@ -12,15 +12,14 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { getUser } from '@databricks/web-shared/global-settings';
 
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from './AssessmentsPane.utils';
 import type { Assessment } from '../ModelTrace.types';
-import { getCurrentUser } from '../ModelTraceExplorer.utils';
 import type { UpdateAssessmentPayload } from '../api';
 import { useOverrideAssessment } from '../hooks/useOverrideAssessment';
 import { useUpdateAssessment } from '../hooks/useUpdateAssessment';
-import { useModelTraceInfoRefetchContext } from '../trace-context/ModelTraceInfoRefetchContext';
 
 // default to the original type of the value if possible. however,
 // we only support editing simple types in the UI (i.e. not arrays / objects)
@@ -89,24 +88,22 @@ export const AssessmentEditForm = ({
   const initialValue = getAssessmentValue(assessment);
   const defaultType = getDefaultType(initialValue, isFeedback);
   const defaultValue = getDefaultValue(initialValue);
-  const user = getCurrentUser();
+  const user = getUser() ?? '';
 
   const { theme } = useDesignSystemTheme();
   const [dataType, setDataType] = useState<AssessmentFormInputDataType>(defaultType);
   const [value, setValue] = useState<string | boolean | number | null>(defaultValue);
   const [rationale, setRationale] = useState(assessment.rationale);
   const [valueError, setValueError] = useState<React.ReactNode | null>(null);
-  const { refetchTraceInfo } = useModelTraceInfoRefetchContext();
 
   const { updateAssessmentMutation, isLoading: isUpdating } = useUpdateAssessment({
     assessment,
-    refetchTraceInfo,
     onSuccess,
     onSettled,
   });
 
   const { overrideAssessmentMutation, isLoading: isOverwriting } = useOverrideAssessment({
-    refetchTraceInfo,
+    traceId: assessment.trace_id,
     onSuccess,
     onSettled,
   });
@@ -146,9 +143,9 @@ export const AssessmentEditForm = ({
         update_mask: `${isFeedback ? 'feedback' : 'expectation'},rationale`,
       };
 
-      await updateAssessmentMutation(payload);
+      updateAssessmentMutation(payload);
     } else {
-      await overrideAssessmentMutation({
+      overrideAssessmentMutation({
         oldAssessment: assessment,
         value: valueObj,
         ...(rationale ? { rationale } : {}),

@@ -331,12 +331,11 @@ with mlflow.start_run():
     # Train and log model
     model = RandomForestClassifier(n_estimators=100)
     model.fit(X_train, y_train)
-    mlflow.sklearn.log_model(model, name="model")
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
 
     # Evaluate with automatic SHAP explanations
     result = mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         eval_data,
         targets="label",
         model_type="classifier",

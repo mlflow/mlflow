@@ -25,6 +25,14 @@ def test_chat_agent_message_throws_on_invalid_data():
         ChatAgentMessage(**data)
 
 
+def test_chat_agent_message_allows_empty_content():
+    # Empty string content should be allowed (not None)
+    data = {"role": "assistant", "content": ""}
+    message = ChatAgentMessage(**data)
+    assert message.content == ""
+    assert message.tool_calls is None
+
+
 def test_chat_agent_response_throws_on_missing_id():
     data = {"messages": [{"role": "user", "content": "a"}]}
     with pytest.raises(ValueError, match="All ChatAgentMessage objects in field `messages`"):

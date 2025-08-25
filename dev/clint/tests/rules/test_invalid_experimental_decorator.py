@@ -1,12 +1,11 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.index import SymbolIndex
 from clint.linter import Location, lint_file
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
 
 
-def test_invalid_experimental_decorator(index: SymbolIndex, tmp_path: Path) -> None:
+def test_invalid_experimental_decorator(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -50,7 +49,7 @@ def good_function2():
     )
 
     config = Config(select={InvalidExperimentalDecorator.name})
-    violations = lint_file(tmp_file, config, index)
+    violations = lint_file(tmp_file, config, index_path)
     assert len(violations) == 5
     assert all(isinstance(v.rule, InvalidExperimentalDecorator) for v in violations)
     assert violations[0].loc == Location(4, 1)  # @experimental without args

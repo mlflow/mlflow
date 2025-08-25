@@ -7,7 +7,7 @@ import re
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import google.protobuf.empty_pb2
 from pydantic import BaseModel
@@ -193,7 +193,7 @@ class _CatalogSchemaFilter:
 
     catalog_name: str
     schema_name: str
-    remaining_filter: Optional[str]
+    remaining_filter: str | None
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
@@ -888,7 +888,7 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]:
+    def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
         # load the MLflow LoggedModel by model_id and
         if model_id is None:
             return None
@@ -903,7 +903,7 @@ class UcModelRegistryStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -1226,8 +1226,8 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt(
         self,
         name: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Prompt:
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
@@ -1251,10 +1251,10 @@ class UcModelRegistryStore(BaseRestStore):
 
     def search_prompts(
         self,
-        filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in Unity Catalog.
@@ -1297,9 +1297,7 @@ class UcModelRegistryStore(BaseRestStore):
 
         return PagedList(prompts, response_proto.next_page_token)
 
-    def _parse_catalog_schema_from_filter(
-        self, filter_string: Optional[str]
-    ) -> _CatalogSchemaFilter:
+    def _parse_catalog_schema_from_filter(self, filter_string: str | None) -> _CatalogSchemaFilter:
         """
         Parse catalog and schema from filter string for Unity Catalog using regex.
 
@@ -1398,7 +1396,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptTagRequest,
         )
 
-    def get_prompt(self, name: str) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Prompt | None:
         """
         Get prompt by name from Unity Catalog.
         """
@@ -1423,10 +1421,10 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, Any]]],
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
-        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+        template: str | list[dict[str, Any]],
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
+        response_format: BaseModel | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1471,7 +1469,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         return proto_to_mlflow_prompt(response_proto)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> PromptVersion | None:
         """
         Get a specific prompt version from Unity Catalog.
         """
@@ -1496,7 +1494,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+    def delete_prompt_version(self, name: str, version: str | int) -> None:
         """
         Delete a prompt version from Unity Catalog.
         """
@@ -1513,7 +1511,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
 
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self, name: str, max_results: int | None = None, page_token: str | None = None
     ) -> SearchPromptVersionsResponse:
         """
         Search prompt versions for a given prompt name in Unity Catalog.
@@ -1540,9 +1538,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SearchPromptVersionsRequest,
         )
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a prompt version in Unity Catalog.
         """
@@ -1560,7 +1556,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SetPromptVersionTagRequest,
         )
 
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a prompt version in Unity Catalog.
         """
@@ -1578,7 +1574,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptVersionTagRequest,
         )
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion | None:
         """
         Get a prompt version by alias from Unity Catalog.
         """
@@ -1603,7 +1599,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+    def set_prompt_alias(self, name: str, alias: str, version: str | int) -> None:
         """
         Set an alias for a prompt version in Unity Catalog.
         """

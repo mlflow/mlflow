@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import styles from './card.module.css';
 import Link from '@docusaurus/Link';
 
-export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
       isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns,
+      noGap && styles.NoGap,
     )}
   >
     {children}

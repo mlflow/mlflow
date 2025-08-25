@@ -1,7 +1,7 @@
 import inspect
 import warnings
 from functools import lru_cache, wraps
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import pydantic
 
@@ -30,7 +30,7 @@ _INVALID_SIGNATURE_ERROR_MSG = (
 
 
 class FuncInfo(NamedTuple):
-    input_type_hint: Optional[type[Any]]
+    input_type_hint: type[Any] | None
     input_param_name: str
 
 
@@ -48,7 +48,7 @@ def pyfunc(func):
     return _wrap_predict_with_pyfunc(func, func_info)
 
 
-def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
+def _wrap_predict_with_pyfunc(func, func_info: FuncInfo | None):
     if func_info is not None:
         model_input_index = _model_input_index_in_function_signature(func)
 
@@ -143,7 +143,7 @@ def _check_func_signature(func, func_name) -> list[str]:
 
 @lru_cache
 @filter_user_warnings_once
-def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
+def _get_func_info_if_type_hint_supported(func) -> FuncInfo | None:
     """
     Internal method to check if the predict function has type hints and if they are supported
     by MLflow.

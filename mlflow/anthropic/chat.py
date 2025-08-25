@@ -1,5 +1,5 @@
 import json
-from typing import Any, Union
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ from mlflow.types.chat import (
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
-def convert_message_to_mlflow_chat(message: Union[BaseModel, dict[str, Any]]) -> ChatMessage:
+def convert_message_to_mlflow_chat(message: BaseModel | dict[str, Any]) -> ChatMessage:
     """
     Convert Anthropic message object into MLflow's standard format (OpenAI compatible).
     Ref: https://docs.anthropic.com/en/api/messages#body-messages
@@ -91,7 +91,7 @@ def convert_message_to_mlflow_chat(message: Union[BaseModel, dict[str, Any]]) ->
         )
 
 
-def _parse_content(content: Union[str, dict[str, Any]]) -> Union[TextContentPart, ImageContentPart]:
+def _parse_content(content: str | dict[str, Any]) -> TextContentPart | ImageContentPart:
     if isinstance(content, str):
         return TextContentPart(text=content, type="text")
 

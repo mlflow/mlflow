@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -10,12 +9,12 @@ MLServerDefaultModelName = "mlflow-model"
 
 def get_cmd(
     model_uri: str,
-    port: Optional[int] = None,
-    host: Optional[str] = None,
-    timeout: Optional[int] = None,
-    nworkers: Optional[int] = None,
-    model_name: Optional[str] = None,
-    model_version: Optional[str] = None,
+    port: int | None = None,
+    host: str | None = None,
+    timeout: int | None = None,
+    nworkers: int | None = None,
+    model_name: str | None = None,
+    model_version: str | None = None,
 ) -> tuple[str, dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
 

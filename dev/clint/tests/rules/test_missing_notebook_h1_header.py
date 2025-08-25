@@ -2,12 +2,11 @@ import json
 from pathlib import Path
 
 from clint.config import Config
-from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules import MissingNotebookH1Header
 
 
-def test_missing_notebook_h1_header(index: SymbolIndex, tmp_path: Path) -> None:
+def test_missing_notebook_h1_header(index_path: Path, tmp_path: Path) -> None:
     notebook = {
         "cells": [
             {
@@ -23,12 +22,12 @@ def test_missing_notebook_h1_header(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.ipynb"
     tmp_file.write_text(json.dumps(notebook))
     config = Config(select={MissingNotebookH1Header.name})
-    results = lint_file(tmp_file, config, index)
+    results = lint_file(tmp_file, config, index_path)
     assert len(results) == 1
     assert isinstance(results[0].rule, MissingNotebookH1Header)
 
 
-def test_missing_notebook_h1_header_positive(index: SymbolIndex, tmp_path: Path) -> None:
+def test_missing_notebook_h1_header_positive(index_path: Path, tmp_path: Path) -> None:
     notebook = {
         "cells": [
             {
@@ -44,5 +43,5 @@ def test_missing_notebook_h1_header_positive(index: SymbolIndex, tmp_path: Path)
     tmp_file = tmp_path / "test_positive.ipynb"
     tmp_file.write_text(json.dumps(notebook))
     config = Config(select={MissingNotebookH1Header.name})
-    results = lint_file(tmp_file, config, index)
+    results = lint_file(tmp_file, config, index_path)
     assert len(results) == 0

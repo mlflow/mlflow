@@ -126,6 +126,45 @@ def test_set_chat_tools_validation():
         dummy_call(tools)
 
 
+@pytest.mark.parametrize(
+    ("enum_values", "param_type"),
+    [
+        ([1, 2, 3, 4, 5], "integer"),
+        (["option1", "option2", "option3"], "string"),
+        ([1.1, 2.5, 3.7], "number"),
+        ([True, False], "boolean"),
+        (["mixed", 42, True, 3.14], "string"),  # Mixed types with string base type
+    ],
+)
+def test_openai_parse_tools_enum_validation(enum_values, param_type):
+    """Test that OpenAI _parse_tools accepts various enum value types."""
+    from mlflow.openai.utils.chat_schema import _parse_tools
+
+    # Simulate the exact OpenAI autologging input that was failing
+    openai_inputs = {
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "select_option",
+                    "description": "Select an option from the given choices",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"option": {"type": param_type, "enum": enum_values}},
+                        "required": ["option"],
+                    },
+                },
+            }
+        ]
+    }
+
+    # This should not raise a ValidationError - tests the actual failing code path
+    parsed_tools = _parse_tools(openai_inputs)
+    assert len(parsed_tools) == 1
+    assert parsed_tools[0].function.name == "select_option"
+    assert parsed_tools[0].function.parameters.properties["option"].enum == enum_values
+
+
 def test_construct_full_inputs_simple_function():
     def func(a, b, c=3, d=4, **kwargs):
         pass

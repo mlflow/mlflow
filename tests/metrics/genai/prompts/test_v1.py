@@ -16,7 +16,7 @@ def test_evaluation_model_output():
         "level of accuracy and fidelity.",
         grading_prompt="""Correctness: If the answer correctly answer the question, below are the
         details for different scores:
-        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn't mention anything about the question
         or is completely contrary to the correct answer.
         - Score 2: the answer provides some relevance to the question and answer one aspect
         of the question correctly.
@@ -88,7 +88,7 @@ def test_evaluation_model_output():
     Grading rubric:
     Correctness: If the answer correctly answer the question, below are the details for
     different scores:
-        - Score 1: the answer is completely incorrect, doesn’t mention anything about the
+        - Score 1: the answer is completely incorrect, doesn't mention anything about the
         question or is completely contrary to the correct answer.
         - Score 2: the answer provides some relevance to the question and answer one aspect of
         the question correctly.
@@ -146,7 +146,7 @@ def test_evaluation_model_output():
         "level of accuracy and fidelity.",
         grading_prompt="""Correctness: If the answer correctly answer the question, below are
         the details for different scores:
-        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn't mention anything about the question
         or is completely contrary to the correct answer.
         - Score 2: the answer provides some relevance to the question and answer one aspect of the
         question correctly.
@@ -195,7 +195,7 @@ def test_evaluation_model_output():
     Grading rubric:
     Correctness: If the answer correctly answer the question, below are the details for different
     scores:
-        - Score 1: the answer is completely incorrect, doesn’t mention anything about the question
+        - Score 1: the answer is completely incorrect, doesn't mention anything about the question
         or is completely contrary to the correct answer.
         - Score 2: the answer provides some relevance to the question and answer one aspect of the
         question correctly.

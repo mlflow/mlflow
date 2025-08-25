@@ -6,7 +6,7 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
 
@@ -16,7 +16,7 @@ _ERROR_MSG = (
 )
 
 
-def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
+def get_review_app(experiment_id: str | None = None) -> "ReviewApp":
     """Gets or creates (if it doesn't exist) the review app for the given experiment ID.
 
     .. note::
@@ -41,11 +41,11 @@ def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
 def create_labeling_session(
     name: str,
     *,
-    assigned_users: Optional[list[str]] = None,
-    agent: Optional[str] = None,
-    label_schemas: Optional[list[str]] = None,
+    assigned_users: list[str] | None = None,
+    agent: str | None = None,
+    label_schemas: list[str] | None = None,
     enable_multi_turn_chat: bool = False,
-    custom_inputs: Optional[dict[str, Any]] = None,
+    custom_inputs: dict[str, Any] | None = None,
 ) -> LabelingSession:
     """Create a new labeling session in the review app.
 

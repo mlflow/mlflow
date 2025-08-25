@@ -46,7 +46,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         # Get classification config
         self.y_true = self.dataset.labels_data
         self.label_list = self.evaluator_config.get("label_list")

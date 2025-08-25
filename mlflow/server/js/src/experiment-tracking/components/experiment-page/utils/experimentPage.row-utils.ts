@@ -364,6 +364,7 @@ export const prepareRunsGridData = ({
       duration,
       user,
       runName,
+      runStatus: runInfo.status,
       tags,
       models,
       params,
@@ -504,7 +505,14 @@ const determineVisibleRuns = (
 
     const rowWithHiddenFlag = {
       ...runRow,
-      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter, runsVisibilityMap),
+      hidden: determineIfRowIsHidden(
+        runsHiddenMode,
+        runsHidden,
+        runUuidToToggle,
+        visibleRowCounter,
+        runsVisibilityMap,
+        runRow.runStatus,
+      ),
     };
 
     const isGroupContainingRuns = runRow.groupParentInfo && !runRow.groupParentInfo.isRemainingRunsGroup;
@@ -596,7 +604,9 @@ export const extractRunRowParamFloat = (run: RunRowType, paramName: string, fall
   if (!paramEntity) {
     return fallback;
   }
-  return parseFloat(paramEntity) || fallback;
+
+  const parsed = parseFloat(paramEntity);
+  return isNaN(parsed) ? fallback : parsed;
 };
 
 export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fallback = undefined) => {
@@ -604,7 +614,9 @@ export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fa
   if (!paramEntity) {
     return fallback;
   }
-  return parseInt(paramEntity, 10) || fallback;
+
+  const parsed = parseInt(paramEntity, 10);
+  return isNaN(parsed) ? fallback : parsed;
 };
 
 export const extractRunRowParam = (run: RunRowType, paramName: string, fallback = undefined) => {

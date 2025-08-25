@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 import pydantic
 
@@ -23,7 +23,7 @@ from mlflow.types.responses import (
 )
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     context, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
     return _ResponsesAgentPyfuncWrapper(responses_agent, context)
 

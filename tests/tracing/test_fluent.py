@@ -1,6 +1,8 @@
 import asyncio
 import json
+import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
@@ -32,9 +34,10 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -600,6 +603,57 @@ def test_trace_skip_resolving_unrelated_tags_to_traces():
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert "unrelated tags" not in trace.info.tags
+
+
+# Tracing SDK doesn't have `create_experiment` support
+@skip_when_testing_trace_sdk
+def test_trace_with_experiment_id():
+    exp_1 = mlflow.create_experiment("exp_1")
+    exp_2 = mlflow.set_experiment("exp_2").experiment_id  # active experiment
+
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
+    def predict_1():
+        with mlflow.start_span(name="child_span"):
+            return
+
+    @mlflow.trace()
+    def predict_2():
+        pass
+
+    predict_1()
+    traces = get_traces(experiment_id=exp_1)
+    assert len(traces) == 1
+    assert traces[0].info.experiment_id == exp_1
+    assert len(traces[0].data.spans) == 2
+    assert get_traces(experiment_id=exp_2) == []
+
+    predict_2()
+    traces = get_traces(experiment_id=exp_2)
+    assert len(traces) == 1
+    assert traces[0].info.experiment_id == exp_2
+
+
+# Tracing SDK doesn't have `create_experiment` support
+@skip_when_testing_trace_sdk
+def test_trace_with_experiment_id_issue_warning_when_not_root_span():
+    exp_1 = mlflow.create_experiment("exp_1")
+
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
+    def predict_1():
+        return predict_2()
+
+    @mlflow.trace(trace_destination=MlflowExperiment(exp_1))
+    def predict_2():
+        return
+
+    with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
+        predict_1()
+
+    assert mock_logger.warning.call_count == 1
+    assert mock_logger.warning.call_args[0][0] == (
+        "The `experiment_id` parameter can only be used for root spans, but the span "
+        "`predict_2` is not a root span. The specified value `1` will be ignored."
+    )
 
 
 def test_start_span_context_manager(async_logging_enabled):
@@ -2078,34 +2132,136 @@ def test_set_delete_trace_tag():
 
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
-    # Mock the store
     mock_store = mock.MagicMock()
-    mock_store.search_traces.return_value = ([], None)  # Return empty results
+    mock_store.search_traces.return_value = ([], None)
     mock_store.get_run.return_value = mock.MagicMock()
     mock_store.get_run.return_value.info.experiment_id = "test_exp_id"
 
     test_run_id = "test_run_123"
-
     with (
         mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
-        mock.patch("mlflow.tracing.client.is_databricks_uri", return_value=is_databricks),
         mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"),
     ):
-        # Call search_traces with run_id but no experiment_ids
         mlflow.search_traces(run_id=test_run_id)
 
-        # Verify the store was called with the correct filter string
-        if is_databricks:
-            expected_filter_string = f"attribute.run_id = '{test_run_id}'"
-        else:
-            expected_filter_string = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
-
+        expected_filter_string = f"attribute.run_id = '{test_run_id}'"
         mock_store.search_traces.assert_called()
 
-        # Get the actual arguments passed to the store
         call_args = mock_store.search_traces.call_args
-        actual_filter_string = call_args[1]["filter_string"]  # using keyword arguments
+        actual_filter_string = call_args[1]["filter_string"]
+        assert actual_filter_string == expected_filter_string
 
-        assert actual_filter_string == expected_filter_string, (
-            f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
-        )
+
+@skip_when_testing_trace_sdk
+def test_set_destination_in_threads(async_logging_enabled):
+    # This test makes sure `set_destination` obeys thread-local behavior.
+    class TestModel:
+        def predict(self, x):
+            with mlflow.start_span(name="root_span") as root_span:
+
+                def child_span_thread(z):
+                    child_span = start_span_no_context(
+                        name="child_span_1",
+                        parent_span=root_span,
+                    )
+                    child_span.set_inputs(z)
+                    time.sleep(0.5)
+                    child_span.end()
+
+                thread = threading.Thread(target=child_span_thread, args=(x + 1,))
+                thread.start()
+                thread.join()
+            return x
+
+    model = TestModel()
+
+    def func(experiment_id: str | None, x: int):
+        if experiment_id is not None:
+            set_destination(MlflowExperiment(experiment_id), context_local=True)
+
+        time.sleep(0.5)
+        model.predict(x)
+
+    # Main thread: global config
+    experiment_id1 = mlflow.create_experiment(uuid.uuid4().hex)
+    set_destination(MlflowExperiment(experiment_id1))
+    func(None, 3)
+
+    # Thread 1: context-local config
+    experiment_id2 = mlflow.create_experiment(uuid.uuid4().hex)
+    thread1 = threading.Thread(target=func, args=(experiment_id2, 3))
+
+    # Thread 2: context-local config
+    experiment_id3 = mlflow.create_experiment(uuid.uuid4().hex)
+    thread2 = threading.Thread(target=func, args=(experiment_id3, 40))
+
+    # Thread 3: no config -> fallback to global config
+    thread3 = threading.Thread(target=func, args=(None, 40))
+
+    thread1.start()
+    thread2.start()
+    thread3.start()
+
+    thread1.join()
+    thread2.join()
+    thread3.join()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = get_traces(experiment_id1)
+    assert len(traces) == 2  # main thread + thread 3
+    assert traces[0].info.experiment_id == experiment_id1
+    assert len(traces[0].data.spans) == 2
+    assert traces[1].info.experiment_id == experiment_id1
+    assert len(traces[1].data.spans) == 2
+
+    for exp_id in [experiment_id2, experiment_id3]:
+        traces = get_traces(exp_id)
+        assert len(traces) == 1
+        assert traces[0].info.experiment_id == exp_id
+        assert len(traces[0].data.spans) == 2
+
+
+@pytest.mark.asyncio
+@skip_when_testing_trace_sdk
+async def test_set_destination_in_async_contexts(async_logging_enabled):
+    class TestModel:
+        async def predict(self, x):
+            with mlflow.start_span(name="root_span") as root_span:
+
+                async def child_span_task(z):
+                    child_span = start_span_no_context(
+                        name="child_span_1",
+                        parent_span=root_span,
+                    )
+                    child_span.set_inputs(z)
+                    await asyncio.sleep(0.5)
+                    child_span.end()
+
+                await child_span_task(x + 1)
+            return x
+
+    model = TestModel()
+
+    async def async_func(experiment_id: str, x: int):
+        set_destination(MlflowExperiment(experiment_id), context_local=True)
+        await asyncio.sleep(0.5)
+        await model.predict(x)
+
+    experiment_id1 = mlflow.create_experiment(uuid.uuid4().hex)
+    task1 = asyncio.create_task(async_func(experiment_id1, 3))
+
+    experiment_id2 = mlflow.create_experiment(uuid.uuid4().hex)
+    task2 = asyncio.create_task(async_func(experiment_id2, 40))
+
+    await asyncio.gather(task1, task2)
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    for exp_id in [experiment_id1, experiment_id2]:
+        traces = get_traces(exp_id)
+        assert len(traces) == 1
+        assert traces[0].info.experiment_id == exp_id
+        assert len(traces[0].data.spans) == 2

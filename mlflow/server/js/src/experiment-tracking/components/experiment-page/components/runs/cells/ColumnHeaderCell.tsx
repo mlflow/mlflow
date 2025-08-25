@@ -68,7 +68,7 @@ export const ColumnHeaderCell = ({
         className={selectedCanonicalSortKey === orderByKey ? isOrderedByClassName : ''}
         onClick={enableSorting ? handleSortBy : undefined}
       >
-        <span data-test-id={`sort-header-${displayName}`}>{displayName}</span>
+        <span data-testid={`sort-header-${displayName}`}>{displayName}</span>
         {enableSorting && selectedCanonicalSortKey === orderByKey ? (
           orderByAsc ? (
             <SortAscendingIcon />
