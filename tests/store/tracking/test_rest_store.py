@@ -1777,7 +1777,7 @@ def test_log_spans_with_version_check():
         assert mock_http.call_count == 2
 
 
-def test_log_spans_version_caching():
+def test_server_version_check_caching():
     """Test that server version is cached and not fetched multiple times."""
     from mlflow.entities.span import LiveSpan
     from mlflow.utils.rest_utils import MlflowHostCreds
@@ -1819,6 +1819,7 @@ def test_log_spans_version_caching():
             otlp_response,  # Third OTLP call (no version check due to cache)
         ]
 
+        # We call log_spans because it performs a server version check via _get_server_version
         # First call - should fetch version and call OTLP
         result1 = store1.log_spans(experiment_id, spans)
         assert result1 == spans
