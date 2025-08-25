@@ -231,7 +231,7 @@ GENAI_FLAVOR_TO_MODULE_NAME = {json.dumps(genai_flavor_module_mapping, indent=4)
 NON_GENAI_FLAVOR_TO_MODULE_NAME = {json.dumps(non_genai_flavor_module_mapping, indent=4)}
 
 # Combined mapping for backward compatibility
-FLAVOR_TO_MODULE_NAME = {{**NON_GENAI_FLAVOR_TO_MODULE_NAME, **GENAI_FLAVOR_TO_MODULE_NAME}}
+FLAVOR_TO_MODULE_NAME = NON_GENAI_FLAVOR_TO_MODULE_NAME | GENAI_FLAVOR_TO_MODULE_NAME
 """
         )
 
