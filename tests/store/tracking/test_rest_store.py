@@ -1695,6 +1695,26 @@ def test_delete_scorer_without_version():
         )
 
 
+def _create_mock_response(status_code=200, text="{}"):
+    """Helper to create a mock HTTP response."""
+    response = mock.MagicMock()
+    response.status_code = status_code
+    response.text = text
+    return response
+
+
+def _create_test_spans():
+    """Helper to create test spans for log_spans tests."""
+    otel_span = create_mock_otel_span(
+        trace_id=123,
+        span_id=1,
+        name="test_span",
+        start_time=1000000,
+        end_time=2000000,
+    )
+    return [LiveSpan(otel_span, trace_id="tr-123")]
+
+
 def test_log_spans_with_version_check():
     """Test that log_spans raises NotImplementedError for old server versions."""
     spans = _create_test_spans()
@@ -1744,26 +1764,6 @@ def test_log_spans_with_version_check():
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
         assert mock_http.call_count == 2
-
-
-def _create_mock_response(status_code=200, text="{}"):
-    """Helper to create a mock HTTP response."""
-    response = mock.MagicMock()
-    response.status_code = status_code
-    response.text = text
-    return response
-
-
-def _create_test_spans():
-    """Helper to create test spans for log_spans tests."""
-    otel_span = create_mock_otel_span(
-        trace_id=123,
-        span_id=1,
-        name="test_span",
-        start_time=1000000,
-        end_time=2000000,
-    )
-    return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
 def test_server_version_check_caching():
