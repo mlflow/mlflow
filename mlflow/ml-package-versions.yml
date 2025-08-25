@@ -928,6 +928,7 @@ smolagents:
 
 strands:
   package_info:
+    genai: true
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |
