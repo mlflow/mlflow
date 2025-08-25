@@ -117,6 +117,25 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
+**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+
+```bash
+# Make your commit first (with DCO sign-off)
+git commit -s -m "Your commit message"
+
+# Then check all files changed in your PR
+uv run pre-commit run --from-ref origin/master --to-ref HEAD
+
+# Fix any issues and amend your commit if needed
+git add <fixed files>
+git commit --amend -s
+
+# Re-run pre-commit to verify fixes
+uv run pre-commit run --from-ref origin/master --to-ref HEAD
+```
+
+This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
+
 **IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag:
 
 ```bash
@@ -183,7 +202,7 @@ This runs Ruff, typos checker, and other tools automatically before commits.
 **Note about external tools**: Some pre-commit hooks require external tools that aren't Python packages:
 
 - `taplo` - TOML formatter
-- `typos` - Spell checker  
+- `typos` - Spell checker
 - `conftest` - Policy testing tool
 
 If you want to run these hooks, **ASK THE USER FIRST** before installing:
