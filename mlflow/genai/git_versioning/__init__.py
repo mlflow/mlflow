@@ -64,7 +64,7 @@ class GitContext:
 _active_context: GitContext | None = None
 
 
-@experimental(version="3.3.0")
+@experimental(version="3.4.0")
 def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
     Enable git model versioning and set the active context.
@@ -81,7 +81,7 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     return context
 
 
-@experimental(version="3.3.0")
+@experimental(version="3.4.0")
 def disable_git_model_versioning() -> None:
     """
     Disable git model versioning and reset the active context.
