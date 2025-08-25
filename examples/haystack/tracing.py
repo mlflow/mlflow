@@ -1,6 +1,15 @@
 import os
 from getpass import getpass
 
+from haystack import Pipeline
+from haystack.components.builders import ChatPromptBuilder
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.components.retrievers.in_memory import InMemoryBM25Retriever
+from haystack.components.routers import ConditionalRouter
+from haystack.components.websearch.serper_dev import SerperDevWebSearch
+from haystack.dataclasses import ChatMessage, Document
+from haystack.document_stores.in_memory import InMemoryDocumentStore
+
 import mlflow
 
 mlflow.set_experiment("Haystack Tracing")
@@ -11,8 +20,6 @@ if "OPENAI_API_KEY" not in os.environ:
 if "SERPERDEV_API_KEY" not in os.environ:
     os.environ["SERPERDEV_API_KEY"] = getpass("Enter SerperDev API key:")
 
-from haystack.dataclasses import Document
-from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 document_store = InMemoryDocumentStore()
 
@@ -33,11 +40,6 @@ documents = [
 
 document_store.write_documents(documents)
 
-from haystack.components.builders import ChatPromptBuilder
-from haystack.components.generators.chat import OpenAIChatGenerator
-from haystack.components.retrievers.in_memory import InMemoryBM25Retriever
-from haystack.dataclasses import ChatMessage
-
 retriever = InMemoryBM25Retriever(document_store)
 
 prompt_template = [
@@ -57,8 +59,6 @@ Query: {{query}}
 
 prompt_builder = ChatPromptBuilder(template=prompt_template, required_variables="*")
 llm = OpenAIChatGenerator(model="gpt-4o-mini")
-
-from haystack.components.websearch.serper_dev import SerperDevWebSearch
 
 prompt_for_websearch = [
     ChatMessage.from_user(
@@ -83,8 +83,6 @@ prompt_builder_for_websearch = ChatPromptBuilder(
 llm_for_websearch = OpenAIChatGenerator(model="gpt-4o-mini")
 
 
-from haystack.components.routers import ConditionalRouter
-
 routes = [
     {
         "condition": "{{'no_answer' in replies[0].text}}",
@@ -101,8 +99,6 @@ routes = [
 ]
 
 router = ConditionalRouter(routes)
-
-from haystack import Pipeline
 
 agentic_rag_pipe = Pipeline()
 agentic_rag_pipe.add_component("retriever", retriever)

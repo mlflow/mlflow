@@ -1,4 +1,4 @@
-from mlflow.haystack.autolog import setup_haystack_tracing, teardown_strands_tracing
+from mlflow.haystack.autolog import setup_haystack_tracing, teardown_haystack_tracing
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
@@ -22,7 +22,7 @@ def autolog(
             Haystack autologging. If ``False``, show all events and warnings.
     """
     if disable or not log_traces:
-        teardown_strands_tracing()
+        teardown_haystack_tracing()
         return
 
     setup_haystack_tracing()

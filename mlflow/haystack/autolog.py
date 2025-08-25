@@ -2,6 +2,8 @@ import json
 import logging
 from typing import Any
 
+from haystack.tracing import OpenTelemetryTracer, enable_tracing
+from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -32,9 +34,6 @@ def setup_haystack_tracing():
     from haystack import tracing as hs_tracing
 
     hs_tracing.tracer.is_content_tracing_enabled = True
-
-    from haystack.tracing import OpenTelemetryTracer, enable_tracing
-    from opentelemetry import trace
 
     provider = get_tracer_provider()
     hs_processor = HaystackSpanProcessor()
@@ -78,13 +77,13 @@ def _infer_span_type_from_haystack(
     ):
         return SpanType.LLM
 
-    if any(k in s for k in ("embed", "embedding", "vectorize", "documentembedder", "textembedder")):
+    if "embedder" in s:
         return SpanType.EMBEDDING
 
-    if any(k in s for k in ("retriev", "bm25", "densepassage", "faiss")):
+    if "retriever" in s:
         return SpanType.RETRIEVER
 
-    if any(k in s for k in ("rerank", "re-rank", "ranker")):
+    if "ranker" in s:
         return SpanType.RERANKER
 
     if "agent" in s:
@@ -114,14 +113,14 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
 
         with _bypass_attribute_guard(mlflow_span._span):
             if span.name in ("haystack.pipeline.run", "haystack.async_pipeline.run"):
-                self.parse_pipeline_info(mlflow_span, span)
+                self.set_pipeline_info(mlflow_span, span)
             elif span.name in ("haystack.component.run"):
-                self.parse_component_info(mlflow_span, span)
+                self.set_component_info(mlflow_span, span)
 
         tracer = _get_tracer(__name__)
         tracer.span_processor.on_end(span)
 
-    def parse_component_info(self, mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
+    def set_component_info(self, mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         comp_alias = span.attributes.get("haystack.component.name")
         comp_type = span.attributes.get("haystack.component.type")
         mlflow_span.set_span_type(_infer_span_type_from_haystack(comp_type, comp_alias, span))
@@ -153,7 +152,7 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
             if mlflow_span.outputs is not None:
                 outputs_agg[key] = mlflow_span.outputs
 
-    def parse_pipeline_info(self, mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
+    def set_pipeline_info(self, mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         # Pipelines are CHAINs
         mlflow_span.set_span_type(SpanType.CHAIN)
 
@@ -161,14 +160,12 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
         if pipe_name:
             mlflow_span._span._name = pipe_name
 
-        inputs = span.attributes.get("haystack.pipeline.input")
-        outputs = span.attributes.get("haystack.pipeline.output")
-        if inputs is not None:
+        if (inputs := span.attributes.get("haystack.pipeline.input")) is not None:
             try:
                 mlflow_span.set_inputs(json.loads(inputs))
             except Exception:
                 mlflow_span.set_inputs(inputs)
-        if outputs is not None:
+        if (outputs := span.attributes.get("haystack.pipeline.output")) is not None:
             try:
                 mlflow_span.set_outputs(json.loads(outputs))
             except Exception:
@@ -188,11 +185,11 @@ def _parse_token_usage(outputs: Any) -> dict[str, int] | None:
             return None
 
         replies = outputs.get("replies")
-        if isinstance(replies, list):
+        if isinstance(replies, list) and len(replies) > 0:
             usage = replies[0].get("meta").get("usage") if isinstance(replies[0], dict) else None
 
         meta = outputs.get("meta")
-        if isinstance(meta, list):
+        if isinstance(meta, list) and len(meta) > 0:
             usage = meta[0].get("usage")
 
         if isinstance(usage, dict):
@@ -208,7 +205,7 @@ def _parse_token_usage(outputs: Any) -> dict[str, int] | None:
         _logger.debug("Failed to parse token usage from outputs.", exc_info=True)
 
 
-def teardown_strands_tracing():
+def teardown_haystack_tracing():
     provider = get_tracer_provider()
     if isinstance(provider, SDKTracerProvider):
         span_processors = getattr(provider._active_span_processor, "_span_processors", ())
