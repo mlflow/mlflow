@@ -41,6 +41,10 @@ from mlflow.telemetry.events import (
     CreateLoggedModelEvent,
     CreateRunEvent,
     GetLoggedModelEvent,
+    LogBatchEvent,
+    LogDatasetEvent,
+    LogMetricEvent,
+    LogParamEvent,
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
@@ -315,6 +319,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
+    @record_usage_event(LogMetricEvent)
     def log_metric(
         self,
         run_id,
@@ -371,6 +376,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
+    @record_usage_event(LogParamEvent)
     def log_param(self, run_id, key, value, synchronous=True):
         """Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -485,6 +491,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
+    @record_usage_event(LogBatchEvent)
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
     ) -> RunOperations | None:
@@ -573,6 +580,7 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
+    @record_usage_event(LogDatasetEvent)
     def log_inputs(
         self,
         run_id: str,
