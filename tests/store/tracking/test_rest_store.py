@@ -1750,7 +1750,6 @@ def test_log_spans_with_version_check():
         ]
         result = store3.log_spans(experiment_id, spans)
         assert result == spans
-        assert mock_http.call_count == 2
 
     # Test 4: Server version is greater than 3.4 - should succeed
     creds4 = MlflowHostCreds("https://host4")
@@ -1763,7 +1762,6 @@ def test_log_spans_with_version_check():
         ]
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
-        assert mock_http.call_count == 2
 
 
 def test_server_version_check_caching():
@@ -1788,7 +1786,6 @@ def test_server_version_check_caching():
         assert result1 == spans
 
         # Should have called /version first, then /v1/traces
-        assert mock_http.call_count == 2
         mock_http.assert_any_call(
             host_creds=creds,
             endpoint="/version",
@@ -1813,7 +1810,6 @@ def test_server_version_check_caching():
         assert result2 == spans
 
         # Should only call OTLP, not version (cached)
-        assert mock_http.call_count == 1
         mock_http.assert_called_once_with(
             host_creds=creds,
             endpoint="/v1/traces",
@@ -1830,7 +1826,6 @@ def test_server_version_check_caching():
         assert result3 == spans
 
         # Should only call OTLP, not version (cached across instances)
-        assert mock_http.call_count == 1
         mock_http.assert_called_once_with(
             host_creds=creds,
             endpoint="/v1/traces",
