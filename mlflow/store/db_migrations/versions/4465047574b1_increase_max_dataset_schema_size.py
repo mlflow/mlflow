@@ -1,7 +1,5 @@
 """increase max dataset schema size
 
-Revision ID: 4465047574b1
-Revises: 5b0e9adcef9c
 Create Date: 2024-07-09 12:54:33.775087
 
 """

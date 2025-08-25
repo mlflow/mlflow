@@ -1,7 +1,5 @@
 """add spans table
 
-Revision ID: a1b2c3d4e5f6
-Revises: 770bee3ae1dd
 Create Date: 2025-08-03 12:00:00.000000
 
 """

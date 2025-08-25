@@ -1,7 +1,5 @@
 """drop_duplicate_killed_constraint
 
-Revision ID: 0a8213491aaa
-Revises: cfd24bdc0731
 Create Date: 2020-01-28 15:26:14.757445
 
 This migration drops a duplicate constraint on the `runs.status` column that was left as a byproduct

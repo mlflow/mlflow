@@ -1,7 +1,5 @@
 """add assessments table
 
-Revision ID: 770bee3ae1dd
-Revises: cbc13b556ace
 Create Date: 2025-06-23 11:26:19.855639
 
 """

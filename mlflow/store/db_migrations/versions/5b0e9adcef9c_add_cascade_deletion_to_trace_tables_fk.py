@@ -1,7 +1,5 @@
 """add cascade deletion to trace tables foreign keys
 
-Revision ID: 5b0e9adcef9c
-Revises: 867495a8f9d4
 Create Date: 2024-05-22 17:44:24.597019
 
 """

@@ -1,7 +1,5 @@
 """create entity_associations table
 
-Revision ID: de4033877273
-Revises: a1b2c3d4e5f6
 Create Date: 2025-07-28 13:05:53.982327
 
 """

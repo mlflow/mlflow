@@ -1,7 +1,5 @@
 """allow nulls for run_id
 
-Revision ID: a8c4a736bde6
-Revises: 84291f40a231
 Create Date: 2020-12-02 12:14:35.220815
 
 """

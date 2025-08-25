@@ -1,7 +1,5 @@
 """add scorer tables
 
-Revision ID: 534353b11cbc
-Revises: 770bee3ae1dd
 Create Date: 2025-01-27 10:00:00.000000
 
 """

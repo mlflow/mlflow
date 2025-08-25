@@ -1,7 +1,5 @@
 """add cascading deletion to datasets from experiments
 
-Revision ID: 0584bdc529eb
-Revises: f5a4f2784254
 Create Date: 2024-11-11 15:27:53.189685
 
 """
