@@ -917,6 +917,19 @@ smolagents:
     run: pytest tests/smolagents
     test_tracing_sdk: true
 
+strands:
+  package_info:
+    genai: true
+    pip_release: "strands-agents"
+    module_name: "strands"
+    install_dev: |
+      pip install "git+https://github.com/strands-agents/sdk-python"
+  autologging:
+    minimum: "1.4.0"
+    maximum: "1.4.0"
+    run: pytest tests/strands
+    test_tracing_sdk: true
+
 mistral:
   package_info:
     pip_release: "mistralai"
