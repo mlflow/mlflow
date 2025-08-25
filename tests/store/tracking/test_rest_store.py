@@ -1763,6 +1763,17 @@ def test_log_spans_with_version_check():
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
 
+    # Test 5: Real timeout test - verify that timeout works properly without mocking
+    # Using a non-routable IP address that will trigger timeout
+    creds5 = MlflowHostCreds("http://192.0.2.0")  # TEST-NET-1, guaranteed to be non-routable
+    store5 = RestStore(lambda: creds5)
+    start_time = time.time()
+    with pytest.raises(NotImplementedError, match="could not identify MLflow server version"):
+        store5.log_spans(experiment_id, spans)
+    elapsed_time = time.time() - start_time
+    # Should timeout within 3 seconds (plus some buffer for processing)
+    assert elapsed_time < 5, f"Version check took {elapsed_time}s, should timeout within 3s"
+
 
 def test_server_version_check_caching():
     """Test that server version is cached and not fetched multiple times."""
