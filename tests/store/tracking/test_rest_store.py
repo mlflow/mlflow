@@ -1697,15 +1697,7 @@ def test_delete_scorer_without_version():
 
 def test_log_spans_with_version_check():
     """Test that log_spans raises NotImplementedError for old server versions."""
-    # Create a test span using the mock helper
-    otel_span = create_mock_otel_span(
-        trace_id=123,
-        span_id=1,
-        name="test_span",
-        start_time=1000000,
-        end_time=2000000,
-    )
-    spans = [LiveSpan(otel_span, trace_id="tr-123")]
+    spans = _create_test_spans()
     experiment_id = "exp-123"
 
     # Test 1: Server version is None (failed to retrieve)
@@ -1718,64 +1710,52 @@ def test_log_spans_with_version_check():
             store1.log_spans(experiment_id, spans)
 
     # Test 2: Server version is less than 3.4
-    # Use different host to avoid cache
     creds2 = MlflowHostCreds("https://host2")
     store2 = RestStore(lambda: creds2)
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        version_response = mock.MagicMock()
-        version_response.status_code = 200
-        version_response.text = "3.3.0"
-        mock_http.return_value = version_response
-
+        mock_http.return_value = _create_mock_response(text="3.3.0")
         with pytest.raises(
             NotImplementedError, match="MLflow server version 3.3.0 is less than 3.4"
         ):
             store2.log_spans(experiment_id, spans)
 
     # Test 3: Server version is exactly 3.4.0 - should succeed
-    # Use different host to avoid cache
     creds3 = MlflowHostCreds("https://host3")
     store3 = RestStore(lambda: creds3)
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         # First call is to /version, second is to OTLP endpoint
-        version_response = mock.MagicMock()
-        version_response.status_code = 200
-        version_response.text = "3.4.0"
-
-        otlp_response = mock.MagicMock()
-        otlp_response.status_code = 200
-        otlp_response.text = "{}"
-
-        mock_http.side_effect = [version_response, otlp_response]
-
+        mock_http.side_effect = [
+            _create_mock_response(text="3.4.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ]
         result = store3.log_spans(experiment_id, spans)
         assert result == spans
         assert mock_http.call_count == 2
 
     # Test 4: Server version is greater than 3.4 - should succeed
-    # Use different host to avoid cache
     creds4 = MlflowHostCreds("https://host4")
     store4 = RestStore(lambda: creds4)
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         # First call is to /version, second is to OTLP endpoint
-        version_response = mock.MagicMock()
-        version_response.status_code = 200
-        version_response.text = "3.5.0"
-
-        otlp_response = mock.MagicMock()
-        otlp_response.status_code = 200
-        otlp_response.text = "{}"
-
-        mock_http.side_effect = [version_response, otlp_response]
-
+        mock_http.side_effect = [
+            _create_mock_response(text="3.5.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ]
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
         assert mock_http.call_count == 2
 
 
-def test_server_version_check_caching():
-    """Test that server version is cached and not fetched multiple times."""
-    # Create test spans
+def _create_mock_response(status_code=200, text="{}"):
+    """Helper to create a mock HTTP response."""
+    response = mock.MagicMock()
+    response.status_code = status_code
+    response.text = text
+    return response
+
+
+def _create_test_spans():
+    """Helper to create test spans for log_spans tests."""
     otel_span = create_mock_otel_span(
         trace_id=123,
         span_id=1,
@@ -1783,7 +1763,12 @@ def test_server_version_check_caching():
         start_time=1000000,
         end_time=2000000,
     )
-    spans = [LiveSpan(otel_span, trace_id="tr-123")]
+    return [LiveSpan(otel_span, trace_id="tr-123")]
+
+
+def test_server_version_check_caching():
+    """Test that server version is cached and not fetched multiple times."""
+    spans = _create_test_spans()
     experiment_id = "exp-123"
 
     # Use the same host credentials for all stores to test caching
@@ -1793,15 +1778,10 @@ def test_server_version_check_caching():
 
     # First call - should fetch version and then call OTLP
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        version_response = mock.MagicMock()
-        version_response.status_code = 200
-        version_response.text = "3.5.0"
-
-        otlp_response = mock.MagicMock()
-        otlp_response.status_code = 200
-        otlp_response.text = "{}"
-
-        mock_http.side_effect = [version_response, otlp_response]
+        mock_http.side_effect = [
+            _create_mock_response(text="3.5.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ]
 
         # We call log_spans because it performs a server version check via _get_server_version
         result1 = store1.log_spans(experiment_id, spans)
@@ -1827,11 +1807,7 @@ def test_server_version_check_caching():
 
     # Second call with same store - should use cached version, only call OTLP
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        otlp_response = mock.MagicMock()
-        otlp_response.status_code = 200
-        otlp_response.text = "{}"
-
-        mock_http.return_value = otlp_response
+        mock_http.return_value = _create_mock_response()
 
         result2 = store1.log_spans(experiment_id, spans)
         assert result2 == spans
@@ -1848,11 +1824,7 @@ def test_server_version_check_caching():
 
     # Third call with different store but same creds - should still use cached version
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        otlp_response = mock.MagicMock()
-        otlp_response.status_code = 200
-        otlp_response.text = "{}"
-
-        mock_http.return_value = otlp_response
+        mock_http.return_value = _create_mock_response()
 
         result3 = store2.log_spans(experiment_id, spans)
         assert result3 == spans
