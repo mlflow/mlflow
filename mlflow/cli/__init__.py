@@ -711,9 +711,12 @@ from mlflow.cli import traces
 
 cli.add_command(traces.commands)
 
-import mlflow.mcp.cli
+try:
+    import mlflow.mcp.cli
 
-cli.add_command(mlflow.mcp.cli.cli)
+    cli.add_command(mlflow.mcp.cli.cli)
+except ImportError:
+    pass
 
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
