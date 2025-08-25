@@ -13,7 +13,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIM
 
 @pytest.fixture(autouse=True)
 def reset_resolved_notebook_experiment_id():
-    DatabricksNotebookExperimentProvider._resolved = False
+    DatabricksNotebookExperimentProvider._resolve_notebook_experiment_id.cache_clear()
 
 
 def test_databricks_notebook_default_experiment_in_context():
