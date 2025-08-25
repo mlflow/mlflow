@@ -1813,19 +1813,35 @@ def test_server_version_check_caching():
         # First call - should fetch version and call OTLP
         result1 = store1.log_spans(experiment_id, spans)
         assert result1 == spans
-        assert mock_http.call_count == 2  # version + OTLP
 
-        # Second call with same store - should use cached version
+        # Verify the first call was to /version endpoint
+        assert mock_http.call_args_list[0] == mock.call(
+            host_creds=creds,
+            endpoint="/version",
+            method="GET",
+            timeout=3,
+            max_retries=0,
+            raise_on_status=True,
+        )
+
+        # Verify the second call was to OTLP endpoint
+        assert mock_http.call_args_list[1][1]["endpoint"] == "/v1/traces"
+
+        # Second call with same store - should use cached version (no /version call)
         result2 = store1.log_spans(experiment_id, spans)
         assert result2 == spans
-        assert mock_http.call_count == 3  # only OTLP, no version check
+
+        # Third call should be to OTLP only (index 2)
+        assert mock_http.call_args_list[2][1]["endpoint"] == "/v1/traces"
 
         # Third call with different store but same creds - should still use cached version
         result3 = store2.log_spans(experiment_id, spans)
         assert result3 == spans
-        assert mock_http.call_count == 4  # only OTLP, no version check
 
-        # Verify that version endpoint was only called once
+        # Fourth call should also be to OTLP only (index 3)
+        assert mock_http.call_args_list[3][1]["endpoint"] == "/v1/traces"
+
+        # Verify that /version was only called once (first call)
         version_calls = [
             call for call in mock_http.call_args_list if call[1].get("endpoint") == "/version"
         ]
