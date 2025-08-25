@@ -92,7 +92,9 @@ def set_experiment_storage_location(
 
     if location is None:
         DatabricksTraceServerClient().delete_trace_destination(experiment_id)
-        MlflowClient().delete_experiment_tag(experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE)
+        MlflowClient().set_experiment_tag(
+            experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, None
+        )
         _logger.info(f"Unset storage location for experiment {experiment_id}.")
     else:
         return _enable_databricks_trace_archival(
@@ -429,12 +431,10 @@ def _enable_databricks_trace_archival(
             if e.error_code == "ALREADY_EXISTS":
                 _logger.info(
                     f"Storage location already set for experiment {experiment_id}. "
-                    "To link the experiment to a new storage location, call "
-                    "`set_experiment_storage_location(None)` first and try again."
+                    f"To link the experiment to a new storage location, first call "
+                    f"`set_experiment_storage_location(None, '{experiment_id}')` and try again."
                 )
-                return
-            else:
-                raise e
+            raise e
 
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "

@@ -782,9 +782,9 @@ def test_set_experiment_storage_location_unset_with_default_experiment(
     # Verify delete was called with correct experiment ID
     mock_trace_client_instance.delete_trace_destination.assert_called_once_with("12345")
 
-    # Verify experiment tag was deleted
-    mock_mlflow_client_instance.delete_experiment_tag.assert_called_once_with(
-        "12345", "mlflow.experiment.databricksTraceStorageTable"
+    # Verify experiment tag was set to None
+    mock_mlflow_client_instance.set_experiment_tag.assert_called_once_with(
+        "12345", "mlflow.experiment.databricksTraceStorageTable", None
     )
 
     # Verify cache was cleared
@@ -818,9 +818,9 @@ def test_set_experiment_storage_location_unset_with_explicit_experiment(
     # Verify delete was called with correct experiment ID
     mock_trace_client_instance.delete_trace_destination.assert_called_once_with("67890")
 
-    # Verify experiment tag was deleted
-    mock_mlflow_client_instance.delete_experiment_tag.assert_called_once_with(
-        "67890", "mlflow.experiment.databricksTraceStorageTable"
+    # Verify experiment tag was set to None
+    mock_mlflow_client_instance.set_experiment_tag.assert_called_once_with(
+        "67890", "mlflow.experiment.databricksTraceStorageTable", None
     )
 
     # Verify cache was cleared
@@ -891,29 +891,39 @@ def test_set_experiment_storage_location_set_with_explicit_experiment(
 # Tests for re-create logic in _enable_databricks_trace_archival
 
 
+@pytest.mark.parametrize(
+    ("error_code", "error_message"),
+    [
+        ("ALREADY_EXISTS", "Already exists"),
+        ("PERMISSION_DENIED", "Permission denied"),
+        ("INVALID_PARAMETER_VALUE", "Invalid parameter"),
+    ],
+)
 @patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival._enable_trace_rolling_deletion")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_enable_archival_already_exists_error_returns_early(
+def test_enable_archival_errors_are_propagated(
     mock_mlflow_client,
     mock_rolling_deletion,
     mock_create_view,
     mock_trace_client,
     mock_workspace_client_class,
     mock_workspace_client,
+    error_code,
+    error_message,
 ):
-    """Test that ALREADY_EXISTS error logs message and returns early without retry."""
+    """Test that all errors from create_trace_destination are propagated."""
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
 
     # Mock trace client instance
     mock_trace_client_instance = Mock()
 
-    # Create ALREADY_EXISTS error
-    mock_error = Exception("Already exists")
-    mock_error.error_code = "ALREADY_EXISTS"
+    # Create error with specified code and message
+    mock_error = Exception(error_message)
+    mock_error.error_code = error_code
     mock_trace_client_instance.create_trace_destination.side_effect = mock_error
     mock_trace_client.return_value = mock_trace_client_instance
 
@@ -922,7 +932,8 @@ def test_enable_archival_already_exists_error_returns_early(
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):
-        result = _enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+        with pytest.raises(Exception, match=error_message):
+            _enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
 
     # Verify view creation was NOT called
     mock_create_view.assert_not_called()
@@ -932,40 +943,6 @@ def test_enable_archival_already_exists_error_returns_early(
 
     # Verify experiment tag was NOT set
     mock_client_instance.set_experiment_tag.assert_not_called()
-
-    # Verify return value is None (early return)
-    assert result is None
-
-
-@patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_enable_archival_non_already_exists_error_propagates(
-    mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
-):
-    """Test that non-ALREADY_EXISTS errors are propagated without delete/retry."""
-    # Use the fixture's mock workspace client
-    mock_workspace_client_class.return_value = mock_workspace_client
-
-    # Mock trace client instance
-    mock_trace_client_instance = Mock()
-
-    # Create a non-ALREADY_EXISTS error
-    mock_error = Exception("Permission denied")
-    mock_error.error_code = "PERMISSION_DENIED"
-    mock_trace_client_instance.create_trace_destination.side_effect = mock_error
-    mock_trace_client.return_value = mock_trace_client_instance
-
-    # Mock MLflow client
-    mock_client_instance = Mock()
-    mock_mlflow_client.return_value = mock_client_instance
-
-    with patch("importlib.util.find_spec", return_value=Mock()):
-        with pytest.raises(Exception, match="Permission denied"):
-            _enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
-
-    # Verify delete was NOT called
-    mock_trace_client_instance.delete_trace_destination.assert_not_called()
 
     # Verify create was only called once
     assert mock_trace_client_instance.create_trace_destination.call_count == 1
