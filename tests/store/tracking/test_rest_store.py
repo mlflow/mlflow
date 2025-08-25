@@ -1764,8 +1764,8 @@ def test_log_spans_with_version_check():
         assert result == spans
 
     # Test 5: Real timeout test - verify that timeout works properly without mocking
-    # Using a non-routable IP address that will trigger timeout
-    creds5 = MlflowHostCreds("http://192.0.2.0")  # TEST-NET-1, guaranteed to be non-routable
+    # Using a non-existent host that will trigger timeout
+    creds5 = MlflowHostCreds("https://host5")
     store5 = RestStore(lambda: creds5)
     start_time = time.time()
     with pytest.raises(NotImplementedError, match="could not identify MLflow server version"):
