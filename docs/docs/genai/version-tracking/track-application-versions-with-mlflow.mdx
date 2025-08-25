@@ -12,6 +12,13 @@ import { GitBranch, GitCommit, Tag, Clock, Shield, Code2, Database, Settings, Ey
 
 # Track versions of Git-based applications with MLflow
 
+:::warning
+
+- This feature is experimental and may change in future releases.
+- This feature doesn't work in [Databricks Git Folders](https://docs.databricks.com/aws/en/repos/) yet due to limitations in accessing Git metadata.
+
+:::
+
 This guide demonstrates how to track versions of your GenAI application when your app's code resides in Git or a similar version control system. MLflow provides automatic Git-based versioning through the <APILink fn="mlflow.genai.enable_git_model_versioning" /> API, which seamlessly tracks your application versions based on Git state.
 
 When enabled, MLflow automatically:
