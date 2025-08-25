@@ -970,3 +970,46 @@ MLflow UI. To view the evaluation results on MLflow UI, please follow the steps 
 Please see the screenshot below for clarity:
 
 ![Demo UI of MLflow evaluate](/images/llm_evaluate_experiment_view.png)
+
+## Error Handling and Retrying Failed Examples
+
+When evaluating LLM calls at scale, some requests may raise exceptions due to timeouts or provider errors. You can wrap your evaluation function in a try/except loop, capture the indices of failed rows, and retry them later after addressing the issue:
+
+```python
+# Assume: eval_data has columns like "inputs" and "ground_truth"
+# Assume: run_llm(df_with_inputs) -> list/array of predicted answers
+
+errors = {}
+good_idx = []
+
+for idx, row in eval_data.drop(columns=["ground_truth"]).iterrows():
+    try:
+        _ = run_llm(pd.DataFrame([row]))
+        good_idx.append(idx)
+    except Exception as e:
+        errors[idx] = str(e)
+
+good_df = eval_data.loc[good_idx]
+failed_df = eval_data.loc[list(errors.keys())]  # may be empty
+
+# Evaluate successful rows with mlflow.evaluate
+with mlflow.start_run(run_name="llm_eval_successes"):
+    results = mlflow.evaluate(
+        model=run_llm,
+        data=good_df,
+        targets="ground_truth",
+        model_type="question-answering",
+    )
+
+# After fixing the underlying issues for the failed rows, re-evaluate just those
+if not failed_df.empty:
+    with mlflow.start_run(run_name="llm_eval_failed_after_fix"):
+        results = mlflow.evaluate(
+            model=run_llm,
+            data=failed_df,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
+```
+
+This pattern allows you to log errors (e.g., using `mlflow.log_dict(errors)`) and re-run only the problematic examples rather than the entire dataset.
