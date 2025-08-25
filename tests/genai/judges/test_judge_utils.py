@@ -15,7 +15,6 @@ def test_invoke_judge_model_successful_with_litellm(num_retries):
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        # Build kwargs dict
         kwargs = {
             "model_uri": "openai:/gpt-4",
             "prompt": "Evaluate this response",
