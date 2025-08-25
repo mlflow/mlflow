@@ -3049,12 +3049,12 @@ class SqlAlchemyStore(AbstractStore):
         """
 
         with self.ManagedSessionMaker() as session:
-            if base_filter:
-                filter1_combined = f"({base_filter}) and ({filter_string1})"
-                filter2_combined = f"({base_filter}) and ({filter_string2})"
-            else:
-                filter1_combined = filter_string1
-                filter2_combined = filter_string2
+            filter1_combined = (
+                f"{base_filter} and {filter_string1}" if base_filter else filter_string1
+            )
+            filter2_combined = (
+                f"{base_filter} and {filter_string2}" if base_filter else filter_string2
+            )
 
             filter1_subquery = self._build_trace_filter_subquery(
                 session, experiment_ids, filter1_combined
@@ -3088,12 +3088,15 @@ class SqlAlchemyStore(AbstractStore):
         stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
         if filter_string:
-            attribute_filters, non_attribute_filters, run_id_filter = (
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            for span_filter in span_filters:
+                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
 
             for attr_filter in attribute_filters:
                 stmt = stmt.where(attr_filter)
@@ -3114,6 +3117,8 @@ class SqlAlchemyStore(AbstractStore):
         This method efficiently calculates all necessary counts for NPMI calculation
         in a single database round-trip using LEFT JOINs instead of EXISTS subqueries
         for MSSQL compatibility.
+
+        When base_filter is provided, the total count refers to traces matching the base filter.
         """
         f1_subq = filter1_subquery.subquery()
         f2_subq = filter2_subquery.subquery()
@@ -3121,11 +3126,22 @@ class SqlAlchemyStore(AbstractStore):
         filter1_alias = aliased(f1_subq)
         filter2_alias = aliased(f2_subq)
 
+        # If base_filter is provided, use traces matching the base filter as the universe
+        # Otherwise, use all traces in the experiments
+        if base_filter:
+            base_subquery = self._build_trace_filter_subquery(session, experiment_ids, base_filter)
+            base_subq = base_subquery.subquery()
+            base_table = aliased(base_subq)
+            base_request_id = base_table.c.request_id
+        else:
+            base_table = SqlTraceInfo
+            base_request_id = SqlTraceInfo.request_id
+
         # NB: MSSQL does not support exists queries within subjoins so a slightly
         # less efficient subquery LEFT JOIN is used to support all backends.
         query = (
             session.query(
-                func.count(SqlTraceInfo.request_id).label("total"),
+                func.count(base_request_id).label("total"),
                 func.count(filter1_alias.c.request_id).label("filter1"),
                 func.count(filter2_alias.c.request_id).label("filter2"),
                 func.count(
@@ -3133,23 +3149,20 @@ class SqlAlchemyStore(AbstractStore):
                         (
                             (filter1_alias.c.request_id.isnot(None))
                             & (filter2_alias.c.request_id.isnot(None)),
-                            SqlTraceInfo.request_id,
+                            base_request_id,
                         ),
                         else_=None,
                     )
                 ).label("joint"),
             )
-            .select_from(SqlTraceInfo)
-            .outerjoin(filter1_alias, SqlTraceInfo.request_id == filter1_alias.c.request_id)
-            .outerjoin(filter2_alias, SqlTraceInfo.request_id == filter2_alias.c.request_id)
-            .filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+            .select_from(base_table)
+            .outerjoin(filter1_alias, base_request_id == filter1_alias.c.request_id)
+            .outerjoin(filter2_alias, base_request_id == filter2_alias.c.request_id)
         )
 
-        if base_filter:
-            base_subquery = self._build_trace_filter_subquery(session, experiment_ids, base_filter)
-            base_subq = base_subquery.subquery()
-            base_alias = aliased(base_subq)
-            query = query.join(base_alias, SqlTraceInfo.request_id == base_alias.c.request_id)
+        # Only add experiment filter if we're using SqlTraceInfo directly (no base_filter)
+        if not base_filter:
+            query = query.filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
         result = query.one()
 

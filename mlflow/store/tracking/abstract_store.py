@@ -973,7 +973,10 @@ class AbstractStore:
         Raises:
             MlflowException: If filters are invalid or experiments don't exist.
         """
-        raise NotImplementedError(self.__class__.__name__)
+        raise NotImplementedError(
+            f"The Correlations API is not implemented for {self.__class__.__name__}. "
+            "A SQL backend is required to use this feature."
+        )
 
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """
