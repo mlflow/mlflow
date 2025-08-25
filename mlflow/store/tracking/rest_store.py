@@ -516,7 +516,8 @@ class RestStore(AbstractStore):
             request.base_filter = base_filter
 
         req_body = message_to_json(request)
-        response_proto = self._call_endpoint(CalculateTraceFilterCorrelation, req_body)
+        v3_endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/calculate-filter-correlation"
+        response_proto = self._call_endpoint(CalculateTraceFilterCorrelation, req_body, v3_endpoint)
         return TraceFilterCorrelationResult.from_proto(response_proto)
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):

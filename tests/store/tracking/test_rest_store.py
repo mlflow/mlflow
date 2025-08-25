@@ -1738,6 +1738,7 @@ def test_calculate_trace_filter_correlation():
         mock_call_endpoint.assert_called_once_with(
             CalculateTraceFilterCorrelation,
             message_to_json(expected_request),
+            "/api/3.0/mlflow/traces/calculate-filter-correlation",
         )
 
 
@@ -1779,4 +1780,5 @@ def test_calculate_trace_filter_correlation_without_base_filter():
         mock_call_endpoint.assert_called_once_with(
             CalculateTraceFilterCorrelation,
             message_to_json(expected_request),
+            "/api/3.0/mlflow/traces/calculate-filter-correlation",
         )

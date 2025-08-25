@@ -7710,7 +7710,6 @@ def test_calculate_trace_filter_correlation_empty_experiment_list(store):
     assert result.filter1_count == 0
     assert result.filter2_count == 0
     assert result.joint_count == 0
-    # When there are no traces, NPMI is undefined (NaN)
     assert math.isnan(result.npmi)
 
 
@@ -7732,13 +7731,7 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
         )
         store.start_trace(trace_info)
 
-    # Later time period (will be included by base filter)
     later_time = 2000000000000
-    # Create traces in the later period:
-    # - 10 total traces in the time window
-    # - 6 with has_error=true
-    # - 4 with has_tool=true
-    # - 3 with both has_error=true AND has_tool=true
     for i in range(10):
         tags = {}
         if i < 6:
@@ -7768,13 +7761,6 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result.filter1_count == 6
     assert result.filter2_count == 4
     assert result.joint_count == 3
-
-    # Calculate expected NPMI
-    # P(error) = 6/10 = 0.6
-    # P(tool) = 4/10 = 0.4
-    # P(error AND tool) = 3/10 = 0.3
-    # PMI = log(P(error AND tool) / (P(error) * P(tool))) = log(0.3 / (0.6 * 0.4)) = log(1.25)
-    # NPMI = PMI / -log(P(error AND tool)) = log(1.25) / -log(0.3)
 
     p_error = 6 / 10
     p_tool = 4 / 10
