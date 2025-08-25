@@ -23,7 +23,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries):
         }
         if num_retries is not None:
             kwargs["num_retries"] = num_retries
-        
+
         feedback = invoke_judge_model(**kwargs)
 
     # Create expected retry policy manually
@@ -37,7 +37,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries):
         BadRequestErrorRetries=0,
         AuthenticationErrorRetries=0,
     )
-    
+
     mock_litellm.assert_called_once_with(
         model="openai/gpt-4",
         messages=[{"role": "user", "content": "Evaluate this response"}],
