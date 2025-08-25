@@ -1171,6 +1171,7 @@ mlflow.statsmodels.save_model
 mlflow.store.entities.PagedList
 mlflow.store.entities.PagedList.to_list
 mlflow.store.entities.paged_list.PagedList
+mlflow.strands.autolog
 mlflow.system_metrics.disable_system_metrics_logging
 mlflow.system_metrics.enable_system_metrics_logging
 mlflow.system_metrics.set_system_metrics_node_id

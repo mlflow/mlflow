@@ -57,6 +57,10 @@ class CreateLoggedModelEvent(Event):
         return None
 
 
+class GetLoggedModelEvent(Event):
+    name: str = "get_logged_model"
+
+
 class CreateRegisteredModelEvent(Event):
     name: str = "create_registered_model"
 
@@ -113,3 +117,24 @@ class LogMetricEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {"synchronous": arguments.get("synchronous")}
+
+
+class LogParamEvent(Event):
+    name: str = "log_param"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {"synchronous": arguments.get("synchronous")}
+
+
+class LogBatchEvent(Event):
+    name: str = "log_batch"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "metrics": bool(arguments.get("metrics")),
+            "params": bool(arguments.get("params")),
+            "tags": bool(arguments.get("tags")),
+            "synchronous": arguments.get("synchronous"),
+        }

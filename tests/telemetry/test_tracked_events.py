@@ -8,7 +8,7 @@ import sklearn.neighbors as knn
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import Feedback
+from mlflow.entities import Feedback, Metric, Param, RunTag
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
@@ -25,8 +25,11 @@ from mlflow.telemetry.events import (
     CreateWebhookEvent,
     EvaluateEvent,
     GenAIEvaluateEvent,
+    GetLoggedModelEvent,
     LogAssessmentEvent,
+    LogBatchEvent,
     LogMetricEvent,
+    LogParamEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -373,3 +376,137 @@ def test_log_metric(mock_requests, mock_telemetry_client: TelemetryClient):
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": False}
         )
+
+
+def test_log_param(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run():
+        mlflow.log_param("test_param", "test_value")
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": True}
+        )
+
+        mlflow.log_param("test_param", "test_value", synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": False}
+        )
+
+        client = mlflow.MlflowClient()
+        client.log_param(
+            run_id=mlflow.active_run().info.run_id,
+            key="test_param",
+            value="test_value",
+        )
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogParamEvent.name,
+            {"synchronous": True},
+        )
+
+
+def test_log_batch(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run():
+        mlflow.log_params(params={"test_param": "test_value"})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": True, "tags": False, "synchronous": True},
+        )
+
+        mlflow.log_params(params={"test_param": "test_value"}, synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": True, "tags": False, "synchronous": False},
+        )
+
+        mlflow.log_metrics(metrics={"test_metric": 1.0})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": False, "tags": False, "synchronous": True},
+        )
+
+        mlflow.log_metrics(metrics={"test_metric": 1.0}, synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": False, "tags": False, "synchronous": False},
+        )
+
+        mlflow.set_tags(tags={"test_tag": "test_value"})
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": False, "tags": True, "synchronous": True},
+        )
+
+        mlflow.set_tags(tags={"test_tag": "test_value"}, synchronous=False)
+
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": False, "params": False, "tags": True, "synchronous": False},
+        )
+
+        client = mlflow.MlflowClient()
+        client.log_batch(
+            run_id=mlflow.active_run().info.run_id,
+            metrics=[Metric(key="test_metric", value=1.0, timestamp=int(time.time()), step=0)],
+            params=[Param(key="test_param", value="test_value")],
+            tags=[RunTag(key="test_tag", value="test_value")],
+        )
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            LogBatchEvent.name,
+            {"metrics": True, "params": True, "tags": True, "synchronous": True},
+        )
+
+
+def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
+    model_info = mlflow.sklearn.log_model(
+        knn.KNeighborsClassifier(),
+        name="model",
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.sklearn.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    model_def = """
+import mlflow
+from mlflow.models import set_model
+
+class TestModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: list[str], params=None) -> list[str]:
+        return model_input
+
+set_model(TestModel())
+"""
+    model_path = tmp_path / "model.py"
+    model_path.write_text(model_def)
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=model_path,
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    # test load model after registry
+    mlflow.register_model(model_info.model_uri, name="test")
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model("models:/test/1")
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
