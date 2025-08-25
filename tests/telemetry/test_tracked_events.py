@@ -25,6 +25,7 @@ from mlflow.telemetry.events import (
     CreateWebhookEvent,
     EvaluateEvent,
     GenAIEvaluateEvent,
+    GetLoggedModelEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogParamEvent,
@@ -429,3 +430,45 @@ def test_log_batch(mock_requests, mock_telemetry_client: TelemetryClient):
             LogBatchEvent.name,
             {"metrics": True, "params": True, "tags": True, "synchronous": True},
         )
+
+
+def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
+    model_info = mlflow.sklearn.log_model(
+        knn.KNeighborsClassifier(),
+        name="model",
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.sklearn.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    model_def = """
+import mlflow
+from mlflow.models import set_model
+
+class TestModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: list[str], params=None) -> list[str]:
+        return model_input
+
+set_model(TestModel())
+"""
+    model_path = tmp_path / "model.py"
+    model_path.write_text(model_def)
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=model_path,
+    )
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+    # test load model after registry
+    mlflow.register_model(model_info.model_uri, name="test")
+    mock_telemetry_client.flush()
+
+    mlflow.pyfunc.load_model("models:/test/1")
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)

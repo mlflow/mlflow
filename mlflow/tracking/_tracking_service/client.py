@@ -40,6 +40,7 @@ from mlflow.telemetry.events import (
     CreateExperimentEvent,
     CreateLoggedModelEvent,
     CreateRunEvent,
+    GetLoggedModelEvent,
     LogBatchEvent,
     LogParamEvent,
 )
@@ -874,6 +875,7 @@ class TrackingServiceClient:
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
 
+    @record_usage_event(GetLoggedModelEvent)
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
