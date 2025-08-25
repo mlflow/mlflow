@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+from contextlib import nullcontext
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -3471,19 +3472,20 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
         pytest.skip("FileStore does not support OTLP span logging")
 
     # Mock the server version check to return 3.4 if current MLflow version is < 3.4
-    # This allows the test to pass on older MLflow versions that don't have the OTLP endpoint
+    # This allows the test to pass on ev MLflow versions that don't have the OTLP endpoint
     from packaging.version import Version
 
     import mlflow
 
     if Version(mlflow.__version__) < Version("3.4"):
-        mock_ctx = mock.patch("mlflow.store.tracking.rest_store.RestStore._get_server_version")
-        mock_version = mock_ctx.__enter__()
-        mock_version.return_value = Version("3.4.0")
+        version_mock = mock.patch(
+            "mlflow.store.tracking.rest_store.RestStore._get_server_version",
+            return_value=Version("3.4.0"),
+        )
     else:
-        mock_ctx = None
+        version_mock = nullcontext()
 
-    try:
+    with version_mock:
         experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
         root_span = mlflow_client.start_trace(
             f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
@@ -3523,6 +3525,3 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
         # Verify the spans were returned (indicates successful logging)
         assert len(result_spans) == 1
         assert result_spans[0].name == f"test-rest-store-span-{use_async}"
-    finally:
-        if mock_ctx:
-            mock_ctx.__exit__(None, None, None)
