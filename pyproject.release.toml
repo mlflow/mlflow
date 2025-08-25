@@ -33,6 +33,7 @@ dependencies = [
   "alembic<2,!=1.10.0",
   "cryptography<46,>=43.0.0",
   "docker<8,>=4.0.0",
+  "fastmcp<3,>=2.0.0",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
   "matplotlib<4",
