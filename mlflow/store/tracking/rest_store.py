@@ -1313,7 +1313,6 @@ class RestStore(AbstractStore):
         if not spans:
             return []
 
-        # Check server version before attempting to log spans
         server_version = self._get_server_version(self.get_host_creds())
         if not server_version:
             raise NotImplementedError(
