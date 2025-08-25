@@ -1,7 +1,7 @@
 import sys
 from typing import Any
 
-from mlflow.telemetry.constant import PACKAGES_TO_CHECK_IMPORT
+from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
 
 
 class Event:
@@ -25,6 +25,12 @@ class CreatePromptEvent(Event):
 
 class StartTraceEvent(Event):
     name: str = "start_trace"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        # Capture the set of currently imported packages at trace start time to
+        # understand the flavor of the trace.
+        return {"imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules]}
 
 
 class LogAssessmentEvent(Event):
@@ -66,7 +72,7 @@ class CreateRunEvent(Event):
         # Capture the set of currently imported packages at run creation time to
         # understand how MLflow is used together with other libraries. Collecting
         # this data at run creation ensures accuracy and completeness.
-        return {"imports": [pkg for pkg in PACKAGES_TO_CHECK_IMPORT if pkg in sys.modules]}
+        return {"imports": [pkg for pkg in MODULES_TO_CHECK_IMPORT if pkg in sys.modules]}
 
 
 class CreateModelVersionEvent(Event):
