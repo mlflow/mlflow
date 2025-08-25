@@ -32,6 +32,7 @@ from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import (
     get_databricks_env_vars,
     is_in_databricks_runtime,
+    is_in_databricks_serverless_runtime,
 )
 
 _logger = logging.getLogger(__name__)
@@ -335,8 +336,9 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
         # Add databricks env, for langchain models loading we might need CLI configurations
-        if is_in_databricks_runtime():
-            main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
+        tracking_uri = mlflow.get_tracking_uri()
+        if is_in_databricks_runtime() or tracking_uri in ("databricks", "databricks-uc"):
+            main_env.update(get_databricks_env_vars(tracking_uri))
 
         record_full_module_args = ["--record-full-module"] if record_full_module else []
 
