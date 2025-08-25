@@ -1716,7 +1716,7 @@ def test_log_spans_with_version_check():
     # Use unique host to avoid cache conflicts
     creds1 = MlflowHostCreds("https://host1")
     store1 = RestStore(lambda: creds1)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         mock_http.side_effect = Exception("Connection error")
         with pytest.raises(NotImplementedError, match="could not identify MLflow server version"):
             store1.log_spans(experiment_id, spans)
@@ -1725,7 +1725,7 @@ def test_log_spans_with_version_check():
     # Use different host to avoid cache
     creds2 = MlflowHostCreds("https://host2")
     store2 = RestStore(lambda: creds2)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         version_response = mock.MagicMock()
         version_response.status_code = 200
         version_response.text = "3.3.0"
@@ -1740,7 +1740,7 @@ def test_log_spans_with_version_check():
     # Use different host to avoid cache
     creds3 = MlflowHostCreds("https://host3")
     store3 = RestStore(lambda: creds3)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         # First call is to /version, second is to OTLP endpoint
         version_response = mock.MagicMock()
         version_response.status_code = 200
@@ -1760,7 +1760,7 @@ def test_log_spans_with_version_check():
     # Use different host to avoid cache
     creds4 = MlflowHostCreds("https://host4")
     store4 = RestStore(lambda: creds4)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
         # First call is to /version, second is to OTLP endpoint
         version_response = mock.MagicMock()
         version_response.status_code = 200

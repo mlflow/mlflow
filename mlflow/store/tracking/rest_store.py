@@ -148,7 +148,8 @@ class RestStore(AbstractStore):
                 host_creds=host_creds,
                 endpoint="/version",
                 method="GET",
-                timeout=3,  # 3 second timeout
+                timeout=3,  # 3 second timeout per request
+                max_retries=0,  # No retries for version check
                 raise_on_status=False,
             )
             response.raise_for_status()
