@@ -640,9 +640,16 @@ def catch_mlflow_exception(func):
         try:
             return func(*args, **kwargs)
         except MlflowException as e:
-            response = Response(mimetype="application/json")
-            response.set_data(e.serialize_as_json())
-            response.status_code = e.get_http_status_code()
+            body = e.serialize_as_json() or '{}'
+            response = Response(
+                response=body,
+                status=e.get_http_status_code(),
+                mimetype="application/json"
+            )
+            # add all dynamic fields from json_kwargs as X- headers
+            for key, value in getattr(e, "json_kwargs", {}).items():
+                header_name = f"X-{key.replace('_', '-').title()}"
+                response.headers[header_name] = str(value)
             return response
 
     return wrapper
