@@ -1,4 +1,4 @@
-from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.ml_package_versions import GENAI_FLAVOR_TO_MODULE_NAME, NON_GENAI_FLAVOR_TO_MODULE_NAME
 
 # NB: Kinesis PutRecords API has a limit of 500 records per request
 BATCH_SIZE = 500
@@ -47,42 +47,40 @@ GENAI_MODULES = {
     "smolagents",
     "vllm",
     "weaviate",
-}
+} | set(GENAI_FLAVOR_TO_MODULE_NAME.values())
 
-MODULES_TO_CHECK_IMPORT = (
-    {
-        # Classic ML
-        "catboost",
-        "diviner",
-        "h2o",
-        "lightgbm",
-        "optuna",
-        "prophet",
-        "pyspark.ml",
-        "sklearn",
-        "spacy",
-        "statsmodels",
-        "xgboost",
-        # Deep Learning
-        "accelerate",
-        "bitsandbytes",
-        "deepspeed",
-        "diffusers",
-        "fastai",
-        "flash_attn",
-        "flax",
-        "jax",
-        "keras",
-        "lightning",
-        "mxnet",
-        "paddle",
-        "peft",
-        "sentence_transformers",
-        "tensorflow",
-        "timm",
-        "torch",
-        "transformers",
-    }
-    | GENAI_MODULES
-    | set(FLAVOR_TO_MODULE_NAME.values()) - {"boto3", "pyspark"}
-)
+NON_GENAI_MODULES = {
+    # Classic ML
+    "catboost",
+    "diviner",
+    "h2o",
+    "lightgbm",
+    "optuna",
+    "prophet",
+    "pyspark.ml",
+    "sklearn",
+    "spacy",
+    "statsmodels",
+    "xgboost",
+    # Deep Learning
+    "accelerate",
+    "bitsandbytes",
+    "deepspeed",
+    "diffusers",
+    "fastai",
+    "flash_attn",
+    "flax",
+    "jax",
+    "keras",
+    "lightning",
+    "mxnet",
+    "paddle",
+    "peft",
+    "sentence_transformers",
+    "tensorflow",
+    "timm",
+    "torch",
+    "transformers",
+} | set(NON_GENAI_FLAVOR_TO_MODULE_NAME.values()) - {"pyspark"}
+
+MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
