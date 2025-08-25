@@ -99,6 +99,10 @@ class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
 
 
+class LogDatasetEvent(Event):
+    name: str = "log_dataset"
+
+
 class LogMetricEvent(Event):
     name: str = "log_metric"
 
