@@ -1791,8 +1791,8 @@ def test_server_version_check_caching():
     store1 = RestStore(lambda: creds)
     store2 = RestStore(lambda: creds)  # Different store instance, same creds
 
+    # First call - should fetch version and then call OTLP
     with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        # Setup mock responses
         version_response = mock.MagicMock()
         version_response.status_code = 200
         version_response.text = "3.5.0"
@@ -1801,21 +1801,15 @@ def test_server_version_check_caching():
         otlp_response.status_code = 200
         otlp_response.text = "{}"
 
-        # Mock will return version, then OTLP response for each call
-        mock_http.side_effect = [
-            version_response,  # First version check
-            otlp_response,  # First OTLP call
-            otlp_response,  # Second OTLP call (no version check due to cache)
-            otlp_response,  # Third OTLP call (no version check due to cache)
-        ]
+        mock_http.side_effect = [version_response, otlp_response]
 
         # We call log_spans because it performs a server version check via _get_server_version
-        # First call - should fetch version and call OTLP
         result1 = store1.log_spans(experiment_id, spans)
         assert result1 == spans
 
-        # Verify the first call was to /version endpoint
-        assert mock_http.call_args_list[0] == mock.call(
+        # Should have called /version first, then /v1/traces
+        assert mock_http.call_count == 2
+        mock_http.assert_any_call(
             host_creds=creds,
             endpoint="/version",
             method="GET",
@@ -1823,26 +1817,52 @@ def test_server_version_check_caching():
             max_retries=0,
             raise_on_status=True,
         )
+        mock_http.assert_any_call(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
+        )
 
-        # Verify the second call was to OTLP endpoint
-        assert mock_http.call_args_list[1][1]["endpoint"] == "/v1/traces"
+    # Second call with same store - should use cached version, only call OTLP
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
+        otlp_response = mock.MagicMock()
+        otlp_response.status_code = 200
+        otlp_response.text = "{}"
 
-        # Second call with same store - should use cached version (no /version call)
+        mock_http.return_value = otlp_response
+
         result2 = store1.log_spans(experiment_id, spans)
         assert result2 == spans
 
-        # Third call should be to OTLP only (index 2)
-        assert mock_http.call_args_list[2][1]["endpoint"] == "/v1/traces"
+        # Should only call OTLP, not version (cached)
+        assert mock_http.call_count == 1
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
+        )
 
-        # Third call with different store but same creds - should still use cached version
+    # Third call with different store but same creds - should still use cached version
+    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
+        otlp_response = mock.MagicMock()
+        otlp_response.status_code = 200
+        otlp_response.text = "{}"
+
+        mock_http.return_value = otlp_response
+
         result3 = store2.log_spans(experiment_id, spans)
         assert result3 == spans
 
-        # Fourth call should also be to OTLP only (index 3)
-        assert mock_http.call_args_list[3][1]["endpoint"] == "/v1/traces"
-
-        # Verify that /version was only called once (first call)
-        version_calls = [
-            call for call in mock_http.call_args_list if call[1].get("endpoint") == "/version"
-        ]
-        assert len(version_calls) == 1, "Version endpoint should only be called once"
+        # Should only call OTLP, not version (cached across instances)
+        assert mock_http.call_count == 1
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
+        )
