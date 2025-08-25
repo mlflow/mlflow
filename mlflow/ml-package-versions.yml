@@ -792,6 +792,10 @@ ag2:
           "openai",
           "numpy<2",
         ]
+      # see https://github.com/ag2ai/ag2/issues/2046, this release
+      # used simple string comparison for packages and does not
+      # recognize that version 1.100 is greater than 1.66
+      "== 0.8.7": ["openai<1.99.9"]
     run: pytest tests/ag2
 
 autogen:
