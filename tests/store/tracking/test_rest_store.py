@@ -28,6 +28,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -91,6 +92,8 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 class MyCoolException(Exception):
@@ -1694,12 +1697,6 @@ def test_delete_scorer_without_version():
 
 def test_log_spans_with_version_check():
     """Test that log_spans raises NotImplementedError for old server versions."""
-
-    from mlflow.entities.span import LiveSpan
-    from mlflow.utils.rest_utils import MlflowHostCreds
-
-    from tests.tracing.helper import create_mock_otel_span
-
     # Create a test span using the mock helper
     otel_span = create_mock_otel_span(
         trace_id=123,
@@ -1708,8 +1705,7 @@ def test_log_spans_with_version_check():
         start_time=1000000,
         end_time=2000000,
     )
-    span = LiveSpan(otel_span, trace_id="tr-123")
-    spans = [span]
+    spans = [LiveSpan(otel_span, trace_id="tr-123")]
     experiment_id = "exp-123"
 
     # Test 1: Server version is None (failed to retrieve)
@@ -1779,11 +1775,6 @@ def test_log_spans_with_version_check():
 
 def test_server_version_check_caching():
     """Test that server version is cached and not fetched multiple times."""
-    from mlflow.entities.span import LiveSpan
-    from mlflow.utils.rest_utils import MlflowHostCreds
-
-    from tests.tracing.helper import create_mock_otel_span
-
     # Create test spans
     otel_span = create_mock_otel_span(
         trace_id=123,
@@ -1792,8 +1783,7 @@ def test_server_version_check_caching():
         start_time=1000000,
         end_time=2000000,
     )
-    span = LiveSpan(otel_span, trace_id="tr-123")
-    spans = [span]
+    spans = [LiveSpan(otel_span, trace_id="tr-123")]
     experiment_id = "exp-123"
 
     # Use the same host credentials for all stores to test caching
