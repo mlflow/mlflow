@@ -27,6 +27,7 @@ from mlflow.telemetry.events import (
     GetLoggedModelEvent,
     LogAssessmentEvent,
     LogBatchEvent,
+    LogMetricEvent,
     LogParamEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
@@ -309,6 +310,43 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_log_metric(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mlflow.start_run():
+        mlflow.log_metric("test_metric", 1.0)
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": True}
+        )
+
+        mlflow.log_metric("test_metric", 1.0, synchronous=False)
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": False}
+        )
+
+        client = MlflowClient()
+        client.log_metric(
+            run_id=mlflow.active_run().info.run_id,
+            key="test_metric",
+            value=1.0,
+            timestamp=int(time.time()),
+            step=0,
+        )
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": True}
+        )
+
+        client.log_metric(
+            run_id=mlflow.active_run().info.run_id,
+            key="test_metric",
+            value=1.0,
+            timestamp=int(time.time()),
+            step=0,
+            synchronous=False,
+        )
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": False}
+        )
 
 
 def test_log_param(mock_requests, mock_telemetry_client: TelemetryClient):
