@@ -222,7 +222,7 @@ class WheeledModel:
 
         pip_wheel_options = MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS.get()
 
-        allowed_options = [
+        allowed_options = {
             "--only-binary=:all:",
             "--only-binary=:none:",
             "--no-binary=:all:",
@@ -237,9 +237,9 @@ class WheeledModel:
             "--pre",
             "--require-hashes",
             "--no-clean",
-        ]
-        all_options = pip_wheel_options.split(" ")
-        if any(option not in allowed_options for option in all_options):
+        }
+        all_options = set(pip_wheel_options.split(" "))
+        if not all_options.issubset(allowed_options):
             raise MlflowException.invalid_parameter_value(
                 "Invalid pip wheel option passed to `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`. "
                 f"Allowed options: {', '.join(allowed_options)}. "
