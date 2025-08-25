@@ -26,7 +26,6 @@ def test_invoke_judge_model_successful_with_litellm(num_retries):
 
         feedback = invoke_judge_model(**kwargs)
 
-    # Create expected retry policy manually
     from litellm import RetryPolicy
     expected_retries = 7 if num_retries is None else num_retries
     expected_retry_policy = RetryPolicy(
