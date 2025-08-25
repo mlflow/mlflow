@@ -12,5 +12,7 @@ with mlflow.start_span() as span:
     )
 
 
-with mlflow.start_run():
-    mlflow.log_artifact("tests/datasets/cat.png")
+tr = mlflow.get_trace(span.trace_id)
+my_image_ref = tr.data.spans[0].inputs["my_image"]
+print(my_image_ref)  # mlflow-attachments://...
+att = Attachment.from_ref(my_image_ref)

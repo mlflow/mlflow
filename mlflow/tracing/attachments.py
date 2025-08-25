@@ -57,5 +57,5 @@ class Attachment:
         )
 
     @classmethod
-    def from_ref(cls) -> "Attachment":
+    def from_ref(cls, ref: str) -> "Attachment":
         raise NotImplementedError("TODO")
