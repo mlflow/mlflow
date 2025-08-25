@@ -43,9 +43,6 @@ MLflow trace automatically captures the following information:
 ```python
 import mlflow
 
-mlflow.haystack.autolog()
-mlflow.set_experiment("Haystack Tracing")
-
 from haystack import Document, Pipeline
 from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -53,6 +50,9 @@ from haystack.components.retrievers.in_memory import InMemoryBM25Retriever
 from haystack.dataclasses import ChatMessage
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack.utils import Secret
+
+mlflow.haystack.autolog()
+mlflow.set_experiment("Haystack Tracing")
 
 # Write documents to InMemoryDocumentStore
 document_store = InMemoryDocumentStore()
