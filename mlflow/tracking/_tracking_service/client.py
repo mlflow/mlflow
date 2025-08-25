@@ -42,6 +42,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     GetLoggedModelEvent,
     LogBatchEvent,
+    LogMetricEvent,
     LogParamEvent,
 )
 from mlflow.telemetry.track import record_usage_event
@@ -317,6 +318,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
+    @record_usage_event(LogMetricEvent)
     def log_metric(
         self,
         run_id,

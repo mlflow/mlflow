@@ -111,6 +111,14 @@ class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
 
 
+class LogMetricEvent(Event):
+    name: str = "log_metric"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {"synchronous": arguments.get("synchronous")}
+
+
 class LogParamEvent(Event):
     name: str = "log_param"
 
