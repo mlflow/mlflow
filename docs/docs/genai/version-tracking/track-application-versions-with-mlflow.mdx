@@ -142,7 +142,7 @@ client = openai.OpenAI()
 
 # Use the trace decorator to capture the application's entry point
 @mlflow.trace
-def my_app(input: str):
+def my_app(input: str) -> str:
     """Customer support agent application"""
     # This call is automatically instrumented by `mlflow.openai.autolog()`
     response = client.chat.completions.create(
