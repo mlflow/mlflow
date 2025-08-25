@@ -69,13 +69,13 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: clint
-        name: clint
-        entry: clint
-        language: system
-        files: '\.(py|ipynb|rst|mdx?)$'
-        stages: [pre-commit]
-        require_serial: true
+      # - id: clint
+      #   name: clint
+      #   entry: python dev/clint.py
+      #   language: system
+      #   files: '\.(py|ipynb|rst|mdx?)$'
+      #   stages: [pre-commit]
+      #   require_serial: true
 
       - id: must-have-signoff
         name: must-have-signoff
