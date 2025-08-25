@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import posixpath
 
@@ -12,6 +13,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
     DatabricksLoggedModelArtifactRepository,
 )
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
@@ -37,6 +39,7 @@ LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024
 
+_logger = logging.getLogger(__name__)
 
 class DbfsRestArtifactRepository(ArtifactRepository):
     """
@@ -218,10 +221,16 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
     cleaned_artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
+        _logger.info(f"[DBFS_FACTORY_DEBUG] ACLed artifacts URI detected: {artifact_uri}")
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
+            _logger.info(f"[DBFS_FACTORY_DEBUG] Creating DatabricksLoggedModelArtifactRepository for: {artifact_uri}")
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri
             )
+        elif DatabricksRunArtifactRepository.is_run_uri(artifact_uri):
+            _logger.info(f"[DBFS_FACTORY_DEBUG] Creating DatabricksRunArtifactRepository for: {artifact_uri}")
+            return DatabricksRunArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
+        _logger.info(f"[DBFS_FACTORY_DEBUG] Creating DatabricksArtifactRepository for: {artifact_uri}")
         return DatabricksArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
