@@ -22,7 +22,9 @@ def test_mlflow_backend_scorer_operations():
 
     assert test_mlflow_scorer_v1.status == ScorerStatus.UNREGISTERED
     # Test register operation
-    registered_scorer_v1 = test_mlflow_scorer_v1.register(experiment_id=experiment_id, name="test_mlflow_scorer")
+    registered_scorer_v1 = test_mlflow_scorer_v1.register(
+        experiment_id=experiment_id, name="test_mlflow_scorer"
+    )
 
     assert registered_scorer_v1.status == ScorerStatus.STOPPED
 

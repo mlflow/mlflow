@@ -126,10 +126,7 @@ class Scorer(BaseModel):
         if self._registered_backend is None:
             return ScorerStatus.UNREGISTERED
 
-        if self._registered_backend == "tracking":
-            return ScorerStatus.STOPPED
-
-        return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
+        return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -473,7 +470,7 @@ class Scorer(BaseModel):
                 )
         """
         # Get the current tracking store
-        from mlflow.genai.scorers.registry import _get_scorer_store, DatabricksStore, MlflowTrackingStore
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
         store = _get_scorer_store()
