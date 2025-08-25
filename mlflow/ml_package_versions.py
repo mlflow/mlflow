@@ -440,19 +440,10 @@ _ML_PACKAGE_VERSIONS = {
 # A mapping of flavor name to the module name to be imported for autologging.
 # This is used for checking version compatibility in autologging.
 # DO NOT EDIT MANUALLY
-FLAVOR_TO_MODULE_NAME = {
-    "sklearn": "sklearn",
-    "pytorch": "torch",
-    "pytorch-lightning": "lightning",
-    "keras": "keras",
-    "tensorflow": "tensorflow",
-    "xgboost": "xgboost",
-    "lightgbm": "lightgbm",
+
+# GenAI packages
+GENAI_FLAVOR_TO_MODULE_NAME = {
     "semantic_kernel": "semantic_kernel",
-    "statsmodels": "statsmodels",
-    "spark": "pyspark",
-    "paddle": "paddle",
-    "transformers": "transformers",
     "openai": "openai",
     "dspy": "dspy",
     "langchain": "langchain",
@@ -468,6 +459,24 @@ FLAVOR_TO_MODULE_NAME = {
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
-    "bedrock": "boto3",
+    "bedrock": "boto3"
+}
+
+# Non-GenAI packages
+NON_GENAI_FLAVOR_TO_MODULE_NAME = {
+    "sklearn": "sklearn",
+    "pytorch": "torch",
+    "pytorch-lightning": "lightning",
+    "keras": "keras",
+    "tensorflow": "tensorflow",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "statsmodels": "statsmodels",
+    "spark": "pyspark",
+    "paddle": "paddle",
+    "transformers": "transformers",
     "pyspark.ml": "pyspark"
 }
+
+# Combined mapping for backward compatibility
+FLAVOR_TO_MODULE_NAME = NON_GENAI_FLAVOR_TO_MODULE_NAME | GENAI_FLAVOR_TO_MODULE_NAME
