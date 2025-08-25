@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Literal, NamedTuple
@@ -420,7 +420,11 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
+        self.utc_time_created = str(
+            # In mlflow <= 3.3.0, `datetime.utcnow()` was used. To preserve the original behavior,
+            # use `.replace(tzinfo=None)` to make the timestamp naive.
+            utc_time_created or datetime.now(timezone.utc).replace(tzinfo=None)
+        )
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -1156,6 +1160,7 @@ class Model:
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
 
+            flavor_name = kwargs.pop("flavor_name", None)
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -1163,6 +1168,8 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
+                if flavor_name is None:
+                    flavor_name = flavor.__name__ if hasattr(flavor, "__name__") else "custom"
                 model = _create_logged_model(
                     # TODO: Update model name
                     name=name,
@@ -1172,7 +1179,7 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
-                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
+                    flavor=flavor_name,
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (

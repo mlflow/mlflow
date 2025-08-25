@@ -15,6 +15,10 @@ _RESPONSE_API_BUILT_IN_TOOLS = {
     "file_search",
     "computer_use_preview",
     "web_search_preview",
+    "local_shell",
+    "mcp",
+    "code_interpreter",
+    "image_generation",
 }
 
 

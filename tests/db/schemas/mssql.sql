@@ -55,6 +55,20 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	url VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('ACTIVE') NOT NULL,
+	secret VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
+)
+
+
 CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -152,6 +166,15 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -163,6 +186,15 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	entity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	action VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
+	CONSTRAINT "FK__webhook_e__webho__1332DBDC" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -268,6 +300,16 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__params__run_uuid__46E78A0C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 

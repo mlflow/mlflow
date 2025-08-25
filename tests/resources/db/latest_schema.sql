@@ -58,6 +58,20 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	description VARCHAR(1000),
+	url VARCHAR(500) NOT NULL,
+	status VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL,
+	secret VARCHAR(1000),
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
+)
+
+
 CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -159,6 +173,15 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -170,6 +193,15 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) NOT NULL,
+	entity VARCHAR(50) NOT NULL,
+	action VARCHAR(50) NOT NULL,
+	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
+	FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -277,6 +309,16 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer TEXT NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 

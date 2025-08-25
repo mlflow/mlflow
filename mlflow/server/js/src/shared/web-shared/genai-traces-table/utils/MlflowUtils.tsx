@@ -98,11 +98,11 @@ class MlflowUtils {
   }
 
   static getRunPageRoute(experimentId: string, runUuid: string) {
-    return `/ml/experiments/${experimentId}/runs/${runUuid}`;
+    return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
   static getLoggedModelPageRoute(experimentId: string, loggedModelId: string) {
-    return `/ml/experiments/${experimentId}/models/${loggedModelId}`;
+    return `/experiments/${experimentId}/models/${loggedModelId}`;
   }
 
   /**

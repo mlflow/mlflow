@@ -6,6 +6,7 @@ import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import WorkflowSteps from "@site/src/components/WorkflowSteps";
+import CollapsibleSection from "@site/src/components/CollapsibleSection";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
@@ -161,54 +162,59 @@ mlflow.log_expectation(
 
 The MLflow UI provides an intuitive way to add expectations directly to traces. This approach is ideal for domain experts who need to define ground truth without writing code, and for collaborative annotation workflows where multiple stakeholders contribute different perspectives.
 
-<WorkflowSteps
-  steps={[
-    {
-      icon: MousePointer,
-      title: "Navigate to your experiment",
-      description: "Select the trace containing the interaction you want to annotate"
-    },
-    {
-      icon: Plus,
-      title: "Click \"Add Assessment\" button",
-      description: "Access the assessment creation form on the trace detail page"
-    },
-    {
-      icon: ListCheck,
-      title: "Select \"Expectation\" from dropdown",
-      description: "Choose Assessment Type to define ground truth rather than feedback"
-    },
-    {
-      icon: Type,
-      title: "Enter a descriptive name",
-      description: "Use clear names like \"expected_answer\", \"correct_classification\", or \"expected_documents\""
-    },
-    {
-      icon: Settings,
-      title: "Choose the appropriate data type",
-      description: "Select String for text, JSON for structured data, Boolean for binary expectations"
-    },
-    {
-      icon: FileInput,
-      title: "Enter the ground truth value",
-      description: "Define what the AI should have produced for this specific input"
-    },
-    {
-      icon: MessageSquare,
-      title: "Add rationale explaining correctness",
-      description: "Document why this is the correct or expected output for future reference"
-    },
-    {
-      icon: Target,
-      title: "Click \"Create\" to record expectation",
-      description: "Save your ground truth annotation to establish the quality baseline"
-    }
-  ]}
-  screenshot={{
-    src: AddExpectationImageUrl,
-    alt: "Add Expectation"
-  }}
-/>
+<CollapsibleSection
+  title="Show Step-by-Step Instructions (8 steps)"
+  defaultExpanded={false}
+>
+  <WorkflowSteps
+    steps={[
+      {
+        icon: MousePointer,
+        title: "Navigate to your experiment",
+        description: "Select the trace containing the interaction you want to annotate"
+      },
+      {
+        icon: Plus,
+        title: "Click \"Add Assessment\" button",
+        description: "Access the assessment creation form on the trace detail page"
+      },
+      {
+        icon: ListCheck,
+        title: "Select \"Expectation\" from dropdown",
+        description: "Choose Assessment Type to define ground truth rather than feedback"
+      },
+      {
+        icon: Type,
+        title: "Enter a descriptive name",
+        description: "Use clear names like \"expected_answer\", \"correct_classification\", or \"expected_documents\""
+      },
+      {
+        icon: Settings,
+        title: "Choose the appropriate data type",
+        description: "Select String for text, JSON for structured data, Boolean for binary expectations"
+      },
+      {
+        icon: FileInput,
+        title: "Enter the ground truth value",
+        description: "Define what the AI should have produced for this specific input"
+      },
+      {
+        icon: MessageSquare,
+        title: "Add rationale explaining correctness",
+        description: "Document why this is the correct or expected output for future reference"
+      },
+      {
+        icon: Target,
+        title: "Click \"Create\" to record expectation",
+        description: "Save your ground truth annotation to establish the quality baseline"
+      }
+    ]}
+    screenshot={{
+      src: AddExpectationImageUrl,
+      alt: "Add Expectation"
+    }}
+  />
+</CollapsibleSection>
 
 The expectation will be immediately attached to the trace, establishing the ground truth reference for future evaluation.
 

@@ -15,10 +15,6 @@ class Event:
         return None
 
 
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
-
-
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
@@ -39,6 +35,18 @@ class EvaluateEvent(Event):
     name: str = "evaluate"
 
 
+class GenAIEvaluateEvent(Event):
+    name: str = "genai_evaluate"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+        scorers = arguments.get("scorers") or []
+        builtin_scorers = {scorer.name for scorer in scorers if isinstance(scorer, BuiltInScorer)}
+        return {"builtin_scorers": list(builtin_scorers)}
+
+
 class CreateLoggedModelEvent(Event):
     name: str = "create_logged_model"
 
@@ -47,6 +55,10 @@ class CreateLoggedModelEvent(Event):
         if flavor := arguments.get("flavor"):
             return {"flavor": flavor.removeprefix("mlflow.")}
         return None
+
+
+class GetLoggedModelEvent(Event):
+    name: str = "get_logged_model"
 
 
 class CreateRegisteredModelEvent(Event):
@@ -84,3 +96,16 @@ def _is_prompt(tags: dict[str, str]) -> bool:
     except ImportError:
         return False
     return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
+
+class CreateWebhookEvent(Event):
+    name: str = "create_webhook"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        events = arguments.get("events") or []
+        return {"events": [str(event) for event in events]}
+
+
+class PromptOptimizationEvent(Event):
+    name: str = "prompt_optimization"

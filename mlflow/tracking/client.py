@@ -45,6 +45,13 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookEventStr,
+    WebhookStatus,
+    WebhookTestResult,
+)
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -752,10 +759,6 @@ class MlflowClient:
         """
         if isinstance(prompt, str):
             prompt = self.load_prompt(prompt)
-        elif isinstance(prompt, PromptVersion):
-            # NB: We need to load the prompt once from the registry because the tags in
-            # local prompt object may not be in sync with the registry.
-            prompt = self.load_prompt(prompt.uri)
         elif not isinstance(prompt, PromptVersion):
             raise MlflowException.invalid_parameter_value(
                 "The `prompt` argument must be a Prompt object or a prompt URI.",
@@ -5949,3 +5952,148 @@ class MlflowClient:
 
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
+
+    # Webhook APIs
+    @experimental(version="3.3.0")
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEventStr | WebhookEvent],
+        description: str | None = None,
+        secret: str | None = None,
+        status: str | WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Create a new webhook.
+
+        Args:
+            name: Name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of events that trigger this webhook. Can be strings or
+                `WebhookEvent` objects.
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE). Can be string or WebhookStatus enum.
+                Valid statuses: "ACTIVE", "DISABLED"
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
+        """
+        events = [WebhookEvent.from_str(e) if isinstance(e, str) else e for e in events]
+        if status is not None:
+            status = WebhookStatus(status) if isinstance(status, str) else status
+
+        return self._get_registry_client().create_webhook(
+            name=name,
+            url=url,
+            events=events,
+            description=description,
+            secret=secret,
+            status=status,
+        )
+
+    @experimental(version="3.3.0")
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object.
+        """
+        return self._get_registry_client().get_webhook(webhook_id)
+
+    @experimental(version="3.3.0")
+    def list_webhooks(
+        self,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
+        """
+        return self._get_registry_client().list_webhooks(max_results, page_token)
+
+    @experimental(version="3.3.0")
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEventStr | WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: str | WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of events. Can be strings or `WebhookEvent` objects.
+            secret: New webhook secret.
+            status: New webhook status. Can be string or WebhookStatus enum.
+                Valid statuses: "ACTIVE", "DISABLED"
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
+        """
+        if events is not None:
+            events = [WebhookEvent.from_str(e) if isinstance(e, str) else e for e in events]
+
+        if status is not None:
+            status = WebhookStatus(status) if isinstance(status, str) else status
+
+        return self._get_registry_client().update_webhook(
+            webhook_id=webhook_id,
+            name=name,
+            description=description,
+            url=url,
+            events=events,
+            secret=secret,
+            status=status,
+        )
+
+    @experimental(version="3.3.0")
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID to delete.
+
+        Returns:
+            None
+        """
+        self._get_registry_client().delete_webhook(webhook_id)
+
+    @experimental(version="3.3.0")
+    def test_webhook(
+        self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
+    ) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test payload.
+
+        Args:
+            webhook_id: Webhook ID to test.
+            event: Optional event type to test. Can be a WebhookEvent object or a string in
+                "entity.action" format (e.g., "model_version.created"). If not specified, uses
+                the first event from webhook.
+
+        Returns:
+            WebhookTestResult indicating success/failure and response details.
+        """
+        return self._get_registry_client().test_webhook(webhook_id, event)

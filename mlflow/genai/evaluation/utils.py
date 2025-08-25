@@ -37,6 +37,9 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
+PGBAR_FORMAT = (
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+)
 
 
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -357,10 +360,7 @@ def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["Eva
             disable=False,
             desc="Evaluating",
             smoothing=0,  # 0 means using average speed for remaining time estimates
-            bar_format=(
-                "{l_bar}{bar}| {n_fmt}/{total_fmt} "
-                "[Elapsed: {elapsed}, Remaining: {remaining}] {postfix}",
-            ),
+            bar_format=PGBAR_FORMAT,
         )
     except ImportError:
         # If tqdm is not installed, we don't show a progress bar

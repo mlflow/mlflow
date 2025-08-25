@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Callable, ParamSpec, TypeVar
 
 import mlflow
+from mlflow.tracking.context import registry as context_registry
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -32,7 +34,7 @@ class Context(ABC):
         """
 
     @abstractmethod
-    def get_user_name(self) -> str | None:
+    def get_user_name(self) -> str:
         """
         Get the current user's name.
         """
@@ -49,7 +51,7 @@ class NoneContext(Context):
     def get_mlflow_run_id(self) -> str | None:
         raise NotImplementedError("Context is not set")
 
-    def get_user_name(self) -> str | None:
+    def get_user_name(self) -> str:
         raise NotImplementedError("Context is not set")
 
 
@@ -61,28 +63,9 @@ class RealContext(Context):
     smoke tests that run this code on an actual Databricks cluster.
     """
 
-    @classmethod
-    def _get_dbutils(cls):
-        """
-        Returns an instance of dbutils.
-        """
-        try:
-            from databricks.sdk.runtime import dbutils
-
-            return dbutils
-        except ImportError:
-            import IPython
-
-            dbutils = IPython.get_ipython().user_ns["dbutils"]
-        return dbutils
-
     def __init__(self):
-        self._dbutils = self._get_dbutils()
         self._run_id = None
-        try:
-            self._notebook_context = self._dbutils.entry_point.getDbutils().notebook().getContext()
-        except Exception:
-            self._notebook_context = None
+        self._context_tags = context_registry.resolve_tags()
 
     def get_mlflow_experiment_id(self) -> str | None:
         # Note `_get_experiment_id` is thread-safe
@@ -115,11 +98,8 @@ class RealContext(Context):
         """
         self._run_id = run_id
 
-    def get_user_name(self) -> str | None:
-        try:
-            return self._notebook_context.userName().get()
-        except Exception:
-            return None
+    def get_user_name(self) -> str:
+        return self._context_tags.get(MLFLOW_USER, "unknown")
 
 
 # Context is a singleton.
@@ -157,3 +137,9 @@ def eval_context(func: Callable[P, R]) -> Callable[P, R]:
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def _set_context(context: Context) -> None:
+    """SHOULD ONLY BE USED FOR TESTING."""
+    global _context_singleton
+    _context_singleton = context

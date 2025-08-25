@@ -241,59 +241,66 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
         },
-        // {
-        //   type: 'category',
-        //   label: 'Running Evaluations',
-        //   items: [
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/prompts',
-        //       label: 'Evaluate Prompts',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/agents',
-        //       label: 'Evaluate Agents',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/traces',
-        //       label: 'Evaluate Traces',
-        //     },
-        //   ],
-        //   collapsed: false,
-        // },
-        // {
-        //   type: 'category',
-        //   label: 'Scorers',
-        //   items: [
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/index',
-        //       label: 'What is a Scorer?',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/llm-judge',
-        //       label: 'LLM-as-a-Judge Scorers',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/custom',
-        //       label: 'Custom Scorers',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/alignment',
-        //       label: 'How to write a good LLM judge?',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/integrations',
-        //       label: 'Third-Party Integrations',
-        //     },
-        //   ],
-        // },
+        {
+          type: 'category',
+          label: 'Running Evaluations',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/prompts',
+              label: 'Evaluate Prompts',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/agents',
+              label: 'Evaluate Agents',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/traces',
+              label: 'Evaluate Traces',
+            },
+          ],
+          collapsed: false,
+        },
+        {
+          type: 'category',
+          label: 'Scorers',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/index',
+              label: 'What is a Scorer?',
+            },
+            {
+              type: 'category',
+              label: 'LLM-based Scorers',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/predefined',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/prompt',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/index',
+              },
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/custom',
+              label: 'Code-based Scorers',
+            },
+          ],
+        },
         {
           type: 'doc',
           id: 'assessments/feedback',

@@ -43,8 +43,10 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -79,6 +81,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -1946,6 +1950,310 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            serialized_scorer: The serialized scorer string (JSON).
+
+        Returns:
+            The new version number for the scorer.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, check if the scorer exists in the scorers table
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                # Create the scorer record with a new UUID
+                scorer_id = str(uuid.uuid4())
+                scorer = SqlScorer(
+                    experiment_id=experiment_id,
+                    scorer_name=name,
+                    scorer_id=scorer_id,
+                )
+                session.add(scorer)
+                session.flush()  # Flush to get the scorer record
+
+            # Find the maximum version for this scorer
+            max_version = (
+                session.query(func.max(SqlScorerVersion.scorer_version))
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .scalar()
+            )
+
+            # Set new version (1 if no existing scorer, otherwise max + 1)
+            new_version = 1 if max_version is None else max_version + 1
+
+            # Create and save the new scorer version record
+            sql_scorer_version = SqlScorerVersion(
+                scorer_id=scorer.scorer_id,
+                scorer_version=new_version,
+                serialized_scorer=serialized_scorer,
+            )
+
+            session.add(sql_scorer_version)
+
+            return new_version
+
+    def list_scorers(self, experiment_id):
+        """
+        List all scorers for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects
+            (latest version for each scorer name).
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get all scorer_ids for this experiment
+            scorer_ids = [
+                scorer.scorer_id
+                for scorer in session.query(SqlScorer.scorer_id)
+                .filter(SqlScorer.experiment_id == experiment.experiment_id)
+                .all()
+            ]
+
+            if not scorer_ids:
+                return []
+
+            # Query the latest version for each scorer_id
+            from sqlalchemy import func
+
+            latest_versions = (
+                session.query(
+                    SqlScorerVersion.scorer_id,
+                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
+                )
+                .filter(SqlScorerVersion.scorer_id.in_(scorer_ids))
+                .group_by(SqlScorerVersion.scorer_id)
+                .subquery()
+            )
+
+            # Query the actual scorer version records with the latest versions
+            sql_scorer_versions = (
+                session.query(SqlScorerVersion)
+                .join(
+                    latest_versions,
+                    (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
+                    & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
+                )
+                .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
+                .order_by(SqlScorer.scorer_name)
+                .all()
+            )
+
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
+            scorers = []
+            for sql_scorer_version in sql_scorer_versions:
+                scorers.append(sql_scorer_version.to_mlflow_entity())
+
+            return scorers
+
+    def get_scorer(self, experiment_id, name, version=None):
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, returns the scorer with
+                maximum version.
+
+        Returns:
+            A ScorerVersion entity object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Build query for scorer versions
+            query = session.query(SqlScorerVersion).filter(
+                SqlScorerVersion.scorer_id == scorer.scorer_id
+            )
+
+            if version is not None:
+                # Get specific version
+                sql_scorer_version = query.filter(
+                    SqlScorerVersion.scorer_version == version
+                ).first()
+                if sql_scorer_version is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            else:
+                # Get maximum version
+                sql_scorer_version = query.order_by(SqlScorerVersion.scorer_version.desc()).first()
+                if sql_scorer_version is None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            return sql_scorer_version.to_mlflow_entity()
+
+    def delete_scorer(self, experiment_id, name, version=None):
+        """
+        Delete a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version to delete. If None, deletes all versions.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Build the query for scorer versions
+            query = session.query(SqlScorerVersion).filter(
+                SqlScorerVersion.scorer_id == scorer.scorer_id
+            )
+
+            # If version is specified, filter by version
+            if version is not None:
+                query = query.filter(SqlScorerVersion.scorer_version == version)
+
+            sql_scorer_versions = query.all()
+
+            if not sql_scorer_versions:
+                if version is not None:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' and version {version} not found for"
+                        f" experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                else:
+                    raise MlflowException(
+                        f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            # Delete the scorer versions
+            for sql_scorer_version in sql_scorer_versions:
+                session.delete(sql_scorer_version)
+
+            # If we're deleting all versions, also delete the scorer record
+            if version is None:
+                session.delete(scorer)
+
+    def list_scorer_versions(self, experiment_id, name):
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # First, get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Query for all versions of the scorer
+            sql_scorer_versions = (
+                session.query(SqlScorerVersion)
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .order_by(SqlScorerVersion.scorer_version.asc())
+                .all()
+            )
+
+            if not sql_scorer_versions:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Convert to mlflow.entities.scorer.ScorerVersion objects
+            scorers = []
+            for sql_scorer_version in sql_scorer_versions:
+                scorers.append(sql_scorer_version.to_mlflow_entity())
+
+            return scorers
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
@@ -2275,13 +2583,17 @@ class SqlAlchemyStore(AbstractStore):
             )
             stmt = select(SqlTraceInfo, *cases_orderby)
 
-            attribute_filters, non_attribute_filters, run_id_filter = (
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
-            # Apply non-attribute filters
+            # Apply non-attribute filters (tags and metadata)
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+
+            # Apply span filters with explicit join condition
+            for span_filter in span_filters:
+                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
@@ -2749,6 +3061,10 @@ class SqlAlchemyStore(AbstractStore):
         end_times = [span.end_time_ns for span in spans if span.end_time_ns is not None]
         max_end_ms = (max(end_times) // 1_000_000) if end_times else None
 
+        # Determine trace status from root span if available
+        root_span_status = self._get_trace_status_from_root_span(spans)
+        trace_status = root_span_status if root_span_status else TraceState.IN_PROGRESS.value
+
         with self.ManagedSessionMaker() as session:
             # Try to get the trace info to check if trace exists
             sql_trace_info = (
@@ -2758,6 +3074,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             # If trace doesn't exist, create it
             if sql_trace_info is None:
+                # Get experiment to add artifact location tag
+                experiment = self.get_experiment(experiment_id)
+
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
@@ -2765,11 +3084,11 @@ class SqlAlchemyStore(AbstractStore):
                     experiment_id=experiment_id,
                     timestamp_ms=min_start_ms,
                     execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
-                    # TODO: Set trace status based on root span status (span with no parent).
-                    # For now, we default to "OK" for all new traces.
-                    status="OK",
+                    status=trace_status,
                     client_request_id=None,
                 )
+                # Add the artifact location tag that's required for search_traces to work
+                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -2810,6 +3129,15 @@ class SqlAlchemyStore(AbstractStore):
                     )
                     - timestamp_update_expr
                 )
+
+            # If trace status is IN_PROGRESS or unspecified, check for root span to update it
+            if sql_trace_info.status in (
+                TraceState.IN_PROGRESS.value,
+                TraceState.STATE_UNSPECIFIED.value,
+            ):
+                if root_span_status:
+                    update_dict[SqlTraceInfo.status] = root_span_status
+
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
@@ -2853,6 +3181,25 @@ class SqlAlchemyStore(AbstractStore):
         """
         # TODO: Implement proper async support
         return self.log_spans(experiment_id, spans)
+
+    def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
+        """
+        Infer trace status from root span if present.
+
+        Returns the mapped trace status string or None if no root span found.
+        """
+        for span in spans:
+            if span.parent_id is None:  # Found root span (no parent)
+                # Map span status to trace status
+                span_status = span.status.status_code
+                if span_status == SpanStatusCode.ERROR:
+                    return TraceState.ERROR.value
+                else:
+                    # Beyond ERROR, the only other valid span statuses are OK and UNSET.
+                    # For both OK and UNSET span statuses, return OK trace status.
+                    # UNSET is unexpected in production but we handle it gracefully.
+                    return TraceState.OK.value
+        return None
 
     #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
@@ -3237,9 +3584,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
     Also extracts run_id filter if present for special handling.
+
+    Returns:
+        attribute_filters: Direct filters on SqlTraceInfo attributes
+        non_attribute_filters: Subqueries for tags and metadata
+        span_filters: Subqueries for span filters
+        run_id_filter: Special run_id value for linked trace handling
     """
     attribute_filters = []
     non_attribute_filters = []
+    span_filters = []
     run_id_filter = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -3270,6 +3624,24 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
+            elif SearchTraceUtils.is_span(key_type, key_name, comparator):
+                # Spans have specialized columns (name, type, status) unlike tags/metadata
+                # which have key-value structure, so we need specialized handling
+                from mlflow.store.tracking.dbmodels.models import SqlSpan
+
+                span_column = getattr(SqlSpan, key_name)
+                val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                    span_column, value
+                )
+
+                span_subquery = (
+                    session.query(SqlSpan.trace_id.label("request_id"))
+                    .filter(val_filter)
+                    .distinct()
+                    .subquery()
+                )
+                span_filters.append(span_subquery)
+                continue
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",
@@ -3286,4 +3658,4 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    return attribute_filters, non_attribute_filters, run_id_filter
+    return attribute_filters, non_attribute_filters, span_filters, run_id_filter

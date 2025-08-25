@@ -138,10 +138,10 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/instructor',
   },
   {
-    id: 'swarm',
-    name: 'OpenAI Swarm',
-    logoPath: '/images/logos/openai-swarm-logo.png',
-    link: '/genai/tracing/integrations/listing/swarm',
+    id: 'strands',
+    name: 'Strands Agent SDK',
+    logoPath: '/images/logos/strands-logo.png',
+    link: '/genai/tracing/integrations/listing/strands',
   },
   {
     id: 'deepseek',
