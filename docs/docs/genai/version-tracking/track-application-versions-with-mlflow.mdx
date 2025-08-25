@@ -173,26 +173,7 @@ When you run this code, MLflow automatically:
 
 :::
 
-## Step 3: (Optional) Record parameters
-
-You can log key configuration parameters that define this version of your application directly to the LoggedModel using `mlflow.log_model_params()`. This is useful for recording things like LLM names, temperature settings, or retrieval strategies that are tied to this code version.
-
-```python
-# After enabling Git versioning
-context = mlflow.genai.enable_git_model_versioning()
-
-# Define your application parameters
-app_params = {
-    "llm": "gpt-4o-mini",
-    "temperature": 0.7,
-    "retrieval_strategy": "vector_search_v3",
-}
-
-# Log params to the active Git-based version
-mlflow.log_model_params(model_id=context.active_model.model_id, params=app_params)
-```
-
-## Step 4: Test version tracking with code changes
+## Step 3: Test version tracking with code changes
 
 Run your application and observe how versions are tracked:
 
@@ -270,8 +251,6 @@ print(f"Name: {logged_model.name}")
 print(f"Experiment ID: {logged_model.experiment_id}")
 print(f"Status: {logged_model.status}")
 print(f"Model Type: {logged_model.model_type}")
-creation_time = datetime.datetime.fromtimestamp(logged_model.creation_timestamp / 1000)
-print(f"Created at: {creation_time}")
 
 # Access Git metadata from tags
 print(f"\n=== Git Information ===")
@@ -281,12 +260,6 @@ for tag_key, tag_value in git_tags.items():
         print(f"{tag_key}: <diff with {len(tag_value)} characters>")
     else:
         print(f"{tag_key}: {tag_value}")
-
-# Access the parameters if any were logged
-if logged_model.params:
-    print(f"\n=== Model Parameters ===")
-    for param_name, param_value in logged_model.params.items():
-        print(f"{param_name}: {param_value}")
 ```
 
 ## Next Steps
