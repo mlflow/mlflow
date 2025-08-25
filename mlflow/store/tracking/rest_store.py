@@ -103,6 +103,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
+    MlflowHostCreds,
     call_endpoint,
     extract_api_info_for_service,
     get_logged_model_endpoint,
@@ -133,7 +134,7 @@ class RestStore(AbstractStore):
 
     @staticmethod
     @functools.lru_cache
-    def _get_server_version(host_creds) -> Version | None:
+    def _get_server_version(host_creds: MlflowHostCreds) -> Version | None:
         """
         Get the MLflow server version with caching.
 
