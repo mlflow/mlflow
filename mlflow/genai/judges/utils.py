@@ -46,7 +46,6 @@ def invoke_judge_model(
         prompt: The prompt to evaluate.
         assessment_name: The name of the assessment.
         num_retries: Number of retries on transient failures when using litellm.
-                     Defaults to 7 to match MLflow's http_request utility defaults.
     """
     from mlflow.metrics.genai.model_utils import (
         _parse_model_uri,
