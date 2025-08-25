@@ -1,8 +1,10 @@
+import functools
 import json
 import logging
 from typing import Any
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from packaging.version import Version
 
 from mlflow.entities import (
     DatasetInput,
@@ -128,6 +130,33 @@ class RestStore(AbstractStore):
     def __init__(self, get_host_creds):
         super().__init__()
         self.get_host_creds = get_host_creds
+
+    @staticmethod
+    @functools.lru_cache
+    def _get_server_version(host_creds) -> Version | None:
+        """
+        Get the MLflow server version with caching.
+
+        Args:
+            host_creds: MlflowHostCreds object
+
+        Returns:
+            Version object if successful, None if failed to retrieve version.
+        """
+        try:
+            response = http_request(
+                host_creds=host_creds,
+                endpoint="/version",
+                method="GET",
+                timeout=3,  # 3 second timeout
+                raise_on_status=False,
+            )
+            response.raise_for_status()
+            return Version(response.text)
+        except Exception as e:
+            _logger.debug(f"Failed to retrieve server version: {e}")
+
+        return None
 
     def _call_endpoint(
         self,
@@ -1283,6 +1312,18 @@ class RestStore(AbstractStore):
         """
         if not spans:
             return []
+
+        # Check server version before attempting to log spans
+        server_version = self._get_server_version(self.get_host_creds())
+        if not server_version:
+            raise NotImplementedError(
+                "log_spans is not supported: could not identify MLflow server version"
+            )
+        elif server_version < Version("3.4"):
+            raise NotImplementedError(
+                f"log_spans is not supported: MLflow server version {server_version} is"
+                f" less than 3.4"
+            )
 
         trace_ids = {span.trace_id for span in spans}
         if len(trace_ids) > 1:
