@@ -1695,7 +1695,7 @@ def test_delete_scorer_without_version():
         )
 
 
-def _create_mock_response(status_code=200, text="{}"):
+def _create_mock_response(status_code: int = 200, text: str = "{}") -> mock.MagicMock:
     """Helper to create a mock HTTP response."""
     response = mock.MagicMock()
     response.status_code = status_code
@@ -1703,7 +1703,7 @@ def _create_mock_response(status_code=200, text="{}"):
     return response
 
 
-def _create_test_spans():
+def _create_test_spans() -> list[LiveSpan]:
     """Helper to create test spans for log_spans tests."""
     otel_span = create_mock_otel_span(
         trace_id=123,
