@@ -97,3 +97,24 @@ class CreateWebhookEvent(Event):
 
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
+
+
+class LogParamEvent(Event):
+    name: str = "log_param"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {"synchronous": arguments.get("synchronous")}
+
+
+class LogBatchEvent(Event):
+    name: str = "log_batch"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "metrics": bool(arguments.get("metrics")),
+            "params": bool(arguments.get("params")),
+            "tags": bool(arguments.get("tags")),
+            "synchronous": arguments.get("synchronous"),
+        }
