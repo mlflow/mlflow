@@ -2,6 +2,198 @@
 # Please do not edit it manually.
 
 _ML_PACKAGE_VERSIONS = {
+    "semantic_kernel": {
+        "package_info": {
+            "pip_release": "semantic-kernel"
+        },
+        "autologging": {
+            "minimum": "1.34.0",
+            "maximum": "1.35.3"
+        }
+    },
+    "openai": {
+        "package_info": {
+            "pip_release": "openai"
+        },
+        "models": {
+            "minimum": "1.43.0",
+            "maximum": "1.101.0"
+        },
+        "autologging": {
+            "minimum": "1.43.0",
+            "maximum": "1.101.0"
+        }
+    },
+    "dspy": {
+        "package_info": {
+            "pip_release": "dspy"
+        },
+        "models": {
+            "minimum": "2.5.17",
+            "maximum": "3.0.2"
+        },
+        "autologging": {
+            "minimum": "2.5.17",
+            "maximum": "3.0.2"
+        }
+    },
+    "langchain": {
+        "package_info": {
+            "pip_release": "langchain"
+        },
+        "models": {
+            "minimum": "0.2.15",
+            "maximum": "0.3.27"
+        },
+        "autologging": {
+            "minimum": "0.2.15",
+            "maximum": "0.3.27"
+        }
+    },
+    "langgraph": {
+        "package_info": {
+            "pip_release": "langgraph"
+        },
+        "models": {
+            "minimum": "0.2.15",
+            "maximum": "0.6.6"
+        },
+        "autologging": {
+            "minimum": "0.2.15",
+            "maximum": "0.6.6"
+        }
+    },
+    "llama_index": {
+        "package_info": {
+            "pip_release": "llama-index",
+            "module_name": "llama_index.core"
+        },
+        "models": {
+            "minimum": "0.11.2",
+            "maximum": "0.13.3"
+        },
+        "autologging": {
+            "minimum": "0.11.2",
+            "maximum": "0.13.3"
+        }
+    },
+    "ag2": {
+        "package_info": {
+            "pip_release": "ag2",
+            "module_name": "autogen"
+        },
+        "autologging": {
+            "minimum": "0.7.0",
+            "maximum": "0.9.9"
+        }
+    },
+    "autogen": {
+        "package_info": {
+            "pip_release": "autogen-agentchat",
+            "module_name": "autogen_agentchat"
+        },
+        "autologging": {
+            "minimum": "0.4.9",
+            "maximum": "0.7.4"
+        }
+    },
+    "gemini": {
+        "package_info": {
+            "pip_release": "google-genai",
+            "module_name": "google.genai"
+        },
+        "autologging": {
+            "minimum": "1.0.0",
+            "maximum": "1.31.0"
+        }
+    },
+    "anthropic": {
+        "package_info": {
+            "pip_release": "anthropic"
+        },
+        "autologging": {
+            "minimum": "0.34.2",
+            "maximum": "0.64.0"
+        }
+    },
+    "crewai": {
+        "package_info": {
+            "pip_release": "crewai",
+            "module_name": "crewai"
+        },
+        "autologging": {
+            "minimum": "0.80.0",
+            "maximum": "0.165.1"
+        }
+    },
+    "agno": {
+        "package_info": {
+            "pip_release": "agno",
+            "module_name": "agno"
+        },
+        "autologging": {
+            "minimum": "1.7.0",
+            "maximum": "1.7.12"
+        }
+    },
+    "pydantic_ai": {
+        "package_info": {
+            "pip_release": "pydantic-ai",
+            "module_name": "pydantic_ai"
+        },
+        "autologging": {
+            "minimum": "0.1.9",
+            "maximum": "0.7.4"
+        }
+    },
+    "smolagents": {
+        "package_info": {
+            "pip_release": "smolagents",
+            "module_name": "smolagents"
+        },
+        "autologging": {
+            "minimum": "1.14.0",
+            "maximum": "1.21.2"
+        }
+    },
+    "mistral": {
+        "package_info": {
+            "pip_release": "mistralai",
+            "module_name": "mistralai"
+        },
+        "autologging": {
+            "minimum": "1.0.3",
+            "maximum": "1.9.7"
+        }
+    },
+    "litellm": {
+        "package_info": {
+            "pip_release": "litellm"
+        },
+        "autologging": {
+            "minimum": "1.63.14",
+            "maximum": "1.74.9"
+        }
+    },
+    "groq": {
+        "package_info": {
+            "pip_release": "groq"
+        },
+        "autologging": {
+            "minimum": "0.13.0",
+            "maximum": "0.31.0"
+        }
+    },
+    "bedrock": {
+        "package_info": {
+            "pip_release": "boto3",
+            "module_name": "boto3"
+        },
+        "autologging": {
+            "minimum": "1.35.6",
+            "maximum": "1.40.16"
+        }
+    },
     "sklearn": {
         "package_info": {
             "pip_release": "scikit-learn"
@@ -45,11 +237,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.2",
-            "maximum": "3.11.2"
+            "maximum": "3.11.3"
         },
         "autologging": {
             "minimum": "3.0.2",
-            "maximum": "3.11.2"
+            "maximum": "3.11.3"
         }
     },
     "tensorflow": {
@@ -105,17 +297,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "onnx"
         },
         "models": {
-            "minimum": "1.14.1",
+            "minimum": "1.15.0",
             "maximum": "1.18.0"
-        }
-    },
-    "semantic_kernel": {
-        "package_info": {
-            "pip_release": "semantic-kernel"
-        },
-        "autologging": {
-            "minimum": "1.34.0",
-            "maximum": "1.35.3"
         }
     },
     "spacy": {
@@ -186,7 +369,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "h2o"
         },
         "models": {
-            "minimum": "3.42.0.3",
+            "minimum": "3.42.0.4",
             "maximum": "3.46.0.7"
         }
     },
@@ -205,11 +388,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.5.2",
-            "maximum": "3.1.0"
+            "maximum": "3.1.1"
         },
         "autologging": {
             "minimum": "2.5.2",
-            "maximum": "3.1.0"
+            "maximum": "3.1.1"
         }
     },
     "transformers": {
@@ -218,166 +401,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.38.2",
-            "maximum": "4.55.2"
+            "maximum": "4.55.4"
         },
         "autologging": {
             "minimum": "4.38.2",
-            "maximum": "4.55.2"
-        }
-    },
-    "openai": {
-        "package_info": {
-            "pip_release": "openai"
-        },
-        "models": {
-            "minimum": "1.41.1",
-            "maximum": "1.99.9"
-        },
-        "autologging": {
-            "minimum": "1.41.1",
-            "maximum": "1.99.9"
-        }
-    },
-    "dspy": {
-        "package_info": {
-            "pip_release": "dspy"
-        },
-        "models": {
-            "minimum": "2.5.17",
-            "maximum": "3.0.1"
-        },
-        "autologging": {
-            "minimum": "2.5.17",
-            "maximum": "3.0.1"
-        }
-    },
-    "langchain": {
-        "package_info": {
-            "pip_release": "langchain"
-        },
-        "models": {
-            "minimum": "0.2.15",
-            "maximum": "0.3.27"
-        },
-        "autologging": {
-            "minimum": "0.2.15",
-            "maximum": "0.3.27"
-        }
-    },
-    "langgraph": {
-        "package_info": {
-            "pip_release": "langgraph"
-        },
-        "models": {
-            "minimum": "0.2.5",
-            "maximum": "0.6.5"
-        },
-        "autologging": {
-            "minimum": "0.2.5",
-            "maximum": "0.6.5"
-        }
-    },
-    "llama_index": {
-        "package_info": {
-            "pip_release": "llama-index",
-            "module_name": "llama_index.core"
-        },
-        "models": {
-            "minimum": "0.10.67.post1",
-            "maximum": "0.13.2"
-        },
-        "autologging": {
-            "minimum": "0.10.67.post1",
-            "maximum": "0.13.2"
-        }
-    },
-    "ag2": {
-        "package_info": {
-            "pip_release": "ag2",
-            "module_name": "autogen"
-        },
-        "autologging": {
-            "minimum": "0.7.0",
-            "maximum": "0.9.8.post1"
-        }
-    },
-    "autogen": {
-        "package_info": {
-            "pip_release": "autogen-agentchat",
-            "module_name": "autogen_agentchat"
-        },
-        "autologging": {
-            "minimum": "0.4.9",
-            "maximum": "0.7.2"
-        }
-    },
-    "gemini": {
-        "package_info": {
-            "pip_release": "google-genai",
-            "module_name": "google.genai"
-        },
-        "autologging": {
-            "minimum": "1.0.0",
-            "maximum": "1.30.0"
-        }
-    },
-    "anthropic": {
-        "package_info": {
-            "pip_release": "anthropic"
-        },
-        "autologging": {
-            "minimum": "0.34.1",
-            "maximum": "0.64.0"
-        }
-    },
-    "crewai": {
-        "package_info": {
-            "pip_release": "crewai",
-            "module_name": "crewai"
-        },
-        "autologging": {
-            "minimum": "0.80.0",
-            "maximum": "0.159.0"
-        }
-    },
-    "agno": {
-        "package_info": {
-            "pip_release": "agno",
-            "module_name": "agno"
-        },
-        "autologging": {
-            "minimum": "1.7.0",
-            "maximum": "1.7.11"
-        }
-    },
-    "pydantic_ai": {
-        "package_info": {
-            "pip_release": "pydantic-ai",
-            "module_name": "pydantic_ai"
-        },
-        "autologging": {
-            "minimum": "0.1.9",
-            "maximum": "0.7.2"
-        }
-    },
-    "smolagents": {
-        "package_info": {
-            "pip_release": "smolagents",
-            "module_name": "smolagents"
-        },
-        "autologging": {
-            "minimum": "1.14.0",
-            "maximum": "1.21.1"
-        }
-    },
-    "mistral": {
-        "package_info": {
-            "pip_release": "mistralai",
-            "module_name": "mistralai"
-        },
-        "autologging": {
-            "minimum": "1.0.2",
-            "maximum": "1.9.6"
+            "maximum": "4.55.4"
         }
     },
     "sentence_transformers": {
@@ -394,7 +422,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "johnsnowlabs"
         },
         "models": {
-            "minimum": "5.0.3",
+            "minimum": "5.0.6",
             "maximum": "6.0.4"
         }
     },
@@ -406,53 +434,16 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "1.3.0",
             "maximum": "1.18.1"
         }
-    },
-    "litellm": {
-        "package_info": {
-            "pip_release": "litellm"
-        },
-        "autologging": {
-            "minimum": "1.63.14",
-            "maximum": "1.74.9"
-        }
-    },
-    "groq": {
-        "package_info": {
-            "pip_release": "groq"
-        },
-        "autologging": {
-            "minimum": "0.13.0",
-            "maximum": "0.31.0"
-        }
-    },
-    "bedrock": {
-        "package_info": {
-            "pip_release": "boto3",
-            "module_name": "boto3"
-        },
-        "autologging": {
-            "minimum": "1.35.1",
-            "maximum": "1.40.11"
-        }
     }
 }
 
 # A mapping of flavor name to the module name to be imported for autologging.
 # This is used for checking version compatibility in autologging.
 # DO NOT EDIT MANUALLY
-FLAVOR_TO_MODULE_NAME = {
-    "sklearn": "sklearn",
-    "pytorch": "torch",
-    "pytorch-lightning": "lightning",
-    "keras": "keras",
-    "tensorflow": "tensorflow",
-    "xgboost": "xgboost",
-    "lightgbm": "lightgbm",
+
+# GenAI packages
+GENAI_FLAVOR_TO_MODULE_NAME = {
     "semantic_kernel": "semantic_kernel",
-    "statsmodels": "statsmodels",
-    "spark": "pyspark",
-    "paddle": "paddle",
-    "transformers": "transformers",
     "openai": "openai",
     "dspy": "dspy",
     "langchain": "langchain",
@@ -468,6 +459,24 @@ FLAVOR_TO_MODULE_NAME = {
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
-    "bedrock": "boto3",
+    "bedrock": "boto3"
+}
+
+# Non-GenAI packages
+NON_GENAI_FLAVOR_TO_MODULE_NAME = {
+    "sklearn": "sklearn",
+    "pytorch": "torch",
+    "pytorch-lightning": "lightning",
+    "keras": "keras",
+    "tensorflow": "tensorflow",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "statsmodels": "statsmodels",
+    "spark": "pyspark",
+    "paddle": "paddle",
+    "transformers": "transformers",
     "pyspark.ml": "pyspark"
 }
+
+# Combined mapping for backward compatibility
+FLAVOR_TO_MODULE_NAME = {**NON_GENAI_FLAVOR_TO_MODULE_NAME, **GENAI_FLAVOR_TO_MODULE_NAME}
