@@ -20,10 +20,15 @@ def test_invoke_judge_model_successful_with_litellm():
             assessment_name="quality_check",
         )
 
-    mock_litellm.assert_called_once_with(
-        model="openai/gpt-4",
-        messages=[{"role": "user", "content": "Evaluate this response"}],
-    )
+    # Verify the basic call parameters
+    call_args = mock_litellm.call_args
+    assert call_args[1]["model"] == "openai/gpt-4"
+    assert call_args[1]["messages"] == [{"role": "user", "content": "Evaluate this response"}]
+
+    # Verify retry parameters are included (added by our implementation)
+    assert "retry_policy" in call_args[1]
+    assert call_args[1]["retry_strategy"] == "exponential_backoff_retry"
+    assert call_args[1]["max_retries"] == 0
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
@@ -77,3 +82,28 @@ def test_invoke_judge_model_invalid_json_response():
             invoke_judge_model(
                 model_uri="openai:/gpt-4", prompt="Test prompt", assessment_name="test"
             )
+
+
+def test_invoke_judge_model_retry_policy():
+    """Test that retry policy is passed with correct configuration."""
+    mock_content = json.dumps({"result": "yes", "rationale": "Success with retry."})
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Evaluate this response",
+            assessment_name="quality_check",
+            num_retries=5,
+        )
+
+    # Verify retry parameters are passed correctly
+    call_args = mock_litellm.call_args
+    assert call_args[1]["retry_strategy"] == "exponential_backoff_retry"
+    assert call_args[1]["max_retries"] == 0
+
+    # Verify retry policy has the specified retry count
+    retry_policy = call_args[1]["retry_policy"]
+    assert retry_policy.TimeoutErrorRetries == 5
+    assert retry_policy.RateLimitErrorRetries == 5
+    assert retry_policy.BadRequestErrorRetries == 0  # Non-transient errors not retried
