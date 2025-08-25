@@ -7,7 +7,7 @@ from typing import Sequence
 import mlflow
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -73,6 +73,19 @@ class TracingClient:
             The returned TraceInfoV3 object from the backend.
         """
         return self.store.start_trace(trace_info=trace_info)
+
+    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+        """
+        Log spans to the backend.
+
+        Args:
+            experiment_id: The experiment ID to log spans to.
+            spans: List of Span objects to log.
+
+        Returns:
+            List of logged Span objects from the backend.
+        """
+        return self.store.log_spans(experiment_id=experiment_id, spans=spans)
 
     def delete_traces(
         self,
