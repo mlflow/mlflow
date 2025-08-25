@@ -24,6 +24,7 @@ import pandas as pd
 import pytest
 import requests
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from packaging.version import Version
 
 import mlflow.experiments
 import mlflow.pyfunc
@@ -3472,11 +3473,7 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
         pytest.skip("FileStore does not support OTLP span logging")
 
     # Mock the server version check to return 3.4 if current MLflow version is < 3.4
-    # This allows the test to pass on ev MLflow versions that don't have the OTLP endpoint
-    from packaging.version import Version
-
-    import mlflow
-
+    # This allows the test to pass on older MLflow versions that don't have the OTLP endpoint
     if Version(mlflow.__version__) < Version("3.4"):
         version_mock = mock.patch(
             "mlflow.store.tracking.rest_store.RestStore._get_server_version",
