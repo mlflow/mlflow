@@ -36,6 +36,7 @@ describe('ShowArtifactTextView', () => {
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
@@ -57,6 +58,7 @@ describe('ShowArtifactTextView', () => {
     expect(wrapper.find('.artifact-text-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render text content when available', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
@@ -72,6 +74,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for a python script', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
@@ -85,6 +88,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for an MLproject file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
@@ -98,6 +102,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for an MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
@@ -119,6 +124,7 @@ describe('ShowArtifactTextView', () => {
     expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render prettified valid json', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1", "key2": "val2"}');

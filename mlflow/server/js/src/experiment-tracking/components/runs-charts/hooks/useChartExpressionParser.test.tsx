@@ -247,7 +247,7 @@ describe('useChartExpressionParser', () => {
     expect(parseExpression(' 1 + 2')).toBe(3);
   });
 
-  it('should handle invalid expressions', () => {
+  it('should handle invalid expressions (2)', () => {
     expect(parseExpression('1+')).toBe(undefined);
     expect(parseExpression('1+2+')).toBe(undefined);
     expect(parseExpression('1+2+3+')).toBe(undefined);

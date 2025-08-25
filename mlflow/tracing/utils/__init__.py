@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatTool
 
 
-def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
+def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
     try:
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
@@ -161,6 +161,17 @@ def decode_id(span_or_trace_id: str) -> int:
     return int(span_or_trace_id, 16)
 
 
+def get_mlflow_span_for_otel_span(span: OTelSpan) -> LiveSpan | None:
+    """
+    Get the active MLflow span for the given OpenTelemetry span.
+    """
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+    mlflow_span_id = encode_span_id(span.get_span_context().span_id)
+    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
+
+
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     """
     Build an OpenTelemetry SpanContext object from the given trace and span IDs.
@@ -199,7 +210,7 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
             span._span._name = f"{span.name}_{count}"
 
 
-def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
+def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
     input_tokens = 0
     output_tokens = 0
@@ -236,7 +247,7 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]
     }
 
 
-def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
+def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
     """
     Get the attribute value from the OpenTelemetry span in a decoded format.
 
@@ -265,7 +276,7 @@ def _try_get_prediction_context():
     return get_prediction_context()
 
 
-def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
+def maybe_get_request_id(is_evaluate=False) -> str | None:
     """Get the request ID if the current prediction is as a part of MLflow model evaluation."""
     context = _try_get_prediction_context()
     if not context or (is_evaluate and not context.is_evaluate):
@@ -282,13 +293,13 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
+def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
 
 
-def maybe_get_logged_model_id() -> Optional[str]:
+def maybe_get_logged_model_id() -> str | None:
     """
     Get the logged model ID associated with the current prediction context.
     """
@@ -301,13 +312,26 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
 
+def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
+    """
+    Generate an MLflow trace ID from an OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+
+    Returns:
+        The MLflow trace ID string in format "tr-<hex_trace_id>".
+    """
+    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
+
+
 def generate_trace_id_v3(span: OTelSpan) -> str:
     """
     Generate a trace ID for the given span (V3 trace schema).
 
     The format will be "tr-<trace_id>" where the trace_id is hex-encoded Otel trace ID.
     """
-    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(span.context.trace_id)
+    return generate_mlflow_trace_id_from_otel_trace_id(span.context.trace_id)
 
 
 def generate_request_id_v2() -> str:
@@ -337,7 +361,7 @@ def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
 
 
 @contextmanager
-def maybe_set_prediction_context(context: Optional["Context"]):
+def maybe_set_prediction_context(context: "Context" | None):
     """
     Set the prediction context if the given context
     is not None. Otherwise no-op.
@@ -530,3 +554,21 @@ def generate_assessment_id() -> str:
     """
     id = uuid.uuid4().hex
     return f"{ASSESSMENT_ID_PREFIX}{id}"
+
+
+@contextmanager
+def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
+    """
+    OpenTelemetry does not allow setting attributes if the span has end time defined.
+    https://github.com/open-telemetry/opentelemetry-python/blob/d327927d0274a320466feec6fba6d6ddb287dc5a/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L849-L851
+
+    However, we need to set some attributes within `on_end` handler of the span processor,
+    where the span is already marked as ended. This context manager is a hacky workaround
+    to bypass the attribute guard.
+    """
+    original_end_time = span._end_time
+    span._end_time = None
+    try:
+        yield
+    finally:
+        span._end_time = original_end_time

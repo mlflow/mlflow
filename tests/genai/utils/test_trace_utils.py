@@ -3,6 +3,7 @@ from typing import Any
 from unittest import mock
 
 import httpx
+import numpy as np
 import openai
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -11,7 +12,14 @@ import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
-from mlflow.genai.utils.trace_utils import convert_predict_fn, extract_retrieval_context_from_trace
+from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.scorers.base import scorer
+from mlflow.genai.utils.trace_utils import (
+    convert_predict_fn,
+    extract_retrieval_context_from_trace,
+    parse_inputs_to_str,
+    parse_outputs_to_str,
+)
 from mlflow.tracing.utils import build_otel_context
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
@@ -109,6 +117,19 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrappe
 
     # Trace should be generated if decorated or wrapped with @mlflow.trace
     assert len(get_traces()) == (1 if with_tracing or should_be_wrapped else 0)
+    purge_traces()
+
+    # All function should generate a trace when executed through mlflow.genai.evaluate
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 0
+
+    mlflow.genai.evaluate(
+        data=[{"inputs": sample_input}],
+        predict_fn=predict_fn,
+        scorers=[dummy_scorer],
+    )
+    assert len(get_traces()) == 1
 
 
 def create_span(
@@ -332,3 +353,146 @@ def test_get_retrieval_context_from_trace(spans, expected_retrieval_context):
     """Test traces.extract_retrieval_context_from_trace."""
     trace = Trace(info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=spans))
     assert extract_retrieval_context_from_trace(trace) == expected_retrieval_context
+
+
+@pytest.mark.parametrize(
+    ("input_data", "expected"),
+    [
+        # String input
+        ("Hello world", "Hello world"),
+        # Chat completion/ChatModel/ChatAgent request
+        (
+            {"messages": [{"role": "user", "content": "User message"}]},
+            "User message",
+        ),
+        # Multi-turn messages
+        (
+            {
+                "messages": [
+                    {"role": "assistant", "content": "First"},
+                    {"role": "user", "content": "Second"},
+                ]
+            },
+            '[{"role": "assistant", "content": "First"}, {"role": "user", "content": "Second"}]',
+        ),
+        # Empty dict input
+        (
+            {},
+            "{}",
+        ),
+        # Dict input
+        (
+            {"unsupported_key": "value"},
+            "{'unsupported_key': 'value'}",
+        ),
+        # Non-standard messages
+        (
+            {
+                "messages": [
+                    {"role": "assistant", "k": "First"},
+                    {"role": "user", "k": "Second"},
+                ]
+            },
+            "{'messages': [{'role': 'assistant', 'k': 'First'}, {'role': 'user', 'k': 'Second'}]}",
+        ),
+    ],
+)
+def test_parse_inputs_to_str(input_data, expected):
+    assert parse_inputs_to_str(input_data) == expected
+
+
+@pytest.mark.parametrize(
+    ("output_data", "expected"),
+    [
+        # String output
+        ("Output string", "Output string"),
+        # Chat completion/ChatModel response
+        (
+            {
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "Output content",
+                        },
+                    }
+                ]
+            },
+            "Output content",
+        ),
+        # ChatAgent response with multiple messages
+        (
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Input content",
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "Intermediate Output content",
+                    },
+                    {
+                        "role": "user",
+                        "content": "Intermediate Input content",
+                    },
+                    {
+                        "role": "assistant",
+                        "content": "Output content",
+                    },
+                ]
+            },
+            "Output content",
+        ),
+        # List of strings
+        (["Response content"], "Response content"),
+        # ChatAgent response with multiple messages
+        (
+            [
+                {
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "Output content",
+                            },
+                        }
+                    ]
+                }
+            ],
+            "Output content",
+        ),
+        # List of direct string response
+        (
+            {"unsupported_key": "value"},
+            '{"unsupported_key": "value"}',
+        ),
+        # Handle custom messages array format
+        (
+            {"messages": ["a", "b", "c"]},
+            '{"messages": ["a", "b", "c"]}',
+        ),
+    ],
+)
+def test_parse_outputs_to_str(output_data, expected):
+    assert parse_outputs_to_str(output_data) == expected
+
+
+@pytest.mark.parametrize(
+    ("input_value", "expected"),
+    [
+        (None, True),
+        (np.nan, True),
+        (float("nan"), True),
+        ("Not NaN", False),
+        (123, False),
+        ([], False),
+        ({}, False),
+        (0.0, False),
+        (1.5, False),
+    ],
+)
+def test_is_none_or_nan(input_value, expected):
+    assert is_none_or_nan(input_value) == expected

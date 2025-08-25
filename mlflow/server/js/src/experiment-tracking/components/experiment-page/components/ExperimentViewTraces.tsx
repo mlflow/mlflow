@@ -1,7 +1,12 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { TracesView } from '../../traces/TracesView';
 import { ExperimentViewRunsModeSwitch } from './runs/ExperimentViewRunsModeSwitch';
-import { shouldEnableExperimentPageHeaderV2 } from '../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageHeaderV2,
+  shouldEnableTracesV3View,
+  isExperimentEvalResultsMonitoringUIEnabled,
+} from '../../../../common/utils/FeatureUtils';
+import { TracesV3View } from './traces-v3/TracesV3View';
 
 export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[] }) => {
   const { theme } = useDesignSystemTheme();
@@ -23,5 +28,8 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
 };
 
 const TracesComponent = ({ experimentIds }: { experimentIds: string[] }) => {
+  if (shouldEnableTracesV3View() || isExperimentEvalResultsMonitoringUIEnabled()) {
+    return <TracesV3View experimentIds={experimentIds} />;
+  }
   return <TracesView experimentIds={experimentIds} />;
 };

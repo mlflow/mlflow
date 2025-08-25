@@ -6,7 +6,7 @@ import json
 import pathlib
 import posixpath
 import tempfile
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
@@ -21,11 +21,11 @@ from mlflow.tracking.artifact_utils import (
 
 
 def download_artifacts(
-    artifact_uri: Optional[str] = None,
-    run_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
-    dst_path: Optional[str] = None,
-    tracking_uri: Optional[str] = None,
+    artifact_uri: str | None = None,
+    run_id: str | None = None,
+    artifact_path: str | None = None,
+    dst_path: str | None = None,
+    tracking_uri: str | None = None,
 ) -> str:
     """Download an artifact file or directory to a local directory.
 
@@ -103,10 +103,10 @@ def download_artifacts(
 
 
 def list_artifacts(
-    artifact_uri: Optional[str] = None,
-    run_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
-    tracking_uri: Optional[str] = None,
+    artifact_uri: str | None = None,
+    run_id: str | None = None,
+    artifact_path: str | None = None,
+    tracking_uri: str | None = None,
 ) -> list[FileInfo]:
     """List artifacts at the specified URI.
 

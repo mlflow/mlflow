@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 from copy import deepcopy
-from typing import Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -273,7 +272,7 @@ def _mlflow_conda_env(
         return env
 
 
-def _get_package_version(package_name: str) -> Optional[str]:
+def _get_package_version(package_name: str) -> str | None:
     try:
         return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:
@@ -455,7 +454,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         return fallback
 
 
-def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
+def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]] | None:
     """
     Retrieves the predefined secrets to configure `pip` for Databricks, and converts them into
     command-line arguments and environment variables for `uv`.
@@ -464,6 +463,8 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     - https://docs.databricks.com/aws/en/compute/serverless/dependencies#predefined-secret-scope-name
     - https://docs.astral.sh/uv/configuration/environment/#environment-variables
     """
+    from databricks.sdk import WorkspaceClient
+
     from mlflow.utils.databricks_utils import (
         _get_dbutils,
         _NoDbutilsError,
@@ -471,14 +472,19 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     )
 
     if not is_in_databricks_runtime():
-        return [], {}
+        return None
+
+    workspace_client = WorkspaceClient()
+    secret_scopes = workspace_client.secrets.list_scopes()
+    if not any(s.name == "databricks-package-management" for s in secret_scopes):
+        return None
 
     try:
         dbutils = _get_dbutils()
     except _NoDbutilsError:
-        return [], {}
+        return None
 
-    def get_secret(key: str) -> Optional[str]:
+    def get_secret(key: str) -> str | None:
         """
         Retrieves a secret from the Databricks secrets scope.
         """
@@ -505,8 +511,8 @@ def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
 
 
 def _lock_requirements(
-    requirements: list[str], constraints: Optional[list[str]] = None
-) -> Optional[list[str]]:
+    requirements: list[str], constraints: list[str] | None = None
+) -> list[str] | None:
     """
     Locks the given requirements using `uv`. Returns the locked requirements when the locking is
     performed successfully, otherwise returns None.
@@ -535,7 +541,11 @@ def _lock_requirements(
             constraints_opt = [f"--constraints={pip_constraint}"]
 
         try:
-            uv_options, uv_envs = _get_uv_options_for_databricks()
+            if res := _get_uv_options_for_databricks():
+                uv_options, uv_envs = res
+            else:
+                uv_options = []
+                uv_envs = {}
             out = subprocess.check_output(
                 [
                     uv_bin,

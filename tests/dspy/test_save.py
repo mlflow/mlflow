@@ -462,29 +462,43 @@ def test_predict_stream_success(dummy_model):
     results = []
 
     def dummy_streamify(*args, **kwargs):
+        # In dspy>=3, `StreamResponse` requires `is_last_chunk` argument.
+        # https://github.com/stanfordnlp/dspy/pull/8587
+        extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name="answer",
             chunk="2",
+            **extra_kwargs,
         )
+        extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name=_REASONING_KEYWORD,
             chunk="reason",
+            **extra_kwargs,
         )
 
     with mock.patch("dspy.streamify", return_value=dummy_streamify):
         output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
         for o in output:
             results.append(o)
-    assert results == [
-        {"predict_name": "prog.predict", "signature_field_name": "answer", "chunk": "2"},
-        {
-            "predict_name": "prog.predict",
-            "signature_field_name": _REASONING_KEYWORD,
-            "chunk": "reason",
-        },
-    ]
+
+    assert len(results) == 2
+    extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+    assert results[0] == {
+        "predict_name": "prog.predict",
+        "signature_field_name": "answer",
+        "chunk": "2",
+        **extra_kwargs,
+    }
+    extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+    assert results[1] == {
+        "predict_name": "prog.predict",
+        "signature_field_name": _REASONING_KEYWORD,
+        "chunk": "reason",
+        **extra_kwargs,
+    }
 
 
 def test_predict_output(dummy_model):

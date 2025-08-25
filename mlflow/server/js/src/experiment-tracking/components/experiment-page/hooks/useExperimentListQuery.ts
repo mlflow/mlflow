@@ -1,6 +1,6 @@
-import { useQuery, QueryFunctionContext, defaultContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery, QueryFunctionContext, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { useCallback, useContext, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import { CursorPaginationProps } from '@databricks/design-system';
@@ -21,9 +21,9 @@ type ExperimentListQueryKey = [
 ];
 
 export const useInvalidateExperimentList = () => {
-  const context = useContext(defaultContext);
+  const queryClient = useQueryClient();
   return () => {
-    context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
+    queryClient.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
   };
 };
 

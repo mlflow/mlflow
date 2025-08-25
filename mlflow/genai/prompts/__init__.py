@@ -1,6 +1,6 @@
 import warnings
 from contextlib import contextmanager
-from typing import Any, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -28,10 +28,10 @@ def suppress_genai_migration_warning():
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, Any]]],
-    commit_message: Optional[str] = None,
-    tags: Optional[dict[str, str]] = None,
-    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
+    template: str | list[dict[str, Any]],
+    commit_message: str | None = None,
+    tags: dict[str, str] | None = None,
+    response_format: BaseModel | dict[str, Any] | None = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -134,8 +134,8 @@ def register_prompt(
 @experimental(version="3.0.0")
 @require_prompt_registry
 def search_prompts(
-    filter_string: Optional[str] = None,
-    max_results: Optional[int] = None,
+    filter_string: str | None = None,
+    max_results: int | None = None,
 ) -> PagedList[Prompt]:
     with suppress_genai_migration_warning():
         return registry_api.search_prompts(filter_string=filter_string, max_results=max_results)
@@ -145,7 +145,7 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
 ) -> PromptVersion:
     """

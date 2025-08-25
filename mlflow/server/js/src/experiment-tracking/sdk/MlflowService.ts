@@ -50,8 +50,10 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
     };
   }[];
 };
+
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
   /**
    * Create a mlflow experiment

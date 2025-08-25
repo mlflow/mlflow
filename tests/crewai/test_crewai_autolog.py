@@ -272,7 +272,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
         "output": {
@@ -414,7 +414,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "output": {
@@ -525,7 +525,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "CrewAgentExecutor._create_long_term_memory_1"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
         "output": {
@@ -576,7 +576,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory_2"
-    assert span_8.span_type == SpanType.RETRIEVER
+    assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_6.span_id
     assert span_8.inputs == {
         "output": {
@@ -652,7 +652,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # LongTermMemory
     span_3 = traces[0].data.spans[3]
     assert span_3.name == "LongTermMemory.search"
-    assert span_3.span_type == SpanType.RETRIEVER
+    assert span_3.span_type == SpanType.MEMORY
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs == {
         "latest_n": 2,
@@ -663,7 +663,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # ShortTermMemory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "ShortTermMemory.search"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {"query": "Analyze and select the best city for the trip"}
     assert span_4.outputs == []
@@ -671,7 +671,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # EntityMemory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "EntityMemory.search"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "query": "Analyze and select the best city for the trip",
@@ -689,7 +689,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # ShortTermMemory.save
     span_7 = traces[0].data.spans[7]
     assert span_7.name == "ShortTermMemory.save"
-    assert span_7.span_type == SpanType.RETRIEVER
+    assert span_7.span_type == SpanType.MEMORY
     assert span_7.parent_id is span_2.span_id
     assert span_7.inputs == {
         "agent": "City Selection Expert",
@@ -703,7 +703,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_8.span_type == SpanType.RETRIEVER
+    assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_2.span_id
     assert span_8.inputs == {
         "output": {
@@ -798,7 +798,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "output": {
@@ -881,7 +881,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {
         "output": {
@@ -970,7 +970,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {
         "output": {

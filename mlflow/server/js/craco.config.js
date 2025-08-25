@@ -394,6 +394,7 @@ module.exports = function () {
                     minifyURLs: true,
                   }
                 : false,
+            base: '/',
           }),
         );
 

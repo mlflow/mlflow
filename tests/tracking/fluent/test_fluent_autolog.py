@@ -119,6 +119,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -493,6 +495,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "pydantic_ai",
         "autogen",
         "semantic_kernel",
+        "agno",
+        "strands",
     }:
         return
 

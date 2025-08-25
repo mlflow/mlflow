@@ -1,5 +1,6 @@
-import { compact, get, has, isArray, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
+import { compact, get, isArray, isString } from 'lodash';
+
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export type LlamaIndexChatResponse = {

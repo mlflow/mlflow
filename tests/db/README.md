@@ -17,10 +17,10 @@ This directory contains files to test MLflow tracking operations using the follo
 ```bash
 # Build a service
 service=mlflow-sqlite
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')" $service
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)" $service
 
 # Build all services
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(cat requirements/skinny-requirements.txt requirements/core-requirements.txt | grep -Ev '^(#|$)')"
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
 ```
 
 ## Run Services

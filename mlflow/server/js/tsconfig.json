@@ -2,7 +2,7 @@
   "extends": [],
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "jsx": "preserve",
     "types": [
       "jest",

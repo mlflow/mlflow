@@ -25,7 +25,7 @@ import { ExperimentLoggedModelListCharts } from '../../components/experiment-log
 import { ExperimentLoggedModelListPageRowVisibilityContextProvider } from '../../components/experiment-logged-models/hooks/useExperimentLoggedModelListPageRowVisibility';
 import { RunsChartsSetHighlightContextProvider } from '../../components/runs-charts/hooks/useRunsChartTraceHighlight';
 import { BadRequestError } from '@databricks/web-shared/errors';
-import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
 const CHARTS_MIN_WIDTH = 350;

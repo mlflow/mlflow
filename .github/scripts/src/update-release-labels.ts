@@ -155,6 +155,7 @@ async function fetchPRsWithLabel(
 
   const prsWithReleaseLabel = allIssues.filter((item) => {
     if (!item.pull_request) return false;
+    if (item.state === "open") return true;
     if (item.state === "closed" && item.pull_request.merged_at) return true;
     return false;
   });

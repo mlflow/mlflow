@@ -42,6 +42,7 @@ describe('ShowArtifactHtmlView', () => {
     expect(wrapper.find('.artifact-html-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));

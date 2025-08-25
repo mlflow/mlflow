@@ -7,6 +7,7 @@ from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
+from clint.rules.get_artifact_uri import GetArtifactUri
 from clint.rules.implicit_optional import ImplicitOptional
 from clint.rules.incorrect_type_annotation import IncorrectTypeAnnotation
 from clint.rules.invalid_abstract_method import InvalidAbstractMethod
@@ -19,6 +20,7 @@ from clint.rules.missing_docstring_param import MissingDocstringParam
 from clint.rules.missing_notebook_h1_header import MissingNotebookH1Header
 from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.multi_assign import MultiAssign
+from clint.rules.no_class_based_tests import NoClassBasedTests
 from clint.rules.no_rst import NoRst
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
@@ -45,6 +47,7 @@ __all__ = [
     "EmptyNotebookCell",
     "ExampleSyntaxError",
     "ExtraneousDocstringParam",
+    "GetArtifactUri",
     "ForbiddenSetActiveModelUsage",
     "ForbiddenTopLevelImport",
     "ForbiddenTraceUIInNotebook",
@@ -59,6 +62,7 @@ __all__ = [
     "MissingDocstringParam",
     "MissingNotebookH1Header",
     "MlflowClassName",
+    "NoClassBasedTests",
     "NoRst",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",

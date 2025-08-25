@@ -1,12 +1,11 @@
 import urllib
-from typing import Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path
 
-_deployments_target: Optional[str] = None
+_deployments_target: str | None = None
 
 
 def parse_target_uri(target_uri):

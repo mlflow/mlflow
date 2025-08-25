@@ -27,6 +27,7 @@ export enum PageId {
 }
 
 // Route path definitions (used in defining route elements)
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class RoutePaths {
   static get rootRoute() {
     return createMLflowRoutePath('/');
@@ -105,6 +106,7 @@ export class RoutePaths {
 }
 
 // Concrete routes and functions for generating parametrized paths
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class Routes {
   static get rootRoute() {
     return RoutePaths.rootRoute;
@@ -131,6 +133,10 @@ class Routes {
       return `${path}?isComparingRuns=true`;
     }
     return path;
+  }
+
+  static getExperimentPageTracesTabRoute(experimentId: string) {
+    return `${Routes.getExperimentPageRoute(experimentId)}/traces`;
   }
 
   static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {

@@ -7,7 +7,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 def is_github_actions() -> bool:
@@ -32,7 +31,7 @@ class Error:
 @dataclass
 class Parameter:
     name: str
-    position: Optional[int]  # None for keyword-only
+    position: int | None  # None for keyword-only
     is_required: bool
     is_positional_only: bool
     is_keyword_only: bool
@@ -300,7 +299,7 @@ def parse_functions(content: str) -> dict[str, ast.FunctionDef | ast.AsyncFuncti
     return extractor.functions
 
 
-def get_file_content_at_revision(file_path: Path, revision: str) -> Optional[str]:
+def get_file_content_at_revision(file_path: Path, revision: str) -> str | None:
     try:
         return subprocess.check_output(["git", "show", f"{revision}:{file_path}"], text=True)
     except subprocess.CalledProcessError as e:

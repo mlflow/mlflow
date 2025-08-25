@@ -4,7 +4,7 @@ import {
   Switch,
   useDesignSystemTheme,
   LegacyTooltip,
-  InfoIcon,
+  InfoSmallIcon,
   LegacyInfoTooltip,
 } from '@databricks/design-system';
 import {

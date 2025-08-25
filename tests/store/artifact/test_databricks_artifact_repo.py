@@ -4,7 +4,6 @@ import posixpath
 import re
 import shutil
 import time
-from typing import Optional
 from unittest import mock
 from unittest.mock import ANY
 
@@ -209,7 +208,7 @@ def test_run_relative_artifact_repo_root_path(artifact_uri, expected_relative_pa
         ("dbfs:/databricks/mlflow-tracking/123/", None),
     ],
 )
-def test_extract_run_id(uri: str, expected: Optional[str]):
+def test_extract_run_id(uri: str, expected: str | None):
     assert DatabricksArtifactRepository._extract_run_id(uri) == expected
 
 

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -49,7 +49,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._env_metadata = resolve_env_metadata()
 
-    def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
+    def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
         Handle the start of a span. This method is called when an OpenTelemetry span is started.
 
@@ -191,7 +191,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         if usage := aggregate_usage_from_spans(trace.span_dict.values()):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-    def _truncate_metadata(self, value: Optional[str]) -> str:
+    def _truncate_metadata(self, value: str | None) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
             return ""

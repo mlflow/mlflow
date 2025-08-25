@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from mlflow.data import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -35,7 +35,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._dataset.dataset_id
 
     @property
-    def digest(self) -> Optional[str]:
+    def digest(self) -> str | None:
         """String digest (hash) of the dataset provided by the caller that uniquely identifies"""
         # NB: The managed Dataset entity in Agent SDK doesn't propagate the digest
         # information. So we compute the digest of the dataframe view.
@@ -44,17 +44,17 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._digest
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """The UC table name of the dataset."""
         return self._dataset.name
 
     @property
-    def schema(self) -> Optional[str]:
+    def schema(self) -> str | None:
         """The schema of the dataset."""
         return self._dataset.schema
 
     @property
-    def profile(self) -> Optional[str]:
+    def profile(self) -> str | None:
         """The profile of the dataset, summary statistics."""
         return self._dataset.profile
 
@@ -64,27 +64,27 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
 
     @property
-    def source_type(self) -> Optional[str]:
+    def source_type(self) -> str | None:
         """The type of the dataset source, e.g. "databricks-uc-table", "DBFS", "S3", ..."""
         return self._dataset.source_type
 
     @property
-    def create_time(self) -> Optional[str]:
+    def create_time(self) -> str | None:
         """The time the dataset was created."""
         return self._dataset.create_time
 
     @property
-    def created_by(self) -> Optional[str]:
+    def created_by(self) -> str | None:
         """The user who created the dataset."""
         return self._dataset.created_by
 
     @property
-    def last_update_time(self) -> Optional[str]:
+    def last_update_time(self) -> str | None:
         """The time the dataset was last updated."""
         return self._dataset.last_update_time
 
     @property
-    def last_updated_by(self) -> Optional[str]:
+    def last_updated_by(self) -> str | None:
         """The user who last updated the dataset."""
         return self._dataset.last_updated_by
 

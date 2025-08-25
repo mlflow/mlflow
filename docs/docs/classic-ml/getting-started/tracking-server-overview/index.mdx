@@ -52,8 +52,10 @@ It will generate logs with the IP address, for example:
 
 ```bash
 (mlflow) [master][~/Documents/mlflow_team/mlflow]$ mlflow ui
-[2023-10-25 19:39:12 -0700] [50239] [INFO] Starting gunicorn 20.1.0
-[2023-10-25 19:39:12 -0700] [50239] [INFO] Listening at: http://127.0.0.1:5000 (50239)
+INFO:     Started server process [50239]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:5000 (Press CTRL+C to quit)
 ```
 
 Opening the URL of the MLflow tracking server in your browser will bring you to the MLflow UI. The image below is from the open source version of the MLflow UI,

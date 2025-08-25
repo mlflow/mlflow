@@ -225,6 +225,9 @@ async def test_autolog_link_traces_to_loaded_model_index_query_async(single_inde
     ],
 )
 def test_autolog_link_traces_to_loaded_model_index_chat(single_index, chat_mode):
+    if llama_core_version >= Version("0.13.0") and chat_mode in [ChatMode.OPENAI, ChatMode.REACT]:
+        pytest.skip("OpenAI and React chat modes are removed in 0.13.0")
+
     model_infos = []
     for i in range(3):
         with mlflow.start_run():

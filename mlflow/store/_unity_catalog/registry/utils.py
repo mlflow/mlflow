@@ -3,7 +3,6 @@ Utility functions for converting between Unity Catalog proto and MLflow entities
 """
 
 import json
-from typing import Optional
 
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
@@ -46,7 +45,7 @@ def mlflow_tags_to_proto_version_tags(tags: dict[str, str]) -> list[ProtoPromptV
 
 def proto_info_to_mlflow_prompt_info(
     proto_info,  # Prompt type from protobuf
-    prompt_tags: Optional[dict[str, str]] = None,
+    prompt_tags: dict[str, str] | None = None,
 ) -> Prompt:
     """Convert proto Prompt to MLflow PromptInfo entity.
 

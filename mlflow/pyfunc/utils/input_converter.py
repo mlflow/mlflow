@@ -1,4 +1,5 @@
 from dataclasses import fields, is_dataclass
+from types import UnionType
 from typing import Union, get_args, get_origin
 
 
@@ -7,7 +8,7 @@ def _is_optional_dataclass(field_type) -> bool:
     Check if the field type is an Optional containing a dataclass.
     Currently, ... | None (in Python 3.10) is not supported.
     """
-    if get_origin(field_type) is Union:
+    if get_origin(field_type) in (Union, UnionType):
         inner_types = get_args(field_type)
         # Check if it's a Union[Dataclass, NoneType] (i.e., Optional[Dataclass])
         if len(inner_types) == 2 and any(t is type(None) for t in inner_types):

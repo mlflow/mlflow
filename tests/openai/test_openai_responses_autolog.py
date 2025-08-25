@@ -253,7 +253,7 @@ async def test_responses_function_calling_autolog(client):
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {"type": "function", "function": {k: v for k, v in tools[0].items() if k != "type"}}
     ]
-    assert span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "openai.responses"
+    assert span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "openai"
 
 
 @pytest.mark.asyncio

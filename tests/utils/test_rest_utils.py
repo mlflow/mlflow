@@ -772,10 +772,10 @@ def test_databricks_sdk_retry_non_retryable_error():
     def mock_do_non_retryable_error(*args, **kwargs):
         nonlocal call_count
         call_count += 1
-        from databricks.sdk.errors import DatabricksError
+        from databricks.sdk.errors import InvalidParameterValue
 
         # Use an error code that maps to 400 (non-retryable)
-        raise DatabricksError(error_code="INVALID_PARAMETER_VALUE", message="Bad request")
+        raise InvalidParameterValue(error_code="INVALID_PARAMETER_VALUE", message="Bad request")
 
     with mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client:
         mock_workspace_client = mock.MagicMock()

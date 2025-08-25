@@ -1,9 +1,8 @@
 import importlib.metadata
 import warnings
-from typing import Optional
 
 
-def _get_version(package_name: str) -> Optional[str]:
+def _get_version(package_name: str) -> str | None:
     try:
         return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:

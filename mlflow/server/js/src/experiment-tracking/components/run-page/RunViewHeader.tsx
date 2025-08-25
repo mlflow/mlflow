@@ -55,7 +55,7 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={Routes.getExperimentPageRoute(experiment?.experimentId ?? '')} data-test-id="experiment-runs-link">
+      <Link to={Routes.getExperimentPageRoute(experiment?.experimentId ?? '')} data-testid="experiment-runs-link">
         {experiment.name}
       </Link>
     );
@@ -66,7 +66,7 @@ export const RunViewHeader = ({
     breadcrumbs.push(
       <Link
         to={Routes.getExperimentPageTabRoute(experiment.experimentId, ExperimentPageTabName.Runs)}
-        data-test-id="experiment-observatory-link-runs"
+        data-testid="experiment-observatory-link-runs"
       >
         <FormattedMessage
           defaultMessage="Runs"
@@ -91,7 +91,7 @@ export const RunViewHeader = ({
   return (
     <div css={{ flexShrink: 0 }}>
       <PageHeader
-        title={<span data-test-id="runs-header">{runDisplayName}</span>}
+        title={<span data-testid="runs-header">{runDisplayName}</span>}
         breadcrumbs={breadcrumbs}
         /* prettier-ignore */
       >

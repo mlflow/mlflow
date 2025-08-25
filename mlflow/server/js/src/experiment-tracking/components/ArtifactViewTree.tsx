@@ -59,7 +59,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
   return (
     <div
       style={style.base}
-      data-test-id="artifact-tree-node"
+      data-testid="artifact-tree-node"
       // eslint-disable-next-line react/no-unknown-property
       artifact-name={node.name}
       aria-label={node.name}

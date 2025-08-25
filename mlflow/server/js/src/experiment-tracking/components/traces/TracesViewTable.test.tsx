@@ -187,47 +187,4 @@ describe('ExperimentViewTracesTable', () => {
       expect(mockToggleHiddenColumn).toHaveBeenCalledWith(ExperimentViewTracesTableColumns.tags);
     });
   });
-
-  describe('Column selector', () => {
-    const user = userEvent.setup();
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    async function openColumnSelector(hiddenColumns: string[] = []) {
-      const mockTraces = [generateMockTrace('test-trace')];
-      renderTestComponent({ traces: mockTraces, hiddenColumns });
-      const columnSelectorButton = screen.getByRole('button', { name: /select columns/i });
-      await user.click(columnSelectorButton);
-    }
-
-    it('renders the column selector dropdown', async () => {
-      await openColumnSelector();
-
-      // Verify dropdown content
-      expect(screen.getByRole('menu')).toBeInTheDocument();
-    });
-
-    it('shows correct checkbox states based on hidden columns', async () => {
-      await openColumnSelector([ExperimentViewTracesTableColumns.tags]);
-
-      // Check that the Tags column checkbox is unchecked
-      const tagsCheckbox = screen.getByRole('menuitemcheckbox', { name: /tags/i });
-      expect(tagsCheckbox).toHaveAttribute('aria-checked', 'false');
-
-      // Check that other column checkboxes are checked
-      expect(screen.getByRole('menuitemcheckbox', { name: /request id/i })).toHaveAttribute('aria-checked', 'true');
-    });
-
-    it('calls toggleHiddenColumn when a checkbox is clicked', async () => {
-      await openColumnSelector([ExperimentViewTracesTableColumns.tags]);
-
-      // Click the Tags column checkbox
-      const tagsCheckbox = screen.getByRole('menuitemcheckbox', { name: /tags/i });
-      await user.click(tagsCheckbox);
-
-      // Verify that toggleHiddenColumn was called with the correct column ID
-      expect(mockToggleHiddenColumn).toHaveBeenCalledWith(ExperimentViewTracesTableColumns.tags);
-    });
-  });
 });

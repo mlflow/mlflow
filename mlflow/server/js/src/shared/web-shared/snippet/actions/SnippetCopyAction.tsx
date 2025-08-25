@@ -1,9 +1,9 @@
 import React from 'react';
 
 import type { ButtonProps } from '@databricks/design-system';
+import { useCopyController } from '@databricks/web-shared/copy';
 
 import SnippetActionButton from './SnippetActionButton';
-import { useCopyController } from '../hooks/useCopyController';
 
 export interface SnippetCopyActionProps extends ButtonProps {
   /**

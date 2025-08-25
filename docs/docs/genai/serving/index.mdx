@@ -236,6 +236,11 @@ client.set_registered_model_alias(
 ```bash
 # Configure server for production workloads
 export MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT=60
+
+# For uvicorn-based deployments (Docker):
+export MLFLOW_MODELS_WORKERS=4
+
+# For deployments that use gunicorn:
 export GUNICORN_CMD_ARGS="--timeout 60 --workers 4"
 
 # Serve with optimal settings

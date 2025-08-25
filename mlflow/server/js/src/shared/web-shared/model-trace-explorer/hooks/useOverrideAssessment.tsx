@@ -1,25 +1,27 @@
 import { omit } from 'lodash';
 
 import { useIntl } from '@databricks/i18n';
-import { useMutation } from '@databricks/web-shared/query-client';
+import { getUser } from '@databricks/web-shared/global-settings';
+import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
 import type { Assessment, Expectation, Feedback } from '../ModelTrace.types';
-import { displayErrorNotification, getCurrentUser } from '../ModelTraceExplorer.utils';
+import { displayErrorNotification, FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import type { CreateAssessmentPayload } from '../api';
 import { createAssessment } from '../api';
 
 export const useOverrideAssessment = ({
-  refetchTraceInfo,
+  traceId,
   onSuccess,
   onError,
   onSettled,
 }: {
-  refetchTraceInfo: (() => Promise<any>) | null;
+  traceId: string;
   onSuccess?: () => void;
   onError?: (error: any) => void;
   onSettled?: () => void;
 }) => {
   const intl = useIntl();
+  const queryClient = useQueryClient();
 
   const { mutate: overrideAssessmentMutation, isLoading } = useMutation({
     mutationFn: ({
@@ -36,7 +38,7 @@ export const useOverrideAssessment = ({
         ...value,
         rationale,
         source: {
-          source_id: getCurrentUser(),
+          source_id: getUser() ?? '',
           source_type: 'HUMAN',
         },
         overrides: oldAssessment.assessment_id,
@@ -61,7 +63,7 @@ export const useOverrideAssessment = ({
       onError?.(error);
     },
     onSuccess: () => {
-      refetchTraceInfo?.();
+      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
       onSuccess?.();
     },
     onSettled: () => {

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -121,7 +121,7 @@ def _get_all_subclasses(cls):
     return all_subclasses
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         usage = getattr(output, "usage", None)
         if usage:

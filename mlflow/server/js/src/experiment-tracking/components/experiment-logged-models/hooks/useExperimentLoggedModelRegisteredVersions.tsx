@@ -46,7 +46,7 @@ const useModelVersionsAclCheck = (
     const isLoading = queryResults.some((result) => result.isLoading);
     const aclResults: Record<string, boolean> = {};
     return { aclResults, isLoading };
-  }, [queryResults, checkAcl, ucModels.length]);
+  }, [queryResults, queries, checkAcl, ucModels.length]);
 
   return { aclResults, isLoading };
 };

@@ -1,9 +1,9 @@
 import { PencilIcon, TrashIcon, OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { getUser } from '@databricks/web-shared/global-settings';
 
 import { shouldEnableAssessmentEditing } from '../FeatureUtils';
 import type { Assessment } from '../ModelTrace.types';
-import { getCurrentUser } from '../ModelTraceExplorer.utils';
 
 export const AssessmentActionsOverflowMenu = ({
   assessment,
@@ -15,7 +15,7 @@ export const AssessmentActionsOverflowMenu = ({
   setShowDeleteModal: (showDeleteModal: boolean) => void;
 }) => {
   const isFeedback = 'feedback' in assessment;
-  const user = getCurrentUser();
+  const user = getUser() ?? '';
   // humans are not allowed to edit other humans' assessments
   const isEditEnabled = shouldEnableAssessmentEditing();
   const doesUserHavePermissions =

@@ -13,14 +13,14 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { useMutation } from '@databricks/web-shared/query-client';
+import { getUser } from '@databricks/web-shared/global-settings';
+import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from './AssessmentsPane.utils';
-import { displayErrorNotification, getCurrentUser } from '../ModelTraceExplorer.utils';
+import { displayErrorNotification, FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import type { CreateAssessmentPayload } from '../api';
 import { createAssessment } from '../api';
-import { useModelTraceInfoRefetchContext } from '../trace-context/ModelTraceInfoRefetchContext';
 
 export const AssessmentCreateForm = ({
   assessmentName,
@@ -36,6 +36,7 @@ export const AssessmentCreateForm = ({
   setExpanded: (expanded: boolean) => void;
 }) => {
   const intl = useIntl();
+  const queryClient = useQueryClient();
   const { theme } = useDesignSystemTheme();
 
   const [name, setName] = useState('');
@@ -45,12 +46,10 @@ export const AssessmentCreateForm = ({
   const [rationale, setRationale] = useState('');
   const [valueError, setValueError] = useState<React.ReactNode | null>(null);
 
-  const { refetchTraceInfo } = useModelTraceInfoRefetchContext();
-
   const { mutate: createAssessmentMutation, isLoading } = useMutation({
     mutationFn: (payload: CreateAssessmentPayload) => createAssessment({ payload }),
     onSuccess: () => {
-      refetchTraceInfo?.();
+      queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
     },
     onError: (error) => {
       displayErrorNotification(
@@ -100,7 +99,7 @@ export const AssessmentCreateForm = ({
         trace_id: traceId,
         source: {
           source_type: 'HUMAN',
-          source_id: getCurrentUser(),
+          source_id: getUser() ?? '',
         },
         span_id: spanId,
         rationale,
@@ -108,7 +107,7 @@ export const AssessmentCreateForm = ({
       },
     };
 
-    await createAssessmentMutation(payload);
+    createAssessmentMutation(payload);
   }, [
     dataType,
     value,

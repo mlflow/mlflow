@@ -28,9 +28,9 @@ def test_infer_primitive_types(input_value, expected_type):
         (["a", "b", "c"], list[str]),
         ([1.0, 2.0, 3.0], list[float]),
         ([True, False, True], list[bool]),
-        ([1, "hello", True], list[Union[int, str, bool]]),  # _noqa: UP007
+        ([1, "hello", True], list[Union[int, str, bool]]),  # noqa: UP007
         ([1, "hello", True], list[int | str | bool]),
-        ([1, 2.0], list[Union[int, float]]),
+        ([1, 2.0], list[int | float]),
         ([[1, 2], [3, 4]], list[list[int]]),
         ([["a"], ["b", "c"]], list[list[str]]),
     ],

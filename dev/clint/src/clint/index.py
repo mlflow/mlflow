@@ -20,14 +20,15 @@ print(f"Arguments: {func_info.args}")  # -> ['key, 'value', 'step', ...]
 ```
 """
 
-from __future__ import annotations
-
 import ast
 import multiprocessing
+import pickle
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from typing_extensions import Self
 
 
 @dataclass
@@ -43,7 +44,7 @@ class FunctionInfo:
     @classmethod
     def from_func_def(
         cls, node: ast.FunctionDef | ast.AsyncFunctionDef, skip_self: bool = False
-    ) -> FunctionInfo:
+    ) -> Self:
         """Create FunctionInfo from an AST function definition node."""
         args = node.args.args
         if skip_self and args:
@@ -150,8 +151,18 @@ class SymbolIndex:
         self.import_mapping = import_mapping
         self.func_mapping = func_mapping
 
+    def save(self, path: Path) -> None:
+        with path.open("wb") as f:
+            pickle.dump((self.import_mapping, self.func_mapping), f)
+
     @classmethod
-    def build(cls) -> SymbolIndex:
+    def load(cls, path: Path) -> Self:
+        with path.open("rb") as f:
+            import_mapping, func_mapping = pickle.load(f)
+        return cls(import_mapping, func_mapping)
+
+    @classmethod
+    def build(cls) -> Self:
         py_files = subprocess.check_output(
             ["git", "ls-files", "mlflow/*.py"], text=True
         ).splitlines()

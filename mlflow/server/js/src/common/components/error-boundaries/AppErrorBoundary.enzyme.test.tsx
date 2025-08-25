@@ -32,7 +32,7 @@ describe('AppErrorBoundary', () => {
     expect(wrapper.find('.mlflow-error-image').length).toBe(0);
   });
 
-  test('test componentDidCatch causes error message to render', () => {
+  test('componentDidCatch causes error message to render', () => {
     const instance = wrapper.instance();
     instance.componentDidCatch('testError', 'testInfo');
     instance.forceUpdate();

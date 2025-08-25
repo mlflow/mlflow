@@ -19,7 +19,7 @@ import pickle
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import yaml
@@ -334,7 +334,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -347,12 +347,12 @@ def log_model(
     pyfunc_predict_fn="predict",
     metadata=None,
     # New arguments
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
-    name: Optional[str] = None,
+    model_id: str | None = None,
+    name: str | None = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -547,7 +547,7 @@ class _SklearnModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -768,7 +768,7 @@ class _AutologgingMetricsManager:
         """
         self._model_id_mapping[id(model)] = model_id
 
-    def get_model_id_for_model(self, model) -> Optional[str]:
+    def get_model_id_for_model(self, model) -> str | None:
         return self._model_id_mapping.get(id(model))
 
     @staticmethod

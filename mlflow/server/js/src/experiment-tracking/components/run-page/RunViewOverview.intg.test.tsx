@@ -19,15 +19,9 @@ import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
-import { shouldEnableGraphQLRunDetailsPage } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
-}));
-
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  shouldEnableGraphQLRunDetailsPage: jest.fn(),
 }));
 
 jest.mock('../../../common/components/Prompt', () => ({
@@ -109,7 +103,6 @@ describe('RunViewOverview integration', () => {
     jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
       usingUnifiedDetailsLayout: false,
     });
-    jest.mocked(shouldEnableGraphQLRunDetailsPage).mockReturnValue(false);
   });
   const renderComponent = ({
     tags = {},
@@ -319,7 +312,7 @@ describe('RunViewOverview integration', () => {
     expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
-  test('Render child run and check for the existing parent run link', async () => {
+  test('Render child run and check for the existing parent run link', () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
@@ -364,15 +357,6 @@ describe('RunViewOverview integration', () => {
     });
   });
 
-  test('Run overview contains prompts', async () => {
-    renderComponent();
-
-    await waitFor(() => {
-      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
-      expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
-    });
-  });
-
   test('Run overview contains prompts from run tags', async () => {
     renderComponent({
       tags: {
@@ -393,7 +377,7 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
-      expect(usePromptVersionsForRunQuery).toBeCalledWith({ runUuid: testRunUuid });
+      expect(usePromptVersionsForRunQuery).toHaveBeenCalledWith({ runUuid: testRunUuid });
     });
   });
 

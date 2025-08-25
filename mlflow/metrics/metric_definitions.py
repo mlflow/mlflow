@@ -1,6 +1,5 @@
 import functools
 import logging
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -65,28 +64,6 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
             return False
 
     return True
-
-
-def _token_count_eval_fn(predictions, targets=None, metrics=None):
-    import tiktoken
-
-    # ref: https://github.com/openai/tiktoken/issues/75
-    # Only set TIKTOKEN_CACHE_DIR if not already set by user
-    if "TIKTOKEN_CACHE_DIR" not in os.environ:
-        os.environ["TIKTOKEN_CACHE_DIR"] = ""
-    encoding = tiktoken.get_encoding("cl100k_base")
-
-    num_tokens = []
-    for prediction in predictions:
-        if isinstance(prediction, str):
-            num_tokens.append(len(encoding.encode(prediction)))
-        else:
-            num_tokens.append(None)
-
-    return MetricValue(
-        scores=num_tokens,
-        aggregate_results={},
-    )
 
 
 def _load_from_github(path: str, module_type: str = "metric"):

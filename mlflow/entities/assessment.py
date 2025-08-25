@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
@@ -26,8 +26,8 @@ from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 # - bool
 # - list of values of the same types as above
 # - dict with string keys and values of the same types as above
-PbValueType = Union[float, int, str, bool]
-FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
+PbValueType = float | int | str | bool
+FeedbackValueType = PbValueType | dict[str, PbValueType] | list[PbValueType]
 
 
 @experimental(version="2.21.0")
@@ -51,29 +51,29 @@ class Assessment(_MlflowObject):
     #   without a trace ID. That said, the trace ID is required when logging the
     #   assessment to a trace in the backend eventually.
     #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics#-metric-decorator
-    trace_id: Optional[str] = None
-    run_id: Optional[str] = None
-    rationale: Optional[str] = None
-    metadata: Optional[dict[str, str]] = None
-    span_id: Optional[str] = None
-    create_time_ms: Optional[int] = None
-    last_update_time_ms: Optional[int] = None
+    trace_id: str | None = None
+    run_id: str | None = None
+    rationale: str | None = None
+    metadata: dict[str, str] | None = None
+    span_id: str | None = None
+    create_time_ms: int | None = None
+    last_update_time_ms: int | None = None
     # NB: The assessment ID should always be generated in the backend. The CreateAssessment
     #   backend API asks for an incomplete Assessment object without an ID and returns a
     #   complete one with assessment_id, so the ID is Optional in the constructor here.
-    assessment_id: Optional[str] = None
+    assessment_id: str | None = None
     # Deprecated, use `error` in Feedback instead. Just kept for backward compatibility
     # and will be removed in the 3.0.0 release.
-    error: Optional[AssessmentError] = None
+    error: AssessmentError | None = None
     # Should only be used internally. To create an assessment with an expectation or feedback,
     # use the`Expectation` or `Feedback` classes instead.
-    expectation: Optional[ExpectationValue] = None
-    feedback: Optional[FeedbackValue] = None
+    expectation: ExpectationValue | None = None
+    feedback: FeedbackValue | None = None
     # The ID of the assessment which this assessment overrides.
-    overrides: Optional[str] = None
+    overrides: str | None = None
     # Whether this assessment is valid (i.e. has not been overridden).
     # This should not be set by the user, it is automatically set by the backend.
-    valid: Optional[bool] = None
+    valid: bool | None = None
 
     def __post_init__(self):
         from mlflow.tracing.constant import AssessmentMetadataKey
@@ -233,16 +233,16 @@ class Feedback(Assessment):
     def __init__(
         self,
         name: str = DEFAULT_FEEDBACK_NAME,
-        value: Optional[FeedbackValueType] = None,
-        error: Optional[Union[Exception, AssessmentError]] = None,
-        source: Optional[AssessmentSource] = None,
-        trace_id: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
-        span_id: Optional[str] = None,
-        create_time_ms: Optional[int] = None,
-        last_update_time_ms: Optional[int] = None,
-        rationale: Optional[str] = None,
-        overrides: Optional[str] = None,
+        value: FeedbackValueType | None = None,
+        error: Exception | AssessmentError | None = None,
+        source: AssessmentSource | None = None,
+        trace_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+        span_id: str | None = None,
+        create_time_ms: int | None = None,
+        last_update_time_ms: int | None = None,
+        rationale: str | None = None,
+        overrides: str | None = None,
         valid: bool = True,
     ):
         if value is None and error is None:
@@ -336,12 +336,12 @@ class Feedback(Assessment):
 
     # Backward compatibility: The old assessment object had these fields at top level.
     @property
-    def error_code(self) -> Optional[str]:
+    def error_code(self) -> str | None:
         """The error code of the error that occurred when the feedback was created."""
         return self.feedback.error.error_code if self.feedback.error else None
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """The error message of the error that occurred when the feedback was created."""
         return self.feedback.error.error_message if self.feedback.error else None
 
@@ -389,12 +389,12 @@ class Expectation(Assessment):
         self,
         name: str,
         value: Any,
-        source: Optional[AssessmentSource] = None,
-        trace_id: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
-        span_id: Optional[str] = None,
-        create_time_ms: Optional[int] = None,
-        last_update_time_ms: Optional[int] = None,
+        source: AssessmentSource | None = None,
+        trace_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+        span_id: str | None = None,
+        create_time_ms: int | None = None,
+        last_update_time_ms: int | None = None,
     ):
         if source is None:
             source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
@@ -530,7 +530,7 @@ class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""
 
     value: FeedbackValueType
-    error: Optional[AssessmentError] = None
+    error: AssessmentError | None = None
 
     def to_proto(self):
         return ProtoFeedback(

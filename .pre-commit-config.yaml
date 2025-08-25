@@ -18,8 +18,18 @@ repos:
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
+
   - repo: local
     hooks:
+      - id: normalize-chars
+        name: normalize-chars
+        entry: python dev/normalize_chars.py
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: '^mlflow/server/js/|^docs/api_reference/source/R-api\.rst$'
+        require_serial: true
+
       - id: ruff
         name: ruff
         entry: python dev/ruff.py
@@ -34,6 +44,13 @@ repos:
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
+        require_serial: true
+
+      - id: mypy
+        name: mypy
+        language: system
+        files: '^dev/clint/.*\.py$'
+        entry: mypy
         require_serial: true
 
       - id: taplo
@@ -73,19 +90,6 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
-
-      - id: generate-requirements
-        name: generate-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --package-names tracing skinny core gateway
-            --requirements-yaml-location requirements
-            --requirements-txt-output-location requirements
-        files: "^requirements/"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
 
       - id: pyproject
         name: pyproject

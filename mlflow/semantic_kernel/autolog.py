@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -13,14 +12,16 @@ from opentelemetry.trace import (
     set_tracer_provider,
 )
 
-from mlflow.entities import SpanType
-from mlflow.semantic_kernel.tracing_utils import (
-    _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN,
-    _get_span_type,
-    _set_token_usage,
+from mlflow.entities.span import create_mlflow_span
+from mlflow.semantic_kernel.tracing_utils import set_span_type, set_token_usage
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import (
+    _bypass_attribute_guard,
+    get_mlflow_span_for_otel_span,
+    get_otel_attribute,
 )
-from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 
 _logger = logging.getLogger(__name__)
 
@@ -37,6 +38,17 @@ def _enable_experimental_genai_tracing():
 
     MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
     MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
+
+    try:
+        # This only exists in Semantic Kernel 1.35.1 or later.
+        from semantic_kernel.utils.telemetry.agent_diagnostics.decorators import (
+            MODEL_DIAGNOSTICS_SETTINGS as AGENT_DIAGNOSTICS_SETTINGS,
+        )
+
+        AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = True
+        AGENT_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = True
+    except ImportError:
+        pass
 
     _logger.info("Semantic Kernel Otel diagnostics is turned on for enabling tracing.")
 
@@ -70,32 +82,27 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # NB: Dummy NoOp exporter, because OTel span processor requires an exporter
         self.span_exporter = SpanExporter()
 
-    def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
-        otel_span_id = span.get_span_context().span_id
-        parent_span_id = span.parent.span_id if span.parent else None
-        parent_st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(parent_span_id)
-        parent_span = parent_st[0] if parent_st else None
+    def on_start(self, span: OTelSpan, parent_context: Context | None = None):
+        # Trigger MLflow's span processor
+        tracer = _get_tracer(__name__)
+        tracer.span_processor.on_start(span, parent_context)
 
-        mlflow_span = start_span_no_context(
-            name=span.name,
-            parent_span=parent_span,
-            attributes=dict(span.attributes) if span.attributes else None,
-        )
-        token = set_span_in_context(mlflow_span)
-        _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN[otel_span_id] = (mlflow_span, token)
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        mlflow_span = create_mlflow_span(span, trace_id)
+
+        # Register new span in the in-memory trace manager
+        InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.pop(span.get_span_context().span_id, None)
-        if st is None:
+        mlflow_span = get_mlflow_span_for_otel_span(span)
+        if mlflow_span is None:
             _logger.debug("Span not found in the map. Skipping end.")
             return
 
-        mlflow_span, token = st
-        mlflow_span.set_attributes(dict(span.attributes))
-        _set_token_usage(mlflow_span, span.attributes)
+        with _bypass_attribute_guard(mlflow_span._span):
+            set_span_type(mlflow_span)
+            set_token_usage(mlflow_span)
 
-        if not mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
-            mlflow_span.set_span_type(_get_span_type(span))
-
-        detach_span_from_context(token)
-        mlflow_span.end()
+        # Export the span using MLflow's span processor
+        tracer = _get_tracer(__name__)
+        tracer.span_processor.on_end(span)

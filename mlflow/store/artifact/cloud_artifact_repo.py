@@ -5,7 +5,7 @@ import posixpath
 import time
 from abc import abstractmethod
 from concurrent.futures import as_completed
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from mlflow.environment_variables import (
     _MLFLOW_MPD_NUM_RETRIES,
@@ -93,7 +93,7 @@ class StagedArtifactUpload(NamedTuple):
 
 
 class CloudArtifactRepository(ArtifactRepository):
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         super().__init__(artifact_uri, tracking_uri)
         # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
         # caused by waiting for a chunk-upload/download task within a file-upload/download task.

@@ -4,7 +4,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import lru_cache, partial
 from pathlib import Path
-from typing import Generator, Union
+from typing import Generator
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -32,7 +32,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri: Union[str, Path]) -> None:
+def set_tracking_uri(uri: str | Path) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.

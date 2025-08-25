@@ -17,10 +17,7 @@ runs:
         if [ -z "$(git status --porcelain)" ]; then
           echo "updated=false" >> $GITHUB_OUTPUT
         else
-          python dev/generate_requirements.py \
-            --package-names tracing skinny core gateway \
-            --requirements-yaml-location requirements \
-            --requirements-txt-output-location requirements
+          python dev/pyproject.py
           git diff --color=always
           echo "updated=true" >> $GITHUB_OUTPUT
         fi

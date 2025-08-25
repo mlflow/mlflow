@@ -3,7 +3,7 @@ import {
   Button,
   CloseIcon,
   InfoFillIcon,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   LegacyTooltip,
   SearchIcon,
@@ -237,7 +237,7 @@ export const EntitySearchAutoComplete = ({
         options={filteredOptions}
         onSelect={onSelect}
         value={text}
-        data-test-id="runs-search-autocomplete"
+        data-testid="runs-search-autocomplete"
         dropdownRender={(menu) => (
           <div
             css={{
@@ -271,7 +271,7 @@ export const EntitySearchAutoComplete = ({
           onBlur={onBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder={placeholder}
-          data-test-id="search-box"
+          data-testid="search-box"
           suffix={
             <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {text && (
@@ -282,7 +282,7 @@ export const EntitySearchAutoComplete = ({
                     setText('');
                   }}
                   type="link"
-                  data-test-id="clear-button"
+                  data-testid="clear-button"
                 >
                   <CloseIcon />
                 </Button>
@@ -342,7 +342,7 @@ export const EntitySearchAutoComplete = ({
                     type="link"
                     css={{ marginLeft: -theme.spacing.xs, marginRight: -theme.spacing.xs }}
                     icon={
-                      <InfoIcon
+                      <InfoSmallIcon
                         css={{
                           svg: {
                             width: theme.general.iconFontSize,

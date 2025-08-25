@@ -467,7 +467,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 )}
                 <Button
                   componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_619"
-                  data-test-id="compareButton"
+                  data-testid="compareButton"
                   disabled={compareDisabled}
                   onClick={this.onCompare}
                 >

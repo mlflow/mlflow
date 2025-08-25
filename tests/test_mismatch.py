@@ -1,6 +1,5 @@
 import warnings
 from importlib.metadata import PackageNotFoundError
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -25,7 +24,7 @@ from mlflow.mismatch import _check_version_mismatch
     [None, "1.0.0", "1.0.0.dev0"],
 )
 def test_check_version_mismatch_no_warn(
-    mlflow_version: Optional[str], skinny_version: Optional[str], tracing_version: Optional[str]
+    mlflow_version: str | None, skinny_version: str | None, tracing_version: str | None
 ):
     def mock_version(package_name: str) -> str:
         if package_name == "mlflow":

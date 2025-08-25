@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -117,8 +117,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         self,
         method: str,
         route: str,
-        json_body: Optional[str] = None,
-        timeout: Optional[int] = None,
+        json_body: str | None = None,
+        timeout: int | None = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":

@@ -6,7 +6,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 from packaging.version import Version
 
@@ -244,11 +244,11 @@ def _create_virtualenv(
     local_model_path: Path,
     python_env: _PythonEnv,
     env_dir: Path,
-    pyenv_root_dir: Optional[str] = None,
+    pyenv_root_dir: str | None = None,
     env_manager: Literal["virtualenv", "uv"] = em.UV,
-    extra_env: Optional[dict[str, str]] = None,
+    extra_env: dict[str, str] | None = None,
     capture_output: bool = False,
-    pip_requirements_override: Optional[list[str]] = None,
+    pip_requirements_override: list[str] | None = None,
 ):
     if env_manager not in {em.VIRTUALENV, em.UV}:
         raise MlflowException.invalid_parameter_value(
@@ -281,7 +281,7 @@ def _create_virtualenv(
             f"version {python_env.python} using uv"
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
-        install_deps_cmd_prefix = "uv pip install --prerelease=allow"
+        install_deps_cmd_prefix = "uv pip install"
         if _MLFLOW_TESTING.get():
             os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
@@ -377,8 +377,9 @@ def _get_or_create_virtualenv(
     env_id=None,
     env_root_dir=None,
     capture_output=False,
-    pip_requirements_override: Optional[list[str]] = None,
+    pip_requirements_override: list[str] | None = None,
     env_manager: Literal["virtualenv", "uv"] = em.UV,
+    extra_envs: dict[str, str] | None = None,
 ):
     """Restores an MLflow model's environment in a virtual environment and returns a command
     to activate it.
@@ -394,6 +395,8 @@ def _get_or_create_virtualenv(
             the environment (upgrade if already installed).
         env_manager: Specifies the environment manager to use to create the environment.
             Defaults to "uv".
+        extra_envs: If specified, a dictionary of extra environment variables will be passed to the
+            environment creation command.
 
             .. tip::
                 It is highly recommended to use "uv" as it has significant performance improvements
@@ -443,7 +446,8 @@ def _get_or_create_virtualenv(
             )
             raise
 
-    extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
+    extra_envs = extra_envs or {}
+    extra_envs |= _get_virtualenv_extra_env_vars(env_root_dir)
 
     # Create an environment
     return _create_virtualenv(
@@ -452,7 +456,7 @@ def _get_or_create_virtualenv(
         env_dir=env_dir,
         pyenv_root_dir=pyenv_root_dir,
         env_manager=env_manager,
-        extra_env=extra_env,
+        extra_env=extra_envs,
         capture_output=capture_output,
         pip_requirements_override=pip_requirements_override,
     )

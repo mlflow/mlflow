@@ -482,8 +482,8 @@ def _parse_data_for_datatype_hint(data: Any, type_hint: type[Any]) -> Any:
 
 
 class ValidationResult(NamedTuple):
-    value: Optional[Any] = None
-    error_message: Optional[str] = None
+    value: Any | None = None
+    error_message: str | None = None
 
 
 def _get_data_validation_result(data: Any, type_hint: type[Any]) -> ValidationResult:

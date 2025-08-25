@@ -260,7 +260,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               onClear={() => {
                 setUrlSearchFacets({ startTime: 'ALL' });
               }}
-              data-test-id="start-time-select-dropdown"
+              data-testid="start-time-select-dropdown"
             />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
@@ -269,7 +269,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     key={startTimeKey}
                     checked={startTimeKey === startTime}
                     title={startTimeColumnLabels[startTimeKey]}
-                    data-test-id={`start-time-select-${startTimeKey}`}
+                    data-testid={`start-time-select-${startTimeKey}`}
                     value={startTimeKey}
                     onChange={() => {
                       setUrlSearchFacets({ startTime: startTimeKey });
@@ -346,7 +346,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DialogComboboxTrigger
                 allowClear
                 onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
-                data-test-id="datasets-select-dropdown"
+                data-testid="datasets-select-dropdown"
                 showTagAfterValueCount={1}
                 disabled={!hasDatasets}
               />
@@ -359,7 +359,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                           key={summary.name + summary.digest + summary.context}
                           checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
                           title={summary.name}
-                          data-test-id={`dataset-dropdown-${summary.name}`}
+                          data-testid={`dataset-dropdown-${summary.name}`}
                           value={summary.name}
                           onChange={() => updateDatasetsFilter(summary)}
                         >

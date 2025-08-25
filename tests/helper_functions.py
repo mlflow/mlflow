@@ -14,7 +14,7 @@ import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -802,7 +802,7 @@ def skip_if_hf_hub_unhealthy():
     )
 
 
-def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+def get_logged_model_by_name(name: str) -> LoggedModel | None:
     """
     Get a logged model by name. If multiple logged models with
     the same name exist, get the latest one.

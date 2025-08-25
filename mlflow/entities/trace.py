@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -133,9 +133,9 @@ class Trace(_MlflowObject):
 
     def search_spans(
         self,
-        span_type: Optional[SpanType] = None,
-        name: Optional[Union[str, re.Pattern]] = None,
-        span_id: Optional[str] = None,
+        span_type: SpanType | None = None,
+        name: str | re.Pattern | None = None,
+        span_id: str | None = None,
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.
@@ -245,11 +245,11 @@ class Trace(_MlflowObject):
 
     def search_assessments(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
-        span_id: Optional[str] = None,
+        span_id: str | None = None,
         all: bool = False,
-        type: Optional[Literal["expectation", "feedback"]] = None,
+        type: Literal["expectation", "feedback"] | None = None,
     ) -> list["Assessment"]:
         """
         Get assessments for a given name / span ID. By default, this only returns assessments

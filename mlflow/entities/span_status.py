@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from opentelemetry import trace as trace_api
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OtelStatus
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -100,3 +101,39 @@ class SpanStatus:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls(status_code, otel_status.description or "")
+
+    def to_otel_proto_status(self):
+        """
+        Convert to OpenTelemetry protobuf Status for OTLP export.
+
+        :meta private:
+        """
+        status = OtelStatus()
+        if self.status_code == SpanStatusCode.OK:
+            status.code = OtelStatus.StatusCode.STATUS_CODE_OK
+        elif self.status_code == SpanStatusCode.ERROR:
+            status.code = OtelStatus.StatusCode.STATUS_CODE_ERROR
+        else:
+            status.code = OtelStatus.StatusCode.STATUS_CODE_UNSET
+
+        if self.description:
+            status.message = self.description
+
+        return status
+
+    @classmethod
+    def from_otel_proto_status(cls, otel_proto_status) -> SpanStatus:
+        """
+        Create a SpanStatus from an OpenTelemetry protobuf Status.
+
+        :meta private:
+        """
+        # Map protobuf status codes to SpanStatusCode
+        if otel_proto_status.code == OtelStatus.STATUS_CODE_OK:
+            status_code = SpanStatusCode.OK
+        elif otel_proto_status.code == OtelStatus.STATUS_CODE_ERROR:
+            status_code = SpanStatusCode.ERROR
+        else:
+            status_code = SpanStatusCode.UNSET
+
+        return cls(status_code, otel_proto_status.message or "")

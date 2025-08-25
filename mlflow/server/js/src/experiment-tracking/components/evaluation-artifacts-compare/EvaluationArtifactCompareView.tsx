@@ -7,7 +7,7 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   Empty,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   SearchIcon,
   LegacySkeleton,
@@ -402,7 +402,7 @@ const EvaluationArtifactCompareViewImpl = ({
               />
             }
           >
-            <InfoIcon />
+            <InfoSmallIcon />
           </LegacyTooltip>
         </div>
         {isLoading ? (

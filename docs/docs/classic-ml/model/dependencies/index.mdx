@@ -739,9 +739,29 @@ mlflow.pyfunc.log_model(
 )
 ```
 
+### How to enable installing pre-releases when using `mlflow.models.predict`
+
+If you use mlflow.models.predict to validate a model before serving and encounter an error like:
+
+```
+hint: `mlflow-skinny` was requested with a pre-release marker (e.g.,
+      mlflow-skinny==3.2.0rc0), but pre-releases weren't enabled (try:
+      `--prerelease=allow`)
+```
+
+You can resolve it by setting the environment variable `UV_PRERELEASE=allow` through the `extra_envs` field. This enables uv to install pre-release packages during environment setup.
+
+```python
+mlflow.models.predict(
+    model_uri=model_info.model_uri,
+    input_data=["a", "b", "c"],
+    extra_envs={"UV_PRERELEASE": "allow"},
+)
+```
+
 ### How to Migrate Anaconda Dependency for License Change
 
-Anaconda Inc. updated their [terms of service](https://www.anaconda.com/terms-of-service) for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See [Anaconda Commercial Edition FAQ](https://www.anaconda.com/blog/anaconda-commercial-edition-faq) for more information. Your use of any Anaconda channels is governed by their terms of service.
+Anaconda Inc. updated their [terms of service](https://www.anaconda.com/terms-of-service) for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda's packaging and distribution. See [Anaconda Commercial Edition FAQ](https://www.anaconda.com/blog/anaconda-commercial-edition-faq) for more information. Your use of any Anaconda channels is governed by their terms of service.
 
 MLflow models logged before [v1.18](https://mlflow.org/releases/1.18.0) were by default logged with the conda `defaults` channel (https://repo.anaconda.com/pkgs) as a dependency. Because of this license change, MLflow has stopped the use of the `defaults` channel for models logged using MLflow v1.18 and above. The default channel logged is now `conda-forge`, which points at the community managed https://conda-forge.org.
 

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { OverviewLayout, SecondarySections } from '@databricks/web-shared/utils';
+import { OverviewLayout, AsideSections } from '@databricks/web-shared/utils';
 
 /**
  * A wrapper for the details page layout, conditionally rendering sidebar-enabled layout based on prop.
@@ -12,7 +12,7 @@ export const DetailsPageLayout = ({
 }: {
   children: ReactNode;
   className?: string;
-  secondarySections?: SecondarySections;
+  secondarySections?: AsideSections;
   usingSidebarLayout?: boolean;
 }) => {
   if (usingSidebarLayout) {
@@ -20,10 +20,10 @@ export const DetailsPageLayout = ({
       <div className={className}>
         {/* prettier-ignore */}
         <OverviewLayout
-          secondarySections={secondarySections}
+          asideSections={secondarySections}
           isTabLayout
           sidebarSize="lg"
-          verticalStackOrder="secondary-first"
+          verticalStackOrder="aside-first"
         >
           {children}
         </OverviewLayout>

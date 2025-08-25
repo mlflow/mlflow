@@ -1,5 +1,4 @@
 import warnings
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -56,7 +55,7 @@ class ArtifactRepositoryRegistry:
                 )
 
     def get_artifact_repository(
-        self, artifact_uri: str, tracking_uri: Optional[str] = None
+        self, artifact_uri: str, tracking_uri: str | None = None
     ) -> ArtifactRepository:
         """
         Get an artifact repository from the registry based on the scheme of artifact_uri
@@ -92,7 +91,7 @@ class ArtifactRepositoryRegistry:
 
 
 def _dbfs_artifact_repo_factory(
-    artifact_uri: str, tracking_uri: Optional[str] = None
+    artifact_uri: str, tracking_uri: str | None = None
 ) -> ArtifactRepository:
     return (
         uc_volume_artifact_repo_factory(artifact_uri, tracking_uri)
@@ -125,7 +124,7 @@ _artifact_repository_registry.register_entrypoints()
 
 
 def get_artifact_repository(
-    artifact_uri: str, tracking_uri: Optional[str] = None
+    artifact_uri: str, tracking_uri: str | None = None
 ) -> ArtifactRepository:
     """
     Get an artifact repository from the registry based on the scheme of artifact_uri

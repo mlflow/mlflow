@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -40,7 +40,7 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(grading_context_columns: Optional[list[str]], eval_values, indx) -> str:
+def _format_args_string(grading_context_columns: list[str] | None, eval_values, indx) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -100,9 +100,9 @@ def _extract_score_and_justification(text):
 def _score_model_on_one_payload(
     payload: str,
     eval_model: str,
-    parameters: Optional[dict[str, Any]],
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    parameters: dict[str, Any] | None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ):
     try:
         # If the endpoint does not specify type, default to chat format
@@ -196,15 +196,15 @@ def _get_aggregate_results(scores, aggregations):
 
 def make_genai_metric_from_prompt(
     name: str,
-    judge_prompt: Optional[str] = None,
-    model: Optional[str] = _get_default_model(),
-    parameters: Optional[dict[str, Any]] = None,
-    aggregations: Optional[list[str]] = None,
+    judge_prompt: str | None = None,
+    model: str | None = _get_default_model(),
+    parameters: dict[str, Any] | None = None,
+    aggregations: list[str] | None = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    metric_metadata: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
@@ -357,18 +357,18 @@ def make_genai_metric(
     name: str,
     definition: str,
     grading_prompt: str,
-    examples: Optional[list[EvaluationExample]] = None,
-    version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, list[str]]] = None,
+    examples: list[EvaluationExample] | None = None,
+    version: str | None = _get_latest_metric_version(),
+    model: str | None = _get_default_model(),
+    grading_context_columns: str | list[str] | None = None,
     include_input: bool = True,
-    parameters: Optional[dict[str, Any]] = None,
-    aggregations: Optional[list[str]] = None,
+    parameters: dict[str, Any] | None = None,
+    aggregations: list[str] | None = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    metric_metadata: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -706,8 +706,8 @@ def _deserialize_genai_metric_args(args_dict):
 
 def retrieve_custom_metrics(
     run_id: str,
-    name: Optional[str] = None,
-    version: Optional[str] = None,
+    name: str | None = None,
+    version: str | None = None,
 ) -> list[EvaluationMetric]:
     """
     Retrieve the custom metrics created by users through `make_genai_metric()` or

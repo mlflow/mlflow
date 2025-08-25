@@ -52,6 +52,7 @@ def client(request, tmp_path):
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         extra_env=extra_env,
         app="mlflow.server.auth:create_app",
+        server_type="flask",
     ) as url:
         yield MlflowClient(url)
 
@@ -403,7 +404,8 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             str(port),
             "--workers",
             "1",
-            "--dev",
+            "--gunicorn-opts",
+            "--log-level debug",
         ],
         env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:

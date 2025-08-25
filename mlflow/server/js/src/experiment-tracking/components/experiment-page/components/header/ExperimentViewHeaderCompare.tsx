@@ -23,8 +23,24 @@ export const ExperimentViewHeaderCompare = React.memo(({ experiments }: { experi
     [experiments.length],
   );
 
+  const breadcrumbs = useMemo(
+    () => [
+      <Link
+        key={Routes.experimentsObservatoryRoute}
+        to={Routes.experimentsObservatoryRoute}
+        data-testid="experiment-observatory-link"
+      >
+        <FormattedMessage
+          defaultMessage="Experiments"
+          description="Breadcrumb nav item to link to the list of experiments page"
+        />
+      </Link>,
+    ],
+    [],
+  );
+
   return (
-    <PageHeader title={pageTitle} breadcrumbs={[<Link to={Routes.experimentsObservatoryRoute}>Experiments</Link>]}>
+    <PageHeader title={pageTitle} breadcrumbs={breadcrumbs}>
       <ExperimentViewHeaderShareButton />
     </PageHeader>
   );

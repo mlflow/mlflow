@@ -1,13 +1,13 @@
 import { ExperimentViewHeader } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 // mock breadcrumbs
 jest.mock('@databricks/design-system', () => ({
@@ -33,24 +33,28 @@ describe('ExperimentViewHeader', () => {
 
   const createComponentMock = (showAddDescriptionButton: boolean) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
-      <BrowserRouter>
-        <DesignSystemProvider>
-          <Provider
-            store={mockStore({
-              entities: {
-                experimentsById: {},
-              },
-            })}
-          >
-            <ExperimentViewHeader
-              experiment={experiment}
-              showAddDescriptionButton={showAddDescriptionButton}
-              setEditing={setEditing}
-            />
-          </Provider>
-        </DesignSystemProvider>
-      </BrowserRouter>,
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <DesignSystemProvider>
+            <Provider
+              store={mockStore({
+                entities: {
+                  experimentsById: {},
+                },
+              })}
+            >
+              <ExperimentViewHeader
+                experiment={experiment}
+                showAddDescriptionButton={showAddDescriptionButton}
+                setEditing={setEditing}
+              />
+            </Provider>
+          </DesignSystemProvider>
+        </BrowserRouter>
+      </QueryClientProvider>,
     );
   };
 
@@ -68,25 +72,5 @@ describe('ExperimentViewHeader', () => {
     });
 
     expect(screen.queryByText('Add Description')).not.toBeInTheDocument();
-  });
-
-  test('If button to delete experiment is pressed then open DeleteExperimentModal', async () => {
-    await act(async () => {
-      createComponentMock(true);
-    });
-
-    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
-    await userEvent.click(screen.getByText('Delete'));
-    expect(screen.getByText(/Delete Experiment/)).toBeInTheDocument();
-  });
-
-  test('If button to rename experiment is pressed then open RenameExperimentModal', async () => {
-    await act(async () => {
-      createComponentMock(true);
-    });
-
-    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
-    await userEvent.click(screen.getByText('Rename'));
-    expect(screen.getByText(/Rename Experiment/)).toBeInTheDocument();
   });
 });

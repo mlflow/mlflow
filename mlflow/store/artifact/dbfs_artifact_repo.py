@@ -1,7 +1,6 @@
 import json
 import os
 import posixpath
-from typing import Optional
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
@@ -47,7 +46,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -141,7 +140,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
@@ -190,7 +189,7 @@ def _get_host_creds_from_default_store():
     return store.get_host_creds
 
 
-def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = None):
+def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):
     """
     Returns an ArtifactRepository subclass for storing artifacts on DBFS.
 

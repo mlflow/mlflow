@@ -1,5 +1,3 @@
-from typing import Optional
-
 import mlflow.utils.databricks_utils
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
@@ -20,7 +18,7 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
@@ -33,7 +31,7 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
         super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri)
 
 
-def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = None):
+def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):
     """
     Returns an ArtifactRepository subclass for storing artifacts on Volumes.
 

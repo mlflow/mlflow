@@ -12,7 +12,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator
 
 import cloudpickle
 import pandas as pd
@@ -192,7 +192,7 @@ class PythonModel:
             cls.predict._is_pyfunc = True
 
     @abstractmethod
-    def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
+    def predict(self, context, model_input, params: dict[str, Any] | None = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -208,7 +208,7 @@ class PythonModel:
             signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
 
-    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(self, context, model_input, params: dict[str, Any] | None = None):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -251,7 +251,7 @@ class _FunctionPythonModel(PythonModel):
     def predict(
         self,
         model_input,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -694,8 +694,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> ChatAgentResponse:
         """
         Given a ChatAgent input, returns a ChatAgent output. In addition to calling ``predict``
@@ -736,8 +736,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         """
         Given a ChatAgent input, returns a generator containing streaming ChatAgent output chunks.
@@ -847,7 +847,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def responses_agent_output_reducer(
-            chunks: list[Union[ResponsesAgentStreamEvent, dict[str, Any]]],
+            chunks: list[ResponsesAgentStreamEvent | dict[str, Any]],
         ):
             output_items = []
             for chunk in chunks:
@@ -1218,9 +1218,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_context_model_and_signature(
-    model_path: str, model_config: Optional[dict[str, Any]] = None
-):
+def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -1274,7 +1272,7 @@ def _load_context_model_and_signature(
     return context, python_model, signature
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
@@ -1341,7 +1339,7 @@ class _PythonModelPyfuncWrapper:
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
-    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict(self, model_input, params: dict[str, Any] | None = None):
         """
         Args:
             model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
@@ -1364,7 +1362,7 @@ class _PythonModelPyfuncWrapper:
         else:
             return self.python_model.predict(self._convert_input(model_input), **kwargs)
 
-    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(self, model_input, params: dict[str, Any] | None = None):
         """
         Args:
             model_input: LLM Model single input.
@@ -1407,9 +1405,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.endpoint = endpoint
         self.params = params
 
-    def predict(
-        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
-    ):
+    def predict(self, context, model_input: pd.DataFrame | dict[str, Any] | list[dict[str, Any]]):
         """
         Run prediction on the input data.
 
@@ -1454,7 +1450,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _predict_single(self, data: Union[str, dict[str, Any]]) -> dict[str, Any]:
+    def _predict_single(self, data: str | dict[str, Any]) -> dict[str, Any]:
         """
         Send a single prediction request to the MLflow Deployments endpoint.
 
