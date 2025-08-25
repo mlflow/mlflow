@@ -3470,40 +3470,59 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
     if mlflow_client._store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 
-    experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
-    root_span = mlflow_client.start_trace(
-        f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
-    )
-    otel_span = OTelReadableSpan(
-        name=f"test-rest-store-span-{use_async}",
-        context=build_otel_context(
-            trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
-            span_id=0x1234567890ABCDEF,
-        ),
-        parent=None,
-        start_time=1000000000,
-        end_time=2000000000,
-        attributes={
-            SpanAttributeKey.REQUEST_ID: root_span.trace_id,
-            "test.attribute": json.dumps(f"test-value-{use_async}"),  # JSON-encoded string value
-        },
-        resource=None,
-    )
-    mlflow_span_to_log = Span(otel_span)
+    # Mock the server version check to return 3.4 if current MLflow version is < 3.4
+    # This allows the test to pass on older MLflow versions that don't have the OTLP endpoint
+    from packaging.version import Version
 
-    # Call either sync or async version based on parametrization
-    if use_async:
-        # Use asyncio.run to execute the async method
-        result_spans = asyncio.run(
-            mlflow_client._tracking_client.store.log_spans_async(
+    import mlflow
+
+    if Version(mlflow.__version__) < Version("3.4"):
+        mock_ctx = mock.patch("mlflow.store.tracking.rest_store.RestStore._get_server_version")
+        mock_version = mock_ctx.__enter__()
+        mock_version.return_value = Version("3.4.0")
+    else:
+        mock_ctx = None
+
+    try:
+        experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
+        root_span = mlflow_client.start_trace(
+            f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
+        )
+        otel_span = OTelReadableSpan(
+            name=f"test-rest-store-span-{use_async}",
+            context=build_otel_context(
+                trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
+                span_id=0x1234567890ABCDEF,
+            ),
+            parent=None,
+            start_time=1000000000,
+            end_time=2000000000,
+            attributes={
+                SpanAttributeKey.REQUEST_ID: root_span.trace_id,
+                "test.attribute": json.dumps(
+                    f"test-value-{use_async}"
+                ),  # JSON-encoded string value
+            },
+            resource=None,
+        )
+        mlflow_span_to_log = Span(otel_span)
+
+        # Call either sync or async version based on parametrization
+        if use_async:
+            # Use asyncio.run to execute the async method
+            result_spans = asyncio.run(
+                mlflow_client._tracking_client.store.log_spans_async(
+                    experiment_id=experiment_id, spans=[mlflow_span_to_log]
+                )
+            )
+        else:
+            result_spans = mlflow_client._tracking_client.store.log_spans(
                 experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
-        )
-    else:
-        result_spans = mlflow_client._tracking_client.store.log_spans(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
-        )
 
-    # Verify the spans were returned (indicates successful logging)
-    assert len(result_spans) == 1
-    assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+        # Verify the spans were returned (indicates successful logging)
+        assert len(result_spans) == 1
+        assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+    finally:
+        if mock_ctx:
+            mock_ctx.__exit__(None, None, None)
