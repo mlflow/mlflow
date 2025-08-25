@@ -52,9 +52,7 @@ class Attachment:
         """
         A string representation of the attachment reference.
         """
-        return (
-            f"mlflow-attachment://{self.id}?content_type={self.content_type}&trace_id=tr-{trace_id}"
-        )
+        return f"mlflow-attachments://{self.id}?content_type={self.content_type}&trace_id=tr-{trace_id}"
 
     @classmethod
     def from_ref(cls, ref: str) -> "Attachment":
