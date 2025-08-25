@@ -152,6 +152,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>`{"flavor": "langchain"}`</td>
     </tr>
     <tr>
+      <td>get_logged_model</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
       <td>create_registered_model</td>
       <td>None</td>
       <td>None</td>
@@ -200,6 +205,21 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>log_dataset</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>log_metric</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>log_param</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": True}`</td>
+    </tr>
+    <tr>
+      <td>log_batch</td>
+      <td>Information on whether metrics, parameters, or tags are logged, and the logging mode</td>
+      <td>`{"metrics": False, "params": True, "tags": False, "synchronous": False}`</td>
     </tr>
   </tbody>
 </Table>

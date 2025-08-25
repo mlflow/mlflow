@@ -52,8 +52,11 @@ jobs:
         #     to avoid overlooking unnecessary dependencies in the core tracing package.
         run: |
           export PYTHONPATH=$(pwd)
-          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py \
-            --ignore tests/tracing/test_assessment.py --import-mode=importlib
+          pytest tests/tracing \
+            --ignore tests/tracing/utils/test_otlp.py \
+            --ignore tests/tracing/test_assessment.py \
+            --ignore tests/tracing/test_otel_logging.py \
+            --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 
