@@ -370,6 +370,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.21.1"
         }
     },
+    "strands": {
+        "package_info": {
+            "pip_release": "strands-agents",
+            "module_name": "strands"
+        },
+        "autologging": {
+            "minimum": "1.4.0",
+            "maximum": "1.4.0"
+        }
+    },
     "mistral": {
         "package_info": {
             "pip_release": "mistralai",
@@ -465,6 +475,7 @@ FLAVOR_TO_MODULE_NAME = {
     "agno": "agno",
     "pydantic_ai": "pydantic_ai",
     "smolagents": "smolagents",
+    "strands": "strands",
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",
