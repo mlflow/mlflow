@@ -132,7 +132,7 @@ class RestStore(AbstractStore):
         self.get_host_creds = get_host_creds
 
     @staticmethod
-    @functools.lru_cache
+    @functools.lru_cache(maxsize=128)
     def _get_server_version(host_creds) -> Version | None:
         """
         Get the MLflow server version with caching.
