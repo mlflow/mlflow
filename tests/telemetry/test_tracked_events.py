@@ -216,18 +216,26 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     event_name = StartTraceEvent.name
     with mlflow.start_span(name="test_span"):
         pass
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
 
     @mlflow.trace
     def test_func():
         pass
 
     test_func()
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
 
     trace_id = mlflow_client.start_trace(name="test_trace").trace_id
     mlflow_client.end_trace(trace_id=trace_id)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
+
+    import openai  # noqa: F401
+
+    test_func()
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, check_params=False
+    )
+    assert "openai" in json.loads(data["params"])["imports"]
 
 
 def test_create_prompt(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
