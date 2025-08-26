@@ -8,7 +8,7 @@ from typing import Optional, Any, Dict
 
 from sqlalchemy import Engine
 
-from mlflow.azure.config import AzureAuthConfig
+from mlflow.azure.config import AzureAuthConfig, AuthMethod
 from mlflow.azure.connection_factory import ConnectionFactory
 from mlflow.azure.exceptions import ConnectionError, ConfigurationError
 
@@ -162,25 +162,32 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
     # Check if Azure authentication should be used
     config = AzureAuthConfig()
     
-    # Auto-detect Azure PostgreSQL and enable auth if credentials are available
-    is_azure_postgres = (
+    # IMPORTANT: Do NOT auto-detect Azure PostgreSQL based on hostname
+    # Only use Azure auth if explicitly enabled through configuration
+    # The MLFLOW_AZURE_AUTH_ENABLED flag should be the single source of truth
+    
+    # Check if URI explicitly requests Azure auth (via scheme or parameter)
+    explicit_azure_request = (
         store_uri.startswith("azure-postgres://") or
-        ".postgres.database.azure.com" in store_uri or
         "auth_method=managed_identity" in store_uri
     )
     
-    # For Azure PostgreSQL, enable auth if we have any Azure credentials
-    if is_azure_postgres and not config.auth_enabled:
-        # Enable auth automatically if we have Azure credentials
-        if config.client_id or config.client_secret or os.getenv("AZURE_CLIENT_ID"):
-            config.auth_enabled = True
-            if not config.auth_method or config.auth_method == config.auth_method.SQL_AUTH:
-                # Default to service principal if we have credentials, managed identity otherwise  
-                config.auth_method = (
-                    config.auth_method.SERVICE_PRINCIPAL 
-                    if config.client_secret or os.getenv("AZURE_CLIENT_SECRET") 
-                    else config.auth_method.MANAGED_IDENTITY
-                )
+    # If auth is not enabled via config and not explicitly requested in URI, skip Azure auth
+    if not config.auth_enabled and not explicit_azure_request:
+        # Log for debugging
+        logger.debug(
+            "Azure auth not enabled: config.auth_enabled=%s, explicit_request=%s",
+            config.auth_enabled,
+            explicit_azure_request
+        )
+        return None
+    
+    # If we reach here, Azure auth is either enabled or explicitly requested
+    # Make sure config reflects this
+    if explicit_azure_request and not config.auth_enabled:
+        config.auth_enabled = True
+        if not config.auth_method or config.auth_method == AuthMethod.SQL_AUTH:
+            config.auth_method = AuthMethod.MANAGED_IDENTITY
     
     if config.should_use_azure_auth:
         logger.info("Creating Azure-enabled tracking store via plugin: auth_method=%s", config.auth_method.value)
