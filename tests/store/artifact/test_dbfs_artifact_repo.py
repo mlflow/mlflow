@@ -66,7 +66,8 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
 def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
     with (
         mock.patch(
-            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksRunArtifactRepository", autospec=True
+            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksRunArtifactRepository",
+            autospec=True,
         ) as mock_repo,
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)

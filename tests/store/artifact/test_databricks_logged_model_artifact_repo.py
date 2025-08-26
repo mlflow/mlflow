@@ -185,7 +185,7 @@ def test_is_logged_model_uri():
     assert DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
         "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
     )
-    
+
     # Invalid URIs
     assert not DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
         "dbfs:/databricks/mlflow-tracking/1/runs/1"
@@ -212,7 +212,7 @@ def test_uri_parsing():
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
         )
-        
+
         # Access the regex match to verify parsing
         m = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/logged_models/456")
         assert m is not None
@@ -238,7 +238,7 @@ def test_build_root_path():
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
         )
-        
+
         # Test root path building
         m = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/logged_models/456")
         root_path = repo._build_root_path("123", m, "")

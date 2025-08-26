@@ -29,9 +29,7 @@ def test_log_artifact(tmp_path: Path):
             return_value=mock_databricks_artifact_repo,
         ),
     ):
-        repo = DatabricksRunArtifactRepository(
-            "dbfs:/databricks/mlflow-tracking/1/123"
-        )
+        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
 
         # Simulate success
         repo.log_artifact(str(local_file), "artifact_path")
@@ -61,9 +59,7 @@ def test_log_artifacts(tmp_path: Path):
             return_value=mock_databricks_artifact_repo,
         ),
     ):
-        repo = DatabricksRunArtifactRepository(
-            "dbfs:/databricks/mlflow-tracking/1/456"
-        )
+        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/456")
 
         # Simulate success
         repo.log_artifacts(str(local_dir), "artifact_path")
@@ -94,9 +90,7 @@ def test_download_file(tmp_path: Path):
         ) as mock_fallback_repo,
     ):
         mock_fallback_repo.return_value = mock_databricks_artifact_repo
-        repo = DatabricksRunArtifactRepository(
-            "dbfs:/databricks/mlflow-tracking/1/789"
-        )
+        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/789")
 
         # Simulate success
         mock_files_api.download.return_value.contents.read.side_effect = [b"test", b""]
@@ -124,9 +118,7 @@ def test_list_artifacts():
             return_value=mock_databricks_artifact_repo,
         ),
     ):
-        repo = DatabricksRunArtifactRepository(
-            "dbfs:/databricks/mlflow-tracking/1/123"
-        )
+        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
 
         # Simulate success with a non-empty list
         mock_files_api.list_directory_contents.return_value = [
@@ -152,10 +144,13 @@ def test_list_artifacts():
 
 def test_constructor_with_valid_uri():
     """Test that the constructor works with valid run URIs."""
-    with mock.patch(
-        "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
-    ), mock.patch(
-        "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+        ),
     ):
         # Test basic run URI
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
@@ -166,7 +161,9 @@ def test_constructor_with_valid_uri():
         assert repo is not None
 
         # Test run URI with nested relative path
-        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/789/artifacts/model")
+        repo = DatabricksRunArtifactRepository(
+            "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model"
+        )
         assert repo is not None
 
 
@@ -174,20 +171,14 @@ def test_constructor_with_invalid_uri():
     """Test that the constructor raises an error with invalid URIs."""
     with pytest.raises(
         Exception,  # The exact exception type depends on the parent class
-        match="Invalid artifact URI"
+        match="Invalid artifact URI",
     ):
         DatabricksRunArtifactRepository("dbfs:/invalid/uri")
 
-    with pytest.raises(
-        Exception,
-        match="Invalid artifact URI"
-    ):
+    with pytest.raises(Exception, match="Invalid artifact URI"):
         DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1")
 
-    with pytest.raises(
-        Exception,
-        match="Invalid artifact URI"
-    ):
+    with pytest.raises(Exception, match="Invalid artifact URI"):
         DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/logged_models/1")
 
 
@@ -195,12 +186,18 @@ def test_is_run_uri():
     """Test the is_run_uri static method."""
     # Valid run URIs
     assert DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/123")
-    assert DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/456/artifacts")
-    assert DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/789/artifacts/model")
-    
+    assert DatabricksRunArtifactRepository.is_run_uri(
+        "dbfs:/databricks/mlflow-tracking/1/456/artifacts"
+    )
+    assert DatabricksRunArtifactRepository.is_run_uri(
+        "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model"
+    )
+
     # Invalid URIs
     assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1")
-    assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/logged_models/1")
+    assert not DatabricksRunArtifactRepository.is_run_uri(
+        "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
+    )
     assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/tr-1")
     assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/invalid/uri")
     assert not DatabricksRunArtifactRepository.is_run_uri("s3://bucket/path")
@@ -208,13 +205,16 @@ def test_is_run_uri():
 
 def test_uri_parsing():
     """Test that URI components are correctly parsed."""
-    with mock.patch(
-        "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
-    ), mock.patch(
-        "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+        ),
     ):
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/123/456")
-        
+
         # Test that the regex pattern matches correctly
         match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456")
         assert match is not None
@@ -232,13 +232,16 @@ def test_uri_parsing():
 
 def test_build_root_path():
     """Test that the root path is built correctly."""
-    with mock.patch(
-        "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
-    ), mock.patch(
-        "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+        ),
     ):
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/123/456")
-        
+
         # Test root path without relative path
         match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456")
         root_path = repo._build_root_path("123", match, "")
@@ -252,10 +255,13 @@ def test_build_root_path():
 
 def test_expected_uri_format():
     """Test that the expected URI format is correct."""
-    with mock.patch(
-        "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
-    ), mock.patch(
-        "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
+        ),
     ):
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
         assert repo._get_expected_uri_format() == "databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"

@@ -5,7 +5,10 @@ import posixpath
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS, MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
+from mlflow.environment_variables import (
+    MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS,
+    MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -230,7 +233,10 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri
             )
-        elif DatabricksRunArtifactRepository.is_run_uri(artifact_uri) and not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get():
+        elif (
+            DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
+            and not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
+        ):
             _logger.info(
                 f"[DBFS_FACTORY_DEBUG] Creating DatabricksRunArtifactRepository for: {artifact_uri}"
             )
