@@ -172,22 +172,21 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
         "auth_method=managed_identity" in store_uri
     )
     
-    # If auth is not enabled via config and not explicitly requested in URI, skip Azure auth
+    # Check if we need to enable auth based on explicit request in URI
+    if explicit_azure_request and not config.auth_enabled:
+        # URI explicitly requests Azure auth, so enable it
+        config.auth_enabled = True
+        if not config.auth_method or config.auth_method == AuthMethod.SQL_AUTH:
+            config.auth_method = AuthMethod.MANAGED_IDENTITY
+        logger.debug("Enabled Azure auth due to explicit request in URI")
+    
+    # Log the decision for debugging
     if not config.auth_enabled and not explicit_azure_request:
-        # Log for debugging
         logger.debug(
             "Azure auth not enabled: config.auth_enabled=%s, explicit_request=%s",
             config.auth_enabled,
             explicit_azure_request
         )
-        return None
-    
-    # If we reach here, Azure auth is either enabled or explicitly requested
-    # Make sure config reflects this
-    if explicit_azure_request and not config.auth_enabled:
-        config.auth_enabled = True
-        if not config.auth_method or config.auth_method == AuthMethod.SQL_AUTH:
-            config.auth_method = AuthMethod.MANAGED_IDENTITY
     
     if config.should_use_azure_auth:
         logger.info("Creating Azure-enabled tracking store via plugin: auth_method=%s", config.auth_method.value)
