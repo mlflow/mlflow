@@ -96,7 +96,7 @@ def set_retriever_schema(
         category=DeprecationWarning,
         stacklevel=2,
     )
-    
+
     retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
