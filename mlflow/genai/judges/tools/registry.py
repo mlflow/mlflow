@@ -16,35 +16,11 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental(version="3.4.0")
-class JudgeToolStore:
-    """Judge tool storage implementation."""
-
-    def __init__(self):
-        self._tools: dict[str, JudgeTool] = {}
-
-    def register_tool(self, tool: JudgeTool) -> None:
-        """Register a judge tool in the store."""
-        self._tools[tool.name] = tool
-
-    def get_tool(self, name: str) -> JudgeTool:
-        """Get a judge tool by name."""
-        if name not in self._tools:
-            raise MlflowException(
-                f"Tool '{name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
-            )
-        return self._tools[name]
-
-    def list_tools(self) -> list[JudgeTool]:
-        """List all registered tools."""
-        return list(self._tools.values())
-
-
-@experimental(version="3.4.0")
 class JudgeToolRegistry:
     """Registry for managing and invoking JudgeTool instances."""
 
-    def __init__(self, store: JudgeToolStore = None):
-        self._store = store or JudgeToolStore()
+    def __init__(self):
+        self._tools: dict[str, JudgeTool] = {}
 
     def register(self, tool: JudgeTool) -> None:
         """
@@ -53,7 +29,7 @@ class JudgeToolRegistry:
         Args:
             tool: The JudgeTool instance to register
         """
-        self._store.register_tool(tool)
+        self._tools[tool.name] = tool
 
     def invoke(self, tool_call: ToolCall, trace: Trace) -> Any:
         """
@@ -71,7 +47,11 @@ class JudgeToolRegistry:
         """
         function_name = tool_call.function.name
 
-        tool = self._store.get_tool(function_name)
+        if function_name not in self._tools:
+            raise MlflowException(
+                f"Tool '{function_name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        tool = self._tools[function_name]
 
         try:
             arguments = json.loads(tool_call.function.arguments)
@@ -96,7 +76,7 @@ class JudgeToolRegistry:
         Returns:
             List of registered JudgeTool instances
         """
-        return self._store.list_tools()
+        return list(self._tools.values())
 
 
 _judge_tool_registry = JudgeToolRegistry()
