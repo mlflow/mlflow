@@ -14,33 +14,24 @@ def main() -> int:
         print(f"Error: tests directory not found at {tests_dir}")
         return 1
 
-    missing_init_files: list[Path] = []
-
     # Get all git-tracked files in the tests directory
-    try:
-        result = subprocess.run(
-            ["git", "ls-files", "tests/"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        tracked_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
-    except subprocess.CalledProcessError:
-        print("Error: Failed to get git-tracked files")
-        return 1
+    result = subprocess.check_output(
+        ["git", "ls-files", "tests/"],
+        cwd=repo_root,
+        text=True,
+    )
+    tracked_files = result.strip().splitlines()
 
     # Extract unique directories from tracked files
-    tracked_directories = set()
+    tracked_directories: set[Path] = set()
     for file_path in tracked_files:
         if file_path:  # Skip empty strings
             path = Path(file_path)
             # Add all parent directories of this file
-            for parent in path.parents:
-                if str(parent).startswith("tests") and parent != Path("tests"):
-                    tracked_directories.add(parent)
+            tracked_directories.update(p for p in path.parents if p.is_relative_to(tests_dir))
 
     # Check each tracked directory for __init__.py
+    missing_init_files: list[Path] = []
     for directory in tracked_directories:
         full_dir_path = repo_root / directory
         if full_dir_path.is_dir():
