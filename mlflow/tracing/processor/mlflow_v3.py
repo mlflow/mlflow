@@ -23,8 +23,9 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
+        export_metrics: bool,
     ):
-        super().__init__(span_exporter)
+        super().__init__(span_exporter, export_metrics)
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """

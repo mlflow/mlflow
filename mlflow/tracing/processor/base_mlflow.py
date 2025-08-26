@@ -15,7 +15,8 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
+from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
+from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
     deduplicate_span_names_in_place,
@@ -34,7 +35,7 @@ from mlflow.tracking.fluent import (
 _logger = logging.getLogger(__name__)
 
 
-class BaseMlflowSpanProcessor(SimpleSpanProcessor):
+class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
@@ -43,9 +44,11 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
+        export_metrics: bool,
     ):
+        super().__init__(span_exporter)
         self.span_exporter = span_exporter
-        self._trace_manager = InMemoryTraceManager.get_instance()
+        self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
@@ -84,8 +87,13 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
+        # Handle metrics logging if enabled
+        if self._export_metrics:
+            self.record_metrics_for_span(span)
+
         # Processing the trace only when the root span is found.
         if span._parent is not None:
+            super().on_end(span)
             return
 
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
