@@ -56,6 +56,7 @@
   "mlflow.transformers": "api_reference/python_api/mlflow.transformers.html",
   "mlflow.types": "api_reference/python_api/mlflow.types.html",
   "mlflow.utils": "api_reference/python_api/mlflow.utils.html",
+  "mlflow.webhooks": "api_reference/python_api/mlflow.webhooks.html",
   "mlflow.xgboost": "api_reference/python_api/mlflow.xgboost.html",
   "mlflow.server.auth": "api_reference/auth/python-api.html",
   "mlflow.server.cli": "api_reference/cli.html",

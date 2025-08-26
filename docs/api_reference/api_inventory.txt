@@ -703,10 +703,15 @@ mlflow.genai.ScorerScheduleConfig
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset
+mlflow.genai.datasets.EvaluationDataset.from_dict
+mlflow.genai.datasets.EvaluationDataset.from_proto
+mlflow.genai.datasets.EvaluationDataset.has_records
 mlflow.genai.datasets.EvaluationDataset.merge_records
 mlflow.genai.datasets.EvaluationDataset.set_profile
 mlflow.genai.datasets.EvaluationDataset.to_df
+mlflow.genai.datasets.EvaluationDataset.to_dict
 mlflow.genai.datasets.EvaluationDataset.to_evaluation_dataset
+mlflow.genai.datasets.EvaluationDataset.to_proto
 mlflow.genai.datasets.add_dataset_to_experiments
 mlflow.genai.datasets.create_dataset
 mlflow.genai.datasets.delete_dataset
