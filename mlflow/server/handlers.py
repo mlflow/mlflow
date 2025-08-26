@@ -1157,13 +1157,9 @@ def search_runs_impl(request_message):
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
+    page_token = request_message.page_token
     run_entities = _get_tracking_store().search_runs(
-        experiment_ids,
-        filter_string,
-        run_view_type,
-        max_results,
-        order_by,
-        request_message.page_token,
+        experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
@@ -1262,12 +1258,10 @@ def _get_metric_history():
     run_id = request_message.run_id or request_message.run_uuid
 
     max_results = request_message.max_results if request_message.max_results is not None else None
+    page_token = request_message.page_token if request_message.page_token else None
 
     metric_entities = _get_tracking_store().get_metric_history(
-        run_id,
-        request_message.metric_key,
-        max_results=max_results,
-        page_token=request_message.page_token,
+        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
     )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
 
