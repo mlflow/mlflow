@@ -399,37 +399,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
             assert isinstance(processors[1], MlflowV3SpanProcessor)
 
 
-def test_otlp_metrics_only_export(monkeypatch):
-    """Test OTLP metrics-only export without span export."""
-    from mlflow.tracing.processor.otel import OtelSpanProcessor
-    from mlflow.tracing.provider import _get_tracer
-
-    monkeypatch.setenv(
-        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090/api/v1/otlp/v1/metrics"
-    )
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", "http/protobuf")
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-
-    mlflow.tracing.reset()
-    tracer = _get_tracer("test")
-
-    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-    assert _MLFLOW_TRACER_PROVIDER is not None
-    processors = tracer.span_processor._span_processors
-
-    assert len(processors) == 2
-    otel_processor = processors[0]
-    mlflow_processor = processors[1]
-
-    assert isinstance(otel_processor, OtelSpanProcessor)
-    assert isinstance(mlflow_processor, MlflowV3SpanProcessor)
-
-    assert hasattr(otel_processor.span_exporter, "export")
-    assert otel_processor.span_exporter.__class__.__name__ == "NoOpSpanExporter"
-
-
 def test_otlp_spans_and_metrics_export(monkeypatch):
     """Test OTLP export with both spans and metrics enabled."""
     from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT

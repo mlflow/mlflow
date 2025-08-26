@@ -86,11 +86,14 @@ class OtelMetricsMixin:
         Args:
             span: The completed OpenTelemetry span to record metrics for.
         """
-        self._setup_metrics()
+        self._setup_metrics_if_necessary()
+
+        if not self._duration_histogram:
+            return
 
         duration_ms = (span.end_time - span.start_time) / 1e6
         is_root = span.parent is None
-        span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN.value)
+        span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN)
         try:
             # Span attributes are JSON encoded by default; decode them for metric label readability
             span_type = json.loads(span_type)
