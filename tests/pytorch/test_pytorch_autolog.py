@@ -1,7 +1,6 @@
 import pytest
 import pytorch_lightning as pl
 import torch
-from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -18,6 +17,7 @@ from tests.pytorch.iris import (
     IrisClassificationMultiOptimizer,
     IrisClassificationWithoutValidation,
 )
+from tests.pytorch.iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 
 NUM_EPOCHS = 20
 
