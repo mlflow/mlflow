@@ -45,7 +45,12 @@ from mlflow.protos.service_pb2 import (
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
+    SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
+    SearchTraces,
+    SearchTracesV3,
+    TraceLocation,
 )
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
@@ -67,6 +72,7 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _deprecated_search_traces_v2,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
@@ -80,9 +86,12 @@ from mlflow.server.handlers import (
     _log_batch,
     _register_scorer,
     _rename_registered_model,
+    _search_experiments,
+    _search_logged_models,
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _search_traces_v3,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
@@ -1220,3 +1229,139 @@ def test_databricks_model_registry_store_registration():
     # The tracking_uri will be set based on environment/test config
     # In test environment, it may be set to a test sqlite database
     assert uc_store.tracking_uri is not None
+
+
+def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_experiments converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_experiments_proto = SearchExperiments()
+    search_experiments_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_experiments_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_experiments_proto
+    mock_tracking_store.search_experiments.return_value = PagedList([], None)
+
+    _search_experiments()
+
+    # Verify that search_experiments was called with page_token=None (not empty string)
+    mock_tracking_store.search_experiments.assert_called_once()
+    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_registered_models_empty_page_token(
+    mock_get_request_message, mock_model_registry_store
+):
+    """Test that _search_registered_models converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_registered_models_proto = SearchRegisteredModels()
+    search_registered_models_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_registered_models_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_registered_models_proto
+    mock_model_registry_store.search_registered_models.return_value = PagedList([], None)
+
+    _search_registered_models()
+
+    # Verify that search_registered_models was called with page_token=None (not empty string)
+    mock_model_registry_store.search_registered_models.assert_called_once()
+    call_kwargs = mock_model_registry_store.search_registered_models.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_model_versions_empty_page_token(
+    mock_get_request_message, mock_model_registry_store
+):
+    """Test that _search_model_versions converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_model_versions_proto = SearchModelVersions()
+    search_model_versions_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_model_versions_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_model_versions_proto
+    mock_model_registry_store.search_model_versions.return_value = PagedList([], None)
+
+    _search_model_versions()
+
+    # Verify that search_model_versions was called with page_token=None (not empty string)
+    mock_model_registry_store.search_model_versions.assert_called_once()
+    call_kwargs = mock_model_registry_store.search_model_versions.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_traces_v3 converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    # SearchTracesV3 requires locations field
+    search_traces_proto = SearchTracesV3()
+    location = TraceLocation()
+    location.mlflow_experiment.experiment_id = "1"
+    search_traces_proto.locations.append(location)
+    search_traces_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_traces_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _search_traces_v3()
+
+    # Verify that search_traces was called with page_token=None (not empty string)
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_deprecated_search_traces_v2_empty_page_token(
+    mock_get_request_message, mock_tracking_store
+):
+    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_traces_proto = SearchTraces()
+    search_traces_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_traces_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _deprecated_search_traces_v2()
+
+    # Verify that search_traces was called with page_token=None (not empty string)
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_logged_models converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_logged_models_proto = SearchLoggedModels()
+    search_logged_models_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_logged_models_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_logged_models_proto
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+
+    _search_logged_models()
+
+    # Verify that search_logged_models was called with page_token=None (not empty string)
+    mock_tracking_store.search_logged_models.assert_called_once()
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10

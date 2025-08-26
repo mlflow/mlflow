@@ -4,7 +4,6 @@ from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.rest_utils import (
     call_endpoint,
     call_endpoints,
-    sanitize_page_token,
 )
 
 
@@ -32,9 +31,6 @@ class BaseRestStore(AbstractStore):
         pass
 
     def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
-        # Sanitize page_token for backend compatibility
-        json_body = sanitize_page_token(json_body)
-
         response_proto = self._get_response_from_method(api)
         if call_all_endpoints:
             endpoints = self._get_all_endpoints_from_method(api)

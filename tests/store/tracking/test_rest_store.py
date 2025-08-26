@@ -1695,46 +1695,6 @@ def test_delete_scorer_without_version():
         )
 
 
-def test_call_endpoint_sanitizes_empty_page_token():
-    """Test that _call_endpoint removes empty/whitespace page tokens for Databricks."""
-    store = RestStore(lambda: None)
-
-    with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
-        from mlflow.protos.service_pb2 import SearchExperiments
-
-        # Test with empty string page_token
-        json_body = json.dumps({"page_token": "", "max_results": 5})
-        store._call_endpoint(SearchExperiments, json_body)
-
-        # Verify that call_endpoint was called with page_token removed
-        actual_json = mock_call_endpoint.call_args[0][3]  # json_body is 4th argument
-        assert actual_json == json.loads('{"max_results": 5}')
-
-        # Test with whitespace page_token
-        json_body = json.dumps({"page_token": "   ", "max_results": 5})
-        store._call_endpoint(SearchExperiments, json_body)
-
-        # Verify that call_endpoint was called with page_token removed
-        actual_json = mock_call_endpoint.call_args[0][3]
-        assert actual_json == json.loads('{"max_results": 5}')
-
-        # Test with valid page_token - should be preserved
-        json_body = json.dumps({"page_token": "valid_token_123", "max_results": 5})
-        store._call_endpoint(SearchExperiments, json_body)
-
-        # Verify that call_endpoint was called with page_token preserved
-        actual_json = mock_call_endpoint.call_args[0][3]
-        assert actual_json == json.loads('{"page_token": "valid_token_123", "max_results": 5}')
-
-        # Test with no page_token - should pass through unchanged
-        json_body = json.dumps({"max_results": 5})
-        store._call_endpoint(SearchExperiments, json_body)
-
-        # Verify that call_endpoint was called with original json
-        actual_json = mock_call_endpoint.call_args[0][3]
-        assert actual_json == json.loads('{"max_results": 5}')
-
-
 def _create_mock_response(status_code: int = 200, text: str = "{}") -> mock.MagicMock:
     """Helper to create a mock HTTP response."""
     response = mock.MagicMock()
