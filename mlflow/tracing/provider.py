@@ -353,20 +353,24 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
 
         from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 
-        # Try to use the delta archiving exporter if databricks-agents is available
+        # Try to use the delta archiving exporter if zerobus_sdk is available
         try:
+            from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+                import_zerobus_sdk_classes,
+            )
+
+            import_zerobus_sdk_classes()
+
             from mlflow.genai.experimental import InferenceTableDeltaSpanExporter
 
             exporter = InferenceTableDeltaSpanExporter()
             _logger.debug("Using InferenceTableDeltaSpanExporter with Databricks Delta archiving")
         except ImportError:
-            # databricks-agents not available, use base exporter
+            # zerobus_sdk not available, use base exporter
             from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
 
             exporter = InferenceTableSpanExporter()
-            _logger.debug(
-                "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
-            )
+            _logger.debug("Defaulting to InferenceTableSpanExporter (zerobus_sdk not available)")
 
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
@@ -384,18 +388,24 @@ def _get_mlflow_span_processor(tracking_uri: str):
     # Databricks and SQL backends support V3 traces
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    # Try to use the delta archiving exporter if databricks-agents is available
+    # Try to use the delta archiving exporter if zerobus_sdk is available
     try:
+        from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+            import_zerobus_sdk_classes,
+        )
+
+        import_zerobus_sdk_classes()
+
         from mlflow.genai.experimental import MlflowV3DeltaSpanExporter
 
         exporter = MlflowV3DeltaSpanExporter(tracking_uri=tracking_uri)
         _logger.debug("Using MlflowV3DeltaSpanExporter with Databricks Delta archiving")
     except ImportError:
-        # databricks-agents not available, use base exporter
+        # zerobus_sdk not available, use base exporter
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 
         exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-        _logger.debug("Defaulting to MlflowV3SpanExporter (databricks-agents not available)")
+        _logger.debug("Defaulting to MlflowV3SpanExporter (zerobus_sdk not available)")
 
     return MlflowV3SpanProcessor(exporter)
 

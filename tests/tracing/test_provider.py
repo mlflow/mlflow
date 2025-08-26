@@ -1,4 +1,3 @@
-import os
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -26,7 +25,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
+from tests.tracing.helper import get_traces, purge_traces
 
 
 @pytest.fixture
@@ -266,67 +265,6 @@ def test_is_tracing_enabled():
         assert get_tracer_mock.call_count == 1
 
 
-# Skipping the test for tracing SDK while the exporter is in mlflow/genai namespace
-# that depends on many other dependencies.
-# TODO: Consider allowing the exporter import for tracing SDK before GA.
-@skip_when_testing_trace_sdk
-def test_get_mlflow_span_processor_with_databricks_agents_available():
-    """Test that MlflowV3DeltaSpanExporter is used when databricks-agents is available."""
-    from mlflow.tracing.provider import _get_mlflow_span_processor
-
-    try:
-        from mlflow.genai.experimental.databricks_trace_exporter import (
-            MlflowV3DeltaSpanExporter,
-        )
-    except ImportError as e:
-        if "zerobus_sdk" in str(e):
-            pytest.skip("zerobus_sdk is not available")
-        raise
-
-    # Mock databricks-agents as available
-    with mock.patch("importlib.util.find_spec") as mock_find_spec:
-        mock_find_spec.return_value = mock.MagicMock()  # databricks-agents is available
-
-        with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
-            processor = _get_mlflow_span_processor("databricks")
-
-    # Verify the correct exporter type is used
-    assert isinstance(processor.span_exporter, MlflowV3DeltaSpanExporter)
-
-    # Verify debug logging occurred
-    mock_logger.debug.assert_called_with(
-        "Using MlflowV3DeltaSpanExporter with Databricks Delta archiving"
-    )
-
-
-def test_get_mlflow_span_processor_without_databricks_agents():
-    """Test that MlflowV3SpanExporter is used when databricks-agents is not available."""
-    from mlflow.tracing.provider import _get_mlflow_span_processor
-
-    # Mock the import to raise ImportError (simulating missing dependencies)
-    import_orig = __builtins__["__import__"]
-
-    def mock_import(name, *args, **kwargs):
-        if name == "mlflow.genai.experimental":
-            raise ImportError("databricks-agents not available")
-        return import_orig(name, *args, **kwargs)
-
-    with mock.patch("builtins.__import__", side_effect=mock_import):
-        with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
-            processor = _get_mlflow_span_processor("databricks")
-
-            # Verify the fallback exporter type is used
-            from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-
-            assert isinstance(processor.span_exporter, MlflowV3SpanExporter)
-            assert not hasattr(processor.span_exporter, "_config_cache")  # Delta-specific feature
-
-            # Verify debug logging occurred
-            mock_logger.debug.assert_called_with(
-                "Defaulting to MlflowV3SpanExporter (databricks-agents not available)"
-            )
-
-
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False, None])
 def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlflow_tracing):
     if enable_mlflow_tracing is None:
@@ -350,84 +288,6 @@ def test_enable_mlflow_tracing_switch_in_serving_fluent(monkeypatch, enable_mlfl
         assert sorted(_TRACE_BUFFER) == request_ids
     else:
         assert len(_TRACE_BUFFER) == 0
-
-
-# Skipping the test for tracing SDK while the exporter is in mlflow/genai namespace
-# that depends on many other dependencies.
-# TODO: Consider allowing the exporter import for tracing SDK before GA.
-@skip_when_testing_trace_sdk
-def test_span_processor_model_serving_with_databricks_agents_available():
-    """Test that InferenceTableDeltaSpanExporter is used when databricks-agents is available."""
-
-    try:
-        from mlflow.genai.experimental.databricks_trace_exporter import (
-            InferenceTableDeltaSpanExporter,
-        )
-    except ImportError as e:
-        if "zerobus_sdk" in str(e):
-            pytest.skip("zerobus_sdk is not available")
-        raise
-
-    # Set up model serving environment
-    with mock.patch.dict(
-        os.environ,
-        {
-            "IS_IN_DB_MODEL_SERVING_ENV": "true",
-            "ENABLE_MLFLOW_TRACING": "true",
-        },
-    ):
-        with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
-            tracer = _get_tracer("test")
-            processors = tracer.span_processor._span_processors
-
-            # Verify the correct processor and exporter types are used
-            assert len(processors) == 1
-            assert isinstance(processors[0], InferenceTableSpanProcessor)
-            assert isinstance(processors[0].span_exporter, InferenceTableDeltaSpanExporter)
-
-            # Verify debug logging occurred
-            mock_logger.debug.assert_called_with(
-                "Using InferenceTableDeltaSpanExporter with Databricks Delta archiving"
-            )
-
-
-@skip_when_testing_trace_sdk
-def test_span_processor_model_serving_with_databricks_agents_unavailable():
-    """Test fallback to regular InferenceTableSpanExporter when databricks-agents unavailable."""
-
-    # Mock the import to raise ImportError (simulating missing dependencies)
-    import_orig = __builtins__["__import__"]
-
-    def mock_import(name, *args, **kwargs):
-        if name == "mlflow.genai.experimental":
-            raise ImportError("databricks-agents not available")
-        return import_orig(name, *args, **kwargs)
-
-    # Set up model serving environment with agents unavailable
-    with mock.patch.dict(
-        os.environ,
-        {
-            "IS_IN_DB_MODEL_SERVING_ENV": "true",
-            "ENABLE_MLFLOW_TRACING": "true",
-        },
-    ):
-        with mock.patch("builtins.__import__", side_effect=mock_import):
-            with mock.patch("mlflow.tracing.provider._logger") as mock_logger:
-                tracer = _get_tracer("test")
-                processors = tracer.span_processor._span_processors
-
-                # Verify the fallback exporter type is used
-                assert len(processors) == 1
-                assert isinstance(processors[0], InferenceTableSpanProcessor)
-                assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
-                assert not hasattr(
-                    processors[0].span_exporter, "_config_cache"
-                )  # Delta-specific feature
-
-                # Verify debug logging occurred
-                mock_logger.debug.assert_called_with(
-                    "Defaulting to InferenceTableSpanExporter (databricks-agents not available)"
-                )
 
 
 @pytest.mark.parametrize("enable_mlflow_tracing", [True, False])
