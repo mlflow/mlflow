@@ -16,16 +16,8 @@ class EvaluationDataset:
 
     This class provides a unified interface for evaluation datasets, supporting both:
     - Standard MLflow evaluation datasets (backed by MLflow's tracking store)
-    - Databricks managed datasets (backed by Unity Catalog tables)
-
-    Users should always interact with this class rather than the underlying implementations.
-    The appropriate backend is automatically selected based on the environment and dataset type.
-
-    Note:
-        This is the public-facing API. The underlying implementations
-        (mlflow.entities.evaluation_dataset.EvaluationDataset and
-        databricks.agents.datasets.Dataset)
-        should not be used directly in the GenAI context.
+    - Databricks managed datasets (backed by Unity Catalog tables) through the
+       databricks-agents library
     """
 
     def __init__(self, dataset):
