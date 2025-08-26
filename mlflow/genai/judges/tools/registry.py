@@ -144,10 +144,6 @@ def list_judge_tools() -> list[JudgeTool]:
 
 
 # Register built-in tools - import at the end to avoid circular imports
-def _register_builtin_tools():
-    from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
+from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
 
-    _judge_tool_registry.register(GetTraceInfoTool())
-
-
-_register_builtin_tools()
+_judge_tool_registry.register(GetTraceInfoTool())
