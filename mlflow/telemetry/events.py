@@ -18,6 +18,11 @@ class Event:
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        # create_experiment API returns the experiment id
+        return {"experiment_id": result}
+
 
 class CreatePromptEvent(Event):
     name: str = "create_prompt"
@@ -84,7 +89,10 @@ class CreateRunEvent(Event):
         # Capture the set of currently imported packages at run creation time to
         # understand how MLflow is used together with other libraries. Collecting
         # this data at run creation ensures accuracy and completeness.
-        return {"imports": [pkg for pkg in MODULES_TO_CHECK_IMPORT if pkg in sys.modules]}
+        return {
+            "imports": [pkg for pkg in MODULES_TO_CHECK_IMPORT if pkg in sys.modules],
+            "experiment_id": arguments.get("experiment_id"),
+        }
 
 
 class CreateModelVersionEvent(Event):

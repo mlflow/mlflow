@@ -61,7 +61,7 @@ class _ChatAgentPyfuncWrapper:
 
         messages = [ChatAgentMessage(**message) for message in dict_input.get("messages", [])]
         context = ChatContext(**dict_input["context"]) if "context" in dict_input else None
-        custom_inputs = dict_input.get("custom_inputs", None)
+        custom_inputs = dict_input.get("custom_inputs")
 
         return messages, context, custom_inputs
 
