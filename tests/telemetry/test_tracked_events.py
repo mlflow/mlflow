@@ -90,23 +90,37 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
 
 def test_create_experiment(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
     event_name = CreateExperimentEvent.name
-    mlflow.create_experiment(name="test_experiment")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    exp_id = mlflow.create_experiment(name="test_experiment")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"experiment_id": exp_id}
+    )
 
-    mlflow_client.create_experiment(name="test_experiment1")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, event_name)
+    exp_id = mlflow_client.create_experiment(name="test_experiment1")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, {"experiment_id": exp_id}
+    )
 
 
 def test_create_run(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
     event_name = CreateRunEvent.name
     exp_id = mlflow.create_experiment(name="test_experiment")
     with mlflow.start_run(experiment_id=exp_id):
-        validate_telemetry_record(
+        record = validate_telemetry_record(
             mock_telemetry_client, mock_requests, event_name, check_params=False
         )
+        assert json.loads(record["params"])["experiment_id"] == exp_id
 
     mlflow_client.create_run(experiment_id=exp_id)
     validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
+
+    exp_id = mlflow.create_experiment(name="test_experiment2")
+    mlflow.set_experiment(experiment_id=exp_id)
+    with mlflow.start_run():
+        record = validate_telemetry_record(
+            mock_telemetry_client, mock_requests, event_name, check_params=False
+        )
+        params = json.loads(record["params"])
+        assert params["mlflow_experiment_id"] == exp_id
 
 
 def test_create_run_with_imports(mock_requests, mock_telemetry_client: TelemetryClient):
