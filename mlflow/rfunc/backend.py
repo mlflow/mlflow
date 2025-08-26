@@ -21,7 +21,7 @@ class RFuncBackend(FlavorBackend):
     def build_image(
         self,
         model_uri,
-        output_dir,
+        image_name,
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
