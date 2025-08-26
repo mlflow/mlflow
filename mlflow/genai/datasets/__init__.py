@@ -121,11 +121,12 @@ def create_dataset(
             if current_exp_id:
                 experiment_ids = [current_exp_id]
 
-        return MlflowClient().create_dataset(
+        mlflow_dataset = MlflowClient().create_dataset(
             name=name,
             experiment_id=experiment_ids,
             tags=tags,
         )
+        return EvaluationDataset(mlflow_dataset)
 
 
 @deprecated_parameter("uc_table_name", "name")
@@ -194,7 +195,8 @@ def get_dataset(
 
         from mlflow.tracking.client import MlflowClient
 
-        return MlflowClient().get_dataset(dataset_id)
+        mlflow_dataset = MlflowClient().get_dataset(dataset_id)
+        return EvaluationDataset(mlflow_dataset)
 
 
 @experimental(version="3.4.0")
@@ -300,11 +302,12 @@ def search_datasets(
             page_token=next_page_token,
         )
 
-    return get_results_from_paginated_fn(
+    mlflow_datasets = get_results_from_paginated_fn(
         pagination_wrapper_func,
         SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         max_results,
     )
+    return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
 
 
 @experimental(version="3.4.0")
@@ -379,6 +382,25 @@ def delete_dataset_tag(
     MlflowClient().delete_dataset_tag(dataset_id, key)
 
 
+def _validate_association_operation():
+    """Validate that dataset association operations can be performed."""
+    from mlflow.store.tracking.file_store import FileStore
+    from mlflow.tracking._tracking_service.utils import _get_store
+
+    if is_databricks_default_tracking_uri(get_tracking_uri()):
+        raise NotImplementedError(
+            "Dataset association operations are not available in Databricks yet. "
+            "Associations are managed through Unity Catalog."
+        )
+
+    store = _get_store()
+    if isinstance(store, FileStore):
+        raise NotImplementedError(
+            "Dataset association operations are not supported with FileStore backend. "
+            "Please use a database-backed tracking store."
+        )
+
+
 def add_dataset_to_experiments(dataset_id: str, experiment_ids: list[str]) -> "EvaluationDataset":
     """
     Add a dataset to additional experiments.
@@ -404,27 +426,13 @@ def add_dataset_to_experiments(dataset_id: str, experiment_ids: list[str]) -> "E
             )
             print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
     """
-    from mlflow.store.tracking.file_store import FileStore
-    from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
-
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Dataset association operations are not available in Databricks yet. "
-            "Associations are managed through Unity Catalog."
-        )
-
-    store = _get_store()
-    if isinstance(store, FileStore):
-        raise NotImplementedError(
-            "Dataset association operations are not supported with FileStore backend. "
-            "Please use a database-backed tracking store."
-        )
+    _validate_association_operation()
 
     from mlflow.tracking.client import MlflowClient
 
     client = MlflowClient()
-    return client.add_dataset_to_experiments(dataset_id, experiment_ids)
+    mlflow_dataset = client.add_dataset_to_experiments(dataset_id, experiment_ids)
+    return EvaluationDataset(mlflow_dataset)
 
 
 def remove_dataset_from_experiments(
@@ -455,27 +463,13 @@ def remove_dataset_from_experiments(
             )
             print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
     """
-    from mlflow.store.tracking.file_store import FileStore
-    from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
-
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Dataset association operations are not available in Databricks yet. "
-            "Associations are managed through Unity Catalog."
-        )
-
-    store = _get_store()
-    if isinstance(store, FileStore):
-        raise NotImplementedError(
-            "Dataset association operations are not supported with FileStore backend. "
-            "Please use a database-backed tracking store."
-        )
+    _validate_association_operation()
 
     from mlflow.tracking.client import MlflowClient
 
     client = MlflowClient()
-    return client.remove_dataset_from_experiments(dataset_id, experiment_ids)
+    mlflow_dataset = client.remove_dataset_from_experiments(dataset_id, experiment_ids)
+    return EvaluationDataset(mlflow_dataset)
 
 
 __all__ = [
