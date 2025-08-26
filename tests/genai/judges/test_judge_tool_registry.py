@@ -16,10 +16,8 @@ from mlflow.genai.judges.tools import (
 )
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.types.llm import FunctionToolCallArguments, ToolCall, ToolDefinition
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class MockTool(JudgeTool):
     @property
     def name(self) -> str:
@@ -155,6 +153,8 @@ def test_registry_invoke_tool_invalid_arguments():
 def test_global_functions_work():
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
+    # Store original tools to verify registry state before our test
+    # This ensures we're testing in isolation and not affected by other tests
     original_tools = _judge_tool_registry.list_tools()
 
     mock_tool = MockTool()

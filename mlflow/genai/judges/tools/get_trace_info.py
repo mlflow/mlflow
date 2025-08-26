@@ -8,6 +8,7 @@ timing, location, state, and other high-level information.
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import (
     FunctionToolDefinition,
     ToolDefinition,
@@ -27,12 +28,12 @@ class GetTraceInfoTool(JudgeTool):
 
     @property
     def name(self) -> str:
-        return "get_trace_info"
+        return ToolNames.GET_TRACE_INFO
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name="get_trace_info",
+                name=ToolNames.GET_TRACE_INFO,
                 description=(
                     "Retrieve high-level metadata about the trace including ID, timing, state, "
                     "location, and request/response previews. This provides an overview of the "
