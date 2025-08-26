@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from dataclasses import asdict
 from typing import Any
 
@@ -7,7 +8,11 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agents
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, ScorerKind, SerializedScorer
+from mlflow.genai.scorers.base import (
+    _SERIALIZATION_VERSION,
+    ScorerKind,
+    SerializedScorer,
+)
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -39,23 +44,32 @@ def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
         )
 
 
-class BuiltInScorer(Scorer):
+from mlflow.genai.judges.base import Judge
+
+
+class BuiltInScorer(Judge):
     """
-    Base class for built-in scorers that share a common implementation. All built-in scorers should
-    inherit from this class.
+    Abstract base class for built-in scorers that share a common implementation.
+    All built-in scorers should inherit from this class.
     """
 
     name: str
     required_columns: set[str] = set()
 
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """
+        Get the description of what this scorer evaluates.
+        """
+
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
-        # Use mode='json' to automatically convert sets to lists for JSON compatibility
         from pydantic import BaseModel
 
         pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
+        pydantic_model_data["description"] = self.description
 
-        # Create serialized scorer with core fields
         serialized = SerializedScorer(
             name=self.name,
             aggregations=self.aggregations,
@@ -79,7 +93,6 @@ class BuiltInScorer(Scorer):
         from mlflow.genai.scorers import builtin_scorers
         from mlflow.genai.scorers.base import SerializedScorer
 
-        # Parse the serialized data using our dataclass
         try:
             serialized = SerializedScorer(**obj)
         except Exception as e:
@@ -94,7 +107,6 @@ class BuiltInScorer(Scorer):
                 f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
             )
 
-        # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
 
         return scorer_class(**constructor_args)
@@ -151,6 +163,11 @@ class RetrievalRelevance(BuiltInScorer):
         _validate_tracking_uri_is_databricks("RetrievalRelevance")
         super().__init__(**kwargs)
 
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Evaluates whether each retrieved context chunk is relevant to the input request."
+
     def __call__(self, *, trace: Trace) -> Feedback:
         """
         Evaluate chunk relevance for each context chunk.
@@ -182,8 +199,6 @@ class RetrievalRelevance(BuiltInScorer):
         """Compute the relevance of retrieved context for one retriever span."""
         from databricks.agents.evals.judges import chunk_relevance
 
-        # Compute relevance for each chunk. Call `chunk_relevance` judge directly
-        # to get a list of feedbacks with ids.
         chunk_feedbacks = chunk_relevance(
             request=request, retrieved_context=chunks, assessment_name=self.name
         )
@@ -193,13 +208,9 @@ class RetrievalRelevance(BuiltInScorer):
         if len(chunk_feedbacks) == 0:
             return []
 
-        # Compute average relevance across all chunks.
-        # NB: Handling error feedback as 0.0 relevance for simplicity.
         average = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
 
         span_level_feedback = Feedback(
-            # NB: Adding a special suffix for span-level aggregation so that UI can distinguish
-            # it from the chunk-level score and render it on span correctly.
             name=self.name + "/precision",
             value=average,
             source=chunk_feedbacks[0].source,
@@ -247,6 +258,14 @@ class RetrievalSufficiency(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
 
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Evaluates whether retrieved documents provide all necessary information to "
+            "generate the expected response."
+        )
+
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
         if (
@@ -254,7 +273,8 @@ class RetrievalSufficiency(BuiltInScorer):
             and "expectations/expected_facts" not in columns
         ):
             raise MissingColumnsException(
-                self.name, ["expectations/expected_response or expectations/expected_facts"]
+                self.name,
+                ["expectations/expected_response or expectations/expected_facts"],
             )
 
     def __call__(
@@ -274,12 +294,9 @@ class RetrievalSufficiency(BuiltInScorer):
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
-        # If expectations are explicitly provided, use them.
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
-
-        # As a fallback, use the trace annotations as expectations.
         if expected_facts is None or expected_response is None:
             for assessment in trace.info.assessments:
                 if assessment.name == "expected_facts" and expected_facts is None:
@@ -287,7 +304,6 @@ class RetrievalSufficiency(BuiltInScorer):
                 if assessment.name == "expected_response" and expected_response is None:
                     expected_response = assessment.value
 
-        # This scorer returns a list of feedbacks, one for retriever span in the trace.
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_context_sufficient(
@@ -342,6 +358,14 @@ class RetrievalGroundedness(BuiltInScorer):
     name: str = "retrieval_groundedness"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Assesses whether the agent's response is aligned with the information in the "
+            "retrieved context."
+        )
 
     def __call__(self, *, trace: Trace) -> list[Feedback]:
         """
@@ -444,6 +468,13 @@ class Guidelines(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Evaluates whether the agent's response follows specific constraints or instructions."
+        )
+
     def __call__(
         self,
         *,
@@ -521,6 +552,11 @@ class ExpectationsGuidelines(BuiltInScorer):
     name: str = "expectations_guidelines"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Evaluates adherence to per-example guidelines provided in the expectations column."
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -614,6 +650,11 @@ class RelevanceToQuery(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Ensures the agent's response directly addresses the user's input without deviating."
+
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
         """
         Evaluate relevance to the user's query.
@@ -627,7 +668,6 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         request = parse_inputs_to_str(inputs)
-        # NB: Reuse is_context_relevant judge to evaluate response
         return judges.is_context_relevant(
             request=request, context=outputs, name=self.name, model=self.model
         )
@@ -674,6 +714,11 @@ class Safety(BuiltInScorer):
 
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Ensures responses do not contain harmful, offensive, or toxic content."
 
     def __init__(self, /, **kwargs):
         _validate_tracking_uri_is_databricks("Safety")
@@ -761,6 +806,14 @@ class Correctness(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Ensures the agent's responses are correct and accurate against expected facts or "
+            "responses."
+        )
+
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
         if (
@@ -768,7 +821,8 @@ class Correctness(BuiltInScorer):
             and "expectations/expected_facts" not in columns
         ):
             raise MissingColumnsException(
-                self.name, ["expectations/expected_response or expectations/expected_facts"]
+                self.name,
+                ["expectations/expected_response or expectations/expected_facts"],
             )
 
     def __call__(
@@ -839,7 +893,6 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RetrievalSufficiency(),
         RetrievalGroundedness(),
     ]
-    # TODO: Open-source these two scorers
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])
     return scorers
