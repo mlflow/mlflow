@@ -5,7 +5,7 @@ from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.telemetry.client import get_telemetry_client
-from mlflow.telemetry.events import CreateExperimentEvent, Event
+from mlflow.telemetry.events import Event
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     is_telemetry_disabled,
@@ -73,7 +73,7 @@ def _generate_telemetry_record(
             del arguments["cls"]
 
         record_params = event.parse(arguments) or {}
-        if event == CreateExperimentEvent:
+        if hasattr(event, "parse_result"):
             record_params.update(event.parse_result(result))
         if experiment_id := MLFLOW_EXPERIMENT_ID.get():
             record_params["mlflow_experiment_id"] = experiment_id
