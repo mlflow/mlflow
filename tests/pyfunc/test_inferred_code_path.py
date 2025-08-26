@@ -60,6 +60,7 @@ def test_loader_module_model_save_load(
     reloaded_model_config = Model.load(model_path / "MLmodel")
 
     assert _walk_dir(model_path / "code") == {
+        "custom_model/__init__.py",
         "custom_model/loader.py",
         "custom_model/mod1/__init__.py",
         "custom_model/mod1/mod2/__init__.py",
@@ -107,6 +108,7 @@ def test_python_model_save_load(tmp_path, monkeypatch):
     )
 
     assert _walk_dir(pyfunc_model_path / "code") == {
+        "custom_model/__init__.py",
         "custom_model/mod1/__init__.py",
         "custom_model/mod1/mod2/__init__.py",
         "custom_model/mod1/mod4.py",
