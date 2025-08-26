@@ -9,20 +9,40 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
 
 
-def test_invoke_judge_model_successful_with_litellm():
+@pytest.mark.parametrize("num_retries", [None, 3])
+def test_invoke_judge_model_successful_with_litellm(num_retries):
     mock_content = json.dumps({"result": "yes", "rationale": "The response meets all criteria."})
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        feedback = invoke_judge_model(
-            model_uri="openai:/gpt-4",
-            prompt="Evaluate this response",
-            assessment_name="quality_check",
-        )
+        kwargs = {
+            "model_uri": "openai:/gpt-4",
+            "prompt": "Evaluate this response",
+            "assessment_name": "quality_check",
+        }
+        if num_retries is not None:
+            kwargs["num_retries"] = num_retries
+
+        feedback = invoke_judge_model(**kwargs)
+
+    from litellm import RetryPolicy
+
+    expected_retries = 10 if num_retries is None else num_retries
+    expected_retry_policy = RetryPolicy(
+        TimeoutErrorRetries=expected_retries,
+        RateLimitErrorRetries=expected_retries,
+        InternalServerErrorRetries=expected_retries,
+        ContentPolicyViolationErrorRetries=expected_retries,
+        BadRequestErrorRetries=0,
+        AuthenticationErrorRetries=0,
+    )
 
     mock_litellm.assert_called_once_with(
         model="openai/gpt-4",
         messages=[{"role": "user", "content": "Evaluate this response"}],
+        retry_policy=expected_retry_policy,
+        retry_strategy="exponential_backoff_retry",
+        max_retries=0,
     )
 
     assert feedback.name == "quality_check"
