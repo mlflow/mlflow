@@ -104,10 +104,7 @@ export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string
             onClick={() => loadChildRuns(nextPageToken)}
             loading={isLoading}
           >
-            <FormattedMessage
-              defaultMessage="Load more"
-              description="Run page > Overview > Child runs load more"
-            />
+            <FormattedMessage defaultMessage="Load more" description="Run page > Overview > Child runs load more" />
           </Button>
         </div>
       )}

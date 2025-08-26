@@ -919,10 +919,6 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
   },
-  "8bHiDb": {
-    "defaultMessage": "No child runs found",
-    "description": "Run page > Overview > No child runs found"
-  },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
@@ -1250,6 +1246,10 @@
   "CBnbqy": {
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
+  },
+  "CBsZIr": {
+    "defaultMessage": "Child runs",
+    "description": "Run page > Overview > Child runs section label"
   },
   "CDOfWP": {
     "defaultMessage": "System Metrics",
@@ -1646,10 +1646,6 @@
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
-  },
-  "HXbUkt": {
-    "defaultMessage": "Child runs",
-    "description": "Run page > Overview > Child runs"
   },
   "HYQHVk": {
     "defaultMessage": "See more",
@@ -3113,10 +3109,6 @@
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
   },
-  "ZiO9GT": {
-    "defaultMessage": "Found {count} child run{count, plural, one {} other {s}}",
-    "description": "Run page > Overview > Child runs count"
-  },
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
@@ -4137,6 +4129,10 @@
     "defaultMessage": "Boolean",
     "description": "Boolean select menu option for assessment data type"
   },
+  "k0m460": {
+    "defaultMessage": "Failed to load child runs",
+    "description": "Run page > Overview > Child runs error"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -4921,10 +4917,6 @@
     "defaultMessage": "Use the runs difference view to compare model and system metrics, parameters, attributes, and tags across runs.",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
   },
-  "sdNawZ": {
-    "defaultMessage": "Showing most recent 10 child runs (may be more available)",
-    "description": "Run page > Overview > Child runs limit note"
-  },
   "sguNEF": {
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
@@ -5236,6 +5228,10 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
+  },
+  "wtpLvY": {
+    "defaultMessage": "Load more",
+    "description": "Run page > Overview > Child runs load more"
   },
   "wusz4l": {
     "defaultMessage": "Input",
