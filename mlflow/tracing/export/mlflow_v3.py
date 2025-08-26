@@ -70,7 +70,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         for experiment_id, spans_to_log in spans_by_experiment.items():
             if self._should_log_async():
-                # Use async queue for span logging when async is enabled
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
@@ -97,9 +96,7 @@ class MlflowV3SpanExporter(SpanExporter):
         spans_by_experiment = {}
 
         for span in spans:
-            # Get trace from manager to retrieve experiment_id and trace_id
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
-
             with manager.get_trace(mlflow_trace_id) as internal_trace:
                 experiment_id = internal_trace.info.experiment_id
 
@@ -126,7 +123,6 @@ class MlflowV3SpanExporter(SpanExporter):
             if span._parent is not None:
                 continue
 
-            # Pop and export the full trace for root spans
             manager_trace = manager.pop_trace(span.context.trace_id)
             if manager_trace is None:
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
