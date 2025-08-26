@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import AlignmentOptimizer, Judge
