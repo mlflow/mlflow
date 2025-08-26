@@ -523,6 +523,37 @@ def get_trace_tag_endpoint(trace_id):
     return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/tags"
 
 
+def sanitize_page_token(json_body: str | None) -> str | None:
+    """
+    Sanitize page_token in JSON request body.
+
+    Some backends (e.g., Databricks) treat empty/whitespace page tokens as invalid,
+    so we remove them from the JSON to avoid validation errors.
+
+    Args:
+        json_body: JSON string or None
+
+    Returns:
+        Sanitized JSON string or original input if not applicable
+    """
+    if json_body:
+        try:
+            body_dict = json.loads(json_body)
+            if "page_token" in body_dict:
+                page_token = body_dict["page_token"]
+                if (
+                    page_token is not None
+                    and isinstance(page_token, str)
+                    and page_token.strip() == ""
+                ):
+                    del body_dict["page_token"]
+                    json_body = json.dumps(body_dict, indent=2)
+        except (json.JSONDecodeError, TypeError):
+            # If json_body is not valid JSON, pass it through unchanged
+            pass
+    return json_body
+
+
 def call_endpoint(
     host_creds,
     endpoint,

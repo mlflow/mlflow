@@ -54,6 +54,8 @@ from mlflow.server import (
     app,
 )
 from mlflow.server.handlers import (
+    ModelRegistryStoreRegistryWrapper,
+    TrackingStoreRegistryWrapper,
     _convert_path_parameter_to_flask_format,
     _create_experiment,
     _create_model_version,
@@ -91,6 +93,7 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -99,6 +102,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -1169,3 +1174,49 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
+
+
+def test_databricks_tracking_store_registration():
+    """Test that Databricks tracking store is properly registered."""
+    registry = TrackingStoreRegistryWrapper()
+
+    # Test that the correct store type is returned for databricks scheme
+    store = registry.get_store("databricks", artifact_uri=None)
+    assert isinstance(store, RestStore)
+
+    # Verify that the store was created with the right get_host_creds function
+    # The RestStore should have a get_host_creds attribute that is a partial function
+    assert hasattr(store, "get_host_creds")
+    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert store.get_host_creds.args == ("databricks",)
+
+
+def test_databricks_model_registry_store_registration():
+    """Test that Databricks model registry stores are properly registered."""
+    registry = ModelRegistryStoreRegistryWrapper()
+
+    # Test that the correct store type is returned for databricks
+    store = registry.get_store("databricks")
+    assert isinstance(store, ModelRegistryRestStore)
+
+    # Verify that the store was created with the right get_host_creds function
+    assert hasattr(store, "get_host_creds")
+    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert store.get_host_creds.args == ("databricks",)
+
+    # Test that the correct store type is returned for databricks-uc
+    uc_store = registry.get_store("databricks-uc")
+    assert isinstance(uc_store, UcModelRegistryStore)
+
+    # Verify that the UC store was created with the right get_host_creds function
+    # Note: UcModelRegistryStore uses get_databricks_host_creds internally,
+    # not get_databricks_uc_host_creds
+    assert hasattr(uc_store, "get_host_creds")
+    assert uc_store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert uc_store.get_host_creds.args == ("databricks-uc",)
+
+    # Also verify it has tracking_uri set
+    assert hasattr(uc_store, "tracking_uri")
+    # The tracking_uri will be set based on environment/test config
+    # In test environment, it may be set to a test sqlite database
+    assert uc_store.tracking_uri is not None

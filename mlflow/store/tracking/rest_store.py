@@ -108,6 +108,7 @@ from mlflow.utils.rest_utils import (
     get_single_trace_endpoint,
     get_trace_tag_endpoint,
     http_request,
+    sanitize_page_token,
     verify_rest_response,
 )
 
@@ -142,6 +143,10 @@ class RestStore(AbstractStore):
             _, method = _METHOD_TO_INFO[api]
         else:
             endpoint, method = _METHOD_TO_INFO[api]
+
+        # Sanitize page_token for backend compatibility
+        json_body = sanitize_page_token(json_body)
+
         response_proto = api.Response()
         return call_endpoint(
             self.get_host_creds(),

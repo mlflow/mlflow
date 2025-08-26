@@ -35,6 +35,26 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+### Start Development Server with Databricks Backend
+
+To run the MLflow dev server that proxies requests to a Databricks workspace:
+
+```bash
+# Set your Databricks credentials and workspace URL
+export DATABRICKS_TOKEN="your-databricks-token"
+export DATABRICKS_HOST="https://your-workspace.databricks.com"
+export MLFLOW_TRACKING_URI="databricks"
+export MLFLOW_REGISTRY_URI="databricks-uc"  # Use databricks-uc for Unity Catalog, or databricks for workspace model registry
+
+# Start the dev server with these environment variables
+nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+
+# The MLflow server will now proxy tracking and model registry requests to Databricks
+# Access the UI at http://localhost:3000 to see your Databricks experiments and models
+```
+
+**Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.
+
 ## Development Commands
 
 ### Testing

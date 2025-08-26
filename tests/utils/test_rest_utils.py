@@ -1,3 +1,4 @@
+import json
 import re
 import time
 import warnings
@@ -27,6 +28,7 @@ from mlflow.utils.rest_utils import (
     get_workspace_client,
     http_request,
     http_request_safe,
+    sanitize_page_token,
 )
 
 from tests import helper_functions
@@ -917,3 +919,74 @@ def test_deployment_client_timeout_propagation(monkeypatch):
             retry_timeout_seconds=None,
             timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
         )
+
+
+def test_sanitize_page_token_with_empty_string():
+    """Test that empty string page_token is removed from JSON body."""
+    json_body = json.dumps({"page_token": "", "max_results": 10})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert "page_token" not in result_dict
+    assert result_dict["max_results"] == 10
+
+
+def test_sanitize_page_token_with_whitespace():
+    """Test that whitespace-only page_token is removed from JSON body."""
+    json_body = json.dumps({"page_token": "   ", "max_results": 10})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert "page_token" not in result_dict
+    assert result_dict["max_results"] == 10
+
+
+def test_sanitize_page_token_with_valid_token():
+    """Test that valid page_token is preserved."""
+    json_body = json.dumps({"page_token": "valid_token_123", "max_results": 10})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert result_dict["page_token"] == "valid_token_123"
+    assert result_dict["max_results"] == 10
+
+
+def test_sanitize_page_token_with_none_value():
+    """Test that None page_token value is preserved."""
+    json_body = json.dumps({"page_token": None, "max_results": 10})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert result_dict["page_token"] is None
+    assert result_dict["max_results"] == 10
+
+
+def test_sanitize_page_token_with_no_page_token():
+    """Test that JSON without page_token is unchanged."""
+    json_body = json.dumps({"max_results": 10, "filter": "test"})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert result_dict == {"max_results": 10, "filter": "test"}
+
+
+def test_sanitize_page_token_with_none_input():
+    """Test that None input returns None."""
+    result = sanitize_page_token(None)
+    assert result is None
+
+
+def test_sanitize_page_token_with_invalid_json():
+    """Test that invalid JSON passes through unchanged."""
+    json_body = "not valid json"
+    result = sanitize_page_token(json_body)
+    assert result == "not valid json"
+
+
+def test_sanitize_page_token_with_empty_json():
+    """Test that empty JSON object is handled correctly."""
+    json_body = json.dumps({})
+    result = sanitize_page_token(json_body)
+    result_dict = json.loads(result)
+
+    assert result_dict == {}
