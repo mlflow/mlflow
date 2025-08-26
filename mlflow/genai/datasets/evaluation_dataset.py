@@ -7,8 +7,7 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 
 if TYPE_CHECKING:
     import pandas as pd
-    import pyspark
-    from typing import Union
+    import pyspark.sql
 
 
 class EvaluationDataset:
@@ -16,7 +15,7 @@ class EvaluationDataset:
     The public API for evaluation datasets in MLflow's GenAI module.
 
     This class provides a unified interface for evaluation datasets, supporting both:
-    
+
     - Standard MLflow evaluation datasets (backed by MLflow's tracking store)
     - Databricks managed datasets (backed by Unity Catalog tables) through the
       databricks-agents library
@@ -148,7 +147,7 @@ class EvaluationDataset:
 
     def merge_records(
         self,
-        records: "Union[list[dict[str, Any]], pd.DataFrame, pyspark.sql.DataFrame]",
+        records: "list[dict[str, Any]] | pd.DataFrame | pyspark.sql.DataFrame",
     ) -> "EvaluationDataset":
         """Merge records into the dataset."""
         if self._mlflow_dataset:

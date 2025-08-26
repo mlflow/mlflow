@@ -340,6 +340,10 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
 
+    # Convert EvaluationDataset to DataFrame if needed
+    if isinstance(data, EvaluationDataset):
+        data = data.to_df()
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
