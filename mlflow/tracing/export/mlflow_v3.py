@@ -53,10 +53,7 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
 
-        # Export all spans incrementally
         self._export_spans_incrementally(spans, manager)
-
-        # Export full traces for root spans
         self._export_traces(spans, manager)
 
     def _export_spans_incrementally(
