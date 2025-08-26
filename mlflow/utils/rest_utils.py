@@ -698,6 +698,9 @@ class MlflowHostCreds:
             return self.__dict__ == other.__dict__
         return NotImplemented
 
+    def __hash__(self):
+        return hash(frozenset(self.__dict__.items()))
+
     @property
     def verify(self):
         if self.use_databricks_sdk:
