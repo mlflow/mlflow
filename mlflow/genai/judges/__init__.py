@@ -1,5 +1,6 @@
 # Make utils available as an attribute for mocking
 from mlflow.genai.judges import utils  # noqa: F401
+from mlflow.genai.judges.alignment_optimizer import AlignmentOptimizer
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.builtin import (
     is_context_relevant,
@@ -15,6 +16,7 @@ from mlflow.genai.judges.utils import CategoricalRating
 __all__ = [
     # Core Judge class
     "Judge",
+    "AlignmentOptimizer",
     # Existing builtin judges
     "CategoricalRating",
     "is_grounded",
