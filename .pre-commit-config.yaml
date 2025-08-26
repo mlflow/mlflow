@@ -133,9 +133,9 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: test-init-files
-        name: test-init-files
-        entry: python dev/check_test_init_files.py
+      - id: init-files
+        name: init-files
+        entry: python dev/init_files.py
         language: system
         stages: [pre-commit]
         require_serial: true

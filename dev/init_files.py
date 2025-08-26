@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Pre-commit hook to enforce __init__.py files in all test directories."""
 
 import sys
