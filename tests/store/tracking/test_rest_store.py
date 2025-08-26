@@ -1493,6 +1493,7 @@ def test_register_scorer():
                     experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
                 )
             ),
+            endpoint='/api/3.0/mlflow/scorers/register',
         )
 
 
@@ -1534,7 +1535,8 @@ def test_list_scorers():
 
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            ListScorers, message_to_json(ListScorers(experiment_id=experiment_id))
+            ListScorers, message_to_json(ListScorers(experiment_id=experiment_id)),
+            endpoint='/api/3.0/mlflow/scorers/list',
         )
 
 
@@ -1577,6 +1579,7 @@ def test_list_scorer_versions():
         mock_call_endpoint.assert_called_once_with(
             ListScorerVersions,
             message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name)),
+            endpoint='/api/3.0/mlflow/scorers/versions',
         )
 
 
@@ -1612,6 +1615,7 @@ def test_get_scorer_with_version():
         mock_call_endpoint.assert_called_once_with(
             GetScorer,
             message_to_json(GetScorer(experiment_id=experiment_id, name=name, version=version)),
+            endpoint='/api/3.0/mlflow/scorers/get',
         )
 
 
@@ -1644,7 +1648,8 @@ def test_get_scorer_without_version():
 
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            GetScorer, message_to_json(GetScorer(experiment_id=experiment_id, name=name))
+            GetScorer, message_to_json(GetScorer(experiment_id=experiment_id, name=name)),
+            endpoint='/api/3.0/mlflow/scorers/get',
         )
 
 
@@ -1668,6 +1673,7 @@ def test_delete_scorer_with_version():
         mock_call_endpoint.assert_called_once_with(
             DeleteScorer,
             message_to_json(DeleteScorer(experiment_id=experiment_id, name=name, version=version)),
+            endpoint='/api/3.0/mlflow/scorers/delete',
         )
 
 
@@ -1688,5 +1694,6 @@ def test_delete_scorer_without_version():
 
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
-            DeleteScorer, message_to_json(DeleteScorer(experiment_id=experiment_id, name=name))
+            DeleteScorer, message_to_json(DeleteScorer(experiment_id=experiment_id, name=name)),
+            endpoint='/api/3.0/mlflow/scorers/delete',
         )
