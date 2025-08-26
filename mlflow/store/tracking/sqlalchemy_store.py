@@ -12,9 +12,10 @@ from typing import Any, TypedDict
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, func, sql, text
+from sqlalchemy import and_, case, exists, func, or_, sql, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
+from sqlalchemy.orm import aliased
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -56,6 +57,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.analytics import trace_correlation
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -89,6 +91,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
@@ -2037,8 +2040,6 @@ class SqlAlchemyStore(AbstractStore):
                 return []
 
             # Query the latest version for each scorer_id
-            from sqlalchemy import func
-
             latest_versions = (
                 session.query(
                     SqlScorerVersion.scorer_id,
@@ -2597,8 +2598,6 @@ class SqlAlchemyStore(AbstractStore):
 
             # If run_id filter is present, we need to handle it specially to include linked traces
             if run_id_filter:
-                from sqlalchemy import exists, or_
-
                 # Create a subquery to check if a trace is linked to the run via entity associations
                 linked_trace_exists = exists().where(
                     (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
@@ -3028,6 +3027,159 @@ class SqlAlchemyStore(AbstractStore):
                 for trace_id in trace_ids
             )
 
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        Args:
+            experiment_ids: List of experiment_ids to search over
+            filter_string1: First filter condition in search_traces filter syntax
+            filter_string2: Second filter condition in search_traces filter syntax
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows)
+
+        Returns:
+            TraceFilterCorrelationResult which containst the NPMI analytics data.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            filter1_combined = (
+                f"{base_filter} and {filter_string1}" if base_filter else filter_string1
+            )
+            filter2_combined = (
+                f"{base_filter} and {filter_string2}" if base_filter else filter_string2
+            )
+
+            filter1_subquery = self._build_trace_filter_subquery(
+                session, experiment_ids, filter1_combined
+            )
+            filter2_subquery = self._build_trace_filter_subquery(
+                session, experiment_ids, filter2_combined
+            )
+
+            counts = self._get_trace_correlation_counts(
+                session, experiment_ids, filter1_subquery, filter2_subquery, base_filter
+            )
+
+            npmi_result = trace_correlation.calculate_npmi_from_counts(
+                counts.joint_count,
+                counts.filter1_count,
+                counts.filter2_count,
+                counts.total_count,
+            )
+
+            return TraceFilterCorrelationResult(
+                npmi=npmi_result.npmi,
+                npmi_smoothed=npmi_result.npmi_smoothed,
+                filter1_count=counts.filter1_count,
+                filter2_count=counts.filter2_count,
+                joint_count=counts.joint_count,
+                total_count=counts.total_count,
+            )
+
+    def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
+        """Build a subquery for traces that match a given filter in the specified experiments."""
+        stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
+
+        if filter_string:
+            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
+                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            )
+
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
+
+            for span_filter in span_filters:
+                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
+
+            for attr_filter in attribute_filters:
+                stmt = stmt.where(attr_filter)
+
+        return stmt
+
+    def _get_trace_correlation_counts(
+        self,
+        session,
+        experiment_ids: list[str],
+        filter1_subquery,
+        filter2_subquery,
+        base_filter: str | None = None,
+    ) -> trace_correlation.TraceCorrelationCounts:
+        """
+        Get trace counts for correlation analysis using a single SQL query.
+
+        This method efficiently calculates all necessary counts for NPMI calculation
+        in a single database round-trip using LEFT JOINs instead of EXISTS subqueries
+        for MSSQL compatibility.
+
+        When base_filter is provided, the total count refers to traces matching the base filter.
+        """
+        f1_subq = filter1_subquery.subquery()
+        f2_subq = filter2_subquery.subquery()
+
+        filter1_alias = aliased(f1_subq)
+        filter2_alias = aliased(f2_subq)
+
+        # If base_filter is provided, use traces matching the base filter as the universe
+        # Otherwise, use all traces in the experiments
+        if base_filter:
+            base_subquery = self._build_trace_filter_subquery(session, experiment_ids, base_filter)
+            base_subq = base_subquery.subquery()
+            base_table = aliased(base_subq)
+            base_request_id = base_table.c.request_id
+        else:
+            base_table = SqlTraceInfo
+            base_request_id = SqlTraceInfo.request_id
+
+        # NB: MSSQL does not support exists queries within subjoins so a slightly
+        # less efficient subquery LEFT JOIN is used to support all backends.
+        query = (
+            session.query(
+                func.count(base_request_id).label("total"),
+                func.count(filter1_alias.c.request_id).label("filter1"),
+                func.count(filter2_alias.c.request_id).label("filter2"),
+                func.count(
+                    case(
+                        (
+                            (filter1_alias.c.request_id.isnot(None))
+                            & (filter2_alias.c.request_id.isnot(None)),
+                            base_request_id,
+                        ),
+                        else_=None,
+                    )
+                ).label("joint"),
+            )
+            .select_from(base_table)
+            .outerjoin(filter1_alias, base_request_id == filter1_alias.c.request_id)
+            .outerjoin(filter2_alias, base_request_id == filter2_alias.c.request_id)
+        )
+
+        # Only add experiment filter if we're using SqlTraceInfo directly (no base_filter)
+        if not base_filter:
+            query = query.filter(SqlTraceInfo.experiment_id.in_(experiment_ids))
+
+        result = query.one()
+
+        # Cast to int (some databases return Decimal)
+        # Handle None values from empty result sets
+        total_count = int(result.total or 0)
+        filter1_count = int(result.filter1 or 0)
+        filter2_count = int(result.filter2 or 0)
+        joint_count = int(result.joint or 0)
+
+        return trace_correlation.TraceCorrelationCounts(
+            total_count=total_count,
+            filter1_count=filter1_count,
+            filter2_count=filter2_count,
+            joint_count=joint_count,
+        )
+
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -3074,6 +3226,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             # If trace doesn't exist, create it
             if sql_trace_info is None:
+                # Get experiment to add artifact location tag
+                experiment = self.get_experiment(experiment_id)
+
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
@@ -3084,6 +3239,8 @@ class SqlAlchemyStore(AbstractStore):
                     status=trace_status,
                     client_request_id=None,
                 )
+                # Add the artifact location tag that's required for search_traces to work
+                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
                 session.add(sql_trace_info)
                 try:
                     session.flush()

@@ -718,6 +718,14 @@ try:
 except ImportError:
     pass
 
+# Add Claude Code integration commands
+try:
+    import mlflow.claude_code.cli
+
+    cli.add_command(mlflow.claude_code.cli.commands)
+except ImportError:
+    pass
+
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
 try:
