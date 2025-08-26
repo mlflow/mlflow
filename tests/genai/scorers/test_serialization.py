@@ -6,7 +6,7 @@ import pytest
 from mlflow.entities import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
-from mlflow.genai.scorers.builtin_scorers import Guidelines, RelevanceToQuery
+from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
@@ -672,7 +672,7 @@ def test_decorator_scorer_multiple_serialization_round_trips():
     assert recovered(outputs="hi") is False
 
 
-def test_builtin_scorer_description_mutation_and_serialization():
+def test_builtin_scorer_description_preserved_through_serialization():
     scorer = Guidelines(name="test_guidelines", guidelines=["Be helpful"])
 
     original_description = scorer.description
@@ -681,64 +681,16 @@ def test_builtin_scorer_description_mutation_and_serialization():
         == "Evaluates whether the agent's response follows specific constraints or instructions."
     )
 
-    scorer.description = "Custom description for my guidelines scorer"
-    assert scorer.description == "Custom description for my guidelines scorer"
-
     serialized = scorer.model_dump()
     assert "builtin_scorer_pydantic_data" in serialized
     pydantic_data = serialized["builtin_scorer_pydantic_data"]
 
     assert "description" in pydantic_data
-    assert pydantic_data["description"] == "Custom description for my guidelines scorer"
+    assert pydantic_data["description"] == original_description
 
     deserialized = Scorer.model_validate(serialized)
 
     assert isinstance(deserialized, Guidelines)
-    assert deserialized.description == "Custom description for my guidelines scorer"
+    assert deserialized.description == original_description
     assert deserialized.name == "test_guidelines"
     assert deserialized.guidelines == ["Be helpful"]
-
-    deserialized.description = "Another custom description after deserialization"
-    assert deserialized.description == "Another custom description after deserialization"
-
-    second_serialized = deserialized.model_dump()
-    second_deserialized = Scorer.model_validate(second_serialized)
-
-    assert second_deserialized.description == "Another custom description after deserialization"
-
-
-def test_multiple_scorer_descriptions_independent():
-    scorer1 = RelevanceToQuery(name="relevance1")
-    scorer2 = RelevanceToQuery(name="relevance2")
-
-    original_desc = (
-        "Ensures the agent's response directly addresses the user's input without deviating."
-    )
-    assert scorer1.description == original_desc
-    assert scorer2.description == original_desc
-
-    scorer1.description = "Custom description for scorer1"
-    assert scorer1.description == "Custom description for scorer1"
-    assert scorer2.description == original_desc
-
-    scorer2.description = "Custom description for scorer2"
-    assert scorer1.description == "Custom description for scorer1"
-    assert scorer2.description == "Custom description for scorer2"
-
-
-def test_description_json_serialization():
-    scorer = Guidelines(name="json_test", guidelines=["Test guideline"])
-    scorer.description = "JSON serialization test description"
-
-    serialized = scorer.model_dump()
-    json_str = json.dumps(serialized)
-    loaded_dict = json.loads(json_str)
-    deserialized = Scorer.model_validate(loaded_dict)
-
-    assert deserialized.description == "JSON serialization test description"
-    assert isinstance(deserialized, Guidelines)
-    assert deserialized.name == "json_test"
-    assert deserialized.guidelines == ["Test guideline"]
-
-    deserialized.description = "Modified after JSON deserialization"
-    assert deserialized.description == "Modified after JSON deserialization"

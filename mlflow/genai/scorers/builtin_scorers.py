@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from dataclasses import asdict
 from typing import Any
 
@@ -48,45 +49,26 @@ from mlflow.genai.judges.base import Judge
 
 class BuiltInScorer(Judge):
     """
-    Base class for built-in scorers that share a common implementation. All built-in scorers should
-    inherit from this class.
+    Abstract base class for built-in scorers that share a common implementation.
+    All built-in scorers should inherit from this class.
     """
 
     name: str
     required_columns: set[str] = set()
 
-    def __init__(self, description: str | None = None, **kwargs):
-        super().__init__(**kwargs)
-        self._description = (
-            description
-            if description is not None
-            else getattr(
-                self,
-                "default_description",
-                "A built-in scorer that evaluates model outputs.",
-            )
-        )
-
     @property
+    @abstractmethod
     def description(self) -> str:
         """
         Get the description of what this scorer evaluates.
         """
-        return self._description
-
-    @description.setter
-    def description(self, value: str):
-        """
-        Set the description of what this scorer evaluates.
-        """
-        self._description = value
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
         from pydantic import BaseModel
 
         pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
-        pydantic_model_data["description"] = self._description
+        pydantic_model_data["description"] = self.description
 
         serialized = SerializedScorer(
             name=self.name,
@@ -176,13 +158,15 @@ class RetrievalRelevance(BuiltInScorer):
 
     name: str = "retrieval_relevance"
     required_columns: set[str] = {"inputs", "trace"}
-    default_description: str = (
-        "Evaluates whether each retrieved context chunk is relevant to the input request."
-    )
 
     def __init__(self, /, **kwargs):
         _validate_tracking_uri_is_databricks("RetrievalRelevance")
         super().__init__(**kwargs)
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
     def __call__(self, *, trace: Trace) -> Feedback:
         """
@@ -273,10 +257,14 @@ class RetrievalSufficiency(BuiltInScorer):
     name: str = "retrieval_sufficiency"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
-    default_description: str = (
-        "Evaluates whether retrieved documents provide all necessary information to "
-        "generate the expected response."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Evaluates whether retrieved documents provide all necessary information to "
+            "generate the expected response."
+        )
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -370,10 +358,14 @@ class RetrievalGroundedness(BuiltInScorer):
     name: str = "retrieval_groundedness"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
-    default_description: str = (
-        "Assesses whether the agent's response is aligned with the information in the "
-        "retrieved context."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Assesses whether the agent's response is aligned with the information in the "
+            "retrieved context."
+        )
 
     def __call__(self, *, trace: Trace) -> list[Feedback]:
         """
@@ -475,9 +467,13 @@ class Guidelines(BuiltInScorer):
     guidelines: str | list[str]
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
-    default_description: str = (
-        "Evaluates whether the agent's response follows specific constraints or instructions."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Evaluates whether the agent's response follows specific constraints or instructions."
+        )
 
     def __call__(
         self,
@@ -556,9 +552,11 @@ class ExpectationsGuidelines(BuiltInScorer):
     name: str = "expectations_guidelines"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
-    default_description: str = (
-        "Evaluates adherence to per-example guidelines provided in the expectations column."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Evaluates adherence to per-example guidelines provided in the expectations column."
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -651,9 +649,11 @@ class RelevanceToQuery(BuiltInScorer):
     name: str = "relevance_to_query"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
-    default_description: str = (
-        "Ensures the agent's response directly addresses the user's input without deviating."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Ensures the agent's response directly addresses the user's input without deviating."
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
         """
@@ -714,9 +714,11 @@ class Safety(BuiltInScorer):
 
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
-    default_description: str = (
-        "Ensures responses do not contain harmful, offensive, or toxic content."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return "Ensures responses do not contain harmful, offensive, or toxic content."
 
     def __init__(self, /, **kwargs):
         _validate_tracking_uri_is_databricks("Safety")
@@ -803,10 +805,14 @@ class Correctness(BuiltInScorer):
     name: str = "correctness"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
-    default_description: str = (
-        "Ensures the agent's responses are correct and accurate against expected facts or "
-        "responses."
-    )
+
+    @property
+    def description(self) -> str:
+        """Get the description of what this scorer evaluates."""
+        return (
+            "Ensures the agent's responses are correct and accurate against expected facts or "
+            "responses."
+        )
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
