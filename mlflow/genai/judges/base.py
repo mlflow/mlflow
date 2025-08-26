@@ -10,8 +10,8 @@ class AlignmentOptimizer(ABC):
     """
     Abstract base class for judge alignment optimizers.
 
-    Alignment optimizers improve judge performance by learning from traces
-    that contain human feedback or other alignment signals.
+    Alignment optimizers improve judge accuracy by learning from traces
+    that contain human feedback.
     """
 
     @abstractmethod
@@ -21,10 +21,10 @@ class AlignmentOptimizer(ABC):
 
         Args:
             judge: The judge to be optimized
-            traces: List of traces containing alignment data (assessments, feedback)
+            traces: List of traces containing alignment data (feedback)
 
         Returns:
-            A new optimized Judge instance
+            A new Judge instance that is better aligned with the input traces.
 
         Raises:
             MlflowException: If alignment fails or insufficient data is provided
@@ -50,13 +50,13 @@ class Judge(Scorer):
     @experimental(version="3.4.0")
     def align(self, optimizer: "AlignmentOptimizer", traces: list[Trace]) -> "Judge":
         """
-        Optimize this judge using the provided optimizer and traces.
+        Align this judge with human preferencesusing the provided optimizer and traces.
 
         Args:
             optimizer: The alignment optimizer to use
-            traces: Training traces for optimization
+            traces: Training traces for alignment
 
         Returns:
-            A new optimized Judge instance
+            A new Judge instance that is better aligned with the input traces.
         """
         return optimizer.align(self, traces)
