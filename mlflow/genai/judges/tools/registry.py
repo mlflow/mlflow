@@ -71,10 +71,8 @@ class JudgeToolRegistry:
         """
         function_name = tool_call.function.name
 
-        # Get the tool from the registry
         tool = self._store.get_tool(function_name)
 
-        # Parse the JSON arguments
         try:
             arguments = json.loads(tool_call.function.arguments)
         except json.JSONDecodeError as e:
@@ -83,7 +81,6 @@ class JudgeToolRegistry:
                 error_code="INVALID_PARAMETER_VALUE",
             )
 
-        # Invoke the tool with the trace and parsed arguments
         try:
             return tool.invoke(trace, **arguments)
         except TypeError as e:
@@ -102,7 +99,6 @@ class JudgeToolRegistry:
         return self._store.list_tools()
 
 
-# Global registry instance
 _judge_tool_registry = JudgeToolRegistry()
 
 
@@ -143,7 +139,6 @@ def list_judge_tools() -> list[JudgeTool]:
     return _judge_tool_registry.list_tools()
 
 
-# Register built-in tools - import at the end to avoid circular imports
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
 
 _judge_tool_registry.register(GetTraceInfoTool())
