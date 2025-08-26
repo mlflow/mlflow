@@ -3,7 +3,6 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
-import asyncio
 import json
 import logging
 import math
@@ -3460,7 +3459,8 @@ def test_scorer_CRUD(mlflow_client):
 
 
 @pytest.mark.parametrize("use_async", [False, True])
-def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
+@pytest.mark.asyncio
+async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
     """
     End-to-end test that verifies RestStore can log spans to a running server via OTLP endpoint.
 
@@ -3509,11 +3509,9 @@ def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
 
         # Call either sync or async version based on parametrization
         if use_async:
-            # Use asyncio.run to execute the async method
-            result_spans = asyncio.run(
-                mlflow_client._tracking_client.store.log_spans_async(
-                    experiment_id=experiment_id, spans=[mlflow_span_to_log]
-                )
+            # Use await to execute the async method
+            result_spans = await mlflow_client._tracking_client.store.log_spans_async(
+                experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
         else:
             result_spans = mlflow_client._tracking_client.store.log_spans(

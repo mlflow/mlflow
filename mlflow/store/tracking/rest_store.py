@@ -1315,7 +1315,7 @@ class RestStore(AbstractStore):
             return []
 
         server_version = self._get_server_version(self.get_host_creds())
-        if not server_version:
+        if server_version is None:
             raise NotImplementedError(
                 "log_spans is not supported: could not identify MLflow server version"
             )
