@@ -1,6 +1,8 @@
 import re
 
-from mlflow.store.artifact.databricks_tracking_artifact_repo import DatabricksTrackingArtifactRepository
+from mlflow.store.artifact.databricks_tracking_artifact_repo import (
+    DatabricksTrackingArtifactRepository,
+)
 
 
 class DatabricksLoggedModelArtifactRepository(DatabricksTrackingArtifactRepository):

@@ -707,6 +707,13 @@ MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVaria
     "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
 )
 
+#: Disable Databricks SDK for run artifacts. We enable this by default since we want to
+#: use Databricks SDK for run artifacts in most cases, but this gives us a way to disable
+#: it for certain cases if needed.
+MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS", False
+)
+
 # Specifies the model environment archive file downloading path when using
 # ``mlflow.pyfunc.spark_udf``. (default: ``None``)
 MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(

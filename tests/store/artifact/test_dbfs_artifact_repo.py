@@ -1,5 +1,6 @@
 from unittest import mock
 
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -65,11 +66,11 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
 def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
     with (
         mock.patch(
-            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
+            "mlflow.store.artifact.dbfs_artifact_repo.DatabricksRunArtifactRepository", autospec=True
         ) as mock_repo,
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
-        assert isinstance(repo, DatabricksArtifactRepository)
+        assert isinstance(repo, DatabricksRunArtifactRepository)
         mock_repo.assert_called_once_with(artifact_uri, None)
 
 
