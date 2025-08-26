@@ -66,16 +66,28 @@ def set_experiment_storage_location(
         trace destination creation fails, table creation fails, or experiment tag setting fails.
 
     Example:
-        >>> import mlflow.tracing
-        >>> # workspace_id is 123
-        >>> view_name = mlflow.tracing.set_experiment_storage_location(
-        ...     mlflow.tracing.destination.DatabricksUnityCatalog(
-        ...         catalog="my_catalog", schema="my_schema", table_prefix="my_prefix"
-        ...     ),
-        ...     experiment_id="12345",
-        ... )
-        >>> print(view_name)
-        my_catalog.my_schema.my_prefix_experiment_123_12345_genai_view
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.tracing.destination import DatabricksUnityCatalog
+        from mlflow.genai.experimental import set_experiment_storage_location
+
+        view_name = set_experiment_storage_location(
+            DatabricksUnityCatalog(
+                catalog="my_catalog", schema="my_schema", table_prefix="my_prefix"
+            ),
+            experiment_id="12345",
+        )
+        print(view_name)  # my_catalog.my_schema.my_prefix_experiment_123_12345_genai_view
+
+
+        @mlflow.trace
+        def add(x):
+            return x + 1
+
+
+        add(1)  # this writes the trace to the storage location set above
+
     """
     if importlib.util.find_spec("databricks.agents") is None:
         raise ImportError(
@@ -429,11 +441,11 @@ def _enable_databricks_trace_archival(
             )
         except Exception as e:
             if e.error_code == "ALREADY_EXISTS":
-                _logger.info(
+                raise MlflowException(
                     f"Storage location already set for experiment {experiment_id}. "
                     f"To link the experiment to a new storage location, first call "
                     f"`set_experiment_storage_location(None, '{experiment_id}')` and try again."
-                )
+                ) from e
             raise e
 
         _logger.debug(

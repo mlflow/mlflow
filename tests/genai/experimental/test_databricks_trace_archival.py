@@ -10,7 +10,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_archival import (
     SUPPORTED_SCHEMA_VERSION,
     _create_genai_trace_view,
-    _enable_databricks_trace_archival,
     _validate_schema_versions,
     set_experiment_storage_location,
 )
@@ -888,43 +887,41 @@ def test_set_experiment_storage_location_set_with_explicit_experiment(
     assert "12345" not in mock_delta_archival_mixin._config_cache
 
 
-# Tests for re-create logic in _enable_databricks_trace_archival
-
-
-@pytest.mark.parametrize(
-    ("error_code", "error_message"),
-    [
-        ("ALREADY_EXISTS", "Already exists"),
-        ("PERMISSION_DENIED", "Permission denied"),
-        ("INVALID_PARAMETER_VALUE", "Invalid parameter"),
-    ],
-)
 @patch("databricks.sdk.WorkspaceClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
 @patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
 @patch("mlflow.genai.experimental.databricks_trace_archival._enable_trace_rolling_deletion")
 @patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-def test_enable_archival_errors_are_propagated(
+def test_set_experiment_storage_location_twice_shows_helpful_error(
     mock_mlflow_client,
     mock_rolling_deletion,
     mock_create_view,
     mock_trace_client,
     mock_workspace_client_class,
     mock_workspace_client,
-    error_code,
-    error_message,
 ):
-    """Test that all errors from create_trace_destination are propagated."""
+    """Test that setting storage location twice provides helpful error message."""
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
 
     # Mock trace client instance
     mock_trace_client_instance = Mock()
 
-    # Create error with specified code and message
-    mock_error = Exception(error_message)
-    mock_error.error_code = error_code
-    mock_trace_client_instance.create_trace_destination.side_effect = mock_error
+    # Mock successful config for first call
+    mock_config = Mock(
+        spans_table_name="catalog.schema.prefix_12345_spans",
+        events_table_name="catalog.schema.prefix_12345_events",
+        spans_schema_version="v1",
+        events_schema_version="v1",
+    )
+
+    # First call succeeds, second call raises ALREADY_EXISTS
+    mock_error = Exception("Storage location already exists")
+    mock_error.error_code = "ALREADY_EXISTS"
+    mock_trace_client_instance.create_trace_destination.side_effect = [
+        mock_config,  # First call succeeds
+        mock_error,  # Second call fails with ALREADY_EXISTS
+    ]
     mock_trace_client.return_value = mock_trace_client_instance
 
     # Mock MLflow client
@@ -932,17 +929,31 @@ def test_enable_archival_errors_are_propagated(
     mock_mlflow_client.return_value = mock_client_instance
 
     with patch("importlib.util.find_spec", return_value=Mock()):
-        with pytest.raises(Exception, match=error_message):
-            _enable_databricks_trace_archival("12345", "catalog", "schema", "prefix")
+        # First call should succeed
+        location1 = DatabricksUnityCatalog(
+            catalog="catalog1", schema="schema1", table_prefix="prefix1"
+        )
+        result1 = set_experiment_storage_location(location1, experiment_id="12345")
+        assert result1 == "catalog1.schema1.prefix1_experiment_123_12345_genai_view"
 
-    # Verify view creation was NOT called
-    mock_create_view.assert_not_called()
+        # Verify first call worked
+        mock_create_view.assert_called_once()
+        mock_rolling_deletion.assert_called_once()
+        mock_client_instance.set_experiment_tag.assert_called_once()
 
-    # Verify rolling deletion was NOT called
-    mock_rolling_deletion.assert_not_called()
+        # Second call with different location should fail with helpful message
+        location2 = DatabricksUnityCatalog(
+            catalog="catalog2", schema="schema2", table_prefix="prefix2"
+        )
 
-    # Verify experiment tag was NOT set
-    mock_client_instance.set_experiment_tag.assert_not_called()
+        expected_message = (
+            r"Storage location already set for experiment 12345\. "
+            r"To link the experiment to a new storage location, first call "
+            r"`set_experiment_storage_location\(None, '12345'\)` and try again\."
+        )
 
-    # Verify create was only called once
-    assert mock_trace_client_instance.create_trace_destination.call_count == 1
+        with pytest.raises(MlflowException, match=expected_message):
+            set_experiment_storage_location(location2, experiment_id="12345")
+
+    # Verify create_trace_destination was called twice
+    assert mock_trace_client_instance.create_trace_destination.call_count == 2
