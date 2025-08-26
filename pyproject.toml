@@ -147,7 +147,6 @@ https = "mlflow.deployments.mlflow"
 openai = "mlflow.deployments.openai"
 
 [project.entry-points."mlflow.tracking_store"]
-postgresql = "mlflow.azure.stores:create_store"
 azure-postgres = "mlflow.azure.stores:create_store"
 
 [tool.setuptools.package-data]
