@@ -69,7 +69,7 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects to export.
             manager: The trace manager instance.
         """
-        spans_by_experiment = self._collect_spans_for_export(spans, manager)
+        spans_by_experiment = self._collect_mlflow_spans_for_export(spans, manager)
 
         for experiment_id, spans_to_log in spans_by_experiment.items():
             if self._should_log_async():
@@ -84,7 +84,7 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 self._log_spans(experiment_id, spans_to_log)
 
-    def _collect_spans_for_export(
+    def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
     ) -> dict[str, list[Span]]:
         """
