@@ -4,7 +4,6 @@
     "charliermarsh.ruff",
     "ms-python.python",
     "ms-python.vscode-pylance",
-    "ms-python.mypy-type-checker",
 
     // JavaScript/TypeScript
     "esbenp.prettier-vscode",
@@ -12,8 +11,6 @@
 
     // Other helpful extensions
     "eamodio.gitlens",
-    "ms-vscode.vscode-typescript-tsdk",
-    "bradlc.vscode-tailwindcss",
     "usernamehw.errorlens"
   ],
   "unwantedRecommendations": [

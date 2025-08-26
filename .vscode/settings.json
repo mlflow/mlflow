@@ -19,6 +19,7 @@
 
   // Python analysis
   "python.analysis.typeCheckingMode": "off", // Disable Pylance strict checking
+  "python.analysis.exclude": ["**/*_pb2.py", "**/*_pb2.pyi"],
 
   // TypeScript/JavaScript Configuration
   "[typescript]": {
@@ -95,7 +96,9 @@
     "**/.ruff_cache": true,
     "**/node_modules": true,
     "**/build": true,
-    "**/dist": true
+    "**/dist": true,
+    "**/*_pb2.py": true,
+    "**/*_pb2.pyi": true
   },
 
   // Search exclusions
