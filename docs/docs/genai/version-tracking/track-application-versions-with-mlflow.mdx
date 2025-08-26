@@ -9,6 +9,8 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { APILink } from "@site/src/components/APILink";
 import { GitBranch, GitCommit, Tag, Clock, Shield, Code2, Database, Settings, Eye, Target, Zap, BarChart3, PlayCircle, TrendingUp } from "lucide-react";
+import ImageBox from '@site/src/components/ImageBox';
+import GitVersioningImage from '@site/static/images/git-versioning.png';
 
 # Track versions of Git-based applications with MLflow
 
@@ -16,6 +18,7 @@ import { GitBranch, GitCommit, Tag, Clock, Shield, Code2, Database, Settings, Ey
 
 - This feature is experimental and may change in future releases.
 - This feature is not supported in [Databricks Git Folders](https://docs.databricks.com/aws/en/repos/) yet due to limitations in accessing Git metadata.
+- MLflow >= 3.4 is required for this feature.
 
 :::
 
@@ -217,6 +220,8 @@ This ensures complete reproducibility of your application versions.
 ### Use the UI
 
 Go to the MLflow Experiment UI. In the **Traces** tab, you can see the version of the app that generated each trace. In the **Models** tab, you can see each LoggedModel alongside its parameters and linked traces.
+
+<ImageBox src={GitVersioningImage} altText="Git Versioning" width="80%" />
 
 ### Use the SDK
 
