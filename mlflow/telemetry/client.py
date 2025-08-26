@@ -1,4 +1,5 @@
 import atexit
+import os
 import random
 import sys
 import threading
@@ -15,6 +16,7 @@ from mlflow.telemetry.constant import (
     BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
+    MLFLOW_TELEMETRY_SESSION_ID,
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
@@ -25,7 +27,9 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 
 class TelemetryClient:
     def __init__(self):
-        self.info = asdict(TelemetryInfo())
+        self.info = asdict(
+            TelemetryInfo(session_id=os.environ.get(MLFLOW_TELEMETRY_SESSION_ID, uuid.uuid4().hex))
+        )
         self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -352,6 +356,10 @@ def _set_telemetry_client(value: TelemetryClient | None):
     global _MLFLOW_TELEMETRY_CLIENT
     with _client_lock:
         _MLFLOW_TELEMETRY_CLIENT = value
+        if value:
+            os.environ[MLFLOW_TELEMETRY_SESSION_ID] = value.info["session_id"]
+        else:
+            os.environ.pop(MLFLOW_TELEMETRY_SESSION_ID, None)
 
 
 def get_telemetry_client() -> TelemetryClient | None:

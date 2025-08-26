@@ -15,6 +15,7 @@ from mlflow.telemetry.client import (
     TelemetryClient,
     get_telemetry_client,
 )
+from mlflow.telemetry.constant import MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
@@ -33,6 +34,17 @@ def test_telemetry_client_initialization(mock_telemetry_client: TelemetryClient,
     assert mock_telemetry_client._max_workers == MAX_WORKERS
     assert mock_telemetry_client._batch_size == BATCH_SIZE
     assert mock_telemetry_client._batch_time_interval == BATCH_TIME_INTERVAL_SECONDS
+
+
+def test_telemetry_client_session_id(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_TELEMETRY_SESSION_ID, "test_session_id")
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] == "test_session_id"
+    monkeypatch.delenv(MLFLOW_TELEMETRY_SESSION_ID)
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] != "test_session_id"
 
 
 def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
