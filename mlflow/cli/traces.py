@@ -488,9 +488,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 
 @commands.command("log-feedback")
 @TRACE_ID
-@click.option(
-    "--name", type=click.STRING, default="feedback", help="Feedback name (default: 'feedback')"
-)
+@click.option("--name", type=click.STRING, required=True, help="Feedback name")
 @click.option(
     "--value",
     type=click.STRING,
@@ -513,7 +511,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option("--span-id", type=click.STRING, help="Associate feedback with a specific span ID")
 def log_feedback(
     trace_id: str,
-    name: str = "feedback",
+    name: str,
     value: str | None = None,
     source_type: str | None = None,
     source_id: str | None = None,
