@@ -264,14 +264,9 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     iris = datasets.load_iris()
 
     def train_model():
+        from joblib import parallel_backend
         from sklearn import svm
         from sklearn.model_selection import GridSearchCV
-
-        # Import parallel_backend from the correct location depending on sklearn version
-        try:
-            from sklearn.utils import parallel_backend
-        except ImportError:
-            from joblib import parallel_backend
 
         parameters = {"kernel": ("linear", "rbf"), "C": [1, 10]}
         svc = svm.SVC()
