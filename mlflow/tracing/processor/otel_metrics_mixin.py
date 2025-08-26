@@ -6,6 +6,7 @@ while maintaining their own inheritance hierarchies (BatchSpanProcessor, SimpleS
 """
 
 import json
+import logging
 import os
 
 from opentelemetry import metrics
@@ -15,10 +16,11 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import StatusCode
 
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import get_experiment_id_for_trace
+
+_logger = logging.getLogger(__name__)
 
 
 class OtelMetricsMixin:
@@ -60,10 +62,12 @@ class OtelMetricsMixin:
                 OTLPMetricExporter,
             )
         else:
-            raise MlflowException.invalid_parameter_value(
+            _logger.warning(
                 f"Unsupported OTLP metrics protocol '{protocol}'. "
-                "Supported protocols are 'grpc' and 'http/protobuf'."
+                "Supported protocols are 'grpc' and 'http/protobuf'. "
+                "Metrics export will be skipped."
             )
+            return
 
         metric_exporter = OTLPMetricExporter(endpoint=endpoint)
         reader = PeriodicExportingMetricReader(metric_exporter)

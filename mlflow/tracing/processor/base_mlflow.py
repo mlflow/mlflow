@@ -93,7 +93,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         # Processing the trace only when the root span is found.
         if span._parent is not None:
-            super().on_end(span)
             return
 
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
