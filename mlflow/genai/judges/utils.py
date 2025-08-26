@@ -33,7 +33,7 @@ def _sanitize_justification(justification: str) -> str:
 
 
 def invoke_judge_model(
-    model_uri: str, prompt: str, assessment_name: str, num_retries: int = 7
+    model_uri: str, prompt: str, assessment_name: str, num_retries: int = 10
 ) -> Feedback:
     """
     Invoke the judge model.
