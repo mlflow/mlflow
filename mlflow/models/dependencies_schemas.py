@@ -36,7 +36,7 @@ def set_retriever_schema(
         This function is deprecated and will be removed in a future version.
 
     **Note**: MLflow recommends that your retriever return the default MLflow retriever output
-    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans,
+    schema described in https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans,
     in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
     and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
     spans that match MLflow's default retriever schema.
