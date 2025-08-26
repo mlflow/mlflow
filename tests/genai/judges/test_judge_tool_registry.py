@@ -151,12 +151,6 @@ def test_registry_invoke_tool_invalid_arguments():
 
 
 def test_global_functions_work():
-    from mlflow.genai.judges.tools.registry import _judge_tool_registry
-
-    # Store original tools to verify registry state before our test
-    # This ensures we're testing in isolation and not affected by other tests
-    original_tools = _judge_tool_registry.list_tools()
-
     mock_tool = MockTool()
     register_judge_tool(mock_tool)
 
