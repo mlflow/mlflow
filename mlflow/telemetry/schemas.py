@@ -1,7 +1,6 @@
 import json
 import platform
 import sys
-import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -51,7 +50,7 @@ def get_source_sdk() -> SourceSDK:
 
 @dataclass
 class TelemetryInfo:
-    session_id: str = uuid.uuid4().hex
+    session_id: str
     source_sdk: str = get_source_sdk().value
     mlflow_version: str = VERSION
     schema_version: int = 1
