@@ -13,7 +13,6 @@ import subprocess
 import sys
 import time
 import urllib.parse
-from contextlib import nullcontext
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -3481,33 +3480,32 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async)
             return_value=Version("3.4.0"),
         )
     else:
-        version_mock = nullcontext()
+        pytest.fail(reason="Remove the mock above")
 
+    experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
+    root_span = mlflow_client.start_trace(
+        f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
+    )
+    otel_span = OTelReadableSpan(
+        name=f"test-rest-store-span-{use_async}",
+        context=build_otel_context(
+            trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
+            span_id=0x1234567890ABCDEF,
+        ),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: root_span.trace_id,
+            "test.attribute": json.dumps(f"test-value-{use_async}"),  # JSON-encoded string value
+        },
+        resource=None,
+    )
+    mlflow_span_to_log = Span(otel_span)
     with version_mock:
-        experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
-        root_span = mlflow_client.start_trace(
-            f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
-        )
-        otel_span = OTelReadableSpan(
-            name=f"test-rest-store-span-{use_async}",
-            context=build_otel_context(
-                trace_id=int(root_span.trace_id[3:], 16),  # Remove 'tr-' prefix and convert to int
-                span_id=0x1234567890ABCDEF,
-            ),
-            parent=None,
-            start_time=1000000000,
-            end_time=2000000000,
-            attributes={
-                SpanAttributeKey.REQUEST_ID: root_span.trace_id,
-                "test.attribute": json.dumps(
-                    f"test-value-{use_async}"
-                ),  # JSON-encoded string value
-            },
-            resource=None,
-        )
-        mlflow_span_to_log = Span(otel_span)
-
+        # Call either sync or async version based on parametrization
         if use_async:
+            # Use await to execute the async method
             result_spans = await mlflow_client._tracking_client.store.log_spans_async(
                 experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
@@ -3516,5 +3514,6 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async)
                 experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
 
-        assert len(result_spans) == 1
-        assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+    # Verify the spans were returned (indicates successful logging)
+    assert len(result_spans) == 1
+    assert result_spans[0].name == f"test-rest-store-span-{use_async}"
