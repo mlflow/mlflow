@@ -3507,9 +3507,7 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async)
         )
         mlflow_span_to_log = Span(otel_span)
 
-        # Call either sync or async version based on parametrization
         if use_async:
-            # Use await to execute the async method
             result_spans = await mlflow_client._tracking_client.store.log_spans_async(
                 experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
@@ -3518,6 +3516,5 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async)
                 experiment_id=experiment_id, spans=[mlflow_span_to_log]
             )
 
-        # Verify the spans were returned (indicates successful logging)
         assert len(result_spans) == 1
         assert result_spans[0].name == f"test-rest-store-span-{use_async}"
