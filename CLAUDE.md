@@ -40,14 +40,18 @@ This uses `uv` (fast Python package manager) to automatically manage dependencie
 To run the MLflow dev server that proxies requests to a Databricks workspace:
 
 ```bash
-# Set your Databricks credentials and workspace URL
-export DATABRICKS_TOKEN="your-databricks-token"
-export DATABRICKS_HOST="https://your-workspace.databricks.com"
-export MLFLOW_TRACKING_URI="databricks"
-export MLFLOW_REGISTRY_URI="databricks-uc"  # Use databricks-uc for Unity Catalog, or databricks for workspace model registry
+# IMPORTANT: All four environment variables below are REQUIRED for proper Databricks backend operation
+# Set them in this exact order:
+export DATABRICKS_HOST="https://your-workspace.databricks.com"  # Your Databricks workspace URL
+export DATABRICKS_TOKEN="your-databricks-token"                # Your Databricks personal access token
+export MLFLOW_TRACKING_URI="databricks"                        # Must be set to "databricks"
+export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+
+# Monitor the logs
+tail -f /tmp/mlflow-dev-server.log
 
 # The MLflow server will now proxy tracking and model registry requests to Databricks
 # Access the UI at http://localhost:3000 to see your Databricks experiments and models

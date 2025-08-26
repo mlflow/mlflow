@@ -292,6 +292,28 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
     assert args[2] == ViewType.ACTIVE_ONLY
 
 
+def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """
+    Test that empty page_token from protobuf is converted to None before calling store
+    """
+    # Create proto without setting page_token
+    search_runs_proto = SearchRuns()
+    search_runs_proto.experiment_ids.append("0")
+    search_runs_proto.max_results = 10
+    # Verify protobuf returns empty string for unset field
+    assert search_runs_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_runs_proto
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+
+    _search_runs()
+
+    # Verify store was called with None, not empty string
+    args, kwargs = mock_tracking_store.search_runs.call_args
+    # search_runs args: experiment_ids, filter, run_view_type, max_results, order_by, page_token
+    assert args[5] is None  # page_token should be None, not ""
+
+
 def test_log_batch_api_req(mock_get_request_json):
     mock_get_request_json.return_value = "a" * (MAX_BATCH_LOG_REQUEST_SIZE + 1)
     response = _log_batch()
