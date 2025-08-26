@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.client import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -15,7 +16,6 @@ from mlflow.telemetry.client import (
     TelemetryClient,
     get_telemetry_client,
 )
-from mlflow.telemetry.constant import MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
@@ -39,10 +39,10 @@ def test_telemetry_client_initialization(mock_telemetry_client: TelemetryClient,
 def test_telemetry_client_session_id(
     mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
 ):
-    monkeypatch.setenv(MLFLOW_TELEMETRY_SESSION_ID, "test_session_id")
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_SESSION_ID.name, "test_session_id")
     with TelemetryClient() as telemetry_client:
         assert telemetry_client.info["session_id"] == "test_session_id"
-    monkeypatch.delenv(MLFLOW_TELEMETRY_SESSION_ID)
+    monkeypatch.delenv(_MLFLOW_TELEMETRY_SESSION_ID.name)
     with TelemetryClient() as telemetry_client:
         assert telemetry_client.info["session_id"] != "test_session_id"
 
