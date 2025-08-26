@@ -43,7 +43,12 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import (
+    CreateDatasetEvent,
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateRunEvent,
+)
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
@@ -913,6 +918,7 @@ class TrackingServiceClient:
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
 
+    @record_usage_event(CreateDatasetEvent)
     def create_dataset(
         self,
         name: str,
