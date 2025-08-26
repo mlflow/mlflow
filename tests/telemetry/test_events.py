@@ -88,8 +88,8 @@ def test_event_name():
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        ({"records": [{"test": "data"}]}, {"record_count": 1, "input_type": "dict"}),
-        ({"records": [{"a": 1}, {"b": 2}]}, {"record_count": 2, "input_type": "dict"}),
+        ({"records": [{"test": "data"}]}, {"record_count": 1, "input_type": "list[dict]"}),
+        ({"records": [{"a": 1}, {"b": 2}]}, {"record_count": 2, "input_type": "list[dict]"}),
         ({"records": []}, None),
         ({"records": None}, None),
         ({}, None),

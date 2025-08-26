@@ -357,7 +357,7 @@ def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
         ]
         evaluation_dataset.merge_records(records)
 
-        expected_params = {"record_count": 2, "input_type": "dict"}
+        expected_params = {"record_count": 2, "input_type": "list[dict]"}
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, MergeRecordsEvent.name, expected_params
         )
