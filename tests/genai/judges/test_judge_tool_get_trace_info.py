@@ -46,20 +46,21 @@ def test_get_trace_info_tool_invoke_success():
     assert result.state == TraceState.OK
 
 
-def test_get_trace_info_tool_invoke_none_trace():
+def test_get_trace_info_tool_invoke_returns_trace_info():
     tool = GetTraceInfoTool()
     
-    result = tool.invoke(None)
-    assert result is None
-
-
-def test_get_trace_info_tool_invoke_trace_without_info():
-    tool = GetTraceInfoTool()
-    
-    trace = Trace(info=None, data=None)
+    trace_info = TraceInfo(
+        trace_id="test-trace-simple",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000000000,
+        state=TraceState.OK,
+        execution_duration=100
+    )
+    trace = Trace(info=trace_info, data=None)
     
     result = tool.invoke(trace)
-    assert result is None
+    assert result is trace_info
+    assert result.trace_id == "test-trace-simple"
 
 
 def test_get_trace_info_tool_invoke_different_states():

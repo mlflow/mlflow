@@ -26,10 +26,10 @@ class JudgeTool(ABC):
     @abstractmethod
     def name(self) -> str:
         """
-        Return the name of the tool.
+        Return the unique name of the tool.
 
         Returns:
-            String identifier for the tool, used in function calls
+            Tool name used for registration and invocation
         """
 
     @abstractmethod

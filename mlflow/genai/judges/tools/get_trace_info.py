@@ -48,7 +48,7 @@ class GetTraceInfoTool(JudgeTool):
             type="function",
         )
 
-    def invoke(self, trace: Trace) -> TraceInfo | None:
+    def invoke(self, trace: Trace) -> TraceInfo:
         """
         Get metadata about the trace.
 
@@ -56,9 +56,6 @@ class GetTraceInfoTool(JudgeTool):
             trace: The MLflow trace object to analyze
 
         Returns:
-            TraceInfo object or None if no info available
+            TraceInfo object
         """
-        if not trace or not trace.info:
-            return None
-
         return trace.info
