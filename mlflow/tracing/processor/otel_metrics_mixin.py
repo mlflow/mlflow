@@ -1,0 +1,128 @@
+"""
+Mixin class for OpenTelemetry span processors that provides metrics recording functionality.
+
+This mixin allows different span processor implementations to share common metrics logic
+while maintaining their own inheritance hierarchies (BatchSpanProcessor, SimpleSpanProcessor).
+"""
+
+import json
+import os
+
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import StatusCode
+
+from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import get_experiment_id_for_trace
+
+
+class OtelMetricsMixin:
+    """
+    Mixin class that provides metrics recording capabilities for span processors.
+
+    This mixin is designed to be used with OpenTelemetry span processors to record
+    span-related metrics (e.g. duration) and metadata.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the mixin and pass through to parent classes."""
+        super().__init__(*args, **kwargs)
+        self._duration_histogram = None
+        self._trace_manager = InMemoryTraceManager.get_instance()
+
+    def _setup_metrics_if_necessary(self):
+        """
+        Set up OpenTelemetry metrics if not already configured previously.
+        """
+        if self._duration_histogram is not None:
+            return
+
+        endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
+            "OTEL_EXPORTER_OTLP_ENDPOINT"
+        )
+        protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+            "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+        )
+        if not endpoint:
+            return
+
+        if protocol == "grpc":
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        elif protocol == "http/protobuf":
+            from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                OTLPMetricExporter,
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported OTLP metrics protocol '{protocol}'. "
+                "Supported protocols are 'grpc' and 'http/protobuf'."
+            )
+
+        metric_exporter = OTLPMetricExporter(endpoint=endpoint)
+        reader = PeriodicExportingMetricReader(metric_exporter)
+        provider = MeterProvider(metric_readers=[reader])
+        metrics.set_meter_provider(provider)
+        meter = metrics.get_meter("mlflow.tracing")
+        self._duration_histogram = meter.create_histogram(
+            name="mlflow.trace.span.duration",
+            description="Duration of spans in milliseconds",
+            unit="ms",
+        )
+
+    def record_metrics_for_span(self, span: OTelReadableSpan) -> None:
+        """
+        Record metrics for a completed span.
+
+        This method should be called at the beginning of the on_end() method
+        to record span duration and associated metadata.
+
+        Args:
+            span: The completed OpenTelemetry span to record metrics for.
+        """
+        self._setup_metrics()
+
+        duration_ms = (span.end_time - span.start_time) / 1e6
+        is_root = span.parent is None
+        span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN.value)
+        try:
+            # Span attributes are JSON encoded by default; decode them for metric label readability
+            span_type = json.loads(span_type)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # Get span status
+        status = "UNSET"
+        if span.status and span.status.status_code == StatusCode.OK:
+            status = "OK"
+        elif span.status and span.status.status_code == StatusCode.ERROR:
+            status = "ERROR"
+
+        attributes = {
+            "root": str(is_root),
+            "span_type": span_type,
+            "span_status": status,
+            "experiment_id": get_experiment_id_for_trace(span),
+        }
+
+        # Add trace tags and metadata if trace is available
+        # Get MLflow trace ID from OpenTelemetry trace ID
+        mlflow_trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
+            span.context.trace_id
+        )
+        if mlflow_trace_id:
+            with self._trace_manager.get_trace(mlflow_trace_id) as trace:
+                if trace:
+                    for key, value in trace.info.tags.items():
+                        attributes[f"tags.{key}"] = str(value)
+                    if trace.info.trace_metadata:
+                        for meta_key, meta_value in trace.info.trace_metadata.items():
+                            attributes[f"metadata.{meta_key}"] = str(meta_value)
+
+        self._duration_histogram.record(duration_ms, attributes=attributes)

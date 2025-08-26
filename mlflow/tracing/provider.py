@@ -333,36 +333,20 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
 
     processors = []
 
-    # Determine if we need OTLP span or metrics export
-    should_export_spans = should_use_otlp_exporter()
-    should_export_metrics = should_export_otlp_metrics()
-
-    # If either spans or metrics need to be exported, create OtelSpanProcessor
-    if should_export_spans or should_export_metrics:
+    if should_use_otlp_exporter():
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
-        # Create exporter: real one for spans, no-op for metrics-only
-        if should_export_spans:
-            exporter = get_otlp_exporter()
-        else:
-            from opentelemetry.sdk.trace.export import SpanExporter
-
-            class NoOpSpanExporter(SpanExporter):
-                def export(self, spans):
-                    return None
-
-                def shutdown(self):
-                    return None
-
-            exporter = NoOpSpanExporter()
-
+        exporter = get_otlp_exporter()
         otel_processor = OtelSpanProcessor(
-            exporter, export_spans=should_export_spans, export_metrics=should_export_metrics
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled. Otherwise,
+            # both Otel and MLflow processors will export metrics, causing duplication
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
 
-        # If only OTLP export is configured (no dual export), return early
-        if should_export_spans and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
+        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
             return processors
 
     # TODO: Update this logic to pluggable registry where
@@ -399,7 +383,10 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter)
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter,
+        export_metrics=should_export_otlp_metrics(),
+    )
 
 
 @raise_as_trace_exception
