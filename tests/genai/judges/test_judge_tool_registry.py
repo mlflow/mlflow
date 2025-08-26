@@ -1,7 +1,3 @@
-"""
-Tests for MLflow GenAI judge tool registry.
-"""
-
 import json
 import pytest
 
@@ -25,8 +21,6 @@ from mlflow.utils.annotations import experimental
 
 @experimental(version="3.4.0")
 class MockTool(JudgeTool):
-    """Mock tool for testing."""
-
     @property
     def name(self) -> str:
         return "mock_tool"
@@ -46,29 +40,23 @@ class MockTool(JudgeTool):
 
 
 def test_registry_register_and_list_tools():
-    """Test registering a tool and listing tools."""
     registry = JudgeToolRegistry()
     mock_tool = MockTool()
     
-    # Initially empty
     assert len(registry.list_tools()) == 0
     
-    # Register tool
     registry.register(mock_tool)
     
-    # Tool should be listed
     tools = registry.list_tools()
     assert len(tools) == 1
     assert tools[0].name == "mock_tool"
 
 
 def test_registry_invoke_tool_success():
-    """Test invoking a tool with valid ToolCall."""
     registry = JudgeToolRegistry()
     mock_tool = MockTool()
     registry.register(mock_tool)
     
-    # Create mock trace
     trace_info = TraceInfo(
         trace_id="test-trace-id",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -78,7 +66,6 @@ def test_registry_invoke_tool_success():
     )
     trace = Trace(info=trace_info, data=None)
     
-    # Create ToolCall
     tool_call = ToolCall(
         function=FunctionToolCallArguments(
             name="mock_tool",
@@ -86,13 +73,11 @@ def test_registry_invoke_tool_success():
         )
     )
     
-    # Invoke tool
     result = registry.invoke(tool_call, trace)
     assert result == "mock_result_with_1_args"
 
 
 def test_registry_invoke_tool_not_found():
-    """Test invoking non-existent tool raises MlflowException."""
     registry = JudgeToolRegistry()
     
     trace_info = TraceInfo(
@@ -116,7 +101,6 @@ def test_registry_invoke_tool_not_found():
 
 
 def test_registry_invoke_tool_invalid_json():
-    """Test invoking tool with malformed JSON arguments raises MlflowException."""
     registry = JudgeToolRegistry()
     mock_tool = MockTool()
     registry.register(mock_tool)
@@ -142,7 +126,6 @@ def test_registry_invoke_tool_invalid_json():
 
 
 def test_registry_invoke_tool_invalid_arguments():
-    """Test invoking tool with invalid arguments raises MlflowException."""
     registry = JudgeToolRegistry()
     
     class StrictTool(JudgeTool):
@@ -171,7 +154,7 @@ def test_registry_invoke_tool_invalid_arguments():
     tool_call = ToolCall(
         function=FunctionToolCallArguments(
             name="strict_tool",
-            arguments=json.dumps({})  # Missing required_param
+            arguments=json.dumps({})
         )
     )
     
@@ -180,21 +163,16 @@ def test_registry_invoke_tool_invalid_arguments():
 
 
 def test_global_functions_work():
-    """Test that global registry functions work."""
-    # Clear any existing registrations for clean test
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
     original_tools = _judge_tool_registry.list_tools()
     
-    # Register a new tool
     mock_tool = MockTool()
     register_judge_tool(mock_tool)
     
-    # List should include our tool plus any built-ins
     tools = list_judge_tools()
     tool_names = [t.name for t in tools]
     assert "mock_tool" in tool_names
     
-    # Test invoke function
     trace_info = TraceInfo(
         trace_id="test-trace-id",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -216,14 +194,11 @@ def test_global_functions_work():
 
 
 def test_builtin_registration():
-    """Test that GetTraceInfoTool is automatically registered at import."""
     tools = list_judge_tools()
     tool_names = [t.name for t in tools]
     
-    # GetTraceInfoTool should be registered
     assert "get_trace_info" in tool_names
     
-    # Should be the right type
     get_trace_info_tools = [t for t in tools if t.name == "get_trace_info"]
     assert len(get_trace_info_tools) == 1
     assert isinstance(get_trace_info_tools[0], GetTraceInfoTool)

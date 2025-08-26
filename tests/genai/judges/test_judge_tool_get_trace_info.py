@@ -1,7 +1,3 @@
-"""
-Tests for GetTraceInfoTool.
-"""
-
 import pytest
 
 from mlflow.entities.trace import Trace
@@ -13,13 +9,11 @@ from mlflow.types.llm import ToolDefinition
 
 
 def test_get_trace_info_tool_name():
-    """Test GetTraceInfoTool name property."""
     tool = GetTraceInfoTool()
     assert tool.name == "get_trace_info"
 
 
 def test_get_trace_info_tool_get_definition():
-    """Test GetTraceInfoTool get_definition returns proper ToolDefinition."""
     tool = GetTraceInfoTool()
     definition = tool.get_definition()
     
@@ -32,10 +26,8 @@ def test_get_trace_info_tool_get_definition():
 
 
 def test_get_trace_info_tool_invoke_success():
-    """Test GetTraceInfoTool returns trace.info when trace exists."""
     tool = GetTraceInfoTool()
     
-    # Create trace with info
     trace_info = TraceInfo(
         trace_id="test-trace-123",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -45,19 +37,16 @@ def test_get_trace_info_tool_invoke_success():
     )
     trace = Trace(info=trace_info, data=None)
     
-    # Invoke tool
     result = tool.invoke(trace)
     
-    # Should return the TraceInfo object
     assert result is trace_info
     assert result.trace_id == "test-trace-123"
-    assert result.timestamp_ms == 1234567890
-    assert result.execution_time_ms == 250
-    assert result.status == "OK"
+    assert result.request_time == 1234567890
+    assert result.execution_duration == 250
+    assert result.state == TraceState.OK
 
 
 def test_get_trace_info_tool_invoke_none_trace():
-    """Test GetTraceInfoTool returns None when trace is None."""
     tool = GetTraceInfoTool()
     
     result = tool.invoke(None)
@@ -65,10 +54,8 @@ def test_get_trace_info_tool_invoke_none_trace():
 
 
 def test_get_trace_info_tool_invoke_trace_without_info():
-    """Test GetTraceInfoTool returns None when trace has no info."""
     tool = GetTraceInfoTool()
     
-    # Create trace without info
     trace = Trace(info=None, data=None)
     
     result = tool.invoke(trace)
@@ -76,7 +63,6 @@ def test_get_trace_info_tool_invoke_trace_without_info():
 
 
 def test_get_trace_info_tool_invoke_different_states():
-    """Test GetTraceInfoTool with different trace states."""
     tool = GetTraceInfoTool()
     
     trace_info = TraceInfo(
@@ -88,10 +74,8 @@ def test_get_trace_info_tool_invoke_different_states():
     )
     trace = Trace(info=trace_info, data=None)
     
-    # Invoke normally
     result = tool.invoke(trace)
     
-    # Should return the TraceInfo object
     assert result is trace_info
     assert result.trace_id == "test-trace-456"
     assert result.state == TraceState.ERROR
