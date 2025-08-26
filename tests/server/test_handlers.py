@@ -52,6 +52,7 @@ from mlflow.protos.service_pb2 import (
     SearchTracesV3,
     TraceLocation,
 )
+from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
@@ -83,6 +84,7 @@ from mlflow.server.handlers import (
     _get_trace_artifact_repo,
     _list_scorer_versions,
     _list_scorers,
+    _list_webhooks,
     _log_batch,
     _register_scorer,
     _rename_registered_model,
@@ -1385,5 +1387,26 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     # Verify that search_logged_models was called with page_token=None (not empty string)
     mock_tracking_store.search_logged_models.assert_called_once()
     call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
+    """Test that _list_webhooks converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    list_webhooks_proto = ListWebhooks()
+    list_webhooks_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert list_webhooks_proto.page_token == ""
+
+    mock_get_request_message.return_value = list_webhooks_proto
+    mock_model_registry_store.list_webhooks.return_value = PagedList([], None)
+
+    _list_webhooks()
+
+    # Verify that list_webhooks was called with page_token=None (not empty string)
+    mock_model_registry_store.list_webhooks.assert_called_once()
+    call_kwargs = mock_model_registry_store.list_webhooks.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10

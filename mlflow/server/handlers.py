@@ -2484,9 +2484,11 @@ def _list_webhooks():
             "page_token": [_assert_string],
         },
     )
+    # Empty strings must be converted to None as they are invalid `page_token`s.
+    page_token = request_message.page_token if request_message.page_token else None
     webhooks_page = _get_model_registry_store().list_webhooks(
         max_results=request_message.max_results,
-        page_token=request_message.page_token,
+        page_token=page_token,
     )
     response_message = ListWebhooks.Response(
         webhooks=[w.to_proto() for w in webhooks_page],
