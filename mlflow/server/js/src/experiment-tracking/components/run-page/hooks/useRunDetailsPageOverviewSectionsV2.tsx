@@ -119,16 +119,6 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
         />
       )}
-      {/* Show child runs if this is a parent run */}
-      {!parentRunIdTag && runInfo.runUuid && runInfo.experimentId && (
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Child runs',
-            description: 'Run page > Overview > Child runs',
-          })}
-          value={<RunViewChildRunsBox parentRunUuid={runInfo.runUuid} experimentId={runInfo.experimentId} />}
-        />
-      )}
       <KeyValueProperty
         keyValue={intl.formatMessage({
           defaultMessage: 'Source',
