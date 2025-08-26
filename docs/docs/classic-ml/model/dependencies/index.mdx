@@ -70,6 +70,7 @@ export MLFLOW_LOCK_MODEL_DEPENDENCIES=true
 When enabled, MLflow uses `uv` (if installed) to resolve and lock all dependencies, including their transitive dependencies. The locked requirements are then saved in the model's `requirements.txt` file.
 
 **Example without locking (default):**
+
 ```
 mlflow==2.9.2
 scikit-learn==1.3.2
@@ -77,6 +78,7 @@ cloudpickle==3.0.0
 ```
 
 **Example with locking enabled:**
+
 ```
 mlflow==2.9.2
 scikit-learn==1.3.2
@@ -90,9 +92,11 @@ threadpoolctl==3.2.0
 
 :::tip
 Dependency locking requires `uv` to be installed. If `uv` is not available, MLflow will skip the locking step and use standard dependency inference. Install `uv` with:
+
 ```bash
 pip install uv
 ```
+
 :::
 
 :::warning
