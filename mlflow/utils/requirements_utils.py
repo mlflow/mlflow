@@ -32,7 +32,6 @@ from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import (
     get_databricks_env_vars,
     is_in_databricks_runtime,
-    is_in_databricks_serverless_runtime,
 )
 
 _logger = logging.getLogger(__name__)
