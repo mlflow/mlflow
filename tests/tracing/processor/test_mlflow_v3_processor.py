@@ -28,7 +28,7 @@ def test_on_start(monkeypatch):
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
     processor.on_start(span)
 
     # V3 processor uses encoded Otel trace_id as request_id
@@ -54,7 +54,7 @@ def test_on_start_during_model_evaluation():
 
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=trace_id, span_id=1)
-    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
 
     with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
         processor.on_start(span)
@@ -76,7 +76,7 @@ def test_on_start_during_run(monkeypatch):
     run_experiment_id = mlflow.create_experiment(run_experiment_name)
 
     mlflow.set_experiment(experiment_name=env_experiment_name)
-    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
 
     with mlflow.start_run(experiment_id=run_experiment_id) as run:
         processor.on_start(span)
@@ -108,7 +108,7 @@ def test_on_end():
     mock_exporter = mock.MagicMock()
     mock_client = mock.MagicMock()
     mock_client._start_tracked_trace.side_effect = Exception("error")
-    processor = MlflowV3SpanProcessor(span_exporter=mock_exporter)
+    processor = MlflowV3SpanProcessor(span_exporter=mock_exporter, export_metrics=False)
 
     processor.on_end(otel_span)
 
