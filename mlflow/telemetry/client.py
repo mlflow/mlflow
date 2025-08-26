@@ -10,6 +10,7 @@ from queue import Empty, Full, Queue
 
 import requests
 
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -25,7 +26,9 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 
 class TelemetryClient:
     def __init__(self):
-        self.info = asdict(TelemetryInfo())
+        self.info = asdict(
+            TelemetryInfo(session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex)
+        )
         self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -352,6 +355,10 @@ def _set_telemetry_client(value: TelemetryClient | None):
     global _MLFLOW_TELEMETRY_CLIENT
     with _client_lock:
         _MLFLOW_TELEMETRY_CLIENT = value
+        if value:
+            _MLFLOW_TELEMETRY_SESSION_ID.set(value.info["session_id"])
+        else:
+            _MLFLOW_TELEMETRY_SESSION_ID.unset()
 
 
 def get_telemetry_client() -> TelemetryClient | None:

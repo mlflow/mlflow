@@ -668,7 +668,6 @@ class MlflowHostCreds:
         return NotImplemented
 
     def __hash__(self):
-        # Create a hash from the frozen dict representation
         return hash(frozenset(self.__dict__.items()))
 
     @property

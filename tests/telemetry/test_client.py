@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.client import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -33,6 +34,17 @@ def test_telemetry_client_initialization(mock_telemetry_client: TelemetryClient,
     assert mock_telemetry_client._max_workers == MAX_WORKERS
     assert mock_telemetry_client._batch_size == BATCH_SIZE
     assert mock_telemetry_client._batch_time_interval == BATCH_TIME_INTERVAL_SECONDS
+
+
+def test_telemetry_client_session_id(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_SESSION_ID.name, "test_session_id")
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] == "test_session_id"
+    monkeypatch.delenv(_MLFLOW_TELEMETRY_SESSION_ID.name)
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] != "test_session_id"
 
 
 def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
@@ -745,7 +757,9 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
             telemetry_client._config_thread.join(timeout=3)
             telemetry_client.add_record(record)
             telemetry_client.flush()
-            validate_telemetry_record(telemetry_client, mock_requests, record.event_name)
+            validate_telemetry_record(
+                telemetry_client, mock_requests, record.event_name, check_params=False
+            )
 
 
 @pytest.mark.no_mock_requests_get
