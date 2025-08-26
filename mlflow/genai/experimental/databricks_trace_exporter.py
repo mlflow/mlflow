@@ -209,12 +209,8 @@ class DatabricksDeltaArchivalMixin:
             events = getattr(span, "events", []) or []
             for event in events:
                 attributes = getattr(event, "attributes", {}) or {}
-                if event_timestamp := getattr(event, "timestamp", None):
-                    timestamp_ns = int(event_timestamp * 1e3)
-                else:
-                    timestamp_ns = current_time_ns
                 event_dict = {
-                    "time_unix_nano": timestamp_ns,
+                    "time_unix_nano": getattr(event, "timestamp", current_time_ns),
                     "name": getattr(event, "name", "event"),
                     # serialize attribute values to json string
                     # custom logic to prevent double quotes for string and datetime values
