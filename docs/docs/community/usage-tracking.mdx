@@ -125,7 +125,7 @@ The below section outlines the data currently collected in this version of MLflo
 #### Tracked Events
 
 **No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
-For events with None in the `Tracked Parameters` column, only the event name is recorded.
+For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as params.
 
 <Table>
   <thead>
@@ -138,13 +138,13 @@ For events with None in the `Tracked Parameters` column, only the event name is 
   <tbody>
     <tr>
       <td>create_experiment</td>
-      <td>None</td>
-      <td>None</td>
+      <td>Created Experiment ID (random uuid or integer)</td>
+      <td>`{"experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_run</td>
-      <td>Whether the packages in [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
-      <td>`{"imports": ["sklearn"]}`</td>
+      <td>Whether the packages in [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not; experiment ID used when creating the run</td>
+      <td>`{"imports": ["sklearn"], "experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
