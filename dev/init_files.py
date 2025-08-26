@@ -1,5 +1,6 @@
 """Pre-commit hook to enforce __init__.py files in all test directories."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,20 +14,39 @@ def main() -> int:
         print(f"Error: tests directory not found at {tests_dir}")
         return 1
 
-    missing_init_files = []
+    missing_init_files: list[Path] = []
 
-    # Find all directories under tests/
-    for directory in tests_dir.rglob("*"):
-        if (
-            directory.is_dir()
-            and not directory.name.startswith(".")
-            and directory.name != "__pycache__"
-        ):
-            init_file = directory / "__init__.py"
+    # Get all git-tracked files in the tests directory
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "tests/"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        tracked_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
+    except subprocess.CalledProcessError:
+        print("Error: Failed to get git-tracked files")
+        return 1
+
+    # Extract unique directories from tracked files
+    tracked_directories = set()
+    for file_path in tracked_files:
+        if file_path:  # Skip empty strings
+            path = Path(file_path)
+            # Add all parent directories of this file
+            for parent in path.parents:
+                if str(parent).startswith("tests") and parent != Path("tests"):
+                    tracked_directories.add(parent)
+
+    # Check each tracked directory for __init__.py
+    for directory in tracked_directories:
+        full_dir_path = repo_root / directory
+        if full_dir_path.is_dir():
+            init_file = full_dir_path / "__init__.py"
             if not init_file.exists():
-                # Convert to relative path for cleaner output
-                rel_path = directory.relative_to(repo_root)
-                missing_init_files.append(rel_path)
+                missing_init_files.append(directory)
 
     if missing_init_files:
         print("Error: The following test directories are missing __init__.py files:")
