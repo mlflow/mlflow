@@ -1,4 +1,4 @@
-from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.ml_package_versions import GENAI_FLAVOR_TO_MODULE_NAME, NON_GENAI_FLAVOR_TO_MODULE_NAME
 
 # NB: Kinesis PutRecords API has a limit of 500 records per request
 BATCH_SIZE = 500
@@ -18,7 +18,38 @@ UNRECOVERABLE_ERRORS = [
     404,  # Not Found
 ]
 
-PACKAGES_TO_CHECK_IMPORT = {
+GENAI_MODULES = {
+    "agno",
+    "anthropic",
+    "autogen",
+    "chromadb",
+    "crewai",
+    "dspy",
+    "faiss",
+    "google.genai",  # gemini
+    "groq",
+    "haystack",
+    "langchain",
+    "langgraph",
+    "langsmith",
+    "litellm",
+    "llama_cpp",
+    "llama_index.core",
+    "milvus",
+    "mistralai",
+    "openai",
+    "pinecone",
+    "promptflow",
+    "pydantic_ai",
+    "qdrant",
+    "ragas",
+    "semantic_kernel",
+    "smolagents",
+    "vllm",
+    "weaviate",
+} | set(GENAI_FLAVOR_TO_MODULE_NAME.values())
+
+NON_GENAI_MODULES = {
     # Classic ML
     "catboost",
     "diviner",
@@ -50,33 +81,6 @@ PACKAGES_TO_CHECK_IMPORT = {
     "timm",
     "torch",
     "transformers",
-    # GenAI
-    "agno",
-    "anthropic",
-    "autogen",
-    "chromadb",
-    "crewai",
-    "dspy",
-    "faiss",
-    "google.genai",  # gemini
-    "groq",
-    "haystack",
-    "langchain",
-    "langgraph",
-    "langsmith",
-    "litellm",
-    "llama_cpp",
-    "llama_index.core",
-    "milvus",
-    "mistralai",
-    "openai",
-    "pinecone",
-    "promptflow",
-    "pydantic_ai",
-    "qdrant",
-    "ragas",
-    "semantic_kernel",
-    "smolagents",
-    "vllm",
-    "weaviate",
-} | set(FLAVOR_TO_MODULE_NAME.values()) - {"boto3", "pyspark"}
+} | set(NON_GENAI_FLAVOR_TO_MODULE_NAME.values()) - {"pyspark"}
+
+MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
