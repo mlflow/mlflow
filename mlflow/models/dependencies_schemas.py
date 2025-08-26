@@ -32,7 +32,7 @@ def set_retriever_schema(
     """
     Specify the return schema of a retriever span within your agent or generative AI app code.
 
-    .. deprecated:: 2.19.0
+    .. deprecated:: 3.3.2
         This function is deprecated and will be removed in a future version.
 
     **Note**: MLflow recommends that your retriever return the default MLflow retriever output
