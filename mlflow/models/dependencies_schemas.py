@@ -88,10 +88,10 @@ def set_retriever_schema(
     """
     warnings.warn(
         "set_retriever_schema is deprecated and will be removed in a future version. "
-        "Please migrate to VectorSearchRetrieverTool in the 'databricks-ai-bridge' package, "
+        "Please migrate to use VectorSearchRetrieverTool in the 'databricks-ai-bridge' package, "
         "or match the default schema so your retriever spans can be detected without requiring "
         "explicit configuration. See "
-        "https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans "
+        "https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans "
         "for more information.",
         category=DeprecationWarning,
         stacklevel=2,
