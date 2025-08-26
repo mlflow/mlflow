@@ -95,9 +95,6 @@ class MergeRecordsEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        if not isinstance(arguments, dict):
-            return None
-
         records = arguments.get("records")
         if records is None:
             return None
@@ -105,12 +102,13 @@ class MergeRecordsEvent(Event):
         input_type = type(records).__name__.lower()
         if "dataframe" in input_type:
             input_type = "pandas"
-        elif isinstance(records, list) and records:
-            first_elem = records[0]
-            if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
-                input_type = "trace"
-            elif isinstance(first_elem, dict):
-                input_type = "dict"
+        elif isinstance(records, list):
+            if records:
+                first_elem = records[0]
+                if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
+                    input_type = "list[trace]"
+                elif isinstance(first_elem, dict):
+                    input_type = "list[dict]"
             else:
                 input_type = "list"
         elif isinstance(records, list):
@@ -118,14 +116,9 @@ class MergeRecordsEvent(Event):
         else:
             input_type = "other"
 
-        try:
-            count = len(records)
-            if count > 0:
-                return {"record_count": count, "input_type": input_type}
-        except (TypeError, AttributeError):
-            pass
-
-        return None
+        count = len(records)
+        if count > 0:
+            return {"record_count": count, "input_type": input_type}
 
 
 def _is_prompt(tags: dict[str, str]) -> bool:
