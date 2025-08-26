@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import Mock
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import AlignmentOptimizer, Judge
@@ -55,3 +56,61 @@ def test_concrete_optimizer_implementation():
 
     assert isinstance(result, Judge)
     assert result.name == "test_judge_optimized"
+
+
+class MockOptimizerWithTracking(AlignmentOptimizer):
+    """Mock AlignmentOptimizer implementation with call tracking for integration tests."""
+
+    def __init__(self):
+        self.align_called = False
+        self.align_args = None
+
+    def align(self, judge: Judge, traces: list[Trace]) -> Judge:
+        self.align_called = True
+        self.align_args = (judge, traces)
+
+        # Return a new judge with modified name to show it was processed
+        return MockJudge(name=f"{judge.name}_aligned")
+
+
+def create_mock_traces():
+    """Create mock traces for testing."""
+    # Create minimal mock traces - just enough to pass type checking
+    mock_trace = Mock(spec=Trace)
+    return [mock_trace]
+
+
+def test_judge_align_method():
+    """Test the Judge.align convenience method."""
+    judge = MockJudge(name="test_judge")
+    optimizer = MockOptimizerWithTracking()
+    # Replace the align method with a Mock to use built-in mechanisms
+    optimizer.align = Mock(return_value=MockJudge(name="test_judge_aligned"))
+    traces = create_mock_traces()
+
+    optimized = judge.align(optimizer, traces)
+
+    # Verify the result
+    assert isinstance(optimized, Judge)
+    assert optimized.name == "test_judge_aligned"
+
+    # Assert that optimizer.align was called with correct parameters using Mock's mechanisms
+    optimizer.align.assert_called_once_with(judge, traces)
+
+
+def test_judge_align_method_delegation():
+    """Test that Judge.align properly delegates to optimizer.align."""
+    judge = MockJudge()
+
+    # Create a spy optimizer that records calls
+    optimizer = Mock(spec=AlignmentOptimizer)
+    expected_result = MockJudge(name="expected")
+    optimizer.align.return_value = expected_result
+
+    traces = create_mock_traces()
+
+    result = judge.align(optimizer, traces)
+
+    # Verify delegation
+    optimizer.align.assert_called_once_with(judge, traces)
+    assert result is expected_result
