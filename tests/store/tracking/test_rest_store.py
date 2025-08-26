@@ -1742,24 +1742,28 @@ def test_log_spans_with_version_check():
     # Test 3: Server version is exactly 3.4.0 - should succeed
     creds3 = MlflowHostCreds("https://host3")
     store3 = RestStore(lambda: creds3)
-    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        # First call is to /version, second is to OTLP endpoint
-        mock_http.side_effect = [
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[
+            # First call is to /version, second is to OTLP endpoint
             _create_mock_response(text="3.4.0"),  # version response
             _create_mock_response(),  # OTLP response
-        ]
+        ],
+    ) as mock_http:
         result = store3.log_spans(experiment_id, spans)
         assert result == spans
 
     # Test 4: Server version is greater than 3.4 - should succeed
     creds4 = MlflowHostCreds("https://host4")
     store4 = RestStore(lambda: creds4)
-    with mock.patch("mlflow.store.tracking.rest_store.http_request") as mock_http:
-        # First call is to /version, second is to OTLP endpoint
-        mock_http.side_effect = [
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[
+            # First call is to /version, second is to OTLP endpoint
             _create_mock_response(text="3.5.0"),  # version response
             _create_mock_response(),  # OTLP response
-        ]
+        ],
+    ) as mock_http:
         result = store4.log_spans(experiment_id, spans)
         assert result == spans
 
