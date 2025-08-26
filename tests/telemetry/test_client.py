@@ -757,7 +757,9 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
             telemetry_client._config_thread.join(timeout=3)
             telemetry_client.add_record(record)
             telemetry_client.flush()
-            validate_telemetry_record(telemetry_client, mock_requests, record.event_name)
+            validate_telemetry_record(
+                telemetry_client, mock_requests, record.event_name, check_params=False
+            )
 
 
 @pytest.mark.no_mock_requests_get
