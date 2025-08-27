@@ -927,3 +927,9 @@ MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY
 #: Internal flag to enable telemetry in mlflow tests.
 #: (default: ``False``)
 _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+
+#: Internal environment variable to set the telemetry session id when TelemetryClient is initialized
+#: This should never be set by users or explicitly.
+#: (default: ``None``)
+_MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_ID", str, None)
