@@ -134,9 +134,8 @@ async def test_litellm_tracing_async():
     )
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
 
-    # Await the logger task to ensure that the trace is logged.
-    logger_task = next(t for t in asyncio.all_tasks() if "async_" in t.get_coro().__name__)
-    await logger_task
+    # Adding a sleep here to ensure that trace is logged.
+    await asyncio.sleep(0.1)
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
