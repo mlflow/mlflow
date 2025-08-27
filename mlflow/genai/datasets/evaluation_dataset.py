@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
+from mlflow.data import Dataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities.evaluation_dataset import EvaluationDataset as _EntityEvaluationDataset
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
     import pyspark.sql
 
 
-class EvaluationDataset:
+class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     The public API for evaluation datasets in MLflow's GenAI module.
 
@@ -85,6 +87,20 @@ class EvaluationDataset:
         return self._databricks_dataset.digest
 
     @property
+    def name(self) -> str:
+        """The name of the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.name
+        return self._databricks_dataset.name if self._databricks_dataset else None
+
+    @property
+    def dataset_id(self) -> str:
+        """The unique identifier of the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.dataset_id
+        return self._databricks_dataset.dataset_id if self._databricks_dataset else None
+
+    @property
     def source(self):
         """Source information for the dataset."""
         if self._mlflow_dataset:
@@ -136,6 +152,20 @@ class EvaluationDataset:
         if self._mlflow_dataset:
             return self._mlflow_dataset.records
         raise NotImplementedError("Records access is not supported for Databricks managed datasets")
+
+    @property
+    def schema(self) -> str | None:
+        """The schema of the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.schema
+        return self._databricks_dataset.schema if self._databricks_dataset else None
+
+    @property
+    def profile(self) -> str | None:
+        """The profile of the dataset."""
+        if self._mlflow_dataset:
+            return self._mlflow_dataset.profile
+        return self._databricks_dataset.profile if self._databricks_dataset else None
 
     def set_profile(self, profile: str) -> "EvaluationDataset":
         """Set the profile of the dataset."""
