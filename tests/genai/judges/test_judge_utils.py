@@ -15,7 +15,34 @@ from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
 from mlflow.types.llm import ToolCall
 
 
-# Utility functions for testing
+# Fixtures for testing
+@pytest.fixture
+def mock_response():
+    """Fixture that creates a mock ModelResponse with default result and rationale."""
+    content = json.dumps({"result": "yes", "rationale": "The response meets all criteria."})
+    return ModelResponse(choices=[{"message": {"content": content}}])
+
+
+@pytest.fixture
+def mock_tool_response():
+    """Fixture that creates a mock ModelResponse with tool calls."""
+    tool_calls = [{"id": "call_123", "function": {"name": "get_trace_info", "arguments": "{}"}}]
+    return ModelResponse(choices=[{"message": {"tool_calls": tool_calls, "content": None}}])
+
+
+@pytest.fixture
+def test_trace():
+    """Fixture that creates a test Trace object."""
+    trace_info = TraceInfo(
+        trace_id="test-trace",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    return Trace(info=trace_info, data=None)
+
+
+# Helper functions for creating custom test objects
 def create_mock_response(
     result: str = "yes", rationale: str = "The response meets all criteria."
 ) -> ModelResponse:
@@ -57,9 +84,7 @@ def create_mock_tool(name: str = "get_trace_info", description: str | None = Non
 
 
 @pytest.mark.parametrize("num_retries", [None, 3])
-def test_invoke_judge_model_successful_with_litellm(num_retries):
-    mock_response = create_mock_response()
-
+def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         kwargs = {
             "model_uri": "openai:/gpt-4",
@@ -155,16 +180,14 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
-def test_invoke_judge_model_with_trace_requires_litellm():
-    trace = create_test_trace()
-    
+def test_invoke_judge_model_with_trace_requires_litellm(test_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
                 prompt="Test prompt",
                 assessment_name="test",
-                trace=trace,
+                trace=test_trace,
             )
 
 
@@ -179,10 +202,7 @@ def test_invoke_judge_model_invalid_json_response():
             )
 
 
-def test_invoke_judge_model_with_trace_passes_tools():
-    trace = create_test_trace()
-    mock_response = create_mock_response()
-
+def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
     with (
         mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
         mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
@@ -196,7 +216,7 @@ def test_invoke_judge_model_with_trace_passes_tools():
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=trace,
+            trace=test_trace,
         )
 
     # Verify tools were passed to litellm completion
@@ -209,9 +229,7 @@ def test_invoke_judge_model_with_trace_passes_tools():
     assert call_kwargs["tool_choice"] == "auto"
 
 
-def test_invoke_judge_model_tool_calling_loop():
-    trace = create_test_trace()
-
+def test_invoke_judge_model_tool_calling_loop(test_trace):
     # First call: model requests tool call
     mock_tool_call_response = create_mock_tool_response(
         tool_calls=[{"id": "call_123", "function": {"name": "get_trace_info", "arguments": "{}"}}]
@@ -238,7 +256,7 @@ def test_invoke_judge_model_tool_calling_loop():
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=trace,
+            trace=test_trace,
         )
 
     # Verify litellm.completion was called twice (tool call + final response)

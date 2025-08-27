@@ -138,6 +138,8 @@ def _invoke_litellm(
     """
     import litellm
 
+    # Import at function level to avoid circular imports
+    # (tools.registry imports from utils for invoke_judge_model)
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
@@ -169,6 +171,8 @@ def _invoke_litellm(
                 return message.content
 
             messages.append(message.model_dump())
+            # TODO: Consider making tool calls concurrent for better performance.
+            # Currently sequential for simplicity and to maintain order of results.
             for tool_call in message.tool_calls:
                 try:
                     mlflow_tool_call = _create_mlflow_tool_call_from_litellm(
