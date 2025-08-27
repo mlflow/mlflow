@@ -19,8 +19,6 @@ from mlflow import MlflowClient
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
-    MLFLOW_TRACKING_PASSWORD,
-    MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -59,9 +57,6 @@ def client(request, tmp_path):
 
 def test_authenticate(client, monkeypatch):
     # unauthenticated
-    monkeypatch.delenvs(
-        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
-    )
     with pytest.raises(MlflowException, match=r"You are not authenticated.") as exception_context:
         client.search_experiments()
     assert exception_context.value.error_code == ErrorCode.Name(UNAUTHENTICATED)

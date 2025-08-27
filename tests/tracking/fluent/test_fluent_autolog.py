@@ -416,12 +416,9 @@ def test_autolog_excluded_flavors(library, mlflow_module):
 @pytest.fixture
 def mock_openai(monkeypatch):
     with start_mock_openai_server() as base_url:
-        monkeypatch.setenvs(
-            {
-                "OPENAI_API_KEY": "test",
-                "OPENAI_API_BASE": base_url,
-            }
-        )
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+
+        monkeypatch.setenv("OPENAI_API_BASE", base_url)
         yield base_url
 
 

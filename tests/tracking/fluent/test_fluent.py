@@ -250,7 +250,6 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
     with pytest.raises(
         MlflowException,
         match=(
@@ -266,9 +265,6 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
-    monkeypatch.setenvs(
-        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
-    )
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
 

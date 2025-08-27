@@ -146,13 +146,11 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
 
     from requests_auth_aws_sigv4 import AWSSigV4
 
-    monkeypatch.setenvs(
-        {
-            "AWS_ACCESS_KEY_ID": "access-key",
-            "AWS_SECRET_ACCESS_KEY": "secret-key",
-            "AWS_DEFAULT_REGION": "eu-west-1",
-        }
-    )
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
+
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret-key")
+
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
     aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
     response = mock.MagicMock()
     response.status_code = 200
