@@ -4,7 +4,7 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental(version="3.4.0")
-def make_judge(name: str, instructions: str, model: str | None = None, **kwargs) -> Judge:
+def make_judge(name: str, instructions: str, model: str | None = None) -> Judge:
     """
     Create a custom MLflow judge instance.
 
@@ -12,7 +12,6 @@ def make_judge(name: str, instructions: str, model: str | None = None, **kwargs)
         name: The name of the judge
         instructions: Natural language instructions for evaluation
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
-        kwargs: Additional configuration parameters
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -36,4 +35,4 @@ def make_judge(name: str, instructions: str, model: str | None = None, **kwargs)
                 outputs="ML is basically when computers learn stuff on their own",
             )
     """
-    return InstructionsJudge(name=name, instructions=instructions, model=model, **kwargs)
+    return InstructionsJudge(name=name, instructions=instructions, model=model)
