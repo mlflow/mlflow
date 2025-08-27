@@ -13,7 +13,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -51,6 +51,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -946,7 +947,7 @@ def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeyp
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
     trace_info = TraceInfo(
         trace_id="123",
-        trace_location=TraceLocation.from_experiment_id("0"),
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
