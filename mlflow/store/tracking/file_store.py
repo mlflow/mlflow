@@ -2779,7 +2779,7 @@ class FileStore(AbstractStore):
     @filestore_not_supported
     def remove_dataset_from_experiments(self, dataset_id, experiment_ids):
         pass
-    
+
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating entity associations.

@@ -8,7 +8,7 @@ import sklearn.neighbors as knn
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import EvaluationDataset Feedback, Metric, Param, RunTag
+from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
