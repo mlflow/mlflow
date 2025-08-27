@@ -86,6 +86,7 @@ def mock_telemetry_client(mock_requests_get, mock_requests):
 
 @pytest.fixture(autouse=True)
 def is_mlflow_testing(monkeypatch):
+    # enable telemetry by default when running tests in local with dev version
     monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING", True)
 
 
