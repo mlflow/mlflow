@@ -311,9 +311,9 @@ def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_st
     _search_runs()
 
     # Verify store was called with None, not empty string
-    args, kwargs = mock_tracking_store.search_runs.call_args
-    # search_runs args: experiment_ids, filter, run_view_type, max_results, order_by, page_token
-    assert args[5] is None  # page_token should be None, not ""
+    mock_tracking_store.search_runs.assert_called_once()
+    call_kwargs = mock_tracking_store.search_runs.call_args.kwargs
+    assert call_kwargs["page_token"] is None  # page_token should be None, not ""
 
 
 def test_log_batch_api_req(mock_get_request_json):

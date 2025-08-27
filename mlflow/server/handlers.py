@@ -269,10 +269,11 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
     @classmethod
     def _get_databricks_uc_rest_store(cls, store_uri):
+        from mlflow.environment_variables import MLFLOW_TRACKING_URI
         from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 
-        # Get tracking URI from environment or use "databricks" as default
-        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "databricks")
+        # Get tracking URI from environment or use "databricks-uc" as default
+        tracking_uri = MLFLOW_TRACKING_URI.get() or "databricks-uc"
         return UcModelRegistryStore(store_uri, tracking_uri)
 
 
@@ -1158,12 +1159,12 @@ def search_runs_impl(request_message):
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
     run_entities = _get_tracking_store().search_runs(
-        experiment_ids,
-        filter_string,
-        run_view_type,
-        max_results,
-        order_by,
-        request_message.page_token or None,
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        run_view_type=run_view_type,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=request_message.page_token or None,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
