@@ -294,7 +294,8 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
                 "response": InputDatasetColumn.OUTPUTS,
             }
         )
-        mlflow_dataset = mlflow.data.from_pandas(df=data)
+        # Use default name for evaluation dataset when converting from DataFrame
+        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
 
     with (
@@ -328,6 +329,7 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     the mlflow.evaluate() function. This is a temporary migration state and we will
     eventually unify this into OSS flow.
     """
+    import pandas as pd
 
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
@@ -339,6 +341,11 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
+
+    if isinstance(data, pd.DataFrame):
+        from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
+
+        data = convert_data_to_mlflow_dataset(data=data, name="dataset")
 
     with warnings.catch_warnings():
         warnings.filterwarnings(

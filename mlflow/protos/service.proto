@@ -1031,7 +1031,7 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/scorers/register"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Register Scorer",
@@ -1044,7 +1044,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/list"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Scorers",
@@ -1057,7 +1057,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/versions"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Scorer Versions",
@@ -1070,7 +1070,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/get"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Get Scorer",
@@ -1083,7 +1083,7 @@ service MlflowService {
       endpoints: [{
         method: "DELETE",
         path: "/mlflow/scorers/delete"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Scorer",

@@ -16,11 +16,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# Use `bash` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
@@ -52,8 +52,11 @@ jobs:
         #     to avoid overlooking unnecessary dependencies in the core tracing package.
         run: |
           export PYTHONPATH=$(pwd)
-          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py \
-            --ignore tests/tracing/test_assessment.py --import-mode=importlib
+          pytest tests/tracing \
+            --ignore tests/tracing/utils/test_otlp.py \
+            --ignore tests/tracing/test_assessment.py \
+            --ignore tests/tracing/test_otel_logging.py \
+            --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 

@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## 3.3.2 (2025-08-27)
+
+MLflow 3.3.2 is a patch release that includes several minor improvements and bugfixes
+
+Features:
+
+- [Evaluation] Add support for dataset name persistence (#17250, @BenWilson2)
+
+Bug fixes:
+
+- [Tracing] Add retry policy support to `_invoke_litellm` for improved reliability (#17394, @dbczumar)
+- [UI] fix ui sorting in experiments (#17340, @Flametaa)
+- [Serving] Add Databricks Lakebase Resource (#17277, @jennsun)
+- [Tracing] Fix set trace tags endpoint (#17362, @daniellok-db)
+
+Documentation updates:
+
+- [Docs] Add docs for package lock (#17395, @BenWilson2)
+- [Docs] Fix span processor docs (#17386, @mr-brobot)
+
+Small bug fixes and documentation updates:
+
+#17301, #17299, @B-Step62; #17420, #17421, #17398, #17397, #17349, #17361, #17377, #17359, #17358, #17356, #17261, #17263, #17262, @serena-ruan; #17422, #17310, #17357, @TomeHirata; #17406, @sotagg; #17418, @annzhang-db; #17384, #17376, @daniellok-db
+
+## 3.3.1 (2025-08-20)
+
+MLflow 3.3.1 includes several major features and improvements
+
+Bug fixes:
+
+- [Tracking] Fix `mlflow.genai.datasets` attribute (#17307, @WeichenXu123)
+- [UI] Fix tag display as column in experiment overview (#17296, @joelrobin18)
+- [Tracing] Fix the slowness of dspy tracing (#17290, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#17295, @gunsodo; #17272, @bbqiu
+
 ## 3.3.0 (2025-08-19)
 
 MLflow 3.3.0 includes several major features and improvements

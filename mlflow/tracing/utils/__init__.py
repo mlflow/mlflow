@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -312,13 +312,26 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
 
+def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
+    """
+    Generate an MLflow trace ID from an OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+
+    Returns:
+        The MLflow trace ID string in format "tr-<hex_trace_id>".
+    """
+    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
+
+
 def generate_trace_id_v3(span: OTelSpan) -> str:
     """
     Generate a trace ID for the given span (V3 trace schema).
 
     The format will be "tr-<trace_id>" where the trace_id is hex-encoded Otel trace ID.
     """
-    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(span.context.trace_id)
+    return generate_mlflow_trace_id_from_otel_trace_id(span.context.trace_id)
 
 
 def generate_request_id_v2() -> str:
@@ -541,3 +554,21 @@ def generate_assessment_id() -> str:
     """
     id = uuid.uuid4().hex
     return f"{ASSESSMENT_ID_PREFIX}{id}"
+
+
+@contextmanager
+def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
+    """
+    OpenTelemetry does not allow setting attributes if the span has end time defined.
+    https://github.com/open-telemetry/opentelemetry-python/blob/d327927d0274a320466feec6fba6d6ddb287dc5a/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L849-L851
+
+    However, we need to set some attributes within `on_end` handler of the span processor,
+    where the span is already marked as ended. This context manager is a hacky workaround
+    to bypass the attribute guard.
+    """
+    original_end_time = span._end_time
+    span._end_time = None
+    try:
+        yield
+    finally:
+        span._end_time = original_end_time

@@ -2779,3 +2779,22 @@ class FileStore(AbstractStore):
     @filestore_not_supported
     def remove_dataset_from_experiments(self, dataset_id, experiment_ids):
         pass
+    
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Note: This feature is not supported in FileStore.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: Always raised as this operation is not supported in FileStore.
+        """
+        raise MlflowException(
+            "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )

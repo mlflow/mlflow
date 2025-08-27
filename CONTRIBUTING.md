@@ -438,6 +438,32 @@ The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
 
+**Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
+which can cause [network request failures](https://stackoverflow.com/questions/72369320/why-always-something-is-running-at-port-5000-on-my-mac).
+If you are encountering such issues, disable the
+process via system settings, or specify another port (e.g. `mlflow server --port 8000`).
+
+If specifying a different port, please set the following environment variables before running `yarn start`:
+
+- `MLFLOW_PROXY=<tracking_server_uri>`
+- `MLFLOW_DEV_PROXY_MODE=false`
+
+For example:
+
+```
+$ mlflow server --port 8000
+...
+
+(in a separate shell)
+$ export MLFLOW_PROXY=http://127.0.0.1:8000
+$ export MLFLOW_DEV_PROXY_MODE=false
+$ yarn install
+$ yarn start
+...
+
+(UI should now be visible at localhost:3000)
+```
+
 #### Launching MLflow UI with MLflow AI Gateway for PromptLab
 
 ```sh

@@ -4792,6 +4792,68 @@ def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
     assert trace_ids == {trace1_id, trace2_id}
 
 
+def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_search")
+
+    # Create traces with spans that have different names
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different names
+    span1 = create_test_span(trace1_id, name="database_query", span_id=111, span_type="FUNCTION")
+    span2 = create_test_span(trace2_id, name="api_call", span_id=222, span_type="FUNCTION")
+    span3 = create_test_span(trace3_id, name="database_update", span_id=333, span_type="FUNCTION")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test exact match
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "database_query"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    # Test LIKE pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "database%"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test match trace2 specifically
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "api_call"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Test NOT EQUAL
+    traces, _ = store.search_traces([exp_id], filter_string='span.name != "api_call"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test no matches
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "nonexistent"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_error")
+
+    # Test invalid span attribute should raise error
+    with pytest.raises(
+        MlflowException, match="Invalid span attribute 'type'. Supported attributes: name."
+    ):
+        store.search_traces([exp_id], filter_string='span.type = "FUNCTION"')
+
+    with pytest.raises(
+        MlflowException, match="Invalid span attribute 'status'. Supported attributes: name."
+    ):
+        store.search_traces([exp_id], filter_string='span.status = "OK"')
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"
@@ -8263,3 +8325,394 @@ def test_dataset_experiment_associations(store):
 
         with pytest.raises(MlflowException, match="not found"):
             store.remove_dataset_from_experiments(dataset_id="d-nonexistent", experiment_ids=[exp1])
+
+
+def _create_simple_trace(store, experiment_id, tags=None):
+    trace_id = f"tr-{uuid.uuid4()}"
+    timestamp_ms = time.time_ns() // 1_000_000
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=timestamp_ms,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags=tags or {},
+    )
+
+    return store.start_trace(trace_info)
+
+
+def _create_trace_for_correlation(store, experiment_id, spans=None, assessments=None, tags=None):
+    trace_id = f"tr-{uuid.uuid4()}"
+    timestamp_ms = time.time_ns() // 1_000_000
+
+    trace_tags = tags or {}
+
+    if spans:
+        span_types = [span.get("type", "LLM") for span in spans]
+        span_statuses = [span.get("status", "OK") for span in spans]
+
+        if "TOOL" in span_types:
+            trace_tags["primary_span_type"] = "TOOL"
+        elif "LLM" in span_types:
+            trace_tags["primary_span_type"] = "LLM"
+
+        if "LLM" in span_types:
+            trace_tags["has_llm"] = "true"
+        if "TOOL" in span_types:
+            trace_tags["has_tool"] = "true"
+
+        trace_tags["has_error"] = "true" if "ERROR" in span_statuses else "false"
+
+        tool_count = sum(1 for t in span_types if t == "TOOL")
+        if tool_count > 0:
+            trace_tags["tool_count"] = str(tool_count)
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=timestamp_ms,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags=trace_tags,
+    )
+    store.start_trace(trace_info)
+
+    if assessments:
+        for assessment_data in assessments:
+            assessment = Feedback(
+                assessment_id=assessment_data.get("assessment_id", f"fb-{uuid.uuid4()}"),
+                trace_id=trace_id,
+                name=assessment_data.get("name", "quality"),
+                assessment_type=assessment_data.get("assessment_type", "feedback"),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN,
+                    source_id=assessment_data.get("source_id", "user123"),
+                ),
+                value=FeedbackValue(assessment_data.get("value", 0.8)),
+                created_timestamp=timestamp_ms,
+                last_updated_timestamp=timestamp_ms,
+            )
+            store.log_assessments([assessment])
+
+    return trace_id
+
+
+def _create_trace_with_spans_for_correlation(store, experiment_id, span_configs):
+    return _create_trace_for_correlation(store, experiment_id, spans=span_configs)
+
+
+def test_calculate_trace_filter_correlation_basic(store):
+    exp_id = _create_experiments(store, "correlation_test")
+
+    for i in range(10):
+        _create_trace_with_spans_for_correlation(
+            store,
+            exp_id,
+            span_configs=[{"name": "tool_operation", "type": "TOOL", "status": "ERROR"}],
+        )
+
+    for i in range(5):
+        _create_trace_with_spans_for_correlation(
+            store,
+            exp_id,
+            span_configs=[{"name": "llm_call", "type": "LLM", "status": "OK"}],
+        )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.primary_span_type = "TOOL"',
+        filter_string2='tags.has_error = "true"',
+    )
+
+    assert result.npmi == pytest.approx(1.0)
+    assert result.filter1_count == 10
+    assert result.filter2_count == 10
+    assert result.joint_count == 10
+    assert result.total_count == 15
+
+
+def test_calculate_trace_filter_correlation_perfect(store):
+    exp_id = _create_experiments(store, "correlation_test")
+
+    for i in range(8):
+        _create_trace_with_spans_for_correlation(
+            store,
+            exp_id,
+            span_configs=[{"name": "operation", "type": "TOOL", "status": "ERROR"}],
+        )
+
+    for i in range(7):
+        _create_trace_with_spans_for_correlation(
+            store,
+            exp_id,
+            span_configs=[{"name": "operation", "type": "LLM", "status": "OK"}],
+        )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.primary_span_type = "TOOL"',
+        filter_string2='tags.has_error = "true"',
+    )
+
+    assert result.npmi == pytest.approx(1.0)
+    assert result.npmi_smoothed > 0.8
+    assert result.filter1_count == 8
+    assert result.filter2_count == 8
+    assert result.joint_count == 8
+    assert result.total_count == 15
+
+
+def test_calculate_trace_filter_correlation_count_expressions(store):
+    exp_id = _create_experiments(store, "correlation_test")
+
+    for i in range(15):
+        num_tool_calls = 5 if i < 10 else 2
+        spans = [{"type": "TOOL", "name": f"tool_{j}"} for j in range(num_tool_calls)]
+        spans.append({"type": "LLM", "name": "llm_call"})
+        _create_trace_with_spans_for_correlation(store, exp_id, span_configs=spans)
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.tool_count = "5"',
+        filter_string2='tags.has_llm = "true"',
+    )
+
+    assert result.filter1_count == 10
+    assert result.filter2_count == 15
+    assert result.joint_count == 10
+    assert result.total_count == 15
+
+
+def test_calculate_trace_filter_correlation_negative_correlation(store):
+    exp_id = _create_experiments(store, "negative_correlation_test")
+
+    for i in range(10):
+        _create_trace_for_correlation(
+            store, exp_id, spans=[{"type": "LLM", "status": "ERROR"}], tags={"version": "v1"}
+        )
+
+    for i in range(10):
+        _create_trace_for_correlation(
+            store, exp_id, spans=[{"type": "LLM", "status": "OK"}], tags={"version": "v2"}
+        )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.version = "v1"',
+        filter_string2='tags.has_error = "false"',
+    )
+
+    assert result.total_count == 20
+    assert result.filter1_count == 10
+    assert result.filter2_count == 10
+    assert result.joint_count == 0
+    assert result.npmi == pytest.approx(-1.0)
+
+
+def test_calculate_trace_filter_correlation_zero_counts(store):
+    exp_id = _create_experiments(store, "zero_counts_test")
+
+    for i in range(5):
+        _create_trace_for_correlation(store, exp_id, spans=[{"type": "LLM", "status": "OK"}])
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.has_error = "true"',
+        filter_string2='tags.has_llm = "true"',
+    )
+
+    assert result.total_count == 5
+    assert result.filter1_count == 0
+    assert result.filter2_count == 5
+    assert result.joint_count == 0
+    assert math.isnan(result.npmi)
+
+
+def test_calculate_trace_filter_correlation_multiple_experiments(store):
+    exp_id1 = _create_experiments(store, "multi_exp_1")
+    exp_id2 = _create_experiments(store, "multi_exp_2")
+
+    for i in range(4):
+        _create_trace_for_correlation(
+            store, exp_id1, spans=[{"type": "TOOL", "status": "OK"}], tags={"env": "prod"}
+        )
+
+    _create_trace_for_correlation(
+        store, exp_id1, spans=[{"type": "LLM", "status": "OK"}], tags={"env": "prod"}
+    )
+
+    _create_trace_for_correlation(
+        store, exp_id2, spans=[{"type": "TOOL", "status": "OK"}], tags={"env": "dev"}
+    )
+
+    for i in range(4):
+        _create_trace_for_correlation(
+            store, exp_id2, spans=[{"type": "LLM", "status": "OK"}], tags={"env": "dev"}
+        )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id1, exp_id2],
+        filter_string1='tags.env = "prod"',
+        filter_string2='tags.primary_span_type = "TOOL"',
+    )
+
+    assert result.total_count == 10
+    assert result.filter1_count == 5
+    assert result.filter2_count == 5
+    assert result.joint_count == 4
+    assert result.npmi > 0.4
+
+
+def test_calculate_trace_filter_correlation_independent_events(store):
+    exp_id = _create_experiments(store, "independent_test")
+
+    configurations = [
+        *[{"spans": [{"type": "TOOL", "status": "ERROR"}]} for _ in range(5)],
+        *[{"spans": [{"type": "TOOL", "status": "OK"}]} for _ in range(5)],
+        *[{"spans": [{"type": "LLM", "status": "ERROR"}]} for _ in range(5)],
+        *[{"spans": [{"type": "LLM", "status": "OK"}]} for _ in range(5)],
+    ]
+
+    for i, config in enumerate(configurations):
+        _create_trace_for_correlation(store, exp_id, **config)
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.primary_span_type = "TOOL"',
+        filter_string2='tags.has_error = "true"',
+    )
+
+    assert result.total_count == 20
+    assert result.filter1_count == 10
+    assert result.filter2_count == 10
+    assert result.joint_count == 5
+
+    # Independent events should have NPMI close to 0
+    # P(TOOL) = 10/20 = 0.5, P(ERROR) = 10/20 = 0.5
+    # P(TOOL & ERROR) = 5/20 = 0.25
+    # Expected joint = 0.5 * 0.5 * 20 = 5, so no correlation
+    assert abs(result.npmi) < 0.1
+
+
+def test_calculate_trace_filter_correlation_simplified_example(store):
+    exp_id = _create_experiments(store, "simple_correlation_test")
+
+    for _ in range(5):
+        _create_simple_trace(store, exp_id, {"category": "A", "status": "success"})
+
+    for _ in range(3):
+        _create_simple_trace(store, exp_id, {"category": "A", "status": "failure"})
+
+    for _ in range(7):
+        _create_simple_trace(store, exp_id, {"category": "B", "status": "success"})
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.category = "A"',
+        filter_string2='tags.status = "success"',
+    )
+
+    assert result.filter1_count == 8
+    assert result.filter2_count == 12
+    assert result.joint_count == 5
+    assert result.total_count == 15
+
+
+def test_calculate_trace_filter_correlation_empty_experiment_list(store):
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[],
+        filter_string1='tags.has_error = "true"',
+        filter_string2='tags.primary_span_type = "TOOL"',
+    )
+
+    assert result.total_count == 0
+    assert result.filter1_count == 0
+    assert result.filter2_count == 0
+    assert result.joint_count == 0
+    # When there are no traces, NPMI is undefined (NaN)
+    assert math.isnan(result.npmi)
+
+
+def test_calculate_trace_filter_correlation_with_base_filter(store):
+    exp_id = _create_experiments(store, "base_filter_test")
+
+    early_time = 1000000000000
+    for i in range(5):
+        trace_info = TraceInfo(
+            trace_id=f"tr-early-{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=early_time + i,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={
+                "has_error": "true" if i < 3 else "false",
+                "has_tool": "true" if i % 2 == 0 else "false",
+            },
+        )
+        store.start_trace(trace_info)
+
+    # Later time period (will be included by base filter)
+    later_time = 2000000000000
+    # Create traces in the later period:
+    # - 10 total traces in the time window
+    # - 6 with has_error=true
+    # - 4 with has_tool=true
+    # - 3 with both has_error=true AND has_tool=true
+    for i in range(10):
+        tags = {}
+        if i < 6:
+            tags["has_error"] = "true"
+        if i < 3 or i == 6:
+            tags["has_tool"] = "true"
+
+        trace_info = TraceInfo(
+            trace_id=f"tr-later-{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=later_time + i,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags=tags,
+        )
+        store.start_trace(trace_info)
+
+    base_filter = f"timestamp_ms >= {later_time} and timestamp_ms < {later_time + 100}"
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.has_error = "true"',
+        filter_string2='tags.has_tool = "true"',
+        base_filter=base_filter,
+    )
+
+    assert result.total_count == 10
+    assert result.filter1_count == 6
+    assert result.filter2_count == 4
+    assert result.joint_count == 3
+
+    # Calculate expected NPMI
+    # P(error) = 6/10 = 0.6
+    # P(tool) = 4/10 = 0.4
+    # P(error AND tool) = 3/10 = 0.3
+    # PMI = log(P(error AND tool) / (P(error) * P(tool))) = log(0.3 / (0.6 * 0.4)) = log(1.25)
+    # NPMI = PMI / -log(P(error AND tool)) = log(1.25) / -log(0.3)
+
+    p_error = 6 / 10
+    p_tool = 4 / 10
+    p_joint = 3 / 10
+
+    if p_joint > 0:
+        pmi = math.log(p_joint / (p_error * p_tool))
+        npmi = pmi / -math.log(p_joint)
+        assert abs(result.npmi - npmi) < 0.001
+
+    result_no_base = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='tags.has_error = "true"',
+        filter_string2='tags.has_tool = "true"',
+    )
+
+    assert result_no_base.total_count == 15
+    assert result_no_base.filter1_count == 9
+    assert result_no_base.filter2_count == 7
+    assert result_no_base.joint_count == 5

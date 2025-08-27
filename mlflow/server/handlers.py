@@ -10,7 +10,7 @@ import re
 import tempfile
 import time
 import urllib
-from functools import wraps
+from functools import partial, wraps
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -178,7 +178,9 @@ from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
+from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -188,6 +190,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
@@ -226,6 +229,8 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
         self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
+        # Add support for Databricks tracking store
+        self.register("databricks", self._get_databricks_rest_store)
         self.register_entrypoints()
 
     @classmethod
@@ -240,6 +245,10 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
         return SqlAlchemyStore(store_uri, artifact_uri)
 
+    @classmethod
+    def _get_databricks_rest_store(cls, store_uri, artifact_uri):
+        return RestStore(partial(get_databricks_host_creds, store_uri))
+
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
@@ -248,6 +257,9 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
         self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
+        # Add support for Databricks registries
+        self.register("databricks", self._get_databricks_rest_store)
+        self.register("databricks-uc", self._get_databricks_uc_rest_store)
         self.register_entrypoints()
 
     @classmethod
@@ -261,6 +273,19 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
         from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
         return SqlAlchemyStore(store_uri)
+
+    @classmethod
+    def _get_databricks_rest_store(cls, store_uri):
+        return ModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
+
+    @classmethod
+    def _get_databricks_uc_rest_store(cls, store_uri):
+        from mlflow.environment_variables import MLFLOW_TRACKING_URI
+        from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+
+        # Get tracking URI from environment or use "databricks-uc" as default
+        tracking_uri = MLFLOW_TRACKING_URI.get() or "databricks-uc"
+        return UcModelRegistryStore(store_uri, tracking_uri)
 
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
@@ -1144,9 +1169,13 @@ def search_runs_impl(request_message):
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
-    page_token = request_message.page_token
     run_entities = _get_tracking_store().search_runs(
-        experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        run_view_type=run_view_type,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=request_message.page_token or None,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
@@ -1194,7 +1223,6 @@ def list_artifacts_impl(request_message):
     return response_message
 
 
-@catch_mlflow_exception
 def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relative_path=None):
     """
     Lists artifacts from the specified ``relative_path`` within the specified proxied Run artifact
@@ -1245,10 +1273,12 @@ def _get_metric_history():
     run_id = request_message.run_id or request_message.run_uuid
 
     max_results = request_message.max_results if request_message.max_results is not None else None
-    page_token = request_message.page_token if request_message.page_token else None
 
     metric_entities = _get_tracking_store().get_metric_history(
-        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
+        run_id,
+        request_message.metric_key,
+        max_results=max_results,
+        page_token=request_message.page_token or None,
     )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
 
@@ -1699,12 +1729,13 @@ def _search_experiments():
             "page_token": [_assert_string],
         },
     )
+
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         filter_string=request_message.filter,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
@@ -1913,7 +1944,7 @@ def _search_registered_models():
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
@@ -2274,7 +2305,7 @@ def search_model_versions_impl(request_message):
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
@@ -2462,7 +2493,7 @@ def _list_webhooks():
     )
     webhooks_page = _get_model_registry_store().list_webhooks(
         max_results=request_message.max_results,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = ListWebhooks.Response(
         webhooks=[w.to_proto() for w in webhooks_page],
@@ -2817,7 +2848,7 @@ def _search_traces_v3():
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchTracesV3.Response()
     response_message.traces.extend([e.to_proto() for e in traces])
@@ -2878,6 +2909,24 @@ def _set_trace_tag(request_id):
     )
     _get_tracking_store().set_trace_tag(request_id, request_message.key, request_message.value)
     return _wrap_response(SetTraceTag.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_trace_tag_v3(trace_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{trace_id}/tags` to set tags on a TraceInfo record.
+    Identical to `_set_trace_tag`, but with request_id renamed to with trace_id.
+    """
+    request_message = _get_request_message(
+        SetTraceTagV3(),
+        schema={
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string],
+        },
+    )
+    _get_tracking_store().set_trace_tag(trace_id, request_message.key, request_message.value)
+    return _wrap_response(SetTraceTagV3.Response())
 
 
 @catch_mlflow_exception
@@ -3137,12 +3186,13 @@ def _deprecated_search_traces_v2():
             "page_token": [_assert_string],
         },
     )
+
     traces, token = _get_tracking_store().search_traces(
         experiment_ids=request_message.experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=request_message.page_token,
+        page_token=request_message.page_token or None,
     )
     traces = [TraceInfoV2.from_v3(t) for t in traces]
     response_message = SearchTraces.Response()
@@ -3866,7 +3916,7 @@ HANDLERS = {
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
     DeleteTracesV3: _delete_traces,
-    SetTraceTagV3: _set_trace_tag,
+    SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
     # Assessment APIs

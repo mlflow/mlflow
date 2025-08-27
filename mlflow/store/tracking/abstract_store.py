@@ -23,6 +23,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
@@ -1133,6 +1134,43 @@ class AbstractStore:
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        This method analyzes the correlation between traces matching two different
+        filter conditions using Normalized Pointwise Mutual Information (NPMI).
+
+        Args:
+            experiment_ids: List of experiment IDs to analyze traces from.
+            filter_string1: First filter condition (MLflow search filter syntax).
+            filter_string2: Second filter condition (MLflow search filter syntax).
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows).
+
+        Returns:
+            TraceFilterCorrelationResult containing:
+            - npmi: Correlation score from -1 (never co-occur) to 1 (always co-occur),
+                   or NaN if undefined (when a filter has zero matches)
+            - filter1_count: Number of traces matching filter1
+            - filter2_count: Number of traces matching filter2
+            - joint_count: Number of traces matching both filters
+            - total_count: Total number of traces in the experiments
+
+        Raises:
+            MlflowException: If filters are invalid or experiments don't exist.
+        """
+        raise NotImplementedError(
+            f"The Correlations API is not implemented for {self.__class__.__name__}. "
+            "A SQL backend is required to use this feature."
+        )
 
     def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
         """

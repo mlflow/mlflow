@@ -4,12 +4,16 @@ from unittest import mock
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import (
-    DatabricksArtifactRepository,
-    DbfsRestArtifactRepository,
-)
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
+from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.rest_utils import MlflowHostCreds
+
+
+@pytest.fixture(autouse=True)
+def set_fake_databricks_creds(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://localhost:8080")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token")
 
 
 @pytest.fixture
@@ -49,5 +53,5 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
 
     mock_uri = "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
     databricks_repo = get_artifact_repository(mock_uri)
-    assert isinstance(databricks_repo, DatabricksArtifactRepository)
+    assert isinstance(databricks_repo, DatabricksRunArtifactRepository)
     assert databricks_repo.artifact_uri == mock_uri
