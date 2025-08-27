@@ -14,13 +14,9 @@ def mock_openai_creds(monkeypatch):
 @pytest.fixture
 def mock_azure_openai_creds(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
-
     monkeypatch.setenv("OPENAI_API_TYPE", "azure")
-
     monkeypatch.setenv("OPENAI_API_BASE", "my-base")
-
     monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "my-deployment")
-
     monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
 
 
