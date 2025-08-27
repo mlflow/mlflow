@@ -42,7 +42,7 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
         self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
 
     @abstractmethod
-    def _get_uri_regex(self) -> re.Pattern:
+    def _get_uri_regex(self) -> re.Pattern[str]:
         """Return the regex pattern for matching URIs of this type."""
 
     @abstractmethod

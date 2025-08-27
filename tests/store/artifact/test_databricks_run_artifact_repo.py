@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -150,7 +151,7 @@ def test_list_artifacts():
         "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model",
     ],
 )
-def test_constructor_with_valid_uri(valid_uri):
+def test_constructor_with_valid_uri(valid_uri: str):
     """Test that the constructor works with valid run URIs."""
     with (
         mock.patch(
@@ -172,7 +173,7 @@ def test_constructor_with_valid_uri(valid_uri):
         "dbfs:/databricks/mlflow-tracking/1/logged_models/1",
     ],
 )
-def test_constructor_with_invalid_uri(invalid_uri):
+def test_constructor_with_invalid_uri(invalid_uri: str):
     """Test that the constructor raises an error with invalid URIs."""
     with pytest.raises(
         Exception,  # The exact exception type depends on the parent class
@@ -196,7 +197,7 @@ def test_constructor_with_invalid_uri(invalid_uri):
         ("s3://bucket/path", False),
     ],
 )
-def test_is_run_uri(uri, expected_result):
+def test_is_run_uri(uri: str, expected_result: bool):
     """Test the is_run_uri static method."""
     result = DatabricksRunArtifactRepository.is_run_uri(uri)
     assert result == expected_result
@@ -209,7 +210,7 @@ def test_is_run_uri(uri, expected_result):
         ("dbfs:/databricks/mlflow-tracking/123/456/artifacts", "123", "456", "/artifacts"),
     ],
 )
-def test_uri_parsing(uri, expected_experiment_id, expected_run_id, expected_relative_path):
+def test_uri_parsing(uri: str, expected_experiment_id: str, expected_run_id: str, expected_relative_path: Optional[str]):
     """Test that URI components are correctly parsed."""
     with (
         mock.patch(
@@ -242,7 +243,7 @@ def test_uri_parsing(uri, expected_experiment_id, expected_run_id, expected_rela
         ),
     ],
 )
-def test_build_root_path(uri, expected_root_path):
+def test_build_root_path(uri: str, expected_root_path: str):
     """Test that the root path is built correctly."""
     with (
         mock.patch(
@@ -278,4 +279,4 @@ def test_expected_uri_format():
         ),
     ):
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
-        assert repo._get_expected_uri_format() == "databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"
+        assert repo._get_expected_uri_format() == "databricks/mlflow-tracking/<EXPERIMENT_ID>/<RUN_ID>"

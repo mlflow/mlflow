@@ -19,11 +19,11 @@ class DatabricksRunArtifactRepository(DatabricksTrackingArtifactRepository):
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/(?P<run_id>(?!tr-|logged_models)[^/]+)(?P<relative_path>/.*)?$"
     )
 
-    def _get_uri_regex(self) -> re.Pattern:
+    def _get_uri_regex(self) -> re.Pattern[str]:
         return self._URI_REGEX
 
     def _get_expected_uri_format(self) -> str:
-        return "databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"
+        return "databricks/mlflow-tracking/<EXPERIMENT_ID>/<RUN_ID>"
 
     def _build_root_path(self, experiment_id: str, match: re.Match, relative_path: str) -> str:
         run_id = match.group("run_id")

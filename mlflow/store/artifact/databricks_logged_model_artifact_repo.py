@@ -18,7 +18,7 @@ class DatabricksLoggedModelArtifactRepository(DatabricksTrackingArtifactReposito
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/logged_models/(?P<model_id>[^/]+)(?P<relative_path>/.*)?$"
     )
 
-    def _get_uri_regex(self) -> re.Pattern:
+    def _get_uri_regex(self) -> re.Pattern[str]:
         return self._URI_REGEX
 
     def _get_expected_uri_format(self) -> str:

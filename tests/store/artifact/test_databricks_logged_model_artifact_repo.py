@@ -181,7 +181,7 @@ def test_constructor_with_valid_uri():
         "s3://bucket/path",
     ],
 )
-def test_constructor_with_invalid_uri(invalid_uri):
+def test_constructor_with_invalid_uri(invalid_uri: str):
     """Test that constructor raises exception with invalid URIs."""
     with pytest.raises(MlflowException, match="Invalid artifact URI"):
         DatabricksLoggedModelArtifactRepository(invalid_uri)
@@ -201,7 +201,7 @@ def test_constructor_with_invalid_uri(invalid_uri):
         ("dbfs:/databricks/mlflow-tracking/logged_models/1", False),
     ],
 )
-def test_is_logged_model_uri(uri, expected_result):
+def test_is_logged_model_uri(uri: str, expected_result: bool):
     """Test the is_logged_model_uri static method."""
     result = DatabricksLoggedModelArtifactRepository.is_logged_model_uri(uri)
     assert result == expected_result

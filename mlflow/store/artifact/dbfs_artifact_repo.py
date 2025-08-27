@@ -227,8 +227,8 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
                 cleaned_artifact_uri, tracking_uri=tracking_uri
             )
         elif (
-            DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
-            and not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
+            not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
+            and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
         ):
             return DatabricksRunArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
         return DatabricksArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
