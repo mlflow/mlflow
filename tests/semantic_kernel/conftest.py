@@ -15,9 +15,7 @@ from tests.tracing.helper import (
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
-
     monkeypatch.setenv("SERPAPI_API_KEY", "test")
     importlib.reload(openai)
 
