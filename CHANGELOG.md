@@ -10,7 +10,7 @@ Features:
 
 Bug fixes:
 
-- [Tracing] Add retry policy support to _invoke_litellm for improved reliability (#17394, @dbczumar)
+- [Tracing] Add retry policy support to `_invoke_litellm` for improved reliability (#17394, @dbczumar)
 - [UI] fix ui sorting in experiments (#17340, @Flametaa)
 - [Serving] Add Databricks Lakebase Resource (#17277, @jennsun)
 - [Tracing] Fix set trace tags endpoint (#17362, @daniellok-db)
