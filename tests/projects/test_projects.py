@@ -322,8 +322,9 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
     Verify that we correctly determine the path to executables to be used to
     create environments (for example, it could be mamba instead of conda)
     """
-    for name in [CONDA_EXE, MLFLOW_CONDA_HOME.name, MLFLOW_CONDA_CREATE_ENV_CMD.name]:
-        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv(CONDA_EXE, raising=False)
+    monkeypatch.delenv(MLFLOW_CONDA_HOME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_CONDA_CREATE_ENV_CMD.name, raising=False)
     for name, value in mock_env.items():
         monkeypatch.setenv(name, value)
     conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()

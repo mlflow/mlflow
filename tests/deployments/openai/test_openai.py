@@ -23,11 +23,8 @@ def mock_azure_openai_creds(monkeypatch):
 @pytest.fixture
 def mock_bad_azure_openai_creds(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_TYPE", "azure")
-
     monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
-
     monkeypatch.setenv("OPENAI_API_BASE", "https://openai-for.openai.azure.com/")
 
 

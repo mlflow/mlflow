@@ -109,7 +109,6 @@ def _mock_temporary_creds_response(temporary_creds):
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
@@ -161,7 +160,6 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mon
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
@@ -206,7 +204,6 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
@@ -275,7 +272,6 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
 
 def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
@@ -342,7 +338,6 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
     monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     uc_store = UnityCatalogModelsArtifactRepository(
         "models:/catalog.schema.model/1", "databricks-uc"
@@ -379,7 +374,6 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
 
 def test_store_use_presigned_url_store_when_enabled(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     store_package = "mlflow.store.artifact.unity_catalog_models_artifact_repo"

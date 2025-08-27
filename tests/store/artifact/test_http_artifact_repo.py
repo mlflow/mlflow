@@ -12,6 +12,12 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_USERNAME,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -365,6 +371,13 @@ def test_default_host_creds(monkeypatch):
     )
 
     repo = HttpArtifactRepository(artifact_uri)
+
+    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, username)
+    monkeypatch.setenv(MLFLOW_TRACKING_PASSWORD.name, password)
+    monkeypatch.setenv(MLFLOW_TRACKING_TOKEN.name, token)
+    monkeypatch.setenv(MLFLOW_TRACKING_INSECURE_TLS.name, str(ignore_tls_verification))
+    monkeypatch.setenv(MLFLOW_TRACKING_CLIENT_CERT_PATH.name, client_cert_path)
+    monkeypatch.setenv(MLFLOW_TRACKING_SERVER_CERT_PATH.name, server_cert_path)
     assert repo._host_creds == expected_host_creds
 
 

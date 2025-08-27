@@ -33,7 +33,9 @@ class User:
         self.monkeypatch = monkeypatch
 
     def __enter__(self):
-        self.
+        self.monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, self.username)
+        self.monkeypatch.setenv(MLFLOW_TRACKING_PASSWORD.name, self.password)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.
+        self.monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+        self.monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)

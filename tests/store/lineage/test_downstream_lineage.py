@@ -59,7 +59,6 @@ def test_downstream_notebook_job_lineage(
     tmp_path, is_in_notebook, is_in_job, notebook_id, job_id, monkeypatch
 ):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "false")
     model_dir = str(tmp_path.joinpath("model"))
@@ -138,7 +137,6 @@ def test_downstream_notebook_job_lineage(
 def test_databricks_sdk_models_artifact_repo_lineage(tmp_path, monkeypatch):
     # Test that when using DatabricksSDKModelArtifactRepo, lineage is still emitted properly
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "true")
 

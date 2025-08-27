@@ -176,7 +176,6 @@ def test_log_artifact(mock_databricks_workspace_client, tmp_path):
 def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     with mock.patch(
         "mlflow.utils._unity_catalog_utils.call_endpoint",
@@ -204,7 +203,6 @@ def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc(tmp_path, monkeyp
 
 def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc_seg(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
-
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     with mock.patch(
         "mlflow.utils._unity_catalog_utils.call_endpoint",

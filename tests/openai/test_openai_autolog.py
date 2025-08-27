@@ -43,7 +43,6 @@ MOCK_TOOLS = [
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
 def client(request, monkeypatch, mock_openai):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if request.param:
         client = openai.OpenAI(api_key="test", base_url=mock_openai)
@@ -744,7 +743,6 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
     monkeypatch, mock_openai, embedding_models
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     mlflow.openai.autolog()
@@ -766,7 +764,6 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
 @skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding_models):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     model = mlflow.create_external_model(name="test_model")

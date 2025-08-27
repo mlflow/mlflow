@@ -40,9 +40,7 @@ def embeddings():
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
     monkeypatch.setenv("MLFLOW_TESTING", "true")
-
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if is_v1:
         openai.base_url = mock_openai
