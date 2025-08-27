@@ -126,6 +126,7 @@ mlflow = "mlflow.cli:cli"
 
 [project.entry-points."mlflow.app"]
 basic-auth = "mlflow.server.auth:create_app"
+basic-auth-fastapi = "mlflow.server.auth.fastapi_app:app"
 
 [project.entry-points."mlflow.app.client"]
 basic-auth = "mlflow.server.auth.client:AuthServiceClient"
