@@ -50,7 +50,7 @@ class Judge(Scorer):
     @experimental(version="3.4.0")
     def align(self, optimizer: "AlignmentOptimizer", traces: list[Trace]) -> "Judge":
         """
-        Align this judge with human preferencesusing the provided optimizer and traces.
+        Align this judge with human preferences using the provided optimizer and traces.
 
         Args:
             optimizer: The alignment optimizer to use
