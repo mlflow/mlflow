@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import ScorerVersion, TraceInfo, TraceLocation, TraceState, ViewType
+from mlflow.entities import ScorerVersion, TraceInfo, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -13,6 +13,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -50,7 +51,6 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
-    TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -290,8 +290,8 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
     mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
-    args, _ = mock_tracking_store.search_runs.call_args
-    assert args[2] == ViewType.ACTIVE_ONLY
+    _, kwargs = mock_tracking_store.search_runs.call_args
+    assert kwargs["run_view_type"] == ViewType.ACTIVE_ONLY
 
 
 def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_store):
