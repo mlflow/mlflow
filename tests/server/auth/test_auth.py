@@ -59,9 +59,8 @@ def client(request, tmp_path):
 
 def test_authenticate(client, monkeypatch):
     # unauthenticated
-    monkeypatch.delenvs(
-        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
-    )
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
     with pytest.raises(MlflowException, match=r"You are not authenticated.") as exception_context:
         client.search_experiments()
     assert exception_context.value.error_code == ErrorCode.Name(UNAUTHENTICATED)
