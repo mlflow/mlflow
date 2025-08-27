@@ -119,26 +119,6 @@ def _is_litellm_available() -> bool:
         return False
 
 
-def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> Dict[str, Any]:
-    """
-    Create a tool response message for LiteLLM.
-    
-    Args:
-        tool_call_id: The ID of the tool call being responded to.
-        tool_name: The name of the tool that was invoked.
-        content: The content to include in the response.
-    
-    Returns:
-        A dictionary representing the tool response message.
-    """
-    return {
-        "tool_call_id": tool_call_id,
-        "role": "tool",
-        "name": tool_name,
-        "content": content,
-    }
-
-
 def _invoke_litellm(
     provider: str, model_name: str, prompt: str, trace: Trace | None, num_retries: int
 ) -> str:
@@ -188,7 +168,7 @@ def _invoke_litellm(
             )
             message = response.choices[0].message
             if not message.tool_calls:
-                    return message.content
+                return message.content
 
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
@@ -220,6 +200,26 @@ def _invoke_litellm(
                     )
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+
+
+def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> Dict[str, Any]:
+    """
+    Create a tool response message for LiteLLM.
+    
+    Args:
+        tool_call_id: The ID of the tool call being responded to.
+        tool_name: The name of the tool that was invoked.
+        content: The content to include in the response.
+    
+    Returns:
+        A dictionary representing the tool response message.
+    """
+    return {
+        "tool_call_id": tool_call_id,
+        "role": "tool",
+        "name": tool_name,
+        "content": content,
+    }
 
 
 def _get_judge_response_format() -> Dict[str, Any]:
