@@ -211,6 +211,13 @@ def create_run(
 
 @commands.command("link-traces")
 @click.option(
+    "--experiment-id",
+    "-x",
+    envvar=MLFLOW_EXPERIMENT_ID.name,
+    type=click.STRING,
+    help="ID of the experiment containing the run (optional, for validation).",
+)
+@click.option(
     "--run-id",
     type=click.STRING,
     required=True,
@@ -223,7 +230,7 @@ def create_run(
     required=True,
     help="Trace ID to link to the run. Can be specified multiple times (maximum 100 traces).",
 )
-def link_traces(run_id: str, trace_id: tuple[str, ...]) -> None:
+def link_traces(experiment_id: str | None, run_id: str, trace_id: tuple[str, ...]) -> None:
     """
     Link traces to a run.
 
@@ -236,6 +243,10 @@ def link_traces(run_id: str, trace_id: tuple[str, ...]) -> None:
     trace_ids = list(trace_id)
 
     try:
+        # Set the experiment context if provided
+        if experiment_id:
+            mlflow.set_experiment(experiment_id=experiment_id)
+        
         client = MlflowClient()
         client.link_traces_to_run(trace_ids, run_id)
 
