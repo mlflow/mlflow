@@ -171,11 +171,11 @@ def _invoke_litellm(
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
                 try:
-                    mlflow_tool_call = _create_mlflow_tool_call(litellm_tool_call=tool_call)
+                    mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
                     result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
                     messages.append(
-                        _create_tool_response_message(
+                        _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
                             content=f"Error: {e!s}",
@@ -190,7 +190,7 @@ def _invoke_litellm(
                         json.dumps(result, default=str) if not isinstance(result, str) else result
                     )
                     messages.append(
-                        _create_tool_response_message(
+                        _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
                             content=result_json,
@@ -200,7 +200,7 @@ def _invoke_litellm(
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
 
-def _create_mlflow_tool_call(litellm_tool_call: Any) -> ToolCall:
+def _create_mlflow_tool_call_from_litellm(litellm_tool_call: Any) -> ToolCall:
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
 
@@ -219,7 +219,7 @@ def _create_mlflow_tool_call(litellm_tool_call: Any) -> ToolCall:
     )
 
 
-def _create_tool_response_message(
+def _create_litellm_tool_response_message(
     tool_call_id: str, tool_name: str, content: str
 ) -> dict[str, Any]:
     """

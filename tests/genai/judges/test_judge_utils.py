@@ -246,7 +246,7 @@ def test_invoke_judge_model_tool_calling_loop():
 
     # Verify tool was invoked
     mock_invoke_tool.assert_called_once()
-    tool_call_arg = mock_invoke_tool.call_args[0][0]
+    tool_call_arg = mock_invoke_tool.call_args.kwargs["tool_call"]
     assert isinstance(tool_call_arg, ToolCall)
     assert tool_call_arg.function.name == "get_trace_info"
 
