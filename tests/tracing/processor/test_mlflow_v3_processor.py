@@ -142,8 +142,9 @@ def test_incremental_span_name_deduplication():
     processor.on_end(child2)
     processor.on_end(root)
     with trace_manager.get_trace(request_id) as trace:
-        final_names = [s.name for s in trace.span_dict.values()]
-        assert set(final_names) == {"process_1", "process_2", "process_3", "query_1", "query_2"}
+        spans_sorted_by_creation = sorted(trace.span_dict.values(), key=lambda s: s.start_time_ns)
+        final_names = [s.name for s in spans_sorted_by_creation]
+        assert final_names == ["process_1", "process_2", "query_1", "process_3", "query_2"]
 
 
 def test_on_end():
