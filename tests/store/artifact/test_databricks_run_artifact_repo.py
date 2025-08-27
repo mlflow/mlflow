@@ -5,9 +5,7 @@ import pytest
 from databricks.sdk.service.files import DirectoryEntry
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.store.artifact.databricks_run_artifact_repo import (
-    DatabricksRunArtifactRepository,
-)
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 
 
 @pytest.fixture(autouse=True)
@@ -263,9 +261,7 @@ def test_build_root_path(uri: str, expected_root_path: str):
         match = repo._get_uri_regex().search(uri)
         if match.group("relative_path"):
             root_path = repo._build_root_path(
-                match.group("experiment_id"),
-                match,
-                match.group("relative_path")
+                match.group("experiment_id"), match, match.group("relative_path")
             )
         else:
             root_path = repo._build_root_path(match.group("experiment_id"), match, "")
