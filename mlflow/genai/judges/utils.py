@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import asdict, is_dataclass
-from typing import Any, Dict
+from typing import Any
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -19,12 +19,10 @@ _logger = logging.getLogger(__name__)
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
-_DEFAULT_MODEL_DATABRICKS = "databricks"
-
 
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
-        return _DEFAULT_MODEL_DATABRICKS
+        return "databricks"
     else:
         return "openai:/gpt-4.1-mini"
 
@@ -180,7 +178,7 @@ def _invoke_litellm(
                         _create_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
-                            content=f"Error: {e!s}"
+                            content=f"Error: {e!s}",
                         )
                     )
                 else:
@@ -188,12 +186,14 @@ def _invoke_litellm(
                     # The tool result is either a dict, string, or dataclass
                     if is_dataclass(result):
                         result = asdict(result)
-                    result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
+                    result_json = (
+                        json.dumps(result, default=str) if not isinstance(result, str) else result
+                    )
                     messages.append(
                         _create_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
-                            content=result_json
+                            content=result_json,
                         )
                     )
         except Exception as e:
@@ -203,10 +203,10 @@ def _invoke_litellm(
 def _create_mlflow_tool_call(litellm_tool_call: Any) -> ToolCall:
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
-    
+
     Args:
         litellm_tool_call: The LiteLLM tool call object.
-    
+
     Returns:
         An MLflow ToolCall object.
     """
@@ -219,15 +219,17 @@ def _create_mlflow_tool_call(litellm_tool_call: Any) -> ToolCall:
     )
 
 
-def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> Dict[str, Any]:
+def _create_tool_response_message(
+    tool_call_id: str, tool_name: str, content: str
+) -> dict[str, Any]:
     """
     Create a tool response message for LiteLLM.
-    
+
     Args:
         tool_call_id: The ID of the tool call being responded to.
         tool_name: The name of the tool that was invoked.
         content: The content to include in the response.
-    
+
     Returns:
         A dictionary representing the tool response message.
     """
@@ -239,10 +241,10 @@ def _create_tool_response_message(tool_call_id: str, tool_name: str, content: st
     }
 
 
-def _get_judge_response_format() -> Dict[str, Any]:
+def _get_judge_response_format() -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
-    
+
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
