@@ -7,6 +7,7 @@ import json
 import click
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities import RunStatus, ViewType
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
 from mlflow.exceptions import MlflowException
@@ -206,3 +207,42 @@ def create_run(
         raise click.ClickException(f"Failed to create run: {e.message}")
     except Exception as e:
         raise click.ClickException(f"Unexpected error creating run: {e!s}")
+
+
+@commands.command("link-traces")
+@click.option(
+    "--run-id",
+    type=click.STRING,
+    required=True,
+    help="ID of the run to link traces to.",
+)
+@click.option(
+    "--trace-id",
+    "-t",
+    multiple=True,
+    required=True,
+    help="Trace ID to link to the run. Can be specified multiple times (maximum 100 traces).",
+)
+def link_traces(run_id: str, trace_id: tuple[str, ...]) -> None:
+    """
+    Link traces to a run.
+
+    This command links one or more traces to an existing run. Traces can be
+    linked to runs to establish relationships between traces and runs within
+    the same experiment. Maximum 100 traces can be linked in a single command.
+    """
+
+    # Convert tuple to list
+    trace_ids = list(trace_id)
+
+    try:
+        client = MlflowClient()
+        client.link_traces_to_run(trace_ids, run_id)
+
+        # Output success message with count
+        click.echo(f"Successfully linked {len(trace_ids)} trace(s) to run '{run_id}'")
+
+    except MlflowException as e:
+        raise click.ClickException(f"Failed to link traces: {e.message}")
+    except Exception as e:
+        raise click.ClickException(f"Unexpected error linking traces: {e!s}")
