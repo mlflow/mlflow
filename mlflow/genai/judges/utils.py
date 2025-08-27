@@ -128,13 +128,11 @@ def _invoke_litellm(
         provider: The provider name (e.g., 'openai', 'anthropic').
         model_name: The model name.
         prompt: The prompt to send to the model.
+        trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
 
     Returns:
         The model's response content.
-
-    Raises:
-        MlflowException: If the request fails after all retries.
     """
     import litellm
 
