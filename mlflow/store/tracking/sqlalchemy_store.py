@@ -2520,7 +2520,7 @@ class SqlAlchemyStore(AbstractStore):
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
 
-            session.add(sql_trace_info)
+            session.merge(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
