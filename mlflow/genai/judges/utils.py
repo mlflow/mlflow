@@ -141,7 +141,6 @@ def _invoke_litellm(
 
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
-    from mlflow.types.llm import ToolCall
 
     litellm_model_uri = f"{provider}/{model_name}"
     messages = [{"role": "user", "content": prompt}]
@@ -173,13 +172,7 @@ def _invoke_litellm(
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
                 try:
-                    mlflow_tool_call = ToolCall(
-                        id=tool_call.id,
-                        function={
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                    )
+                    mlflow_tool_call = _create_mlflow_tool_call(tool_call)
                     result = _judge_tool_registry.invoke(mlflow_tool_call, trace)
                 except Exception as e:
                     messages.append(
@@ -200,6 +193,27 @@ def _invoke_litellm(
                     )
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+
+
+def _create_mlflow_tool_call(litellm_tool_call: Any) -> Any:
+    """
+    Create an MLflow ToolCall from a LiteLLM tool call.
+    
+    Args:
+        litellm_tool_call: The LiteLLM tool call object.
+    
+    Returns:
+        An MLflow ToolCall object.
+    """
+    from mlflow.types.llm import ToolCall
+    
+    return ToolCall(
+        id=litellm_tool_call.id,
+        function={
+            "name": litellm_tool_call.function.name,
+            "arguments": litellm_tool_call.function.arguments,
+        },
+    )
 
 
 def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> Dict[str, Any]:
