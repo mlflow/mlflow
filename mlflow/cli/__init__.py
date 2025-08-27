@@ -712,9 +712,9 @@ from mlflow.cli import traces
 cli.add_command(traces.commands)
 
 try:
-    import mlflow.mcp
+    from mlflow.mcp.cli import cli as mcp_cli
 
-    cli.add_command(mlflow.mcp.cli)
+    cli.add_command(mcp_cli)
 except ImportError:
     pass
 
