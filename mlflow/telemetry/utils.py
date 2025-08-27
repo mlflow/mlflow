@@ -80,8 +80,7 @@ def is_telemetry_disabled() -> bool:
             or _IS_MLFLOW_DEV_VERSION
         )
     except Exception as e:
-        if _MLFLOW_TELEMETRY_LOGGING.get():
-            _logger.error(f"Failed to check telemetry disabled status: {e}")
+        _log_error(f"Failed to check telemetry disabled status: {e}")
         return True
 
 
@@ -100,3 +99,8 @@ def _get_config_url(version: str) -> str | None:
         return f"{CONFIG_URL}/{version}.json"
 
     return None
+
+
+def _log_error(message: str):
+    if _MLFLOW_TELEMETRY_LOGGING.get():
+        _logger.error(message)

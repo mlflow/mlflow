@@ -11,7 +11,7 @@ from queue import Empty, Full, Queue
 
 import requests
 
-from mlflow.environment_variables import _MLFLOW_TELEMETRY_LOGGING, _MLFLOW_TELEMETRY_SESSION_ID
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -22,7 +22,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.events import ImportMlflowEvent
 from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
-from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
+from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 
 _logger = logging.getLogger(__name__)
@@ -124,8 +124,7 @@ class TelemetryClient:
                     disable_events=set(config.get("disable_events", [])),
                 )
             except Exception as e:
-                if _MLFLOW_TELEMETRY_LOGGING.get():
-                    _logger.error(f"Failed to get telemetry config: {e}")
+                _log_error(f"Failed to get telemetry config: {e}")
                 return
 
     def add_record(self, record: Record, send_immediately: bool = False):
@@ -157,9 +156,7 @@ class TelemetryClient:
             self._queue.put(self._pending_records, block=False)
             self._pending_records = []
         except Full:
-            # TODO: record this case
-            if _MLFLOW_TELEMETRY_LOGGING.get():
-                _logger.error("Failed to add record to the queue, queue is full")
+            _log_error("Failed to add record to the queue, queue is full")
 
     def _process_records(self, records: list[Record], request_timeout: float = 1):
         """Process a batch of telemetry records."""
@@ -217,8 +214,7 @@ class TelemetryClient:
                 else:
                     return
         except Exception as e:
-            if _MLFLOW_TELEMETRY_LOGGING.get():
-                _logger.error(f"Failed to send telemetry records: {e}")
+            _log_error(f"Failed to send telemetry records: {e}")
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
@@ -300,8 +296,7 @@ class TelemetryClient:
                 warnings.simplefilter("ignore")
                 self.flush(terminate=True)
         except Exception as e:
-            if _MLFLOW_TELEMETRY_LOGGING.get():
-                _logger.error(f"Failed to flush telemetry during termination: {e}")
+            _log_error(f"Failed to flush telemetry during termination: {e}")
 
     def flush(self, terminate=False) -> None:
         """
@@ -330,8 +325,7 @@ class TelemetryClient:
             try:
                 self._queue.join()
             except Exception as e:
-                if _MLFLOW_TELEMETRY_LOGGING.get():
-                    _logger.error(f"Failed to flush telemetry: {e}")
+                _log_error(f"Failed to flush telemetry: {e}")
 
     def _update_backend_store(self):
         """
@@ -344,8 +338,7 @@ class TelemetryClient:
 
             self.info["tracking_uri_scheme"] = _get_tracking_scheme()
         except Exception as e:
-            if _MLFLOW_TELEMETRY_LOGGING.get():
-                _logger.error(f"Failed to update backend store: {e}")
+            _log_error(f"Failed to update backend store: {e}")
 
     def _clean_up(self):
         """Join all threads"""
@@ -368,8 +361,7 @@ def set_telemetry_client():
         try:
             _set_telemetry_client(TelemetryClient())
         except Exception as e:
-            if _MLFLOW_TELEMETRY_LOGGING.get():
-                _logger.error(f"Failed to set telemetry client: {e}")
+            _log_error(f"Failed to set telemetry client: {e}")
             _set_telemetry_client(None)
 
 
