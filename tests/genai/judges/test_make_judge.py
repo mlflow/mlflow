@@ -250,7 +250,9 @@ def test_call_with_no_inputs_or_outputs():
 
 def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
-        name="formality_judge", instructions="Check if {{response}} is formal", model="openai:/gpt-4"
+        name="formality_judge",
+        instructions="Check if {{response}} is formal",
+        model="openai:/gpt-4",
     )
 
     result = judge(outputs={"response": "Dear Sir/Madam, I am writing to inquire..."})

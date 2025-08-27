@@ -1,2 +1,1 @@
-
 _DATABRICKS_DEFAULT_JUDGE_MODEL = "databricks"

@@ -4,7 +4,6 @@ from typing import Any
 from pydantic import PrivateAttr
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
@@ -164,7 +163,7 @@ class InstructionsJudge(Judge):
         """
         if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
             return
-        
+
         _parse_model_uri(self._model)
 
     def _validate_instructions_template(self) -> None:
