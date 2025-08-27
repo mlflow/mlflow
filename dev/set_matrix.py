@@ -85,6 +85,7 @@ class PackageInfo(BaseModel):
     pip_release: str
     install_dev: str | None = None
     module_name: str | None = None
+    genai: bool = False
 
 
 class TestConfig(BaseModel):
