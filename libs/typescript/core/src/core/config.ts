@@ -57,14 +57,14 @@ export interface MLflowTracingConfig {
   databricksToken?: string;
 
   /**
-   * The `username` for basic auth when it's enabled.
+   * The tracking server username for basic auth.
    */
-  username?: string;
+  trackingServerUsername?: string;
 
   /**
-   * The `password` for basic auth when it's enabled.
+   * The tracking server password for basic auth.
    */
-  password?: string;
+  trackingServerPassword?: string;
 }
 
 /**

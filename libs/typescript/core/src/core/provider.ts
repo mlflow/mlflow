@@ -26,8 +26,8 @@ export function initializeSDK(): void {
       trackingUri: hostConfig.trackingUri,
       host: hostConfig.host,
       databricksToken: hostConfig.databricksToken,
-      username: hostConfig.username,
-      password: hostConfig.password
+      trackingServerUsername: hostConfig.trackingServerUsername,
+      trackingServerPassword: hostConfig.trackingServerPassword
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);
