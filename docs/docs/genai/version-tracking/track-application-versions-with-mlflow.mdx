@@ -26,10 +26,18 @@ This guide demonstrates how to track versions of your GenAI application when you
 
 When enabled, MLflow automatically:
 
-- Creates or reuses a LoggedModel based on your current Git branch, commit, and dirty state
-- Links all traces to this LoggedModel version
+- Creates or reuses a LoggedModel based on your current [git state](.#git-state-tracked-by-mlflow)
+- Links all traces to this `LoggedModel` version
 - Captures Git metadata including diffs for uncommitted changes
 - Manages version transitions as your code evolves
+
+### Git State Tracked by MLflow
+
+MLflow tracks three key components of your Git state:
+
+- **Branch**: The Git branch name (e.g., `main`, `feature-xyz`)
+- **Commit**: The Git commit hash uniquely identifying the code version
+- **Dirty State**: Whether your working directory has uncommitted changes. A "dirty" repository means there are modifications that haven't been committed yet. MLflow captures these changes as a diff to ensure complete reproducibility
 
 ## Why Git-Based Versioning Works for GenAI
 
@@ -107,7 +115,7 @@ import mlflow
 # This automatically creates/reuses a LoggedModel based on your Git state
 context = mlflow.genai.enable_git_model_versioning()
 
-# Check what version is active
+# Check which version is active
 print(
     f"Active version - Branch: {context.info.branch}, Commit: {context.info.commit[:8]}"
 )

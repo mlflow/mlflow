@@ -1,5 +1,4 @@
 import logging
-import warnings
 
 from typing_extensions import Self
 
@@ -16,13 +15,9 @@ class GitContext:
         try:
             self.info = GitInfo.from_env(remote_name=remote_name)
         except GitOperationError as e:
-            warnings.warn(
-                (
-                    f"Encountered an error while retrieving git information: {e}. "
-                    f"Git model versioning is disabled."
-                ),
-                UserWarning,
-                stacklevel=2,
+            _logger.warning(
+                f"Encountered an error while retrieving git information: {e}. "
+                f"Git model versioning is disabled."
             )
             self.info = None
             self.active_model = None

@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -56,8 +57,13 @@ def test_disable_git_model_versioning_in_non_git_repo(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.chdir(tmp_path)
-    with pytest.warns(UserWarning, match=r"Encountered an error while retrieving git information"):
+    with mock.patch("mlflow.genai.git_versioning._logger.warning") as mock_warning:
         context = enable_git_model_versioning()
+
+    mock_warning.assert_called_once()
+    warning_message = mock_warning.call_args[0][0]
+    assert "Encountered an error while retrieving git information" in warning_message
+    assert "Git model versioning is disabled" in warning_message
     assert context.info is None
     assert context.active_model is None
 
