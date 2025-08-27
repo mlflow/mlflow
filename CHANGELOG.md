@@ -2,7 +2,7 @@
 
 ## 3.3.2 (2025-08-27)
 
-MLflow 3.3.2 includes several major features and improvements
+MLflow 3.3.2 is a patch release that includes several minor improvements and bugfixes
 
 Features:
 
@@ -12,8 +12,8 @@ Bug fixes:
 
 - [Tracing] Add retry policy support to _invoke_litellm for improved reliability (#17394, @dbczumar)
 - [UI] fix ui sorting in experiments (#17340, @Flametaa)
-- [] Add Databricks Lakebase Resource (#17277, @jennsun)
-- [] Fix tags endpoint (#17362, @daniellok-db)
+- [Serving] Add Databricks Lakebase Resource (#17277, @jennsun)
+- [Tracing] Fix set trace tags endpoint (#17362, @daniellok-db)
 
 Documentation updates:
 
