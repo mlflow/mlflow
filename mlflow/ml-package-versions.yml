@@ -218,6 +218,7 @@ onnx:
 
 semantic_kernel:
   package_info:
+    genai: true
     pip_release: "semantic-kernel"
     install_dev: |
       pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
@@ -530,6 +531,7 @@ transformers:
 
 openai:
   package_info:
+    genai: true
     pip_release: "openai"
     install_dev: |
       pip install git+https://github.com/openai/openai-python
@@ -573,6 +575,7 @@ openai:
 
 dspy:
   package_info:
+    genai: true
     pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
@@ -594,6 +597,7 @@ dspy:
 
 langchain:
   package_info:
+    genai: true
     pip_release: "langchain"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
@@ -695,6 +699,7 @@ langchain:
 
 langgraph:
   package_info:
+    genai: true
     pip_release: "langgraph"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
@@ -738,6 +743,7 @@ langgraph:
 
 llama_index:
   package_info:
+    genai: true
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
@@ -779,6 +785,7 @@ llama_index:
 
 ag2:
   package_info:
+    genai: true
     pip_release: "ag2"
     module_name: "autogen"
   autologging:
@@ -800,6 +807,7 @@ ag2:
 
 autogen:
   package_info:
+    genai: true
     pip_release: "autogen-agentchat"
     module_name: "autogen_agentchat"
   autologging:
@@ -817,6 +825,7 @@ autogen:
 
 gemini:
   package_info:
+    genai: true
     pip_release: "google-genai"
     module_name: "google.genai"
     install_dev: |
@@ -833,6 +842,7 @@ gemini:
 
 anthropic:
   package_info:
+    genai: true
     pip_release: "anthropic"
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
@@ -849,6 +859,7 @@ anthropic:
 
 crewai:
   package_info:
+    genai: true
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
@@ -863,6 +874,7 @@ crewai:
 
 agno:
   package_info:
+    genai: true
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
@@ -879,6 +891,7 @@ agno:
 
 pydantic_ai:
   package_info:
+    genai: true
     pip_release: "pydantic-ai"
     module_name: "pydantic_ai"
 
@@ -906,6 +919,7 @@ pydantic_ai:
 
 smolagents:
   package_info:
+    genai: true
     pip_release: "smolagents"
     module_name: "smolagents"
     install_dev: |
@@ -923,6 +937,7 @@ smolagents:
 
 mistral:
   package_info:
+    genai: true
     pip_release: "mistralai"
     module_name: "mistralai"
     install_dev: |
@@ -1000,6 +1015,7 @@ promptflow:
 
 litellm:
   package_info:
+    genai: true
     pip_release: "litellm"
     install_dev: |
       pip install git+https://github.com/BerriAI/litellm.git
@@ -1020,6 +1036,7 @@ litellm:
 
 groq:
   package_info:
+    genai: true
     pip_release: "groq"
     install_dev: |
       pip install git+https://github.com/groq/groq-python
@@ -1032,6 +1049,7 @@ groq:
 
 bedrock:
   package_info:
+    genai: true
     pip_release: "boto3"
     module_name: "boto3"
   autologging:
