@@ -55,6 +55,16 @@ export interface MLflowTracingConfig {
    * The Databricks token. If not provided, the token will be read from the Databricks config file.
    */
   databricksToken?: string;
+
+  /**
+   * The `username` for basic auth when it's enabled.
+   */
+  username?: string;
+
+  /**
+   * The `password` for basic auth when it's enabled.
+   */
+  password?: string;
 }
 
 /**
