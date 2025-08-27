@@ -879,6 +879,33 @@ class DeleteTracesV3(_message.Message):
     request_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, experiment_id: _Optional[str] = ..., max_timestamp_millis: _Optional[int] = ..., max_traces: _Optional[int] = ..., request_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class CalculateTraceFilterCorrelation(_message.Message):
+    __slots__ = ("experiment_ids", "filter_string1", "filter_string2", "base_filter")
+    class Response(_message.Message):
+        __slots__ = ("npmi", "npmi_smoothed", "filter1_count", "filter2_count", "joint_count", "total_count")
+        NPMI_FIELD_NUMBER: _ClassVar[int]
+        NPMI_SMOOTHED_FIELD_NUMBER: _ClassVar[int]
+        FILTER1_COUNT_FIELD_NUMBER: _ClassVar[int]
+        FILTER2_COUNT_FIELD_NUMBER: _ClassVar[int]
+        JOINT_COUNT_FIELD_NUMBER: _ClassVar[int]
+        TOTAL_COUNT_FIELD_NUMBER: _ClassVar[int]
+        npmi: float
+        npmi_smoothed: float
+        filter1_count: int
+        filter2_count: int
+        joint_count: int
+        total_count: int
+        def __init__(self, npmi: _Optional[float] = ..., npmi_smoothed: _Optional[float] = ..., filter1_count: _Optional[int] = ..., filter2_count: _Optional[int] = ..., joint_count: _Optional[int] = ..., total_count: _Optional[int] = ...) -> None: ...
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING1_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING2_FIELD_NUMBER: _ClassVar[int]
+    BASE_FILTER_FIELD_NUMBER: _ClassVar[int]
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    filter_string1: str
+    filter_string2: str
+    base_filter: str
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
+
 class SetTraceTag(_message.Message):
     __slots__ = ("request_id", "key", "value")
     class Response(_message.Message):
