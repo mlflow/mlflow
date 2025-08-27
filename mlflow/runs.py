@@ -246,7 +246,7 @@ def link_traces(experiment_id: str | None, run_id: str, trace_id: tuple[str, ...
         # Set the experiment context if provided
         if experiment_id:
             mlflow.set_experiment(experiment_id=experiment_id)
-        
+
         client = MlflowClient()
         client.link_traces_to_run(trace_ids, run_id)
 
