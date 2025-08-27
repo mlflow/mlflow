@@ -34,7 +34,7 @@ class MlflowV3SpanExporter(SpanExporter):
     using the V3 trace schema and API.
     """
 
-    def __init__(self, tracking_uri: str | None = None):
+    def __init__(self, tracking_uri: str | None = None) -> None:
         self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
@@ -43,7 +43,7 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
-    def export(self, spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
         Export the spans to the destination.
 
@@ -109,7 +109,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
         return spans_by_experiment
 
-    def _export_traces(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager):
+    def _export_traces(self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager) -> None:
         """
         Export full traces for root spans.
 
@@ -148,7 +148,7 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 self._log_trace(trace, prompts=manager_trace.prompts)
 
-    def _log_spans(self, experiment_id: str, spans: list[Span]):
+    def _log_spans(self, experiment_id: str, spans: list[Span]) -> None:
         """
         Helper method to log spans with error handling.
 
@@ -165,7 +165,7 @@ class MlflowV3SpanExporter(SpanExporter):
         except Exception as e:
             _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
+    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
@@ -196,7 +196,7 @@ class MlflowV3SpanExporter(SpanExporter):
         except Exception as e:
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
-    def _should_enable_async_logging(self):
+    def _should_enable_async_logging(self) -> bool:
         if (
             is_in_databricks_notebook()
             # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
@@ -215,7 +215,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
-    def _should_log_async(self):
+    def _should_log_async(self) -> bool:
         # During evaluate, the eval harness relies on the generated trace objects,
         # so we should not log traces asynchronously.
         if maybe_get_request_id(is_evaluate=True):
