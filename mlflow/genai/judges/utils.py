@@ -47,9 +47,9 @@ def invoke_judge_model(
     num_retries: int = 10,
 ) -> Feedback:
     """
-    Invoke the judge.
+    Invoke the judge model.
 
-    First, try to invoke the judge via litellm. If litellm is not installed,
+    First, try to invoke the judge model via litellm. If litellm is not installed,
     fallback to native parsing using the AI Gateway adapters.
 
     Args:
