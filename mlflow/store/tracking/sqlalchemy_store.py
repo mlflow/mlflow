@@ -2520,6 +2520,9 @@ class SqlAlchemyStore(AbstractStore):
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
 
+            # Use merge() instead of add() to handle duplicate trace creation gracefully.
+            # Both the processor and exporter may try to save the same trace_id, so merge()
+            # will INSERT if new or UPDATE if already exists, avoiding UNIQUE constraint errors.
             session.merge(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
 
