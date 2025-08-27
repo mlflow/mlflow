@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from dataclasses import asdict, is_dataclass
+from typing import Any, Dict
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -118,6 +119,34 @@ def _is_litellm_available() -> bool:
         return False
 
 
+def _get_judge_response_format() -> Dict[str, Any]:
+    """
+    Get the response format for judge model evaluations.
+    
+    Returns:
+        A dictionary containing the JSON schema for structured outputs.
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "judge_evaluation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "result": {"type": "string", "description": "The evaluation rating/result"},
+                    "rationale": {
+                        "type": "string",
+                        "description": "Detailed explanation for the evaluation",
+                    },
+                },
+                "required": ["result", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def _invoke_litellm(
     provider: str, model_name: str, prompt: str, trace: Trace | None, num_retries: int
 ) -> str:
@@ -144,29 +173,8 @@ def _invoke_litellm(
 
     litellm_model_uri = f"{provider}/{model_name}"
     messages = [{"role": "user", "content": prompt}]
-
     tools = []
-
-    # Always use structured outputs with LiteLLM for consistent JSON responses
-    response_format = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "judge_evaluation",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "result": {"type": "string", "description": "The evaluation rating/result"},
-                    "rationale": {
-                        "type": "string",
-                        "description": "Detailed explanation for the evaluation",
-                    },
-                },
-                "required": ["result", "rationale"],
-                "additionalProperties": False,
-            },
-        },
-    }
+    response_format = _get_judge_response_format()
 
     if trace is not None:
         judge_tools = list_judge_tools()
