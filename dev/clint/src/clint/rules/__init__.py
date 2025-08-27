@@ -1,4 +1,5 @@
 from clint.rules.base import Rule
+from clint.rules.deprecation_warning_usage import DeprecationWarningUsage
 from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
@@ -42,6 +43,7 @@ ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
 __all__ = [
     "ALL_RULES",
     "Rule",
+    "DeprecationWarningUsage",
     "DoNotDisable",
     "DocstringParamOrder",
     "EmptyNotebookCell",
