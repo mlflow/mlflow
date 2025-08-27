@@ -171,29 +171,40 @@ def test_constructor_with_valid_uri():
         assert repo is not None
 
 
-def test_constructor_with_invalid_uri():
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "invalid_uri",
+        "dbfs:/databricks/mlflow-tracking/1/runs/1",
+        "dbfs:/databricks/mlflow-tracking/1/other/1",
+        "http://example.com",
+        "s3://bucket/path",
+    ],
+)
+def test_constructor_with_invalid_uri(invalid_uri):
     """Test that constructor raises exception with invalid URIs."""
     with pytest.raises(MlflowException, match="Invalid artifact URI"):
-        DatabricksLoggedModelArtifactRepository("invalid_uri")
+        DatabricksLoggedModelArtifactRepository(invalid_uri)
 
 
-def test_is_logged_model_uri():
+@pytest.mark.parametrize(
+    ("uri", "expected_result"),
+    [
+        # Valid logged model URIs
+        ("dbfs:/databricks/mlflow-tracking/1/logged_models/1", True),
+        ("dbfs:/databricks/mlflow-tracking/123/logged_models/456", True),
+        # Invalid URIs
+        ("dbfs:/databricks/mlflow-tracking/1/runs/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/other/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/logged_models", False),
+        ("dbfs:/databricks/mlflow-tracking/logged_models/1", False),
+    ],
+)
+def test_is_logged_model_uri(uri, expected_result):
     """Test the is_logged_model_uri static method."""
-    # Valid logged model URIs
-    assert DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
-        "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
-    )
-    assert DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
-        "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
-    )
-
-    # Invalid URIs
-    assert not DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
-        "dbfs:/databricks/mlflow-tracking/1/runs/1"
-    )
-    assert not DatabricksLoggedModelArtifactRepository.is_logged_model_uri(
-        "dbfs:/databricks/mlflow-tracking/1/other/1"
-    )
+    result = DatabricksLoggedModelArtifactRepository.is_logged_model_uri(uri)
+    assert result == expected_result
 
 
 def test_uri_parsing():

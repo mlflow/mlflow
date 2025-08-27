@@ -142,7 +142,15 @@ def test_list_artifacts():
         assert len(artifacts) == 1
 
 
-def test_constructor_with_valid_uri():
+@pytest.mark.parametrize(
+    "valid_uri",
+    [
+        "dbfs:/databricks/mlflow-tracking/1/123",
+        "dbfs:/databricks/mlflow-tracking/1/456/artifacts",
+        "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model",
+    ],
+)
+def test_constructor_with_valid_uri(valid_uri):
     """Test that the constructor works with valid run URIs."""
     with (
         mock.patch(
@@ -152,58 +160,56 @@ def test_constructor_with_valid_uri():
             "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
         ),
     ):
-        # Test basic run URI
-        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
-        assert repo is not None
-
-        # Test run URI with relative path
-        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/456/artifacts")
-        assert repo is not None
-
-        # Test run URI with nested relative path
-        repo = DatabricksRunArtifactRepository(
-            "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model"
-        )
+        repo = DatabricksRunArtifactRepository(valid_uri)
         assert repo is not None
 
 
-def test_constructor_with_invalid_uri():
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "dbfs:/invalid/uri",
+        "dbfs:/databricks/mlflow-tracking/1",
+        "dbfs:/databricks/mlflow-tracking/1/logged_models/1",
+    ],
+)
+def test_constructor_with_invalid_uri(invalid_uri):
     """Test that the constructor raises an error with invalid URIs."""
     with pytest.raises(
         Exception,  # The exact exception type depends on the parent class
         match="Invalid artifact URI",
     ):
-        DatabricksRunArtifactRepository("dbfs:/invalid/uri")
-
-    with pytest.raises(Exception, match="Invalid artifact URI"):
-        DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1")
-
-    with pytest.raises(Exception, match="Invalid artifact URI"):
-        DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/logged_models/1")
+        DatabricksRunArtifactRepository(invalid_uri)
 
 
-def test_is_run_uri():
+@pytest.mark.parametrize(
+    ("uri", "expected_result"),
+    [
+        # Valid run URIs
+        ("dbfs:/databricks/mlflow-tracking/1/123", True),
+        ("dbfs:/databricks/mlflow-tracking/1/456/artifacts", True),
+        ("dbfs:/databricks/mlflow-tracking/1/789/artifacts/model", True),
+        # Invalid URIs
+        ("dbfs:/databricks/mlflow-tracking/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/logged_models/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/tr-1", False),
+        ("dbfs:/invalid/uri", False),
+        ("s3://bucket/path", False),
+    ],
+)
+def test_is_run_uri(uri, expected_result):
     """Test the is_run_uri static method."""
-    # Valid run URIs
-    assert DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/123")
-    assert DatabricksRunArtifactRepository.is_run_uri(
-        "dbfs:/databricks/mlflow-tracking/1/456/artifacts"
-    )
-    assert DatabricksRunArtifactRepository.is_run_uri(
-        "dbfs:/databricks/mlflow-tracking/1/789/artifacts/model"
-    )
-
-    # Invalid URIs
-    assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1")
-    assert not DatabricksRunArtifactRepository.is_run_uri(
-        "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
-    )
-    assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/databricks/mlflow-tracking/1/tr-1")
-    assert not DatabricksRunArtifactRepository.is_run_uri("dbfs:/invalid/uri")
-    assert not DatabricksRunArtifactRepository.is_run_uri("s3://bucket/path")
+    result = DatabricksRunArtifactRepository.is_run_uri(uri)
+    assert result == expected_result
 
 
-def test_uri_parsing():
+@pytest.mark.parametrize(
+    ("uri", "expected_experiment_id", "expected_run_id", "expected_relative_path"),
+    [
+        ("dbfs:/databricks/mlflow-tracking/123/456", "123", "456", None),
+        ("dbfs:/databricks/mlflow-tracking/123/456/artifacts", "123", "456", "/artifacts"),
+    ],
+)
+def test_uri_parsing(uri, expected_experiment_id, expected_run_id, expected_relative_path):
     """Test that URI components are correctly parsed."""
     with (
         mock.patch(
@@ -213,24 +219,30 @@ def test_uri_parsing():
             "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
         ),
     ):
-        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/123/456")
+        repo = DatabricksRunArtifactRepository(uri)
 
         # Test that the regex pattern matches correctly
-        match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456")
+        match = repo._get_uri_regex().search(uri)
         assert match is not None
-        assert match.group("experiment_id") == "123"
-        assert match.group("run_id") == "456"
-        assert match.group("relative_path") is None
-
-        # Test with relative path
-        match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456/artifacts")
-        assert match is not None
-        assert match.group("experiment_id") == "123"
-        assert match.group("run_id") == "456"
-        assert match.group("relative_path") == "/artifacts"
+        assert match.group("experiment_id") == expected_experiment_id
+        assert match.group("run_id") == expected_run_id
+        assert match.group("relative_path") == expected_relative_path
 
 
-def test_build_root_path():
+@pytest.mark.parametrize(
+    ("uri", "expected_root_path"),
+    [
+        (
+            "dbfs:/databricks/mlflow-tracking/123/456",
+            "/WorkspaceInternal/Mlflow/Artifacts/123/Runs/456",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/123/456/artifacts",
+            "/WorkspaceInternal/Mlflow/Artifacts/123/Runs/456/artifacts",
+        ),
+    ],
+)
+def test_build_root_path(uri, expected_root_path):
     """Test that the root path is built correctly."""
     with (
         mock.patch(
@@ -240,17 +252,19 @@ def test_build_root_path():
             "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
         ),
     ):
-        repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/123/456")
+        repo = DatabricksRunArtifactRepository(uri)
 
-        # Test root path without relative path
-        match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456")
-        root_path = repo._build_root_path("123", match, "")
-        assert root_path == "/WorkspaceInternal/Mlflow/Artifacts/123/Runs/456"
-
-        # Test root path with relative path
-        match = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/456/artifacts")
-        root_path = repo._build_root_path("123", match, "/artifacts")
-        assert root_path == "/WorkspaceInternal/Mlflow/Artifacts/123/Runs/456/artifacts"
+        # Test root path building
+        match = repo._get_uri_regex().search(uri)
+        if match.group("relative_path"):
+            root_path = repo._build_root_path(
+                match.group("experiment_id"),
+                match,
+                match.group("relative_path")
+            )
+        else:
+            root_path = repo._build_root_path(match.group("experiment_id"), match, "")
+        assert root_path == expected_root_path
 
 
 def test_expected_uri_format():
