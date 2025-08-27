@@ -9,6 +9,8 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.data import Dataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
@@ -20,6 +22,9 @@ from mlflow.genai.datasets import (
     get_dataset,
     search_datasets,
     set_dataset_tags,
+)
+from mlflow.genai.datasets.evaluation_dataset import (
+    EvaluationDataset as WrapperEvaluationDataset,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -1814,3 +1819,119 @@ def test_search_datasets_filter_string_edge_cases(tracking_uri):
         call_args = mock_search.call_args
         filter_arg = call_args.kwargs.get("filter_string")
         assert filter_arg == 'name = "test"'
+
+
+def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_wrapper",
+        experiment_id=experiments[0],
+        tags={"test": "wrapper_check"},
+    )
+
+    assert isinstance(dataset, WrapperEvaluationDataset)
+    assert not isinstance(dataset, EntityEvaluationDataset)
+    assert hasattr(dataset, "_mlflow_dataset")
+    assert dataset._mlflow_dataset is not None
+    assert isinstance(dataset._mlflow_dataset, EntityEvaluationDataset)
+
+
+def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_delegation",
+        experiment_id=experiments[0],
+        tags={"env": "test", "version": "1.0"},
+    )
+
+    assert dataset.name == "test_delegation"
+    assert dataset.dataset_id.startswith("d-")
+    assert dataset.tags["env"] == "test"
+    assert dataset.tags["version"] == "1.0"
+    assert experiments[0] in dataset.experiment_ids
+    assert dataset.created_time > 0
+    assert dataset.last_update_time > 0
+    assert dataset.digest is not None
+    assert hasattr(dataset, "source")
+    assert dataset.source._get_source_type() == "mlflow_evaluation_dataset"
+
+
+def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
+    created = create_dataset(
+        name="test_get_wrapper",
+        experiment_id=experiments[0],
+        tags={"test": "get"},
+    )
+
+    retrieved = get_dataset(dataset_id=created.dataset_id)
+    assert isinstance(retrieved, WrapperEvaluationDataset)
+    assert not isinstance(retrieved, EntityEvaluationDataset)
+    assert retrieved.dataset_id == created.dataset_id
+    assert retrieved.name == created.name
+
+    results = search_datasets(
+        experiment_ids=experiments[0],
+        filter_string="name = 'test_get_wrapper'",
+    )
+    assert len(results) == 1
+    assert isinstance(results[0], WrapperEvaluationDataset)
+    assert not isinstance(results[0], EntityEvaluationDataset)
+
+
+def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
+    client = MlflowClient()
+
+    entity_dataset = client.create_dataset(
+        name="test_client_direct",
+        experiment_id=experiments[0],
+        tags={"direct": "client"},
+    )
+    assert isinstance(entity_dataset, EntityEvaluationDataset)
+    assert not isinstance(entity_dataset, WrapperEvaluationDataset)
+
+    wrapped_dataset = create_dataset(
+        name="test_wrapped",
+        experiment_id=experiments[0],
+        tags={"wrapped": "fluent"},
+    )
+    assert isinstance(wrapped_dataset, WrapperEvaluationDataset)
+    assert not isinstance(wrapped_dataset, EntityEvaluationDataset)
+    assert wrapped_dataset._mlflow_dataset is not None
+
+    wrapped_from_entity = WrapperEvaluationDataset(entity_dataset)
+    assert wrapped_from_entity == entity_dataset
+
+
+def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_log_input",
+        experiment_id=experiments[0],
+    )
+
+    records = [
+        {
+            "inputs": {"question": "Test question"},
+            "expectations": {"answer": "Test answer"},
+        }
+    ]
+    dataset.merge_records(records)
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    run_data = mlflow.get_run(run.info.run_id)
+    assert len(run_data.inputs.dataset_inputs) == 1
+    dataset_input = run_data.inputs.dataset_inputs[0]
+    assert dataset_input.dataset.name == "test_log_input"
+    assert dataset_input.dataset.digest == dataset.digest
+
+
+def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_isinstance",
+        experiment_id=experiments[0],
+    )
+
+    assert isinstance(dataset, Dataset)
+    assert isinstance(dataset, PyFuncConvertibleDatasetMixin)
+    assert isinstance(dataset, WrapperEvaluationDataset)
+    assert not isinstance(dataset, EntityEvaluationDataset)
+    assert isinstance(dataset, (WrapperEvaluationDataset, EntityEvaluationDataset))
