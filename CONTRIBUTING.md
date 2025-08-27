@@ -192,20 +192,6 @@ We follow [Google's Python Style Guide](https://google.github.io/styleguide/pygu
 for writing docstrings. Make sure your docstrings adhere to this style
 guide.
 
-##### Warning Categories
-
-When using `warnings.warn()`, use `FutureWarning` instead of `DeprecationWarning`.
-Python does not show `DeprecationWarning` by default, making it less visible to users.
-`FutureWarning` is shown by default and provides better user awareness.
-
-```python
-# Recommended
-warnings.warn("This feature is deprecated", category=FutureWarning)
-
-# Avoid
-warnings.warn("This feature is deprecated", category=DeprecationWarning)
-```
-
 ###### Code Style
 
 We use [prettier](https://prettier.io/),

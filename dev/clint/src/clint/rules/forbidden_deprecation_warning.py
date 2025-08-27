@@ -27,4 +27,12 @@ class ForbiddenDeprecationWarning(Rule):
                         and keyword.value.id == "DeprecationWarning"
                     ):
                         return True
+
+                # Check if DeprecationWarning is passed as the second positional argument (category)
+                if (
+                    len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Name)
+                    and node.args[1].id == "DeprecationWarning"
+                ):
+                    return True
         return False
