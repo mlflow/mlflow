@@ -1157,10 +1157,13 @@ def search_runs_impl(request_message):
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
     run_entities = _get_tracking_store().search_runs(
-        experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        request_message.page_token or None,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
@@ -1714,15 +1717,12 @@ def _search_experiments():
         },
     )
 
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         filter_string=request_message.filter,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
@@ -1926,15 +1926,12 @@ def _search_registered_models():
             "page_token": [_assert_string],
         },
     )
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
@@ -2290,15 +2287,12 @@ def _search_model_versions():
 
 
 def search_model_versions_impl(request_message):
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     store = _get_model_registry_store()
     model_versions = store.search_model_versions(
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
@@ -2484,11 +2478,9 @@ def _list_webhooks():
             "page_token": [_assert_string],
         },
     )
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
     webhooks_page = _get_model_registry_store().list_webhooks(
         max_results=request_message.max_results,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = ListWebhooks.Response(
         webhooks=[w.to_proto() for w in webhooks_page],
@@ -2838,15 +2830,12 @@ def _search_traces_v3():
         if location.HasField("mlflow_experiment"):
             experiment_ids.append(location.mlflow_experiment.experiment_id)
 
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     traces, token = _get_tracking_store().search_traces(
         experiment_ids=experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchTracesV3.Response()
     response_message.traces.extend([e.to_proto() for e in traces])
@@ -3185,15 +3174,12 @@ def _deprecated_search_traces_v2():
         },
     )
 
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     traces, token = _get_tracking_store().search_traces(
         experiment_ids=request_message.experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     traces = [TraceInfoV2.from_v3(t) for t in traces]
     response_message = SearchTraces.Response()
@@ -3354,9 +3340,6 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
-    # Empty strings must be converted to None as they are invalid `page_token`s.
-    page_token = request_message.page_token if request_message.page_token else None
-
     models = _get_tracking_store().search_logged_models(
         # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
         # to avoid serialization issues
@@ -3387,7 +3370,7 @@ def _search_logged_models():
             if request_message.order_by
             else None
         ),
-        page_token=page_token,
+        page_token=request_message.page_token or None,
     )
     response_message = SearchLoggedModels.Response()
     response_message.models.extend([e.to_proto() for e in models])
