@@ -1,5 +1,4 @@
 import json
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -40,47 +39,6 @@ def test_trace():
         state=TraceState.OK,
     )
     return Trace(info=trace_info, data=None)
-
-
-# Helper functions for creating custom test objects
-def create_mock_response(
-    result: str = "yes", rationale: str = "The response meets all criteria."
-) -> ModelResponse:
-    """Create a mock ModelResponse with the given result and rationale."""
-    content = json.dumps({"result": result, "rationale": rationale})
-    return ModelResponse(choices=[{"message": {"content": content}}])
-
-
-def create_mock_tool_response(
-    tool_calls: list[dict[str, Any]] | None = None, content: str | None = None
-) -> ModelResponse:
-    """Create a mock ModelResponse with tool calls or content."""
-    message = {"content": content}
-    if tool_calls:
-        message["tool_calls"] = tool_calls
-    return ModelResponse(choices=[{"message": message}])
-
-
-def create_test_trace(trace_id: str = "test-trace", state: TraceState = TraceState.OK) -> Trace:
-    """Create a test Trace object with the given parameters."""
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=state,
-    )
-    return Trace(info=trace_info, data=None)
-
-
-def create_mock_tool(name: str = "get_trace_info", description: str | None = None) -> mock.Mock:
-    """Create a mock tool with the given name and description."""
-    tool = mock.Mock()
-    tool.name = name
-    tool_def = {"name": name}
-    if description:
-        tool_def["description"] = description
-    tool.get_definition.return_value.to_dict.return_value = tool_def
-    return tool
 
 
 @pytest.mark.parametrize("num_retries", [None, 3])
@@ -208,8 +166,20 @@ def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
         mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
     ):
         # Mock some tools being available
-        mock_tool1 = create_mock_tool("get_trace_info", "Get trace info")
-        mock_tool2 = create_mock_tool("list_spans", "List spans")
+        mock_tool1 = mock.Mock()
+        mock_tool1.name = "get_trace_info"
+        mock_tool1.get_definition.return_value.to_dict.return_value = {
+            "name": "get_trace_info",
+            "description": "Get trace info",
+        }
+
+        mock_tool2 = mock.Mock()
+        mock_tool2.name = "list_spans"
+        mock_tool2.get_definition.return_value.to_dict.return_value = {
+            "name": "list_spans",
+            "description": "List spans",
+        }
+
         mock_list_tools.return_value = [mock_tool1, mock_tool2]
 
         invoke_judge_model(
@@ -231,12 +201,32 @@ def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
 
 def test_invoke_judge_model_tool_calling_loop(test_trace):
     # First call: model requests tool call
-    mock_tool_call_response = create_mock_tool_response(
-        tool_calls=[{"id": "call_123", "function": {"name": "get_trace_info", "arguments": "{}"}}]
+    mock_tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {"name": "get_trace_info", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
     )
 
     # Second call: model provides final answer
-    mock_final_response = create_mock_response(rationale="The trace looks good.")
+    mock_final_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": json.dumps({"result": "yes", "rationale": "The trace looks good."})
+                }
+            }
+        ]
+    )
 
     with (
         mock.patch(
@@ -247,7 +237,9 @@ def test_invoke_judge_model_tool_calling_loop(test_trace):
             "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
         ) as mock_invoke_tool,
     ):
-        mock_tool = create_mock_tool("get_trace_info")
+        mock_tool = mock.Mock()
+        mock_tool.name = "get_trace_info"
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
         mock_list_tools.return_value = [mock_tool]
 
         mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
