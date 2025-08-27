@@ -1107,10 +1107,10 @@ model_version = 1
 mv = client.get_model_version(name=model_name, version=model_version)
 # Load the model, be sure to match the flavor of the original model.
 # Can use a snippet like this to get the original flavor:
-'''
+"""
 model_info = mlflow.models.get_model_info(mv.source)
 print(f"Original flavor: {list(model_info.flavors.keys())}")
-'''
+"""
 loaded_model = mlflow.sklearn.load_model(mv.source)
 
 # Provide signature, e.g. via infer_signature on dataset
