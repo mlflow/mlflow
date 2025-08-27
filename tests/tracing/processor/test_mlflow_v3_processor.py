@@ -108,7 +108,6 @@ def test_incremental_span_name_deduplication():
         )
         processor.on_start(span)
         live_span = LiveSpan(span, request_id)
-        live_span._request_id = request_id
         trace_manager.register_span(live_span)
         return span
 
@@ -135,7 +134,7 @@ def test_incremental_span_name_deduplication():
     # End child4 - should deduplicate "query" spans
     processor.on_end(child4)
     with trace_manager.get_trace(request_id) as trace:
-        names = sorted([s.name for s in trace.span_dict.values()])
+        names = [s.name for s in trace.span_dict.values()]
         assert "query_1" in names
         assert "query_2" in names
 
@@ -143,8 +142,8 @@ def test_incremental_span_name_deduplication():
     processor.on_end(child2)
     processor.on_end(root)
     with trace_manager.get_trace(request_id) as trace:
-        final_names = sorted([s.name for s in trace.span_dict.values()])
-        assert final_names == ["process_1", "process_2", "process_3", "query_1", "query_2"]
+        final_names = [s.name for s in trace.span_dict.values()]
+        assert set(final_names) == {"process_1", "process_2", "process_3", "query_1", "query_2"}
 
 
 def test_on_end():
