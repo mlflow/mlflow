@@ -97,6 +97,7 @@ Let's define a Python function that fetches the weather information from a weath
 
 ```python
 import requests
+from mlflow.entities import SpanType
 
 
 # Decorated with @mlflow.trace to trace the function call.
@@ -137,6 +138,7 @@ Lastly, define a simple flow that first asks the LLM to get instructions for cal
 
 ```python
 import json
+from mlflow.entities import SpanType
 
 
 # Define a simple tool calling agent
