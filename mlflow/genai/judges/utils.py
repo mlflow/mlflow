@@ -171,7 +171,9 @@ def _invoke_litellm(
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
                 try:
-                    mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
+                    mlflow_tool_call = _create_mlflow_tool_call_from_litellm(
+                        litellm_tool_call=tool_call
+                    )
                     result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
                     messages.append(
@@ -200,12 +202,12 @@ def _invoke_litellm(
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
 
-def _create_mlflow_tool_call_from_litellm(litellm_tool_call: Any) -> ToolCall:
+def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> ToolCall:
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
 
     Args:
-        litellm_tool_call: The LiteLLM tool call object.
+        litellm_tool_call: The LiteLLM ChatCompletionMessageToolCall object.
 
     Returns:
         An MLflow ToolCall object.
@@ -221,7 +223,7 @@ def _create_mlflow_tool_call_from_litellm(litellm_tool_call: Any) -> ToolCall:
 
 def _create_litellm_tool_response_message(
     tool_call_id: str, tool_name: str, content: str
-) -> dict[str, Any]:
+) -> dict[str, str]:
     """
     Create a tool response message for LiteLLM.
 
