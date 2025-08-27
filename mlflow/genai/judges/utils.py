@@ -56,7 +56,7 @@ def invoke_judge_model(
         model_uri: The model URI.
         prompt: The prompt to evaluate.
         assessment_name: The name of the assessment.
-        trace: Optional trace object for context (default=None).
+        trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
     """
     from mlflow.metrics.genai.model_utils import (
