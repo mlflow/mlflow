@@ -10,6 +10,12 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
+@pytest.fixture(autouse=True)
+def set_fake_databricks_creds(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://localhost:8080")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token")
+
+
 @pytest.fixture
 def host_creds_mock():
     with mock.patch(

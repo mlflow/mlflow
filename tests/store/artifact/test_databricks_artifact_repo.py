@@ -57,7 +57,7 @@ MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
 @pytest.fixture(autouse=True)
-def disable_databricks_sdk_for_run_artifacts(monkeypatch):
+def disable_databricks_sdk_for_run_artifacts(monkeypatch: pytest.MonkeyPatch):
     """Automatically disable Databricks SDK for run artifacts in all tests in this file."""
     monkeypatch.setenv("MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS", "true")
 

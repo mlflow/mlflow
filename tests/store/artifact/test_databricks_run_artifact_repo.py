@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -210,7 +209,12 @@ def test_is_run_uri(uri: str, expected_result: bool):
         ("dbfs:/databricks/mlflow-tracking/123/456/artifacts", "123", "456", "/artifacts"),
     ],
 )
-def test_uri_parsing(uri: str, expected_experiment_id: str, expected_run_id: str, expected_relative_path: Optional[str]):
+def test_uri_parsing(
+    uri: str,
+    expected_experiment_id: str,
+    expected_run_id: str,
+    expected_relative_path: str | None,
+):
     """Test that URI components are correctly parsed."""
     with (
         mock.patch(
@@ -279,4 +283,6 @@ def test_expected_uri_format():
         ),
     ):
         repo = DatabricksRunArtifactRepository("dbfs:/databricks/mlflow-tracking/1/123")
-        assert repo._get_expected_uri_format() == "databricks/mlflow-tracking/<EXPERIMENT_ID>/<RUN_ID>"
+        assert repo._get_expected_uri_format() == (
+            "databricks/mlflow-tracking/<EXPERIMENT_ID>/<RUN_ID>"
+        )
