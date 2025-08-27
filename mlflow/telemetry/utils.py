@@ -58,12 +58,12 @@ def _is_in_databricks() -> bool:
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
-_IS_MLFLOW_TESTING = _MLFLOW_TESTING_TELEMETRY.get()
+_IS_MLFLOW_TESTING_TELEMETRY = _MLFLOW_TESTING_TELEMETRY.get()
 
 
 def is_telemetry_disabled() -> bool:
     try:
-        if _IS_MLFLOW_TESTING:
+        if _IS_MLFLOW_TESTING_TELEMETRY:
             return False
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
@@ -82,7 +82,7 @@ def _get_config_url(version: str) -> str | None:
     """
     version_obj = Version(version)
 
-    if version_obj.is_devrelease or _IS_MLFLOW_TESTING:
+    if version_obj.is_devrelease or _IS_MLFLOW_TESTING_TELEMETRY:
         return f"{CONFIG_STAGING_URL}/{version}.json"
 
     if version_obj.base_version == version or (
