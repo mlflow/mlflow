@@ -172,7 +172,6 @@ class RestStore(AbstractStore):
             _, method = _METHOD_TO_INFO[api]
         else:
             endpoint, method = _METHOD_TO_INFO[api]
-
         response_proto = api.Response()
         return call_endpoint(
             self.get_host_creds(),
