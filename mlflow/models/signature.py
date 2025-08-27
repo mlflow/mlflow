@@ -589,8 +589,8 @@ def set_signature(
 
     Furthermore, as model registry artifacts are read-only, model artifacts located in the
     model registry and represented by ``models:/`` URI schemes are not compatible with this API.
-    To set a signature on a model version, first load the source model artifacts. Following this, 
-    generate a new model version using the loaded model artifacts and a corresponding signature. 
+    To set a signature on a model version, first load the source model artifacts. Following this,
+    generate a new model version using the loaded model artifacts and a corresponding signature.
     For more information about setting signatures on model versions, see
     `this doc section <https://mlflow.org/docs/latest/ml/model/signatures/#adding-signatures-to-registered-model-versions>`_.
 
