@@ -96,40 +96,43 @@ def describe_run(run_id: str) -> None:
     "--experiment-id",
     envvar=MLFLOW_EXPERIMENT_ID.name,
     type=click.STRING,
-    help="ID of the experiment under which to create the run.",
+    help="ID of the experiment under which to create the run. "
+    "Must specify either this or --experiment-name.",
 )
 @click.option(
     "--experiment-name",
     envvar=MLFLOW_EXPERIMENT_NAME.name,
     type=click.STRING,
-    help="Name of the experiment under which to create the run.",
+    help="Name of the experiment under which to create the run. "
+    "Must specify either this or --experiment-id.",
 )
 @click.option(
     "--run-name",
     type=click.STRING,
-    help="Name to give the run (optional).",
+    help="Optional human-readable name for the run (e.g., 'baseline-model-v1').",
 )
 @click.option(
     "--description",
     type=click.STRING,
-    help="Description for the run (optional).",
+    help="Optional longer description of what this run represents.",
 )
 @click.option(
     "--tags",
     "-t",
     multiple=True,
-    help="Tags for the run in key=value format. Can be specified multiple times.",
+    help="Key-value pairs to categorize and filter runs. Use multiple times for "
+    "multiple tags. Format: key=value (e.g., env=prod, model=xgboost, version=1.0).",
 )
 @click.option(
     "--status",
     type=click.Choice(["FINISHED", "FAILED", "KILLED"], case_sensitive=False),
     default="FINISHED",
-    help="Status to set when ending the run. Default is FINISHED.",
+    help="Final status of the run. Options: FINISHED (default), FAILED, or KILLED.",
 )
 @click.option(
     "--parent-run-id",
     type=click.STRING,
-    help="ID of the parent run for nested runs (optional).",
+    help="Optional ID of a parent run to create a nested run under.",
 )
 def create_run(
     experiment_id: str | None,
@@ -146,23 +149,6 @@ def create_run(
     This command is useful for creating runs programmatically for testing, scripting,
     or recording completed experiments. The run will be created and immediately closed
     with the specified status (FINISHED, FAILED, or KILLED).
-
-    Args:
-        experiment_id: ID of the experiment under which to create the run.
-            Must specify either this or experiment_name.
-        experiment_name: Name of the experiment under which to create the run.
-            Must specify either this or experiment_id.
-        run_name: Optional human-readable name for the run (e.g., "baseline-model-v1").
-        description: Optional longer description of what this run represents.
-        tags: Key-value pairs to categorize and filter runs. Use multiple times for
-            multiple tags. Format: key=value (e.g., env=prod, model=xgboost, version=1.0).
-        status: Final status of the run. Options: FINISHED (default), FAILED, or KILLED.
-        parent_run_id: Optional ID of a parent run to create a nested run under.
-
-    Raises:
-        UsageError: If both or neither experiment_id and experiment_name are specified,
-            or if tags are in invalid format.
-        ClickException: If run creation fails.
     """
     # Validate that exactly one of experiment_id or experiment_name is provided
     if (experiment_id is not None and experiment_name is not None) or (
