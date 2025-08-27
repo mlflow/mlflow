@@ -52,7 +52,11 @@ export class MlflowClient {
     const response = await makeRequest<StartTraceV3.Response>(
       'POST',
       url,
-      getRequestHeaders(this.databricksToken, this.trackingServerUsername, this.trackingServerPassword),
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
@@ -79,7 +83,11 @@ export class MlflowClient {
     const response = await makeRequest<GetTraceInfoV3.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken, this.trackingServerUsername, this.trackingServerPassword)
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      )
     );
 
     // The V3 API returns a Trace object with trace_info field
@@ -111,7 +119,11 @@ export class MlflowClient {
     const response = await makeRequest<CreateExperiment.Response>(
       'POST',
       url,
-      getRequestHeaders(this.databricksToken, this.trackingServerUsername, this.trackingServerPassword),
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
       payload
     );
     return response.experiment_id;
@@ -126,7 +138,11 @@ export class MlflowClient {
     await makeRequest<void>(
       'POST',
       url,
-      getRequestHeaders(this.databricksToken, this.trackingServerUsername, this.trackingServerPassword),
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
       payload
     );
   }
