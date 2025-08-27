@@ -155,6 +155,19 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
+def test_invoke_judge_model_with_trace_requires_litellm():
+    trace = create_test_trace()
+    
+    with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
+        with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False):
+            invoke_judge_model(
+                model_uri="openai:/gpt-4",
+                prompt="Test prompt",
+                assessment_name="test",
+                trace=trace,
+            )
+
+
 def test_invoke_judge_model_invalid_json_response():
     mock_content = "This is not valid JSON"
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])

@@ -11,6 +11,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.types.llm import ToolCall
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -172,12 +173,14 @@ def _invoke_litellm(
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
                 try:
-                    mlflow_tool_call = _create_mlflow_tool_call(tool_call)
-                    result = _judge_tool_registry.invoke(mlflow_tool_call, trace)
+                    mlflow_tool_call = _create_mlflow_tool_call(litellm_tool_call=tool_call)
+                    result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
                     messages.append(
                         _create_tool_response_message(
-                            tool_call.id, tool_call.function.name, f"Error: {e!s}"
+                            tool_call_id=tool_call.id,
+                            tool_name=tool_call.function.name,
+                            content=f"Error: {e!s}"
                         )
                     )
                 else:
@@ -188,14 +191,16 @@ def _invoke_litellm(
                     result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
                     messages.append(
                         _create_tool_response_message(
-                            tool_call.id, tool_call.function.name, result_json
+                            tool_call_id=tool_call.id,
+                            tool_name=tool_call.function.name,
+                            content=result_json
                         )
                     )
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
 
-def _create_mlflow_tool_call(litellm_tool_call: Any) -> Any:
+def _create_mlflow_tool_call(litellm_tool_call: Any) -> ToolCall:
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
     
@@ -205,8 +210,6 @@ def _create_mlflow_tool_call(litellm_tool_call: Any) -> Any:
     Returns:
         An MLflow ToolCall object.
     """
-    from mlflow.types.llm import ToolCall
-    
     return ToolCall(
         id=litellm_tool_call.id,
         function={
