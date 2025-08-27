@@ -1183,7 +1183,6 @@ def list_artifacts_impl(request_message):
     return response_message
 
 
-@catch_mlflow_exception
 def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relative_path=None):
     """
     Lists artifacts from the specified ``relative_path`` within the specified proxied Run artifact
