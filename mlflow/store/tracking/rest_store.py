@@ -1076,7 +1076,8 @@ class RestStore(AbstractStore):
         )
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
-            RegisterScorer, req_body,
+            RegisterScorer,
+            req_body,
             endpoint="/api/3.0/mlflow/scorers/register",
         )
         return response_proto.version
@@ -1094,7 +1095,8 @@ class RestStore(AbstractStore):
         req_body = message_to_json(ListScorers(experiment_id=experiment_id))
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
-            ListScorers, req_body,
+            ListScorers,
+            req_body,
             endpoint="/api/3.0/mlflow/scorers/list",
         )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
@@ -1113,7 +1115,8 @@ class RestStore(AbstractStore):
         req_body = message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name))
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
-            ListScorerVersions, req_body,
+            ListScorerVersions,
+            req_body,
             endpoint="/api/3.0/mlflow/scorers/versions",
         )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
@@ -1138,7 +1141,8 @@ class RestStore(AbstractStore):
         )
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
-            GetScorer, req_body,
+            GetScorer,
+            req_body,
             endpoint="/api/3.0/mlflow/scorers/get",
         )
         return ScorerVersion.from_proto(response_proto.scorer)
@@ -1160,7 +1164,8 @@ class RestStore(AbstractStore):
         )
         # Scorer APIs are v3.0 endpoints
         self._call_endpoint(
-            DeleteScorer, req_body,
+            DeleteScorer,
+            req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
 
