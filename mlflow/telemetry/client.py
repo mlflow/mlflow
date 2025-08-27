@@ -1,5 +1,4 @@
 import atexit
-import logging
 import random
 import sys
 import threading
@@ -24,8 +23,6 @@ from mlflow.telemetry.events import ImportMlflowEvent
 from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
-
-_logger = logging.getLogger(__name__)
 
 
 class TelemetryClient:

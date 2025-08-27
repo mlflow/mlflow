@@ -101,6 +101,6 @@ def _get_config_url(version: str) -> str | None:
     return None
 
 
-def _log_error(message: str):
+def _log_error(message: str) -> None:
     if _MLFLOW_TELEMETRY_LOGGING.get():
-        _logger.error(message)
+        _logger.error(message, exc_info=True)
