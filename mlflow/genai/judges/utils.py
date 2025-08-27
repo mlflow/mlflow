@@ -227,7 +227,7 @@ def _invoke_litellm(
                     # The tool result is either a dict, string, or dataclass
                     if is_dataclass(result):
                         result = asdict(result)
-                    result_json = json.dumps(result) if not isinstance(result, str) else result
+                    result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
                     _logger.debug(f"Tool {tool_call.function.name} result: {result_json}")
                     messages.append(
                         {
