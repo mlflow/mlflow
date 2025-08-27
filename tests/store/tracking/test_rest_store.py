@@ -28,6 +28,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -91,6 +92,8 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 class MyCoolException(Exception):
@@ -1689,4 +1692,164 @@ def test_delete_scorer_without_version():
         # Verify API call
         mock_call_endpoint.assert_called_once_with(
             DeleteScorer, message_to_json(DeleteScorer(experiment_id=experiment_id, name=name))
+        )
+
+
+def _create_mock_response(status_code: int = 200, text: str = "{}") -> mock.MagicMock:
+    """Helper to create a mock HTTP response."""
+    response = mock.MagicMock()
+    response.status_code = status_code
+    response.text = text
+    return response
+
+
+def _create_test_spans() -> list[LiveSpan]:
+    """Helper to create test spans for log_spans tests."""
+    otel_span = create_mock_otel_span(
+        trace_id=123,
+        span_id=1,
+        name="test_span",
+        start_time=1000000,
+        end_time=2000000,
+    )
+    return [LiveSpan(otel_span, trace_id="tr-123")]
+
+
+def test_log_spans_with_version_check():
+    """Test that log_spans raises NotImplementedError for old server versions."""
+    spans = _create_test_spans()
+    experiment_id = "exp-123"
+
+    # Test 1: Server version is None (failed to retrieve)
+    # Use unique host to avoid cache conflicts
+    creds1 = MlflowHostCreds("https://host1")
+    store1 = RestStore(lambda: creds1)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request", side_effect=Exception("Connection error")
+    ):
+        with pytest.raises(NotImplementedError, match="could not identify MLflow server version"):
+            store1.log_spans(experiment_id, spans)
+
+    # Test 2: Server version is less than 3.4
+    creds2 = MlflowHostCreds("https://host2")
+    store2 = RestStore(lambda: creds2)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        return_value=_create_mock_response(text="3.3.0"),
+    ):
+        with pytest.raises(
+            NotImplementedError, match="MLflow server version 3.3.0 is less than 3.4"
+        ):
+            store2.log_spans(experiment_id, spans)
+
+    # Test 3: Server version is exactly 3.4.0 - should succeed
+    creds3 = MlflowHostCreds("https://host3")
+    store3 = RestStore(lambda: creds3)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[
+            # First call is to /version, second is to OTLP endpoint
+            _create_mock_response(text="3.4.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ],
+    ):
+        result = store3.log_spans(experiment_id, spans)
+        assert result == spans
+
+    # Test 4: Server version is greater than 3.4 - should succeed
+    creds4 = MlflowHostCreds("https://host4")
+    store4 = RestStore(lambda: creds4)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[
+            # First call is to /version, second is to OTLP endpoint
+            _create_mock_response(text="3.5.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ],
+    ):
+        result = store4.log_spans(experiment_id, spans)
+        assert result == spans
+
+    # Test 5: Real timeout test - verify that timeout works properly without mocking
+    # Using a non-existent host that will trigger timeout
+    creds5 = MlflowHostCreds("https://host5")
+    store5 = RestStore(lambda: creds5)
+    start_time = time.time()
+    with pytest.raises(NotImplementedError, match="could not identify MLflow server version"):
+        store5.log_spans(experiment_id, spans)
+    elapsed_time = time.time() - start_time
+    # Should timeout within 3 seconds (plus some buffer for processing)
+    assert elapsed_time < 5, f"Version check took {elapsed_time}s, should timeout within 3s"
+
+
+def test_server_version_check_caching():
+    """Test that server version is cached and not fetched multiple times."""
+    spans = _create_test_spans()
+    experiment_id = "exp-123"
+
+    # Use the same host credentials for all stores to test caching
+    creds = MlflowHostCreds("https://cached-host")
+    store1 = RestStore(lambda: creds)
+    store2 = RestStore(lambda: creds)  # Different store instance, same creds
+
+    # First call - should fetch version and then call OTLP
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[
+            _create_mock_response(text="3.5.0"),  # version response
+            _create_mock_response(),  # OTLP response
+        ],
+    ) as mock_http:
+        # We call log_spans because it performs a server version check via _get_server_version
+        result1 = store1.log_spans(experiment_id, spans)
+        assert result1 == spans
+
+        # Should have called /version first, then /v1/traces
+        mock_http.assert_any_call(
+            host_creds=creds,
+            endpoint="/version",
+            method="GET",
+            timeout=3,
+            max_retries=0,
+            raise_on_status=True,
+        )
+        mock_http.assert_any_call(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
+        )
+        assert mock_http.call_count == 2
+
+    # Second call with same store - should use cached version, only call OTLP
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request", return_value=_create_mock_response()
+    ) as mock_http:
+        result2 = store1.log_spans(experiment_id, spans)
+        assert result2 == spans
+
+        # Should only call OTLP, not version (cached)
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
+        )
+
+    # Third call with different store but same creds - should still use cached version
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request", return_value=_create_mock_response()
+    ) as mock_http:
+        result3 = store2.log_spans(experiment_id, spans)
+        assert result3 == spans
+
+        # Should only call OTLP, not version (cached across instances)
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint="/v1/traces",
+            method="POST",
+            data=mock.ANY,
+            extra_headers=mock.ANY,
         )

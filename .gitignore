@@ -37,6 +37,7 @@ wheels/
 MANIFEST
 node_modules
 yarn-error.log
+uv.lock
 .docusaurus
 *-ipynb.mdx
 docs/src/api_modules.json
@@ -122,5 +123,5 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
-# Ignore claude file
-CLAUDE.md
+# Ignore claude files (but not CLAUDE.md which we're tracking)
+.claude/

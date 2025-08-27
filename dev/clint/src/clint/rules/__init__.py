@@ -20,6 +20,7 @@ from clint.rules.missing_docstring_param import MissingDocstringParam
 from clint.rules.missing_notebook_h1_header import MissingNotebookH1Header
 from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.multi_assign import MultiAssign
+from clint.rules.no_class_based_tests import NoClassBasedTests
 from clint.rules.no_rst import NoRst
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
@@ -61,6 +62,7 @@ __all__ = [
     "MissingDocstringParam",
     "MissingNotebookH1Header",
     "MlflowClassName",
+    "NoClassBasedTests",
     "NoRst",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
