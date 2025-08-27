@@ -7,8 +7,10 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import ScorerKind
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -45,7 +47,7 @@ class InstructionsJudge(Judge):
         Args:
             name: The name of the judge
             instructions: Natural language instructions for evaluation
-            model: The model identifier to use for evaluation (e.g., "openai/gpt-4")
+            model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
             kwargs: Additional configuration parameters
         """
         super().__init__(name=name, **kwargs)
@@ -62,6 +64,9 @@ class InstructionsJudge(Judge):
         self._instructions = instructions
         self._model = model or get_default_model()
 
+        # NB: We create a dummy PromptVersion here to leverage its existing template variable
+        # extraction logic. This allows us to reuse the well-tested regex patterns and variable
+        # parsing functionality without reimplementing it.
         self._instructions_prompt = PromptVersion(
             name=name,
             version=1,
@@ -102,33 +107,20 @@ class InstructionsJudge(Judge):
         inputs: dict[str, Any] | None = None,
         outputs: dict[str, Any] | None = None,
         expectations: dict[str, Any] | None = None,
-        trace: Trace | None = None,
     ) -> Any:
         """
         Evaluate the provided data using the judge's instructions.
-
-        NOTE: Evaluation supports either inputs, outputs, and/or expectations
-        or trace as input. A trace cannot be used with any other fields.
 
         Args:
             inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
             outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
             expectations: Expected outcomes or ground truth.
-            trace: Trace object for evaluation.
 
         Returns:
             Evaluation results
 
         """
-        # TODO: update this to perform a mutual exclusion validiation check if both
-        # trace and inputs / outputs / expectations are submitted once trace template
-        # substitution is implemented
-        if trace is not None:
-            raise MlflowException(
-                "Trace evaluation is not supported in this version. "
-                "Please use 'inputs' and 'outputs' for evaluation.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+
         if inputs is not None or outputs is not None:
             self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
 
@@ -151,9 +143,8 @@ class InstructionsJudge(Judge):
                 prompt=formatted_prompt,
                 assessment_name=self.name,
             )
-        # TODO: implement trace template parsing
         raise MlflowException(
-            "Must specify either 'inputs'/'outputs' or 'trace' for evaluation.",
+            "Must specify 'inputs' or 'outputs' for evaluation.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -168,27 +159,13 @@ class InstructionsJudge(Judge):
 
         Valid formats:
         - "databricks" for Databricks-native integration
-        - "provider/model" for LiteLLM providers (e.g., "openai/gpt-4")
-        - "endpoints/name" for Databricks model serving endpoints
+        - "provider:/<model-name>" URI format (e.g., "openai:/gpt-4")
+        - "endpoints:/<endpoint-name>" for Databricks model serving endpoints
         """
-        if self._model == "databricks":
+        if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
             return
-
-        if "/" not in self._model:
-            raise MlflowException(
-                f"Model '{self._model}' is not in a valid format. "
-                "Expected format: '<provider>/<model-name>' (e.g., 'openai/gpt-4') "
-                "or 'databricks' for Databricks-native integration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        provider, model_name = self._model.split("/", 1)
-        if not provider or not model_name:
-            raise MlflowException(
-                f"Invalid model format '{self._model}'. "
-                "Both provider and model name must be non-empty.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        
+        _parse_model_uri(self._model)
 
     def _validate_instructions_template(self) -> None:
         """
@@ -225,11 +202,11 @@ class InstructionsJudge(Judge):
                     "'inputs'/'outputs' for field-based evaluation.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if self._model == "databricks":
+            if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
                 raise MlflowException(
                     "Model cannot be 'databricks' when using 'trace' variable in "
                     "the instructions template. Specify a different model "
-                    "(e.g., model='openai/gpt-4o').",
+                    "(e.g., model='openai:/gpt-4o').",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 

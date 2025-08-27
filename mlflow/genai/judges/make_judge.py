@@ -11,7 +11,7 @@ def make_judge(name: str, instructions: str, model: str | None = None, **kwargs)
     Args:
         name: The name of the judge
         instructions: Natural language instructions for evaluation
-        model: The model identifier to use for evaluation (e.g., "openai/gpt-4")
+        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         kwargs: Additional configuration parameters
 
     Returns:
@@ -27,7 +27,7 @@ def make_judge(name: str, instructions: str, model: str | None = None, **kwargs)
             formality_judge = make_judge(
                 name="formality_checker",
                 instructions="The response should be formal and professional",
-                model="openai/gpt-4",
+                model="openai:/gpt-4",
             )
 
             # Evaluate a response
