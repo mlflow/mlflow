@@ -9,7 +9,11 @@ import { JSONBig } from '../core/utils/json';
  * @param password - The password to use to authenticate the request with basic auth.
  * @returns The request headers.
  */
-export function getRequestHeaders(token?: string, username?: string, password?: string): Record<string, string> {
+export function getRequestHeaders(
+  token?: string,
+  username?: string,
+  password?: string
+): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
   if (token) {

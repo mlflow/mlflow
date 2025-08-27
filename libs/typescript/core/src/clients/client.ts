@@ -20,7 +20,13 @@ export class MlflowClient {
   /** `password` for basic auth */
   private password?: string;
 
-  constructor(options: { trackingUri: string; host: string; databricksToken?: string; username?: string; password?: string }) {
+  constructor(options: {
+    trackingUri: string;
+    host: string;
+    databricksToken?: string;
+    username?: string;
+    password?: string;
+  }) {
     this.host = options.host;
     this.databricksToken = options.databricksToken;
     this.username = options.username;
@@ -117,6 +123,11 @@ export class MlflowClient {
   async deleteExperiment(experimentId: string): Promise<void> {
     const url = DeleteExperiment.getEndpoint(this.host);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    await makeRequest<void>('POST', url, getRequestHeaders(this.databricksToken, this.username, this.password), payload);
+    await makeRequest<void>(
+      'POST',
+      url,
+      getRequestHeaders(this.databricksToken, this.username, this.password),
+      payload
+    );
   }
 }
